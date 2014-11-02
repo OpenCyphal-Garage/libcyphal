@@ -38,12 +38,9 @@ UAVCAN_PACKED_BEGIN
         <!--(macro generate_primary_body)--> #! type_name, max_bitlen, fields, constants
 
             <!--(macro expand_attr_types)--> #! group_name, attrs
-enum ${t.c_function_name}_${group_name}
-{
                 % for idx,a in enumerate(attrs):
-    ${a.name} = ${a.c_value}${',' if (idx + 1) < len(attrs) else ''}
+#define ${a.name} ${a.c_value}
                 % endfor
-};
             <!--(end)-->
 
             ${expand_attr_types(group_name='Constants_t', attrs=constants)}
@@ -71,7 +68,7 @@ ${a.type.bit_struct}
 
 % endif
 
-typedef struct UAVCAN_EXPORT ${t.c_function_name}_t
+typedef struct UAVCAN_EXPORT 
 {
 <!--(macro generate_primary_body)--> #! type_name, max_bitlen, fields, constants
     <!--(macro expand_attr_types)--> #! group_name, attrs
@@ -93,7 +90,7 @@ typedef struct UAVCAN_EXPORT ${t.c_function_name}_t
 % else:
     ${generate_primary_body(type_name=t.c_type_name, max_bitlen=t.get_max_bitlen(), fields=t.fields, constants=t.constants)}
 % endif
-};
+} ${t.c_function_name}_t;
 
 void unmarshall_${t.c_function_name}( void )
 {
