@@ -3,12 +3,12 @@
 from distutils.core import setup
 
 args = dict(
-    name='libuavcan_dsdl_compiler',
+    name='libnanocan_dsdl_compiler',
     version='0.1',
-    description='UAVCAN DSDL compiler for libuavcan',
-    packages=['libuavcan_dsdl_compiler'],
-    package_data={'libuavcan_dsdl_compiler': ['data_type_template.tmpl']},
-    scripts=['libuavcan_dsdlc'],
+    description='UAVCAN DSDL compiler for libnanocan',
+    packages=['libnanocan_dsdl_compiler'],
+    package_data={'libnanocan_dsdl_compiler': ['data_type_template.tmpl']},
+    scripts=['libnanocan_dsdlc'],
     requires=['pyuavcan'],
     author='Pavel Kirienko',
     author_email='pavel.kirienko@gmail.com',

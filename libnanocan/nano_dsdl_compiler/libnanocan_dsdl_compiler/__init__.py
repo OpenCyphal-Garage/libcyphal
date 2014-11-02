@@ -1,13 +1,13 @@
 #
-# UAVCAN DSDL compiler for libuavcan
+# UAVCAN DSDL compiler for libnanocan
 #
 # Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
 #
 
 '''
-This module implements the core functionality of the UAVCAN DSDL compiler for libuavcan.
+This module implements the core functionality of the UAVCAN DSDL compiler for libnanocan.
 Supported Python versions: 3.2+, 2.7.
-It accepts a list of root namespaces and produces the set of C marshalling functions for libuavcan.
+It accepts a list of root namespaces and produces the set of C marshalling functions for libnanocan.
 It is based on the DSDL parsing package from pyuavcan.
 '''
 
