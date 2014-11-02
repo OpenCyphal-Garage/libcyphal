@@ -32,6 +32,12 @@ ${line}
 UAVCAN_PACKED_BEGIN
 #endif
 
+% for inc in t.c_includes:
+#include <${inc}>
+% endfor
+
+#define ID_TYPE_${t.short_name}    ${t.default_dtid}
+
 % if t.kind == t.KIND_SERVICE:
 % else:
     %if len(t.constants) > 0:
@@ -92,12 +98,12 @@ typedef struct UAVCAN_EXPORT
 % endif
 } ${t.c_function_name}_t;
 
-void unmarshall_${t.c_function_name}( void )
+void unmarshal_${t.c_function_name}( void )
 {
 
 }
 
-void marshall_${t.c_function_name}( void )
+void marshal_${t.c_function_name}( void )
 {
 
 }

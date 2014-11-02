@@ -22,7 +22,7 @@ try:
 except NameError:
     pass
 
-OUTPUT_FILE_EXTENSION = 'c'
+OUTPUT_FILE_EXTENSION = 'h'
 OUTPUT_FILE_PERMISSIONS = 0o444  # Read only for all
 TEMPLATE_FILENAME = os.path.join(os.path.dirname(__file__), 'data_type_template.tmpl')
 
@@ -138,25 +138,38 @@ def type_to_c_type(t, aname, fname):
         if t.kind == t.KIND_FLOAT:
             return 'float '
         else:
-            signedness = {
-                t.KIND_BOOLEAN: 'unsigned',
-                t.KIND_UNSIGNED_INT: 'unsigned',
-                t.KIND_SIGNED_INT: 'signed',
-            }[t.kind]
-            
-            return '%s int' % (signedness)
+            if t.kind == t.KIND_BOOLEAN:
+                return 'uint8_t'
+
+            if t.kind == t.KIND_UNSIGNED_INT:
+                if t.get_max_bitlen() <= 8:
+                    return 'uint8_t'
+                if t.get_max_bitlen() <= 16:
+                    return 'uint16_t'
+                if t.get_max_bitlen() <= 32:
+                    return 'uint32_t'
+            if t.kind == t.KIND_SIGNED_INT:
+                if t.get_max_bitlen() <= 8:
+                    return 'int8_t'
+                if t.get_max_bitlen() <= 16:
+                    return 'int16_t'
+                if t.get_max_bitlen() <= 32:
+                    return 'int32_t' 
+
     elif t.category == t.CATEGORY_ARRAY:
         value_type = type_to_c_type(t.value_type, aname, fname)
         if t.value_type.category != t.CATEGORY_COMPOUND:
             if t.value_type.kind != t.value_type.KIND_FLOAT:
-                t.bit_struct = 'typedef struct %s_%s_t {\n    %s %s:%d;\n};\n'%(fname, aname, value_type, aname, t.value_type.get_max_bitlen() )
+                t.bit_struct = 'typedef struct {\n    %s %s:%d;\n} %s_%s_t;\n'%(value_type, aname, t.value_type.get_max_bitlen(), fname, aname )
             else:
-                t.bit_struct = 'typedef struct %s_%s_t {\n    %s %s:%d;\n};\n'%(fname, aname, value_type, aname, t.value_type.get_max_bitlen() )
+                t.bit_struct = 'typedef struct {\n    %s %s:%d;\n} %s_%s_t;\n'%(value_type, aname, t.value_type.get_max_bitlen(), fname, aname )
+            return '%s_%s_t %s[%d]' % (fname, aname, aname, t.max_size)
         else:
-            t.bit_struct = 'Compound types not supported'
-        return 'struct %s_%s_t %s[%d]' % (fname, aname, aname, t.max_size)
+            t.bit_struct = ''
+            # c_full_type_name = t.value_type.full_type_name.replace('.', '_') + '_t'
+            return '%s [%d]' % (value_type , t.max_size)
     elif t.category == t.CATEGORY_COMPOUND:
-        return '::' + t.full_name.replace('.', '::')
+        return t.full_name.replace('.', '_') + '_t'
     else:
         raise DsdlCompilerException('Unknown type category: %s' % t.category)
 
