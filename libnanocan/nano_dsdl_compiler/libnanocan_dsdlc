@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# UAVCAN DSDL compiler for libuavcan
+# UAVCAN DSDL compiler for libnanocan
 # Supported Python versions: 3.2+, 2.7.
 #
 # Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
@@ -9,7 +9,7 @@
 from __future__ import division, absolute_import, print_function, unicode_literals
 import os, sys, logging, argparse
 
-RUNNING_FROM_SRC_DIR = os.path.abspath(__file__).endswith(os.path.join('libuavcan', 'dsdl_compiler', 'libuavcan_dsdlc'))
+RUNNING_FROM_SRC_DIR = os.path.abspath(__file__).endswith(os.path.join('libnanocan', 'nano_dsdl_compiler', 'libnanocan_dsdlc'))
 if RUNNING_FROM_SRC_DIR:
     print('Running from the source directory')
     scriptdir = os.path.dirname(os.path.abspath(__file__))
@@ -25,12 +25,11 @@ def die(text):
     print(text, file=sys.stderr)
     exit(1)
 
-DEFAULT_OUTDIR = 'dsdlc_generated'
-DEFAULT_OUTDIR_MINIMALC = 'dsdlc_generated_c'
+DEFAULT_OUTDIR_NANO = 'dsdlc_generated_c'
 
-DESCRIPTION = '''UAVCAN DSDL compiler for libuavcan.
+DESCRIPTION = '''UAVCAN DSDL compiler for libnanocan.
 Takes an input directory that contains an hierarchy of DSDL
-definitions and converts it into compatible hierarchy of C++ types for libuavcan.
+definitions and converts it into compatible hierarchy of C types for libnanocan.
 This script can be used directly from the source directory, no installation required!
 Supported Python versions: 3.2+, 2.7.
 '''
@@ -38,7 +37,7 @@ Supported Python versions: 3.2+, 2.7.
 argparser = argparse.ArgumentParser(description=DESCRIPTION)
 argparser.add_argument('source_dir', nargs='+', help='source directory with DSDL definitions')
 argparser.add_argument('--verbose', '-v', action='count', help='verbosity level (-v, -vv)')
-argparser.add_argument('--outdir', '-O', default=DEFAULT_OUTDIR, help='output directory, default %s' % DEFAULT_OUTDIR)
+argparser.add_argument('--outdir', '-O', default=DEFAULT_OUTDIR_NANO, help='output directory, default %s' % DEFAULT_OUTDIR_NANO)
 argparser.add_argument('--incdir', '-I', default=[], action='append', help=
 '''nested type namespaces, one path per argument. Can be also specified through the environment variable
 UAVCAN_DSDL_INCLUDE_PATH, where the path entries are separated by colons ":"''')
@@ -46,14 +45,7 @@ args = argparser.parse_args()
 
 configure_logging(args.verbose)
 
-try:
-    extra_incdir = os.environ['UAVCAN_DSDL_INCLUDE_PATH'].split(':')
-    logging.info('Additional include directories: %s', extra_incdir)
-    args.incdir += extra_incdir
-except KeyError:
-    pass
-
-from libuavcan_dsdl_compiler import run as dsdlc_run
+from libnanocan_dsdl_compiler import run as dsdlc_run
 try:
     dsdlc_run(args.source_dir, args.incdir, args.outdir)
 except Exception as ex:
