@@ -20,17 +20,15 @@
 struct TestNode : public uavcan::INode
 {
     uavcan::PoolAllocator<uavcan::MemPoolBlockSize * 100, uavcan::MemPoolBlockSize> pool;
-    uavcan::PoolManager<1> poolmgr;
     uavcan::OutgoingTransferRegistry<8> otr;
     uavcan::Scheduler scheduler;
     uint64_t internal_failure_count;
 
     TestNode(uavcan::ICanDriver& can_driver, uavcan::ISystemClock& clock_driver, uavcan::NodeID self_node_id)
-        : otr(poolmgr)
-        , scheduler(can_driver, poolmgr, clock_driver, otr)
+        : otr(pool)
+        , scheduler(can_driver, pool, clock_driver, otr)
         , internal_failure_count(0)
     {
-        poolmgr.addPool(&pool);
         setNodeID(self_node_id);
     }
 
@@ -40,7 +38,7 @@ struct TestNode : public uavcan::INode
         internal_failure_count++;
     }
 
-    virtual uavcan::PoolManager<1>& getAllocator() { return poolmgr; }
+    virtual uavcan::IPoolAllocator& getAllocator() { return pool; }
     virtual uavcan::Scheduler& getScheduler() { return scheduler; }
     virtual const uavcan::Scheduler& getScheduler() const { return scheduler; }
 };
