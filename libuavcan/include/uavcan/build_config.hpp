@@ -228,6 +228,17 @@ static const unsigned FloatComparisonEpsilonMult = UAVCAN_FLOAT_COMPARISON_EPSIL
 static const unsigned FloatComparisonEpsilonMult = 10;
 #endif
 
+/**
+ * Maximum number of CAN acceptance filters available on the platform
+ */
+#ifdef UAVCAN_MAX_CAN_ACCEPTANCE_FILTERS
+/// Explicitly specified by the user.
+static const unsigned MaxCanAcceptanceFilters = UAVCAN_MAX_CAN_ACCEPTANCE_FILTERS;
+#else
+/// Default that should be OK for any platform.
+static const unsigned MaxCanAcceptanceFilters = 32;
+#endif
+
 }
 
 #endif // UAVCAN_BUILD_CONFIG_HPP_INCLUDED

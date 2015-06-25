@@ -75,15 +75,6 @@ struct PairableCanDriver : public uavcan::ICanDriver, public uavcan::ICanIface
         return NULL;
     }
 
-    virtual const uavcan::ICanIface* getIface(uavcan::uint8_t iface_index) const
-    {
-        if (iface_index == 0)
-        {
-            return this;
-        }
-        return NULL;
-    }
-
     virtual uavcan::uint8_t getNumIfaces() const { return 1; }
 
     virtual uavcan::int16_t select(uavcan::CanSelectMasks& inout_masks, uavcan::MonotonicTime blocking_deadline)
