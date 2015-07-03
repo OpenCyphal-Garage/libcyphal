@@ -232,6 +232,9 @@ int CanIOManager::sendToIface(uint8_t iface_index, const CanFrame& frame, Monoto
         UAVCAN_ASSERT(0);   // Nonexistent interface
         return -ErrLogic;
     }
+
+    CanFrame * f = (CanFrame *) &frame;
+    f->setInFlight();
     const int res = iface->send(frame, tx_deadline, flags);
     if (res != 1)
     {
@@ -249,7 +252,7 @@ int CanIOManager::sendFromTxQueue(uint8_t iface_index)
 {
     UAVCAN_ASSERT(iface_index < MaxCanIfaces);
     CanTxQueue::Entry* entry = tx_queues_[iface_index]->peek();
-    if (entry == NULL)
+    if (entry == NULL || entry->frame.isInFlight())
     {
         return 0;
     }
