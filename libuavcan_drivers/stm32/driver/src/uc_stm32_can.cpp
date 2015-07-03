@@ -219,7 +219,7 @@ int CanIface::computeTimings(const uavcan::uint32_t target_bitrate, Timings& out
 uavcan::int16_t CanIface::send(const uavcan::CanFrame& frame, uavcan::MonotonicTime tx_deadline,
                                uavcan::CanIOFlags flags)
 {
-    if (frame.isErrorFrame() || frame.dlc > 8)
+    if (frame.isErrorFrame() || (frame.dlc & ~Inflight) > 8)
     {
         return -1;  // WTF man how to handle that
     }
@@ -262,7 +262,7 @@ uavcan::int16_t CanIface::send(const uavcan::CanFrame& frame, uavcan::MonotonicT
         mb.TIR |= bxcan::TIR_RTR;
     }
 
-    mb.TDTR = frame.dlc;
+    mb.TDTR = frame.dlc & ~Inflight;
 
     mb.TDHR = (uavcan::uint32_t(frame.data[7]) << 24) |
               (uavcan::uint32_t(frame.data[6]) << 16) |

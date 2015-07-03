@@ -29,6 +29,7 @@ struct UAVCAN_EXPORT CanFrame
     uint32_t id;                ///< CAN ID with flags (above)
     uint8_t data[MaxDataLen];
     uint8_t dlc;                ///< Data Length Code
+    static const uint8_t Inflight = 1U << 7;                  ///< Inflight
 
     CanFrame() :
         id(0),
@@ -55,6 +56,10 @@ struct UAVCAN_EXPORT CanFrame
     bool isExtended()                  const { return id & FlagEFF; }
     bool isRemoteTransmissionRequest() const { return id & FlagRTR; }
     bool isErrorFrame()                const { return id & FlagERR; }
+    bool isInFlight()                  const { return dlc &  Inflight; }
+    bool setInFlight()                 { return dlc |= Inflight; }
+    bool elrInFlight()                 { return dlc &= ~Inflight; }
+
 
 #if UAVCAN_TOSTRING
     enum StringRepresentation
