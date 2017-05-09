@@ -632,8 +632,8 @@ int CanIface::init(const uavcan::uint32_t bitrate, const OperatingMode mode)
     {
         can_->FMR |= bxcan::FMR_FINIT;
 
-        can_->FMR &= 0xFFFFC0F1;
-        can_->FMR |= static_cast<uavcan::uint32_t>(NumFilters) << 8;  // Slave (CAN2) gets half of the filters
+        can_->FMR &= 0xFFFFC0FE;
+        can_->FMR |= static_cast<uavcan::uint32_t>(NumFilters / 2) << 8;  // Slave (CAN2) gets half of the filters
 
         can_->FFA1R = 0;                           // All assigned to FIFO0 by default
         can_->FM1R = 0;                            // Indentifier Mask mode
@@ -642,9 +642,9 @@ int CanIface::init(const uavcan::uint32_t bitrate, const OperatingMode mode)
         can_->FS1R = 0x7ffffff;                    // Single 32-bit for all
         can_->FilterRegister[0].FR1 = 0;          // CAN1 accepts everything
         can_->FilterRegister[0].FR2 = 0;
-        can_->FilterRegister[NumFilters].FR1 = 0; // CAN2 accepts everything
-        can_->FilterRegister[NumFilters].FR2 = 0;
-        can_->FA1R = 1 | (1 << NumFilters);        // One filter per each iface
+        can_->FilterRegister[NumFilters / 2].FR1 = 0; // CAN2 accepts everything
+        can_->FilterRegister[NumFilters / 2].FR2 = 0;
+        can_->FA1R = 1 | (1 << (NumFilters / 2));        // One filter per each iface
 #else
         can_->FS1R = 0x1fff;
         can_->FilterRegister[0].FR1 = 0;
