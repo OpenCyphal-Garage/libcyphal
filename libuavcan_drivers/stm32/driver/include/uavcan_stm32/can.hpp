@@ -243,7 +243,7 @@ class CanDriver : public uavcan::ICanDriver, uavcan::Noncopyable
                                    const uavcan::CanFrame* (& pending_tx)[uavcan::MaxCanIfaces],
                                    uavcan::MonotonicTime blocking_deadline);
 
-    static void initOnce(uavcan::uint8_t can_number);
+    static int initOnce(uavcan::uint8_t can_number);
     int configureIface(const uavcan::uint32_t bitrate, const CanIface::OperatingMode mode, uavcan::uint8_t can_number);
 
 public:

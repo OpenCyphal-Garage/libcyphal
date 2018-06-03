@@ -976,8 +976,9 @@ static void nvicEnableVector(IRQn_Type irq,  uint8_t prio)
 
 #endif
 
-void CanDriver::initOnce(uavcan::uint8_t can_number)
+int CanDriver::initOnce(uavcan::uint8_t can_number)
 {
+    int res = 0;
     /*
      * CAN1, CAN2
      */
@@ -998,6 +999,10 @@ void CanDriver::initOnce(uavcan::uint8_t can_number)
             modifyreg32(STM32_RCC_APB1RSTR, RCC_APB1RSTR_CAN2RST, 0);
         }
 # endif
+        else
+        {
+            res = -ErrNotImplemented;
+        }
 #else
         if (can_number == 0)
         {
@@ -1013,6 +1018,10 @@ void CanDriver::initOnce(uavcan::uint8_t can_number)
             RCC->APB1RSTR &= ~RCC_APB1RSTR_CAN2RST;
         }
 # endif
+        else
+        {
+            res = -ErrNotImplemented;
+        }
 #endif
     }
 
@@ -1041,6 +1050,10 @@ void CanDriver::initOnce(uavcan::uint8_t can_number)
         IRQ_ATTACH(STM32_IRQ_CAN2RX1, can2_irq);
     }
 # endif
+    else
+    {
+        res = -ErrNotImplemented;
+    }
 # undef IRQ_ATTACH
 #elif UAVCAN_STM32_CHIBIOS || UAVCAN_STM32_BAREMETAL || UAVCAN_STM32_FREERTOS
     {
@@ -1059,8 +1072,13 @@ void CanDriver::initOnce(uavcan::uint8_t can_number)
             nvicEnableVector(CAN2_RX1_IRQn, UAVCAN_STM32_IRQ_PRIORITY_MASK);
         }
 # endif
+        else
+        {
+            res = -ErrNotImplemented;
+        }
     }
 #endif
+    return res;
 }
 
 int CanDriver::init(const uavcan::uint32_t bitrate, const CanIface::OperatingMode mode)
@@ -1091,7 +1109,11 @@ int CanDriver::init(const uavcan::uint32_t bitrate, const CanIface::OperatingMod
     {
         initialized_once[can_number] = true;
         UAVCAN_STM32_LOG("First initialization");
-        initOnce(can_number);
+        res = initOnce(can_number);
+        if (res < 0)
+        {
+            goto fail;
+        }
     }
 
     res = configureIface(bitrate, mode, can_number);
@@ -1134,6 +1156,10 @@ int CanDriver::configureIface(const uavcan::uint32_t bitrate, const CanIface::Op
         res = if1_.init(bitrate, mode);
     }
 #endif
+    else
+    {
+        res = -ErrNotImplemented;
+    }
 
     if (res < 0)                                // a typical race condition.
     {
