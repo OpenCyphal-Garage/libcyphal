@@ -984,26 +984,30 @@ void CanDriver::initOnce(uavcan::uint8_t can_number)
     {
         CriticalSectionLocker lock;
 #if UAVCAN_STM32_NUTTX
-        if (can_number == 0) {
+        if (can_number == 0)
+        {
             modifyreg32(STM32_RCC_APB1ENR,  0, RCC_APB1ENR_CAN1EN);
             modifyreg32(STM32_RCC_APB1RSTR, 0, RCC_APB1RSTR_CAN1RST);
             modifyreg32(STM32_RCC_APB1RSTR, RCC_APB1RSTR_CAN1RST, 0);
         }
 # if UAVCAN_STM32_NUM_IFACES > 1
-        else if (can_number == 1) {
+        else if (can_number == 1)
+        {
             modifyreg32(STM32_RCC_APB1ENR,  0, RCC_APB1ENR_CAN2EN);
             modifyreg32(STM32_RCC_APB1RSTR, 0, RCC_APB1RSTR_CAN2RST);
             modifyreg32(STM32_RCC_APB1RSTR, RCC_APB1RSTR_CAN2RST, 0);
         }
 # endif
 #else
-        if (can_number == 0) {
+        if (can_number == 0)
+        {
             RCC->APB1ENR  |=  RCC_APB1ENR_CAN1EN;
             RCC->APB1RSTR |=  RCC_APB1RSTR_CAN1RST;
             RCC->APB1RSTR &= ~RCC_APB1RSTR_CAN1RST;
         }
 # if UAVCAN_STM32_NUM_IFACES > 1
-        else if (can_number == 1) {
+        else if (can_number == 1)
+        {
             RCC->APB1ENR  |=  RCC_APB1ENR_CAN2EN;
             RCC->APB1RSTR |=  RCC_APB1RSTR_CAN2RST;
             RCC->APB1RSTR &= ~RCC_APB1RSTR_CAN2RST;
@@ -1023,13 +1027,15 @@ void CanDriver::initOnce(uavcan::uint8_t can_number)
         assert(res >= 0);                                  \
         up_enable_irq(irq);                                \
     }
-    if (can_number == 0) {
+    if (can_number == 0)
+    {
         IRQ_ATTACH(STM32_IRQ_CAN1TX,  can1_irq);
         IRQ_ATTACH(STM32_IRQ_CAN1RX0, can1_irq);
         IRQ_ATTACH(STM32_IRQ_CAN1RX1, can1_irq);
     }
 # if UAVCAN_STM32_NUM_IFACES > 1
-    else if (can_number == 1) {
+    else if (can_number == 1)
+    {
         IRQ_ATTACH(STM32_IRQ_CAN2TX,  can2_irq);
         IRQ_ATTACH(STM32_IRQ_CAN2RX0, can2_irq);
         IRQ_ATTACH(STM32_IRQ_CAN2RX1, can2_irq);
@@ -1039,13 +1045,15 @@ void CanDriver::initOnce(uavcan::uint8_t can_number)
 #elif UAVCAN_STM32_CHIBIOS || UAVCAN_STM32_BAREMETAL || UAVCAN_STM32_FREERTOS
     {
         CriticalSectionLocker lock;
-        if (can_number == 0) {
+        if (can_number == 0)
+        {
             nvicEnableVector(CAN1_TX_IRQn,  UAVCAN_STM32_IRQ_PRIORITY_MASK);
             nvicEnableVector(CAN1_RX0_IRQn, UAVCAN_STM32_IRQ_PRIORITY_MASK);
             nvicEnableVector(CAN1_RX1_IRQn, UAVCAN_STM32_IRQ_PRIORITY_MASK);
         }
 # if UAVCAN_STM32_NUM_IFACES > 1
-        else if (can_number == 1) {
+        else if (can_number == 1)
+        {
             nvicEnableVector(CAN2_TX_IRQn,  UAVCAN_STM32_IRQ_PRIORITY_MASK);
             nvicEnableVector(CAN2_RX0_IRQn, UAVCAN_STM32_IRQ_PRIORITY_MASK);
             nvicEnableVector(CAN2_RX1_IRQn, UAVCAN_STM32_IRQ_PRIORITY_MASK);
@@ -1058,9 +1066,11 @@ void CanDriver::initOnce(uavcan::uint8_t can_number)
 int CanDriver::init(const uavcan::uint32_t bitrate, const CanIface::OperatingMode mode)
 {
     int res = 0;
-    for (uavcan::uint8_t can_number = 0; can_number<UAVCAN_STM32_NUM_IFACES; can_number++) {
+    for (uavcan::uint8_t can_number = 0; can_number<UAVCAN_STM32_NUM_IFACES; can_number++)
+    {
         res = init(bitrate, mode, can_number);
-        if (res < 0) {
+        if (res < 0)
+        {
             return res;
         }
     }
@@ -1072,18 +1082,21 @@ int CanDriver::init(const uavcan::uint32_t bitrate, const CanIface::OperatingMod
     int res = 0;
 
     UAVCAN_STM32_LOG("Bitrate %lu mode %d", static_cast<unsigned long>(bitrate), static_cast<int>(mode));
-    if (can_number >= UAVCAN_STM32_NUM_IFACES) {
+    if (can_number >= UAVCAN_STM32_NUM_IFACES)
+    {
         goto fail;
     }
     static bool initialized_once[UAVCAN_STM32_NUM_IFACES] = {false};
-    if (!initialized_once[can_number]) {
+    if (!initialized_once[can_number])
+    {
         initialized_once[can_number] = true;
         UAVCAN_STM32_LOG("First initialization");
         initOnce(can_number);
     }
 
     res = configureIface(bitrate, mode, can_number);
-    if (res < 0) {
+    if (res < 0)
+    {
         goto fail;
     }
 
@@ -1103,7 +1116,8 @@ int CanDriver::configureIface(const uavcan::uint32_t bitrate, const CanIface::Op
 
     UAVCAN_STM32_LOG("Initing iface %i...", can_number);
 
-    if (can_number == 0) {
+    if (can_number == 0)
+    {
         /*
         * CAN1
         */
@@ -1111,7 +1125,8 @@ int CanDriver::configureIface(const uavcan::uint32_t bitrate, const CanIface::Op
         res = if0_.init(bitrate, mode);             // otherwise an IRQ may fire while the interface is not linked yet;
     }
 #if UAVCAN_STM32_NUM_IFACES > 1
-    else if (can_number == 1) {
+    else if (can_number == 1)
+    {
         /*
         * CAN2
         */
