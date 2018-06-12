@@ -77,6 +77,22 @@ static void writeServiceServerCallback(
     rsp.error = rsp.ERROR_UNKNOWN;
 }
 
+static void ASSERT_CONTAINS_FILTER(const uavcan::Multiset<uavcan::CanFilterConfig>& collection, const uavcan::CanFilterConfig& filter_config) {
+    auto find_by_id = [&filter_config](const uavcan::CanFilterConfig& item)
+    {
+        return (item.id == filter_config.id);
+    };
+    ASSERT_TRUE(nullptr != collection.find(find_by_id)) << 
+        "multiset did not contain a filter with id " <<
+        filter_config.id;
+}
+
+static void ASSERT_CONTAINS_FILTER(const uavcan::Multiset<uavcan::CanFilterConfig>& collection, uint32_t id) {
+    uavcan::CanFilterConfig filter_config;
+    filter_config.id = id;
+    ASSERT_CONTAINS_FILTER(collection, filter_config);
+}
+
 TEST(CanAcceptanceFilter, Basic_test)
 {
     uavcan::GlobalDataTypeRegistry::instance().reset();
@@ -165,26 +181,16 @@ TEST(CanAcceptanceFilter, Basic_test)
         std::cout << "config.MK [" << i << "]= " << configure_array.getByIndex(i)->mask << std::endl;
     }
 
-    ASSERT_EQ(configure_array.getByIndex(0)->id, 911);
-    ASSERT_EQ(configure_array.getByIndex(0)->mask, 1488);
-    ASSERT_EQ(configure_array.getByIndex(1)->id, 999999);
-    ASSERT_EQ(configure_array.getByIndex(1)->mask, 849128412);
-    ASSERT_EQ(configure_array.getByIndex(2)->id, 2147746048);
-    ASSERT_EQ(configure_array.getByIndex(2)->mask, 3774873472);
-    ASSERT_EQ(configure_array.getByIndex(3)->id, 2147744768);
-    ASSERT_EQ(configure_array.getByIndex(3)->mask, 3774873472);
-    ASSERT_EQ(configure_array.getByIndex(4)->id, 2147739648);
-    ASSERT_EQ(configure_array.getByIndex(4)->mask, 3774873472);
-    ASSERT_EQ(configure_array.getByIndex(5)->id, 2147746816);
-    ASSERT_EQ(configure_array.getByIndex(5)->mask, 3774873472);
-    ASSERT_EQ(configure_array.getByIndex(6)->id, 2147746304);
-    ASSERT_EQ(configure_array.getByIndex(6)->mask, 3774873472);
-    ASSERT_EQ(configure_array.getByIndex(7)->id, 2147483648);
-    ASSERT_EQ(configure_array.getByIndex(7)->mask, 3758096639);
-    ASSERT_EQ(configure_array.getByIndex(8)->id, 2147489920);
-    ASSERT_EQ(configure_array.getByIndex(8)->mask, 3758129024);
-    ASSERT_EQ(configure_array.getByIndex(9)->id, 2147749888);
-    ASSERT_EQ(configure_array.getByIndex(9)->mask, 3774873472);
+    ASSERT_CONTAINS_FILTER(configure_array, aux_config_1);
+    ASSERT_CONTAINS_FILTER(configure_array, aux_config_2);
+    ASSERT_CONTAINS_FILTER(configure_array, 2147746048);
+    ASSERT_CONTAINS_FILTER(configure_array, 2147744768);
+    ASSERT_CONTAINS_FILTER(configure_array, 2147739648);
+    ASSERT_CONTAINS_FILTER(configure_array, 2147746816);
+    ASSERT_CONTAINS_FILTER(configure_array, 2147746304);
+    ASSERT_CONTAINS_FILTER(configure_array, 2147483648);
+    ASSERT_CONTAINS_FILTER(configure_array, 2147489920);
+    ASSERT_CONTAINS_FILTER(configure_array, 2147749888);
 
     uavcan::CanAcceptanceFilterConfigurator no_anon_test_confiruration(node, 4);
     configure_filters_assert = no_anon_test_confiruration.computeConfiguration
@@ -207,13 +213,9 @@ TEST(CanAcceptanceFilter, Basic_test)
         std::cout << "config.MK [" << i << "] = " << configure_array_2.getByIndex(i)->mask << std::endl;
     }
 
-    ASSERT_EQ(configure_array_2.getByIndex(0)->id, 2147739648);
-    ASSERT_EQ(configure_array_2.getByIndex(0)->mask, 3774868352);
-    ASSERT_EQ(configure_array_2.getByIndex(1)->id, 2147745792);
-    ASSERT_EQ(configure_array_2.getByIndex(1)->mask, 3774872704);
-    ASSERT_EQ(configure_array_2.getByIndex(2)->id, 2147489920);
-    ASSERT_EQ(configure_array_2.getByIndex(2)->mask, 3758129024);
-    ASSERT_EQ(configure_array_2.getByIndex(3)->id, 2147745792);
-    ASSERT_EQ(configure_array_2.getByIndex(3)->mask, 3774868352);
+    ASSERT_CONTAINS_FILTER(configure_array_2, 2147739648);
+    ASSERT_CONTAINS_FILTER(configure_array_2, 2147745792);
+    ASSERT_CONTAINS_FILTER(configure_array_2, 2147489920);
+    ASSERT_CONTAINS_FILTER(configure_array_2, 2147745792);
 }
 #endif

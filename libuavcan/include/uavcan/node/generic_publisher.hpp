@@ -91,7 +91,7 @@ class UAVCAN_EXPORT GenericPublisher : public GenericPublisherBase
 
     typedef typename Select<DataStruct::MaxBitLen == 0,
                             ZeroTransferBuffer,
-                            StaticTransferBuffer<BitLenToByteLen<DataStruct::MaxBitLen>::Result> >::Result Buffer;
+                            StaticTransferBuffer<BitLenToByteLenWithPadding<DataStruct::MaxBitLen>::Result> >::Result Buffer;
 
     enum
     {

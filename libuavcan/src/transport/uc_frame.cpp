@@ -22,6 +22,20 @@ uint8_t Frame::setPayload(const uint8_t* data, unsigned len)
     return static_cast<uint8_t>(len);
 }
 
+uint8_t Frame::pushBackPayload(uint8_t byte)
+{
+    if (payload_len_ < getPayloadCapacity())
+    {
+        payload_[payload_len_] = byte;
+        payload_len_ = static_cast<uint_fast8_t>(payload_len_ + 1U);
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 template <int OFFSET, int WIDTH>
 inline static uint32_t bitunpack(uint32_t val)
 {
@@ -39,13 +53,15 @@ bool Frame::parse(const CanFrame& can_frame)
         return false;
     }
 
-    if (can_frame.dlc > sizeof(can_frame.data))
+    const uint_fast8_t data_length = can_frame.getDataLength();
+
+    if (data_length > sizeof(can_frame.data))
     {
         UAVCAN_ASSERT(0);  // This is not a protocol error, so UAVCAN_ASSERT() is ok
         return false;
     }
 
-    if (can_frame.dlc < 1)
+    if (data_length < 1)
     {
         UAVCAN_TRACE("Frame", "Parsing failed at line %d", __LINE__);
         return false;
@@ -85,10 +101,11 @@ bool Frame::parse(const CanFrame& can_frame)
     /*
      * CAN payload parsing
      */
-    payload_len_ = static_cast<uint8_t>(can_frame.dlc - 1U);
+
+    payload_len_ = static_cast<uint_fast8_t>(data_length - 1);
     (void)copy(can_frame.data, can_frame.data + payload_len_, payload_);
 
-    const uint8_t tail = can_frame.data[can_frame.dlc - 1U];
+    const uint8_t tail = can_frame.data[payload_len_];
 
     start_of_transfer_ = (tail & (1U << 7)) != 0;
     end_of_transfer_   = (tail & (1U << 6)) != 0;
@@ -157,13 +174,15 @@ bool Frame::compile(CanFrame& out_can_frame) const
         tail |= (1U << 5);
     }
 
-    UAVCAN_ASSERT(payload_len_ < sizeof(static_cast<CanFrame*>(UAVCAN_NULLPTR)->data));
+    out_can_frame.setDataLength(static_cast<uint_fast8_t>(payload_len_ + 1));
 
-    out_can_frame.dlc = static_cast<uint8_t>(payload_len_);
+    UAVCAN_ASSERT(out_can_frame.getDLC() != CanFrameDLC::invalid_code);
+    UAVCAN_ASSERT(out_can_frame.getDLC() != CanFrameDLC::CodeForLength0);
+
+    const uint8_t tail_index = static_cast<uint8_t>(out_can_frame.getDataLength() - 1);
     (void)copy(payload_, payload_ + payload_len_, out_can_frame.data);
 
-    out_can_frame.data[out_can_frame.dlc] = tail;
-    out_can_frame.dlc++;
+    out_can_frame.data[tail_index] = tail;
 
     /*
      * Discriminator
@@ -171,7 +190,8 @@ bool Frame::compile(CanFrame& out_can_frame) const
     if (src_node_id_.isBroadcast())
     {
         TransferCRC crc;
-        crc.add(out_can_frame.data, out_can_frame.dlc);
+        crc.add(out_can_frame.data, payload_len_);
+        crc.add(&tail, 1);
         out_can_frame.id |= bitpack<10, 14>(crc.get() & ((1U << 14) - 1U));
     }
 
@@ -276,7 +296,7 @@ bool Frame::operator==(const Frame& rhs) const
 #if UAVCAN_TOSTRING
 std::string Frame::toString() const
 {
-    static const int BUFLEN = 100;
+    static const int BUFLEN = 100 + (uavcan::CanBusType::max_frame_size * 3);
     char buf[BUFLEN];
     int ofs = snprintf(buf, BUFLEN, "prio=%d dtid=%d tt=%d snid=%d dnid=%d sot=%d eot=%d togl=%d tid=%d payload=[",
                        int(transfer_priority_.get()), int(data_type_id_.get()), int(transfer_type_),

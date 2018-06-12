@@ -261,7 +261,11 @@ struct TestNetwork
     {
         if (index >= NumNodes)
         {
+#if UAVCAN_EXCEPTIONS
             throw std::out_of_range("No such test node");
+#else
+            assert(false);
+#endif
         }
         return nodes[index]->node;
     }

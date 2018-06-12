@@ -41,9 +41,22 @@ TEST(Publisher, Basic)
     msg.sysid = 0x72;
     msg.compid = 0x08;
     msg.msgid = 0xa5;
-    msg.payload = "Msg";
 
-    const uint8_t expected_transfer_payload[] = {0x42, 0x72, 0x08, 0xa5, 'M', 's', 'g'};
+    static const uint8_t expected_transfer_payload_fd[] = {0x42, 0x72, 0x08, 0xa5, 0x02, 'M', 's'};
+    static const uint8_t expected_transfer_payload_2[]  = {0x42, 0x72, 0x08, 0xa5, 'M', 's', 'g'};
+    const uint8_t* expected_transfer_payload;
+
+    if (uavcan::IsSameType<uavcan::CanBusType, uavcan::CanBusTypeFd>::Result)
+    {
+        msg.payload = "Ms";
+        expected_transfer_payload = expected_transfer_payload_fd;
+    }
+    else
+    {
+        msg.payload = "Msg";
+        expected_transfer_payload = expected_transfer_payload_2;
+    }
+
     const uint64_t tx_timeout_usec = uint64_t(publisher.getDefaultTxTimeout().toUSec());
 
     /*

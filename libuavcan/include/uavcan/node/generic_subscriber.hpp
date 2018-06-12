@@ -241,7 +241,7 @@ int GenericSubscriber<DataSpec, DataStruct, TransferListenerType>::checkInit()
         return -ErrUnknownDataType;
     }
 
-    static const uint16_t MaxBufferSize = BitLenToByteLen<DataStruct::MaxBitLen>::Result;
+    static const uint16_t MaxBufferSize = BitLenToByteLenWithPadding<DataStruct::MaxBitLen>::Result;
 
     forwarder_.template construct<SelfType&, const DataTypeDescriptor&, uint16_t, IPoolAllocator&>
         (*this, *descr, MaxBufferSize, node_.getAllocator());
