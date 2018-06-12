@@ -204,7 +204,8 @@ namespace uavcan
 /**
  * Memory pool block size.
  *
- * The default of 64 bytes should be OK for any target arch up to AMD64 and any compiler.
+ * The default of 64 bytes should be OK for any target arch up to AMD64 and any compiler. We add 32 bytes when
+ * compiling for CAN-FD to allow for the larger buffers needed for that type of CAN bus.
  *
  * The library leverages compile-time checks to ensure that all types that are subject to dynamic allocation
  * fit this size, otherwise compilation fails.
@@ -218,13 +219,27 @@ namespace uavcan
 #ifdef UAVCAN_MEM_POOL_BLOCK_SIZE
 /// Explicitly specified by the user.
 static const unsigned MemPoolBlockSize = UAVCAN_MEM_POOL_BLOCK_SIZE;
+
+/// MemPoolBlockSize default value is based on uavcan::CanTxQueue::Entry which was the largest known
+/// object allocated in a pool in the codebase at the time.
 #elif defined(__BIGGEST_ALIGNMENT__) && (__BIGGEST_ALIGNMENT__ <= 8)
 /// Convenient default for GCC-like compilers - if alignment allows, pool block size can be safely reduced.
+#if defined(UAVCAN_USE_FD)
+static const unsigned MemPoolBlockSize = 88;
+#else
+/// Convenient default for GCC-like compilers - if alignment allows, pool block size can be safely reduced.
 static const unsigned MemPoolBlockSize = 56;
+#endif
+#else
+#if defined(UAVCAN_USE_FD)
+/// Safe default that should be OK for any platform.
+static const unsigned MemPoolBlockSize = 96;
 #else
 /// Safe default that should be OK for any platform.
 static const unsigned MemPoolBlockSize = 64;
 #endif
+#endif
+
 
 #ifdef __BIGGEST_ALIGNMENT__
 static const unsigned MemPoolAlignment = __BIGGEST_ALIGNMENT__;
@@ -243,8 +258,7 @@ struct UAVCAN_EXPORT IsDynamicallyAllocatable
 {
     static void check()
     {
-        char dummy[(sizeof(T) <= MemPoolBlockSize) ? 1 : -1] = { '0' };
-        (void)dummy;
+        static_assert((sizeof(T) <= MemPoolBlockSize), "Type cannot be allocated dynamically.");
     }
 };
 

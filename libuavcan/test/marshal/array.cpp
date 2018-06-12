@@ -281,7 +281,15 @@ TEST(Array, Dynamic)
         ASSERT_EQ(1, B::encode(b, sc_wr, uavcan::TailArrayOptDisabled));
         ASSERT_EQ(1, B::encode(b2, sc_wr, uavcan::TailArrayOptEnabled));
 
-        ASSERT_EQ("000" "00000 000" "00000", bs_wr.toString()); // Last array was optimized away completely
+        if (uavcan::IsSameType<uavcan::CanBusType,uavcan::CanBusTypeFd>::Result) 
+        {
+            // FD never enables the TAO
+            ASSERT_EQ("00000000 00000000 00000000", bs_wr.toString()); // Last array was optimized away completely
+        }
+        else
+        {
+            ASSERT_EQ("000" "00000 000" "00000", bs_wr.toString()); // Last array was optimized away completely
+        }
 
         uavcan::BitStream bs_rd(buf);
         uavcan::ScalarCodec sc_rd(bs_rd);
@@ -316,8 +324,17 @@ TEST(Array, Dynamic)
         ASSERT_EQ(1, B::encode(b, sc_wr, uavcan::TailArrayOptDisabled));
         ASSERT_EQ(1, B::encode(b2, sc_wr, uavcan::TailArrayOptEnabled));  // No length field
 
-        //         A        B len    B[0]     B[1]     B2[0]    B2[1]
-        ASSERT_EQ("10110101 00000010 00101010 11010110 01111011 01001000", bs_wr.toString());
+        if (uavcan::IsSameType<uavcan::CanBusType,uavcan::CanBusTypeFd>::Result) 
+        {
+            // FD never enables the TAO
+            //         A        B len    B[0]     B[1]     B len    B2[0]    B2[1]
+            ASSERT_EQ("10110101 00000010 00101010 11010110 00000010 01111011 01001000", bs_wr.toString());
+        }
+        else
+        {
+            //         A        B len    B[0]     B[1]     B2[0]    B2[1]
+            ASSERT_EQ("10110101 00000010 00101010 11010110 01111011 01001000", bs_wr.toString());
+        }
 
         uavcan::BitStream bs_rd(buf);
         uavcan::ScalarCodec sc_rd(bs_rd);
@@ -479,8 +496,18 @@ TEST(Array, TailArrayOptimization)
     ASSERT_EQ("00000000 00000000 00000000", runEncodeDecode<B>(b, uavcan::TailArrayOptEnabled));
     ASSERT_EQ("00000000 00000000 00000000", runEncodeDecode<B>(b, uavcan::TailArrayOptDisabled));
 
+    if (uavcan::IsSameType<uavcan::CanBusType,uavcan::CanBusTypeFd>::Result) 
+    {
+        // The TAO is always disabled for FD
+        //         a LSB    a MSB    b len
+        ASSERT_EQ("00000000 00000000 00000000",          runEncodeDecode<C>(c, uavcan::TailArrayOptEnabled));
+    }
+    else
+    {
+        //         a LSB    a MSB
+        ASSERT_EQ("00000000 00000000",          runEncodeDecode<C>(c, uavcan::TailArrayOptEnabled));
+    }
     //         a LSB    a MSB
-    ASSERT_EQ("00000000 00000000",          runEncodeDecode<C>(c, uavcan::TailArrayOptEnabled));
     ASSERT_EQ("00000000 00000000 00000000", runEncodeDecode<C>(c, uavcan::TailArrayOptDisabled));
 
     /*
@@ -503,9 +530,19 @@ TEST(Array, TailArrayOptimization)
     // b.b[1] remains empty
     b.b[2].push_back(123);
     b.b[2].push_back(99);
-    //         a LSB    a MSB    b len    b[0]len  42       72       b[1]len  123      99      (b[2] len optimized out)
-    ASSERT_EQ("00000000 00000000 00000011 00000010 00101010 01001000 00000000 01111011 01100011",
-              runEncodeDecode<B>(b, uavcan::TailArrayOptEnabled));
+    if (uavcan::IsSameType<uavcan::CanBusType,uavcan::CanBusTypeFd>::Result) 
+    {
+        // The TAO is always disabled for FD
+        //         a LSB    a MSB    b len    b[0]len  42       72       b[1]len  len      123      99      (b[2] len optimized out)
+        ASSERT_EQ("00000000 00000000 00000011 00000010 00101010 01001000 00000000 00000010 01111011 01100011",
+                runEncodeDecode<B>(b, uavcan::TailArrayOptEnabled));
+    }
+    else
+    {
+        //         a LSB    a MSB    b len    b[0]len  42       72       b[1]len  123      99      (b[2] len optimized out)
+        ASSERT_EQ("00000000 00000000 00000011 00000010 00101010 01001000 00000000 01111011 01100011",
+                runEncodeDecode<B>(b, uavcan::TailArrayOptEnabled));
+    }
     // Same as above, but b[2] len is present                                 v here v
     ASSERT_EQ("00000000 00000000 00000011 00000010 00101010 01001000 00000000 00000010 01111011 01100011",
               runEncodeDecode<B>(b, uavcan::TailArrayOptDisabled));
@@ -517,9 +554,20 @@ TEST(Array, TailArrayOptimization)
     c.b.push_back(1);
     c.b.push_back(2);
     c.b.push_back(3);
-    //         a LSB    a MSB    1        2        3
-    ASSERT_EQ("00000000 00111100 00000001 00000010 00000011",
-              runEncodeDecode<C>(c, uavcan::TailArrayOptEnabled));
+
+    if (uavcan::IsSameType<uavcan::CanBusType,uavcan::CanBusTypeFd>::Result) 
+    {
+        // The TAO is always disabled for FD
+        //         a LSB    a MSB    len      1        2        3
+        ASSERT_EQ("00000000 00111100 00000011 00000001 00000010 00000011",
+                runEncodeDecode<C>(c, uavcan::TailArrayOptEnabled));
+    }
+    else
+    {
+        //         a LSB    a MSB    1        2        3
+        ASSERT_EQ("00000000 00111100 00000001 00000010 00000011",
+                runEncodeDecode<C>(c, uavcan::TailArrayOptEnabled));
+    }
     //         a LSB    a MSB    b len    1        2        3
     ASSERT_EQ("00000000 00111100 00000011 00000001 00000010 00000011",
               runEncodeDecode<C>(c, uavcan::TailArrayOptDisabled));
@@ -532,7 +580,15 @@ TEST(Array, TailArrayOptimizationErrors)
 
     A a;
     ASSERT_TRUE(a.empty());
-    ASSERT_EQ("",         runEncodeDecode<A>(a, uavcan::TailArrayOptEnabled));
+    if (uavcan::IsSameType<uavcan::CanBusType,uavcan::CanBusTypeFd>::Result) 
+    {
+        // The TAO is always disabled for FD
+        ASSERT_EQ("00000000", runEncodeDecode<A>(a, uavcan::TailArrayOptEnabled));
+    }
+    else
+    {
+        ASSERT_EQ("",         runEncodeDecode<A>(a, uavcan::TailArrayOptEnabled));
+    }
     ASSERT_EQ("00000000", runEncodeDecode<A>(a, uavcan::TailArrayOptDisabled));
 
     // Correct decode/encode
@@ -540,7 +596,15 @@ TEST(Array, TailArrayOptimizationErrors)
     a.push_back(126);
     a.push_back(5);
     ASSERT_FALSE(a.empty());
-    ASSERT_EQ("00000001 01111110 00000101",          runEncodeDecode<A>(a, uavcan::TailArrayOptEnabled));
+    if (uavcan::IsSameType<uavcan::CanBusType,uavcan::CanBusTypeFd>::Result) 
+    {
+        // The TAO is always disabled for FD
+        ASSERT_EQ("01100000 00101111 11000000 10100000", runEncodeDecode<A>(a, uavcan::TailArrayOptEnabled));
+    }
+    else
+    {
+        ASSERT_EQ("00000001 01111110 00000101",          runEncodeDecode<A>(a, uavcan::TailArrayOptEnabled));
+    }
     ASSERT_EQ("01100000 00101111 11000000 10100000", runEncodeDecode<A>(a, uavcan::TailArrayOptDisabled));
 
     // Invalid decode - length field is out of range
@@ -578,14 +642,23 @@ TEST(Array, TailArrayOptimizationErrors)
         ASSERT_EQ(1, a2.size());
         // Will fail - no length field, but the stream is too long
         ASSERT_GT(0, A::decode(a2, sc_rd, uavcan::TailArrayOptEnabled));
-        // Will contain some garbage
-        ASSERT_EQ(5, a2.size());
-        // Interpreted stream - see the values above
-        ASSERT_EQ(197, a2[0]);
-        ASSERT_EQ(73,  a2[1]);
-        ASSERT_EQ(15,  a2[2]);
-        ASSERT_EQ(192, a2[3]);
-        ASSERT_EQ(32,  a2[4]);
+        if (uavcan::IsSameType<uavcan::CanBusType,uavcan::CanBusTypeFd>::Result) 
+        {
+            // For FD the TAO is disabled. The Decode will fail
+            // before data is decoded.
+            ASSERT_EQ(0, a2.size());
+        }
+        else
+        {
+            // Will contain some garbage
+            ASSERT_EQ(5, a2.size());
+            // Interpreted stream - see the values above
+            ASSERT_EQ(197, a2[0]);
+            ASSERT_EQ(73,  a2[1]);
+            ASSERT_EQ(15,  a2[2]);
+            ASSERT_EQ(192, a2[3]);
+            ASSERT_EQ(32,  a2[4]);
+        }
     }
 }
 

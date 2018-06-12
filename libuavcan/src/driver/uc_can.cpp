@@ -63,7 +63,7 @@ std::string CanFrame::toString(StringRepresentation mode) const
 
     static const unsigned AsciiColumnOffset = 36U;
 
-    char buf[50];
+    char buf[100 + (uavcan::CanBusType::max_frame_size * 3)];
     char* wpos = buf;
     char* const epos = buf + sizeof(buf);
     fill(buf, buf + sizeof(buf), '\0');
@@ -88,7 +88,7 @@ std::string CanFrame::toString(StringRepresentation mode) const
     }
     else
     {
-        for (int dlen = 0; dlen < dlc; dlen++)                                 // hex bytes
+        for (int dlen = 0; dlen < getDataLength(); dlen++)                                 // hex bytes
         {
             wpos += snprintf(wpos, unsigned(epos - wpos), " %02x", unsigned(data[dlen]));
         }
@@ -99,7 +99,7 @@ std::string CanFrame::toString(StringRepresentation mode) const
         }
 
         wpos += snprintf(wpos, unsigned(epos - wpos), "  \'");                 // ascii
-        for (int dlen = 0; dlen < dlc; dlen++)
+        for (int dlen = 0; dlen < getDataLength(); dlen++)
         {
             uint8_t ch = data[dlen];
             if (ch < 0x20 || ch > 0x7E)

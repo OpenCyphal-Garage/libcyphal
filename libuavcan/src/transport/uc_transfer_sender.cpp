@@ -77,10 +77,15 @@ int TransferSender::send(const uint8_t* payload, unsigned payload_len, Monotonic
         UAVCAN_ASSERT(!dispatcher_.isPassiveMode());
         UAVCAN_ASSERT(frame.getSrcNodeID().isUnicast());
 
+        const unsigned padding_bytes = uavcan::calculatePaddingBytes(payload_len);
         int offset = 0;
         {
             TransferCRC crc = crc_base_;
             crc.add(payload, payload_len);
+            for(unsigned i = 0; i < padding_bytes; ++i)
+            {
+                crc.add(BytePaddingPattern);
+            }
 
             static const int BUFLEN = sizeof(static_cast<CanFrame*>(0)->data);
             uint8_t buf[BUFLEN];
@@ -92,6 +97,7 @@ int TransferSender::send(const uint8_t* payload, unsigned payload_len, Monotonic
             const int write_res = frame.setPayload(buf, BUFLEN);
             if (write_res < 2)
             {
+                //frame.append
                 UAVCAN_TRACE("TransferSender", "Frame payload write failure, %i", write_res);
                 registerError();
                 return write_res;
@@ -133,6 +139,17 @@ int TransferSender::send(const uint8_t* payload, unsigned payload_len, Monotonic
             UAVCAN_ASSERT(offset <= int(payload_len));
             if (offset >= int(payload_len))
             {
+                for(unsigned i = 0; i < padding_bytes; ++i)
+                {
+                    if(0 == frame.pushBackPayload(BytePaddingPattern))
+                    {
+                        UAVCAN_ASSERT(false);
+                        registerError();
+                        // The calculations above should make it impossible
+                        // to get here.
+                        return -ErrLogic;
+                    }
+                }
                 frame.setEndOfTransfer(true);
             }
         }

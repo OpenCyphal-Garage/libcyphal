@@ -82,16 +82,37 @@ struct Transfer
         , payload(payload)
     { }
 
+    /**
+     * Rules for equivalence are different depending on which side
+     * is the transmitted transfer and which is the incoming transfer.
+     * This method checks the with "this" being the outgoing
+     * transfer against an incoming transfer.
+     */
+    bool is_equivalent_to(const Transfer& incoming) const
+    {
+        return
+            (ts_monotonic  == incoming.ts_monotonic) &&
+            ((!ts_utc.isZero() && !incoming.ts_utc.isZero()) ? (ts_utc == incoming.ts_utc) : true) &&
+            (priority      == incoming.priority) &&
+            (transfer_type == incoming.transfer_type) &&
+            (transfer_id   == incoming.transfer_id) &&
+            (src_node_id   == incoming.src_node_id) &&
+            ((dst_node_id.isValid() && incoming.dst_node_id.isValid()) ? (dst_node_id == incoming.dst_node_id) : true) &&
+            (data_type     == incoming.data_type) &&
+            (incoming.payload.length() >= payload.length()) &&
+            (0 == payload.compare(incoming.payload.substr(0,payload.length()))); // in c++20 use startswith
+    }
+
     bool operator==(const Transfer& rhs) const
     {
         return
             (ts_monotonic  == rhs.ts_monotonic) &&
-            ((!ts_utc.isZero() && !rhs.ts_utc.isZero()) ? (ts_utc == rhs.ts_utc) : true) &&
+            (ts_utc        == rhs.ts_utc) &&
             (priority      == rhs.priority) &&
             (transfer_type == rhs.transfer_type) &&
             (transfer_id   == rhs.transfer_id) &&
             (src_node_id   == rhs.src_node_id) &&
-            ((dst_node_id.isValid() && rhs.dst_node_id.isValid()) ? (dst_node_id == rhs.dst_node_id) : true) &&
+            (dst_node_id   == rhs.dst_node_id) &&
             (data_type     == rhs.data_type) &&
             (payload       == rhs.payload);
     }
@@ -107,6 +128,7 @@ struct Transfer
            << " snid="   << int(src_node_id.get())
            << " dnid="   << int(dst_node_id.get())
            << " dtid="   << int(data_type.getID().get())
+           << " plen="   << payload.length()
            << "\n\t'" << payload << "'";
         return os.str();
     }
@@ -148,14 +170,14 @@ public:
     {
         if (transfers_.empty())
         {
-            std::cout << "No received transfers" << std::endl;
+            std::cout << "No incoming transfers" << std::endl;
             return false;
         }
 
         const Transfer tr = transfers_.front();
         transfers_.pop();
 
-        const bool res = (tr == reference);
+        const bool res = reference.is_equivalent_to(tr);
         if (!res)
         {
             std::cout << "TestSubscriber: Transfer mismatch:\n"
@@ -263,7 +285,9 @@ public:
         const uavcan::NodeID dst_node_id = (transfer_type == uavcan::TransferTypeMessageBroadcast) ?
                                            uavcan::NodeID::Broadcast :
                                            (dst_node_id_override.isValid() ? dst_node_id_override : dst_node_id_);
-        const Transfer tr(ts_, utc, priority, transfer_type, tid_, source_node_id, dst_node_id, payload, type);
+        std::string padded_payload(payload);
+        padded_payload.append(uavcan::calculatePaddingBytes(payload.length()), uavcan::BytePaddingPattern);
+        const Transfer tr(ts_, utc, priority, transfer_type, tid_, source_node_id, dst_node_id, padded_payload, type);
         tid_.increment();
         return tr;
     }
@@ -305,7 +329,7 @@ public:
         send(sers);
     }
 
-    template <int SIZE> void send(const Transfer (&transfers)[SIZE]) { send(transfers, SIZE); }
+    template <unsigned SIZE> void send(const Transfer (&transfers)[SIZE]) { send(transfers, SIZE); }
 };
 
 /**

@@ -119,8 +119,6 @@ Vagrant can be used to setup a compatible Ubuntu virtual image. Follow the instr
 ```bash
 vagrant up
 vagrant ssh
-mkdir build
-cd build
 mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug -DCONTINUOUS_INTEGRATION_BUILD=1
 ```
 

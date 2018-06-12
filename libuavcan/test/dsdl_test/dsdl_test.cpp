@@ -31,12 +31,27 @@ TEST(Dsdl, EmptyServices)
 
     root_ns_b::ServiceWithEmptyRequest::Response resp;
     ASSERT_EQ(1, root_ns_b::ServiceWithEmptyRequest::Response::encode(resp, sc_wr));
-    ASSERT_EQ("", bs_wr.toString());
+    if (uavcan::StorageType< typename root_ns_b::ServiceWithEmptyRequest::Response::FieldTypes::covariance >::Type::isOptimizedTailArray(uavcan::TailArrayOptEnabled))
+    {
+        // TAO is in-effect.
+        ASSERT_EQ("", bs_wr.toString());
+    }
+    else
+    {
+        ASSERT_EQ("00000000", bs_wr.toString());
+    }
 
     resp.covariance.push_back(-2);
     resp.covariance.push_back(65504);
     root_ns_b::ServiceWithEmptyRequest::Response::encode(resp, sc_wr);
-    ASSERT_EQ("00000000 11000000 11111111 01111011", bs_wr.toString());
+    if (uavcan::StorageType< typename root_ns_b::ServiceWithEmptyRequest::Response::FieldTypes::covariance >::Type::isOptimizedTailArray(uavcan::TailArrayOptEnabled))
+    {
+        ASSERT_EQ("00000000 11000000 11111111 01111011", bs_wr.toString());
+    }
+    else
+    {
+        ASSERT_EQ("00000010 00000000 11000000 11111111 01111011", bs_wr.toString());
+    }
 
     resp.covariance.push_back(42);
     resp.covariance[0] = 999;
@@ -45,9 +60,15 @@ TEST(Dsdl, EmptyServices)
     uavcan::ScalarCodec sc_rd(bs_rd);
     ASSERT_EQ(1, root_ns_b::ServiceWithEmptyRequest::Response::decode(resp, sc_rd));
 
-    ASSERT_EQ(2, resp.covariance.size());
-    ASSERT_EQ(-2, resp.covariance[0]);
-    ASSERT_EQ(65504, resp.covariance[1]);
+    if (uavcan::StorageType< typename root_ns_b::ServiceWithEmptyRequest::Response::FieldTypes::covariance >::Type::isOptimizedTailArray(uavcan::TailArrayOptEnabled))
+    {
+        // where the TAO is enabled the previous implementation required empty decodes
+        // to not modify the Response object. This is a weird requirement.
+        // Going forward we do not guarantee this property of decode operations.
+        // If anything the opposite should be true (decode from empty results in empty response).
+        ASSERT_EQ(2, resp.covariance.size());
+    }
+
 }
 
 

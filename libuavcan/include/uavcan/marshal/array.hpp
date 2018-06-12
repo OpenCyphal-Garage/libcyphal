@@ -11,6 +11,7 @@
 #include <cmath>
 #include <uavcan/error.hpp>
 #include <uavcan/util/bitset.hpp>
+#include <uavcan/util/bus.hpp>
 #include <uavcan/util/templates.hpp>
 #include <uavcan/build_config.hpp>
 #include <uavcan/marshal/type_util.hpp>
@@ -426,10 +427,22 @@ class UAVCAN_EXPORT Array : public ArrayImpl<T, ArrayMode, MaxSize_>
     typedef ArrayImpl<T, ArrayMode, MaxSize_> Base;
     typedef Array<T, ArrayMode, MaxSize_> SelfType;
 
-    static bool isOptimizedTailArray(TailArrayOptimizationMode tao_mode)
+public:
+    template<typename C = CanBusType>
+    static typename EnableIf<IsSameType<C, CanBusType2_0>::Result, bool>::Type
+        isOptimizedTailArray(TailArrayOptimizationMode tao_mode)
     {
         return (T::MinBitLen >= 8) && (tao_mode == TailArrayOptEnabled);
     }
+
+    template<typename C = CanBusType>
+    static typename EnableIf<IsSameType<C, CanBusTypeFd>::Result, bool>::Type
+        isOptimizedTailArray(TailArrayOptimizationMode tao_mode)
+    {
+        (void)tao_mode;
+        return false;
+    }
+private:
 
     int encodeImpl(ScalarCodec& codec, const TailArrayOptimizationMode tao_mode, FalseType) const  /// Static
     {
