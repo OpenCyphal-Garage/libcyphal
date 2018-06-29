@@ -9,10 +9,6 @@ project(uavcan C CXX)
 #
 # Build options
 #
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-    set(DEFAULT_UAVCAN_PLATFORM "linux")
-endif()
-
 # options are listed in a table format below
 set(opts
     # name: type: default value: string options list : description
