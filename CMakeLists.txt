@@ -9,10 +9,6 @@ project(uavcan C CXX)
 #
 # Build options
 #
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-    set(DEFAULT_UAVCAN_PLATFORM "linux")
-endif()
-
 # options are listed in a table format below
 set(opts
     # name: type: default value: string options list : description
@@ -109,16 +105,5 @@ endif()
 #
 # library
 add_subdirectory(libuavcan)
-
-# drivers
-if (${UAVCAN_PLATFORM} STREQUAL "linux")
-    message(STATUS "Adding UAVCAN Linux platform driver")
-    add_subdirectory(libuavcan_drivers/posix)
-    add_subdirectory(libuavcan_drivers/linux)
-elseif(${UAVCAN_PLATFORM} STREQUAL "stm32")
-    message(STATUS "Adding UAVCAN STM32 platform driver")
-    add_subdirectory(libuavcan_drivers/posix)
-    add_subdirectory(libuavcan_drivers/stm32/driver)
-endif()
 
 # vim: set et ft=cmake fenc=utf-8 ff=unix sts=4 sw=4 ts=4 :
