@@ -37,9 +37,9 @@ git submodule update --init
 
 If this repository is used as a git submodule in your project, make sure to use `--recursive` when updating it.
 
-### Building and installing
+### Using in a Linux application
 
-This is only needed if the library is used in a Linux application.
+Libuavcan can be built as a static library and installed on the system globally as shown below.
 
 ```bash
 mkdir build
@@ -49,11 +49,34 @@ make -j8
 sudo make install
 ```
 
-For cross-compiling with CMake the procedure is similar (assuming that you have the toolchain file,
-`Toolchain-stm32-cortex-m4.cmake` in this example).
-**If you're using Make, please refer to the [documentation](http://uavcan.org/Implementations/Libuavcan).**
-For embedded ARM targets, it is recommended to use [GCC ARM Embedded](https://launchpad.net/gcc-arm-embedded);
+The following components will be installed:
+
+* Libuavcan headers and the static library
+* Generated DSDL headers
+* Libuavcan DSDL compiler (a Python script named `libuavcan_dsdlc`)
+* Libuavcan DSDL compiler's support library (a Python package named `libuavcan_dsdl_compiler`)
+
+Note that Pyuavcan (an implementation of UAVCAN in Python) will not be installed.
+You will need to install it separately if you intend to use the Libuavcan's DSDL compiler in your applications.
+
+It is also possible to use the library as a submodule rather than installing it system-wide.
+Please refer to the example applications supplied with the Linux platform driver for more information.
+
+### Using with an embedded system
+
+For ARM targets, it is recommended to use [GCC ARM Embedded](https://launchpad.net/gcc-arm-embedded);
 however, any other standard-compliant C++ compiler should also work.
+
+#### With Make
+
+Please refer to the [documentation at the UAVCAN website](http://uavcan.org/Implementations/Libuavcan).
+
+#### With CMake
+
+In order to cross-compile the library with CMake, please follow the below instructions.
+You will need to provide a CMake toolchain file, `Toolchain-stm32-cortex-m4.cmake` in this example.
+If you're not sure what a toolchain file is or how to prepare one, these instructions are probably not for your
+use case; please refer to the section about Make instead.
 
 ```bash
 mkdir build
@@ -62,25 +85,15 @@ cmake .. -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchain-stm32-cortex-m4.cmake
 make -j8
 ```
 
-The following components will be installed into the system:
-
-* Libuavcan headers and the static library
-* Generated DSDL headers
-* Libuavcan DSDL compiler (Python script `libuavcan_dsdlc`)
-* Libuavcan DSDL compiler's support library (Python package `libuavcan_dsdl_compiler`)
-
-Pyuavcan will not be installed into the system together with the library; you'll need to install it separately.
-The installed DSDL compiler will not function unless pyuavcan is installed.
-
 ## Library development
 
 Despite the fact that the library itself can be used on virtually any platform that has a standard-compliant
-C++03 or C++11 compiler, the library development process assumes that the host OS is Linux.
+C++11 compiler, the library development process assumes that the host OS is Linux.
 
 Prerequisites:
 
-* Google test library for C++ - gtest (see [how to install on Debian/Ubuntu](http://stackoverflow.com/questions/13513905/how-to-properly-setup-googletest-on-linux))
-* C++03 *and* C++11 capable compiler with GCC-like interface (e.g. GCC, Clang)
+* Google test library for C++ - gtest (dowloaded as part of the build from [github](https://github.com/google/googletest))
+* C++11 capable compiler with GCC-like interface (e.g. GCC, Clang)
 * CMake 2.8+
 * Optional: static analysis tool for C++ - cppcheck (on Debian/Ubuntu use package `cppcheck`)
 
@@ -89,14 +102,41 @@ Building the debug version and running the unit tests:
 mkdir build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Debug
-make
+make -j8
+make ARGS=-VV test
 ```
 
 Test outputs can be found in the build directory under `libuavcan`.
-Note that unit tests must be executed in real time, otherwise they may produce false warnings;
+
+> Note that unit tests suffixed with "_RealTime" must be executed in real time, otherwise they may produce false warnings;
 this implies that they will likely fail if ran on a virtual machine or on a highly loaded system.
 
-Contributors, please follow the [Zubax Style Guide](https://github.com/Zubax/zubax_style_guide).
+Contributors, please follow the [Zubax C++ Coding Conventions](https://kb.zubax.com/x/84Ah).
+
+### Vagrant
+Vagrant can be used to setup a compatible Ubuntu virtual image. Follow the instructions on [Vagrantup](https://www.vagrantup.com/) to install virtualbox and vagrant then do:
+
+```bash
+vagrant up
+vagrant ssh
+mkdir build
+cd build
+mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug -DCONTINUOUS_INTEGRATION_BUILD=1
+```
+
+> Note that -DCONTINUOUS_INTEGRATION_BUILD=1 is required for this build as the realtime unit tests will not work on a virt.
+
+You can build using commands like:
+
+```bash
+vagrant ssh -c "cd /vagrant/build && make -j4 && make test"
+```
+
+or to run a single test:
+
+```bash
+vagrant ssh -c "cd /vagrant/build && make libuavcan_test && ./libuavcan/libuavcan_test --gtest_filter=Node.Basic"
+```
 
 ### Developing with Eclipse
 

@@ -20,7 +20,7 @@
 #  define TIMX_INPUT_CLOCK        STM32_TIMCLK1
 # endif
 
-# if (UAVCAN_STM32_CHIBIOS && (CH_KERNEL_MAJOR == 3 || CH_KERNEL_MAJOR == 4))
+# if (UAVCAN_STM32_CHIBIOS && (CH_KERNEL_MAJOR == 3 || CH_KERNEL_MAJOR == 4 || CH_KERNEL_MAJOR == 5))
 #  define TIMX                    UAVCAN_STM32_GLUE2(STM32_TIM, UAVCAN_STM32_TIMER_NUMBER)
 #  define TIMX_IRQn               UAVCAN_STM32_GLUE3(STM32_TIM, UAVCAN_STM32_TIMER_NUMBER, _NUMBER)
 #  define TIMX_IRQHandler         UAVCAN_STM32_GLUE3(STM32_TIM, UAVCAN_STM32_TIMER_NUMBER, _HANDLER)
@@ -46,8 +46,21 @@
 #  error "This UAVCAN_STM32_TIMER_NUMBER is not supported yet"
 # endif
 
-# if (TIMX_INPUT_CLOCK % 1000000) != 0
-#  error "No way, timer clock must be divisible to 1e6. FIXME!"
+/**
+ * UAVCAN_STM32_TIMX_INPUT_CLOCK can be used to manually override the auto-detected timer clock speed.
+ * This is useful at least with certain versions of ChibiOS which do not support the bit
+ * RCC_DKCFGR.TIMPRE that is available in newer models of STM32. In that case, if TIMPRE is active,
+ * the auto-detected value of TIMX_INPUT_CLOCK will be twice lower than the actual clock speed.
+ * Read this for additional context: http://www.chibios.com/forum/viewtopic.php?f=35&t=3870
+ * A normal way to use the override feature is to provide an alternative macro, e.g.:
+ *
+ *      -DUAVCAN_STM32_TIMX_INPUT_CLOCK=STM32_HCLK
+ *
+ * Alternatively, the new clock rate can be specified directly.
+ */
+# ifdef UAVCAN_STM32_TIMX_INPUT_CLOCK
+#  undef TIMX_INPUT_CLOCK
+#  define TIMX_INPUT_CLOCK      UAVCAN_STM32_TIMX_INPUT_CLOCK
 # endif
 
 extern "C" UAVCAN_STM32_IRQ_HANDLER(TIMX_IRQHandler);
@@ -121,7 +134,7 @@ void init()
     nvicEnableVector(TIMX_IRQn,  UAVCAN_STM32_IRQ_PRIORITY_MASK);
 
 # if (TIMX_INPUT_CLOCK % 1000000) != 0
-#  error "No way, timer clock must be divisible to 1e6. FIXME!"
+#  error "No way, timer clock must be divisible by 1e6. FIXME!"
 # endif
 
     // Start the timer
@@ -138,7 +151,7 @@ void init()
 # if UAVCAN_STM32_NUTTX
 
     // Attach IRQ
-    irq_attach(TIMX_IRQn, &TIMX_IRQHandler);
+    irq_attach(TIMX_IRQn, &TIMX_IRQHandler, NULL);
 
     // Power-on and reset
     modifyreg32(STM32_RCC_APB1ENR, 0, TIMX_RCC_ENR_MASK);
@@ -369,7 +382,7 @@ void adjustUtc(uavcan::UtcDuration adjustment)
         {
             utc_locked =
                 (std::abs(utc_rel_rate_ppm) < utc_sync_params.lock_thres_rate_ppm) &&
-                (std::abs(utc_prev_adj) < utc_sync_params.lock_thres_offset.toUSec());
+                (std::abs(utc_prev_adj) < float(utc_sync_params.lock_thres_offset.toUSec()));
         }
     }
 }

@@ -61,7 +61,9 @@ class SocketCanIface : public uavcan::ICanIface
 {
     static inline ::can_frame makeSocketCanFrame(const uavcan::CanFrame& uavcan_frame)
     {
-        ::can_frame sockcan_frame { uavcan_frame.id& uavcan::CanFrame::MaskExtID, uavcan_frame.dlc, { } };
+        ::can_frame sockcan_frame = ::can_frame();
+        sockcan_frame.can_id = uavcan_frame.id & uavcan::CanFrame::MaskExtID;
+        sockcan_frame.can_dlc = uavcan_frame.dlc;
         (void)std::copy(uavcan_frame.data, uavcan_frame.data + uavcan_frame.dlc, sockcan_frame.data);
         if (uavcan_frame.isExtended())
         {
@@ -219,18 +221,17 @@ class SocketCanIface : public uavcan::ICanIface
         iov.iov_base = &sockcan_frame;
         iov.iov_len  = sizeof(sockcan_frame);
 
-        struct Control
-        {
-            cmsghdr cm;
-            std::uint8_t data[sizeof(::timeval)];
-        };
-        auto control = Control();
+        static constexpr size_t ControlSize = sizeof(cmsghdr) + sizeof(::timeval);
+        using ControlStorage = typename std::aligned_storage<ControlSize>::type;
+        ControlStorage control_storage;
+        auto control = reinterpret_cast<std::uint8_t *>(&control_storage);
+        std::fill(control, control + ControlSize, 0x00);
 
         auto msg = ::msghdr();
         msg.msg_iov    = &iov;
         msg.msg_iovlen = 1;
-        msg.msg_control = &control;
-        msg.msg_controllen = sizeof(control);
+        msg.msg_control = control;
+        msg.msg_controllen = ControlSize;
 
         const int res = ::recvmsg(fd_, &msg, MSG_DONTWAIT);
         if (res <= 0)

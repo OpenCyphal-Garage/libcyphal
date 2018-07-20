@@ -34,7 +34,7 @@
 # endif
 #endif
 
-#if (UAVCAN_STM32_CHIBIOS && (CH_KERNEL_MAJOR == 3 || CH_KERNEL_MAJOR == 4))
+#if (UAVCAN_STM32_CHIBIOS && (CH_KERNEL_MAJOR == 3 || CH_KERNEL_MAJOR == 4 || CH_KERNEL_MAJOR == 5))
 #define CAN1_TX_IRQHandler      STM32_CAN1_TX_HANDLER
 #define CAN1_RX0_IRQHandler     STM32_CAN1_RX0_HANDLER
 #define CAN1_RX1_IRQHandler     STM32_CAN1_RX1_HANDLER
@@ -50,9 +50,9 @@
 # endif
 extern "C"
 {
-static int can1_irq(const int irq, void*);
+static int can1_irq(const int irq, void*, void*);
 #if UAVCAN_STM32_NUM_IFACES > 1
-static int can2_irq(const int irq, void*);
+static int can2_irq(const int irq, void*, void*);
 #endif
 }
 #endif
@@ -64,9 +64,11 @@ static int can2_irq(const int irq, void*);
 #define CAN1_TX_IRQn           CAN_TX_IRQn
 #define CAN1_RX0_IRQn          CAN_RX0_IRQn
 #define CAN1_RX1_IRQn          CAN_RX1_IRQn
-#define CAN1_TX_IRQHandler     CAN_TX_IRQHandler
-#define CAN1_RX0_IRQHandler    CAN_RX0_IRQHandler
-#define CAN1_RX1_IRQHandler    CAN_RX1_IRQHandler
+# if UAVCAN_STM32_BAREMETAL
+#  define CAN1_TX_IRQHandler   CAN_TX_IRQHandler
+#  define CAN1_RX0_IRQHandler  CAN_RX0_IRQHandler
+#  define CAN1_RX1_IRQHandler  CAN_RX1_IRQHandler
+# endif
 #endif
 
 
@@ -470,7 +472,8 @@ uavcan::int16_t CanIface::configureFilters(const uavcan::CanFilterConfig* filter
         {
             can_->FilterRegister[filter_start_index].FR1 = 0;
             can_->FilterRegister[filter_start_index].FR2 = 0;
-            can_->FA1R = 1 << filter_start_index;
+            // We can't directly overwrite FA1R because that breaks the other CAN interface
+            can_->FA1R |= 1U << filter_start_index;              // Other filters may still be enabled, we don't care
         }
         else
         {
@@ -548,7 +551,11 @@ bool CanIface::waitMsrINakBitStateChange(bool target_state)
         ::usleep(1000);
 #endif
 #if UAVCAN_STM32_CHIBIOS
+#ifdef MS2ST
         ::chThdSleep(MS2ST(1));
+#else
+        ::chThdSleep(TIME_MS2I(1));
+#endif
 #endif
 #if UAVCAN_STM32_FREERTOS
         ::osDelay(1);
@@ -1003,7 +1010,7 @@ void CanDriver::initOnce()
 #if UAVCAN_STM32_NUTTX
 # define IRQ_ATTACH(irq, handler)                          \
     {                                                      \
-        const int res = irq_attach(irq, handler);          \
+        const int res = irq_attach(irq, handler, NULL);    \
         (void)res;                                         \
         assert(res >= 0);                                  \
         up_enable_irq(irq);                                \
@@ -1112,7 +1119,7 @@ extern "C"
 
 #if UAVCAN_STM32_NUTTX
 
-static int can1_irq(const int irq, void*)
+static int can1_irq(const int irq, void*, void*)
 {
     if (irq == STM32_IRQ_CAN1TX)
     {
@@ -1135,7 +1142,7 @@ static int can1_irq(const int irq, void*)
 
 # if UAVCAN_STM32_NUM_IFACES > 1
 
-static int can2_irq(const int irq, void*)
+static int can2_irq(const int irq, void*, void*)
 {
     if (irq == STM32_IRQ_CAN2TX)
     {
