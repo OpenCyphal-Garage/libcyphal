@@ -79,8 +79,16 @@ TEST(ServiceServer, Basic)
             uavcan::Frame frame(root_ns_a::StringService::DefaultDataTypeID, uavcan::TransferTypeServiceRequest,
                                 uavcan::NodeID(uint8_t(i + 0x10)), 1, i);
 
-            const uint8_t req[] = {'r', 'e', 'q', uint8_t(i + '0')};
-            frame.setPayload(req, sizeof(req));
+            if (uavcan::IsSameType<uavcan::CanBusType, uavcan::CanBusType2_0>::Result)
+            {
+                const uint8_t req[] = {'r', 'e', 'q', uint8_t(i + '0')};
+                frame.setPayload(req, sizeof(req));
+            }
+            else
+            {
+                const uint8_t req[] = {0x04, 'r', 'e', 'q', uint8_t(i + '0')};
+                frame.setPayload(req, sizeof(req));
+            }
 
             frame.setStartOfTransfer(true);
             frame.setEndOfTransfer(true);
@@ -92,36 +100,62 @@ TEST(ServiceServer, Basic)
 
         node.spin(clock_driver.getMonotonic() + uavcan::MonotonicDuration::fromUSec(10000));
 
-        /*
-         * Responses (MFT)
-         */
-        ASSERT_EQ(4, can_driver.ifaces[0].tx.size());
-        for (int i = 0; i < 2; i++)
+        if (uavcan::IsSameType<uavcan::CanBusType, uavcan::CanBusType2_0>::Result)
         {
-            char payloads[2][8];
-            std::snprintf(payloads[0], 8, "req%i ", i);
-            std::snprintf(payloads[1], 8, "--> 456");
+           /*
+            * Responses (MFT)
+            */
+            ASSERT_EQ(4, can_driver.ifaces[0].tx.size());
+            for (int i = 0; i < 2; i++)
+            {
+                char payloads[2][8];
+                std::snprintf(payloads[0], 8, "req%i ", i);
+                std::snprintf(payloads[1], 8, "--> 456");
 
-            // First frame
-            uavcan::Frame fr;
-            ASSERT_TRUE(fr.parse(can_driver.ifaces[0].popTxFrame()));
-            std::cout << fr.toString() << std::endl;
-            ASSERT_FALSE(std::strncmp(payloads[0], reinterpret_cast<const char*>(fr.getPayloadPtr() + 2), 5)); // No CRC
+                // First frame
+                uavcan::Frame fr;
+                ASSERT_TRUE(fr.parse(can_driver.ifaces[0].popTxFrame()));
+                std::cout << fr.toString() << std::endl;
+                ASSERT_FALSE(std::strncmp(payloads[0], reinterpret_cast<const char*>(fr.getPayloadPtr() + 2), 5)); // FF past CRC
 
-            ASSERT_EQ(i, fr.getTransferID().get());
-            ASSERT_EQ(uavcan::TransferTypeServiceResponse, fr.getTransferType());
-            ASSERT_EQ(i + 0x10, fr.getDstNodeID().get());
-            ASSERT_EQ(i, fr.getPriority().get());
+                ASSERT_EQ(i, fr.getTransferID().get());
+                ASSERT_EQ(uavcan::TransferTypeServiceResponse, fr.getTransferType());
+                ASSERT_EQ(i + 0x10, fr.getDstNodeID().get());
+                ASSERT_EQ(i, fr.getPriority().get());
 
-            // Second frame
-            ASSERT_TRUE(fr.parse(can_driver.ifaces[0].popTxFrame()));
-            std::cout << fr.toString() << std::endl;
-            // cppcheck-suppress arrayIndexOutOfBounds
-            ASSERT_FALSE(std::strncmp(payloads[1], reinterpret_cast<const char*>(fr.getPayloadPtr()), 7));
+                // Second frame
+                ASSERT_TRUE(fr.parse(can_driver.ifaces[0].popTxFrame()));
+                std::cout << fr.toString() << std::endl;
+                // cppcheck-suppress arrayIndexOutOfBounds
+                ASSERT_FALSE(std::strncmp(payloads[1], reinterpret_cast<const char*>(fr.getPayloadPtr()), 7));
 
-            ASSERT_EQ(i, fr.getTransferID().get());
-            ASSERT_EQ(uavcan::TransferTypeServiceResponse, fr.getTransferType());
-            ASSERT_EQ(i + 0x10, fr.getDstNodeID().get());
+                ASSERT_EQ(i, fr.getTransferID().get());
+                ASSERT_EQ(uavcan::TransferTypeServiceResponse, fr.getTransferType());
+                ASSERT_EQ(i + 0x10, fr.getDstNodeID().get());
+            }
+        }
+        else
+        {
+           /*
+            * Responses (SFT)
+            */
+            ASSERT_EQ(2, can_driver.ifaces[0].tx.size());
+            for (int i = 0; i < 2; i++)
+            {
+                char payload[13];
+                std::snprintf(payload, 13, "req%i --> 456", i);
+
+                // First frame
+                uavcan::Frame fr;
+                ASSERT_TRUE(fr.parse(can_driver.ifaces[0].popTxFrame()));
+                std::cout << fr.toString() << std::endl;
+                ASSERT_STREQ(payload, reinterpret_cast<const char*>(fr.getPayloadPtr())+1); // +1 to FF past array length
+
+                ASSERT_EQ(i, fr.getTransferID().get());
+                ASSERT_EQ(uavcan::TransferTypeServiceResponse, fr.getTransferType());
+                ASSERT_EQ(i + 0x10, fr.getDstNodeID().get());
+                ASSERT_EQ(i, fr.getPriority().get());
+            }
         }
 
         ASSERT_EQ(0, server.getRequestFailureCount());

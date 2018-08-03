@@ -189,7 +189,7 @@ TEST(dynamic_node_id_server_NodeDiscoverer, Basic)
 }
 
 
-TEST(dynamic_node_id_server_NodeDiscoverer, RestartAndMaxAttempts)
+TEST(dynamic_node_id_server_NodeDiscoverer, RestartAndMaxAttempts_RealTime)
 {
     using namespace uavcan::protocol::dynamic_node_id::server;
 

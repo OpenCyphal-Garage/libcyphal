@@ -8,7 +8,9 @@
 #include "transfer_test_helpers.hpp"
 #include "can/can.hpp"
 #include <uavcan/transport/dispatcher.hpp>
+#include <root_ns_a/BigMessage.hpp>
 
+using TestListenerPtr = std::unique_ptr<TestListener>;
 
 class DispatcherTransferEmulator : public IncomingTransferEmulatorBase
 {
@@ -49,6 +51,74 @@ struct RxFrameListener : public uavcan::IRxFrameListener
 
 static const uavcan::NodeID SELF_NODE_ID(64);
 
+/**
+ * Verifies that the uavcan::BitLenToByteLenQuantized macro generates
+ * a correctly sized transfer buffer.
+ */
+TEST(Dispatcher, QuantizedTransferBuffer)
+{
+    static const std::string DATA =
+        "\140Yes, man is mortal, but that would be only half the trouble. " //61
+        "The worst of it is that he's sometimes unexpectedly mortal - there's the trick!"; //79 + 61 = 140
+
+    uavcan::PoolAllocator<uavcan::MemPoolBlockSize * 100, uavcan::MemPoolBlockSize> pool;
+
+    SystemClockMock clockmock(100);
+    CanDriverMock driver(2, clockmock);
+
+    uavcan::Dispatcher dispatcher(driver, pool, clockmock);
+    ASSERT_TRUE(dispatcher.setNodeID(SELF_NODE_ID));  // Can be set only once
+    ASSERT_FALSE(dispatcher.setNodeID(SELF_NODE_ID));
+    ASSERT_EQ(SELF_NODE_ID, dispatcher.getNodeID());
+
+    DispatcherTransferEmulator emulator(driver, SELF_NODE_ID);
+
+    static const uavcan::DataTypeDescriptor TYPE = makeDataType(uavcan::DataTypeKindMessage, root_ns_a::BigMessage::DefaultDataTypeID);
+
+    // This is the bug. We need a uavcan::BitLenToByteLenQuantized to account for padding if FD
+    // is enabled.
+    const auto bufferLenBytes = uavcan::BitLenToByteLenWithPadding<root_ns_a::BigMessage::MaxBitLen>::Result;
+
+    TestListenerPtr subscriber(new TestListener(
+        dispatcher.getTransferPerfCounter(), 
+        TYPE,
+        bufferLenBytes, 
+        pool));
+
+    const Transfer transfers[1] = {
+        emulator.makeTransfer(0,  uavcan::TransferTypeMessageBroadcast, 10, DATA, TYPE)
+    };
+
+    ASSERT_TRUE(dispatcher.registerMessageListener(subscriber.get()));
+
+    emulator.send(transfers);
+
+    while (true)
+    {
+        const int res = dispatcher.spinOnce();
+        ASSERT_LE(0, res);
+        clockmock.advance(100);
+        if (res == 0)
+        {
+            break;
+        }
+    }
+
+    ASSERT_TRUE(subscriber->matchAndPop(transfers[0]));
+    ASSERT_TRUE(subscriber->isEmpty());
+
+    dispatcher.unregisterMessageListener(subscriber.get());
+
+    ASSERT_EQ(0, dispatcher.getNumMessageListeners());
+    ASSERT_EQ(0, dispatcher.getNumServiceRequestListeners());
+    ASSERT_EQ(0, dispatcher.getNumServiceResponseListeners());
+
+    /*
+     * Perf counters
+     */
+    EXPECT_EQ(0, dispatcher.getTransferPerfCounter().getErrorCount());   // Repeated transfers
+    EXPECT_EQ(0, dispatcher.getTransferPerfCounter().getTxTransferCount());
+}
 
 TEST(Dispatcher, Reception)
 {
@@ -84,7 +154,6 @@ TEST(Dispatcher, Reception)
         makeDataType(uavcan::DataTypeKindService, 1)
     };
 
-    typedef std::unique_ptr<TestListener> TestListenerPtr;
     static const int MaxBufSize = 512;
     static const int NumSubscribers = 6;
     TestListenerPtr subscribers[NumSubscribers] =
@@ -242,7 +311,14 @@ TEST(Dispatcher, Reception)
      * RX listener
      */
     std::cout << "Num received frames: " << rx_listener.rx_frames.size() << std::endl;
-    ASSERT_EQ(292, rx_listener.rx_frames.size());
+    if (uavcan::IsSameType<uavcan::CanBusType, uavcan::CanBusType2_0>::Result)
+    {
+        ASSERT_EQ(292, rx_listener.rx_frames.size());
+    }
+    else
+    {
+        ASSERT_EQ(42, rx_listener.rx_frames.size());
+    }
 }
 
 

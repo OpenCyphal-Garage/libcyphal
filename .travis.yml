@@ -1,5 +1,7 @@
 language: cpp
 compiler: gcc
+dist: trusty
+sudo: true
 env:
   global:
     # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
@@ -20,4 +22,4 @@ before_install:
     - ./bootstrap.sh
 before_script: "mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug -DCONTINUOUS_INTEGRATION_BUILD=1"
 script:
-    - if [ "${COVERITY_SCAN_BRANCH}" != 1 ] && [ "${TARGET}" == "native" ]; then make && make ARGS=-VV test; fi
+    - if [ "${COVERITY_SCAN_BRANCH}" != 1 ] && [ "${TARGET}" == "native" ]; then make -j4 && make ARGS=-VV test; fi

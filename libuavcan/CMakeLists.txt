@@ -69,6 +69,8 @@ include_directories(include)
 #
 # libuavcan
 #
+set(fd_flags "-DUAVCAN_USE_FD")
+        
 file(GLOB_RECURSE LIBUAVCAN_CXX_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "src/*.cpp")
 add_library(uavcan STATIC ${LIBUAVCAN_CXX_FILES})
 add_dependencies(uavcan libuavcan_dsdlc)
@@ -78,6 +80,14 @@ install(DIRECTORY include/uavcan                  DESTINATION include)
 install(DIRECTORY include/dsdlc_generated/uavcan  DESTINATION include)  # Generated and lib's .hpp
 install(CODE "execute_process(COMMAND ${PYTHON} setup.py install --record installed_files.log
                               WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/dsdl_compiler)")
+
+#
+# libuavcan_fd
+#
+add_library(uavcan_fd STATIC ${LIBUAVCAN_CXX_FILES})
+add_dependencies(uavcan_fd libuavcan_dsdlc)
+set_target_properties(uavcan_fd PROPERTIES COMPILE_FLAGS ${fd_flags})
+add_dependencies(uavcan_fd uavcan)
 
 #
 # Tests and static analysis - only for debug builds
@@ -119,9 +129,12 @@ if (DEBUG_BUILD)
     if (COMPILER_IS_GCC_COMPATIBLE)
         # No such thing as too many warnings
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -pedantic -Wfloat-equal -Wconversion")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wsign-conversion -Wcast-align -Wmissing-declarations -Wlogical-op")
+        # These flags are GCC-specific
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wlogical-op -Wzero-as-null-pointer-constant")
+
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wsign-conversion -Wcast-align -Wmissing-declarations")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wdouble-promotion -Wswitch-enum -Wtype-limits -Wno-error=array-bounds")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wzero-as-null-pointer-constant -Wnon-virtual-dtor")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wnon-virtual-dtor")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Woverloaded-virtual -Wsign-promo -Wold-style-cast")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=deprecated-declarations")
         set(optim_flags "-O3 -DNDEBUG -g0")
@@ -135,11 +148,17 @@ if (DEBUG_BUILD)
     add_library(uavcan_optim STATIC ${LIBUAVCAN_CXX_FILES})
     set_target_properties(uavcan_optim PROPERTIES COMPILE_FLAGS ${optim_flags})
     add_dependencies(uavcan_optim libuavcan_dsdlc)
+    
+    add_library(uavcan_fd_optim STATIC ${LIBUAVCAN_CXX_FILES})
+    set_target_properties(uavcan_fd_optim PROPERTIES COMPILE_FLAGS "${fd_flags} ${optim_flags}")
+    add_dependencies(uavcan_fd_optim libuavcan_dsdlc)
 
     if (GTEST_FOUND)
         message(STATUS "GTest found, tests will be built and run.")
         add_libuavcan_test(libuavcan_test       uavcan       "")                 # Default
         add_libuavcan_test(libuavcan_test_optim uavcan_optim "${optim_flags}")   # Max optimization
+        add_libuavcan_test(libuavcan_fd_test       uavcan_fd       "${fd_flags}")      # Default FD
+        add_libuavcan_test(libuavcan_fd_test_optim uavcan_fd_optim "${optim_flags} ${fd_flags}")   # Max optimization FD
     else (GTEST_FOUND)
         message(STATUS "GTest was not found, tests will not be built")
     endif (GTEST_FOUND)

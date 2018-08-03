@@ -16,6 +16,7 @@ TEST(Frame, MessageParseCompile)
     using uavcan::CanFrame;
     using uavcan::TransferID;
     using uavcan::TransferType;
+    using uavcan::CanFrameDLC;
 
     Frame frame;
 
@@ -37,7 +38,7 @@ TEST(Frame, MessageParseCompile)
      * Parse
      */
     // Invalid CAN frames
-    ASSERT_FALSE(frame.parse(CanFrame(can_id | CanFrame::FlagRTR, reinterpret_cast<const uint8_t*>(""), 0)));
+    ASSERT_FALSE(frame.parse(CanFrame(can_id | CanFrame::FlagRTR, reinterpret_cast<const uint8_t*>(""), CanFrameDLC::CodeForLength0)));
     ASSERT_FALSE(frame.parse(makeCanFrame(can_id, payload_string, STD)));
 
     // Valid
@@ -68,13 +69,13 @@ TEST(Frame, MessageParseCompile)
     ASSERT_TRUE(frame.compile(can_frame));
     ASSERT_EQ(can_frame, makeCanFrame(can_id, payload_string, EXT));
 
-    EXPECT_EQ(payload_string.length(), can_frame.dlc);
+    EXPECT_EQ(payload_string.length(), can_frame.getDataLength());
     std::cout << can_frame.toString() << std::endl;
     /*
      * FUN FACT: comparison of uint8_t with char may fail on the character 0xD4 (depending on the locale),
      * because it will be considered a Unicode character. Hence, we do reinterpret_cast<>.
      */
-    EXPECT_TRUE(std::equal(can_frame.data, can_frame.data + can_frame.dlc,
+    EXPECT_TRUE(std::equal(can_frame.data, can_frame.data + can_frame.getDataLength(),
                            reinterpret_cast<const uint8_t*>(&payload_string[0])));
 
     /*
@@ -94,6 +95,7 @@ TEST(Frame, ServiceParseCompile)
     using uavcan::CanFrame;
     using uavcan::TransferID;
     using uavcan::TransferType;
+    using uavcan::CanFrameDLC;
 
     Frame frame;
 
@@ -119,7 +121,7 @@ TEST(Frame, ServiceParseCompile)
      * Parse
      */
     // Invalid CAN frames
-    ASSERT_FALSE(frame.parse(CanFrame(can_id | CanFrame::FlagRTR, reinterpret_cast<const uint8_t*>(""), 0)));
+    ASSERT_FALSE(frame.parse(CanFrame(can_id | CanFrame::FlagRTR, reinterpret_cast<const uint8_t*>(""), CanFrameDLC::CodeForLength0)));
     ASSERT_FALSE(frame.parse(makeCanFrame(can_id, payload_string, STD)));
 
     // Valid
@@ -150,8 +152,8 @@ TEST(Frame, ServiceParseCompile)
     ASSERT_TRUE(frame.compile(can_frame));
     ASSERT_EQ(can_frame, makeCanFrame(can_id, payload_string, EXT));
 
-    EXPECT_EQ(payload_string.length(), can_frame.dlc);
-    EXPECT_TRUE(std::equal(can_frame.data, can_frame.data + can_frame.dlc,
+    EXPECT_EQ(payload_string.length(), can_frame.getDataLength());
+    EXPECT_TRUE(std::equal(can_frame.data, can_frame.data + can_frame.getDataLength(),
                            reinterpret_cast<const uint8_t*>(&payload_string[0])));
 
     /*
@@ -224,8 +226,8 @@ TEST(Frame, AnonymousParseCompile)
     ASSERT_EQ(can_id & NoDiscriminatorMask & uavcan::CanFrame::MaskExtID,
               can_frame.id & NoDiscriminatorMask & uavcan::CanFrame::MaskExtID);
 
-    EXPECT_EQ(payload_string.length(), can_frame.dlc);
-    EXPECT_TRUE(std::equal(can_frame.data, can_frame.data + can_frame.dlc,
+    EXPECT_EQ(payload_string.length(), can_frame.getDataLength());
+    EXPECT_TRUE(std::equal(can_frame.data, can_frame.data + can_frame.getDataLength(),
                            reinterpret_cast<const uint8_t*>(&payload_string[0])));
 
     EXPECT_EQ((can_frame.id & DiscriminatorMask & uavcan::CanFrame::MaskExtID) >> 10, payload_crc.get() & 16383);
@@ -285,7 +287,7 @@ TEST(Frame, FrameParsing)
     can.data[7] = 0xcf; // SET=110, TID=0
 
     ASSERT_FALSE(frame.parse(can));
-    can.dlc = 8;
+    can.setDataLength(8);
 
     ASSERT_TRUE(frame.parse(can));
     EXPECT_TRUE(frame.isStartOfTransfer());
@@ -327,7 +329,7 @@ TEST(Frame, RxFrameParse)
     ASSERT_FALSE(rx_frame.parse(can_rx_frame));
 
     can_rx_frame.data[0] = 0xc0; // SOT, EOT
-    can_rx_frame.dlc = 1;
+    can_rx_frame.setDataLength(1);
 
     ASSERT_TRUE(rx_frame.parse(can_rx_frame));
     ASSERT_EQ(1, rx_frame.getMonotonicTimestamp().toUSec());
@@ -362,7 +364,7 @@ TEST(Frame, FrameToString)
                              uavcan::NodeID::Max, 0, uavcan::TransferID::Max),
                        uavcan::MonotonicTime::getMax(), uavcan::UtcTime::getMax(), 3);
 
-    uint8_t data[8];
+    uint8_t data[7];
     for (unsigned i = 0; i < sizeof(data); i++)
     {
         data[i] = uint8_t(i);

@@ -65,9 +65,9 @@ TEST(CanTxQueue, TxQueue)
     using uavcan::CanTxQueue;
     using uavcan::CanFrame;
 
-    ASSERT_GE(40, sizeof(CanTxQueue::Entry)); // should be true for any platforms, though not required
+    ASSERT_GE(uavcan::MemPoolBlockSize, sizeof(CanTxQueue::Entry)); // should be true for any platforms, though not required
 
-    uavcan::PoolAllocator<40 * 4, 40> pool;
+    uavcan::PoolAllocator<uavcan::MemPoolBlockSize * 4, uavcan::MemPoolBlockSize> pool;
 
     SystemClockMock clockmock;
 

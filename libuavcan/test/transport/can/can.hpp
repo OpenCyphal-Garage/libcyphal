@@ -93,9 +93,13 @@ public:
     {
         if (pending_tx != frame)
         {
+#if UAVCAN_TOSTRING
             std::cout << "Pending TX mismatch: \n"
                       << "    Expected: " << frame.toString(uavcan::CanFrame::StrAligned) << "\n"
                       << "    Actual:   " << pending_tx.toString(uavcan::CanFrame::StrAligned) << std::endl;
+#else
+            std::cout << "Pending TX mismatch (compile with UAVCAN_TOSTRING=1 for more details)" << std::endl;
+#endif
         }
         return pending_tx == frame;
     }
@@ -192,11 +196,20 @@ class CanDriverMock : public uavcan::ICanDriver
 public:
     std::vector<CanIfaceMock> ifaces;
     uavcan::ISystemClock& iclock;
+    SystemClockMock* mock;
     bool select_failure;
 
     CanDriverMock(unsigned num_ifaces, uavcan::ISystemClock& iclock)
         : ifaces(num_ifaces, CanIfaceMock(iclock))
         , iclock(iclock)
+        , mock(nullptr)
+        , select_failure(false)
+    { }
+
+    CanDriverMock(unsigned num_ifaces, SystemClockMock& iclock)
+        : ifaces(num_ifaces, CanIfaceMock(iclock))
+        , iclock(iclock)
+        , mock(&iclock)
         , select_failure(false)
     { }
 
@@ -249,7 +262,6 @@ public:
         {
             const uavcan::MonotonicTime ts = iclock.getMonotonic();
             const uavcan::MonotonicDuration diff = deadline - ts;
-            SystemClockMock* const mock = dynamic_cast<SystemClockMock*>(&iclock);
             if (mock)
             {
                 if (diff.isPositive())
@@ -278,5 +290,5 @@ enum FrameType { STD, EXT };
 inline uavcan::CanFrame makeCanFrame(uint32_t id, const std::string& str_data, FrameType type)
 {
     id |= (type == EXT) ? uavcan::CanFrame::FlagEFF : 0;
-    return uavcan::CanFrame(id, reinterpret_cast<const uint8_t*>(str_data.c_str()), uavcan::uint8_t(str_data.length()));
+    return uavcan::CanFrame(id, reinterpret_cast<const uint8_t*>(str_data.c_str()), uavcan::CanFrame::length_to_dlc(uavcan::uint8_t(str_data.length())));
 }

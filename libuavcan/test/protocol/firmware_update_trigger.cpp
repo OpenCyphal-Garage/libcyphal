@@ -91,7 +91,7 @@ struct BeginFirmwareUpdateServer
 };
 
 
-TEST(FirmwareUpdateTrigger, Basic)
+TEST(FirmwareUpdateTrigger, Basic_RealTime)
 {
     uavcan::GlobalDataTypeRegistry::instance().reset();
     uavcan::DefaultDataTypeRegistrator<BeginFirmwareUpdate> _reg1;
@@ -220,7 +220,7 @@ TEST(FirmwareUpdateTrigger, Basic)
 }
 
 
-TEST(FirmwareUpdateTrigger, MultiNode)
+TEST(FirmwareUpdateTrigger, MultiNode_RealTime)
 {
     uavcan::GlobalDataTypeRegistry::instance().reset();
     uavcan::DefaultDataTypeRegistrator<BeginFirmwareUpdate> _reg1;

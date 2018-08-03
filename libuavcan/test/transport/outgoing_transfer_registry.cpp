@@ -17,21 +17,35 @@ TEST(OutgoingTransferRegistry, Basic)
 
     otr.cleanup(tsMono(1000));
 
-    static const int NUM_KEYS = 5;
-    const OutgoingTransferRegistryKey keys[NUM_KEYS] =
+    const OutgoingTransferRegistryKey keys[] =
     {
         OutgoingTransferRegistryKey(123, uavcan::TransferTypeServiceRequest,   42),
         OutgoingTransferRegistryKey(321, uavcan::TransferTypeMessageBroadcast, 0),
         OutgoingTransferRegistryKey(213, uavcan::TransferTypeServiceRequest,   2),
         OutgoingTransferRegistryKey(312, uavcan::TransferTypeServiceRequest,   4),
-        OutgoingTransferRegistryKey(456, uavcan::TransferTypeServiceRequest,   2)
+        OutgoingTransferRegistryKey(456, uavcan::TransferTypeServiceRequest,   2),
+        OutgoingTransferRegistryKey(457, uavcan::TransferTypeServiceRequest,   2),
+        OutgoingTransferRegistryKey(458, uavcan::TransferTypeServiceRequest,   2),
+        OutgoingTransferRegistryKey(459, uavcan::TransferTypeServiceRequest,   2),
+        OutgoingTransferRegistryKey(460, uavcan::TransferTypeServiceRequest,   2),
+        OutgoingTransferRegistryKey(470, uavcan::TransferTypeServiceRequest,   2)
     };
 
     ASSERT_EQ(0, otr.accessOrCreate(keys[0], tsMono(1000000))->get());
     ASSERT_EQ(0, otr.accessOrCreate(keys[1], tsMono(1000000))->get());
     ASSERT_EQ(0, otr.accessOrCreate(keys[2], tsMono(1000000))->get());
     ASSERT_EQ(0, otr.accessOrCreate(keys[3], tsMono(1000000))->get());
-    ASSERT_FALSE(otr.accessOrCreate(keys[4], tsMono(1000000)));        // OOM
+    bool did_run_out_of_memory = false;
+    size_t i = 4;
+    for (; !did_run_out_of_memory && i < std::extent<decltype(keys)>::value; ++i)
+    {
+        if(!otr.accessOrCreate(keys[i], tsMono(1000000)))
+        {
+            did_run_out_of_memory = true;
+        }
+    }
+
+    ASSERT_TRUE(did_run_out_of_memory) << "The MemPoolBlockSize is larger then this test expected." << std::endl;
 
     /*
      * Incrementing a little
@@ -50,7 +64,7 @@ TEST(OutgoingTransferRegistry, Basic)
 
     ASSERT_EQ(0, otr.accessOrCreate(keys[1], tsMono(4000000))->get());
 
-    ASSERT_FALSE(otr.accessOrCreate(keys[4], tsMono(1000000)));        // Still OOM
+    ASSERT_FALSE(otr.accessOrCreate(keys[i], tsMono(1000000)));        // Still OOM
 
     /*
      * Checking existence
@@ -64,7 +78,7 @@ TEST(OutgoingTransferRegistry, Basic)
 
     ASSERT_FALSE(otr.exists(keys[1].getDataTypeID(), keys[2].getTransferType()));  // Invalid combination
     ASSERT_FALSE(otr.exists(keys[0].getDataTypeID(), keys[1].getTransferType()));  // Invalid combination
-    ASSERT_FALSE(otr.exists(keys[4].getDataTypeID(), keys[4].getTransferType()));  // Plain missing
+    ASSERT_FALSE(otr.exists(keys[i].getDataTypeID(), keys[i].getTransferType()));  // Plain missing
 
     /*
      * Cleaning up

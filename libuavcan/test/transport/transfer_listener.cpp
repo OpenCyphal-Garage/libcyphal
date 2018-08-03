@@ -38,24 +38,61 @@ TEST(TransferListener, BasicMFT)
     uavcan::PoolAllocator<uavcan::MemPoolBlockSize * NUM_POOL_BLOCKS, uavcan::MemPoolBlockSize> pool;
 
     uavcan::TransferPerfCounter perf;
-    TestListener subscriber(perf, type, 256, pool);
+    TestListener subscriber(perf, type, 512, pool);
 
     /*
      * Test data
+     * I had to replace more interesting quotes by Pavel to make it easier to diagnose FD
+     * tests. Here's the old data, for posterity:
+     * 
+     *  "Build a man a fire, and he'll be warm for a day. "
+     *  "Set a man on fire, and he'll be warm for the rest of his life.",
+     * 
+     *  "123456789",
+     *
+     *  "In the beginning there was nothing, which exploded.",
+     * 
+     *  "The USSR, which they'd begun to renovate and improve at about the time when Tatarsky decided to "
+     *  "change his profession, improved so much that it ceased to exist",
+     * 
+     *  "BEWARE JET BLAST"
      */
     static const std::string DATA[] =
     {
-        "Build a man a fire, and he'll be warm for a day. "
-        "Set a man on fire, and he'll be warm for the rest of his life.",
+       //012345678901234567890123456789012345678901234567890123456789012
+        "000000000000000000000000000000000000000000000000000000000000000"
+       //012345678901234567890123456789012345678901234567890123456789012
+        "000000000000000000000000000000000000000000000000000000000000000"
+        //012345678901234567890123456789012345678901234567890123456789012
+        "000000000000000000000000000000000000000000000000000000000000000"
+        //012345678901234567890123456789012345678901234567890123456789012
+        "000000000000000000000000000000000000000000000000000000000000000",
 
-        "123456789",
+       //012345678901234567890123456789012345678901234567890123456789012
+        "111111111111111111111111111111111111111111111111111111111111111",
 
-        "In the beginning there was nothing, which exploded.",
+       //012345678901234567890123456789012345678901234567890123456789012
+        "222222222222222222222222222222222222222222222222222222222222222"
+       //012345678901234567890123456789012345678901234567890123456789012
+        "222222222222222222222222222222222222222222222222222222222222222"
+       //012345678901234567890123456789012345678901234567890123456789012
+        "222222222222222222222222222222222222222222222222222222222222222",
 
-        "The USSR, which they'd begun to renovate and improve at about the time when Tatarsky decided to "
-        "change his profession, improved so much that it ceased to exist",
+       //012345678901234567890123456789012345678901234567890123456789012
+        "333333333333333333333333333333333333333333333333333333333333333"
+       //012345678901234567890123456789012345678901234567890123456789012
+        "333333333333333333333333333333333333333333333333333333333333333"
+       //012345678901234567890123456789012345678901234567890123456789012
+        "333333333333333333333333333333333333333333333333333333333333333"
+       //012345678901234567890123456789012345678901234567890123456789012
+        "333333333333333333333333333333333333333333333333333333333333333"
+       //012345678901234567890123456789012345678901234567890123456789012
+        "333333333333333333333333333333333333333333333333333333333333333",
 
-        "BEWARE JET BLAST"
+       //012345678901234567890123456789012345678901234567890123456789012
+        "444444444444444444444444444444444444444444444444444444444444444"
+       //012345678901234567890123456789012345678901234567890123456789012
+        "444444444444444444444444444444444444444444444444444444444444444"
     };
 
     for (unsigned i = 0; i < sizeof(DATA) / sizeof(DATA[0]); i++)
@@ -102,14 +139,14 @@ TEST(TransferListener, CrcFailure)
      * Generating transfers with damaged payload (CRC is not valid)
      */
     TransferListenerEmulator emulator(subscriber, type);
-    const Transfer tr_mft = emulator.makeTransfer(16, uavcan::TransferTypeMessageBroadcast, 42, "123456789abcdefghik");
+    const Transfer tr_mft = emulator.makeTransfer(16, uavcan::TransferTypeMessageBroadcast, 42, "0123456789012345678901234567890123456789012345678901234567890123");
     const Transfer tr_sft = emulator.makeTransfer(16, uavcan::TransferTypeMessageBroadcast, 11, "abcd");
 
     std::vector<uavcan::RxFrame> ser_mft = serializeTransfer(tr_mft);
     std::vector<uavcan::RxFrame> ser_sft = serializeTransfer(tr_sft);
 
-    ASSERT_TRUE(ser_mft.size() > 1);
-    ASSERT_TRUE(ser_sft.size() == 1);
+    ASSERT_GT(ser_mft.size(), 1);
+    ASSERT_EQ(ser_sft.size(), 1);
 
     const_cast<uint8_t*>(ser_mft[1].getPayloadPtr())[1] = uint8_t(~ser_mft[1].getPayloadPtr()[1]); // CRC invalid now
     const_cast<uint8_t*>(ser_sft[0].getPayloadPtr())[2] = uint8_t(~ser_sft[0].getPayloadPtr()[2]);  // no CRC here
@@ -151,7 +188,7 @@ TEST(TransferListener, BasicSFT)
         emulator.makeTransfer(16, uavcan::TransferTypeServiceRequest,   3, "abc"),
         emulator.makeTransfer(16, uavcan::TransferTypeServiceResponse,  4, ""),
         emulator.makeTransfer(16, uavcan::TransferTypeServiceRequest,   2, "foo"),          // Same as 2, not ignored
-        emulator.makeTransfer(16, uavcan::TransferTypeServiceRequest,   2, "123456789abc"), // Same as 2, not SFT - ignore
+        emulator.makeTransfer(16, uavcan::TransferTypeServiceRequest,   2, "0123456789012345678901234567890123456789012345678901234567890123456789"), // Same as 2, not SFT - ignore
         emulator.makeTransfer(16, uavcan::TransferTypeServiceRequest,   2, "bar"),          // Same as 2, not ignored
     };
 
@@ -182,7 +219,7 @@ TEST(TransferListener, Cleanup)
      * Generating transfers
      */
     TransferListenerEmulator emulator(subscriber, type);
-    const Transfer tr_mft = emulator.makeTransfer(16, uavcan::TransferTypeMessageBroadcast, 42, "123456789abcdefghik");
+    const Transfer tr_mft = emulator.makeTransfer(16, uavcan::TransferTypeMessageBroadcast, 42, "0123456789012345678901234567890123456789012345678901234567890123456789");
     const Transfer tr_sft = emulator.makeTransfer(16, uavcan::TransferTypeServiceResponse, 11, "abcd");
 
     const std::vector<uavcan::RxFrame> ser_mft = serializeTransfer(tr_mft);
@@ -239,7 +276,7 @@ TEST(TransferListener, AnonymousTransfers)
     {
         emulator.makeTransfer(16, uavcan::TransferTypeServiceRequest,   0, "1234567"),  // Invalid - not broadcast
         emulator.makeTransfer(16, uavcan::TransferTypeMessageBroadcast, 0, "1234567"),  // Valid
-        emulator.makeTransfer(16, uavcan::TransferTypeMessageBroadcast, 0, "12345678"), // Invalid - not SFT
+        emulator.makeTransfer(16, uavcan::TransferTypeMessageBroadcast, 0, "0123456789012345678901234567890123456789012345678901234567890123456789"), // Invalid - not SFT
         emulator.makeTransfer(16, uavcan::TransferTypeMessageBroadcast, 0, "")          // Valid
     };
 

@@ -238,14 +238,33 @@ TEST(Dsdl, ParamGetSetRequestUnion)
 
     req.index = 8191;
     req.name = "123"; // 49, 50, 51 // 00110001, 00110010, 00110011
-    EXPECT_TRUE(encodeDecodeValidate(req, "11111111 11111000 00110001 00110010 00110011"));
+    if (uavcan::StorageType< typename uavcan::protocol::param::GetSet::Request::FieldTypes::name >::Type::isOptimizedTailArray(uavcan::TailArrayOptEnabled))
+    {
+        EXPECT_TRUE(encodeDecodeValidate(req, "11111111 11111000 00110001 00110010 00110011"));
+    }
+    else
+    {
+        EXPECT_TRUE(encodeDecodeValidate(req, "11111111 11111000 00000110 01100010 01100100 01100110"));
+    }
 
     req.value.to<uavcan::protocol::param::Value::Tag::string_value>() = "abc"; // 01100001, 01100010, 01100011
-    EXPECT_TRUE(encodeDecodeValidate(req,
-                                     "11111111 11111100 "               // Index, Union tag
-                                     "00000011 "                        // Array length
-                                     "01100001 01100010 01100011 "      // Payload
-                                     "00110001 00110010 00110011"));    // Name
+
+    if (uavcan::StorageType< typename uavcan::protocol::param::GetSet::Request::FieldTypes::name >::Type::isOptimizedTailArray(uavcan::TailArrayOptEnabled))
+    {
+        EXPECT_TRUE(encodeDecodeValidate(req,
+                                         "11111111 11111100 "               // Index, Union tag
+                                         "00000011 "                        // Array length
+                                         "01100001 01100010 01100011 "      // Payload
+                                         "00110001 00110010 00110011"));    // Name
+    }
+    else
+    {
+        EXPECT_TRUE(encodeDecodeValidate(req,
+                                         "11111111 11111100 "               // Index, Union tag
+                                         "00000011 "                        // Array length
+                                         "01100001 01100010 01100011 "      // Payload
+                                         "00000110 01100010 01100100 01100110"));    // Name
+    }
 
     EXPECT_TRUE(validateYaml(req,
                              "index: 8191\n"
@@ -254,10 +273,21 @@ TEST(Dsdl, ParamGetSetRequestUnion)
                              "name: \"123\""));
 
     req.value.to<uavcan::protocol::param::Value::Tag::integer_value>() = 1;
-    EXPECT_TRUE(encodeDecodeValidate(req,
-                                     "11111111 11111001 "               // Index, Union tag
-                                     "00000001 00000000 00000000 00000000 00000000 00000000 00000000 00000000 " // Payload
-                                     "00110001 00110010 00110011"));    // Name
+
+    if (uavcan::StorageType< typename uavcan::protocol::param::GetSet::Request::FieldTypes::name >::Type::isOptimizedTailArray(uavcan::TailArrayOptEnabled))
+    {
+        EXPECT_TRUE(encodeDecodeValidate(req,
+                                         "11111111 11111001 "               // Index, Union tag
+                                         "00000001 00000000 00000000 00000000 00000000 00000000 00000000 00000000 " // Payload
+                                         "00110001 00110010 00110011"));    // Name
+    }
+    else
+    {
+        EXPECT_TRUE(encodeDecodeValidate(req,
+                                         "11111111 11111001 "               // Index, Union tag
+                                         "00000001 00000000 00000000 00000000 00000000 00000000 00000000 00000000 " // Payload
+                                         "00000110 01100010 01100100 01100110"));    // Name
+    }
 }
 
 
@@ -268,25 +298,54 @@ TEST(Dsdl, ParamGetSetResponseUnion)
     res.value.to<uavcan::protocol::param::Value::Tag::string_value>() = "abc";
     res.default_value.to<uavcan::protocol::param::Value::Tag::string_value>(); // Empty
     res.name = "123";
-    EXPECT_TRUE(encodeDecodeValidate(res,
-                                     "00000100 "                        // Value union tag
-                                     "00000011 "                        // Value array length
-                                     "01100001 01100010 01100011 "      // Value array payload
-                                     "00000100 "                        // Default union tag
-                                     "00000000 "                        // Default array length
-                                     "00000000 "                        // Max value tag
-                                     "00000000 "                        // Min value tag
-                                     "00110001 00110010 00110011"));    // Name
+    if (uavcan::StorageType< typename uavcan::protocol::param::GetSet::Request::FieldTypes::name >::Type::isOptimizedTailArray(uavcan::TailArrayOptEnabled))
+    {
+        EXPECT_TRUE(encodeDecodeValidate(res,
+                                         "00000100 "                        // Value union tag
+                                         "00000011 "                        // Value array length
+                                         "01100001 01100010 01100011 "      // Value array payload
+                                         "00000100 "                        // Default union tag
+                                         "00000000 "                        // Default array length
+                                         "00000000 "                        // Max value tag
+                                         "00000000 "                        // Min value tag
+                                         "00110001 00110010 00110011"));    // Name
+    }
+    else
+    {
+        EXPECT_TRUE(encodeDecodeValidate(res,
+                                         "00000100 "                        // Value union tag
+                                         "00000011 "                        // Value array length
+                                         "01100001 01100010 01100011 "      // Value array payload
+                                         "00000100 "                        // Default union tag
+                                         "00000000 "                        // Default array length
+                                         "00000000 "                        // Max value tag
+                                         "00000000 "                        // Min value tag
+                                         "00000110 01100010 01100100 01100110"));    // Name
+    }
 
     res.value.to<uavcan::protocol::param::Value::Tag::boolean_value>() = true;
     res.default_value.to<uavcan::protocol::param::Value::Tag::boolean_value>(); // False
     res.name = "123";
-    EXPECT_TRUE(encodeDecodeValidate(res,
-                                     "00000011 "                        // Value union tag
-                                     "00000001 "                        // Value
-                                     "00000011 "                        // Default union tag
-                                     "00000000 "                        // Default value
-                                     "00000000 "                        // Max value tag
-                                     "00000000 "                        // Min value tag
-                                     "00110001 00110010 00110011"));    // Name
+    if (uavcan::StorageType< typename uavcan::protocol::param::GetSet::Request::FieldTypes::name >::Type::isOptimizedTailArray(uavcan::TailArrayOptEnabled))
+    {
+        EXPECT_TRUE(encodeDecodeValidate(res,
+                                         "00000011 "                        // Value union tag
+                                         "00000001 "                        // Value
+                                         "00000011 "                        // Default union tag
+                                         "00000000 "                        // Default value
+                                         "00000000 "                        // Max value tag
+                                         "00000000 "                        // Min value tag
+                                         "00110001 00110010 00110011"));    // Name
+    }
+    else
+    {
+        EXPECT_TRUE(encodeDecodeValidate(res,
+                                         "00000011 "                        // Value union tag
+                                         "00000001 "                        // Value
+                                         "00000011 "                        // Default union tag
+                                         "00000000 "                        // Default value
+                                         "00000000 "                        // Max value tag
+                                         "00000000 "                        // Min value tag
+                                         "00000110 01100010 01100100 01100110"));    // Name
+    }
 }

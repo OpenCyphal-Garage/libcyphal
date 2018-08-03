@@ -10,13 +10,14 @@
 #include <uavcan/transport/can_io.hpp>
 #include <uavcan/build_config.hpp>
 #include <uavcan/data_type.hpp>
+#include <uavcan/util/bus.hpp>
 
 namespace uavcan
 {
 
 class UAVCAN_EXPORT Frame
 {
-    enum { PayloadCapacity = 7 };       // Will be redefined when CAN FD is available
+    enum { PayloadCapacity = CanBusType::max_frame_size - 1 };
 
     uint8_t payload_[PayloadCapacity];
     TransferPriority transfer_priority_;
@@ -37,7 +38,9 @@ public:
         start_of_transfer_(false),
         end_of_transfer_(false),
         toggle_(false)
-    { }
+    {
+        StaticAssert<(CanBusType::max_frame_size > 1)>::check();
+    }
 
     Frame(DataTypeID data_type_id,
           TransferType transfer_type,
@@ -68,6 +71,12 @@ public:
      */
     uint8_t getPayloadCapacity() const { return PayloadCapacity; }
     uint8_t setPayload(const uint8_t* data, unsigned len);
+    
+    /**
+     * Add a byte to the end of the payload.
+     * @return 0 if the payload was full else 1.
+     */
+    uint8_t pushBackPayload(const uint8_t byte);
 
     unsigned getPayloadLen() const { return payload_len_; }
     const uint8_t* getPayloadPtr() const { return payload_; }

@@ -99,9 +99,9 @@ TEST(Subscriber, Basic)
     expected_msg.sysid = 0x72;
     expected_msg.compid = 0x08;
     expected_msg.msgid = 0xa5;
-    expected_msg.payload = "Msg";
+    expected_msg.payload = "";
 
-    const uint8_t transfer_payload[] = {0x42, 0x72, 0x08, 0xa5, 'M', 's', 'g'};
+    const uint8_t transfer_payload[] = {0x42, 0x72, 0x08, 0xa5, 0};
 
     /*
      * RxFrame generation
@@ -118,7 +118,14 @@ TEST(Subscriber, Basic)
                             dni, i);
         frame.setStartOfTransfer(true);
         frame.setEndOfTransfer(true);
-        frame.setPayload(transfer_payload, 7);
+        if (uavcan::IsSameType<uavcan::CanBusType, uavcan::CanBusTypeFd>::Result)
+        {
+            frame.setPayload(transfer_payload, 5);
+        }
+        else
+        {
+            frame.setPayload(transfer_payload, 4);
+        }
         uavcan::RxFrame rx_frame(frame, clock_driver.getMonotonic(), clock_driver.getUtc(), 0);
         rx_frames.push_back(rx_frame);
     }
