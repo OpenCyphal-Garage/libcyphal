@@ -6,6 +6,7 @@
 #define UAVCAN_MARSHAL_SCALAR_CODEC_HPP_INCLUDED
 
 #include <cassert>
+#include <type_traits>
 #include <uavcan/std.hpp>
 #include <uavcan/build_config.hpp>
 #include <uavcan/util/templates.hpp>
@@ -24,7 +25,7 @@ class UAVCAN_EXPORT ScalarCodec
     static void swapByteOrder(uint8_t* bytes, unsigned len);
 
     template <unsigned BitLen, unsigned Size>
-    static typename EnableIf<(BitLen > 8)>::Type
+    static typename std::enable_if<(BitLen > 8)>::type
     convertByteOrder(uint8_t (&bytes)[Size])
     {
 #if defined(BYTE_ORDER) && defined(BIG_ENDIAN)
@@ -46,11 +47,11 @@ class UAVCAN_EXPORT ScalarCodec
     }
 
     template <unsigned BitLen, unsigned Size>
-    static typename EnableIf<(BitLen <= 8)>::Type
+    static typename std::enable_if<(BitLen <= 8)>::type
     convertByteOrder(uint8_t (&)[Size]) { }
 
     template <unsigned BitLen, typename T>
-    static typename EnableIf<static_cast<bool>(NumericTraits<T>::IsSigned) && ((sizeof(T) * 8) > BitLen)>::Type
+    static typename std::enable_if<static_cast<bool>(NumericTraits<T>::IsSigned) && ((sizeof(T) * 8) > BitLen)>::type
     fixTwosComplement(T& value)
     {
         StaticAssert<NumericTraits<T>::IsInteger>::check(); // Not applicable to floating point types
@@ -61,18 +62,18 @@ class UAVCAN_EXPORT ScalarCodec
     }
 
     template <unsigned BitLen, typename T>
-    static typename EnableIf<!static_cast<bool>(NumericTraits<T>::IsSigned) || ((sizeof(T) * 8) == BitLen)>::Type
+    static typename std::enable_if<!static_cast<bool>(NumericTraits<T>::IsSigned) || ((sizeof(T) * 8) == BitLen)>::type
     fixTwosComplement(T&) { }
 
     template <unsigned BitLen, typename T>
-    static typename EnableIf<((sizeof(T) * 8) > BitLen)>::Type
+    static typename std::enable_if<((sizeof(T) * 8) > BitLen)>::type
     clearExtraBits(T& value)
     {
         value &= (T(1) << BitLen) - 1;  // Signedness doesn't matter
     }
 
     template <unsigned BitLen, typename T>
-    static typename EnableIf<((sizeof(T) * 8) == BitLen)>::Type
+    static typename std::enable_if<((sizeof(T) * 8) == BitLen)>::type
     clearExtraBits(T&) { }
 
     template <unsigned BitLen, typename T>

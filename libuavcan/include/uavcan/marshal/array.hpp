@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cmath>
+#include <type_traits>
 #include <uavcan/error.hpp>
 #include <uavcan/util/bitset.hpp>
 #include <uavcan/util/templates.hpp>
@@ -293,7 +294,7 @@ private:
     BufferType data_;
 
     template <typename U>
-    typename EnableIf<sizeof(U(0) >= U())>::Type initialize(int)
+    typename std::enable_if<sizeof(U(0) >= U())>::type initialize(int)
     {
         if (ArrayMode != ArrayModeDynamic)
         {
@@ -761,8 +762,8 @@ public:
      * Members must be comparable via operator ==.
      */
     template <typename R>
-    typename EnableIf<sizeof((reinterpret_cast<const R*>(0))->size()) &&
-                      sizeof((*(reinterpret_cast<const R*>(0)))[0]), bool>::Type
+    typename std::enable_if<sizeof((reinterpret_cast<const R*>(0))->size()) &&
+                            sizeof((*(reinterpret_cast<const R*>(0)))[0]), bool>::type
     operator==(const R& rhs) const
     {
         if (size() != rhs.size())
@@ -787,8 +788,8 @@ public:
      * Any container with size() and [] is acceptable.
      */
     template <typename R>
-    typename EnableIf<sizeof((reinterpret_cast<const R*>(0))->size()) &&
-                      sizeof((*(reinterpret_cast<const R*>(0)))[0]), bool>::Type
+    typename std::enable_if<sizeof((reinterpret_cast<const R*>(0))->size()) &&
+                            sizeof((*(reinterpret_cast<const R*>(0)))[0]), bool>::type
     isClose(const R& rhs) const
     {
         if (size() != rhs.size())
@@ -1003,8 +1004,8 @@ public:
      * Note that matrix packing code uses @ref areClose() for comparison.
      */
     template <typename R>
-    typename EnableIf<sizeof((reinterpret_cast<const R*>(0))->begin()) &&
-                      sizeof((reinterpret_cast<const R*>(0))->size())>::Type
+    typename std::enable_if<sizeof((reinterpret_cast<const R*>(0))->begin()) &&
+                            sizeof((reinterpret_cast<const R*>(0))->size())>::type
     packSquareMatrix(const R& src_row_major)
     {
         if (src_row_major.size() == MaxSize)
@@ -1060,8 +1061,8 @@ public:
      * Please refer to the specification to learn more about matrix packing.
      */
     template <typename R>
-    typename EnableIf<sizeof((reinterpret_cast<const R*>(0))->begin()) &&
-                      sizeof((reinterpret_cast<const R*>(0))->size())>::Type
+    typename std::enable_if<sizeof((reinterpret_cast<const R*>(0))->begin()) &&
+                            sizeof((reinterpret_cast<const R*>(0))->size())>::type
     unpackSquareMatrix(R& dst_row_major) const
     {
         if (dst_row_major.size() == MaxSize)
@@ -1097,7 +1098,7 @@ public:
  */
 template <typename R, typename T, ArrayMode ArrayMode, unsigned MaxSize>
 UAVCAN_EXPORT
-inline typename EnableIf<!IsSameType<R, Array<T, ArrayMode, MaxSize> >::Result, bool>::Type
+inline typename std::enable_if<!IsSameType<R, Array<T, ArrayMode, MaxSize> >::Result, bool>::type
 operator==(const R& rhs, const Array<T, ArrayMode, MaxSize>& lhs)
 {
     return lhs.operator==(rhs);
@@ -1105,7 +1106,7 @@ operator==(const R& rhs, const Array<T, ArrayMode, MaxSize>& lhs)
 
 template <typename R, typename T, ArrayMode ArrayMode, unsigned MaxSize>
 UAVCAN_EXPORT
-inline typename EnableIf<!IsSameType<R, Array<T, ArrayMode, MaxSize> >::Result, bool>::Type
+inline typename std::enable_if<!IsSameType<R, Array<T, ArrayMode, MaxSize> >::Result, bool>::type
 operator!=(const R& rhs, const Array<T, ArrayMode, MaxSize>& lhs)
 {
     return lhs.operator!=(rhs);

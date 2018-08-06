@@ -5,6 +5,7 @@
 #ifndef UAVCAN_MARSHAL_TYPE_UTIL_HPP_INCLUDED
 #define UAVCAN_MARSHAL_TYPE_UTIL_HPP_INCLUDED
 
+#include <type_traits>
 #include <uavcan/build_config.hpp>
 #include <uavcan/util/templates.hpp>
 #include <uavcan/util/comparison.hpp>
@@ -68,7 +69,7 @@ class IsPrimitiveType
     struct No { Yes dummy[8]; };
 
     template <typename U>
-    static typename EnableIf<U::IsPrimitive, Yes>::Type test(int);
+    static typename std::enable_if<U::IsPrimitive, Yes>::type test(int);
 
     template <typename>
     static No test(...);

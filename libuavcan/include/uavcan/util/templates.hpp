@@ -53,18 +53,6 @@ protected:
 };
 
 /**
- * Compile time conditions
- */
-template <bool B, typename T = void>
-struct UAVCAN_EXPORT EnableIf { };
-
-template <typename T>
-struct UAVCAN_EXPORT EnableIf<true, T>
-{
-    typedef T Type;
-};
-
-/**
  * Lightweight type categorization.
  */
 template <typename T, typename R = void>
