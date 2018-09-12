@@ -96,18 +96,43 @@ void TransferBufferManagerEntry::Block::destroy(Block*& obj, IPoolAllocator& all
     }
 }
 
+// precondition is that target_offset < total_offset + Block::Size
 void TransferBufferManagerEntry::Block::read(uint8_t*& outptr, unsigned target_offset,
                                              unsigned& total_offset, unsigned& left_to_read)
 {
     UAVCAN_ASSERT(outptr);
-    for (unsigned i = 0; (i < Block::Size) && (left_to_read > 0); i++, total_offset++)
+    // total offset == offset at the start of this block
+    const unsigned start_of_block = total_offset;
+    const unsigned end_of_block = total_offset + Block::Size;
+
+    unsigned bytes_to_copy = 0;
+
+    // Case 1 -- start of wanted area is in this Block
+    if (target_offset >= start_of_block && target_offset < end_of_block)
     {
-        if (total_offset >= target_offset)
+        const unsigned bytes_available_at_offset = end_of_block - target_offset;
+        bytes_to_copy = bytes_available_at_offset;
+        if (bytes_to_copy > left_to_read)
         {
-            *outptr++ = data[i];
-            left_to_read--;
+            bytes_to_copy = left_to_read;
         }
+        uint8_t *src = data + (target_offset - start_of_block);
+        (void)::memcpy(outptr, src, bytes_to_copy);
     }
+    // Case 2 -- start of wanted area was before this block
+    else
+    {
+        UAVCAN_ASSERT(target_offset < start_of_block);
+        bytes_to_copy = Block::Size;
+        if (bytes_to_copy > left_to_read)
+        {
+            bytes_to_copy = left_to_read;
+        }
+        (void)::memcpy(outptr, data, bytes_to_copy);
+    }
+    outptr += bytes_to_copy;
+    left_to_read -= bytes_to_copy;
+    total_offset += Block::Size;
 }
 
 void TransferBufferManagerEntry::Block::write(const uint8_t*& inptr, unsigned target_offset,
@@ -165,17 +190,40 @@ int TransferBufferManagerEntry::read(unsigned offset, uint8_t* data, unsigned le
     }
     UAVCAN_ASSERT((offset + len) <= max_write_pos_);
 
-    // This shall be optimized.
     unsigned total_offset = 0;
     unsigned left_to_read = len;
     uint8_t* outptr = data;
-    Block* p = blocks_.get();
+    Block* p = nullptr;
+
+    // Check if this data starts in the previously cached block,
+    // if so, use it.
+    if (previous_block_ && offset >= previous_block_start_offset_ && offset < (previous_block_start_offset_ + Block::Size))
+    {
+        total_offset = previous_block_start_offset_;
+        p = previous_block_;
+    }
+    else
+    {
+        p = blocks_.get();
+    }
+
     while (p)
     {
-        p->read(outptr, offset, total_offset, left_to_read);
-        if (left_to_read == 0)
+        if ((total_offset + Block::Size) <= offset)
         {
-            break;
+            // skip block
+            total_offset += Block::Size;
+        }
+        else
+        {
+            p->read(outptr, offset, total_offset, left_to_read);
+            if (left_to_read == 0)
+            {
+                // Cache this block as the previous one
+                previous_block_ = p;
+                previous_block_start_offset_ = total_offset - Block::Size;
+                break;
+            }
         }
         p = p->getNextListNode();
     }

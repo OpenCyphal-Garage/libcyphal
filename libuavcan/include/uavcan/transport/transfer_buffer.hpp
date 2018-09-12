@@ -121,12 +121,16 @@ class UAVCAN_EXPORT TransferBufferManagerEntry : public ITransferBuffer
     uint16_t max_write_pos_;
     const uint16_t max_size_;
     TransferBufferManagerKey key_;
+    mutable Block* previous_block_;
+    mutable unsigned previous_block_start_offset_;
 
 public:
     TransferBufferManagerEntry(IPoolAllocator& allocator, uint16_t max_size) :
         allocator_(allocator),
         max_write_pos_(0),
-        max_size_(max_size)
+        max_size_(max_size),
+        previous_block_(UAVCAN_NULLPTR),
+        previous_block_start_offset_(0)
     {
         StaticAssert<(Block::Size > 8)>::check();
         IsDynamicallyAllocatable<Block>::check();
