@@ -53,6 +53,22 @@ public:
      * @param [in] adjustment Amount of time to add to the clock value.
      */
     virtual void adjustUtc(UtcDuration adjustment) = 0;
+
+    /**
+     * Get a value that should be added to any utc timestamp obtained from the system. This same value 
+     * will be applied internally to values returned from getUtc().
+     *
+     * Note that this value is not necessarily the value set via adjustUtc(UtcDuration) but may be 
+     * related for some implementations. For example, where a system clock implements adjustUtc(UtcDuration)
+     * by adjusting the actual system time this method will always return 0 since time obtained from this 
+     * system no longer needs to be adjusted. The opposite is true where an implementation cannot adjust 
+     * the system time and so must always manually apply this adjustment to any value retrived from
+     * the system.
+     *
+     * @return A duration to adjust (i.e. add-to) any UTC value obtained from the system.
+     *
+     */
+    virtual UtcDuration getAdjustUtc() const = 0;
 };
 
 }
