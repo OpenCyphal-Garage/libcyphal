@@ -75,8 +75,7 @@ std::string TransferBufferManagerKey::toString() const
 /*
  * DynamicTransferBuffer::Block
  */
-TransferBufferManagerEntry::Block*
-TransferBufferManagerEntry::Block::instantiate(IPoolAllocator& allocator)
+TransferBufferManagerEntry::Block* TransferBufferManagerEntry::Block::instantiate(IPoolAllocator& allocator)
 {
     void* const praw = allocator.allocate(sizeof(Block));
     if (praw == UAVCAN_NULLPTR)
@@ -96,22 +95,47 @@ void TransferBufferManagerEntry::Block::destroy(Block*& obj, IPoolAllocator& all
     }
 }
 
-void TransferBufferManagerEntry::Block::read(uint8_t*& outptr, unsigned target_offset,
-                                             unsigned& total_offset, unsigned& left_to_read)
+// precondition is that target_offset < total_offset + Block::Size
+void TransferBufferManagerEntry::Block::read(uint8_t*& outptr, unsigned target_offset, unsigned& total_offset,
+                                             unsigned& left_to_read)
 {
     UAVCAN_ASSERT(outptr);
-    for (unsigned i = 0; (i < Block::Size) && (left_to_read > 0); i++, total_offset++)
+    // total offset == offset at the start of this block
+    const unsigned start_of_block = total_offset;
+    const unsigned end_of_block = total_offset + Block::Size;
+
+    unsigned bytes_to_copy = 0;
+
+    // Case 1 -- start of wanted area is in this Block
+    if (target_offset >= start_of_block && target_offset < end_of_block)
     {
-        if (total_offset >= target_offset)
+        const unsigned bytes_available_at_offset = end_of_block - target_offset;
+        bytes_to_copy = bytes_available_at_offset;
+        if (bytes_to_copy > left_to_read)
         {
-            *outptr++ = data[i];
-            left_to_read--;
+            bytes_to_copy = left_to_read;
         }
+        uint8_t* src = data + (target_offset - start_of_block);
+        (void)::memcpy(outptr, src, bytes_to_copy);
     }
+    // Case 2 -- start of wanted area was before this block
+    else
+    {
+        UAVCAN_ASSERT(target_offset < start_of_block);
+        bytes_to_copy = Block::Size;
+        if (bytes_to_copy > left_to_read)
+        {
+            bytes_to_copy = left_to_read;
+        }
+        (void)::memcpy(outptr, data, bytes_to_copy);
+    }
+    outptr += bytes_to_copy;
+    left_to_read -= bytes_to_copy;
+    total_offset += Block::Size;
 }
 
-void TransferBufferManagerEntry::Block::write(const uint8_t*& inptr, unsigned target_offset,
-                                                     unsigned& total_offset, unsigned& left_to_write)
+void TransferBufferManagerEntry::Block::write(const uint8_t*& inptr, unsigned target_offset, unsigned& total_offset,
+                                              unsigned& left_to_write)
 {
     UAVCAN_ASSERT(inptr);
     for (unsigned i = 0; (i < Block::Size) && (left_to_write > 0); i++, total_offset++)
@@ -127,8 +151,7 @@ void TransferBufferManagerEntry::Block::write(const uint8_t*& inptr, unsigned ta
 /*
  * DynamicTransferBuffer
  */
-TransferBufferManagerEntry* TransferBufferManagerEntry::instantiate(IPoolAllocator& allocator,
-                                                                                  uint16_t max_size)
+TransferBufferManagerEntry* TransferBufferManagerEntry::instantiate(IPoolAllocator& allocator, uint16_t max_size)
 {
     void* const praw = allocator.allocate(sizeof(TransferBufferManagerEntry));
     if (praw == UAVCAN_NULLPTR)
@@ -165,17 +188,41 @@ int TransferBufferManagerEntry::read(unsigned offset, uint8_t* data, unsigned le
     }
     UAVCAN_ASSERT((offset + len) <= max_write_pos_);
 
-    // This shall be optimized.
     unsigned total_offset = 0;
     unsigned left_to_read = len;
     uint8_t* outptr = data;
-    Block* p = blocks_.get();
+    Block* p = nullptr;
+
+    // Check if this data starts in the previously cached block,
+    // if so, use it.
+    if (previous_block_ && offset >= previous_block_start_offset_ &&
+        offset < (previous_block_start_offset_ + Block::Size))
+    {
+        total_offset = previous_block_start_offset_;
+        p = previous_block_;
+    }
+    else
+    {
+        p = blocks_.get();
+    }
+
     while (p)
     {
-        p->read(outptr, offset, total_offset, left_to_read);
-        if (left_to_read == 0)
+        if ((total_offset + Block::Size) <= offset)
         {
-            break;
+            // skip block
+            total_offset += Block::Size;
+        }
+        else
+        {
+            p->read(outptr, offset, total_offset, left_to_read);
+            if (left_to_read == 0)
+            {
+                // Cache this block as the previous one
+                previous_block_ = p;
+                previous_block_start_offset_ = total_offset - Block::Size;
+                break;
+            }
         }
         p = p->getNextListNode();
     }
@@ -230,12 +277,12 @@ int TransferBufferManagerEntry::write(unsigned offset, const uint8_t* data, unsi
         Block* new_block = Block::instantiate(allocator_);
         if (new_block == UAVCAN_NULLPTR)
         {
-            break;                        // We're in deep shit.
+            break; // We're in deep shit.
         }
         // Appending the chain with the new block
         if (last_written_block != UAVCAN_NULLPTR)
         {
-            UAVCAN_ASSERT(last_written_block->getNextListNode() == UAVCAN_NULLPTR);  // Because it is last in the chain
+            UAVCAN_ASSERT(last_written_block->getNextListNode() == UAVCAN_NULLPTR); // Because it is last in the chain
             last_written_block->setNextListNode(new_block);
             new_block->setNextListNode(UAVCAN_NULLPTR);
         }
@@ -321,7 +368,7 @@ ITransferBuffer* TransferBufferManager::create(const TransferBufferManagerKey& k
     TransferBufferManagerEntry* tbme = TransferBufferManagerEntry::instantiate(allocator_, max_buf_size_);
     if (tbme == UAVCAN_NULLPTR)
     {
-        return UAVCAN_NULLPTR;     // Epic fail.
+        return UAVCAN_NULLPTR; // Epic fail.
     }
 
     buffers_.insert(tbme);
@@ -349,14 +396,8 @@ void TransferBufferManager::remove(const TransferBufferManagerKey& key)
     }
 }
 
-bool TransferBufferManager::isEmpty() const
-{
-    return getNumBuffers() == 0;
-}
+bool TransferBufferManager::isEmpty() const { return getNumBuffers() == 0; }
 
-unsigned TransferBufferManager::getNumBuffers() const
-{
-    return buffers_.getLength();
-}
+unsigned TransferBufferManager::getNumBuffers() const { return buffers_.getLength(); }
 
-}
+} // namespace uavcan
