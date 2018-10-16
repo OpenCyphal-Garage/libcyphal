@@ -136,12 +136,39 @@ public:
             }
 
             rv = 0;
-            struct stat sb;
-            if (stat(base_path.c_str(), &sb) != 0 || !S_ISDIR(sb.st_mode))
+
+            /**
+             * Create all leading directories before creating base_path
+             * This makes sure the whole tree is created properly, mimicking the
+             * behavior of the `mkdir -p` command.
+             */
+            PathString subpath;
+            size_t nextComponent = base_path.at(0) == '/';
+            while (nextComponent < base_path.size())
             {
-                // coverity[toctou]
-                rv = mkdir(base_path.c_str(), S_IRWXU | S_IRWXG | S_IRWXO);
+                while (base_path.at(nextComponent) != '/')
+                {
+                    subpath.push_back(base_path.at(nextComponent));
+                    nextComponent++;
+                    if (nextComponent == base_path.size())
+                    {
+                        break;
+                    }
+                }
+
+                struct stat sb;
+                if (stat(subpath.c_str(), &sb) != 0 || !S_ISDIR(sb.st_mode))
+                {
+                    rv = mkdir(subpath.c_str(), S_IRWXU | S_IRWXG | S_IRWXO);
+                    if (rv < 0 && rv != EEXIST) {
+                        break;
+                    }
+                }
+
+                subpath.push_back('/');
+                nextComponent++;
             }
+
             if (rv >= 0)
             {
                 base_path.push_back('/');
