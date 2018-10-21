@@ -17,7 +17,8 @@ Vagrant.configure("2") do |config|
   config.vm.provision "shell" do |s|
     s.inline = <<-SCRIPT
       # Change directory automatically on ssh login
-      echo "cd    /vagrant" >> /home/vagrant/.bashrc
+      echo "cd    /vagrant" >> /home/vagrant/.bash_profile
+      echo "export CXX=\"${CXX}\" CC=\"${CC}\";" >> /home/vagrant/.bash_profile
     SCRIPT
   end
 end
