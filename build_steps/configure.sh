@@ -19,18 +19,6 @@ set -o errexit
 set -o pipefail
 
 # +----------------------------------------------------------+
-
-sudo apt-get update
-sudo apt-get -y install software-properties-common
-sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-sudo add-apt-repository ppa:team-gcc-arm-embedded/ppa -y
-sudo apt-get update
-sudo apt-get -y install cmake
-sudo apt-get -y install python3
-sudo apt-get -y install git
-sudo apt-get -y install g++-5;
-sudo apt-get -y install gcc-arm-embedded
-
-# Export to tell cmake which native compilers to use.
-# TODO: Migrate to GCC 7 or newer
-export CXX="g++-5" CC="gcc-5";
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DCONTINUOUS_INTEGRATION_BUILD=1
