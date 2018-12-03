@@ -1,12 +1,14 @@
 language: cpp
 compiler: gcc
-dist: trusty
+dist: xenial
 sudo: true
 env:
   global:
     # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
     #   via the "travis encrypt" command using the project repo's public key
     - secure: "nCQtEBd5gQ9zirHNQVpzB0Q8aVKmMuTrlHfZCK5ZOpFItD9zP0YwqUTcw6y8T+14CceY6Go/D+fgeMYR3QmYc2CW0vXMwgBYOFQuPYEef7455ZPdt6wdr4lnyP/B+fj4cWZ4WhV+hMigl2Ly4xaFH6msm+PlIHOdjdaXo3ko0LI="
+    # COVERALLS_REPO_TOKEN
+    - secure: "uLplmxXfg00yL+/JzUZpravfs2cM58AJleeYijfzWZRH3xabky/+R7xSNZ4iqPnVYps9hshuJYPDfOsu2AWcltgmpSIh52q9gqq49sdCp0fdeCsGBMHABfQMQN6Qqz8StTZFgaQUOTXnRJ1743giVJIiO1ERBa7csDVNcJRdm3Tg1RoWJS+z9SBCYGjk7n59a1ZvEvu34/11pNLe1cdIVqZjNRZV8UO1Cwm04te+A7HlvoG12Y9tAHGjmMWJROchj7DtcRnafhYFKc2TzyhJ2ZKetqQmIxQ9muqRRENKMFgLlA7/aaVOSzjz54XhWgN+MoP2iBKN+YW79w/LEMYJ6XgdYLJV6ubn60xPmO49L4VVoGkeqVMPBoNddfhcyxCv4LzCTKeH5ULmvRs8csvjhzpAPdC8Bwxlu2rfA9bUJXxIMt8OxXodk/zH+yNRzxUwzHMV8x5u7yZwQWQDy8o9iEfnaL7y26WhVdl1UQfJlrbBcuweKmHE85hvED1UlY6Z90GOI5wCZuXwFTx5p6P89JorTtztyTiAdXIHPs3+QIII8e8RcEn+LLm8HzSzVR1d2R7e98Vge8YHc9rxsjwLoE3Wu69tmquhSnmmYUoM57FdlNBKo6gjtv8QQ0WXuGC/w7AbAkviGonismcbyCOTDhQz4g4PhiHodpiNeT9Sqso="
   matrix:
     - TARGET=native
 addons:
@@ -19,7 +21,11 @@ addons:
     build_command: "make --ignore-errors"
     branch_pattern: coverity_scan
 before_install:
-    - ./bootstrap.sh
-before_script: "mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug -DCONTINUOUS_INTEGRATION_BUILD=1"
+  - "./build_steps/provision.sh"
+before_script:
+  - source "./build_steps/environment.sh"
+  - "./build_steps/configure.sh"
 script:
-    - if [ "${COVERITY_SCAN_BRANCH}" != 1 ] && [ "${TARGET}" == "native" ]; then make -j4 && make ARGS=-VV test; fi
+  - if [ "${COVERITY_SCAN_BRANCH}" != 1 ] && [ "${TARGET}" == "native" ]; then cd build && make -j${LIBUAVCAN_MAKE_JOBS} && make ARGS=-VV test; fi
+after_success:
+  - coveralls -b build --exclude lib --exclude tests --gcov-options '\-lp'

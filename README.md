@@ -122,7 +122,9 @@ vagrant ssh
 mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug -DCONTINUOUS_INTEGRATION_BUILD=1
 ```
 
-> Note that -DCONTINUOUS_INTEGRATION_BUILD=1 is required for this build as the realtime unit tests will not work on a virt.
+Note that you may (probably will) have to increase the virtual memory available to the virtual machine created by Vagrant.
+
+Also note that -DCONTINUOUS_INTEGRATION_BUILD=1 is required for this build as the realtime unit tests will not work on a virt.
 
 You can build using commands like:
 
@@ -135,21 +137,6 @@ or to run a single test:
 ```bash
 vagrant ssh -c "cd /vagrant/build && make libuavcan_test && ./libuavcan/libuavcan_test --gtest_filter=Node.Basic"
 ```
-
-### Developing with Eclipse
-
-An Eclipse project can be generated like that:
-
-```bash
-cmake ../../libuavcan -G"Eclipse CDT4 - Unix Makefiles" \
-                      -DCMAKE_ECLIPSE_VERSION=4.3 \
-                      -DCMAKE_BUILD_TYPE=Debug \
-                      -DCMAKE_CXX_COMPILER_ARG1=-std=c++11
-```
-
-Path `../../libuavcan` in the command above points at the directory where the top-level `CMakeLists.txt` is located;
-you may need to adjust this per your environment.
-Note that the directory where Eclipse project is generated must not be a descendant of the source directory.
 
 ### Submitting a Coverity Scan build
 
