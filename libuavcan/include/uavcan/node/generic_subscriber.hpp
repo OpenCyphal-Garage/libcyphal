@@ -277,7 +277,7 @@ void GenericSubscriber<DataSpec, DataStruct, TransferListenerType>::handleIncomi
     /*
      * Decide if we want to decode and notify the user about the message
      */
-    if (decode_filter_ && !decode_filter_(transfer))
+    if (coerceOrFallback<bool>(decode_filter_, false) && !decode_filter_(transfer))
     {
         transfer.release();
         return;
