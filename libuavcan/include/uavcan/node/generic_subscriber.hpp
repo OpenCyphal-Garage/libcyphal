@@ -16,6 +16,10 @@
 #include <uavcan/marshal/scalar_codec.hpp>
 #include <uavcan/marshal/types.hpp>
 
+#if UAVCAN_CPP_VERSION >= UAVCAN_CPP11
+# include <functional>
+#endif
+
 namespace uavcan
 {
 /**
@@ -129,6 +133,12 @@ class UAVCAN_EXPORT GenericSubscriber : public GenericSubscriberBase
 {
     typedef GenericSubscriber<DataSpec, DataStruct, TransferListenerType> SelfType;
 
+#if UAVCAN_CPP_VERSION >= UAVCAN_CPP11
+    typedef std::function<bool (const IncomingTransfer&)> DecodeFilter;
+#else
+    typedef bool (*)(const IncomingTransfer&) DecodeFilter;
+#endif
+
     // We need to break the inheritance chain here to implement lazy initialization
     class TransferForwarder : public TransferListenerType
     {
@@ -153,6 +163,8 @@ class UAVCAN_EXPORT GenericSubscriber : public GenericSubscriberBase
     };
 
     LazyConstructor<TransferForwarder> forwarder_;
+
+    DecodeFilter decode_filter_ {};
 
     int checkInit();
 
@@ -217,6 +229,16 @@ protected:
     }
 
     TransferListenerType* getTransferListener() { return forwarder_; }
+
+ public:
+    /**
+     * Set filter function determining if a given transfer will be decoded.
+     * By default, or if \p filter is nullptr, all messages will be decoded.
+     */
+    void setDecodeFilter(DecodeFilter filter)
+    {
+      decode_filter_ = filter;
+    }
 };
 
 // ----------------------------------------------------------------------------
@@ -252,14 +274,21 @@ int GenericSubscriber<DataSpec, DataStruct, TransferListenerType>::checkInit()
 template <typename DataSpec, typename DataStruct, typename TransferListenerType>
 void GenericSubscriber<DataSpec, DataStruct, TransferListenerType>::handleIncomingTransfer(IncomingTransfer& transfer)
 {
-    ReceivedDataStructureSpec rx_struct(&transfer);
+    /*
+     * Decide if we want to decode and notify the user about the message
+     */
+    if (decode_filter_ && !decode_filter_(transfer))
+    {
+        transfer.release();
+        return;
+    }
 
     /*
      * Decoding into the temporary storage
      */
+    ReceivedDataStructureSpec rx_struct(&transfer);
     BitStream bitstream(transfer);
     ScalarCodec codec(bitstream);
-
     const int decode_res = DataStruct::decode(rx_struct, codec);
 
     // We don't need the data anymore, the memory can be reused from the callback:
