@@ -79,3 +79,25 @@ vagrant ssh -c "cd /vagrant/build && make libuavcan_test && ./libuavcan/libuavca
 ### Submitting a Coverity Scan build
 
 We'll update this section when we enable Coverity builds for the blue-sky implementation.
+
+### Folder Structure
+
+**/libuavcan/include** - Contains the entire header-only libuavcan library.
+
+**/test/native** - Unit-tests that validate the libuavcan library. These tests compile and execute using the build host's native environment. They also do not require any communication interfaces, virtual or otherwise, from the operating system and have no timing constraints.
+
+**/test/ontarget** - Tests cross-compiled for specific hardware* and run on a set of dedicated test devices. These tests may have strict timing constraints and may require specific physical or virtual busses and other test apparatuses be present. Each on-target test will fully document its requirements to enable anyone with access to the appropriate hardware to reproduce the tests. Furthermore, these tests must be inherently automateable having clear pass/fail criteria reducible to a boolean condition.
+
+**/example** - Contains a set of example applications providing real, practical, and tested uses of libuavcan.
+
+#### Test Environments
+
+The following list of standardized* test environments will be used to validate the libuavcan implementation**:
+
+1. **Posix** - We will produce examples that can run on top of SocketCAN on Ubuntu 18 or newer. While expect that these examples will be generally compatible with other common linux distros or posix compliant operating systems (that also support SocketCAN) we will compile and test the examples using Ubuntu 18 as part of our CI build.
+1. **Bare-metal on NXP s32K146 devkit** - We expect to produce examples and tests that run on the s32K146 MCU populated on the standard s32146 evaluation board available from NXP. This is the primary test fixture for the project and will be used as the basis for specifying on-target test rigs.
+1. **Nuttx on Pixhawk4** - We expect to produce examples and possibly tests that can run on top of the latest pixhawk hardware and version of Nuttx used by the px4 software stack. This is a lower-priority for the initial development for v1 but will become a focus once we have a fully functional stack.
+
+\* Note that libuavcan is a header only library suitable for a wide range of processors and operating systems. The targets and test environments mentioned here are chosen only as standardized test fixtures and are not considered more "supported" or "optimal" than any other platform.
+
+\*\* Libuavcan development should be test-driven. Write the tests first (well, first write the specification, then the APIs, then the tests).
