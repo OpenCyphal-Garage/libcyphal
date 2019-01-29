@@ -72,7 +72,7 @@ struct CanTxQueueEntry  // Not required to be packed - fits the block in any cas
         return this->frame.priorityHigherThan(other.frame);
     }
 
-    bool operator=(const CanTxQueueEntry & other) const
+    bool operator==(const CanTxQueueEntry & other) const
     {
         return this->frame == other.frame;
     }
@@ -88,8 +88,8 @@ protected:
     ISystemClock& sysclock_;
     uint32_t rejected_frames_cnt_;
 
+    bool linkedListContains(Node *head, const CanFrame &frame) const;
     void safeIncrementRejectedFrames();
-
     AvlTree::Node *searchForNonExpiredMax(Node *n);
 
 public:

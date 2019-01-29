@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 #include <uavcan/util/avl_tree.hpp>
+#include <uavcan/dynamic_memory.hpp>
+#include <uavcan/driver/system_clock.hpp>
 
 using uavcan::AvlTree;
 
@@ -21,15 +23,15 @@ struct Entry{
         return this->key > other.key;
     }
 
-    bool operator=(const Entry & other) const
+    bool operator==(const Entry & other) const
     {
         return this->key == other.key;
     }
 };
 
 /* OOM-Unsafe */
-Entry *makeEntry(PoolAllocator allocator, int key, int payload){
-    void *praw = allocator.allocate(sizeof(Entry));
+inline Entry *makeEntry(uavcan::PoolAllocator<64 * 8, 64> *allocator, int key, int payload){
+    void *praw = allocator->allocate(sizeof(Entry));
 
     Entry *e = new (praw) Entry();
     UAVCAN_ASSERT(e);
@@ -41,16 +43,16 @@ Entry *makeEntry(PoolAllocator allocator, int key, int payload){
 
 /* Basic sanity checks */
 TEST(AvlTree, Sanity){
-    uavcan::PoolAllocator<64 * 4, 64> pool; // 4 (x2) entries capacity
+    uavcan::PoolAllocator<64 * 8, 64> pool; // 4 (x2) entries capacity
 
-    AvlTree<Entry> tree(pool, 4);
+    AvlTree<Entry> tree(pool, 99999);
     EXPECT_TRUE(tree.isEmpty());
     EXPECT_EQ(0, pool.getNumUsedBlocks());
 
-    auto e1 = makeEntry(1, 1);
-    auto e2 = makeEntry(2, 2);
-    auto e3 = makeEntry(3, 3);
-    auto e4 = makeEntry(4, 4);
+    auto e1 = makeEntry(&pool, 1, 1);
+    auto e2 = makeEntry(&pool, 2, 2);
+    auto e3 = makeEntry(&pool, 3, 3);
+    auto e4 = makeEntry(&pool, 4, 4);
 
     EXPECT_EQ(4, pool.getNumUsedBlocks());
 
@@ -121,6 +123,11 @@ TEST(AvlTree, Sanity){
     EXPECT_EQ(e3, tree.max());
     EXPECT_EQ(2, tree.getSize());
     EXPECT_EQ(6, pool.getNumUsedBlocks());
+}
+
+/* Test multiple entries with same 'key' */
+TEST(AvlTree, MultiplePerKey){
+
 }
 
 /* Check all possible rotation / balancing cases */

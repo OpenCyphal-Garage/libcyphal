@@ -9,10 +9,10 @@
 #include <cstdlib>
 #include <cassert>
 #include <cmath>
-#include <uavcan/build_config.hpp>
-#include <uavcan/util/templates.hpp>
 #include <algorithm>
 #include <functional>
+#include <uavcan/build_config.hpp>
+#include <uavcan/util/templates.hpp>
 #include <uavcan/dynamic_memory.hpp>
 #include <uavcan/debug.hpp>
 
@@ -20,8 +20,19 @@ namespace uavcan {
 
 template<typename T>
 class UAVCAN_EXPORT AvlTree : Noncopyable {
+protected:
+    struct Node {
+        T *data;
+        int h = 1; // initially added as leaf
+        Node *left = UAVCAN_NULLPTR;
+        Node *right = UAVCAN_NULLPTR;
+        Node *equalKeys = UAVCAN_NULLPTR;
+    };
+
+    Node *root_;
+
 private:
-    size_t len_;
+    size_t len_ ;
 
     int heightOf(const Node *n) const{
         if(n == UAVCAN_NULLPTR){
@@ -109,9 +120,10 @@ private:
             node->left = insert_helper(node->left, newNode);
         } else if (*newNode->data > *node->data) {
             node->right = insert_helper(node->right, newNode);
-        } else { /* Equal keys are not allowed -- change this? */
-            deleteNode(newNode);
-            return UAVCAN_NULLPTR;
+        } else {
+            len_++;
+            appendToEndOf(node, newNode);
+            return node;
         }
 
         node->h = std::max(heightOf(node->left), heightOf(node->right)) + 1;
@@ -138,16 +150,16 @@ private:
 
         return node;
     }
+
+    void appendToEndOf(Node *head, Node *newNode){
+        Node *target = head;
+        while(target->equalKeys != UAVCAN_NULLPTR){
+            target = head->equalKeys;
+        }
+
+        target->equalKeys = newNode;
+    }
 protected:
-    struct Node {
-        T *data;
-        int h = 1; // initially added as leaf
-        Node *left = UAVCAN_NULLPTR;
-        Node *right = UAVCAN_NULLPTR;
-    };
-
-    Node *root_;
-
     /*
      * Use this only to allocate the Node struct.
      * `T data` should be already allocated and
@@ -172,29 +184,36 @@ protected:
         }
 
         // Stripped out the equality checks
-        if (node->left == UAVCAN_NULLPTR || node->right == UAVCAN_NULLPTR) {
-            Node *temp = node->left ? node->left : node->right;
+        if(node->equalKeys == UAVCAN_NULLPTR){
+            if (node->left == UAVCAN_NULLPTR || node->right == UAVCAN_NULLPTR) {
+                Node *temp = node->left ? node->left : node->right;
 
-            if (temp == UAVCAN_NULLPTR) {
-                temp = node;
-                node = UAVCAN_NULLPTR;
+                if (temp == UAVCAN_NULLPTR) {
+                    temp = node;
+                    node = UAVCAN_NULLPTR;
+                } else {
+                    *node = *temp;
+                }
+
+                len_--;
+                deleteNode(temp);
             } else {
-                *node = *temp;
-            }
+                Node *minOfRight = node->right;
+                Node *next = minOfRight->left;
 
+                while (next != UAVCAN_NULLPTR){
+                    minOfRight = next->left;
+                    next = minOfRight->left;
+                }
+
+                node->data = minOfRight->data;
+                node->right = remove_helper(node->right, minOfRight->data);
+            }
+        }else{
+            auto newHead = node->equalKeys;
             len_--;
-            deleteNode(temp);
-        } else {
-            Node *temp = node->right;
-            Node *next = node->left;
-
-            while (next != UAVCAN_NULLPTR){
-                temp = next;
-                next = node->left;
-            }
-
-            node->data = temp->data;
-            node->right = remove_helper(node->right, temp->data);
+            deleteNode(node);
+            return newHead;
         }
 
         if (node == UAVCAN_NULLPTR) {
@@ -237,29 +256,36 @@ protected:
         } else if (*data > *node->data) {
             node->right = remove_helper(node->right, data);
         } else {
-            if (node->left == UAVCAN_NULLPTR || node->right == UAVCAN_NULLPTR) {
-                Node *temp = node->left ? node->left : node->right;
+            if(node->equalKeys == UAVCAN_NULLPTR){
+                if (node->left == UAVCAN_NULLPTR || node->right == UAVCAN_NULLPTR) {
+                    Node *temp = node->left ? node->left : node->right;
 
-                if (temp == UAVCAN_NULLPTR) {
-                    temp = node;
-                    node = UAVCAN_NULLPTR;
+                    if (temp == UAVCAN_NULLPTR) {
+                        temp = node;
+                        node = UAVCAN_NULLPTR;
+                    } else {
+                        *node = *temp;
+                    }
+
+                    len_--;
+                    deleteNode(temp);
                 } else {
-                    *node = *temp;
-                }
+                    Node *minOfRight = node->right;
+                    Node *next = minOfRight->left;
 
+                    while (next != UAVCAN_NULLPTR){
+                        minOfRight = next->left;
+                        next = minOfRight->left;
+                    }
+
+                    node->data = minOfRight->data;
+                    node->right = remove_helper(node->right, minOfRight->data);
+                }
+            }else{
+                auto newHead = node->equalKeys;
                 len_--;
-                deleteNode(temp);
-            } else {
-                Node *temp = node->right;
-                Node *next = node->left;
-
-                while (next != UAVCAN_NULLPTR){
-                    temp = next;
-                    next = node->left;
-                }
-
-                node->data = temp->data;
-                node->right = remove_helper(node->right, temp->data);
+                deleteNode(node);
+                return newHead;
             }
         }
 
@@ -293,9 +319,23 @@ protected:
         return node;
     }
 
+    bool linkedListContains(Node *head, const T *data) const{
+        Node *next = head;
+        while(next != UAVCAN_NULLPTR){
+            if(*next->data == *data){
+                return true;
+            }
+
+            next = head->equalKeys;
+        }
+        return false;
+    }
+
 public:
-    AvlTree(IPoolAllocator &allocator, std::size_t allocator_quota)
-    : len_(0), root_(UAVCAN_NULLPTR), allocator_(allocator, allocator_quota){}
+    AvlTree(IPoolAllocator &allocator, std::size_t allocator_quota):
+    root_(UAVCAN_NULLPTR),
+    len_(0),
+    allocator_(allocator, allocator_quota){}
 
     virtual ~AvlTree() {
         // delete leafs first
@@ -348,20 +388,20 @@ public:
         }
     }
 
-    bool contains(const T &data) const{
+    bool contains(const T *data) const{
         Node *n = root_;
         while (n != UAVCAN_NULLPTR) {
-            if(*n->data > *data){
-                n = n->right;
-                continue;
-            }
-
             if(*n->data < *data){
                 n = n->right;
                 continue;
             }
 
-            return *n->data == *data;
+            if(*n->data > *data){
+                n = n->left;
+                continue;
+            }
+
+            return linkedListContains(n, data);
         }
         return false;
     }

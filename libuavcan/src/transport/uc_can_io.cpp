@@ -4,10 +4,10 @@
 * Copyright (C) 2019 Theodoros Ntakouris <zarkopafilis@gmail.com>
 */
 
+#include <cassert>
+#include <functional>
 #include <uavcan/transport/can_io.hpp>
 #include <uavcan/debug.hpp>
-#include <functional>
-#include <cassert>
 
 namespace uavcan {
 /*
@@ -87,7 +87,19 @@ bool CanTxQueue::contains(const CanFrame &frame) const{
             continue;
         }
 
-        return frame == n->data->frame;
+        return linkedListContains(n, frame);
+    }
+    return false;
+}
+
+bool CanTxQueue::linkedListContains(Node *head, const CanFrame &frame) const{
+    auto *next = head;
+    while(next != UAVCAN_NULLPTR){
+        if(next->data->frame == frame){
+            return true;
+        }
+
+        next = head->equalKeys;
     }
     return false;
 }
@@ -162,7 +174,7 @@ uavcan::AvlTree<uavcan::CanTxQueueEntry>::Node *CanTxQueue::searchForNonExpiredM
 
     auto timestamp = sysclock_.getMonotonic();
 
-    if(n->data->isExpired(timestamp)){
+    while(n->data->isExpired(timestamp)){
         auto expiredEntry = n->data;
         this->root_ = remove_always(n);
         CanTxQueueEntry::destroy(expiredEntry, this->allocator_);
