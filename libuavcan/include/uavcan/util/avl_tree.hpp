@@ -20,7 +20,16 @@ namespace uavcan {
 
 template<typename T>
 class UAVCAN_EXPORT AvlTree : Noncopyable {
-private:
+protected:
+    struct Node {
+        T *data;
+        int h = 1; // initially added as leaf
+        Node *left = UAVCAN_NULLPTR;
+        Node *right = UAVCAN_NULLPTR;
+    };
+
+    Node *root_;
+
     /*
      * Use this only to allocate the Node struct.
      * `T data` should be already allocated and
@@ -28,6 +37,7 @@ private:
      * */
     LimitedPoolAllocator allocator_;
 
+private:
     size_t len_;
 
     int heightOf(const Node *n) const{
@@ -46,16 +56,6 @@ private:
         inOrderTraverseRecursively(n->left, forEach);
         forEach(n->data);
         inOrderTraverseRecursively(n->right, forEach);
-    }
-
-    void postOrderNodeTraverseRecursively(Node *n, std::function<void(Node *&)> forEach) {
-        if (n == UAVCAN_NULLPTR) {
-            return;
-        }
-
-        postOrderNodeTraverseRecursively(n->left, forEach);
-        postOrderNodeTraverseRecursively(n->right, forEach);
-        forEach(n);
     }
 
     Node *makeNode(T *payload) {
@@ -156,23 +156,24 @@ private:
         return node;
     }
 protected:
-    struct Node {
-        T *data;
-        int h = 1; // initially added as leaf
-        Node *left = UAVCAN_NULLPTR;
-        Node *right = UAVCAN_NULLPTR;
-    };
-
-    Node *root_;
-
     AvlTree(IPoolAllocator &allocator, std::size_t allocator_quota)
-            : allocator_(allocator, allocator_quota), root_(UAVCAN_NULLPTR), len_(0){}
+            : root_(UAVCAN_NULLPTR), allocator_(allocator, allocator_quota){}
 
     virtual ~AvlTree() {
         // delete leafs first
         postOrderNodeTraverseRecursively(root_, [this](Node*& n){
             this->deleteNode(n);
         });
+    }
+
+    void postOrderNodeTraverseRecursively(Node *n, std::function<void(Node *&)> forEach) {
+        if (n == UAVCAN_NULLPTR) {
+            return;
+        }
+
+        postOrderNodeTraverseRecursively(n->left, forEach);
+        postOrderNodeTraverseRecursively(n->right, forEach);
+        forEach(n);
     }
 
     /* If we've got a Node*, avoid the dereference data equality checks and proceed to the dealloc logic */
@@ -304,6 +305,10 @@ protected:
     }
 
 public:
+    void remove_entry(T *data){
+        root_ = remove_helper(root_, data);
+    }
+
     bool insert(T *data) {
         Node *newNode = makeNode(data);
         if(newNode == UAVCAN_NULLPTR){

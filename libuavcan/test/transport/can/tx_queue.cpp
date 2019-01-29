@@ -5,7 +5,6 @@
 
 #include <gtest/gtest.h>
 #include <uavcan/transport/can_io.hpp>
-#include <uavcan/util/avl_tree.hpp>
 #include "can.hpp"
 
 TEST(CanTxQueue, TxQueue)

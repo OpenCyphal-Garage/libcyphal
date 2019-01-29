@@ -62,17 +62,17 @@ struct CanTxQueueEntry  // Not required to be packed - fits the block in any cas
 
     bool isExpired(const MonotonicTime timestamp) const { return timestamp > deadline; }
 
-    bool operator <(const CanTxQueueEntry & other) const
+    bool operator<(const CanTxQueueEntry & other) const
     {
         return this->frame.priorityLowerThan(other.frame);
     }
 
-    bool operator >(const CanTxQueueEntry & other) const
+    bool operator>(const CanTxQueueEntry & other) const
     {
         return this->frame.priorityHigherThan(other.frame);
     }
 
-    bool operator =(const CanTxQueueEntry & other) const
+    bool operator=(const CanTxQueueEntry & other) const
     {
         return this->frame == other.frame;
     }
@@ -104,7 +104,7 @@ public:
     /* Avl Tree allocates the AvlTree::Node, while this(CanTxQueue) allocates the CanTxQueueEntry
      * Same logic for removal. */
     void push(const CanFrame &frame, MonotonicTime tx_deadline, Qos qos, CanIOFlags flags);
-    void remove(CanTxQueueEntry *entry) override;
+    void remove(CanTxQueueEntry *entry);
 
     uint32_t getRejectedFrameCount() const { return rejected_frames_cnt_; }
 

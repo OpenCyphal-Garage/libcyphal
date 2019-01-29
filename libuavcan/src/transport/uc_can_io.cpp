@@ -67,14 +67,14 @@ std::string CanTxQueueEntry::toString() const {
 */
 CanTxQueue::~CanTxQueue() {
     // Remove all nodes & node contents of the tree without performing re-balancing steps
-    postOrderNodeTraverseRecursively(root, [this](Node*& n){
+    postOrderNodeTraverseRecursively(this->root_, [this](Node*& n){
         CanTxQueueEntry::destroy(n->data, this->allocator_);
     });
     // Step 2: AvlTree destructor is called to remove all the Node* (automatically after)
 }
 
 bool CanTxQueue::contains(const CanFrame &frame) const{
-    Node *n = root;
+    Node *n = this->root_;
 
     while (n != UAVCAN_NULLPTR) {
         if(frame.priorityHigherThan(n->data->frame)){
@@ -132,13 +132,13 @@ void CanTxQueue::remove(CanTxQueueEntry *entry){
     }
 
     // Make the AvlTree remove the specific entry deleting it's Node *
-    root_ = this->AvlTree::remove_helper(root_, entry);
+    this->root_ = this->AvlTree::remove_helper(this->root_, entry);
     // Then let the entry destroy it's own contents
     CanTxQueueEntry::destroy(entry, this->allocator_);
 }
 
 CanTxQueueEntry *CanTxQueue::peek(){
-    auto maxNode = searchForNonExpiredMax(root);
+    auto maxNode = searchForNonExpiredMax(this->root_);
 
     if(maxNode == UAVCAN_NULLPTR){
         return UAVCAN_NULLPTR;
@@ -164,10 +164,10 @@ uavcan::AvlTree<uavcan::CanTxQueueEntry>::Node *CanTxQueue::searchForNonExpiredM
 
     if(n->data->isExpired(timestamp)){
         auto expiredEntry = n->data;
-        root = remove_always(n);
+        this->root_ = remove_always(n);
         CanTxQueueEntry::destroy(expiredEntry, this->allocator_);
 
-        return searchForNonExpiredMax(root);
+        return searchForNonExpiredMax(this->root_);
     }
 
     while(n->right != UAVCAN_NULLPTR && n->right->data->isExpired(timestamp)){
@@ -215,7 +215,7 @@ int CanIOManager::sendFromTxQueue(uint8_t iface_index) {
     }
     const int res = sendToIface(iface_index, entry->frame, entry->deadline, entry->flags);
     if (res > 0) {
-        root_ = tx_queues_[iface_index]->remove_helper(root_, entry);
+        this->root_ = tx_queues_[iface_index]->remove_helper(this->root_, entry);
     }
     return res;
 }
