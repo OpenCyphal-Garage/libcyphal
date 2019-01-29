@@ -207,7 +207,7 @@ TEST(CanIOManager, Transmission)
     EXPECT_TRUE(driver.ifaces.at(1).matchAndPopTx(frames[0], 999));   // In different order due to prioritization
     EXPECT_TRUE(driver.ifaces.at(0).tx.empty());
     EXPECT_TRUE(driver.ifaces.at(1).tx.empty());
-    EXPECT_TRUE(driver.ifaces.at(0).matchPendingTx(frames[0]));       // Expired but still will be reported
+    EXPECT_TRUE(driver.ifaces.at(0).matchPendingTx(frames[1]));       // Overriden when pushed frames[1] (implicit peek under the hood)
     EXPECT_TRUE(driver.ifaces.at(1).matchPendingTx(frames[0]));
 
     // Calling receive() to flush the rest two frames
@@ -223,7 +223,7 @@ TEST(CanIOManager, Transmission)
     EXPECT_TRUE(driver.ifaces.at(0).tx.empty());
     EXPECT_TRUE(driver.ifaces.at(1).tx.empty());
     EXPECT_EQ(0, pool.getNumUsedBlocks());              // Make sure the memory was properly released
-    EXPECT_EQ(1, iomgr.getIfacePerfCounters(0).errors); // This is because of expired frame[0]
+    EXPECT_EQ(0, iomgr.getIfacePerfCounters(0).errors); // Expired frame[0] removed automagically on peek
     EXPECT_EQ(0, iomgr.getIfacePerfCounters(1).errors);
 
     /*
@@ -242,7 +242,7 @@ TEST(CanIOManager, Transmission)
     EXPECT_TRUE(driver.ifaces.at(1).matchPendingTx(frames[0]));
 
     // State checks
-    EXPECT_EQ(8, pool.getNumUsedBlocks());          // TX queue is full
+    EXPECT_EQ(10, pool.getNumUsedBlocks());          // TX queue is full
     EXPECT_EQ(1200, clockmock.monotonic);
     EXPECT_EQ(1200, clockmock.utc);
     EXPECT_TRUE(driver.ifaces.at(0).tx.empty());
@@ -268,19 +268,19 @@ TEST(CanIOManager, Transmission)
     EXPECT_EQ(1, iomgr.receive(rx_frame, tsMono(0), flags));
     EXPECT_TRUE(rxFrameEquals(rx_frame, rx_frames[1], 1200, 1));
     EXPECT_TRUE(driver.ifaces.at(0).matchAndPopTx(frames[2], 2222));
-    EXPECT_TRUE(driver.ifaces.at(1).matchAndPopTx(frames[2], 2222));  // Iface #1, frame[1] was rejected (VOLATILE)
+    EXPECT_TRUE(driver.ifaces.at(1).matchAndPopTx(frames[1], 2222));  // Volatility on QoS no longer affects priority
     ASSERT_EQ(0, flags);
     EXPECT_TRUE(driver.ifaces.at(0).matchPendingTx(frames[2]));
-    EXPECT_TRUE(driver.ifaces.at(1).matchPendingTx(frames[2]));
+    EXPECT_TRUE(driver.ifaces.at(1).matchPendingTx(frames[1]));
 
     // State checks
-    EXPECT_EQ(0, pool.getNumUsedBlocks());          // TX queue is empty
+    EXPECT_EQ(2, pool.getNumUsedBlocks());          // TX queue is not empty now, contains the pending frames[2] because of QoS changes stated aboce
     EXPECT_EQ(1200, clockmock.monotonic);
     EXPECT_EQ(1200, clockmock.utc);
     EXPECT_TRUE(driver.ifaces.at(0).tx.empty());
     EXPECT_TRUE(driver.ifaces.at(1).tx.empty());
-    EXPECT_EQ(1, iomgr.getIfacePerfCounters(0).errors);
-    EXPECT_EQ(1, iomgr.getIfacePerfCounters(1).errors); // This is because of rejected frame[1]
+    EXPECT_EQ(0, iomgr.getIfacePerfCounters(0).errors);
+    EXPECT_EQ(0, iomgr.getIfacePerfCounters(1).errors);
 
     /*
      * Error handling
