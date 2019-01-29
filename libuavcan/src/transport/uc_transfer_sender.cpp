@@ -15,7 +15,7 @@ void TransferSender::registerError() const
     dispatcher_.getTransferPerfCounter().addError();
 }
 
-void TransferSender::init(const DataTypeDescriptor& dtid, CanTxQueue::Qos qos)
+void TransferSender::init(const DataTypeDescriptor& dtid, Qos qos)
 {
     UAVCAN_ASSERT(!isInitialized());
 

@@ -281,7 +281,7 @@ TEST(Dispatcher, Transmission)
     ASSERT_TRUE(dispatcher.hasPublisher(123));
     ASSERT_FALSE(dispatcher.hasPublisher(456));
 
-    ASSERT_EQ(2, dispatcher.send(frame, TX_DEADLINE, tsMono(0), uavcan::CanTxQueue::Volatile, 0, 0xFF));
+    ASSERT_EQ(2, dispatcher.send(frame, TX_DEADLINE, tsMono(0), uavcan::Qos::Volatile, 0, 0xFF));
 
     /*
      * Validation
@@ -376,7 +376,7 @@ TEST(Dispatcher, Loopback)
 
         ASSERT_TRUE(listener.last_frame == uavcan::RxFrame());
 
-        ASSERT_LE(0, dispatcher.send(frame, tsMono(1000), tsMono(0), uavcan::CanTxQueue::Persistent,
+        ASSERT_LE(0, dispatcher.send(frame, tsMono(1000), tsMono(0), uavcan::Qos::Persistent,
                                      uavcan::CanIOFlagLoopback, 0xFF));
 
         ASSERT_EQ(0, dispatcher.spin(tsMono(1000)));

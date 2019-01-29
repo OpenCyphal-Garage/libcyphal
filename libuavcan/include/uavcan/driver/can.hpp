@@ -57,6 +57,16 @@ struct UAVCAN_EXPORT CanFrame
         return (id == rhs.id) && (dlc == rhs.dlc) && equal(data, data + dlc, rhs.data);
     }
 
+    bool operator <(const CanFrame & other) const
+    {
+        return this->priorityLowerThan(other);
+    }
+
+    bool operator >(const CanFrame & other) const
+    {
+        return this->priorityHigherThan(other);
+    }
+
     bool isExtended()                  const { return id & FlagEFF; }
     bool isRemoteTransmissionRequest() const { return id & FlagRTR; }
     bool isErrorFrame()                const { return id & FlagERR; }

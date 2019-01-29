@@ -109,7 +109,7 @@ public:
      * @param flags             CAN IO flags. Please refer to the CAN driver API for details.
      */
     int injectTxFrame(const CanFrame& frame, MonotonicTime tx_deadline, uint8_t iface_mask,
-                      CanTxQueue::Qos qos = CanTxQueue::Volatile,
+                      Qos qos = Qos::Volatile,
                       CanIOFlags flags = 0)
     {
         return getDispatcher().getCanIOManager().send(frame, tx_deadline, MonotonicTime(), iface_mask, qos, flags);
