@@ -20,23 +20,6 @@ namespace uavcan {
 
 template<typename T>
 class UAVCAN_EXPORT AvlTree : Noncopyable {
-protected:
-    struct Node {
-        T *data;
-        int h = 1; // initially added as leaf
-        Node *left = UAVCAN_NULLPTR;
-        Node *right = UAVCAN_NULLPTR;
-    };
-
-    Node *root_;
-
-    /*
-     * Use this only to allocate the Node struct.
-     * `T data` should be already allocated and
-     * provided ready for usage from the outside world
-     * */
-    LimitedPoolAllocator allocator_;
-
 private:
     size_t len_;
 
@@ -156,15 +139,21 @@ private:
         return node;
     }
 protected:
-    AvlTree(IPoolAllocator &allocator, std::size_t allocator_quota)
-            : root_(UAVCAN_NULLPTR), allocator_(allocator, allocator_quota){}
+    struct Node {
+        T *data;
+        int h = 1; // initially added as leaf
+        Node *left = UAVCAN_NULLPTR;
+        Node *right = UAVCAN_NULLPTR;
+    };
 
-    virtual ~AvlTree() {
-        // delete leafs first
-        postOrderNodeTraverseRecursively(root_, [this](Node*& n){
-            this->deleteNode(n);
-        });
-    }
+    Node *root_;
+
+    /*
+     * Use this only to allocate the Node struct.
+     * `T data` should be already allocated and
+     * provided ready for usage from the outside world
+     * */
+    LimitedPoolAllocator allocator_;
 
     void postOrderNodeTraverseRecursively(Node *n, std::function<void(Node *&)> forEach) {
         if (n == UAVCAN_NULLPTR) {
@@ -305,6 +294,16 @@ protected:
     }
 
 public:
+    AvlTree(IPoolAllocator &allocator, std::size_t allocator_quota)
+    : len_(0), root_(UAVCAN_NULLPTR), allocator_(allocator, allocator_quota){}
+
+    virtual ~AvlTree() {
+        // delete leafs first
+        postOrderNodeTraverseRecursively(root_, [this](Node*& n){
+            this->deleteNode(n);
+        });
+    }
+
     void remove_entry(T *data){
         root_ = remove_helper(root_, data);
     }
