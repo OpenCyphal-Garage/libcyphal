@@ -81,7 +81,7 @@ TEST(CanTxQueue, TxQueue)
      * Removing
      */
 
-    CanTxQueueEntry* entry = queue.peek();
+    CanTxQueueEntry *entry = queue.peek();
     EXPECT_TRUE(entry);
 
     queue.remove(entry);

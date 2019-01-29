@@ -1,5 +1,3 @@
-#include <utility>
-
 /*
  * CAN bus IO logic.
  * Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
@@ -10,6 +8,7 @@
 #define UAVCAN_TRANSPORT_CAN_IO_HPP_INCLUDED
 
 #include <cassert>
+#include <utility>
 #include <uavcan/error.hpp>
 #include <uavcan/std.hpp>
 #include <uavcan/util/linked_list.hpp>
@@ -36,7 +35,7 @@ struct UAVCAN_EXPORT CanRxFrame : public CanFrame
     { }
 
 #if UAVCAN_TOSTRING
-     std::string toString(StringRepresentation mode = StrTight) const;
+    std::string toString(StringRepresentation mode = StrTight) const;
 #endif
 };
 
@@ -91,7 +90,7 @@ protected:
 
     void safeIncrementRejectedFrames();
 
-    AvlTree::Node* searchForNonExpiredMax(Node* n);
+    AvlTree::Node *searchForNonExpiredMax(Node *n);
 
 public:
     CanTxQueue(IPoolAllocator& allocator, ISystemClock& sysclock, std::size_t allocator_quota)
@@ -105,16 +104,16 @@ public:
     /* Avl Tree allocates the AvlTree::Node, while this(CanTxQueue) allocates the CanTxQueueEntry
      * Same logic for removal. */
     void push(const CanFrame &frame, MonotonicTime tx_deadline, Qos qos, CanIOFlags flags);
-    void remove(CanTxQueueEntry* entry) override;
+    void remove(CanTxQueueEntry *entry) override;
 
     uint32_t getRejectedFrameCount() const { return rejected_frames_cnt_; }
 
     bool contains(const CanFrame &frame) const;
 
     /* Tries to look up rightmost Node. If the frame is expired, removes it and continues traversing */
-    CanTxQueueEntry* peek();
+    CanTxQueueEntry *peek();
 
-    bool topPriorityHigherOrEqual(const CanFrame &rhs_frame);
+    bool topPriorityHigherOrEqual(const CanFrame &rhs_frame) const;
 };
 
 struct UAVCAN_EXPORT CanIfacePerfCounters

@@ -126,13 +126,13 @@ void CanTxQueue::push(const CanFrame &frame, MonotonicTime tx_deadline, Qos qos,
     }
 }
 
-void CanTxQueue::remove(CanTxQueueEntry* entry){
+void CanTxQueue::remove(CanTxQueueEntry *entry){
     if (entry == UAVCAN_NULLPTR) {
         return;
     }
 
     // Make the AvlTree remove the specific entry deleting it's Node *
-    this->AvlTree::remove(entry);
+    root_ = this->AvlTree::remove_helper(root_, entry);
     // Then let the entry destroy it's own contents
     CanTxQueueEntry::destroy(entry, this->allocator_);
 }
@@ -147,8 +147,7 @@ CanTxQueueEntry *CanTxQueue::peek(){
     return maxNode->data;
 }
 
-// TODO: Isn't that NOT (topPriorityHigherOrEqual) ?
-bool CanTxQueue::topPriorityHigherOrEqual(const CanFrame &rhs_frame) {
+bool CanTxQueue::topPriorityHigherOrEqual(const CanFrame &rhs_frame) const{
     auto peek_entry = peek();
     if (peek_entry == UAVCAN_NULLPTR) {
         return false;
@@ -156,7 +155,7 @@ bool CanTxQueue::topPriorityHigherOrEqual(const CanFrame &rhs_frame) {
     return !rhs_frame.priorityHigherThan(peek_entry->frame);
 }
 
-uavcan::AvlTree<uavcan::CanTxQueueEntry>::Node* CanTxQueue::searchForNonExpiredMax(Node *n) {
+uavcan::AvlTree<uavcan::CanTxQueueEntry>::Node *CanTxQueue::searchForNonExpiredMax(Node *n) {
     if (n == UAVCAN_NULLPTR) {
         return UAVCAN_NULLPTR;
     }
@@ -216,7 +215,7 @@ int CanIOManager::sendFromTxQueue(uint8_t iface_index) {
     }
     const int res = sendToIface(iface_index, entry->frame, entry->deadline, entry->flags);
     if (res > 0) {
-        tx_queues_[iface_index]->remove(entry);
+        root_ = tx_queues_[iface_index]->remove_helper(root_, entry);
     }
     return res;
 }
@@ -305,7 +304,7 @@ int CanIOManager::send(const CanFrame &frame, MonotonicTime tx_deadline, Monoton
             for (int i = 0; i < num_ifaces; i++) {
                 CanTxQueue &q = *tx_queues_[i];
                 auto peek_entry = q.peek();
-                const CanFrame* peek_frame = peek_entry == UAVCAN_NULLPTR ? UAVCAN_NULLPTR : &peek_entry->frame;
+                const CanFrame *peek_frame = peek_entry == UAVCAN_NULLPTR ? UAVCAN_NULLPTR : &peek_entry->frame;
 
                 if (iface_mask & (1 << i))      // I hate myself so much right now.
                 {
