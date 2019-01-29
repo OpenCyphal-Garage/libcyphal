@@ -147,7 +147,7 @@ CanTxQueueEntry *CanTxQueue::peek(){
     return maxNode->data;
 }
 
-bool CanTxQueue::topPriorityHigherOrEqual(const CanFrame &rhs_frame) const{
+bool CanTxQueue::topPriorityHigherOrEqual(const CanFrame &rhs_frame){
     auto peek_entry = peek();
     if (peek_entry == UAVCAN_NULLPTR) {
         return false;
@@ -215,7 +215,7 @@ int CanIOManager::sendFromTxQueue(uint8_t iface_index) {
     }
     const int res = sendToIface(iface_index, entry->frame, entry->deadline, entry->flags);
     if (res > 0) {
-        this->root_ = tx_queues_[iface_index]->remove_helper(this->root_, entry);
+        tx_queues_[iface_index]->remove(entry);
     }
     return res;
 }

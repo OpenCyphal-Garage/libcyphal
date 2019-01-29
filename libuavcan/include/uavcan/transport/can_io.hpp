@@ -113,7 +113,7 @@ public:
     /* Tries to look up rightmost Node. If the frame is expired, removes it and continues traversing */
     CanTxQueueEntry *peek();
 
-    bool topPriorityHigherOrEqual(const CanFrame &rhs_frame) const;
+    bool topPriorityHigherOrEqual(const CanFrame &rhs_frame);
 };
 
 struct UAVCAN_EXPORT CanIfacePerfCounters
