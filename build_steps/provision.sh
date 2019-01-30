@@ -22,13 +22,11 @@ set -o pipefail
 
 sudo apt-get update
 sudo apt-get -y install software-properties-common
-sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
 sudo add-apt-repository ppa:team-gcc-arm-embedded/ppa -y
 sudo apt-get update
 sudo apt-get -y install python-pip
 sudo apt-get -y install cmake
 sudo apt-get -y install git
-sudo apt-get -y install g++-7;
 sudo apt-get -y install gcc-arm-embedded
 
 pip install --user pyyaml
