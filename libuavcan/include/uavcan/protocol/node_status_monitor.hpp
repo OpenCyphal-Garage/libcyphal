@@ -41,7 +41,10 @@ public:
         bool operator!=(const NodeStatus rhs) const { return !operator==(rhs); }
         bool operator==(const NodeStatus rhs) const
         {
-            return std::memcmp(this, &rhs, sizeof(NodeStatus)) == 0;
+            return (   this->health   == rhs.health 
+                    && this->mode     == rhs.mode
+                    && this->sub_mode == rhs.sub_mode
+                    );
         }
 
 #if UAVCAN_TOSTRING
