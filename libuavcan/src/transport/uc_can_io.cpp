@@ -144,7 +144,7 @@ void CanTxQueue::remove(CanTxQueueEntry *entry){
     }
 
     // Make the AvlTree remove the specific entry deleting it's Node *
-    this->root_ = this->AvlTree::remove_helper(this->root_, entry);
+    this->AvlTree::remove_entry(entry);
     // Then let the entry destroy it's own contents
     CanTxQueueEntry::destroy(entry, this->allocator_);
 }
@@ -176,7 +176,7 @@ uavcan::AvlTree<uavcan::CanTxQueueEntry>::Node *CanTxQueue::searchForNonExpiredM
 
     while(n->data->isExpired(timestamp)){
         auto expiredEntry = n->data;
-        this->root_ = remove_always(n);
+        this->root_ = remove_always(n, n->data);
         CanTxQueueEntry::destroy(expiredEntry, this->allocator_);
 
         return searchForNonExpiredMax(this->root_);
@@ -184,7 +184,7 @@ uavcan::AvlTree<uavcan::CanTxQueueEntry>::Node *CanTxQueue::searchForNonExpiredM
 
     while(n->right != UAVCAN_NULLPTR && n->right->data->isExpired(timestamp)){
         auto expiredEntry = n->data;
-        n->right = remove_always(n);
+        n->right = remove_always(n, n->data);
         CanTxQueueEntry::destroy(expiredEntry, this->allocator_);
     }
 

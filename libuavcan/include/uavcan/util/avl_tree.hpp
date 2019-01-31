@@ -159,6 +159,36 @@ private:
 
         target->equalKeys = newNode;
     }
+
+    /* Delete the element of the linked list (memory address comparison)
+     * and return the new head */
+    Node *deleteFromList(Node *root, T *data){
+        auto current = root;
+        Node *prev = UAVCAN_NULLPTR;
+
+        while(current != UAVCAN_NULLPTR){
+            if(current->data == data){
+                if(current == root){
+                    auto ret = current->equalKeys;
+                    len_--;
+                    deleteNode(current);
+                    return ret; /* Return one element forward */
+                }else{
+                    auto next = current->equalKeys;
+                    prev->equalKeys = next;
+                    len_--;
+                    deleteNode(current);
+                    return root; /* Unchanged root, non-head element was changed */
+                }
+            }
+
+            prev = current;
+            current = current->equalKeys;
+        }
+
+        return root;
+    }
+
 protected:
     /*
      * Use this only to allocate the Node struct.
@@ -178,7 +208,7 @@ protected:
     }
 
     /* If we've got a Node*, avoid the dereference data equality checks and proceed to the dealloc logic */
-    Node *remove_always(Node *node){
+    Node *remove_always(Node *node, T *data){
         if (node == UAVCAN_NULLPTR) {
             return node;
         }
@@ -210,9 +240,7 @@ protected:
                 node->right = remove_helper(node->right, minOfRight->data);
             }
         }else{
-            auto newHead = node->equalKeys;
-            len_--;
-            deleteNode(node);
+            auto newHead = deleteFromList(node, data);
             return newHead;
         }
 
@@ -282,9 +310,7 @@ protected:
                     node->right = remove_helper(node->right, minOfRight->data);
                 }
             }else{
-                auto newHead = node->equalKeys;
-                len_--;
-                deleteNode(node);
+                auto newHead = deleteFromList(node, data);
                 return newHead;
             }
         }
@@ -322,11 +348,10 @@ protected:
     bool linkedListContains(Node *head, const T *data) const{
         Node *next = head;
         while(next != UAVCAN_NULLPTR){
-            if(*next->data == *data){
+            if(next->data == data){ /* Memory address comparison */
                 return true;
             }
-
-            next = head->equalKeys;
+            next = next->equalKeys;
         }
         return false;
     }
