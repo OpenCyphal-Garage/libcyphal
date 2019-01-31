@@ -175,16 +175,13 @@ uavcan::AvlTree<uavcan::CanTxQueueEntry>::Node *CanTxQueue::searchForNonExpiredM
     auto timestamp = sysclock_.getMonotonic();
 
     while(n->data->isExpired(timestamp)){
-        auto expiredEntry = n->data;
-        this->root_ = remove_always(n, n->data);
-        CanTxQueueEntry::destroy(expiredEntry, this->allocator_);
-
+        this->remove(n->data);
         return searchForNonExpiredMax(this->root_);
     }
 
     while(n->right != UAVCAN_NULLPTR && n->right->data->isExpired(timestamp)){
         auto expiredEntry = n->data;
-        n->right = remove_always(n, n->data);
+        n->right = this->AvlTree::remove_helper(n, n->data);
         CanTxQueueEntry::destroy(expiredEntry, this->allocator_);
     }
 
