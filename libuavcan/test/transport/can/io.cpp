@@ -120,8 +120,7 @@ TEST(CanIOManager, Transmission)
     using uavcan::Qos;
 
     // Memory
-    uavcan::PoolAllocator<sizeof(CanTxQueueEntry) * 40, sizeof(CanTxQueueEntry)> pool;
-    //TODO: Fix this uavcan::PoolAllocator<sizeof(CanTxQueueEntry) * 4 * 2, sizeof(CanTxQueueEntry)> pool;
+    uavcan::PoolAllocator<40 * 64, 64> pool;
 
     // Platform interface
     SystemClockMock clockmock;
@@ -268,7 +267,7 @@ TEST(CanIOManager, Transmission)
     EXPECT_EQ(1, iomgr.receive(rx_frame, tsMono(0), flags));
     EXPECT_TRUE(rxFrameEquals(rx_frame, rx_frames[1], 1200, 1));
     EXPECT_TRUE(driver.ifaces.at(0).matchAndPopTx(frames[2], 2222));
-    EXPECT_TRUE(driver.ifaces.at(1).matchAndPopTx(frames[1], 2222));  // Volatility on QoS no longer affects priority
+    EXPECT_TRUE(driver.ifaces.at(1).matchAndPopTx(frames[1], 4444));  // Volatility on QoS no longer affects priority
     ASSERT_EQ(0, flags);
     EXPECT_TRUE(driver.ifaces.at(0).matchPendingTx(frames[2]));
     EXPECT_TRUE(driver.ifaces.at(1).matchPendingTx(frames[1]));
@@ -307,7 +306,7 @@ TEST(CanIOManager, Transmission)
     EXPECT_TRUE(driver.ifaces.at(0).matchPendingTx(frames[0]));
     EXPECT_TRUE(driver.ifaces.at(1).matchPendingTx(frames[0]));
 
-    ASSERT_EQ(4, pool.getNumUsedBlocks());               // Untransmitted frames will be buffered
+    ASSERT_EQ(6, pool.getNumUsedBlocks());               // Untransmitted frames will be buffered
 
     // Failure removed - transmission shall proceed
     driver.ifaces.at(0).tx_failure = false;
@@ -327,7 +326,7 @@ TEST(CanIOManager, Transmission)
     EXPECT_EQ(1, iomgr.getIfacePerfCounters(1).frames_rx);
 
     EXPECT_EQ(6, iomgr.getIfacePerfCounters(0).frames_tx);
-    EXPECT_EQ(8, iomgr.getIfacePerfCounters(1).frames_tx);
+    EXPECT_EQ(9, iomgr.getIfacePerfCounters(1).frames_tx);
 }
 
 TEST(CanIOManager, Loopback)
