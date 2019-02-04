@@ -139,9 +139,9 @@ int CanAcceptanceFilterConfigurator::applyConfiguration(void)
     for (uint16_t i = 0; i < multiset_configs_.getSize(); i++)
     {
         UAVCAN_TRACE("CanAcceptanceFilterConfigurator::applyConfiguration()", "cfg.ID [%u] = %u", i,
-                     multiset_configs_.getByIndex(i)->id);
+                     static_cast<unsigned>(multiset_configs_.getByIndex(i)->id));
         UAVCAN_TRACE("CanAcceptanceFilterConfigurator::applyConfiguration()", "cfg.MK [%u] = %u", i,
-                     multiset_configs_.getByIndex(i)->mask);
+                     static_cast<unsigned>(multiset_configs_.getByIndex(i)->mask));
     }
 #endif
 
