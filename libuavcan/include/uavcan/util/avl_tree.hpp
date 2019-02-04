@@ -42,14 +42,14 @@ private:
         return n->h;
     }
 
-    void inOrderTraverseRecursively(Node *n, std::function<void(T *&)> forEach) {
+    void postOrderTraverseRecursively(Node *n, std::function<void(T *&)> forEach) {
         if (n == UAVCAN_NULLPTR) {
             return;
         }
 
-        inOrderTraverseRecursively(n->left, forEach);
+        postOrderTraverseRecursively(n->left, forEach);
+        postOrderTraverseRecursively(n->right, forEach);
         forEach(n->data);
-        inOrderTraverseRecursively(n->right, forEach);
     }
 
     Node *makeNode(T *payload) {
@@ -169,9 +169,16 @@ private:
         while(current != UAVCAN_NULLPTR){
             if(current->data == data){
                 if(current == root){
-                    auto ret = current->equalKeys;
+                    auto ret = current->equalKeys; // From the remove method, this should never be null
+
+                    /* Inherit subtrees */
+                    ret->h = current->h;
+                    ret->left = current->left;
+                    ret->right = current->right;
+
                     len_--;
                     deleteNode(current);
+
                     return ret; /* Return one element forward */
                 }else{
                     auto next = current->equalKeys;
@@ -232,11 +239,9 @@ protected:
                     deleteNode(temp);
                 } else {
                     Node *minOfRight = node->right;
-                    Node *next = minOfRight->left;
 
-                    while (next != UAVCAN_NULLPTR){
-                        minOfRight = next->left;
-                        next = minOfRight->left;
+                    while (minOfRight->left != UAVCAN_NULLPTR){
+                        minOfRight = minOfRight->left;
                     }
 
                     node->data = minOfRight->data;
@@ -321,9 +326,10 @@ public:
         return root_ == UAVCAN_NULLPTR ? 0 : len_;
     }
 
-    void walk(std::function<void(T*&)> forEach){
-        inOrderTraverseRecursively(root_, forEach);
+    void walkPostOrder(std::function<void(T*&)> forEach){
+        postOrderTraverseRecursively(root_, forEach);
     }
+
 
     bool isEmpty() const {
         return getSize() == 0;
