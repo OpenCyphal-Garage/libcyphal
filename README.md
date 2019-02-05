@@ -43,7 +43,7 @@ Building the debug version and running the unit tests:
 ```bash
 mkdir build
 cd build
-cmake .. -DCMAKE_BUILD_TYPE=Debug
+cmake ..
 make -j8
 make ARGS=-VV test
 ```
@@ -59,7 +59,7 @@ Vagrant can be used to setup a compatible Ubuntu virtual image. Follow the instr
 ```bash
 vagrant up
 vagrant ssh
-mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug
+mkdir build && cd build && cmake ..
 ```
 
 Note that you may (probably will) have to increase the virtual memory available to the virtual machine created by Vagrant.
@@ -89,6 +89,10 @@ We'll update this section when we enable Coverity builds for the blue-sky implem
 **/test/ontarget** - Tests cross-compiled for specific hardware* and run on a set of dedicated test devices. These tests may have strict timing constraints and may require specific physical or virtual busses and other test apparatuses be present. Each on-target test will fully document its requirements to enable anyone with access to the appropriate hardware to reproduce the tests. Furthermore, these tests must be inherently automateable having clear pass/fail criteria reducible to a boolean condition.
 
 **/example** - Contains a set of example applications providing real, practical, and tested uses of libuavcan.
+
+**/submodules** - Because there is generally no indication on most platforms that a given folder is the root of a git submodule libuavcan puts all of its submodule dependencies directly under this folder. Each folder under this one represents a single git submodule repository that may have their own submodules (i.e. recursive). The project's CMakeLists.txt has logic to synchronize these modules as part of the build so no manual git operations should be required.
+
+**/commons** - Reference implementations for parts of the libuavcan library. These implementations are optional but are provided as a convenience to accelerate evaluation and integration of libuavcan.
 
 #### Test Environments
 

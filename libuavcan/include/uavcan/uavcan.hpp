@@ -8,6 +8,12 @@
 #ifndef UAVCAN_UAVCAN_HPP_INCLUDED
 #define UAVCAN_UAVCAN_HPP_INCLUDED
 
-#include <uavcan/build_config.hpp>
+#include "uavcan/build_config.hpp"
+
+#if !defined(UAVCAN_CPP_VERSION)
+# error UAVCAN_CPP_VERSION
+#endif
+
+# include <cstdint>
 
 #endif // UAVCAN_UAVCAN_HPP_INCLUDED

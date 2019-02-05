@@ -1,0 +1,3 @@
+[submodule "submodules/pyuavcan"]
+	path = submodules/pyuavcan
+	url = https://github.com/UAVCAN/pyuavcan
