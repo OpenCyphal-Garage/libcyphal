@@ -4,17 +4,20 @@ UAVCAN stack in C++
 [![Travis CI](https://travis-ci.org/UAVCAN/libuavcan.svg?branch=uavcan-v1.0-bluesky)](https://travis-ci.org/UAVCAN/libuavcan)
 [![Forum](https://img.shields.io/discourse/https/forum.uavcan.org/users.svg)](https://forum.uavcan.org)
 
-Portable reference implementation of the [UAVCAN protocol stack](http://uavcan.org) in C++ for embedded systems, Linux, and POSIX-compliant RTOSs.
+Portable reference implementation of the [UAVCAN protocol stack](https://new.uavcan.org) in C++ for embedded systems, Linux, and POSIX-compliant RTOSs.
 
 UAVCAN is a lightweight protocol designed for reliable communication in aerospace and robotic applications over robust vehicular networks.
 
 v1.0 is a complete rewrite of this library with the following, fundamental changes from v0:
 
-1. libuavcan v1 is based on the UAVCAN v1 specification. UAVCAN v1 is _not_ backwards compatible with v0.
-2. libuavcan v1 requires C++11 or greater.
-3. libuavcan v1 is a header-only library.
+1. libuavcan v1 is based on the [UAVCAN v1 specification](https://new.uavcan.org). UAVCAN v1 is _not_ backwards compatible with v0.
+1. libuavcan v1 requires C++11 or greater.
+1. libuavcan v1 requires a _fairly_ complete implementation of the c++ standard library.
+1. libuavcan v1 is a header-only library.
 
-Some of this documentation in this README is temporary and relevant to the "blue sky" reimplementation effort. After the first official release of libuavcan v1 sections like this will be removed, v0 will be referred to as legacy, and "blue sky" will become simply mainline.
+Some of this documentation in this README is temporary and relevant to the "blue sky"
+implementation effort. After the first official release of libuavcan v1 sections like this will
+be removed, v0 will be referred to as legacy, and "blue sky" will become simply mainline.
 
 ### About the Blue Sky effort
 
@@ -29,67 +32,19 @@ The reason we opted for a complete rewrite is that so much is changing. Between 
 * [UAVCAN website](http://uavcan.org)
 * [UAVCAN forum](https://forum.uavcan.org)
 
-## Library development
-
-Despite the fact that the library itself can be used on virtually any platform that has a standard-compliant
-C++11 compiler, the library development process assumes that the host OS is Linux.
-
-Prerequisites:
-
-* Google test library for C++ - gtest (downloaded as part of the build from [github](https://github.com/google/googletest))
-* C++11 capable compiler with GCC-like interface (e.g. GCC, Clang)
-* CMake 2.8+
-
-Building the debug version and running the unit tests:
-```bash
-mkdir build
-cd build
-cmake .. -DCMAKE_BUILD_TYPE=Debug
-make -j8
-make ARGS=-VV test
-```
-
-Test outputs can be found in the build directory under `libuavcan`.
-
-Contributors, please follow the [Zubax C++ Coding Conventions](https://kb.zubax.com/x/84Ah).
-
-### Vagrant
-
-Vagrant can be used to setup a compatible Ubuntu virtual image. Follow the instructions on [Vagrantup](https://www.vagrantup.com/) to install virtualbox and vagrant then do:
-
-```bash
-vagrant up
-vagrant ssh
-mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug
-```
-
-Note that you may (probably will) have to increase the virtual memory available to the virtual machine created by Vagrant.
-
-You can build using commands like:
-
-```bash
-vagrant ssh -c "cd /vagrant/build && make -j4 && make test"
-```
-
-or to run a single test:
-
-```bash
-vagrant ssh -c "cd /vagrant/build && make libuavcan_test && ./libuavcan/libuavcan_test --gtest_filter=Node.Basic"
-```
-
-### Submitting a Coverity Scan build
-
-We'll update this section when we enable Coverity builds for the blue-sky implementation.
-
 ### Folder Structure
 
 **/libuavcan/include** - Contains the entire header-only libuavcan library.
+
+**/libuavcan/include/test** – Test utilities provided to consumers of the library. These are public test fixtures and should be documented, maintained, and designed with the same care given to the rest of the library.
 
 **/test/native** - Unit-tests that validate the libuavcan library. These tests compile and execute using the build host's native environment. They also do not require any communication interfaces, virtual or otherwise, from the operating system and have no timing constraints.
 
 **/test/ontarget** - Tests cross-compiled for specific hardware* and run on a set of dedicated test devices. These tests may have strict timing constraints and may require specific physical or virtual busses and other test apparatuses be present. Each on-target test will fully document its requirements to enable anyone with access to the appropriate hardware to reproduce the tests. Furthermore, these tests must be inherently automateable having clear pass/fail criteria reducible to a boolean condition.
 
 **/example** - Contains a set of example applications providing real, practical, and tested uses of libuavcan.
+
+**/commons** - Reference implementations for parts of the libuavcan library. These implementations are optional but are provided as a convenience to accelerate evaluation and integration of libuavcan.
 
 #### Test Environments
 
@@ -101,4 +56,67 @@ The following list of standardized* test environments will be used to validate t
 
 \* Note that libuavcan is a header only library suitable for a wide range of processors and operating systems. The targets and test environments mentioned here are chosen only as standardized test fixtures and are not considered more "supported" or "optimal" than any other platform.
 
-\*\* Libuavcan development should be test-driven. Write the tests first (well, first write the specification, then the APIs, then the tests).
+
+## Library development
+
+**Libuavcan development should be test-driven. Write the tests first.**
+
+**Libuavcan source should be fluent. Comment everything in plain prose, build the docs with each change, read the docs to make sure your comments make sense.**
+
+
+Despite the fact that the library itself can be used on virtually any platform that has a standard-compliant
+C++11 compiler, the library development process assumes that the host OS is Linux or OSX.
+
+Prerequisites:
+
+* Google test library for C++ - gtest (downloaded as part of the build from [github](https://github.com/google/googletest))
+* C++11 capable compiler with GCC-like interface (e.g. GCC, Clang)
+* CMake 3.5+
+* clang-format
+* python3
+* pydsdlgen and (transitively) pydsdl
+
+Building the debug version and running the unit tests:
+```bash
+mkdir build
+cd build
+cmake ..
+make -j8
+make ARGS=-VV test
+```
+
+We also support a docker-based workflow which is used for CI build automation. If you want to use this locally either to verify that the CI build will succeed or just to avoid manually installing and maintaining the above dependencies then you can do:
+
+```bash
+docker pull uavcan/libuavcan:latest
+
+docker run --rm -v /path/to/libuavcan:/repo uavcan/libuavcan:latest /bin/sh -c ci.sh
+```
+
+Test outputs can be found in the build directory under `libuavcan`.
+
+Contributors, please follow the [Zubax C++ Coding Conventions](https://kb.zubax.com/x/84Ah) and always use `clang-format` when authoring or modifying files (the build scripts will enforce but not apply the rules in .clang-format).
+
+### Pull-Request Checklist
+
+Reviewers, please check the following items when reviewing a pull-request:
+
+> **NOTE:** This is just the start of this checklist. Expect it to grow and get refined as this project matures.
+
+1. **correctness**
+    * Is the code correct.
+1. **clarity**
+    * Is the code easily understood? 
+    * It is overly complex?
+1. **test coverage**
+    * Were tests written to cover the changes?
+1. **test effectiveness and correctness**
+    * Are the tests good tests that provide some guarantee that the logic is, and will remain, correct?
+1. **documentation**
+    * Is the code properly documented?
+    * Are there changes needed to auxillary documentation that is missing?
+    * Are there good examples for how to use the code?
+1. **design**
+    * Is the code maintainable?
+    * Are the tests maintainable?
+    * Is the code in the right namespace/class/function?

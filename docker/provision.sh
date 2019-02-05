@@ -19,6 +19,24 @@ set -o errexit
 set -o pipefail
 
 # +----------------------------------------------------------+
-mkdir build
-cd build
-cmake .. -DCMAKE_BUILD_TYPE=Debug
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update
+apt-get -y install software-properties-common
+add-apt-repository ppa:team-gcc-arm-embedded/ppa -y
+apt-get update
+apt-get -y install apt-utils
+apt-get -y install python3
+apt-get -y install python-pip
+apt-get -y install python3-venv
+apt-get -y install cmake
+apt-get -y install git
+apt-get -y install gcc-arm-embedded
+apt-get -y install clang
+apt-get -y install clang-format
+apt-get -y install doxygen
+apt-get -y install lcov
+apt-get -y install valgrind
+apt-get -y install clang-tidy
+
+pip install virtualenv

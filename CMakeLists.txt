@@ -1,77 +1,110 @@
 #
 # Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
-# Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 
-cmake_minimum_required(VERSION 3.5.1)
+cmake_minimum_required(VERSION 3.6.0)
 
-project(libuavcan CXX)
+project(libuavcan ASM CXX C)
 
-#
-# Framework : Googletest
-#
-# (Taken from googletest/README.md documentation)
-# GTest executables
-# Download and unpack googletest at configure time
-configure_file(CMakeLists.txt.in googletest-download/CMakeLists.txt)
-execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-    RESULT_VARIABLE result
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
-if(result)
-    message(WARNING "CMake step for googletest failed: ${result}")
-else()
-    execute_process(COMMAND ${CMAKE_COMMAND} --build .
-        RESULT_VARIABLE result
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
-    if(result)
-        message(WARNING "Build step for googletest failed: ${result}")
-    else()
-
-        # Prevent overriding the parent project's compiler/linker
-        # settings on Windows
-        set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-
-        # Add googletest directly to our build. This defines
-        # the gtest and gtest_main targets.
-        add_subdirectory(${CMAKE_BINARY_DIR}/googletest-src
-                        ${CMAKE_BINARY_DIR}/googletest-build
-                        EXCLUDE_FROM_ALL)
-
-        set(GTEST_FOUND ON)
-        set(BUILD_TESTING ON)
-        enable_testing()
-    endif()
-endif()
+include(${CMAKE_SOURCE_DIR}/cmake/common.cmake)
 
 #
-# Set flags
+# Make sure we have our external project directory created. We use this
+# to share external project artifacts with different build flavors.
 #
+file(MAKE_DIRECTORY ${EXTERNAL_PROJECT_DIRECTORY})
+
+set(LIBUAVCAN_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/libuavcan/include")
+set(LIBUAVCAN_INCLUDE_GENERATED "${CMAKE_CURRENT_BINARY_DIR}/dsdl")
+
 include_directories(
-    ./libuavcan/include/
+    ${LIBUAVCAN_INCLUDE}
+    ${LIBUAVCAN_INCLUDE_GENERATED}
 )
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fno-rtti -fno-exceptions -fno-threadsafe-statics")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Og -DNDEBUG -ggdb -fno-strict-aliasing")
+if(NOT LIBUAVCAN_FLAG_SET)
+    message(STATUS "LIBUAVCAN_FLAG_SET was not defined. Setting to \"native\" as a default")
+    set(LIBUAVCAN_FLAG_SET ${CMAKE_CURRENT_BINARY_DIR}/../cmake/compiler_flag_sets/native.cmake)
+else()
+    set(LIBUAVCAN_FLAG_SET ${CMAKE_CURRENT_BINARY_DIR}/${LIBUAVCAN_FLAG_SET})
+endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -pedantic -Wfloat-equal -Wconversion -Wabi")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wunused-parameter -Wunused-variable -Wunused-value")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wcast-align -Wmissing-declarations -Wno-missing-field-initializers ")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wdouble-promotion -Wswitch-enum -Wtype-limits -Wno-error=array-bounds")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wzero-as-null-pointer-constant -Wnon-virtual-dtor")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Woverloaded-virtual -Wsign-promo -Wold-style-cast")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wsign-conversion")
+if(NOT LIBUAVCAN_TESTBUILD)
+    message(STATUS "LIBUAVCAN_TESTBUILD was not defined. Setting to \"native\" as a default")
+    set(LIBUAVCAN_TESTBUILD ${CMAKE_CURRENT_BINARY_DIR}/../test/native/unit_tests.cmake)
+else()
+    set(LIBUAVCAN_TESTBUILD ${CMAKE_CURRENT_BINARY_DIR}/${LIBUAVCAN_TESTBUILD})
+endif()
+
+# +---------------------------------------------------------------------------+
+# | EXTERNAL DEPENDENCIES
+# +---------------------------------------------------------------------------+
+#
+# Tell cmake where to find our custom scripts.
+#
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 
 #
-# Test : All Unit Tests
+# DSDL public, regulated types for validating libuavcan.
 #
-file(GLOB_RECURSE TEST_CXX_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "test/*.cpp")
-add_executable(libuavcan_test_native ${TEST_CXX_FILES})
+find_package(public_regulated_data_types REQUIRED)
 
-target_link_libraries(libuavcan_test_native gmock_main)
+#
+# googletest (and googlemock) external project.
+#
+find_package(gtest REQUIRED)
 
-# Tests run automatically upon successful build
-# If failing tests need to be investigated with debugger, use 'make --ignore-errors'
-add_test(NAME libuavcan_test_native
-         COMMAND libuavcan_test_native
-         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+#
+# We generate coverage reports. Please look at them.
+#
+find_package(lcov REQUIRED)
+
+#
+# Finds programs needed to build the libuavcan documentation
+#
+find_package(libuavcan_docs REQUIRED)
+
+#
+# We require clang-format to check the style as part of CI builds.
+#
+find_package(clangformat REQUIRED)
+
+# +---------------------------------------------------------------------------+
+# | SOURCE GENERATION
+# +---------------------------------------------------------------------------+
+find_package(dsdlgenj REQUIRED)
+
+create_dsdl_target(dsdl-regulated
+                   OFF
+                   ${EXTERNAL_PROJECT_DIRECTORY}/public-regulated-data-types-gen
+                   ${CMAKE_CURRENT_SOURCE_DIR}/libuavcan/include/uavcan/templates
+                   ${EXTERNAL_PROJECT_DIRECTORY}/public-regulated-data-types-src/uavcan)
+
+# +---------------------------------------------------------------------------+
+# | FLAG SETS
+# +---------------------------------------------------------------------------+
+#
+# Load all our compile flag sets into the appropriate places.
+#
+apply_flag_set(${LIBUAVCAN_FLAG_SET})
+
+# +---------------------------------------------------------------------------+
+# | STYLE
+# +---------------------------------------------------------------------------+
+create_apply_style_target(format-generated OFF ${dsdl-regulated-OUTPUT})
+
+add_dependencies(format-generated dsdl-regulated)
+
+create_check_style_target(format-check ON "${LIBUAVCAN_INCLUDE}/**/*.hpp")
+
+# +---------------------------------------------------------------------------+
+# | BUILD AND RUN UNIT TESTS
+# +---------------------------------------------------------------------------+
+
+include(${LIBUAVCAN_TESTBUILD})
+
+# +---------------------------------------------------------------------------+
+# | DOCUMENTATION GENERATION
+# +---------------------------------------------------------------------------+
+create_docs_target(docs ON)
