@@ -1,0 +1,8 @@
+#
+# Python requirements to be pulled from pypi as part
+# of build (See CMakeLists.txt). These are needed for
+# testing but not building.
+#
+pytest ~= 3.3
+coverage ~= 4.5
+mypy >= 0.641

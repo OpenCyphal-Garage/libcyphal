@@ -1,0 +1,67 @@
+#!/usr/bin/env python
+#
+# UAVCAN DSDL compiler for libuavcan
+# Supported Python versions: 3.2+
+#
+# Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
+# Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+import os, sys, logging, argparse
+
+def configure_logging(verbosity):
+    fmt = '%(message)s'
+    level = { 0: logging.WARNING, 1: logging.INFO, 2: logging.DEBUG }.get(verbosity or 0, logging.DEBUG)
+    logging.basicConfig(stream=sys.stderr, level=level, format=fmt)
+
+DEFAULT_OUTDIR = 'dsdlc_generated'
+
+DESCRIPTION = '''UAVCAN DSDL code generator for libuavcan.
+Takes an input directory that contains an hierarchy of DSDL
+definitions and converts it into compatible hierarchy of C++ types for libuavcan.
+This script can be used directly from the source directory, no installation required!
+Supported Python versions: 3.2+
+'''
+
+def main():
+    argparser = argparse.ArgumentParser(description=DESCRIPTION)
+    argparser.add_argument('--template', '-T', help="The pyratemp template to use when generating c++ headers.")
+    argparser.add_argument('source_dir', nargs='+', help='source directory with DSDL definitions')
+    argparser.add_argument('--verbose', '-v', action='count', help='verbosity level (-v, -vv)')
+    argparser.add_argument('--outdir', '-O', default=DEFAULT_OUTDIR, help='output directory, default %s' % DEFAULT_OUTDIR)
+    argparser.add_argument('--incdir', '-I', default=[], action='append', help=
+    '''nested type namespaces, one path per argument. Can be also specified through the environment variable
+    UAVCAN_DSDL_INCLUDE_PATH, where the path entries are separated by colons ":"''')
+    argparser.add_argument('--pydsdl-path', help=
+    '''The path to the pydsdl python source. If not provided or if pydsdl could not be found at this location then
+    it must be on the PYTHONPATH.
+    ''')
+    argparser.add_argument('--dry-run', '-d', action="store_true", help="If True then no files will be generated.")
+    args = argparser.parse_args()
+
+    if hasattr(args, "pydsdl_path") and args.pydsdl_path is not None and os.path.isdir(args.pydsdl_path):
+        sys.path.insert(0, args.pydsdl_path)
+
+    configure_logging(args.verbose)
+
+    try:
+        extra_incdir = os.environ['UAVCAN_DSDL_INCLUDE_PATH'].split(':')
+        logging.info('Additional include directories: %s', extra_incdir)
+        args.incdir += extra_incdir
+    except KeyError:
+        pass
+
+    if not args.dry_run and not args.template:
+        logging.error('You must supply a template parameter if not doing a dry-run.')
+        exit(1)
+    
+    # Now that we have the path setup we can include our implementation which will pull in
+    # pydsdl stuff with it.
+    from libuavcan_dsdl_compiler import run as dsdlc_run
+    dsdlc_run(args.source_dir, args.incdir, args.outdir, args.template, args.dry_run)
+
+    # 0 is good for cmake!
+    exit(0)
+
+
+if __name__ == "__main__":
+    main()
