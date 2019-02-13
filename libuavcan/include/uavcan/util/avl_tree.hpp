@@ -16,33 +16,34 @@
 #include <uavcan/dynamic_memory.hpp>
 #include <uavcan/debug.hpp>
 
-namespace uavcan {
-
+namespace uavcan 
+{
 template<typename T>
-class UAVCAN_EXPORT AvlTree : Noncopyable {
+class UAVCAN_EXPORT AvlTree : Noncopyable 
+{
 protected:
     struct Node {
-        T *data;
-        int h = 1; // initially added as leaf
-        Node *left = UAVCAN_NULLPTR;
-        Node *right = UAVCAN_NULLPTR;
-        Node *equalKeys = UAVCAN_NULLPTR;
+        T* data;
+        uint16_t h = 1; // initially added as leaf
+        Node* left = UAVCAN_NULLPTR;
+        Node* right = UAVCAN_NULLPTR;
+        Node* equalKeys = UAVCAN_NULLPTR;
     };
 
-    Node *root_;
+    Node* root_;
 
 private:
     size_t len_ ;
 
-    int heightOf(const Node *n) const{
-        if(n == UAVCAN_NULLPTR){
+    uint16_t heightOf(const Node* n) const {
+        if(n == UAVCAN_NULLPTR) {
             return 0;
         }
 
         return n->h;
     }
 
-    void postOrderTraverseRecursively(Node *n, std::function<void(T *&)> forEach) {
+    void postOrderTraverseRecursively(Node* n, std::function<void(T*&)> forEach) {
         if (n == UAVCAN_NULLPTR) {
             return;
         }
@@ -52,22 +53,22 @@ private:
         forEach(n->data);
     }
 
-    Node *makeNode(T *payload) {
-        void *praw = this->allocator_.allocate(sizeof(Node));
+    Node* makeNode(T* payload) {
+        void* praw = this->allocator_.allocate(sizeof(Node));
 
         if (praw == UAVCAN_NULLPTR) {
             UAVCAN_TRACE("AvlTree", " OOM -- Can't allocate Node");
             return UAVCAN_NULLPTR; // Push rejected
         }
 
-        Node *node = new (praw) Node();
+        Node* node = new (praw) Node();
         UAVCAN_ASSERT(node);
 
         node->data = payload;
         return node;
     }
 
-    void deleteNode(Node *&n) {
+    void deleteNode(Node*& n) {
         if (n != UAVCAN_NULLPTR) {
             n->~Node();
             allocator_.deallocate(n);
@@ -75,7 +76,7 @@ private:
         }
     }
 
-    int balanceOf(Node *n) const {
+    uint16_t balanceOf(Node* n) const {
         if (n == UAVCAN_NULLPTR) {
             return 0;
         }
@@ -83,9 +84,9 @@ private:
         return heightOf(n->left) - heightOf(n->right);
     }
 
-    Node *rotateRight(Node *y) const {
-        Node *x = y->left;
-        Node *T2 = x->right;
+    Node* rotateRight(Node* y) const {
+        Node* x = y->left;
+        Node* T2 = x->right;
 
         x->right = y;
         y->left = T2;
@@ -96,9 +97,9 @@ private:
         return x;
     }
 
-    Node *rotateLeft(Node *x) {
-        Node *y = x->right;
-        Node *T2 = y->left;
+    Node* rotateLeft(Node* x) {
+        Node* y = x->right;
+        Node* T2 = y->left;
 
         y->left = x;
         x->right = T2;
@@ -110,7 +111,7 @@ private:
     }
 
     // If UAVCAN_NULLPTR is returned, OOM happened.
-    Node *insert_helper(Node *node, Node *newNode) {
+    Node* insert_helper(Node* node, Node* newNode) {
         if (node == UAVCAN_NULLPTR) {
             len_++;
             return newNode;
@@ -128,22 +129,22 @@ private:
 
         node->h = std::max(heightOf(node->left), heightOf(node->right)) + 1;
 
-        int balance = balanceOf(node);
+        uint16_t balance = balanceOf(node);
 
-        if (balance > 1 && *newNode->data < *node->left->data) {
+        if (balance > 1 && (*newNode->data < *node->left->data) {
             return rotateRight(node);
         }
 
-        if (balance < -1 && *newNode->data > *node->right->data) {
+        if (balance < -1 && (*newNode->data > *node->right->data)) {
             return rotateLeft(node);
         }
 
-        if (balance > 1 && *newNode->data > *node->left->data) {
+        if (balance > 1 && (*newNode->data > *node->left->data)) {
             node->left = rotateLeft(node->left);
             return rotateRight(node);
         }
 
-        if (balance < -1 && *newNode->data < *node->right->data) {
+        if (balance < -1 && (*newNode->data < *node->right->data)) {
             node->right = rotateRight(node->right);
             return rotateLeft(node);
         }
@@ -151,9 +152,9 @@ private:
         return node;
     }
 
-    void appendToEndOf(Node *head, Node *newNode){
-        Node *target = head;
-        while(target->equalKeys != UAVCAN_NULLPTR){
+    void appendToEndOf(Node* head, Node* newNode) {
+        Node* target = head;
+        while(target->equalKeys != UAVCAN_NULLPTR) {
             target = head->equalKeys;
         }
 
@@ -162,14 +163,14 @@ private:
 
     /* Delete the element of the linked list (memory address comparison)
      * and return the new head */
-    Node *deleteFromList(Node *root, T *data){
-        auto current = root;
-        Node *prev = UAVCAN_NULLPTR;
+    Node* deleteFromList(Node* root, T* data) {
+        Node* current = root;
+        Node* prev = UAVCAN_NULLPTR;
 
-        while(current != UAVCAN_NULLPTR){
-            if(current->data == data){
-                if(current == root){
-                    auto ret = current->equalKeys; // From the remove method, this should never be null
+        while(current != UAVCAN_NULLPTR) {
+            if(current->data == data) {
+                if(current == root) {
+                    Node* ret = current->equalKeys; // From the remove method, this should never be null
 
                     /* Inherit subtrees */
                     ret->h = current->h;
@@ -180,8 +181,8 @@ private:
                     deleteNode(current);
 
                     return ret; /* Return one element forward */
-                }else{
-                    auto next = current->equalKeys;
+                } else {
+                    Node* next = current->equalKeys;
                     prev->equalKeys = next;
                     len_--;
                     deleteNode(current);
@@ -204,7 +205,7 @@ protected:
      * */
     LimitedPoolAllocator allocator_;
 
-    void postOrderNodeTraverseRecursively(Node *n, std::function<void(Node *&)> forEach) {
+    void postOrderNodeTraverseRecursively(Node* n, std::function<void(Node*&)> forEach) {
         if (n == UAVCAN_NULLPTR) {
             return;
         }
@@ -214,7 +215,7 @@ protected:
         forEach(n);
     }
 
-    Node *remove_helper(Node *node, T *data) {
+    Node* remove_helper(Node* node, T* data) {
         if (node == UAVCAN_NULLPTR) {
             return node;
         }
@@ -224,7 +225,7 @@ protected:
         } else if (*data > *node->data) {
             node->right = remove_helper(node->right, data);
         } else {
-            if(node->equalKeys == UAVCAN_NULLPTR){
+            if(node->equalKeys == UAVCAN_NULLPTR) {
                 if (node->left == UAVCAN_NULLPTR || node->right == UAVCAN_NULLPTR) {
                     Node *temp = node->left ? node->left : node->right;
 
@@ -240,15 +241,15 @@ protected:
                 } else {
                     Node *minOfRight = node->right;
 
-                    while (minOfRight->left != UAVCAN_NULLPTR){
+                    while (minOfRight->left != UAVCAN_NULLPTR) {
                         minOfRight = minOfRight->left;
                     }
 
                     node->data = minOfRight->data;
                     node->right = remove_helper(node->right, minOfRight->data);
                 }
-            }else{
-                auto newHead = deleteFromList(node, data);
+            } else {
+                Node* newHead = deleteFromList(node, data);
                 return newHead;
             }
         }
@@ -260,7 +261,7 @@ protected:
         node->h = std::max(heightOf(node->left),
                            heightOf(node->right)) + 1;
 
-        int balance = balanceOf(node);
+        uint16_t balance = balanceOf(node);
 
         if (balance > 1 && balanceOf(node->left) >= 0) {
             return rotateRight(node);
@@ -283,10 +284,10 @@ protected:
         return node;
     }
 
-    bool linkedListContains(Node *head, const T *data) const{
-        Node *next = head;
-        while(next != UAVCAN_NULLPTR){
-            if(next->data == data){ /* Memory address comparison */
+    bool linkedListContains(Node* head, const T* data) const {
+        Node* next = head;
+        while(next != UAVCAN_NULLPTR) {
+            if(next->data == data) { /* Memory address comparison */
                 return true;
             }
             next = next->equalKeys;
@@ -295,25 +296,26 @@ protected:
     }
 
 public:
-    AvlTree(IPoolAllocator &allocator, std::size_t allocator_quota):
-    root_(UAVCAN_NULLPTR),
-    len_(0),
-    allocator_(allocator, allocator_quota){}
+    AvlTree(IPoolAllocator &allocator, std::size_t allocator_quota)
+        : root_(UAVCAN_NULLPTR)
+        , len_(0)
+        , allocator_(allocator, allocator_quota)
+    {}
 
     virtual ~AvlTree() {
         // delete leafs first
-        postOrderNodeTraverseRecursively(root_, [this](Node*& n){
+        postOrderNodeTraverseRecursively(root_, [this](Node*& n) {
             this->deleteNode(n);
         });
     }
 
-    void remove_entry(T *data){
+    void remove_entry(T* data) {
         root_ = remove_helper(root_, data);
     }
 
-    bool insert(T *data) {
-        Node *newNode = makeNode(data);
-        if(newNode == UAVCAN_NULLPTR){
+    bool insert(T* data) {
+        Node* newNode = makeNode(data);
+        if(newNode == UAVCAN_NULLPTR) {
             return false;
         }
 
@@ -326,7 +328,7 @@ public:
         return root_ == UAVCAN_NULLPTR ? 0 : len_;
     }
 
-    void walkPostOrder(std::function<void(T*&)> forEach){
+    void walkPostOrder(std::function<void(T*&)> forEach) {
         postOrderTraverseRecursively(root_, forEach);
     }
 
@@ -335,15 +337,15 @@ public:
         return getSize() == 0;
     }
 
-    T *max() const {
-        Node *n = root_;
+    T* max() const {
+        Node* n = root_;
 
         if (n == UAVCAN_NULLPTR) {
             return UAVCAN_NULLPTR;
         }
 
         for (;;) {
-            Node *next = n->right;
+            Node* next = n->right;
             if (next == UAVCAN_NULLPTR) {
                 return n->data;
             }
@@ -352,15 +354,15 @@ public:
         }
     }
 
-    bool contains(const T *data) const{
-        Node *n = root_;
+    bool contains(const T* data) const {
+        Node* n = root_;
         while (n != UAVCAN_NULLPTR) {
-            if(*n->data < *data){
+            if(*n->data < *data) {
                 n = n->right;
                 continue;
             }
 
-            if(*n->data > *data){
+            if(*n->data > *data) {
                 n = n->left;
                 continue;
             }

@@ -8,7 +8,6 @@
 #define UAVCAN_TRANSPORT_CAN_IO_HPP_INCLUDED
 
 #include <cassert>
-#include <utility>
 #include <uavcan/error.hpp>
 #include <uavcan/std.hpp>
 #include <uavcan/util/linked_list.hpp>
@@ -49,10 +48,10 @@ struct CanTxQueueEntry  // Not required to be packed - fits the block in any cas
     CanIOFlags flags;
 
     CanTxQueueEntry(const CanFrame& arg_frame, const MonotonicTime arg_deadline, Qos arg_qos, CanIOFlags arg_flags)
-            : deadline(std::move(arg_deadline))
-            , frame(arg_frame)
-            , qos(uint8_t(arg_qos))
-            , flags(arg_flags)
+        : deadline(arg_deadline)
+        , frame(arg_frame)
+        , qos(uint8_t(arg_qos))
+        , flags(arg_flags)
     {
         UAVCAN_ASSERT((qos == Volatile) || (qos == Persistent));
         IsDynamicallyAllocatable<CanTxQueueEntry>::check();
@@ -62,17 +61,17 @@ struct CanTxQueueEntry  // Not required to be packed - fits the block in any cas
 
     bool isExpired(const MonotonicTime timestamp) const { return timestamp > deadline; }
 
-    bool operator<(const CanTxQueueEntry & other) const
+    bool operator<(const CanTxQueueEntry& other) const
     {
         return this->frame.priorityLowerThan(other.frame);
     }
 
-    bool operator>(const CanTxQueueEntry & other) const
+    bool operator>(const CanTxQueueEntry& other) const
     {
         return this->frame.priorityHigherThan(other.frame);
     }
 
-    bool operator==(const CanTxQueueEntry & other) const
+    bool operator==(const CanTxQueueEntry& other) const
     {
         return this->frame == other.frame;
     }
@@ -88,9 +87,9 @@ protected:
     ISystemClock& sysclock_;
     uint32_t rejected_frames_cnt_;
 
-    bool linkedListContains(Node *head, const CanFrame &frame) const;
+    bool linkedListContains(Node* head, const CanFrame& frame) const;
     void safeIncrementRejectedFrames();
-    AvlTree::Node *searchForNonExpiredMax(Node *n);
+    AvlTree::Node* searchForNonExpiredMax(Node* n);
 
 public:
     CanTxQueue(IPoolAllocator& allocator, ISystemClock& sysclock, std::size_t allocator_quota)
@@ -103,17 +102,17 @@ public:
 
     /* Avl Tree allocates the AvlTree::Node, while this(CanTxQueue) allocates the CanTxQueueEntry
      * Same logic for removal. */
-    void push(const CanFrame &frame, MonotonicTime tx_deadline, Qos qos, CanIOFlags flags);
-    void remove(CanTxQueueEntry *entry);
+    void push(const CanFrame& frame, MonotonicTime tx_deadline, Qos qos, CanIOFlags flags);
+    void remove(CanTxQueueEntry* entry);
 
     uint32_t getRejectedFrameCount() const { return rejected_frames_cnt_; }
 
-    bool contains(const CanFrame &frame) const;
+    bool contains(const CanFrame& frame) const;
 
     /* Tries to look up rightmost Node. If the frame is expired, removes it and continues traversing */
-    CanTxQueueEntry *peek();
+    CanTxQueueEntry* peek();
 
-    bool topPriorityHigherOrEqual(const CanFrame &rhs_frame);
+    bool topPriorityHigherOrEqual(const CanFrame& rhs_frame);
 };
 
 struct UAVCAN_EXPORT CanIfacePerfCounters

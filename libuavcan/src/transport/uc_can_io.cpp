@@ -9,7 +9,8 @@
 #include <uavcan/transport/can_io.hpp>
 #include <uavcan/debug.hpp>
 
-namespace uavcan {
+namespace uavcan 
+{
 /*
 * CanRxFrame
 */
@@ -30,7 +31,7 @@ std::string CanRxFrame::toString(StringRepresentation mode) const {
 /*
 * CanTxQueue::Entry
 */
-void CanTxQueueEntry::destroy(CanTxQueueEntry *&obj, IPoolAllocator &allocator) {
+void CanTxQueueEntry::destroy(CanTxQueueEntry*& obj, IPoolAllocator &allocator) {
     if (obj != UAVCAN_NULLPTR) {
         obj->~CanTxQueueEntry();
         allocator.deallocate(obj);
@@ -67,22 +68,22 @@ std::string CanTxQueueEntry::toString() const {
 */
 CanTxQueue::~CanTxQueue() {
     // Remove all nodes & node contents of the tree without performing re-balancing steps
-    postOrderNodeTraverseRecursively(this->root_, [this](Node*& n){
+    postOrderNodeTraverseRecursively(this->root_, [this](Node*& n) {
         CanTxQueueEntry::destroy(n->data, this->allocator_);
     });
     // Step 2: AvlTree destructor is called to remove all the Node* (automatically after)
 }
 
-bool CanTxQueue::contains(const CanFrame &frame) const{
-    Node *n = this->root_;
+bool CanTxQueue::contains(const CanFrame& frame) const{
+    Node* n = this->root_;
 
     while (n != UAVCAN_NULLPTR) {
-        if(frame.priorityHigherThan(n->data->frame)){
+        if(frame.priorityHigherThan(n->data->frame)) {
             n = n->right;
             continue;
         }
 
-        if(frame.priorityLowerThan(n->data->frame)){
+        if(frame.priorityLowerThan(n->data->frame)) {
             n = n->left;
             continue;
         }
@@ -92,10 +93,10 @@ bool CanTxQueue::contains(const CanFrame &frame) const{
     return false;
 }
 
-bool CanTxQueue::linkedListContains(Node *head, const CanFrame &frame) const{
-    auto *next = head;
-    while(next != UAVCAN_NULLPTR){
-        if(next->data->frame == frame){
+bool CanTxQueue::linkedListContains(Node* head, const CanFrame& frame) const{
+    CanTxQueueEntry* next = head;
+    while(next != UAVCAN_NULLPTR) {
+        if(next->data->frame == frame) {
             return true;
         }
 
@@ -119,16 +120,16 @@ void CanTxQueue::push(const CanFrame &frame, MonotonicTime tx_deadline, Qos qos,
         return;
     }
 
-    void *praw = this->allocator_.allocate(sizeof(CanTxQueueEntry));
+    void* praw = this->allocator_.allocate(sizeof(CanTxQueueEntry));
     if (praw == UAVCAN_NULLPTR) {
         UAVCAN_TRACE("CanTxQueue", "Push rejected: OOM (CanTxQueueEntry)");
         safeIncrementRejectedFrames();
         return;
     }
 
-    CanTxQueueEntry *entry = new(praw) CanTxQueueEntry(frame, tx_deadline, qos, flags);
+    CanTxQueueEntry* entry = new(praw) CanTxQueueEntry(frame, tx_deadline, qos, flags);
     UAVCAN_ASSERT(entry);
-    auto result = AvlTree::insert(entry);
+    bool result = AvlTree::insert(entry);
 
     if (!result) {
         /* AVL Tree could not allocate a new node */
@@ -138,7 +139,7 @@ void CanTxQueue::push(const CanFrame &frame, MonotonicTime tx_deadline, Qos qos,
     }
 }
 
-void CanTxQueue::remove(CanTxQueueEntry *entry){
+void CanTxQueue::remove(CanTxQueueEntry* entry) {
     if (entry == UAVCAN_NULLPTR) {
         return;
     }
@@ -149,43 +150,43 @@ void CanTxQueue::remove(CanTxQueueEntry *entry){
     CanTxQueueEntry::destroy(entry, this->allocator_);
 }
 
-CanTxQueueEntry *CanTxQueue::peek(){
-    auto maxNode = searchForNonExpiredMax(this->root_);
+CanTxQueueEntry* CanTxQueue::peek() {
+    Node* maxNode = searchForNonExpiredMax(this->root_);
 
-    if(maxNode == UAVCAN_NULLPTR){
+    if(maxNode == UAVCAN_NULLPTR) {
         return UAVCAN_NULLPTR;
     }
 
     return maxNode->data;
 }
 
-bool CanTxQueue::topPriorityHigherOrEqual(const CanFrame &rhs_frame){
-    auto peek_entry = peek();
+bool CanTxQueue::topPriorityHigherOrEqual(const CanFrame& rhs_frame) {
+    CanTxQueueEntry* peek_entry = peek();
     if (peek_entry == UAVCAN_NULLPTR) {
         return false;
     }
     return !rhs_frame.priorityHigherThan(peek_entry->frame);
 }
 
-uavcan::AvlTree<uavcan::CanTxQueueEntry>::Node *CanTxQueue::searchForNonExpiredMax(Node *n) {
+uavcan::AvlTree<uavcan::CanTxQueueEntry>::Node* CanTxQueue::searchForNonExpiredMax(Node* n) {
     if (n == UAVCAN_NULLPTR) {
         return UAVCAN_NULLPTR;
     }
 
-    auto timestamp = sysclock_.getMonotonic();
+    const MonotonicTime timestamp = sysclock_.getMonotonic();
 
-    while(n->data->isExpired(timestamp)){
+    while(n->data->isExpired(timestamp)) {
         this->remove(n->data);
         return searchForNonExpiredMax(this->root_);
     }
 
-    while(n->right != UAVCAN_NULLPTR && n->right->data->isExpired(timestamp)){
-        auto expiredEntry = n->data;
-        n->right = this->AvlTree::remove_helper(n, n->data);
+    while(n->right != UAVCAN_NULLPTR && n->right->data->isExpired(timestamp)) {
+        CanTxQueueEntry* expiredEntry = n->data;
+        n->right = this->AvlTree::remove_node(n, n->data);
         CanTxQueueEntry::destroy(expiredEntry, this->allocator_);
     }
 
-    auto r = searchForNonExpiredMax(n->right);
+    Node* r = searchForNonExpiredMax(n->right);
 
     if (r != UAVCAN_NULLPTR) {
         return r;
@@ -198,7 +199,7 @@ uavcan::AvlTree<uavcan::CanTxQueueEntry>::Node *CanTxQueue::searchForNonExpiredM
 * CanIOManager
 */
 int
-CanIOManager::sendToIface(uint8_t iface_index, const CanFrame &frame, MonotonicTime tx_deadline, CanIOFlags flags) {
+CanIOManager::sendToIface(uint8_t iface_index, const CanFrame& frame, MonotonicTime tx_deadline, CanIOFlags flags) {
     UAVCAN_ASSERT(iface_index < MaxCanIfaces);
     ICanIface *const iface = driver_.getIface(iface_index);
     if (iface == UAVCAN_NULLPTR) {
@@ -218,7 +219,7 @@ CanIOManager::sendToIface(uint8_t iface_index, const CanFrame &frame, MonotonicT
 
 int CanIOManager::sendFromTxQueue(uint8_t iface_index) {
     UAVCAN_ASSERT(iface_index < MaxCanIfaces);
-    CanTxQueueEntry *entry = tx_queues_[iface_index]->peek();
+    CanTxQueueEntry* entry = tx_queues_[iface_index]->peek();
     if (entry == UAVCAN_NULLPTR) {
         return 0;
     }
@@ -309,18 +310,18 @@ int CanIOManager::send(const CanFrame &frame, MonotonicTime tx_deadline, Monoton
             // Building the list of next pending frames per iface.
             // The driver will give them a scrutinizing look before deciding whether he wants to accept them.
             // TODO: What does this mean? can we optimize further before passing them to the driver?
-            const CanFrame *pending_tx[MaxCanIfaces] = {};
+            const CanFrame* pending_tx[MaxCanIfaces] = {};
             for (int i = 0; i < num_ifaces; i++) {
                 CanTxQueue &q = *tx_queues_[i];
-                auto peek_entry = q.peek();
+                CanTxQueueEntry* peek_entry = q.peek();
                 const CanFrame *peek_frame = peek_entry == UAVCAN_NULLPTR ? UAVCAN_NULLPTR : &peek_entry->frame;
 
                 if (iface_mask & (1 << i))      // I hate myself so much right now.
                 {
-                    auto hasPriority = false;
+                    bool hasPriority = false;
 
                     // This may seem duplicate of topPriorityHigherOrEqual but we want to avoid traversing the queue again
-                    if(peek_entry != UAVCAN_NULLPTR){
+                    if(peek_entry != UAVCAN_NULLPTR) {
                         hasPriority = !frame.priorityHigherThan(*peek_frame);
                     }
 
@@ -387,10 +388,10 @@ int CanIOManager::receive(CanRxFrame &out_frame, MonotonicTime blocking_deadline
         masks.write = makePendingTxMask();
         masks.read = uint8_t((1 << num_ifaces) - 1);
         {
-            const CanFrame *pending_tx[MaxCanIfaces] = {};
+            const CanFrame* pending_tx[MaxCanIfaces] = {};
             for (int i = 0; i < num_ifaces; i++)      // Dear compiler, kindly unroll this. Thanks.
             {
-                auto entry = tx_queues_[i]->peek();
+                CanTxQueueEntry* entry = tx_queues_[i]->peek();
                 pending_tx[i] = (entry == UAVCAN_NULLPTR) ? UAVCAN_NULLPTR : &entry->frame;
             }
 
