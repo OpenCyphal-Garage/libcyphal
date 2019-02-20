@@ -83,6 +83,9 @@ struct CanTxQueueEntry  // Not required to be packed - fits the block in any cas
 
 class UAVCAN_EXPORT CanTxQueue : public AvlTree<CanTxQueueEntry>
 {
+private:
+    void postOrderTraverseEntryCleanup(Node* n);
+
 protected:
     ISystemClock& sysclock_;
     uint32_t rejected_frames_cnt_;

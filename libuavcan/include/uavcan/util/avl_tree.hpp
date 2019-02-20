@@ -24,7 +24,7 @@ class UAVCAN_EXPORT AvlTree : Noncopyable
 protected:
     struct Node {
         T* data;
-        uint16_t h = 1; // initially added as leaf
+        int16_t h = 1; // initially added as leaf
         Node* left = UAVCAN_NULLPTR;
         Node* right = UAVCAN_NULLPTR;
         Node* equalKeys = UAVCAN_NULLPTR;
@@ -35,7 +35,7 @@ protected:
 private:
     size_t len_ ;
 
-    uint16_t heightOf(const Node* n) const {
+    int16_t heightOf(const Node* n) const {
         if(n == UAVCAN_NULLPTR) {
             return 0;
         }
@@ -76,12 +76,16 @@ private:
         }
     }
 
-    uint16_t balanceOf(Node* n) const {
+    int16_t balanceOf(Node* n) const {
         if (n == UAVCAN_NULLPTR) {
             return 0;
         }
 
-        return heightOf(n->left) - heightOf(n->right);
+        return static_cast<int16_t>(heightOf(n->left) - heightOf(n->right));
+    }
+
+    int16_t maxOf(int16_t a, int16_t b) const {
+        return static_cast<int16_t>(a > b ? a : b);
     }
 
     Node* rotateRight(Node* y) const {
@@ -91,8 +95,8 @@ private:
         x->right = y;
         y->left = T2;
 
-        y->h = std::max(heightOf(y->left), heightOf(y->right)) + 1;
-        x->h = std::max(heightOf(x->left), heightOf(x->right)) + 1;
+        y->h = static_cast<int16_t>(maxOf(heightOf(y->left), heightOf(y->right)) + 1);
+        x->h = static_cast<int16_t>(maxOf(heightOf(x->left), heightOf(x->right)) + 1);
 
         return x;
     }
@@ -104,34 +108,34 @@ private:
         y->left = x;
         x->right = T2;
 
-        x->h = std::max(heightOf(x->left), heightOf(x->right)) + 1;
-        y->h = std::max(heightOf(y->left), heightOf(y->right)) + 1;
+        x->h = static_cast<int16_t>(maxOf(heightOf(x->left), heightOf(x->right)) + 1);
+        y->h = static_cast<int16_t>(maxOf(heightOf(y->left), heightOf(y->right)) + 1);
 
         return y;
     }
 
     // If UAVCAN_NULLPTR is returned, OOM happened.
-    Node* insert_helper(Node* node, Node* newNode) {
+    Node* insert_node(Node* node, Node* newNode) {
         if (node == UAVCAN_NULLPTR) {
             len_++;
             return newNode;
         }
 
         if (*newNode->data < *node->data) {
-            node->left = insert_helper(node->left, newNode);
+            node->left = insert_node(node->left, newNode);
         } else if (*newNode->data > *node->data) {
-            node->right = insert_helper(node->right, newNode);
+            node->right = insert_node(node->right, newNode);
         } else {
             len_++;
             appendToEndOf(node, newNode);
             return node;
         }
 
-        node->h = std::max(heightOf(node->left), heightOf(node->right)) + 1;
+        node->h = static_cast<int16_t>(maxOf(heightOf(node->left), heightOf(node->right)) + 1);
 
-        uint16_t balance = balanceOf(node);
+        int16_t balance = balanceOf(node);
 
-        if (balance > 1 && (*newNode->data < *node->left->data) {
+        if (balance > 1 && (*newNode->data < *node->left->data)) {
             return rotateRight(node);
         }
 
@@ -197,6 +201,16 @@ private:
         return root;
     }
 
+    void postOrderTraverseNodeCleanup(Node* n) {
+        if (n == UAVCAN_NULLPTR) {
+            return;
+        }
+
+        postOrderTraverseNodeCleanup(n->left);
+        postOrderTraverseNodeCleanup(n->right);
+        this->deleteNode(n);
+    }
+
 protected:
     /*
      * Use this only to allocate the Node struct.
@@ -215,15 +229,15 @@ protected:
         forEach(n);
     }
 
-    Node* remove_helper(Node* node, T* data) {
+    Node* remove_node(Node* node, T* data) {
         if (node == UAVCAN_NULLPTR) {
             return node;
         }
 
         if (*data < *node->data) {
-            node->left = remove_helper(node->left, data);
+            node->left = remove_node(node->left, data);
         } else if (*data > *node->data) {
-            node->right = remove_helper(node->right, data);
+            node->right = remove_node(node->right, data);
         } else {
             if(node->equalKeys == UAVCAN_NULLPTR) {
                 if (node->left == UAVCAN_NULLPTR || node->right == UAVCAN_NULLPTR) {
@@ -246,7 +260,7 @@ protected:
                     }
 
                     node->data = minOfRight->data;
-                    node->right = remove_helper(node->right, minOfRight->data);
+                    node->right = remove_node(node->right, minOfRight->data);
                 }
             } else {
                 Node* newHead = deleteFromList(node, data);
@@ -258,10 +272,9 @@ protected:
             return node;
         }
 
-        node->h = std::max(heightOf(node->left),
-                           heightOf(node->right)) + 1;
+        node->h = static_cast<int16_t>(maxOf(heightOf(node->left), heightOf(node->right)) + 1);
 
-        uint16_t balance = balanceOf(node);
+        int16_t balance = balanceOf(node);
 
         if (balance > 1 && balanceOf(node->left) >= 0) {
             return rotateRight(node);
@@ -304,13 +317,11 @@ public:
 
     virtual ~AvlTree() {
         // delete leafs first
-        postOrderNodeTraverseRecursively(root_, [this](Node*& n) {
-            this->deleteNode(n);
-        });
+        postOrderTraverseNodeCleanup(this->root_);
     }
 
     void remove_entry(T* data) {
-        root_ = remove_helper(root_, data);
+        root_ = remove_node(root_, data);
     }
 
     bool insert(T* data) {
@@ -319,7 +330,7 @@ public:
             return false;
         }
 
-        root_ = insert_helper(root_, newNode);
+        root_ = insert_node(root_, newNode);
 
         return true;
     }

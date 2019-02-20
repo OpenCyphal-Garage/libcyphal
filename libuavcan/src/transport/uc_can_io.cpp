@@ -68,10 +68,18 @@ std::string CanTxQueueEntry::toString() const {
 */
 CanTxQueue::~CanTxQueue() {
     // Remove all nodes & node contents of the tree without performing re-balancing steps
-    postOrderNodeTraverseRecursively(this->root_, [this](Node*& n) {
-        CanTxQueueEntry::destroy(n->data, this->allocator_);
-    });
+    postOrderTraverseEntryCleanup(this->root_);
     // Step 2: AvlTree destructor is called to remove all the Node* (automatically after)
+}
+
+void CanTxQueue::postOrderTraverseEntryCleanup(Node* n) {
+    if (n == UAVCAN_NULLPTR) {
+        return;
+    }
+
+    postOrderTraverseEntryCleanup(n->left);
+    postOrderTraverseEntryCleanup(n->right);
+    CanTxQueueEntry::destroy(n->data, this->allocator_);
 }
 
 bool CanTxQueue::contains(const CanFrame& frame) const{
@@ -94,7 +102,7 @@ bool CanTxQueue::contains(const CanFrame& frame) const{
 }
 
 bool CanTxQueue::linkedListContains(Node* head, const CanFrame& frame) const{
-    CanTxQueueEntry* next = head;
+    Node* next = head;
     while(next != UAVCAN_NULLPTR) {
         if(next->data->frame == frame) {
             return true;
