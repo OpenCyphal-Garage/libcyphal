@@ -15,11 +15,10 @@ void TransferSender::registerError() const
     dispatcher_.getTransferPerfCounter().addError();
 }
 
-void TransferSender::init(const DataTypeDescriptor& dtid, Qos qos)
+void TransferSender::init(const DataTypeDescriptor& dtid)
 {
     UAVCAN_ASSERT(!isInitialized());
 
-    qos_          = qos;
     data_type_id_ = dtid.getID();
     crc_base_     = dtid.getSignature().toTransferCRC();
 }
@@ -71,7 +70,7 @@ int TransferSender::send(const uint8_t* payload, unsigned payload_len, Monotonic
 
         const CanIOFlags flags = frame.getSrcNodeID().isUnicast() ? flags_ : (flags_ | CanIOFlagAbortOnError);
 
-        return dispatcher_.send(frame, tx_deadline, blocking_deadline, qos_, flags, iface_mask_);
+        return dispatcher_.send(frame, tx_deadline, blocking_deadline, flags, iface_mask_);
     }
     else                                                   // Multi Frame Transfer
     {
@@ -105,7 +104,7 @@ int TransferSender::send(const uint8_t* payload, unsigned payload_len, Monotonic
 
         while (true)
         {
-            const int send_res = dispatcher_.send(frame, tx_deadline, blocking_deadline, qos_, flags_, iface_mask_);
+            const int send_res = dispatcher_.send(frame, tx_deadline, blocking_deadline, flags_, iface_mask_);
             if (send_res < 0)
             {
                 registerError();

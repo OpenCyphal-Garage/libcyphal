@@ -37,22 +37,17 @@ struct UAVCAN_EXPORT CanRxFrame : public CanFrame
 #endif
 };
 
-enum Qos { Volatile, Persistent };
-
 struct CanTxQueueEntry  // Not required to be packed - fits the block in any case
 {
     MonotonicTime deadline;
     const CanFrame frame;
-    uint8_t qos;
     CanIOFlags flags;
 
-    CanTxQueueEntry(const CanFrame& arg_frame, const MonotonicTime arg_deadline, Qos arg_qos, CanIOFlags arg_flags)
+    CanTxQueueEntry(const CanFrame& arg_frame, const MonotonicTime arg_deadline, CanIOFlags arg_flags)
         : deadline(arg_deadline)
         , frame(arg_frame)
-        , qos(uint8_t(arg_qos))
         , flags(arg_flags)
     {
-        UAVCAN_ASSERT((qos == Volatile) || (qos == Persistent));
         IsDynamicallyAllocatable<CanTxQueueEntry>::check();
     }
 
@@ -76,7 +71,7 @@ struct CanTxQueueEntry  // Not required to be packed - fits the block in any cas
     }
 
 #if UAVCAN_TOSTRING
-    std::string toString() const;
+        std::string toString() const;
 #endif
 };
 
@@ -104,7 +99,7 @@ public:
 
     /* Avl Tree allocates the AvlTree::Node, while this(CanTxQueue) allocates the CanTxQueueEntry
      * Same logic for removal. */
-    void push(const CanFrame& frame, MonotonicTime tx_deadline, Qos qos, CanIOFlags flags);
+    void push(const CanFrame& frame, MonotonicTime tx_deadline, CanIOFlags flags);
     void remove(CanTxQueueEntry* entry);
 
     uint32_t getRejectedFrameCount() const { return rejected_frames_cnt_; }
@@ -176,7 +171,7 @@ public:
      *  negative - failure
      */
     int send(const CanFrame& frame, MonotonicTime tx_deadline, MonotonicTime blocking_deadline,
-             uint8_t iface_mask, Qos qos, CanIOFlags flags);
+             uint8_t iface_mask, CanIOFlags flags);
     int receive(CanRxFrame& out_frame, MonotonicTime blocking_deadline, CanIOFlags& out_flags);
 };
 

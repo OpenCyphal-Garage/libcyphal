@@ -104,15 +104,12 @@ public:
      *
      * Optional parameters:
      *
-     * @param qos               Quality of service. Please refer to the CAN IO manager for details.
-     *
      * @param flags             CAN IO flags. Please refer to the CAN driver API for details.
      */
     int injectTxFrame(const CanFrame& frame, MonotonicTime tx_deadline, uint8_t iface_mask,
-                      Qos qos = Qos::Volatile,
                       CanIOFlags flags = 0)
     {
-        return getDispatcher().getCanIOManager().send(frame, tx_deadline, MonotonicTime(), iface_mask, qos, flags);
+        return getDispatcher().getCanIOManager().send(frame, tx_deadline, MonotonicTime(), iface_mask, flags);
     }
 
 #if !UAVCAN_TINY

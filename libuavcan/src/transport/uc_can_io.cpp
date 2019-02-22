@@ -15,22 +15,28 @@ namespace uavcan
  * CanRxFrame
  */
 #if UAVCAN_TOSTRING
-
-std::string CanRxFrame::toString(StringRepresentation mode) const {
+std::string CanRxFrame::toString(StringRepresentation mode) const
+{
     std::string out = CanFrame::toString(mode);
     out.reserve(128);
-    out += " ts_m=" + ts_mono.toString();
+    out += " ts_m="   + ts_mono.toString();
     out += " ts_utc=" + ts_utc.toString();
     out += " iface=";
     out += char('0' + iface_index);
     return out;
 }
-
 #endif
 
 /*
- * CanTxQueue::Entry
+ * CanTxQueueEntry
  */
+ #if UAVCAN_TOSTRING
+std::string CanTxQueueEntry::toString() const
+{
+    return frame.toString();
+}
+#endif
+
 void CanTxQueueEntry::destroy(CanTxQueueEntry*& obj, IPoolAllocator &allocator) {
     if (obj != UAVCAN_NULLPTR) {
         obj->~CanTxQueueEntry();
@@ -38,30 +44,6 @@ void CanTxQueueEntry::destroy(CanTxQueueEntry*& obj, IPoolAllocator &allocator) 
         obj = UAVCAN_NULLPTR;
     }
 }
-
-#if UAVCAN_TOSTRING
-
-std::string CanTxQueueEntry::toString() const {
-    std::string str_qos;
-    switch (qos) {
-        case Volatile: {
-            str_qos = "<volat> ";
-            break;
-        }
-        case Persistent: {
-            str_qos = "<perst> ";
-            break;
-        }
-        default: {
-            UAVCAN_ASSERT(0);
-            str_qos = "<?WTF?> ";
-            break;
-        }
-    }
-    return str_qos + frame.toString();
-}
-
-#endif
 
 /*
  * CanTxQueue
@@ -119,7 +101,7 @@ void CanTxQueue::safeIncrementRejectedFrames() {
     }
 }
 
-void CanTxQueue::push(const CanFrame &frame, MonotonicTime tx_deadline, Qos qos, CanIOFlags flags) {
+void CanTxQueue::push(const CanFrame &frame, MonotonicTime tx_deadline, CanIOFlags flags) {
     const MonotonicTime timestamp = sysclock_.getMonotonic();
 
     if (timestamp >= tx_deadline) {
@@ -135,7 +117,7 @@ void CanTxQueue::push(const CanFrame &frame, MonotonicTime tx_deadline, Qos qos,
         return;
     }
 
-    CanTxQueueEntry* entry = new(praw) CanTxQueueEntry(frame, tx_deadline, qos, flags);
+    CanTxQueueEntry* entry = new(praw) CanTxQueueEntry(frame, tx_deadline, flags);
     UAVCAN_ASSERT(entry);
     bool result = AvlTree::insert(entry);
 
@@ -295,7 +277,7 @@ CanIfacePerfCounters CanIOManager::getIfacePerfCounters(uint8_t iface_index) con
 }
 
 int CanIOManager::send(const CanFrame &frame, MonotonicTime tx_deadline, MonotonicTime blocking_deadline,
-                       uint8_t iface_mask, Qos qos, CanIOFlags flags) {
+                       uint8_t iface_mask, CanIOFlags flags) {
     const uint8_t num_ifaces = getNumIfaces();
     const uint8_t all_ifaces_mask = uint8_t((1U << num_ifaces) - 1);
     iface_mask &= all_ifaces_mask;
@@ -379,7 +361,7 @@ int CanIOManager::send(const CanFrame &frame, MonotonicTime tx_deadline, Monoton
             }
             for (uint8_t i = 0; i < num_ifaces; i++) {
                 if (iface_mask & (1 << i)) {
-                    tx_queues_[i]->push(frame, tx_deadline, qos, flags);
+                    tx_queues_[i]->push(frame, tx_deadline, flags);
                 }
             }
             break;

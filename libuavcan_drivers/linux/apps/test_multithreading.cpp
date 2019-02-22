@@ -159,7 +159,7 @@ class VirtualCanIface : public uavcan::ICanIface,
     int16_t send(const uavcan::CanFrame& frame, uavcan::MonotonicTime tx_deadline, uavcan::CanIOFlags flags) override
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        prioritized_tx_queue_.push(frame, tx_deadline, uavcan::Qos::Volatile, flags);
+        prioritized_tx_queue_.push(frame, tx_deadline, flags);
         return 1;
     }
 
@@ -226,8 +226,7 @@ public:
             UAVCAN_TRACE("VirtualCanIface", "TX injection [iface=0x%02x]: %s",
                          unsigned(iface_mask), e->toString().c_str());
 
-            const int res = main_node.injectTxFrame(e->frame, e->deadline, iface_mask,
-                                                    uavcan::Qos(e->qos), e->flags);
+            const int res = main_node.injectTxFrame(e->frame, e->deadline, iface_mask, e->flags);
             prioritized_tx_queue_.remove(e);
             if (res <= 0)
             {

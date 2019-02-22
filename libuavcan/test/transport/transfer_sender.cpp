@@ -52,8 +52,8 @@ TEST(TransferSender, Basic)
 
     uavcan::TransferSender senders[2] =
     {
-        uavcan::TransferSender(dispatcher_tx, TYPES[0], uavcan::Qos ::Volatile),
-        uavcan::TransferSender(dispatcher_tx, TYPES[1], uavcan::Qos ::Persistent)
+        uavcan::TransferSender(dispatcher_tx, TYPES[0]),
+        uavcan::TransferSender(dispatcher_tx, TYPES[1])
     };
 
     static const std::string DATA[4] =
@@ -199,7 +199,7 @@ TEST(TransferSender, Loopback)
 
     uavcan::DataTypeDescriptor desc = makeDataType(uavcan::DataTypeKindMessage, 1, "Foobar");
 
-    uavcan::TransferSender sender(dispatcher, desc, uavcan::Qos ::Volatile);
+    uavcan::TransferSender sender(dispatcher, desc);
 
     sender.setCanIOFlags(uavcan::CanIOFlagLoopback);
     ASSERT_EQ(uavcan::CanIOFlagLoopback, sender.getCanIOFlags());
@@ -234,8 +234,7 @@ TEST(TransferSender, PassiveMode)
 
     uavcan::Dispatcher dispatcher(driver, poolmgr, clockmock);
 
-    uavcan::TransferSender sender(dispatcher, makeDataType(uavcan::DataTypeKindMessage, 123),
-                                  uavcan::Qos ::Volatile);
+    uavcan::TransferSender sender(dispatcher, makeDataType(uavcan::DataTypeKindMessage, 123));
 
     static const uint8_t Payload[] = {1, 2, 3, 4, 5};
 

@@ -12,7 +12,6 @@ TEST(CanTxQueue, TxQueue)
     using uavcan::CanTxQueue;
     using uavcan::CanTxQueueEntry;
     using uavcan::CanFrame;
-    using uavcan::Qos;
 
     ASSERT_GE(40, sizeof(CanTxQueueEntry)); // should be true for any platforms, though not required
 
@@ -38,7 +37,7 @@ TEST(CanTxQueue, TxQueue)
     /*
      * Basic priority insertion
      */
-    queue.push(f4, tsMono(100), Qos::Persistent, flags);
+    queue.push(f4, tsMono(100), flags);
     EXPECT_FALSE(queue.isEmpty());
     EXPECT_TRUE(queue.contains(f4));
     EXPECT_EQ(1, queue.getSize());
@@ -49,17 +48,17 @@ TEST(CanTxQueue, TxQueue)
     EXPECT_TRUE(queue.topPriorityHigherOrEqual(f4)); // Equal
     EXPECT_FALSE(queue.topPriorityHigherOrEqual(f3));
 
-    queue.push(f3, tsMono(200), Qos::Persistent, flags);
+    queue.push(f3, tsMono(200), flags);
     EXPECT_EQ(f3, queue.peek()->frame);
     EXPECT_EQ(2, queue.getSize());
 
 
-    queue.push(f0, tsMono(300), Qos::Volatile, flags);
+    queue.push(f0, tsMono(300), flags);
     EXPECT_EQ(f0, queue.peek()->frame);
     EXPECT_EQ(3, queue.getSize());
 
 
-    queue.push(f1, tsMono(400), Qos::Volatile, flags);
+    queue.push(f1, tsMono(400), flags);
     EXPECT_EQ(f0, queue.peek()->frame);              // Still f0, since it is highest
     EXPECT_TRUE(queue.topPriorityHigherOrEqual(f0)); // Equal
     EXPECT_TRUE(queue.topPriorityHigherOrEqual(f1));
@@ -112,8 +111,8 @@ TEST(CanTxQueue, TxQueue)
     * Expiration Auto Remove on Peek
     */
 
-    queue.push(f0, tsMono(999), Qos::Persistent, flags);
-    queue.push(f4, tsMono(101), Qos::Persistent, flags);
+    queue.push(f0, tsMono(999), flags);
+    queue.push(f4, tsMono(101), flags);
 
     clockmock.monotonic = 102; // make f4 expire
     EXPECT_TRUE(queue.contains(f0));
@@ -133,7 +132,7 @@ TEST(CanTxQueue, TxQueue)
     EXPECT_EQ(0, queue.getSize());
     EXPECT_EQ(0, pool.getNumUsedBlocks());
 
-    queue.push(f4, tsMono(98), Qos::Persistent, flags); // already expired
+    queue.push(f4, tsMono(98), flags); // already expired
 
     EXPECT_FALSE(queue.peek());
     EXPECT_EQ(1, queue.getRejectedFrameCount());
@@ -144,20 +143,20 @@ TEST(CanTxQueue, TxQueue)
      * Add multiple so that we reach OOM
      */
 
-    queue.push(f0, tsMono(900), Qos::Persistent, flags);
+    queue.push(f0, tsMono(900), flags);
     EXPECT_EQ(2, pool.getNumUsedBlocks());
 
-    queue.push(f1, tsMono(1000), Qos::Persistent, flags);
+    queue.push(f1, tsMono(1000), flags);
     EXPECT_EQ(4, pool.getNumUsedBlocks());
 
-    queue.push(f2, tsMono(1100), Qos::Persistent, flags);
+    queue.push(f2, tsMono(1100), flags);
     EXPECT_EQ(6, pool.getNumUsedBlocks());
 
-    queue.push(f3, tsMono(1200), Qos::Persistent, flags);
+    queue.push(f3, tsMono(1200), flags);
     EXPECT_EQ(8, pool.getNumUsedBlocks());
     EXPECT_TRUE(queue.contains(f3));
 
-    queue.push(f4, tsMono(1300), Qos::Persistent, flags);
+    queue.push(f4, tsMono(1300), flags);
     EXPECT_EQ(8, pool.getNumUsedBlocks());
     EXPECT_FALSE(queue.contains(f4));
 

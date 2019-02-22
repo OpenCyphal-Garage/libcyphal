@@ -117,7 +117,6 @@ TEST(CanIOManager, Transmission)
     using uavcan::CanIOManager;
     using uavcan::CanTxQueue;
     using uavcan::CanTxQueueEntry;
-    using uavcan::Qos;
 
     // Memory
     uavcan::PoolAllocator<40 * 64, 64> pool;
@@ -141,13 +140,13 @@ TEST(CanIOManager, Transmission)
     /*
      * Simple transmission
      */
-    EXPECT_EQ(2, iomgr.send(frames[0], tsMono(100), tsMono(0), ALL_IFACES_MASK, Qos::Volatile, flags));
+    EXPECT_EQ(2, iomgr.send(frames[0], tsMono(100), tsMono(0), ALL_IFACES_MASK, flags));
     EXPECT_TRUE(driver.ifaces.at(0).matchAndPopTx(frames[0], 100));
     EXPECT_TRUE(driver.ifaces.at(1).matchAndPopTx(frames[0], 100));
     EXPECT_TRUE(driver.ifaces.at(0).matchPendingTx(frames[0]));
     EXPECT_TRUE(driver.ifaces.at(1).matchPendingTx(frames[0]));
 
-    EXPECT_EQ(1, iomgr.send(frames[1], tsMono(200), tsMono(100), 2, Qos::Persistent, flags));  // To #1 only
+    EXPECT_EQ(1, iomgr.send(frames[1], tsMono(200), tsMono(100), 2, flags));  // To #1 only
     EXPECT_TRUE(driver.ifaces.at(1).matchAndPopTx(frames[1], 200));
     EXPECT_TRUE(driver.ifaces.at(0).matchPendingTx(uavcan::CanFrame()));
     EXPECT_TRUE(driver.ifaces.at(1).matchPendingTx(frames[1]));
@@ -166,7 +165,7 @@ TEST(CanIOManager, Transmission)
 
     // Sending to both, #0 blocked
     driver.ifaces.at(0).writeable = false;
-    EXPECT_LT(0, iomgr.send(frames[0], tsMono(201), tsMono(200), ALL_IFACES_MASK, Qos::Persistent, flags));
+    EXPECT_LT(0, iomgr.send(frames[0], tsMono(201), tsMono(200), ALL_IFACES_MASK, flags));
     EXPECT_TRUE(driver.ifaces.at(1).matchAndPopTx(frames[0], 201));
     EXPECT_EQ(200, clockmock.monotonic);
     EXPECT_EQ(200, clockmock.utc);
@@ -178,13 +177,13 @@ TEST(CanIOManager, Transmission)
 
     // Sending to both, both blocked
     driver.ifaces.at(1).writeable = false;
-    EXPECT_EQ(0, iomgr.send(frames[1], tsMono(777), tsMono(300), ALL_IFACES_MASK, Qos::Volatile, flags));
+    EXPECT_EQ(0, iomgr.send(frames[1], tsMono(777), tsMono(300), ALL_IFACES_MASK, flags));
     EXPECT_EQ(6, pool.getNumUsedBlocks());          // Total 3 frames in TX queue now
     EXPECT_TRUE(driver.ifaces.at(0).matchPendingTx(frames[0])); // Still 0
     EXPECT_TRUE(driver.ifaces.at(1).matchPendingTx(frames[1])); // 1!!
 
     // Sending to #0, both blocked
-    EXPECT_EQ(0, iomgr.send(frames[2], tsMono(888), tsMono(400), 1, Qos::Persistent, flags));
+    EXPECT_EQ(0, iomgr.send(frames[2], tsMono(888), tsMono(400), 1, flags));
     EXPECT_EQ(400, clockmock.monotonic);
     EXPECT_EQ(400, clockmock.utc);
     EXPECT_TRUE(driver.ifaces.at(0).tx.empty());
@@ -201,7 +200,7 @@ TEST(CanIOManager, Transmission)
     driver.ifaces.at(0).writeable = true;
     driver.ifaces.at(1).writeable = true;
     // One frame per each iface will be sent:
-    EXPECT_LT(0, iomgr.send(frames[0], tsMono(999), tsMono(500), 2, Qos::Persistent, flags));
+    EXPECT_LT(0, iomgr.send(frames[0], tsMono(999), tsMono(500), 2, flags));
     EXPECT_TRUE(driver.ifaces.at(0).matchAndPopTx(frames[1], 777));   // Note that frame[0] on iface #0 has expired
     EXPECT_TRUE(driver.ifaces.at(1).matchAndPopTx(frames[0], 999));   // In different order due to prioritization
     EXPECT_TRUE(driver.ifaces.at(0).tx.empty());
@@ -232,10 +231,10 @@ TEST(CanIOManager, Transmission)
     driver.ifaces.at(1).writeable = false;
 
     // Sending 5 frames, one will be rejected
-    EXPECT_EQ(0, iomgr.send(frames[2], tsMono(2222), tsMono(1000), ALL_IFACES_MASK, Qos::Persistent, flags));
-    EXPECT_EQ(0, iomgr.send(frames[0], tsMono(3333), tsMono(1100), 2, Qos::Persistent, flags));
+    EXPECT_EQ(0, iomgr.send(frames[2], tsMono(2222), tsMono(1000), ALL_IFACES_MASK, flags));
+    EXPECT_EQ(0, iomgr.send(frames[0], tsMono(3333), tsMono(1100), 2, flags));
     // One frame kicked here:
-    EXPECT_EQ(0, iomgr.send(frames[1], tsMono(4444), tsMono(1200), ALL_IFACES_MASK, Qos::Volatile, flags));
+    EXPECT_EQ(0, iomgr.send(frames[1], tsMono(4444), tsMono(1200), ALL_IFACES_MASK, flags));
 
     EXPECT_TRUE(driver.ifaces.at(0).matchPendingTx(frames[1]));
     EXPECT_TRUE(driver.ifaces.at(1).matchPendingTx(frames[0]));
@@ -273,7 +272,7 @@ TEST(CanIOManager, Transmission)
     EXPECT_TRUE(driver.ifaces.at(1).matchPendingTx(frames[1]));
 
     // State checks
-    EXPECT_EQ(2, pool.getNumUsedBlocks());          // TX queue is not empty now, contains the pending frames[2] because of QoS changes stated aboce
+    EXPECT_EQ(2, pool.getNumUsedBlocks());          // TX queue is not empty now, contains the pending frames[2] because of QoS changes stated above
     EXPECT_EQ(1200, clockmock.monotonic);
     EXPECT_EQ(1200, clockmock.utc);
     EXPECT_TRUE(driver.ifaces.at(0).tx.empty());
@@ -288,7 +287,7 @@ TEST(CanIOManager, Transmission)
     driver.select_failure = true;
     EXPECT_EQ(-uavcan::ErrDriver, iomgr.receive(rx_frame, tsMono(2000), flags));
     EXPECT_EQ(-uavcan::ErrDriver,
-              iomgr.send(frames[0], tsMono(2100), tsMono(2000), ALL_IFACES_MASK, Qos::Volatile, flags));
+              iomgr.send(frames[0], tsMono(2100), tsMono(2000), ALL_IFACES_MASK, flags));
     EXPECT_EQ(1200, clockmock.monotonic);
     EXPECT_EQ(1200, clockmock.utc);
     ASSERT_EQ(0, flags);
@@ -302,7 +301,7 @@ TEST(CanIOManager, Transmission)
     driver.ifaces.at(0).tx_failure = true;
     driver.ifaces.at(1).tx_failure = true;
     // Non-blocking - return < 0
-    EXPECT_GE(0, iomgr.send(frames[0], tsMono(2200), tsMono(0), ALL_IFACES_MASK, Qos::Persistent, flags));
+    EXPECT_GE(0, iomgr.send(frames[0], tsMono(2200), tsMono(0), ALL_IFACES_MASK, flags));
     EXPECT_TRUE(driver.ifaces.at(0).matchPendingTx(frames[0]));
     EXPECT_TRUE(driver.ifaces.at(1).matchPendingTx(frames[0]));
 
@@ -334,7 +333,6 @@ TEST(CanIOManager, Loopback)
     using uavcan::CanIOManager;
     using uavcan::CanTxQueue;
     using uavcan::CanTxQueueEntry;
-    using uavcan::Qos;
     using uavcan::CanFrame;
     using uavcan::CanRxFrame;
 
@@ -359,14 +357,14 @@ TEST(CanIOManager, Loopback)
     CanRxFrame rfr2;
 
     uavcan::CanIOFlags flags = 0;
-    ASSERT_EQ(1, iomgr.send(fr1, tsMono(1000), tsMono(0), 1, Qos::Volatile, uavcan::CanIOFlagLoopback));
+    ASSERT_EQ(1, iomgr.send(fr1, tsMono(1000), tsMono(0), 1, uavcan::CanIOFlagLoopback));
     ASSERT_LE(0, iomgr.receive(rfr1, tsMono(100), flags));
     ASSERT_EQ(uavcan::CanIOFlagLoopback, flags);
     ASSERT_TRUE(rfr1 == fr1);
 
     flags = 0;
-    ASSERT_EQ(1, iomgr.send(fr1, tsMono(1000), tsMono(0), 1, Qos::Volatile, uavcan::CanIOFlagLoopback));
-    ASSERT_EQ(1, iomgr.send(fr2, tsMono(1000), tsMono(0), 1, Qos::Persistent, uavcan::CanIOFlagLoopback));
+    ASSERT_EQ(1, iomgr.send(fr1, tsMono(1000), tsMono(0), 1, uavcan::CanIOFlagLoopback));
+    ASSERT_EQ(1, iomgr.send(fr2, tsMono(1000), tsMono(0), 1, uavcan::CanIOFlagLoopback));
     ASSERT_LE(0, iomgr.receive(rfr1, tsMono(100), flags));
     ASSERT_EQ(uavcan::CanIOFlagLoopback, flags);
     ASSERT_LE(0, iomgr.receive(rfr2, tsMono(100), flags));

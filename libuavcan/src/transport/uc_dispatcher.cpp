@@ -285,7 +285,7 @@ int Dispatcher::spinOnce()
 }
 
 int Dispatcher::send(const Frame& frame, MonotonicTime tx_deadline, MonotonicTime blocking_deadline,
-                     Qos qos, CanIOFlags flags, uint8_t iface_mask)
+                    CanIOFlags flags, uint8_t iface_mask)
 {
     if (frame.getSrcNodeID() != getNodeID())
     {
@@ -300,7 +300,7 @@ int Dispatcher::send(const Frame& frame, MonotonicTime tx_deadline, MonotonicTim
         UAVCAN_ASSERT(0);
         return -ErrLogic;
     }
-    return canio_.send(can_frame, tx_deadline, blocking_deadline, iface_mask, qos, flags);
+    return canio_.send(can_frame, tx_deadline, blocking_deadline, iface_mask, flags);
 }
 
 void Dispatcher::cleanup(MonotonicTime ts)
