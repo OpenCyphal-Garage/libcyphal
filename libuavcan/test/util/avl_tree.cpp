@@ -43,7 +43,7 @@ inline bool matchPostOrder(Entry* expected[], AvlTree<Entry>* tree) {
     bool res = true;
 
     tree->walkPostOrder([expected, &count, &res](Entry*& in) {
-        auto res_ = in == expected[count];
+        bool res_ = in == expected[count];
         res &= res_;
         count++;
     });
@@ -59,10 +59,10 @@ TEST(AvlTree, Sanity) {
     EXPECT_TRUE(tree.isEmpty());
     EXPECT_EQ(0, pool.getNumUsedBlocks());
 
-    auto e1 = makeEntry(&pool, 1, 1);
-    auto e2 = makeEntry(&pool, 2, 2);
-    auto e3 = makeEntry(&pool, 3, 3);
-    auto e4 = makeEntry(&pool, 4, 4);
+    Entry* e1 = makeEntry(&pool, 1, 1);
+    Entry* e2 = makeEntry(&pool, 2, 2);
+    Entry* e3 = makeEntry(&pool, 3, 3);
+    Entry* e4 = makeEntry(&pool, 4, 4);
 
     EXPECT_EQ(4, pool.getNumUsedBlocks());
 
@@ -141,11 +141,11 @@ TEST(AvlTree, MultipleEntriesPerKey) {
 
     AvlTree<Entry> tree(pool, 99999);
 
-    auto e1 = makeEntry(&pool, 1, 1);
-    auto e1_1 = makeEntry(&pool, 1, 11);
-    auto e1_11 = makeEntry(&pool, 1, 111);
+    Entry* e1 = makeEntry(&pool, 1, 1);
+    Entry* e1_1 = makeEntry(&pool, 1, 11);
+    Entry* e1_11 = makeEntry(&pool, 1, 111);
 
-    auto e2 = makeEntry(&pool, 2, 2);
+    Entry* e2 = makeEntry(&pool, 2, 2);
 
     /*
      * Insert 2 entries with same key
@@ -218,18 +218,18 @@ TEST(AvlTree, AllRotations) {
     EXPECT_TRUE(tree.isEmpty());
     EXPECT_EQ(0, pool.getNumUsedBlocks());
 
-    auto a = makeEntry(&pool, 1, 1);
-    auto b = makeEntry(&pool, 2, 2);
-    auto c = makeEntry(&pool, 3, 3);
-    auto d = makeEntry(&pool, 4, 4);
-    auto e = makeEntry(&pool, 5, 5);
-    auto f = makeEntry(&pool, 6, 6);
-    auto g = makeEntry(&pool, 7, 7);
-    auto h = makeEntry(&pool, 8, 8);
-    auto i = makeEntry(&pool, 9, 9);
-    auto j = makeEntry(&pool, 10, 10);
-    auto k = makeEntry(&pool, 11, 11);
-    auto l = makeEntry(&pool, 12, 12);
+    Entry* a = makeEntry(&pool, 1, 1);
+    Entry* b = makeEntry(&pool, 2, 2);
+    Entry* c = makeEntry(&pool, 3, 3);
+    Entry* d = makeEntry(&pool, 4, 4);
+    Entry* e = makeEntry(&pool, 5, 5);
+    Entry* f = makeEntry(&pool, 6, 6);
+    Entry* g = makeEntry(&pool, 7, 7);
+    Entry* h = makeEntry(&pool, 8, 8);
+    Entry* i = makeEntry(&pool, 9, 9);
+    Entry* j = makeEntry(&pool, 10, 10);
+    Entry* k = makeEntry(&pool, 11, 11);
+    Entry* l = makeEntry(&pool, 12, 12);
 
     /*
      * Simple test cases for insert
