@@ -72,14 +72,14 @@ TEST(AvlTree, Sanity) {
     EXPECT_EQ(1, tree.getSize());
     EXPECT_EQ(5, pool.getNumUsedBlocks());
 
-    tree.remove_entry(e1);
+    tree.removeEntry(e1);
     EXPECT_FALSE(tree.contains(e1));
     EXPECT_EQ(UAVCAN_NULLPTR, tree.max());
     EXPECT_EQ(0, tree.getSize());
     EXPECT_EQ(4, pool.getNumUsedBlocks());
 
     // Won't break if asked to remove data that do not exist
-    tree.remove_entry(e1);
+    tree.removeEntry(e1);
     EXPECT_FALSE(tree.contains(e1));
     EXPECT_EQ(UAVCAN_NULLPTR, tree.max());
     EXPECT_EQ(0, tree.getSize());
@@ -117,7 +117,7 @@ TEST(AvlTree, Sanity) {
      * Remove e2 - e4
      */
 
-    tree.remove_entry(e2);
+    tree.removeEntry(e2);
     EXPECT_TRUE(tree.contains(e1));
     EXPECT_FALSE(tree.contains(e2));
     EXPECT_TRUE(tree.contains(e3));
@@ -126,7 +126,7 @@ TEST(AvlTree, Sanity) {
     EXPECT_EQ(3, tree.getSize());
     EXPECT_EQ(7, pool.getNumUsedBlocks());
 
-    tree.remove_entry(e4);
+    tree.removeEntry(e4);
     EXPECT_TRUE(tree.contains(e1));
     EXPECT_TRUE(tree.contains(e3));
     EXPECT_FALSE(tree.contains(e4));
@@ -160,7 +160,7 @@ TEST(AvlTree, MultipleEntriesPerKey) {
     EXPECT_EQ(6, pool.getNumUsedBlocks());
 
 
-    tree.remove_entry(e1);
+    tree.removeEntry(e1);
     EXPECT_FALSE(tree.contains(e1));
     EXPECT_TRUE(tree.contains(e1_1));
 
@@ -168,7 +168,7 @@ TEST(AvlTree, MultipleEntriesPerKey) {
     EXPECT_EQ(1, tree.getSize());
     EXPECT_EQ(5, pool.getNumUsedBlocks());
 
-    tree.remove_entry(e1);
+    tree.removeEntry(e1);
 
     /*
      * Insert another with higher priority and
@@ -189,8 +189,8 @@ TEST(AvlTree, MultipleEntriesPerKey) {
     EXPECT_EQ(4, tree.getSize());
     EXPECT_EQ(8, pool.getNumUsedBlocks());
 
-    tree.remove_entry(e2);
-    tree.remove_entry(e1_1); // middle one in node with key == 1
+    tree.removeEntry(e2);
+    tree.removeEntry(e1_1); // middle one in node with key == 1
     EXPECT_FALSE(tree.contains(e2));
     EXPECT_TRUE(tree.contains(e1));
     EXPECT_FALSE(tree.contains(e1_1));
@@ -200,7 +200,7 @@ TEST(AvlTree, MultipleEntriesPerKey) {
     EXPECT_EQ(2, tree.getSize());
     EXPECT_EQ(6, pool.getNumUsedBlocks());
 
-    tree.remove_entry(e1_11); // last one in queue
+    tree.removeEntry(e1_11); // last one in queue
     EXPECT_EQ(e1, tree.max());
     EXPECT_FALSE(tree.contains(e1_11));
 
@@ -251,9 +251,9 @@ TEST(AvlTree, AllRotations) {
     Entry* match_1l[] = {a, c, b};
     EXPECT_TRUE(matchPostOrder(match_1l , &tree));
 
-    tree.remove_entry(a);
-    tree.remove_entry(b);
-    tree.remove_entry(c);
+    tree.removeEntry(a);
+    tree.removeEntry(b);
+    tree.removeEntry(c);
 
     EXPECT_TRUE(tree.isEmpty());
     EXPECT_EQ(12, pool.getNumUsedBlocks());
@@ -272,9 +272,9 @@ TEST(AvlTree, AllRotations) {
     Entry* match_1r[] = {a,c,b};
     EXPECT_TRUE(matchPostOrder(match_1r , &tree));
 
-    tree.remove_entry(c);
-    tree.remove_entry(b);
-    tree.remove_entry(a);
+    tree.removeEntry(c);
+    tree.removeEntry(b);
+    tree.removeEntry(a);
 
     EXPECT_TRUE(tree.isEmpty());
     EXPECT_EQ(12, pool.getNumUsedBlocks());
@@ -293,9 +293,9 @@ TEST(AvlTree, AllRotations) {
     Entry* match_2l[] = {a,c,b};
     EXPECT_TRUE(matchPostOrder(match_2l , &tree));
 
-    tree.remove_entry(a);
-    tree.remove_entry(c);
-    tree.remove_entry(b);
+    tree.removeEntry(a);
+    tree.removeEntry(c);
+    tree.removeEntry(b);
 
     EXPECT_TRUE(tree.isEmpty());
     EXPECT_EQ(12, pool.getNumUsedBlocks());
@@ -315,9 +315,9 @@ TEST(AvlTree, AllRotations) {
     Entry* match_2r[] = {a,c,b};
     EXPECT_TRUE(matchPostOrder(match_2r , &tree));
 
-    tree.remove_entry(c);
-    tree.remove_entry(a);
-    tree.remove_entry(b);
+    tree.removeEntry(c);
+    tree.removeEntry(a);
+    tree.removeEntry(b);
 
     EXPECT_TRUE(tree.isEmpty());
     EXPECT_EQ(12, pool.getNumUsedBlocks());
@@ -342,14 +342,14 @@ TEST(AvlTree, AllRotations) {
     Entry* match_pre_del_1l[] = {a,d,c,b};
     EXPECT_TRUE(matchPostOrder(match_pre_del_1l , &tree));
 
-    tree.remove_entry(a);
+    tree.removeEntry(a);
 
     Entry* match_post_del_1l[] = {b,d,c};
     EXPECT_TRUE(matchPostOrder(match_post_del_1l , &tree));
 
-    tree.remove_entry(b);
-    tree.remove_entry(c);
-    tree.remove_entry(d);
+    tree.removeEntry(b);
+    tree.removeEntry(c);
+    tree.removeEntry(d);
 
     EXPECT_TRUE(tree.isEmpty());
     EXPECT_EQ(12, pool.getNumUsedBlocks());
@@ -370,14 +370,14 @@ TEST(AvlTree, AllRotations) {
     Entry* match_pre_del_1r[] = {a,b,d,c};
     EXPECT_TRUE(matchPostOrder(match_pre_del_1r , &tree));
 
-    tree.remove_entry(d);
+    tree.removeEntry(d);
 
     Entry* match_post_del_1r[] = {a,c,b};
     EXPECT_TRUE(matchPostOrder(match_post_del_1r , &tree));
 
-    tree.remove_entry(c);
-    tree.remove_entry(b);
-    tree.remove_entry(a);
+    tree.removeEntry(c);
+    tree.removeEntry(b);
+    tree.removeEntry(a);
 
     EXPECT_TRUE(tree.isEmpty());
     EXPECT_EQ(12, pool.getNumUsedBlocks());
@@ -396,14 +396,14 @@ TEST(AvlTree, AllRotations) {
     Entry* match_pre_del_2l[] = {a,c,d,b};
     EXPECT_TRUE(matchPostOrder(match_pre_del_2l , &tree));
 
-    tree.remove_entry(a);
+    tree.removeEntry(a);
 
     Entry* match_post_del_2l[] = {b,d,c};
     EXPECT_TRUE(matchPostOrder(match_post_del_2l , &tree));
 
-    tree.remove_entry(b);
-    tree.remove_entry(d);
-    tree.remove_entry(c);
+    tree.removeEntry(b);
+    tree.removeEntry(d);
+    tree.removeEntry(c);
 
     EXPECT_TRUE(tree.isEmpty());
     EXPECT_EQ(12, pool.getNumUsedBlocks());
@@ -423,14 +423,14 @@ TEST(AvlTree, AllRotations) {
     Entry* match_pre_del_2r[] = {b,a,d,c};
     EXPECT_TRUE(matchPostOrder(match_pre_del_2r , &tree));
 
-    tree.remove_entry(d);
+    tree.removeEntry(d);
 
     Entry* match_post_del_2r[] = {a,c,b};
     EXPECT_TRUE(matchPostOrder(match_post_del_2r , &tree));
 
-    tree.remove_entry(c);
-    tree.remove_entry(a);
-    tree.remove_entry(b);
+    tree.removeEntry(c);
+    tree.removeEntry(a);
+    tree.removeEntry(b);
 
     EXPECT_TRUE(tree.isEmpty());
     EXPECT_EQ(12, pool.getNumUsedBlocks());
@@ -460,17 +460,17 @@ TEST(AvlTree, AllRotations) {
     Entry* match_c_pre_del_1r[] = {a,b,d,g,f,e,c};
     EXPECT_TRUE(matchPostOrder(match_c_pre_del_1r , &tree));
 
-    tree.remove_entry(a);
+    tree.removeEntry(a);
 
     Entry* match_c_post_del_1r[] = {b,d,c,g,f,e};
     EXPECT_TRUE(matchPostOrder(match_c_post_del_1r , &tree));
 
-    tree.remove_entry(c);
-    tree.remove_entry(b);
-    tree.remove_entry(e);
-    tree.remove_entry(d);
-    tree.remove_entry(f);
-    tree.remove_entry(g);
+    tree.removeEntry(c);
+    tree.removeEntry(b);
+    tree.removeEntry(e);
+    tree.removeEntry(d);
+    tree.removeEntry(f);
+    tree.removeEntry(g);
 
     EXPECT_TRUE(tree.isEmpty());
     EXPECT_EQ(12, pool.getNumUsedBlocks());
@@ -497,17 +497,17 @@ TEST(AvlTree, AllRotations) {
     Entry* match_c2_pre_del_1r[] = {a,b,d,c,g,f,e};
     EXPECT_TRUE(matchPostOrder(match_c2_pre_del_1r , &tree));
 
-    tree.remove_entry(g);
+    tree.removeEntry(g);
 
     Entry* match_c2_post_del_1r[] = {a,b,d,f,e,c};
     EXPECT_TRUE(matchPostOrder(match_c2_post_del_1r , &tree));
 
-    tree.remove_entry(e);
-    tree.remove_entry(c);
-    tree.remove_entry(f);
-    tree.remove_entry(b);
-    tree.remove_entry(d);
-    tree.remove_entry(a);
+    tree.removeEntry(e);
+    tree.removeEntry(c);
+    tree.removeEntry(f);
+    tree.removeEntry(b);
+    tree.removeEntry(d);
+    tree.removeEntry(a);
 
     EXPECT_TRUE(tree.isEmpty());
     EXPECT_EQ(12, pool.getNumUsedBlocks());
@@ -541,22 +541,22 @@ TEST(AvlTree, AllRotations) {
     Entry* match_c_pre_del_2l[] = {b,a,d,c,f,g,i,h,l,k,j,e};
     EXPECT_TRUE(matchPostOrder(match_c_pre_del_2l , &tree));
 
-    tree.remove_entry(b);
+    tree.removeEntry(b);
 
     Entry* match_c_post_del_2l[] = {a,d,c,f,g,e,i,l,k,j,h};
     EXPECT_TRUE(matchPostOrder(match_c_post_del_2l , &tree));
 
-    tree.remove_entry(e);
-    tree.remove_entry(c);
-    tree.remove_entry(j);
-    tree.remove_entry(a);
-    tree.remove_entry(d);
-    tree.remove_entry(h);
-    tree.remove_entry(k);
-    tree.remove_entry(g);
-    tree.remove_entry(i);
-    tree.remove_entry(l);
-    tree.remove_entry(f);
+    tree.removeEntry(e);
+    tree.removeEntry(c);
+    tree.removeEntry(j);
+    tree.removeEntry(a);
+    tree.removeEntry(d);
+    tree.removeEntry(h);
+    tree.removeEntry(k);
+    tree.removeEntry(g);
+    tree.removeEntry(i);
+    tree.removeEntry(l);
+    tree.removeEntry(f);
 
     EXPECT_TRUE(tree.isEmpty());
     EXPECT_EQ(12, pool.getNumUsedBlocks());
@@ -588,22 +588,22 @@ TEST(AvlTree, AllRotations) {
     Entry* match_c_pre_del_2r[] = {a,b,d,g,f,e,c,j,i,l,k,h};
     EXPECT_TRUE(matchPostOrder(match_c_pre_del_2r , &tree));
 
-    tree.remove_entry(j);
+    tree.removeEntry(j);
 
     Entry* match_c_post_del_2r[] = {a,b,d,c,g,f,i,l,k,h,e};
     EXPECT_TRUE(matchPostOrder(match_c_post_del_2r , &tree));
 
-    tree.remove_entry(h);
-    tree.remove_entry(c);
-    tree.remove_entry(k);
-    tree.remove_entry(b);
-    tree.remove_entry(e);
-    tree.remove_entry(i);
-    tree.remove_entry(l);
-    tree.remove_entry(a);
-    tree.remove_entry(d);
-    tree.remove_entry(f);
-    tree.remove_entry(g);
+    tree.removeEntry(h);
+    tree.removeEntry(c);
+    tree.removeEntry(k);
+    tree.removeEntry(b);
+    tree.removeEntry(e);
+    tree.removeEntry(i);
+    tree.removeEntry(l);
+    tree.removeEntry(a);
+    tree.removeEntry(d);
+    tree.removeEntry(f);
+    tree.removeEntry(g);
 
     EXPECT_TRUE(tree.isEmpty());
     EXPECT_EQ(12, pool.getNumUsedBlocks());
