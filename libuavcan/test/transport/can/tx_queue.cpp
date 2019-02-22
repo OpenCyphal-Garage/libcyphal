@@ -80,7 +80,7 @@ TEST(CanTxQueue, TxQueue)
      * Removing
      */
 
-    CanTxQueueEntry *entry = queue.peek();
+    CanTxQueueEntry* entry = queue.peek();
     EXPECT_TRUE(entry);
 
     queue.remove(entry);
@@ -95,7 +95,7 @@ TEST(CanTxQueue, TxQueue)
     EXPECT_FALSE(queue.contains(f5));
     EXPECT_FALSE(queue.contains(f6));
 
-    while(queue.peek() != UAVCAN_NULLPTR){
+    while (queue.peek() != UAVCAN_NULLPTR) {
         queue.remove(queue.peek());
     }
 
@@ -119,7 +119,7 @@ TEST(CanTxQueue, TxQueue)
     EXPECT_TRUE(queue.contains(f0));
     EXPECT_TRUE(queue.contains(f4)); // f0 is higher priority, so will get traversed first -- f4 not yet removed
 
-    auto peek = queue.peek();
+    CanTxQueueEntry* peek = queue.peek();
     EXPECT_EQ(f0, peek->frame);
 
     queue.remove(peek);
@@ -170,7 +170,7 @@ TEST(CanTxQueue, TxQueue)
      * Remove all - cleanup
      */
 
-    while(queue.peek() != UAVCAN_NULLPTR){
+    while (queue.peek() != UAVCAN_NULLPTR) {
         queue.remove(queue.peek());
     }
 
