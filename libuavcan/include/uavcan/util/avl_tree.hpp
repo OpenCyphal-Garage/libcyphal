@@ -1,7 +1,7 @@
 /*
-* AVL Tree implementation.
-* Copyright (C) 2019 Theodoros Ntakouris <zarkopafilis@gmail.com>
-*/
+ * AVL Tree implementation.
+ * Copyright (C) 2019 Theodoros Ntakouris <zarkopafilis@gmail.com>
+ */
 
 #ifndef UAVCAN_UTIL_AVL_TREE_HPP_INCLUDED
 #define UAVCAN_UTIL_AVL_TREE_HPP_INCLUDED
@@ -18,16 +18,16 @@
 
 namespace uavcan 
 {
-template<typename T>
+template <typename T>
 class UAVCAN_EXPORT AvlTree : Noncopyable 
 {
 protected:
     struct Node {
-        T* data;
+        T* data = UAVCAN_NULLPTR;
         int16_t h = 1; // initially added as leaf
         Node* left = UAVCAN_NULLPTR;
         Node* right = UAVCAN_NULLPTR;
-        Node* equalKeys = UAVCAN_NULLPTR;
+        Node* equal_keys = UAVCAN_NULLPTR;
     };
 
     Node* root_;
@@ -35,8 +35,8 @@ protected:
 private:
     size_t len_ ;
 
-    int16_t heightOf(const Node* n) const {
-        if(n == UAVCAN_NULLPTR) {
+    static int16_t heightOf(const Node* n) {
+        if (n == UAVCAN_NULLPTR) {
             return 0;
         }
 
@@ -76,7 +76,7 @@ private:
         }
     }
 
-    int16_t balanceOf(Node* n) const {
+    static int16_t balanceOf(Node* n) {
         if (n == UAVCAN_NULLPTR) {
             return 0;
         }
@@ -84,11 +84,11 @@ private:
         return static_cast<int16_t>(heightOf(n->left) - heightOf(n->right));
     }
 
-    int16_t maxOf(int16_t a, int16_t b) const {
+    static int16_t maxOf(int16_t a, int16_t b) {
         return static_cast<int16_t>(a > b ? a : b);
     }
 
-    Node* rotateRight(Node* y) const {
+    static Node* rotateRight(Node* y) {
         Node* x = y->left;
         Node* T2 = x->right;
 
@@ -101,7 +101,7 @@ private:
         return x;
     }
 
-    Node* rotateLeft(Node* x) {
+    static Node* rotateLeft(Node* x) {
         Node* y = x->right;
         Node* T2 = y->left;
 
@@ -115,16 +115,16 @@ private:
     }
 
     // If UAVCAN_NULLPTR is returned, OOM happened.
-    Node* insert_node(Node* node, Node* newNode) {
+    Node* insertNode(Node* node, Node* newNode) {
         if (node == UAVCAN_NULLPTR) {
             len_++;
             return newNode;
         }
 
         if (*newNode->data < *node->data) {
-            node->left = insert_node(node->left, newNode);
+            node->left = insertNode(node->left, newNode);
         } else if (*newNode->data > *node->data) {
-            node->right = insert_node(node->right, newNode);
+            node->right = insertNode(node->right, newNode);
         } else {
             len_++;
             appendToEndOf(node, newNode);
@@ -156,25 +156,26 @@ private:
         return node;
     }
 
-    void appendToEndOf(Node* head, Node* newNode) {
+    static void appendToEndOf(Node* head, Node* newNode) {
         Node* target = head;
-        while(target->equalKeys != UAVCAN_NULLPTR) {
-            target = head->equalKeys;
+        while(target->equal_keys != UAVCAN_NULLPTR) {
+            target = head->equal_keys;
         }
 
-        target->equalKeys = newNode;
+        target->equal_keys = newNode;
     }
 
     /* Delete the element of the linked list (memory address comparison)
-     * and return the new head */
+     * and return the new head 
+     */
     Node* deleteFromList(Node* root, T* data) {
         Node* current = root;
         Node* prev = UAVCAN_NULLPTR;
 
         while(current != UAVCAN_NULLPTR) {
-            if(current->data == data) {
-                if(current == root) {
-                    Node* ret = current->equalKeys; // From the remove method, this should never be null
+            if (current->data == data) {
+                if (current == root) {
+                    Node* ret = current->equal_keys; // From the remove method, this should never be null
 
                     /* Inherit subtrees */
                     ret->h = current->h;
@@ -186,8 +187,8 @@ private:
 
                     return ret; /* Return one element forward */
                 } else {
-                    Node* next = current->equalKeys;
-                    prev->equalKeys = next;
+                    Node* next = current->equal_keys;
+                    prev->equal_keys = next;
                     len_--;
                     deleteNode(current);
                     return root; /* Unchanged root, non-head element was changed */
@@ -195,7 +196,7 @@ private:
             }
 
             prev = current;
-            current = current->equalKeys;
+            current = current->equal_keys;
         }
 
         return root;
@@ -216,7 +217,7 @@ protected:
      * Use this only to allocate the Node struct.
      * `T data` should be already allocated and
      * provided ready for usage from the outside world
-     * */
+     */
     LimitedPoolAllocator allocator_;
 
     void postOrderNodeTraverseRecursively(Node* n, std::function<void(Node*&)> forEach) {
@@ -229,17 +230,17 @@ protected:
         forEach(n);
     }
 
-    Node* remove_node(Node* node, T* data) {
+    Node* removeNode(Node* node, T* data) {
         if (node == UAVCAN_NULLPTR) {
             return node;
         }
 
         if (*data < *node->data) {
-            node->left = remove_node(node->left, data);
+            node->left = removeNode(node->left, data);
         } else if (*data > *node->data) {
-            node->right = remove_node(node->right, data);
+            node->right = removeNode(node->right, data);
         } else {
-            if(node->equalKeys == UAVCAN_NULLPTR) {
+            if (node->equal_keys == UAVCAN_NULLPTR) {
                 if (node->left == UAVCAN_NULLPTR || node->right == UAVCAN_NULLPTR) {
                     Node *temp = node->left ? node->left : node->right;
 
@@ -260,7 +261,7 @@ protected:
                     }
 
                     node->data = minOfRight->data;
-                    node->right = remove_node(node->right, minOfRight->data);
+                    node->right = removeNode(node->right, minOfRight->data);
                 }
             } else {
                 Node* newHead = deleteFromList(node, data);
@@ -297,13 +298,13 @@ protected:
         return node;
     }
 
-    bool linkedListContains(Node* head, const T* data) const {
+    static bool linkedListContains(Node* head, const T* data) {
         Node* next = head;
         while(next != UAVCAN_NULLPTR) {
-            if(next->data == data) { /* Memory address comparison */
+            if (next->data == data) { /* Memory address comparison */
                 return true;
             }
-            next = next->equalKeys;
+            next = next->equal_keys;
         }
         return false;
     }
@@ -316,21 +317,21 @@ public:
     {}
 
     virtual ~AvlTree() {
-        // delete leafs first
+        // Delete leafs first.
         postOrderTraverseNodeCleanup(this->root_);
     }
 
-    void remove_entry(T* data) {
-        root_ = remove_node(root_, data);
+    void removeEntry(T* data) {
+        root_ = removeNode(root_, data);
     }
 
     bool insert(T* data) {
         Node* newNode = makeNode(data);
-        if(newNode == UAVCAN_NULLPTR) {
+        if (newNode == UAVCAN_NULLPTR) {
             return false;
         }
 
-        root_ = insert_node(root_, newNode);
+        root_ = insertNode(root_, newNode);
 
         return true;
     }
@@ -355,25 +356,22 @@ public:
             return UAVCAN_NULLPTR;
         }
 
-        for (;;) {
-            Node* next = n->right;
-            if (next == UAVCAN_NULLPTR) {
-                return n->data;
-            }
-
-            n = next;
+        while (n->right != UAVCAN_NULLPTR) {
+            n = n->right;
         }
+
+        return n->data;
     }
 
     bool contains(const T* data) const {
         Node* n = root_;
         while (n != UAVCAN_NULLPTR) {
-            if(*n->data < *data) {
+            if (*n->data < *data) {
                 n = n->right;
                 continue;
             }
 
-            if(*n->data > *data) {
+            if (*n->data > *data) {
                 n = n->left;
                 continue;
             }

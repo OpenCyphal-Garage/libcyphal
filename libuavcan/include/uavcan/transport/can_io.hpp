@@ -22,7 +22,6 @@
 
 namespace uavcan
 {
-
 struct UAVCAN_EXPORT CanRxFrame : public CanFrame
 {
     MonotonicTime ts_mono;

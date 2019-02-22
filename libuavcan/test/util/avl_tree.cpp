@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2019 Theodoros Ntakouris <zarkopafilis@gmail.com>
- * */
+ */
 
 #include <gtest/gtest.h>
 #include <uavcan/util/avl_tree.hpp>
@@ -9,31 +9,28 @@
 
 using uavcan::AvlTree;
 
-struct Entry{
+struct Entry {
     int key;
     int payload;
 
-    bool operator<(const Entry & other) const
-    {
+    bool operator<(const Entry& other) const {
         return this->key < other.key;
     }
 
-    bool operator>(const Entry & other) const
-    {
+    bool operator>(const Entry& other) const {
         return this->key > other.key;
     }
 
-    bool operator==(const Entry & other) const
-    {
+    bool operator==(const Entry& other) const {
         return this->key == other.key;
     }
 };
 
-/* OOM-Unsafe */
-inline Entry *makeEntry(uavcan::PoolAllocator<64 * 24, 64> *allocator, int key, int payload){
-    void *praw = allocator->allocate(sizeof(Entry));
+// OOM-Unsafe
+inline Entry* makeEntry(uavcan::PoolAllocator<64 * 24, 64>* allocator, int key, int payload) {
+    void* praw = allocator->allocate(sizeof(Entry));
 
-    Entry *e = new (praw) Entry();
+    Entry* e = new (praw) Entry();
     UAVCAN_ASSERT(e);
 
     e->key = key;
@@ -41,19 +38,21 @@ inline Entry *makeEntry(uavcan::PoolAllocator<64 * 24, 64> *allocator, int key, 
     return e;
 }
 
-inline bool matchPostOrder(Entry* expected[], AvlTree<Entry> *tree){
+inline bool matchPostOrder(Entry* expected[], AvlTree<Entry>* tree) {
     int count = 0;
     bool res = true;
-    tree->walkPostOrder([expected, &count, &res](Entry*& in){
+
+    tree->walkPostOrder([expected, &count, &res](Entry*& in) {
         auto res_ = in == expected[count];
         res &= res_;
         count++;
     });
+
     return res;
 }
 
 /* Basic sanity checks */
-TEST(AvlTree, Sanity){
+TEST(AvlTree, Sanity) {
     uavcan::PoolAllocator<64 * 24, 64> pool; // 4 (x2) entries capacity
 
     AvlTree<Entry> tree(pool, 99999);
@@ -115,8 +114,8 @@ TEST(AvlTree, Sanity){
     EXPECT_EQ(8, pool.getNumUsedBlocks());
 
     /*
-    * Remove e2 - e4
-    */
+     * Remove e2 - e4
+     */
 
     tree.remove_entry(e2);
     EXPECT_TRUE(tree.contains(e1));
@@ -137,7 +136,7 @@ TEST(AvlTree, Sanity){
 }
 
 /* Test multiple entries with same 'key' */
-TEST(AvlTree, MultipleEntriesPerKey){
+TEST(AvlTree, MultipleEntriesPerKey) {
     uavcan::PoolAllocator<64 * 24, 64> pool; // 4 (x2) entries capacity
 
     AvlTree<Entry> tree(pool, 99999);
@@ -150,7 +149,7 @@ TEST(AvlTree, MultipleEntriesPerKey){
 
     /*
      * Insert 2 entries with same key
-     * */
+     */
     tree.insert(e1);
 
     tree.insert(e1_1);
@@ -212,7 +211,7 @@ TEST(AvlTree, MultipleEntriesPerKey){
 /* Check all possible rotation / balancing cases
  * Test cases from: https://stackoverflow.com/questions/3955680/how-to-check-if-my-avl-tree-implementation-is-correct
  * */
-TEST(AvlTree, AllRotations){
+TEST(AvlTree, AllRotations) {
     uavcan::PoolAllocator<64 * 24, 64> pool; // 4 (x2) entries capacity
 
     AvlTree<Entry> tree(pool, 99999);

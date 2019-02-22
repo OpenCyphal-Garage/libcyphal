@@ -93,7 +93,6 @@ class UAVCAN_EXPORT GenericPublisher : public GenericPublisherBase
                             ZeroTransferBuffer,
                             StaticTransferBuffer<BitLenToByteLen<DataStruct::MaxBitLen>::Result> >::Result Buffer;
 
-
     enum
     {
         ExtractQosFromDataKind = (DataTypeKind(DataSpec::DataTypeKind) == DataTypeKindMessage) ?
