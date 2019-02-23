@@ -50,7 +50,7 @@ void CanTxQueueEntry::destroy(CanTxQueueEntry*& obj, IPoolAllocator &allocator) 
  */
 CanTxQueue::~CanTxQueue() {
     // Remove all nodes & node contents of the tree without performing re-balancing steps
-    postOrderTraverseEntryCleanup(this->root_);
+    postOrderTraverseEntryCleanup(root_);
     // Step 2: AvlTree destructor is called to remove all the Node* (automatically after)
 }
 
@@ -61,11 +61,11 @@ void CanTxQueue::postOrderTraverseEntryCleanup(Node* n) {
 
     postOrderTraverseEntryCleanup(n->left);
     postOrderTraverseEntryCleanup(n->right);
-    CanTxQueueEntry::destroy(n->data, this->allocator_);
+    CanTxQueueEntry::destroy(n->data, allocator_);
 }
 
 bool CanTxQueue::contains(const CanFrame& frame) const {
-    Node* n = this->root_;
+    Node* n = root_;
 
     while (n != UAVCAN_NULLPTR) {
         if (frame.priorityHigherThan(n->data->frame)) {
@@ -110,7 +110,7 @@ void CanTxQueue::push(const CanFrame &frame, MonotonicTime tx_deadline, CanIOFla
         return;
     }
 
-    void* praw = this->allocator_.allocate(sizeof(CanTxQueueEntry));
+    void* praw = allocator_.allocate(sizeof(CanTxQueueEntry));
     if (praw == UAVCAN_NULLPTR) {
         UAVCAN_TRACE("CanTxQueue", "Push rejected: OOM (CanTxQueueEntry)");
         safeIncrementRejectedFrames();
@@ -125,7 +125,7 @@ void CanTxQueue::push(const CanFrame &frame, MonotonicTime tx_deadline, CanIOFla
         /* AVL Tree could not allocate a new node */
         UAVCAN_TRACE("CanTxQueue", "Push rejected: OOM (AvlTree::Node)");
         safeIncrementRejectedFrames();
-        CanTxQueueEntry::destroy(entry, this->allocator_);
+        CanTxQueueEntry::destroy(entry, allocator_);
     }
 }
 
@@ -137,11 +137,11 @@ void CanTxQueue::remove(CanTxQueueEntry* entry) {
     // Make the AvlTree remove the specific entry deleting it's Node *
     this->AvlTree::removeEntry(entry);
     // Then let the entry destroy it's own contents
-    CanTxQueueEntry::destroy(entry, this->allocator_);
+    CanTxQueueEntry::destroy(entry, allocator_);
 }
 
 CanTxQueueEntry* CanTxQueue::peek() {
-    Node* maxNode = searchForNonExpiredMax(this->root_);
+    Node* maxNode = searchForNonExpiredMax(root_);
 
     if (maxNode == UAVCAN_NULLPTR) {
         return UAVCAN_NULLPTR;
@@ -166,14 +166,14 @@ uavcan::AvlTree<uavcan::CanTxQueueEntry>::Node* CanTxQueue::searchForNonExpiredM
     const MonotonicTime timestamp = sysclock_.getMonotonic();
 
     while(n->data->isExpired(timestamp)) {
-        this->remove(n->data);
-        return searchForNonExpiredMax(this->root_);
+        remove(n->data);
+        return searchForNonExpiredMax(root_);
     }
 
     while(n->right != UAVCAN_NULLPTR && n->right->data->isExpired(timestamp)) {
         CanTxQueueEntry* expiredEntry = n->data;
         n->right = this->AvlTree::removeNode(n, n->data);
-        CanTxQueueEntry::destroy(expiredEntry, this->allocator_);
+        CanTxQueueEntry::destroy(expiredEntry, allocator_);
     }
 
     Node* r = searchForNonExpiredMax(n->right);

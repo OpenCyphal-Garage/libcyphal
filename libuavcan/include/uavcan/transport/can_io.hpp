@@ -89,10 +89,10 @@ protected:
     AvlTree::Node* searchForNonExpiredMax(Node* n);
 
 public:
-    CanTxQueue(IPoolAllocator& allocator, ISystemClock& sysclock, std::size_t allocator_quota)
-        : AvlTree(allocator, allocator_quota)
-        , sysclock_(sysclock)
-        , rejected_frames_cnt_(0)
+    CanTxQueue(IPoolAllocator& allocator, ISystemClock& sysclock, std::size_t allocator_quota) :
+        AvlTree(allocator, allocator_quota),
+        sysclock_(sysclock),
+        rejected_frames_cnt_(0)
     {}
 
     ~CanTxQueue() override;
