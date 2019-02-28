@@ -37,7 +37,7 @@ struct UAVCAN_EXPORT CanRxFrame : public CanFrame
 #endif
 };
 
-struct CanTxQueueEntry  // Not required to be packed - fits the block in any case
+struct UAVCAN_EXPORT CanTxQueueEntry  // Not required to be packed - fits the block in any case
 {
     MonotonicTime deadline;
     const CanFrame frame;

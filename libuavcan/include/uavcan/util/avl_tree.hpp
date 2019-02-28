@@ -81,11 +81,12 @@ private:
             return 0;
         }
 
-        return static_cast<int16_t>(heightOf(n->left) - heightOf(n->right));
+        const int32_t diff = heightOf(n->left) - heightOf(n->right);
+        return static_cast<int16_t>(std::max(-2, std::min(2, diff)));
     }
 
     static int16_t maxOf(int16_t a, int16_t b) {
-        return static_cast<int16_t>(a > b ? a : b);
+        return a > b ? a : b;
     }
 
     static Node* rotateRight(Node* y) {
