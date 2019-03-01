@@ -208,11 +208,34 @@ TEST(AvlTree, MultipleEntriesPerKey) {
     EXPECT_EQ(5, pool.getNumUsedBlocks());
 }
 
+TEST(AvlTree, FailToAllocateNode) {
+    uavcan::PoolAllocator<64 * 3, 64> pool; // 2 entries + 1 node
+
+    AvlTree<Entry> tree(pool, 9999);
+
+    void* praw = pool.allocate(sizeof(Entry));
+
+    Entry* e1 = new (praw) Entry();
+    e1->key = 1;
+    e1->payload = 1;
+
+    praw = pool.allocate(sizeof(Entry));
+    Entry* e2 = new (praw) Entry();
+    e2->key = 2;
+    e2->payload = 2;
+
+    EXPECT_TRUE(tree.insert(e1));
+    EXPECT_EQ(1, tree.getSize());
+
+    EXPECT_FALSE(tree.insert(e2)); // OOM -- Will print something like 'UAVCAN: AvlTree:  OOM -- Can't allocate Node'
+    EXPECT_EQ(1, tree.getSize());
+}
+
 /* Check all possible rotation / balancing cases
  * Test cases from: https://stackoverflow.com/questions/3955680/how-to-check-if-my-avl-tree-implementation-is-correct
  * */
 TEST(AvlTree, AllRotations) {
-    uavcan::PoolAllocator<64 * 24, 64> pool; // 4 (x2) entries capacity
+    uavcan::PoolAllocator<64 * 24, 64> pool; 
 
     AvlTree<Entry> tree(pool, 99999);
     EXPECT_TRUE(tree.isEmpty());
