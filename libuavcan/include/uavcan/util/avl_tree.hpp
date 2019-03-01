@@ -33,7 +33,7 @@ protected:
     Node* root_;
 
 private:
-    size_t len_ ;
+    size_t len_ = 0;
 
     static int16_t heightOf(const Node* n) {
         if (n == UAVCAN_NULLPTR) {
@@ -81,8 +81,7 @@ private:
             return 0;
         }
 
-        const int32_t diff = heightOf(n->left) - heightOf(n->right);
-        return static_cast<int16_t>(std::max(-2, std::min(2, diff)));
+        return static_cast<int16_t>(heightOf(n->left) - heightOf(n->right));
     }
 
     static int16_t maxOf(int16_t a, int16_t b) {
@@ -338,7 +337,7 @@ public:
     }
 
     size_t getSize() const {
-        return root_ == UAVCAN_NULLPTR ? 0 : len_;
+        return len_;
     }
 
     void walkPostOrder(std::function<void(T*&)> forEach) {
