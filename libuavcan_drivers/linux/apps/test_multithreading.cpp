@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 Pavel Kirienko <pavel.kirienko@gmail.com>
+ * Copyright (C) 2019 Theodoros Ntakouris <zarkopafilis@gmail.com>
  */
 
 #ifndef NDEBUG
@@ -158,7 +159,7 @@ class VirtualCanIface : public uavcan::ICanIface,
     int16_t send(const uavcan::CanFrame& frame, uavcan::MonotonicTime tx_deadline, uavcan::CanIOFlags flags) override
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        prioritized_tx_queue_.push(frame, tx_deadline, uavcan::CanTxQueue::Volatile, flags);
+        prioritized_tx_queue_.push(frame, tx_deadline, flags);
         return 1;
     }
 
@@ -225,8 +226,7 @@ public:
             UAVCAN_TRACE("VirtualCanIface", "TX injection [iface=0x%02x]: %s",
                          unsigned(iface_mask), e->toString().c_str());
 
-            const int res = main_node.injectTxFrame(e->frame, e->deadline, iface_mask,
-                                                    uavcan::CanTxQueue::Qos(e->qos), e->flags);
+            const int res = main_node.injectTxFrame(e->frame, e->deadline, iface_mask, e->flags);
             prioritized_tx_queue_.remove(e);
             if (res <= 0)
             {

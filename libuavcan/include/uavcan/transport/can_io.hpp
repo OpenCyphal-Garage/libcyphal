@@ -1,6 +1,7 @@
 /*
  * CAN bus IO logic.
  * Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
+ * Copyright (C) 2019 Theodoros Ntakouris <zarkopafilis@gmail.com>
  */
 
 #ifndef UAVCAN_TRANSPORT_CAN_IO_HPP_INCLUDED
@@ -10,6 +11,7 @@
 #include <uavcan/error.hpp>
 #include <uavcan/std.hpp>
 #include <uavcan/util/linked_list.hpp>
+#include <uavcan/util/avl_tree.hpp>
 #include <uavcan/dynamic_memory.hpp>
 #include <uavcan/build_config.hpp>
 #include <uavcan/util/templates.hpp>
@@ -20,7 +22,6 @@
 
 namespace uavcan
 {
-
 struct UAVCAN_EXPORT CanRxFrame : public CanFrame
 {
     MonotonicTime ts_mono;
@@ -36,86 +37,80 @@ struct UAVCAN_EXPORT CanRxFrame : public CanFrame
 #endif
 };
 
-
-class UAVCAN_EXPORT CanTxQueue : Noncopyable
+struct UAVCAN_EXPORT CanTxQueueEntry  // Not required to be packed - fits the block in any case
 {
-public:
-    enum Qos { Volatile, Persistent };
+    MonotonicTime deadline;
+    const CanFrame frame;
+    CanIOFlags flags;
 
-    struct Entry : public LinkedListNode<Entry>  // Not required to be packed - fits the block in any case
+    CanTxQueueEntry(const CanFrame& arg_frame, const MonotonicTime arg_deadline, CanIOFlags arg_flags)
+        : deadline(arg_deadline)
+        , frame(arg_frame)
+        , flags(arg_flags)
     {
-        MonotonicTime deadline;
-        CanFrame frame;
-        uint8_t qos;
-        CanIOFlags flags;
+        IsDynamicallyAllocatable<CanTxQueueEntry>::check();
+    }
 
-        Entry(const CanFrame& arg_frame, MonotonicTime arg_deadline, Qos arg_qos, CanIOFlags arg_flags)
-            : deadline(arg_deadline)
-            , frame(arg_frame)
-            , qos(uint8_t(arg_qos))
-            , flags(arg_flags)
-        {
-            UAVCAN_ASSERT((qos == Volatile) || (qos == Persistent));
-            IsDynamicallyAllocatable<Entry>::check();
-        }
+    static void destroy(CanTxQueueEntry*& obj, IPoolAllocator& allocator);
 
-        static void destroy(Entry*& obj, IPoolAllocator& allocator);
+    bool isExpired(const MonotonicTime timestamp) const { return timestamp > deadline; }
 
-        bool isExpired(MonotonicTime timestamp) const { return timestamp > deadline; }
+    bool operator<(const CanTxQueueEntry& other) const
+    {
+        return this->frame.priorityLowerThan(other.frame);
+    }
 
-        bool qosHigherThan(const CanFrame& rhs_frame, Qos rhs_qos) const;
-        bool qosLowerThan(const CanFrame& rhs_frame, Qos rhs_qos) const;
-        bool qosHigherThan(const Entry& rhs) const { return qosHigherThan(rhs.frame, Qos(rhs.qos)); }
-        bool qosLowerThan(const Entry& rhs)  const { return qosLowerThan(rhs.frame, Qos(rhs.qos)); }
+    bool operator>(const CanTxQueueEntry& other) const
+    {
+        return this->frame.priorityHigherThan(other.frame);
+    }
+
+    bool operator==(const CanTxQueueEntry& other) const
+    {
+        return this->frame == other.frame;
+    }
 
 #if UAVCAN_TOSTRING
         std::string toString() const;
 #endif
-    };
+};
 
+class UAVCAN_EXPORT CanTxQueue : public AvlTree<CanTxQueueEntry>
+{
 private:
-    class PriorityInsertionComparator
-    {
-        const CanFrame& frm_;
-    public:
-        explicit PriorityInsertionComparator(const CanFrame& frm) : frm_(frm) { }
-        bool operator()(const Entry* entry)
-        {
-            UAVCAN_ASSERT(entry);
-            return frm_.priorityHigherThan(entry->frame);
-        }
-    };
+    void postOrderTraverseEntryCleanup(Node* n);
 
-    LinkedListRoot<Entry> queue_;
-    LimitedPoolAllocator allocator_;
+protected:
     ISystemClock& sysclock_;
     uint32_t rejected_frames_cnt_;
 
-    void registerRejectedFrame();
+    bool linkedListContains(Node* head, const CanFrame& frame) const;
+    void safeIncrementRejectedFrames();
+    AvlTree::Node* searchForNonExpiredMax(Node* n);
 
 public:
-    CanTxQueue(IPoolAllocator& allocator, ISystemClock& sysclock, std::size_t allocator_quota)
-        : allocator_(allocator, allocator_quota)
-        , sysclock_(sysclock)
-        , rejected_frames_cnt_(0)
-    { }
+    CanTxQueue(IPoolAllocator& allocator, ISystemClock& sysclock, std::size_t allocator_quota) :
+        AvlTree(allocator, allocator_quota),
+        sysclock_(sysclock),
+        rejected_frames_cnt_(0)
+    {}
 
-    ~CanTxQueue();
+    ~CanTxQueue() override;
 
-    void push(const CanFrame& frame, MonotonicTime tx_deadline, Qos qos, CanIOFlags flags);
-
-    Entry* peek();               // Modifier
-    void remove(Entry*& entry);
-    const CanFrame* getTopPriorityPendingFrame() const;
-
-    /// The 'or equal' condition is necessary to avoid frame reordering.
-    bool topPriorityHigherOrEqual(const CanFrame& rhs_frame) const;
+    /* Avl Tree allocates the AvlTree::Node, while this(CanTxQueue) allocates the CanTxQueueEntry
+     * Same logic for removal. */
+    void push(const CanFrame& frame, MonotonicTime tx_deadline, CanIOFlags flags);
+    void remove(CanTxQueueEntry* entry);
 
     uint32_t getRejectedFrameCount() const { return rejected_frames_cnt_; }
 
-    bool isEmpty() const { return queue_.isEmpty(); }
-};
+    bool contains(const CanFrame& frame) const;
 
+    /* Tries to look up rightmost Node. If the frame is expired, removes it and continues traversing */
+    CanTxQueueEntry* peek();
+
+    bool topPriorityHigherOrEqual(const CanFrame& rhs_frame);
+};
 
 struct UAVCAN_EXPORT CanIfacePerfCounters
 {
@@ -129,7 +124,6 @@ struct UAVCAN_EXPORT CanIfacePerfCounters
         , errors(0)
     { }
 };
-
 
 class UAVCAN_EXPORT CanIOManager : Noncopyable
 {
@@ -177,7 +171,7 @@ public:
      *  negative - failure
      */
     int send(const CanFrame& frame, MonotonicTime tx_deadline, MonotonicTime blocking_deadline,
-             uint8_t iface_mask, CanTxQueue::Qos qos, CanIOFlags flags);
+             uint8_t iface_mask, CanIOFlags flags);
     int receive(CanRxFrame& out_frame, MonotonicTime blocking_deadline, CanIOFlags& out_flags);
 };
 

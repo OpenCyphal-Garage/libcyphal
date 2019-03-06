@@ -12,7 +12,7 @@ bool GenericPublisherBase::isInited() const
     return sender_.isInitialized();
 }
 
-int GenericPublisherBase::doInit(DataTypeKind dtkind, const char* dtname, CanTxQueue::Qos qos)
+int GenericPublisherBase::doInit(DataTypeKind dtkind, const char* dtname)
 {
     if (isInited())
     {
@@ -28,7 +28,7 @@ int GenericPublisherBase::doInit(DataTypeKind dtkind, const char* dtname, CanTxQ
         return -ErrUnknownDataType;
     }
 
-    sender_.init(*descr, qos);
+    sender_.init(*descr);
 
     return 0;
 }

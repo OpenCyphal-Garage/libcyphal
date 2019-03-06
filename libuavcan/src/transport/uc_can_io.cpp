@@ -1,13 +1,15 @@
 /*
  * CAN bus IO logic.
  * Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
+ * Copyright (C) 2019 Theodoros Ntakouris <zarkopafilis@gmail.com>
  */
 
+#include <cassert>
+#include <functional>
 #include <uavcan/transport/can_io.hpp>
 #include <uavcan/debug.hpp>
-#include <cassert>
 
-namespace uavcan
+namespace uavcan 
 {
 /*
  * CanRxFrame
@@ -26,293 +28,250 @@ std::string CanRxFrame::toString(StringRepresentation mode) const
 #endif
 
 /*
- * CanTxQueue::Entry
+ * CanTxQueueEntry
  */
-void CanTxQueue::Entry::destroy(Entry*& obj, IPoolAllocator& allocator)
+ #if UAVCAN_TOSTRING
+std::string CanTxQueueEntry::toString() const
 {
-    if (obj != UAVCAN_NULLPTR)
-    {
-        obj->~Entry();
+    return frame.toString();
+}
+#endif
+
+void CanTxQueueEntry::destroy(CanTxQueueEntry*& obj, IPoolAllocator &allocator) {
+    if (obj != UAVCAN_NULLPTR) {
+        obj->~CanTxQueueEntry();
         allocator.deallocate(obj);
         obj = UAVCAN_NULLPTR;
     }
 }
 
-bool CanTxQueue::Entry::qosHigherThan(const CanFrame& rhs_frame, Qos rhs_qos) const
-{
-    if (qos != rhs_qos)
-    {
-        return qos > rhs_qos;
-    }
-    return frame.priorityHigherThan(rhs_frame);
-}
-
-bool CanTxQueue::Entry::qosLowerThan(const CanFrame& rhs_frame, Qos rhs_qos) const
-{
-    if (qos != rhs_qos)
-    {
-        return qos < rhs_qos;
-    }
-    return frame.priorityLowerThan(rhs_frame);
-}
-
-#if UAVCAN_TOSTRING
-std::string CanTxQueue::Entry::toString() const
-{
-    std::string str_qos;
-    switch (qos)
-    {
-    case Volatile:
-    {
-        str_qos = "<volat> ";
-        break;
-    }
-    case Persistent:
-    {
-        str_qos = "<perst> ";
-        break;
-    }
-    default:
-    {
-        UAVCAN_ASSERT(0);
-        str_qos = "<?WTF?> ";
-        break;
-    }
-    }
-    return str_qos + frame.toString();
-}
-#endif
-
 /*
  * CanTxQueue
  */
-CanTxQueue::~CanTxQueue()
-{
-    Entry* p = queue_.get();
-    while (p)
-    {
-        Entry* const next = p->getNextListNode();
-        remove(p);
-        p = next;
-    }
+CanTxQueue::~CanTxQueue() {
+    // Remove all nodes & node contents of the tree without performing re-balancing steps
+    postOrderTraverseEntryCleanup(root_);
+    // Step 2: AvlTree destructor is called to remove all the Node* (automatically after)
 }
 
-void CanTxQueue::registerRejectedFrame()
-{
-    if (rejected_frames_cnt_ < NumericTraits<uint32_t>::max())
-    {
+void CanTxQueue::postOrderTraverseEntryCleanup(Node* n) {
+    if (n == UAVCAN_NULLPTR) {
+        return;
+    }
+
+    postOrderTraverseEntryCleanup(n->left);
+    postOrderTraverseEntryCleanup(n->right);
+    CanTxQueueEntry::destroy(n->data, allocator_);
+}
+
+bool CanTxQueue::contains(const CanFrame& frame) const {
+    Node* n = root_;
+
+    while (n != UAVCAN_NULLPTR) {
+        if (frame.priorityHigherThan(n->data->frame)) {
+            n = n->right;
+            continue;
+        }
+
+        if (frame.priorityLowerThan(n->data->frame)) {
+            n = n->left;
+            continue;
+        }
+
+        return linkedListContains(n, frame);
+    }
+    return false;
+}
+
+bool CanTxQueue::linkedListContains(Node* head, const CanFrame& frame) const {
+    Node* next = head;
+    while(next != UAVCAN_NULLPTR) {
+        if (next->data->frame == frame) {
+            return true;
+        }
+
+        next = head->equal_keys;
+    }
+    return false;
+}
+
+void CanTxQueue::safeIncrementRejectedFrames() {
+    if (rejected_frames_cnt_ < NumericTraits<uint32_t>::max()) {
         rejected_frames_cnt_++;
     }
 }
 
-void CanTxQueue::push(const CanFrame& frame, MonotonicTime tx_deadline, Qos qos, CanIOFlags flags)
-{
+void CanTxQueue::push(const CanFrame &frame, MonotonicTime tx_deadline, CanIOFlags flags) {
     const MonotonicTime timestamp = sysclock_.getMonotonic();
 
-    if (timestamp >= tx_deadline)
-    {
+    if (timestamp >= tx_deadline) {
         UAVCAN_TRACE("CanTxQueue", "Push rejected: already expired");
-        registerRejectedFrame();
+        safeIncrementRejectedFrames();
         return;
     }
 
-    void* praw = allocator_.allocate(sizeof(Entry));
-    if (praw == UAVCAN_NULLPTR)
-    {
-        UAVCAN_TRACE("CanTxQueue", "Push OOM #1, cleanup");
-        // No memory left in the pool, so we try to remove expired frames
-        Entry* p = queue_.get();
-        while (p)
-        {
-            Entry* const next = p->getNextListNode();
-            if (p->isExpired(timestamp))
-            {
-                UAVCAN_TRACE("CanTxQueue", "Push: Expired %s", p->toString().c_str());
-                registerRejectedFrame();
-                remove(p);
-            }
-            p = next;
-        }
-        praw = allocator_.allocate(sizeof(Entry));         // Try again
+    void* praw = allocator_.allocate(sizeof(CanTxQueueEntry));
+    if (praw == UAVCAN_NULLPTR) {
+        UAVCAN_TRACE("CanTxQueue", "Push rejected: OOM (CanTxQueueEntry)");
+        safeIncrementRejectedFrames();
+        return;
     }
 
-    if (praw == UAVCAN_NULLPTR)
-    {
-        UAVCAN_TRACE("CanTxQueue", "Push OOM #2, QoS arbitration");
-        registerRejectedFrame();
-
-        // Find a frame with lowest QoS
-        Entry* p = queue_.get();
-        if (p == UAVCAN_NULLPTR)
-        {
-            UAVCAN_TRACE("CanTxQueue", "Push rejected: Nothing to replace");
-            return;
-        }
-        Entry* lowestqos = p;
-        while (p)
-        {
-            if (lowestqos->qosHigherThan(*p))
-            {
-                lowestqos = p;
-            }
-            p = p->getNextListNode();
-        }
-        // Note that frame with *equal* QoS will be replaced too.
-        if (lowestqos->qosHigherThan(frame, qos))           // Frame that we want to transmit has lowest QoS
-        {
-            UAVCAN_TRACE("CanTxQueue", "Push rejected: low QoS");
-            return;                                         // What a loser.
-        }
-        UAVCAN_TRACE("CanTxQueue", "Push: Replacing %s", lowestqos->toString().c_str());
-        remove(lowestqos);
-        praw = allocator_.allocate(sizeof(Entry));        // Try again
-    }
-
-    if (praw == UAVCAN_NULLPTR)
-    {
-        return;                                            // Seems that there is no memory at all.
-    }
-    Entry* entry = new (praw) Entry(frame, tx_deadline, qos, flags);
+    CanTxQueueEntry* entry = new(praw) CanTxQueueEntry(frame, tx_deadline, flags);
     UAVCAN_ASSERT(entry);
-    queue_.insertBefore(entry, PriorityInsertionComparator(frame));
-}
+    bool result = AvlTree::insert(entry);
 
-CanTxQueue::Entry* CanTxQueue::peek()
-{
-    const MonotonicTime timestamp = sysclock_.getMonotonic();
-    Entry* p = queue_.get();
-    while (p)
-    {
-        if (p->isExpired(timestamp))
-        {
-            UAVCAN_TRACE("CanTxQueue", "Peek: Expired %s", p->toString().c_str());
-            Entry* const next = p->getNextListNode();
-            registerRejectedFrame();
-            remove(p);
-            p = next;
-        }
-        else
-        {
-            return p;
-        }
+    if (!result) {
+        /* AVL Tree could not allocate a new node */
+        UAVCAN_TRACE("CanTxQueue", "Push rejected: OOM (AvlTree::Node)");
+        safeIncrementRejectedFrames();
+        CanTxQueueEntry::destroy(entry, allocator_);
     }
-    return UAVCAN_NULLPTR;
 }
 
-void CanTxQueue::remove(Entry*& entry)
-{
-    if (entry == UAVCAN_NULLPTR)
-    {
-        UAVCAN_ASSERT(0);
+void CanTxQueue::remove(CanTxQueueEntry* entry) {
+    if (entry == UAVCAN_NULLPTR) {
         return;
     }
-    queue_.remove(entry);
-    Entry::destroy(entry, allocator_);
+
+    // Make the AvlTree remove the specific entry deleting it's Node *
+    this->AvlTree::removeEntry(entry);
+    // Then let the entry destroy it's own contents
+    CanTxQueueEntry::destroy(entry, allocator_);
 }
 
-const CanFrame* CanTxQueue::getTopPriorityPendingFrame() const
-{
-    return (queue_.get() == UAVCAN_NULLPTR) ? UAVCAN_NULLPTR : &queue_.get()->frame;
+CanTxQueueEntry* CanTxQueue::peek() {
+    Node* maxNode = searchForNonExpiredMax(root_);
+
+    if (maxNode == UAVCAN_NULLPTR) {
+        return UAVCAN_NULLPTR;
+    }
+
+    return maxNode->data;
 }
 
-bool CanTxQueue::topPriorityHigherOrEqual(const CanFrame& rhs_frame) const
-{
-    const Entry* entry = queue_.get();
-    if (entry == UAVCAN_NULLPTR)
-    {
+bool CanTxQueue::topPriorityHigherOrEqual(const CanFrame& rhs_frame) {
+    CanTxQueueEntry* peek_entry = peek();
+    if (peek_entry == UAVCAN_NULLPTR) {
         return false;
     }
-    return !rhs_frame.priorityHigherThan(entry->frame);
+    return !rhs_frame.priorityHigherThan(peek_entry->frame);
+}
+
+uavcan::AvlTree<uavcan::CanTxQueueEntry>::Node* CanTxQueue::searchForNonExpiredMax(Node* n) {
+    if (n == UAVCAN_NULLPTR) {
+        return UAVCAN_NULLPTR;
+    }
+
+    const MonotonicTime timestamp = sysclock_.getMonotonic();
+
+    while(n->data->isExpired(timestamp)) {
+        remove(n->data);
+        return searchForNonExpiredMax(root_);
+    }
+
+    while(n->right != UAVCAN_NULLPTR && n->right->data->isExpired(timestamp)) {
+        CanTxQueueEntry* expiredEntry = n->data;
+        n->right = this->AvlTree::removeNode(n, n->data);
+        CanTxQueueEntry::destroy(expiredEntry, allocator_);
+    }
+
+    Node* r = searchForNonExpiredMax(n->right);
+
+    if (r != UAVCAN_NULLPTR) {
+        return r;
+    }
+
+    return n;
 }
 
 /*
  * CanIOManager
  */
-int CanIOManager::sendToIface(uint8_t iface_index, const CanFrame& frame, MonotonicTime tx_deadline, CanIOFlags flags)
+int
+CanIOManager::sendToIface(uint8_t iface_index, const CanFrame& frame, MonotonicTime tx_deadline, CanIOFlags flags) 
 {
     UAVCAN_ASSERT(iface_index < MaxCanIfaces);
-    ICanIface* const iface = driver_.getIface(iface_index);
-    if (iface == UAVCAN_NULLPTR)
+    ICanIface *const iface = driver_.getIface(iface_index);
+    if (iface == UAVCAN_NULLPTR) 
     {
         UAVCAN_ASSERT(0);   // Nonexistent interface
         return -ErrLogic;
     }
     const int res = iface->send(frame, tx_deadline, flags);
-    if (res != 1)
+    if (res != 1) 
     {
         UAVCAN_TRACE("CanIOManager", "Send failed: code %i, iface %i, frame %s",
                      res, iface_index, frame.toString().c_str());
     }
-    if (res > 0)
+    if (res > 0) 
     {
         counters_[iface_index].frames_tx += unsigned(res);
     }
     return res;
 }
 
-int CanIOManager::sendFromTxQueue(uint8_t iface_index)
+int CanIOManager::sendFromTxQueue(uint8_t iface_index) 
 {
     UAVCAN_ASSERT(iface_index < MaxCanIfaces);
-    CanTxQueue::Entry* entry = tx_queues_[iface_index]->peek();
-    if (entry == UAVCAN_NULLPTR)
+    CanTxQueueEntry* entry = tx_queues_[iface_index]->peek();
+    if (entry == UAVCAN_NULLPTR) 
     {
         return 0;
     }
     const int res = sendToIface(iface_index, entry->frame, entry->deadline, entry->flags);
-    if (res > 0)
+    if (res > 0) 
     {
         tx_queues_[iface_index]->remove(entry);
     }
     return res;
 }
 
-int CanIOManager::callSelect(CanSelectMasks& inout_masks, const CanFrame* (& pending_tx)[MaxCanIfaces],
-                             MonotonicTime blocking_deadline)
+int CanIOManager::callSelect(CanSelectMasks &inout_masks, const CanFrame *(&pending_tx)[MaxCanIfaces],
+                             MonotonicTime blocking_deadline) 
 {
     const CanSelectMasks in_masks = inout_masks;
 
     const int res = driver_.select(inout_masks, pending_tx, blocking_deadline);
-    if (res < 0)
+    if (res < 0) 
     {
         return -ErrDriver;
     }
 
-    inout_masks.read  &= in_masks.read;  // Driver is not required to clean the masks
+    inout_masks.read &= in_masks.read;  // Driver is not required to clean the masks
     inout_masks.write &= in_masks.write;
     return res;
 }
 
 CanIOManager::CanIOManager(ICanDriver& driver, IPoolAllocator& allocator, ISystemClock& sysclock,
                            std::size_t mem_blocks_per_iface)
-    : driver_(driver)
-    , sysclock_(sysclock)
-    , num_ifaces_(driver.getNumIfaces())
+        : driver_(driver), sysclock_(sysclock), num_ifaces_(driver.getNumIfaces()) 
 {
-    if (num_ifaces_ < 1 || num_ifaces_ > MaxCanIfaces)
+    if (num_ifaces_ < 1 || num_ifaces_ > MaxCanIfaces) 
     {
         handleFatalError("Num ifaces");
     }
 
-    if (mem_blocks_per_iface == 0)
+    if (mem_blocks_per_iface == 0) 
     {
         mem_blocks_per_iface = allocator.getBlockCapacity() / (num_ifaces_ + 1U) + 1U;
     }
     UAVCAN_TRACE("CanIOManager", "Memory blocks per iface: %u, total: %u",
                  unsigned(mem_blocks_per_iface), unsigned(allocator.getBlockCapacity()));
 
-    for (int i = 0; i < num_ifaces_; i++)
+    for (int i = 0; i < num_ifaces_; i++) 
     {
-        tx_queues_[i].construct<IPoolAllocator&, ISystemClock&, std::size_t>
-        (allocator, sysclock, mem_blocks_per_iface);
+        tx_queues_[i].construct<IPoolAllocator &, ISystemClock &, std::size_t>
+                (allocator, sysclock, mem_blocks_per_iface);
     }
 }
 
-uint8_t CanIOManager::makePendingTxMask() const
+uint8_t CanIOManager::makePendingTxMask() const 
 {
     uint8_t write_mask = 0;
-    for (uint8_t i = 0; i < getNumIfaces(); i++)
+    for (uint8_t i = 0; i < getNumIfaces(); i++) 
     {
-        if (!tx_queues_[i]->isEmpty())
+        if (!tx_queues_[i]->isEmpty()) 
         {
             write_mask = uint8_t(write_mask | (1 << i));
         }
@@ -320,10 +279,10 @@ uint8_t CanIOManager::makePendingTxMask() const
     return write_mask;
 }
 
-CanIfacePerfCounters CanIOManager::getIfacePerfCounters(uint8_t iface_index) const
+CanIfacePerfCounters CanIOManager::getIfacePerfCounters(uint8_t iface_index) const 
 {
-    ICanIface* const iface = driver_.getIface(iface_index);
-    if (iface == UAVCAN_NULLPTR || iface_index >= MaxCanIfaces)
+    ICanIface *const iface = driver_.getIface(iface_index);
+    if (iface == UAVCAN_NULLPTR || iface_index >= MaxCanIfaces) 
     {
         UAVCAN_ASSERT(0);
         return CanIfacePerfCounters();
@@ -335,14 +294,14 @@ CanIfacePerfCounters CanIOManager::getIfacePerfCounters(uint8_t iface_index) con
     return cnt;
 }
 
-int CanIOManager::send(const CanFrame& frame, MonotonicTime tx_deadline, MonotonicTime blocking_deadline,
-                       uint8_t iface_mask, CanTxQueue::Qos qos, CanIOFlags flags)
+int CanIOManager::send(const CanFrame &frame, MonotonicTime tx_deadline, MonotonicTime blocking_deadline,
+                       uint8_t iface_mask, CanIOFlags flags) 
 {
     const uint8_t num_ifaces = getNumIfaces();
     const uint8_t all_ifaces_mask = uint8_t((1U << num_ifaces) - 1);
     iface_mask &= all_ifaces_mask;
 
-    if (blocking_deadline > tx_deadline)
+    if (blocking_deadline > tx_deadline) 
     {
         blocking_deadline = tx_deadline;
     }
@@ -351,7 +310,7 @@ int CanIOManager::send(const CanFrame& frame, MonotonicTime tx_deadline, Monoton
 
     while (true)        // Somebody please refactor this.
     {
-        if (iface_mask == 0)
+        if (iface_mask == 0) 
         {
             break;
         }
@@ -360,23 +319,35 @@ int CanIOManager::send(const CanFrame& frame, MonotonicTime tx_deadline, Monoton
         masks.write = iface_mask | makePendingTxMask();
         {
             // Building the list of next pending frames per iface.
-            // The driver will give them a scrutinizing look before deciding whether he wants to accept them.
+            // This is needed to avoid inner priority inversion in the TX queue.
+            // This is explained in the section 4.4.3.3 of the spec.
             const CanFrame* pending_tx[MaxCanIfaces] = {};
-            for (int i = 0; i < num_ifaces; i++)
+            for (int i = 0; i < num_ifaces; i++) 
             {
-                CanTxQueue& q = *tx_queues_[i];
+                CanTxQueue &q = *tx_queues_[i];
+                CanTxQueueEntry* peek_entry = q.peek();
+                const CanFrame *peek_frame = peek_entry == UAVCAN_NULLPTR ? UAVCAN_NULLPTR : &peek_entry->frame;
+
                 if (iface_mask & (1 << i))      // I hate myself so much right now.
                 {
-                    pending_tx[i] = q.topPriorityHigherOrEqual(frame) ? q.getTopPriorityPendingFrame() : &frame;
-                }
-                else
+                    bool has_priority = false;
+
+                    // This may seem duplicate of topPriorityHigherOrEqual but we want to avoid traversing the queue again
+                    if (peek_entry != UAVCAN_NULLPTR) 
+                    {
+                        has_priority = !frame.priorityHigherThan(*peek_frame);
+                    }
+
+                    pending_tx[i] = has_priority ? peek_frame : &frame;
+                } 
+                else 
                 {
-                    pending_tx[i] = q.getTopPriorityPendingFrame();
+                    pending_tx[i] = peek_frame;
                 }
             }
 
             const int select_res = callSelect(masks, pending_tx, blocking_deadline);
-            if (select_res < 0)
+            if (select_res < 0) 
             {
                 return -ErrDriver;
             }
@@ -384,31 +355,32 @@ int CanIOManager::send(const CanFrame& frame, MonotonicTime tx_deadline, Monoton
         }
 
         // Transmission
-        for (uint8_t i = 0; i < num_ifaces; i++)
+        for (uint8_t i = 0; i < num_ifaces; i++) 
         {
-            if (masks.write & (1 << i))
+            if (masks.write & (1 << i)) 
             {
                 int res = 0;
-                if (iface_mask & (1 << i))
+                if (iface_mask & (1 << i)) 
                 {
-                    if (tx_queues_[i]->topPriorityHigherOrEqual(frame))
+                    if (tx_queues_[i]->topPriorityHigherOrEqual(frame)) 
                     {
-                        res = sendFromTxQueue(i);                 // May return 0 if nothing to transmit (e.g. expired)
+                        res = sendFromTxQueue(
+                                i);                 // May return 0 if nothing to transmit (e.g. expired)
                     }
-                    if (res <= 0)
+                    if (res <= 0) 
                     {
                         res = sendToIface(i, frame, tx_deadline, flags);
-                        if (res > 0)
+                        if (res > 0) 
                         {
                             iface_mask &= uint8_t(~(1 << i));     // Mark transmitted
                         }
                     }
-                }
+                } 
                 else
                 {
                     res = sendFromTxQueue(i);
                 }
-                if (res > 0)
+                if (res > 0) 
                 {
                     retval++;
                 }
@@ -417,18 +389,18 @@ int CanIOManager::send(const CanFrame& frame, MonotonicTime tx_deadline, Monoton
 
         // Timeout. Enqueue the frame if wasn't transmitted and leave.
         const bool timed_out = sysclock_.getMonotonic() >= blocking_deadline;
-        if (masks.write == 0 || timed_out)
+        if (masks.write == 0 || timed_out) 
         {
-            if (!timed_out)
+            if (!timed_out) 
             {
                 UAVCAN_TRACE("CanIOManager", "Send: Premature timeout in select(), will try again");
                 continue;
             }
-            for (uint8_t i = 0; i < num_ifaces; i++)
+            for (uint8_t i = 0; i < num_ifaces; i++) 
             {
-                if (iface_mask & (1 << i))
+                if (iface_mask & (1 << i)) 
                 {
-                    tx_queues_[i]->push(frame, tx_deadline, qos, flags);
+                    tx_queues_[i]->push(frame, tx_deadline, flags);
                 }
             }
             break;
@@ -437,11 +409,11 @@ int CanIOManager::send(const CanFrame& frame, MonotonicTime tx_deadline, Monoton
     return retval;
 }
 
-int CanIOManager::receive(CanRxFrame& out_frame, MonotonicTime blocking_deadline, CanIOFlags& out_flags)
+int CanIOManager::receive(CanRxFrame &out_frame, MonotonicTime blocking_deadline, CanIOFlags &out_flags) 
 {
     const uint8_t num_ifaces = getNumIfaces();
 
-    while (true)
+    while (true) 
     {
         CanSelectMasks masks;
         masks.write = makePendingTxMask();
@@ -450,46 +422,48 @@ int CanIOManager::receive(CanRxFrame& out_frame, MonotonicTime blocking_deadline
             const CanFrame* pending_tx[MaxCanIfaces] = {};
             for (int i = 0; i < num_ifaces; i++)      // Dear compiler, kindly unroll this. Thanks.
             {
-                pending_tx[i] = tx_queues_[i]->getTopPriorityPendingFrame();
+                CanTxQueueEntry* entry = tx_queues_[i]->peek();
+                pending_tx[i] = (entry == UAVCAN_NULLPTR) ? UAVCAN_NULLPTR : &entry->frame;
             }
 
             const int select_res = callSelect(masks, pending_tx, blocking_deadline);
-            if (select_res < 0)
+            if (select_res < 0) 
             {
                 return -ErrDriver;
             }
         }
 
         // Write - if buffers are not empty, one frame will be sent for each iface per one receive() call
-        for (uint8_t i = 0; i < num_ifaces; i++)
+        for (uint8_t i = 0; i < num_ifaces; i++) 
         {
-            if (masks.write & (1 << i))
+            if (masks.write & (1 << i)) 
             {
-                (void)sendFromTxQueue(i);  // It may fail, we don't care. Requested operation was receive, not send.
+                (void) sendFromTxQueue(
+                        i);  // It may fail, we don't care. Requested operation was receive, not send.
             }
         }
 
         // Read
-        for (uint8_t i = 0; i < num_ifaces; i++)
+        for (uint8_t i = 0; i < num_ifaces; i++) 
         {
-            if (masks.read & (1 << i))
+            if (masks.read & (1 << i)) 
             {
-                ICanIface* const iface = driver_.getIface(i);
-                if (iface == UAVCAN_NULLPTR)
+                ICanIface *const iface = driver_.getIface(i);
+                if (iface == UAVCAN_NULLPTR) 
                 {
                     UAVCAN_ASSERT(0);   // Nonexistent interface
                     continue;
                 }
 
                 const int res = iface->receive(out_frame, out_frame.ts_mono, out_frame.ts_utc, out_flags);
-                if (res == 0)
+                if (res == 0) 
                 {
                     UAVCAN_ASSERT(0);   // select() reported that iface has pending RX frames, but receive() returned none
                     continue;
                 }
                 out_frame.iface_index = i;
 
-                if ((res > 0) && !(out_flags & CanIOFlagLoopback))
+                if ((res > 0) && !(out_flags & CanIOFlagLoopback)) 
                 {
                     counters_[i].frames_rx += 1;
                 }
@@ -498,7 +472,7 @@ int CanIOManager::receive(CanRxFrame& out_frame, MonotonicTime blocking_deadline
         }
 
         // Timeout checked in the last order - this way we can operate with expired deadline:
-        if (sysclock_.getMonotonic() >= blocking_deadline)
+        if (sysclock_.getMonotonic() >= blocking_deadline) 
         {
             break;
         }

@@ -41,7 +41,7 @@ protected:
 
     bool isInited() const;
 
-    int doInit(DataTypeKind dtkind, const char* dtname, CanTxQueue::Qos qos);
+    int doInit(DataTypeKind dtkind, const char* dtname);
 
     MonotonicTime getTxDeadline() const;
 
@@ -92,12 +92,6 @@ class UAVCAN_EXPORT GenericPublisher : public GenericPublisherBase
     typedef typename Select<DataStruct::MaxBitLen == 0,
                             ZeroTransferBuffer,
                             StaticTransferBuffer<BitLenToByteLen<DataStruct::MaxBitLen>::Result> >::Result Buffer;
-
-    enum
-    {
-        Qos = (DataTypeKind(DataSpec::DataTypeKind) == DataTypeKindMessage) ?
-              CanTxQueue::Volatile : CanTxQueue::Persistent
-    };
 
     int checkInit();
 
@@ -157,7 +151,8 @@ int GenericPublisher<DataSpec, DataStruct>::checkInit()
     {
         return 0;
     }
-    return doInit(DataTypeKind(DataSpec::DataTypeKind), DataSpec::getDataTypeFullName(), CanTxQueue::Qos(Qos));
+
+    return doInit(DataTypeKind(DataSpec::DataTypeKind), DataSpec::getDataTypeFullName());
 }
 
 template <typename DataSpec, typename DataStruct>
