@@ -107,4 +107,8 @@ include(${LIBUAVCAN_TESTBUILD})
 # +---------------------------------------------------------------------------+
 # | DOCUMENTATION GENERATION
 # +---------------------------------------------------------------------------+
-create_docs_target(docs ON)
+if(NOT DEFINED LIBUAVCAN_SKIP_DOCS OR NOT LIBUAVCAN_SKIP_DOCS)
+    create_docs_target(docs ON)
+else()
+    message(STATUS "LIBUAVCAN_SKIP_DOCS is ON. Skipping documentation generation for this build.")
+endif()

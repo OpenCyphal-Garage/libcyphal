@@ -55,8 +55,8 @@ if(GTEST_USE_LOCAL_BUILD)
     )
 
     add_library(gmock_main STATIC EXCLUDE_FROM_ALL
-                ${GOOGLETEST_SUBMODULE}/googlemock/src/gmock-all.cc
                 ${GOOGLETEST_SUBMODULE}/googletest/src/gtest-all.cc
+                ${GOOGLETEST_SUBMODULE}/googlemock/src/gmock-all.cc
     )
 
     target_include_directories(gmock_main PRIVATE

@@ -47,8 +47,9 @@ pushd build_ci_ontarget
 # tests on-target.
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/gcc-arm-none-eabi.cmake \
       -DGTEST_USE_LOCAL_BUILD=ON \
-      -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/cortex-m7-fpv5-d16-nano.cmake \
-      -DLIBUAVCAN_TESTBUILD=../test/ontarget/unit_tests.cmake \
+      -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/cortex-m4-fpv4-sp-d16-rdimon.cmake \
+      -DLIBUAVCAN_TESTBUILD=../test/ontarget/S32K146EVB/unit_tests.cmake \
+      -DLIBUAVCAN_SKIP_DOCS=ON \
       ..
 
 make -j16
