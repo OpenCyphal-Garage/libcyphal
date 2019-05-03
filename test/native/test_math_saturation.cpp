@@ -55,7 +55,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingAdd)
 {
     const TypeParam a = std::numeric_limits<TypeParam>::max();
     const TypeParam b = 1;
-    const TypeParam c = uavcan::util::saturating_add(a, b);
+    const TypeParam c = libuavcan::util::saturating_add(a, b);
     ASSERT_EQ(a, c);
 }
 
@@ -63,7 +63,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingSub)
 {
     const TypeParam a = std::numeric_limits<TypeParam>::min();
     const TypeParam b = 1;
-    const TypeParam c = uavcan::util::saturating_sub(a, b);
+    const TypeParam c = libuavcan::util::saturating_sub(a, b);
     ASSERT_EQ(a, c);
 }
 
@@ -71,7 +71,7 @@ TYPED_TEST(SaturatedMathTest, NonSaturatingAdd)
 {
     const TypeParam a = std::numeric_limits<TypeParam>::max() - 2;
     const TypeParam b = 1;
-    const TypeParam c = uavcan::util::saturating_add(a, b);
+    const TypeParam c = libuavcan::util::saturating_add(a, b);
     ASSERT_EQ(static_cast<TypeParam>(a + 1), c);
 }
 
@@ -79,7 +79,7 @@ TYPED_TEST(SaturatedMathTest, NonSaturatingSub)
 {
     const TypeParam a = std::numeric_limits<TypeParam>::min() + 2;
     const TypeParam b = 1;
-    const TypeParam c = uavcan::util::saturating_sub(a, b);
+    const TypeParam c = libuavcan::util::saturating_sub(a, b);
     ASSERT_EQ(static_cast<TypeParam>(a - 1), c);
 }
 
@@ -88,7 +88,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingAddMaxMax)
 {
     const TypeParam a = std::numeric_limits<TypeParam>::max();
     const TypeParam b = std::numeric_limits<TypeParam>::max();
-    const TypeParam c = uavcan::util::saturating_add(a, b);
+    const TypeParam c = libuavcan::util::saturating_add(a, b);
     ASSERT_EQ(std::numeric_limits<TypeParam>::max(), c);
 }
 
@@ -96,7 +96,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingAddMinMax)
 {
     const TypeParam a = std::numeric_limits<TypeParam>::min();
     const TypeParam b = std::numeric_limits<TypeParam>::max();
-    const TypeParam c = uavcan::util::saturating_add(a, b);
+    const TypeParam c = libuavcan::util::saturating_add(a, b);
     if (std::numeric_limits<TypeParam>::is_signed)
     {
         ASSERT_EQ(static_cast<TypeParam>(-1), c);
@@ -111,7 +111,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingAddMinMin)
 {
     const TypeParam a = std::numeric_limits<TypeParam>::min();
     const TypeParam b = std::numeric_limits<TypeParam>::min();
-    const TypeParam c = uavcan::util::saturating_add(a, b);
+    const TypeParam c = libuavcan::util::saturating_add(a, b);
     ASSERT_EQ(std::numeric_limits<TypeParam>::min(), c);
 }
 
@@ -119,7 +119,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingAddMaxMin)
 {
     const TypeParam a = std::numeric_limits<TypeParam>::max();
     const TypeParam b = std::numeric_limits<TypeParam>::min();
-    const TypeParam c = uavcan::util::saturating_add(a, b);
+    const TypeParam c = libuavcan::util::saturating_add(a, b);
     if (std::numeric_limits<TypeParam>::is_signed)
     {
         ASSERT_EQ(static_cast<TypeParam>(-1), c);
@@ -134,7 +134,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingAddMaxMinPlusOne)
 {   
     const TypeParam a = std::numeric_limits<TypeParam>::max();
     const TypeParam b = std::numeric_limits<TypeParam>::min() + 1;
-    const TypeParam c = uavcan::util::saturating_add(a, b);
+    const TypeParam c = libuavcan::util::saturating_add(a, b);
     if (std::numeric_limits<TypeParam>::is_signed)
     {
         ASSERT_EQ(static_cast<TypeParam>(0), c);
@@ -149,7 +149,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingAddMinPlusOneMin)
 {   
     const TypeParam a = std::numeric_limits<TypeParam>::min() + 1;
     const TypeParam b = std::numeric_limits<TypeParam>::min();
-    const TypeParam c = uavcan::util::saturating_add(a, b);
+    const TypeParam c = libuavcan::util::saturating_add(a, b);
     if (std::numeric_limits<TypeParam>::is_signed)
     {
         ASSERT_EQ(std::numeric_limits<TypeParam>::min(), c);
@@ -164,7 +164,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingAddMaxToZero)
 {   
     const TypeParam a = 0;
     const TypeParam b = std::numeric_limits<TypeParam>::max();
-    const TypeParam c = uavcan::util::saturating_add(a, b);
+    const TypeParam c = libuavcan::util::saturating_add(a, b);
     ASSERT_EQ(std::numeric_limits<TypeParam>::max(), c);
 }
 
@@ -172,7 +172,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingAddZeroToMax)
 {   
     const TypeParam a = std::numeric_limits<TypeParam>::max();
     const TypeParam b = 0;
-    const TypeParam c = uavcan::util::saturating_add(a, b);
+    const TypeParam c = libuavcan::util::saturating_add(a, b);
     ASSERT_EQ(std::numeric_limits<TypeParam>::max(), c);
 }
 
@@ -182,7 +182,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingSubMaxMax)
 {
     const TypeParam a = std::numeric_limits<TypeParam>::max();
     const TypeParam b = std::numeric_limits<TypeParam>::max();
-    const TypeParam c = uavcan::util::saturating_sub(a, b);
+    const TypeParam c = libuavcan::util::saturating_sub(a, b);
     ASSERT_EQ(static_cast<TypeParam>(0), c);
 }
 
@@ -190,7 +190,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingSubMinMax)
 {
     const TypeParam a = std::numeric_limits<TypeParam>::min();
     const TypeParam b = std::numeric_limits<TypeParam>::max();
-    const TypeParam c = uavcan::util::saturating_sub(a, b);
+    const TypeParam c = libuavcan::util::saturating_sub(a, b);
     ASSERT_EQ(std::numeric_limits<TypeParam>::min(), c);
 }
 
@@ -198,7 +198,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingSubMinMin)
 {
     const TypeParam a = std::numeric_limits<TypeParam>::min();
     const TypeParam b = std::numeric_limits<TypeParam>::min();
-    const TypeParam c = uavcan::util::saturating_sub(a, b);
+    const TypeParam c = libuavcan::util::saturating_sub(a, b);
     ASSERT_EQ(static_cast<TypeParam>(0), c);
 }
 
@@ -206,7 +206,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingSubMaxMin)
 {
     const TypeParam a = std::numeric_limits<TypeParam>::max();
     const TypeParam b = std::numeric_limits<TypeParam>::min();
-    const TypeParam c = uavcan::util::saturating_sub(a, b);
+    const TypeParam c = libuavcan::util::saturating_sub(a, b);
     ASSERT_EQ(std::numeric_limits<TypeParam>::max(), c);
 }
 
@@ -214,7 +214,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingSubMaxMinPlusOne)
 {   
     const TypeParam a = std::numeric_limits<TypeParam>::max();
     const TypeParam b = std::numeric_limits<TypeParam>::min() + 1;
-    const TypeParam c = uavcan::util::saturating_sub(a, b);
+    const TypeParam c = libuavcan::util::saturating_sub(a, b);
     if (std::numeric_limits<TypeParam>::is_signed)
     {
         ASSERT_EQ(std::numeric_limits<TypeParam>::max(), c);
@@ -229,7 +229,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingSubMinPlusOneMin)
 {   
     const TypeParam a = std::numeric_limits<TypeParam>::min() + 1;
     const TypeParam b = std::numeric_limits<TypeParam>::min();
-    const TypeParam c = uavcan::util::saturating_sub(a, b);
+    const TypeParam c = libuavcan::util::saturating_sub(a, b);
     ASSERT_EQ(static_cast<TypeParam>(1), c);
 }
 
@@ -238,10 +238,10 @@ TYPED_TEST(SaturatedMathTest, SaturatingSubMaxFromZero)
     const TypeParam a = 0;
     const TypeParam b = std::numeric_limits<TypeParam>::max();
 
-    const TypeParam c = uavcan::util::saturating_sub(a, b);
+    const TypeParam c = libuavcan::util::saturating_sub(a, b);
     ASSERT_LE(std::numeric_limits<TypeParam>::min(), c);
 
-    const TypeParam d = uavcan::util::saturating_sub(c, b);
+    const TypeParam d = libuavcan::util::saturating_sub(c, b);
     ASSERT_EQ(std::numeric_limits<TypeParam>::min(), d);
 }
 
@@ -250,7 +250,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingSubZeroFromMax)
     const TypeParam a = std::numeric_limits<TypeParam>::max();
     const TypeParam b = 0;
 
-    const TypeParam c = uavcan::util::saturating_sub(a, b);
+    const TypeParam c = libuavcan::util::saturating_sub(a, b);
     ASSERT_LE(std::numeric_limits<TypeParam>::max(), c);
 }
 

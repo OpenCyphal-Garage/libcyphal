@@ -12,20 +12,20 @@
 #include "uavcan/uavcan.hpp"
 #include "uavcan/util/math.hpp"
 
-namespace uavcan
+namespace libuavcan
 {
 /**
  * Protected base class for duration values.
  *
- * @tparam DURATIONTYPE  The datatype returned when retrieving durations from
+ * @tparam DurationType  The datatype returned when retrieving durations from
  *                       realizations of this base class. This type must be
  *                       exactly 8 bytes in size and must support certain concepts
  *                       implied by DurationBase.
  */
-template <typename DURATIONTYPE>
+template <typename DurationType>
 class DurationBase
 {
-    int64_t usec_; /**< Internal storage of the duration value in microseconds. */
+    std::int64_t usec_; /**< Internal storage of the duration value in microseconds. */
 
 protected:
     /**
@@ -36,40 +36,40 @@ protected:
     DurationBase()
         : usec_(0)
     {
-        static_assert(sizeof(DURATIONTYPE) == 8, "DURATIONTYPE must be 64 bits wide.");
+        static_assert(sizeof(DurationType) == 8, "DurationType must be 64 bits wide.");
     }
 
 public:
-    static DURATIONTYPE getInfinite()
+    static DurationType getInfinite()
     {
-        return fromUSec(std::numeric_limits<int64_t>::max());
+        return fromMicrosecond(std::numeric_limits<std::int64_t>::max());
     }
 
-    static DURATIONTYPE fromUSec(int64_t us)
+    static DurationType fromMicrosecond(std::int64_t us)
     {
-        DURATIONTYPE d;
+        DurationType d;
         d.usec_ = us;
         return d;
     }
 
-    static DURATIONTYPE fromMSec(int64_t ms)
+    static DurationType fromMillisecond(std::int64_t ms)
     {
-        return fromUSec(ms * 1000);
+        return fromMicrosecond(ms * 1000);
     }
 
-    int64_t toUSec() const
+    std::int64_t toMicrosecond() const
     {
         return usec_;
     }
 
-    int64_t toMSec() const
+    std::int64_t toMillisecond() const
     {
         return usec_ / 1000;
     }
 
-    DURATIONTYPE getAbs() const
+    DurationType getAbs() const
     {
-        return DURATIONTYPE::fromUSec((usec_ < 0) ? (-usec_) : usec_);
+        return DurationType::fromMicrosecond((usec_ < 0) ? (-usec_) : usec_);
     }
 
     bool isPositive() const
@@ -87,80 +87,80 @@ public:
         return usec_ == 0;
     }
 
-    bool operator==(const DURATIONTYPE& r) const
+    bool operator==(const DurationType& r) const
     {
         return usec_ == r.usec_;
     }
 
-    bool operator!=(const DURATIONTYPE& r) const
+    bool operator!=(const DurationType& r) const
     {
         return !operator==(r);
     }
 
-    bool operator<(const DURATIONTYPE& r) const
+    bool operator<(const DurationType& r) const
     {
         return usec_ < r.usec_;
     }
 
-    bool operator>(const DURATIONTYPE& r) const
+    bool operator>(const DurationType& r) const
     {
         return usec_ > r.usec_;
     }
 
-    bool operator<=(const DURATIONTYPE& r) const
+    bool operator<=(const DurationType& r) const
     {
         return usec_ <= r.usec_;
     }
 
-    bool operator>=(const DURATIONTYPE& r) const
+    bool operator>=(const DurationType& r) const
     {
         return usec_ >= r.usec_;
     }
 
-    DURATIONTYPE operator+(const DURATIONTYPE& r) const
+    DurationType operator+(const DurationType& r) const
     {
-        return fromUSec(util::saturating_add(usec_, r.usec_));
+        return fromMicrosecond(util::saturating_add(usec_, r.usec_));
     }
 
-    DURATIONTYPE operator-(const DURATIONTYPE& r) const
+    DurationType operator-(const DurationType& r) const
     {
-        return fromUSec(util::saturating_sub(usec_, r.usec_));
+        return fromMicrosecond(util::saturating_sub(usec_, r.usec_));
     }
 
-    DURATIONTYPE operator-() const
+    DurationType operator-() const
     {
-        return fromUSec(-usec_);
+        return fromMicrosecond(-usec_);
     }
 
-    DURATIONTYPE& operator+=(const DURATIONTYPE& r)
+    DurationType& operator+=(const DurationType& r)
     {
         *this = *this + r;
-        return *static_cast<DURATIONTYPE*>(this);
+        return *static_cast<DurationType*>(this);
     }
 
-    DURATIONTYPE& operator-=(const DURATIONTYPE& r)
+    DurationType& operator-=(const DurationType& r)
     {
         *this = *this - r;
-        return *static_cast<DURATIONTYPE*>(this);
+        return *static_cast<DurationType*>(this);
     }
 
     template <typename Scale>
-    DURATIONTYPE operator*(Scale scale) const
+    DurationType operator*(Scale scale) const
     {
-        return fromUSec(usec_ * scale);
+        return fromMicrosecond(usec_ * scale);
     }
 
     template <typename Scale>
-    DURATIONTYPE& operator*=(Scale scale)
+    DurationType& operator*=(Scale scale)
     {
         *this = *this * scale;
-        return *static_cast<DURATIONTYPE*>(this);
+        return *static_cast<DurationType*>(this);
     }
 };
 
 class UAVCAN_EXPORT MonotonicDuration : public DurationBase<MonotonicDuration>
 {};
 
-}  // namespace uavcan
+}  // namespace libuavcan
 
 #endif  // UAVCAN_TIME_HPP_INCLUDED

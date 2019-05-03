@@ -127,6 +127,9 @@ else()
 
     find_program(DSDLGENJ dsdlgenj HINTS ${PYTHON_BIN})
 
+    if (NOT DSDLGENJ)
+        message(WARNING "dsdlgenj program was not found. The build will probably fail. (${DSDLGENJ})")
+    endif()
 endif()
 
 # +---------------------------------------------------------------------------+

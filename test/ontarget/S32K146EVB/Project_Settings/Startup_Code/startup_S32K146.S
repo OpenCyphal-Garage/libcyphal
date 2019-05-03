@@ -1,3 +1,6 @@
+/*
+ * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ */
 /* --------------------------------------------------------------------------*/
 /*  @file:    startup_S32K146.s                                              */
 /*  @purpose: GNU Compiler Collection Startup File                           */
@@ -341,6 +344,11 @@ Reset_Handler:
     /* Init .data and .bss sections */
     ldr     r0,=init_data_bss
     blx     r0
+
+    /* C++ static initializers */
+    ldr     r0,=__libc_init_array
+    blx     r0
+
     cpsie   i               /* Unmask interrupts */
     bl      main
 JumpToSelf:

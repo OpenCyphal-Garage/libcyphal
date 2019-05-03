@@ -4,7 +4,11 @@
 # Common stuff to include in all libuavcan CMakeLists.txt
 #
 
-set(EXTERNAL_PROJECT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build_ext")
+if (NOT DEFINED LIBUAVCAN_EXT_FOLDER)
+    set(EXTERNAL_PROJECT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build_ext")
+else()
+    set(EXTERNAL_PROJECT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${LIBUAVCAN_EXT_FOLDER}")
+endif()
 
 # +---------------------------------------------------------------------------+
 # | Flag set handling

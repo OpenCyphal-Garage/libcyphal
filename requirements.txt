@@ -6,7 +6,7 @@
 # have one or more dependencies including (but not necessarily limited to)
 # pydsdl
 
-pydsdlgen >= 1.0
+pydsdlgen >= 1.0, < 2.0
 
 # Not actually required but provides extra debugging for templates.
 pyyaml

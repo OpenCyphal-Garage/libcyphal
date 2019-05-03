@@ -12,12 +12,12 @@
  * Verify the immutable properties of CAN FD
  */
 TEST(CanBusTest, TypeFd) {
-    ASSERT_EQ(64U, uavcan::bus::CAN::TypeFd::max_frame_size_bytes);
+    ASSERT_EQ(64U, libuavcan::bus::CAN::TypeFd::MaxFrameSizeBytes);
 }
 
 /**
  * Verify the immutable properties of CAN 2.0
  */
 TEST(CanBusTest, Type2_0) {
-    ASSERT_EQ(8U, uavcan::bus::CAN::Type2_0::max_frame_size_bytes);
+    ASSERT_EQ(8U, libuavcan::bus::CAN::Type2_0::MaxFrameSizeBytes);
 }

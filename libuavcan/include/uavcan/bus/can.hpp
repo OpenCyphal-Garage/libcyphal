@@ -11,7 +11,7 @@
 
 #include "uavcan/uavcan.hpp"
 
-namespace uavcan
+namespace libuavcan
 {
 /**
  * @namespace bus
@@ -25,6 +25,12 @@ namespace bus
  */
 namespace CAN
 {
+/** The size of the tail byte, in bytes. */
+constexpr static size_t TailByteSizeBytes = 1;
+
+/** The number of bytes in the transfer CRC. */
+constexpr static size_t TransferCrcSizeBytes = 2;
+
 /**
  * @namespace TypeFd
  * Properties of an ISO compliant CAN-FD bus.
@@ -34,19 +40,13 @@ namespace TypeFd
 /**
  * The maximum size of a data frame for this bus.
  */
-constexpr static size_t max_frame_size_bytes = 64;
-
-/** The size of the tail byte, in bytes. */
-constexpr static size_t tail_byte_size_bytes = 1;
-
-/** The number of bytes in the transfer CRC. */
-constexpr static size_t transfer_crc_size_bytes = 2;
+constexpr static size_t MaxFrameSizeBytes = 64;
 
 /**
  * Lookup table to find the data length that would be used to
  * store a given payload.
  */
-constexpr static std::array<uint8_t, max_frame_size_bytes> payload_length_to_frame_length = {
+constexpr static std::array<uint8_t, MaxFrameSizeBytes> PayloadLengthToFrameLength = {
     {0,  1,  2,  3,  4,  5,  6,  7,  11, 11, 11, 11, 15, 15, 15, 15, 19, 19, 19, 19, 23, 23,
      23, 23, 31, 31, 31, 31, 31, 31, 31, 31, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
      47, 47, 47, 47, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63}};
@@ -62,19 +62,13 @@ namespace Type2_0
 /**
  * The maximum size of a data frame for this bus.
  */
-constexpr static size_t max_frame_size_bytes = 8;
-
-/** The size of the tail byte, in bytes. */
-constexpr static size_t tail_byte_size_bytes = 1;
-
-/** The number of bytes in the transfer CRC. */
-constexpr static size_t transfer_crc_size_bytes = 2;
+constexpr static size_t MaxFrameSizeBytes = 8;
 
 /**
  * Lookup table to find the data length that would be used to
  * store a given payload.
  */
-constexpr static std::array<uint8_t, max_frame_size_bytes> payload_length_to_frame_length = {{0, 1, 2, 3, 4, 5, 6, 7}};
+constexpr static std::array<uint8_t, MaxFrameSizeBytes> PayloadLengthToFrameLength = {{0, 1, 2, 3, 4, 5, 6, 7}};
 
 }  // end namespace Type2_0
 
@@ -84,26 +78,26 @@ constexpr static std::array<uint8_t, max_frame_size_bytes> payload_length_to_fra
  * When transmitting use this pattern to minimize the number of stuff bits added by the
  * CAN hardware.
  */
-constexpr uint8_t bytePaddingPattern = 0x55;
+constexpr uint8_t BytePaddingPattern = 0x55;
 
 #if (UAVCAN_ENABLE_FD)
 
 /**
  * The MTU based on the current build configuration.
  */
-constexpr uint16_t MTU = TypeFd::max_frame_size_bytes;
+constexpr uint16_t MTU = TypeFd::MaxFrameSizeBytes;
 
 #else
 
 /**
  * The MTU based on the current build configuration.
  */
-constexpr uint16_t MTU = Type2_0::max_frame_size_bytes;
+constexpr uint16_t MTU = Type2_0::MaxFrameSizeBytes;
 
 #endif
 
 }  // end namespace CAN
 }  // end namespace bus
-}  // end namespace uavcan
+}  // end namespace libuavcan
 
 #endif  // UAVCAN_BUS_CAN_HPP_INCLUDED

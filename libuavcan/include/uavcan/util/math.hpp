@@ -14,7 +14,7 @@
 #include <cmath>
 #include "uavcan/introspection.hpp"
 
-namespace uavcan
+namespace libuavcan
 {
 /**
  * @namespace util
@@ -27,8 +27,7 @@ namespace util
 // +--------------------------------------------------------------------------+
 
 /*
- * Saturated addition where the RHS is assumed to be either a positive value or, if negative, a signal to
- * add "max + 1" to the lhs.
+ * Saturated addition where the RHS is assumed to be a positive value.
  *
  * This is part of the generic, promotionless, saturation math provided by this header. Ideally this would
  * be omitted for most platforms where saturation operations were available.
@@ -36,26 +35,15 @@ namespace util
 template <
     class SIGNED_TYPE,
     typename std::enable_if<std::is_integral<SIGNED_TYPE>::value && std::is_signed<SIGNED_TYPE>::value, int>::type = 0>
-SIGNED_TYPE _saturating_add_d(SIGNED_TYPE left, SIGNED_TYPE right)
+constexpr SIGNED_TYPE _saturating_add_d(SIGNED_TYPE left, SIGNED_TYPE right)
 {
-    UAVCAN_ASSERT(right > 0);
-
-    SIGNED_TYPE result;
-    if (left >= 0 && right > (std::numeric_limits<SIGNED_TYPE>::max() - left))
-    {
-        result = std::numeric_limits<SIGNED_TYPE>::max();
-    }
-    else
-    {
-        // else if left is min() then right is < max()
-        result = static_cast<SIGNED_TYPE>(left + right);
-    }
-    return result;
+    return (left >= 0 && right > (std::numeric_limits<SIGNED_TYPE>::max() - left))
+               ? std::numeric_limits<SIGNED_TYPE>::max()
+               : static_cast<SIGNED_TYPE>(left + right);
 }
 
 /*
- * Saturated subtraction where the RHS is assumed to be either a positive value or, if negative, a signal to
- * subtract "max + 1" from the lhs.
+ * Saturated subtraction where the RHS is assumed to be a positive value.
  *
  * This is part of the generic, promotionless, saturation math provided by this header. Ideally this would
  * be omitted for most platforms where saturation operations were available.
@@ -63,21 +51,11 @@ SIGNED_TYPE _saturating_add_d(SIGNED_TYPE left, SIGNED_TYPE right)
 template <
     class SIGNED_TYPE,
     typename std::enable_if<std::is_integral<SIGNED_TYPE>::value && std::is_signed<SIGNED_TYPE>::value, int>::type = 0>
-SIGNED_TYPE _saturating_sub_d(SIGNED_TYPE left, SIGNED_TYPE right)
+constexpr SIGNED_TYPE _saturating_sub_d(SIGNED_TYPE left, SIGNED_TYPE right)
 {
-    UAVCAN_ASSERT(right > 0);
-
-    SIGNED_TYPE result;
-    if (left <= 0 && right >= std::abs(std::numeric_limits<SIGNED_TYPE>::min() - left))
-    {
-        result = std::numeric_limits<SIGNED_TYPE>::min();
-    }
-    else
-    {
-        // else if left is max() then right is > min()
-        result = static_cast<SIGNED_TYPE>(left - right);
-    }
-    return result;
+    return (left <= 0 && right >= std::abs(std::numeric_limits<SIGNED_TYPE>::min() - left))
+               ? std::numeric_limits<SIGNED_TYPE>::min()
+               : static_cast<SIGNED_TYPE>(left - right);
 }
 
 /**
@@ -118,8 +96,8 @@ SIGNED_TYPE saturating_add(SIGNED_TYPE left, SIGNED_TYPE right)
     else
     {
         // Flip the sign-bit and delegate to the subtraction implementation.
-        // We assume that the integer representation can flip the bit where
-        // right > std::numeric_limits<SIGNED_TYPE>::min().
+        // We assume that the integer representation can flip the bit without
+        // promotion where right > std::numeric_limits<SIGNED_TYPE>::min().
         result = _saturating_sub_d<SIGNED_TYPE>(left, static_cast<SIGNED_TYPE>(-right));
     }
     return result;
@@ -161,8 +139,8 @@ SIGNED_TYPE saturating_sub(SIGNED_TYPE left, SIGNED_TYPE right)
     else
     {
         // Flip the sign-bit and delegate to the addition implementation.
-        // We assume that the integer representation can flip the bit where
-        // right > std::numeric_limits<SIGNED_TYPE>::min().
+        // We assume that the integer representation can flip the bit
+        // without promotion where right > std::numeric_limits<SIGNED_TYPE>::min().
         result = _saturating_add_d<SIGNED_TYPE>(left, static_cast<SIGNED_TYPE>(-right));
     }
     return result;
@@ -183,18 +161,15 @@ SIGNED_TYPE saturating_sub(SIGNED_TYPE left, SIGNED_TYPE right)
 template <class UNSIGNED_TYPE,
           typename std::enable_if<std::is_integral<UNSIGNED_TYPE>::value && !std::is_signed<UNSIGNED_TYPE>::value,
                                   int>::type = 0>
-UNSIGNED_TYPE saturating_add(UNSIGNED_TYPE left, UNSIGNED_TYPE right)
+constexpr UNSIGNED_TYPE saturating_add(UNSIGNED_TYPE left, UNSIGNED_TYPE right)
 {
     // Be careful here. Some ways of writing this logic will run afoul of
     // optimizers where the compiler may assume that the result must be <
     // than the rhs and will elide any post processing logic. To make this
     // more stable we've written it as pre-processing logic.
-    const UNSIGNED_TYPE remaining = static_cast<UNSIGNED_TYPE>(std::numeric_limits<UNSIGNED_TYPE>::max() - left);
-    if (right > remaining)
-    {
-        return std::numeric_limits<UNSIGNED_TYPE>::max();
-    }
-    return static_cast<UNSIGNED_TYPE>(left + right);
+    return (right > static_cast<UNSIGNED_TYPE>(std::numeric_limits<UNSIGNED_TYPE>::max() - left))
+               ? std::numeric_limits<UNSIGNED_TYPE>::max()
+               : static_cast<UNSIGNED_TYPE>(left + right);
 }
 
 /**
@@ -212,16 +187,12 @@ UNSIGNED_TYPE saturating_add(UNSIGNED_TYPE left, UNSIGNED_TYPE right)
 template <class UNSIGNED_TYPE,
           typename std::enable_if<std::is_integral<UNSIGNED_TYPE>::value && !std::is_signed<UNSIGNED_TYPE>::value,
                                   int>::type = 0>
-UNSIGNED_TYPE saturating_sub(UNSIGNED_TYPE left, UNSIGNED_TYPE right)
+constexpr UNSIGNED_TYPE saturating_sub(UNSIGNED_TYPE left, UNSIGNED_TYPE right)
 {
-    if (right > left)
-    {
-        return std::numeric_limits<UNSIGNED_TYPE>::min();
-    }
-    return static_cast<UNSIGNED_TYPE>(left - right);
+    return (right > left) ? std::numeric_limits<UNSIGNED_TYPE>::min() : static_cast<UNSIGNED_TYPE>(left - right);
 }
 
 }  // namespace util
-}  // namespace uavcan
+}  // namespace libuavcan
 
 #endif  // UAVCAN_UTIL_MATH_HPP_INCLUDED

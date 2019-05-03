@@ -2,7 +2,8 @@
 # Pull the public_regulated_data_types.
 #
 
-configure_file(${CMAKE_MODULE_PATH}/public_regulated_data_types.txt.in ${EXTERNAL_PROJECT_DIRECTORY}/public-regulated-data-types-download/CMakeLists.txt)
+configure_file(${CMAKE_MODULE_PATH}/public_regulated_data_types.txt.in
+               ${EXTERNAL_PROJECT_DIRECTORY}/public-regulated-data-types-download/CMakeLists.txt)
 
 execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
     RESULT_VARIABLE DSDL_CMAKE_GEN_RESULT
@@ -23,3 +24,8 @@ else()
     endif()
 endif()
 
+include(FindPackageHandleStandardArgs)
+
+find_package_handle_standard_args(public_regulated_data_types
+    REQUIRED_VARS PUBLIC_REGULATED_DATA_TYPES_FOUND
+)

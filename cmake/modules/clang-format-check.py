@@ -41,7 +41,7 @@ def _run(args: argparse.Namespace) -> int:
 
     for glob_result in glob_results:
 
-        completed = subprocess.run([args.clang_format_path, '-style=file', '-output-replacements-xml', glob_result],
+        completed = subprocess.run([args.clang_format_path, '-fallback-style=none', '-style=file', '-output-replacements-xml', glob_result],
                                    check=True,
                                    stdout=subprocess.PIPE)  # type: subprocess.CompletedProcess
 

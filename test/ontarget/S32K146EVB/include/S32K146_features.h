@@ -743,7 +743,7 @@ typedef enum {
 /*! @brief Clock names. */
 typedef enum {
 
-    /* Main clocks */
+ 	/* Main clocks */
     CORE_CLK                     = 0u,       /*!< Core clock                     */
     BUS_CLK                      = 1u,       /*!< Bus clock                      */
     SLOW_CLK                     = 2u,       /*!< Slow clock                     */

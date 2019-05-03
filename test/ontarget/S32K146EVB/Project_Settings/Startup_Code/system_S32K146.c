@@ -109,7 +109,7 @@ void SystemInit(void)
    * enables support for 32-bit refresh/unlock command write words,
    * clock select from LPO, update enable, watchdog disabled */
   WDOG->CS  = (uint32_t ) ( (1UL << WDOG_CS_CMD32EN_SHIFT)                       |
-                            (FEATURE_WDOG_CLK_FROM_LPO << WDOG_CS_CLK_SHIFT) |
+                            (FEATURE_WDOG_CLK_FROM_LPO << WDOG_CS_CLK_SHIFT)     |
                             (0U << WDOG_CS_EN_SHIFT)                             |
                             (1U << WDOG_CS_UPDATE_SHIFT)                         );
 

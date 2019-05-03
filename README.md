@@ -90,7 +90,7 @@ We also support a docker-based workflow which is used for CI build automation. I
 ```bash
 docker pull uavcan/libuavcan:latest
 
-docker run --rm -v /path/to/libuavcan:/repo uavcan/libuavcan:latest /bin/sh -c ci.sh
+docker run --rm -v /path/to/libuavcan:/repo uavcan/libuavcan:latest /bin/sh -c ./ci.sh
 ```
 
 Test outputs can be found in the build directory under `libuavcan`.
@@ -120,3 +120,20 @@ Reviewers, please check the following items when reviewing a pull-request:
     * Is the code maintainable?
     * Are the tests maintainable?
     * Is the code in the right namespace/class/function?
+
+### VSCode
+
+To use visual studio code to debug ontarget tests for the S32K146EVB you'll need the [cortex debug](https://marketplace.visualstudio.com/items?itemName=marus25.cortex-debug) plugin. Here's an example configuration using JLink:
+
+```
+ {
+    "cwd": "${workspaceRoot}",
+    "executable": "build/test_bus.elf",
+    "name": "On-target unit test.",
+    "request": "launch",
+    "type": "cortex-debug",
+    "servertype": "jlink",
+    "device": "S32K146",
+    "svdFile": "test/ontarget/S32K146EVB/S32K146.svd"
+},
+```

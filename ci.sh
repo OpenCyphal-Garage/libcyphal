@@ -33,7 +33,9 @@ pushd build_ci_native
 # We build native tests using clang since we use gcc for
 # cross-compiling. This gives us coverage by two different
 # compilers.
-cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/clang-native.cmake ..
+cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/clang-native.cmake \
+      -DLIBUAVCAN_EXT_FOLDER=build_ci_ext \
+      ..
 make -j16
 ctest -VV
 
@@ -47,9 +49,10 @@ pushd build_ci_ontarget
 # tests on-target.
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/gcc-arm-none-eabi.cmake \
       -DGTEST_USE_LOCAL_BUILD=ON \
-      -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/cortex-m4-fpv4-sp-d16-rdimon.cmake \
+      -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/cortex-m4-fpv4-sp-d16-nosys.cmake \
       -DLIBUAVCAN_TESTBUILD=../test/ontarget/S32K146EVB/unit_tests.cmake \
       -DLIBUAVCAN_SKIP_DOCS=ON \
+      -DLIBUAVCAN_EXT_FOLDER=build_ci_ext \
       ..
 
 make -j16

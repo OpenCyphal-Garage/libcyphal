@@ -31,12 +31,7 @@
 /* Entry Point */
 ENTRY(Reset_Handler)
 
-/*
-To use "new" operator with EWL in C++ project the following symbol shall be defined
-*/
-/*EXTERN(_ZN10__cxxabiv119__terminate_handlerE)*/
-
-HEAP_SIZE  = DEFINED(__heap_size__)  ? __heap_size__  : 0x00000400;
+HEAP_SIZE  = DEFINED(__heap_size__)  ? __heap_size__  : 0x0000F000;
 STACK_SIZE = DEFINED(__stack_size__) ? __stack_size__ : 0x00000400;
 
 /* If symbol __flash_vector_table__=1 is defined at link time
@@ -68,8 +63,10 @@ SECTIONS
   .interrupts :
   {
     __VECTOR_TABLE = .;
+    __interrupts_start__ = .;
     . = ALIGN(4);
     KEEP(*(.isr_vector))     /* Startup code */
+    __interrupts_end__ = .;
     . = ALIGN(4);
   } > m_interrupts
 
@@ -172,6 +169,7 @@ SECTIONS
   {
     . = ALIGN(4);
     __VECTOR_RAM__ = .;
+    __RAM_START = .;
     __interrupts_ram_start__ = .; /* Create a global symbol at data start. */
     *(.m_interrupts_ram)          /* This is a user defined section. */
     . += M_VECTOR_RAM_SIZE;
@@ -201,19 +199,25 @@ SECTIONS
     . = ALIGN(4);
     __CODE_RAM = .;
     __code_start__ = .;      /* Create a global symbol at code start. */
+    __code_ram_start__ = .;
     *(.code_ram)             /* Custom section for storing code in RAM */
     . = ALIGN(4);
     __code_end__ = .;        /* Define a global symbol at code end. */
+    __code_ram_end__ = .;
   } > m_data
 
   __CODE_END = __CODE_ROM + (__code_end__ - __code_start__);
+  __CUSTOM_ROM = __CODE_END;
 
   /* Custom Section Block that can be used to place data at absolute address. */
   /* Use __attribute__((section (".customSection"))) to place data here. */
-  .customSectionBlock  ORIGIN(m_data_2) :
+  .customSectionBlock  ORIGIN(m_data_2) : AT(__CUSTOM_ROM)
   {
+    __customSection_start__ = .;
     KEEP(*(.customSection))  /* Keep section even if not referenced. */
-  } > m_data_2
+    __customSection_end__ = .;
+  } > m_data
+  __CUSTOM_END = __CUSTOM_ROM + (__customSection_end__ - __customSection_start__);
 
   /* Uninitialized data section. */
   .bss :
@@ -228,34 +232,51 @@ SECTIONS
     . = ALIGN(4);
     __bss_end__ = .;
     __BSS_END = .;
-  } > m_data_2
+  } > m_data
 
-  .heap :
+  /* Initializes stack on the end of block */
+  __StackTop   = ORIGIN(m_data) + LENGTH(m_data);
+  __StackLimit = __StackTop - STACK_SIZE;
+  PROVIDE(__stack = __StackTop);
+  __RAM_END = __StackTop;
+
+  .stack __StackLimit :
+  {
+    . = ALIGN(8);
+    __stack_start__ = .;
+    . += STACK_SIZE;
+    __stack_end__ = .;
+  } > m_data
+
+
+  ASSERT(__stack_start__ >= __bss_end__, "The stack grew into the bss section.")
+  ASSERT(__stack_end__ <= ORIGIN(m_data) + LENGTH(m_data), "The stack didn't fit in m_data")
+
+  __HeapTop   = ORIGIN(m_data_2) + HEAP_SIZE;
+  __RAM_END = __HeapTop;
+
+  .heap ORIGIN(m_data_2) :
   {
     . = ALIGN(8);
     __end__ = .;
+    __heap_start__ = .;
     PROVIDE(end = .);
     PROVIDE(_end = .);
     PROVIDE(__end = .);
-    __HeapBase = .;
+    __HeapBase = .; 
     . += HEAP_SIZE;
-    __HeapLimit = .;
     __heap_limit = .;
+    __heap_end__ = .;
   } > m_data_2
 
-  .stack :
-  {
-    . = ALIGN(8);
-    . += STACK_SIZE;
-  } > m_data_2
-
-  /* Initializes stack on the end of block */
-  __StackTop   = ORIGIN(m_data_2) + LENGTH(m_data_2);
-  __StackLimit = __StackTop - STACK_SIZE;
-  PROVIDE(__stack = __StackTop);
-
+  /* Labels required by EWL */
+  __START_BSS = __BSS_START;
+  __END_BSS = __BSS_END;
+  __SP_INIT = __StackTop;  
+  
   .ARM.attributes 0 : { *(.ARM.attributes) }
 
-  ASSERT(__StackLimit >= __HeapLimit, "region m_data_2 overflowed with stack and heap")
+  ASSERT(__end__ >= __stack_end__, "The heap grew into the stack?")
+  ASSERT(__heap_end__ <= ORIGIN(m_data_2) + LENGTH(m_data_2), "region m_data_2 overflowed with heap")
 }
 

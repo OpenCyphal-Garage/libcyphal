@@ -10,4 +10,4 @@ install:
 - "echo $TRAVIS_BUILD_DIR"
 
 script:
-- "docker run --rm -e TRAVIS_BUILD_NUMBER=$TRAVIS_BUILD_NUMBER -e CODACY_PROJECT_TOKEN=$CODACY_PROJECT_TOKEN -v $TRAVIS_BUILD_DIR:/repo uavcan/libuavcan:latest /bin/sh -c ci.sh"
+- "docker run --rm -e TRAVIS_BUILD_NUMBER=$TRAVIS_BUILD_NUMBER -e CODACY_PROJECT_TOKEN=$CODACY_PROJECT_TOKEN -v $TRAVIS_BUILD_DIR:/repo uavcan/libuavcan:latest /bin/sh -c ./ci.sh"

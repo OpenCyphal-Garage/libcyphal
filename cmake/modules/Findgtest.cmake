@@ -11,7 +11,8 @@
 # +---------------------------------------------------------------------------+
 # | PULL GTEST SOURCE
 # +---------------------------------------------------------------------------+
-configure_file(${CMAKE_MODULE_PATH}/Gtest.txt.in ${EXTERNAL_PROJECT_DIRECTORY}/googletest-download/CMakeLists.txt)
+configure_file(${CMAKE_MODULE_PATH}/Gtest.txt.in
+               ${EXTERNAL_PROJECT_DIRECTORY}/googletest-download/CMakeLists.txt)
 
 execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
     RESULT_VARIABLE GTEST_CMAKE_GEN_RESULT
@@ -115,8 +116,14 @@ else()
     # This is a "native" build so just add googletest directly.
     # This defines the gmock_main target.
     add_subdirectory(${EXTERNAL_PROJECT_DIRECTORY}/googletest-src
-                    ${EXTERNAL_PROJECT_DIRECTORY}/googletest-build
-                    EXCLUDE_FROM_ALL)
+                     ${EXTERNAL_PROJECT_DIRECTORY}/googletest-build
+                     EXCLUDE_FROM_ALL)
 
 endif()
 endif()
+
+include(FindPackageHandleStandardArgs)
+
+find_package_handle_standard_args(gtest
+    REQUIRED_VARS GTEST_FOUND
+)

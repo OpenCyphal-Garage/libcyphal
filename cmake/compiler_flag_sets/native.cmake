@@ -31,7 +31,7 @@ list(APPEND C_FLAG_SET
                 "-Wunused-value"
                 "-Wcast-align"
                 "-Wmissing-declarations"
-                "-Wno-missing-field-initializers"
+                "-Wmissing-field-initializers"
                 "-Wdouble-promotion"
                 "-Wswitch-enum"
                 "-Wtype-limits"
@@ -40,13 +40,6 @@ list(APPEND C_FLAG_SET
 
 set(CXX_FLAG_SET ${C_FLAG_SET})
 set(ASM_FLAG_SET ${C_FLAG_SET})
-
-#
-# General C-only flags
-#
-list(APPEND C_FLAG_SET
-                "-std=gnu99"
-)
 
 #
 # General C++ only flags

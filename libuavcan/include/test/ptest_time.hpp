@@ -11,7 +11,7 @@
 #include "uavcan/time.hpp"
 #include "gtest/gtest.h"
 
-namespace uavcan
+namespace libuavcan
 {
 /**
  * @namespace test
@@ -21,7 +21,7 @@ namespace uavcan
 namespace test
 {
 /**
- * Test fixture for testing realizations of the uavcan::DurationBase template.
+ * Test fixture for testing realizations of the libuavcan::DurationBase template.
  * See https://github.com/google/googletest/blob/master/googletest/docs/advanced.md for
  * more information about typed gtests.
  *
@@ -44,15 +44,15 @@ TYPED_TEST_SUITE_P(DurationTest);
 TYPED_TEST_P(DurationTest, DefaultValue)
 {
     TypeParam instance;
-    ASSERT_EQ(static_cast<int64_t>(0), instance.toUSec());
+    ASSERT_EQ(static_cast<std::int64_t>(0), instance.toMicrosecond());
 }
 
 /**
- * Test that the test type implements the "fromUSec" concept.
+ * Test that the test type implements the "fromMicrosecond" concept.
  */
-TYPED_TEST_P(DurationTest, Concept_fromUSec)
+TYPED_TEST_P(DurationTest, Concept_fromMicrosecond)
 {
-    ASSERT_EQ(static_cast<int64_t>(100), TypeParam::fromUSec(100).toUSec());
+    ASSERT_EQ(static_cast<std::int64_t>(100), TypeParam::fromMicrosecond(100).toMicrosecond());
 }
 
 /**
@@ -60,8 +60,9 @@ TYPED_TEST_P(DurationTest, Concept_fromUSec)
  */
 TYPED_TEST_P(DurationTest, SaturatedAdd)
 {
-    TypeParam instance = TypeParam::fromUSec(std::numeric_limits<int64_t>::max()) + TypeParam::fromUSec(1);
-    ASSERT_EQ(std::numeric_limits<int64_t>::max(), instance.toUSec());
+    TypeParam instance =
+        TypeParam::fromMicrosecond(std::numeric_limits<std::int64_t>::max()) + TypeParam::fromMicrosecond(1);
+    ASSERT_EQ(std::numeric_limits<std::int64_t>::max(), instance.toMicrosecond());
 }
 
 /**
@@ -69,20 +70,18 @@ TYPED_TEST_P(DurationTest, SaturatedAdd)
  */
 TYPED_TEST_P(DurationTest, SaturatedSubtract)
 {
-    TypeParam instance = TypeParam::fromUSec(std::numeric_limits<int64_t>::min()) - TypeParam::fromUSec(1);
-    ASSERT_EQ(std::numeric_limits<int64_t>::min(), instance.toUSec());
+    TypeParam instance =
+        TypeParam::fromMicrosecond(std::numeric_limits<std::int64_t>::min()) - TypeParam::fromMicrosecond(1);
+    ASSERT_EQ(std::numeric_limits<std::int64_t>::min(), instance.toMicrosecond());
 }
 
-// clang-format off
-REGISTER_TYPED_TEST_SUITE_P(DurationTest,
+REGISTER_TYPED_TEST_SUITE_P(DurationTest,  //
                             DefaultValue,
-                            Concept_fromUSec,
+                            Concept_fromMicrosecond,
                             SaturatedAdd,
                             SaturatedSubtract);
 
-// clang-format on
-
 }  // end namespace test
-}  // end namespace uavcan
+}  // end namespace libuavcan
 
 #endif  // UAVCAN_TEST_TIME_HPP_INCLUDED
