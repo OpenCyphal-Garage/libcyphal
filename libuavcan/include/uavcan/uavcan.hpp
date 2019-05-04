@@ -1,13 +1,12 @@
 /*
  * Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
- * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * This header should be included by the user application.
  */
+/** @file */
+#include "uavcan/build_config.hpp"
 
-#ifndef UAVCAN_UAVCAN_HPP_INCLUDED
-#define UAVCAN_UAVCAN_HPP_INCLUDED
-
-#include <uavcan/build_config.hpp>
-
-#endif // UAVCAN_UAVCAN_HPP_INCLUDED
+#include <cstdint>
+#include <limits>
+#include <type_traits>

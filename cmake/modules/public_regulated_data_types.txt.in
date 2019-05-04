@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 2.8.2)
+
+project(public-regulated-data-types-download NONE)
+
+include(ExternalProject)
+ExternalProject_Add(dsdl
+  GIT_REPOSITORY    https://github.com/UAVCAN/public_regulated_data_types.git
+  GIT_TAG           3baa2e90a0e8c7b660a2deda8f9a541877ed58e5
+  SOURCE_DIR        "${EXTERNAL_PROJECT_DIRECTORY}/public-regulated-data-types-src"
+  BINARY_DIR        ""
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND     ""
+  INSTALL_COMMAND   ""
+  TEST_COMMAND      ""
+)

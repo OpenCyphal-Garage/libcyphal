@@ -4,10 +4,13 @@
 lib*.so
 lib*.so.*
 *.a
-build/
+build*
 .dep
 __pycache__
 *.pyc
+.mypy*
+.pyenv
+.dockerup
 
 # Eclipse
 .metadata
@@ -18,7 +21,7 @@ __pycache__
 .gdbinit
 
 # vsstudio code
-.vscode
+.vscode*
 
 # vagrant
 .vagrant

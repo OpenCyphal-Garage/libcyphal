@@ -1,0 +1,13 @@
+log @JLINK_LOG_FILE@
+f
+device @JLINK_DEVICE@
+si SWD
+connect
+hwinfo
+st
+h
+moe
+rx @JLINK_DEVICE_RESET_DELAY_MILLIS@
+loadfile @JLINK_HEX@
+r
+qc
