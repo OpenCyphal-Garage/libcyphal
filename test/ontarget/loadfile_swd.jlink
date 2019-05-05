@@ -1,6 +1,7 @@
 log @JLINK_LOG_FILE@
 f
 device @JLINK_DEVICE@
+speed 4000 kHz
 si SWD
 connect
 hwinfo

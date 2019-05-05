@@ -42,10 +42,9 @@ void LPUART1_init(void)  /* Init. summary: 9600 baud, 1 stop bit, 8 bit format, 
 	PCC->PCCn[PCC_LPUART1_INDEX] |= PCC_PCCn_PCS(0x02)    /* Clock Src = 2 (SIRCDIV2_CLK) */
                             	 |  PCC_PCCn_CGC_MASK;     /* Enable clock for LPUART1 regs */
 
-	// TODO: 115200
-	LPUART1->BAUD = LPUART_BAUD_SBR(0x34)  	/* Initialize for 9600 baud, 1 stop: */
-                	|LPUART_BAUD_OSR(15);  	/* SBR=52 (0x34): baud divisor = 8M/9600/16 = ~52 */
-											/* OSR=15: Over sampling ratio = 15+1=16 */
+	LPUART1->BAUD = LPUART_BAUD_SBR(0x3)  	/* Initialize for 115200 baud, 1 stop: */
+                	|LPUART_BAUD_OSR(22);  	/* SBR=3: baud divisor = 8M/115200/23 = ~3 */
+											/* OSR=15: Over sampling ratio = 22+1=23 */
 											/* SBNS=0: One stop bit */
 											/* BOTHEDGE=0: receiver samples only on rising edge */
 											/* M10=0: Rx and Tx use 7 to 9 bit data characters */
