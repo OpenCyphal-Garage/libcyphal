@@ -103,7 +103,7 @@ void init_data_bss(void)
     /* Addresses for VECTOR_TABLE and VECTOR_RAM come from the linker file */
 
 #if defined(__ARMCC_VERSION)
-	extern uint32_t __RAM_VECTOR_TABLE_SIZE;
+    extern uint32_t __RAM_VECTOR_TABLE_SIZE;
     extern uint32_t __VECTOR_ROM;
     extern uint32_t __VECTOR_RAM;
 #else
@@ -129,7 +129,7 @@ void init_data_bss(void)
     bss_start       = __section_begin(".bss");
     bss_end         = __section_end(".bss");
 #elif defined (__ARMCC_VERSION)
-	extern uint32_t __DATA_ROM;
+    extern uint32_t __DATA_ROM;
     extern uint32_t __DATA_RAM;
     extern uint32_t __DATA_END;
 
@@ -153,7 +153,7 @@ void init_data_bss(void)
     bss_start       = (uint8_t *)__BSS_START;
     bss_end         = (uint8_t *)__BSS_END;
 
-	/* VECTOR TABLE*/
+    /* VECTOR TABLE*/
     uint8_t * vector_table_size = (uint8_t *)__RAM_VECTOR_TABLE_SIZE;
     uint8_t * vector_rom    = (uint8_t *)__VECTOR_ROM;
     uint8_t * vector_ram    = (uint8_t *)__VECTOR_RAM;
@@ -184,7 +184,7 @@ void init_data_bss(void)
     coreId = (uint8_t)GET_CORE_ID();
 #if defined (__ARMCC_VERSION)
         /* Copy the vector table from ROM to RAM */
-				/* Workaround */
+                /* Workaround */
         for (n = 0; n < (((uint32_t)(vector_table_size))/sizeof(uint32_t)); n++)
         {
             *(vector_ram) = *(vector_rom);
@@ -205,7 +205,7 @@ void init_data_bss(void)
     else
     {
         /* Point the VTOR to the position of vector table */
-    	*vectors[coreId] = (uint32_t)__VECTOR_TABLE;
+        *vectors[coreId] = (uint32_t)__VECTOR_TABLE;
     }
 #endif
 

@@ -178,7 +178,7 @@ extern "C" {
  *
  *   GET_CORE_ID returns the processor identification number for e200z
  */
-#define GET_CORE_ID()	0U
+#define GET_CORE_ID()    0U
 
 /** \brief  Data alignment.
  */

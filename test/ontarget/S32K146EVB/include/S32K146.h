@@ -7527,11 +7527,11 @@ typedef struct {
        uint8_t RESERVED_0[12];
   struct {                                         /* offset: 0x10, array step: 0x8 */
     __I  uint32_t EAR;                               /**< Error Address Register, slave port
-    							0..Error Address Register, slave port
-    							3, array offset: 0x10, array step: 0x8 */
+                                0..Error Address Register, slave port
+                                3, array offset: 0x10, array step: 0x8 */
     __I  uint32_t EDR;                               /**< Error Detail Register, slave port
-    							0..Error Detail Register, slave port
-    							3, array offset: 0x14, array step: 0x8 */
+                                0..Error Detail Register, slave port
+                                3, array offset: 0x14, array step: 0x8 */
   } EAR_EDR[MPU_EAR_EDR_COUNT];
        uint8_t RESERVED_1[976];
   struct {                                         /* offset: 0x400, array step: 0x10 */
@@ -7542,8 +7542,8 @@ typedef struct {
   } RGD[MPU_RGD_COUNT];
        uint8_t RESERVED_2[896];
   __IO uint32_t RGDAAC[MPU_RGDAAC_COUNT];          /**< Region Descriptor Alternate Access Control
-  							0..Region Descriptor Alternate Access Control
-  							7, array offset: 0x800, array step: 0x4 */
+                              0..Region Descriptor Alternate Access Control
+                              7, array offset: 0x800, array step: 0x4 */
 } MPU_Type, *MPU_MemMapPtr;
 
  /** Number of instances of the MPU module. */

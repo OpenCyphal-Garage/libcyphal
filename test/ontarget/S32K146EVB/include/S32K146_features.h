@@ -356,11 +356,11 @@
 /**< Number of priority bits implemented in the NVIC */
 #define FEATURE_NVIC_PRIO_BITS            (4U)
 /* @brief Has software interrupt. */
-#define FEATURE_INTERRUPT_HAS_SOFTWARE_IRQ	(0u)
+#define FEATURE_INTERRUPT_HAS_SOFTWARE_IRQ    (0u)
 /* @brief Has pending interrupt state. */
-#define FEATURE_INTERRUPT_HAS_PENDING_STATE	(1u)
+#define FEATURE_INTERRUPT_HAS_PENDING_STATE    (1u)
 /* @brief Has active interrupt state. */
-#define FEATURE_INTERRUPT_HAS_ACTIVE_STATE	(1u)
+#define FEATURE_INTERRUPT_HAS_ACTIVE_STATE    (1u)
 /* @brief Multicore support for interrupts */
 #define FEATURE_INTERRUPT_MULTICORE_SUPPORT  (0u)
 /* @brief Registers in which the start of interrupt vector table needs to be configured */
@@ -541,7 +541,7 @@ read and write permissions (e.g. master4~7 in S32K14x).
 /* @brief DMA channel width based on number of TCDs: 2^N, N=4,5,... */
 #define FEATURE_DMA_CH_WIDTH (4U)
 /* @brief DMA channel to instance */
-#define FEATURE_DMA_VCH_TO_INSTANCE(x) 	((x) >> (uint32_t)FEATURE_DMA_CH_WIDTH)
+#define FEATURE_DMA_VCH_TO_INSTANCE(x)     ((x) >> (uint32_t)FEATURE_DMA_CH_WIDTH)
 /* @brief DMA virtual channel to channel */
 #define FEATURE_DMA_VCH_TO_CH(x)        ((x) & ((uint32_t)FEATURE_DMA_CHANNELS - 1U))
 /* @brief DMA supports the following particular transfer size: */
@@ -743,7 +743,7 @@ typedef enum {
 /*! @brief Clock names. */
 typedef enum {
 
- 	/* Main clocks */
+     /* Main clocks */
     CORE_CLK                     = 0u,       /*!< Core clock                     */
     BUS_CLK                      = 1u,       /*!< Bus clock                      */
     SLOW_CLK                     = 2u,       /*!< Slow clock                     */
