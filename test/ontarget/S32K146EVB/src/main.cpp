@@ -37,7 +37,7 @@
 #include <errno.h>
 #include <iostream>
 
-#include "device_registers.h" /* include peripheral declarations S32K144 */
+#include "device_registers.h"  // include peripheral declarations S32K144
 #include "clocks_and_modes.h"
 #include "LPUART.h"
 #include "gmock/gmock.h"
@@ -45,7 +45,6 @@
 
 extern "C"
 {
-    
     char data = 0;
     void PORT_init(void)
     {
@@ -58,16 +57,16 @@ extern "C"
          * PTC6              | UART1 TX
          * PTC7              | UART1 RX
          */
-        PCC->PCCn[PCC_PORTC_INDEX] |= PCC_PCCn_CGC_MASK; /* Enable clock for PORTC */
+        PCC->PCCn[PCC_PORTC_INDEX] |= PCC_PCCn_CGC_MASK; /* Enable clock for PORTC        */
         PORTC->PCR[6] |= PORT_PCR_MUX(2);                /* Port C6: MUX = ALT2, UART1 TX */
         PORTC->PCR[7] |= PORT_PCR_MUX(2);                /* Port C7: MUX = ALT2, UART1 RX */
     }
 
     void WDOG_disable(void)
     {
-        WDOG->CNT   = 0xD928C520; /* Unlock watchdog 		*/
-        WDOG->TOVAL = 0x0000FFFF; /* Maximum timeout value 	*/
-        WDOG->CS    = 0x00002100; /* Disable watchdog 		*/
+        WDOG->CNT   = 0xD928C520; /* Unlock watchdog         */
+        WDOG->TOVAL = 0x0000FFFF; /* Maximum timeout value   */
+        WDOG->CS    = 0x00002100; /* Disable watchdog        */
     }
 
     // TODO: set led/gpio on these faults.
@@ -143,6 +142,6 @@ int main(void)
     for (;;)
     {
         LPUART1_transmit_char(result);
-        LPUART1_receive_and_echo_char(); /* Wait for input char, receive & echo it*/
+        LPUART1_receive_and_echo_char();  // Wait for input char, receive & echo it
     }
 }

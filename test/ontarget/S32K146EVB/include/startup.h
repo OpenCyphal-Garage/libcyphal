@@ -17,7 +17,7 @@
  */
 
 #ifndef STARTUP_H
-#define STARTUP_H
+#    define STARTUP_H
 
 /**
  * @page misra_violations MISRA-C:2012 violations
@@ -41,8 +41,7 @@
  */
 void init_data_bss(void);
 
-#endif /* STARTUP_H*/
+#endif  // STARTUP_H
 /*******************************************************************************
  * EOF
  ******************************************************************************/
-

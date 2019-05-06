@@ -20,9 +20,9 @@
  */
 
 #ifndef DEVASSERT_H
-#define DEVASSERT_H
+#    define DEVASSERT_H
 
-#include <stdbool.h>
+#    include <stdbool.h>
 
 /**
  * @page misra_violations MISRA-C:2012 violations
@@ -51,36 +51,45 @@ implementation in a custom file. This requires defining the CUSTOM_DEVASSERT sym
 project configuration (for example: -DCUSTOM_DEVASSERT="custom_devassert.h")
 
 The default implementation accommodates two behaviors, based on DEV_ERROR_DETECT symbol:
- - When DEV_ERROR_DETECT symbol is defined in the project configuration (for example: -DDEV_ERROR_DETECT), the validation
-   performed by the DEV_ASSERT macro is enabled, and a failed validation triggers a software breakpoint and further execution is
-   prevented (application spins in an infinite loop)
-   This configuration is recommended for development environments, as it prevents further execution and allows investigating
-   potential problems from the point of error detection.
- - When DEV_ERROR_DETECT symbol is not defined, the DEV_ASSERT macro is implemented as no-op, therefore disabling all validations.
-   This configuration can be used to eliminate the overhead of development-time checks.
+ - When DEV_ERROR_DETECT symbol is defined in the project configuration (for example: -DDEV_ERROR_DETECT), the
+validation performed by the DEV_ASSERT macro is enabled, and a failed validation triggers a software breakpoint and
+further execution is prevented (application spins in an infinite loop) This configuration is recommended for development
+environments, as it prevents further execution and allows investigating potential problems from the point of error
+detection.
+ - When DEV_ERROR_DETECT symbol is not defined, the DEV_ASSERT macro is implemented as no-op, therefore disabling all
+validations. This configuration can be used to eliminate the overhead of development-time checks.
 
-It is the application developer's responsibility to decide the error detection strategy for production code: one can opt to
-disable development-time checking altogether (by not defining DEV_ERROR_DETECT symbol), or one can opt to keep the checks
-in place and implement a recovery mechanism in case of a failed validation, by defining CUSTOM_DEVASSERT to point
+It is the application developer's responsibility to decide the error detection strategy for production code: one can opt
+to disable development-time checking altogether (by not defining DEV_ERROR_DETECT symbol), or one can opt to keep the
+checks in place and implement a recovery mechanism in case of a failed validation, by defining CUSTOM_DEVASSERT to point
 to the file containing the custom implementation.
 */
 
-#if defined (CUSTOM_DEVASSERT)
-    /* If the CUSTOM_DEVASSERT symbol is defined, then add the custom implementation */
-    #include CUSTOM_DEVASSERT
-#elif defined (DEV_ERROR_DETECT)
-    /* Implement default assert macro */
+#    if defined(CUSTOM_DEVASSERT)
+/* If the CUSTOM_DEVASSERT symbol is defined, then add the custom implementation */
+#        include CUSTOM_DEVASSERT
+#    elif defined(DEV_ERROR_DETECT)
+/* Implement default assert macro */
 static inline void DevAssert(volatile bool x)
 {
-    if(x) { } else { BKPT_ASM; for(;;) {} }
+    if (x)
+    {
+    }
+    else
+    {
+        BKPT_ASM;
+        for (;;)
+        {
+        }
+    }
 }
-    #define DEV_ASSERT(x) DevAssert(x)
-#else
-    /* Assert macro does nothing */
-    #define DEV_ASSERT(x) ((void)0)
-#endif
+#        define DEV_ASSERT(x) DevAssert(x)
+#    else
+/* Assert macro does nothing */
+#        define DEV_ASSERT(x) ((void) 0)
+#    endif
 
-#endif /* DEVASSERT_H */
+#endif  // DEVASSERT_H
 
 /*******************************************************************************
  * EOF

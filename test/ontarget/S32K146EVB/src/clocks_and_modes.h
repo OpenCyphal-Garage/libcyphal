@@ -37,16 +37,16 @@
 #define CLOCKS_AND_MODES_H_
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-void SOSC_init_8MHz (void);
-void SPLL_init_160MHz (void);
-void NormalRUNmode_80MHz (void);
+    void SOSC_init_8MHz(void);
+    void SPLL_init_160MHz(void);
+    void NormalRUNmode_80MHz(void);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* CLOCKS_AND_MODES_H_ */
-

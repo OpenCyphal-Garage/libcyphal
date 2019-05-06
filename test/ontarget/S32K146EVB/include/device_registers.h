@@ -62,7 +62,7 @@
 
 #    include "devassert.h"
 
-#endif /* DEVICE_REGISTERS_H */
+#endif  // DEVICE_REGISTERS_H
 
 /*******************************************************************************
  * EOF

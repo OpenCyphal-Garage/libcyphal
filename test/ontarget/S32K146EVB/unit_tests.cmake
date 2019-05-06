@@ -70,7 +70,8 @@ function(define_ontarget_unit_test ARG_TEST_NAME ARG_TEST_SOURCE)
 
     add_custom_target(flashtest_${ARG_TEST_NAME}
                       COMMAND JLinkExe -CommanderScript ${CMAKE_CURRENT_BINARY_DIR}/${ARG_TEST_NAME}_loadfile_swd.jlink
-                      DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${LOCAL_TEST_HEX}
+                      DEPENDS ${LOCAL_TEST_ELF}
+                              ${CMAKE_CURRENT_BINARY_DIR}/${LOCAL_TEST_HEX}
                               ${CMAKE_CURRENT_BINARY_DIR}/${ARG_TEST_NAME}_loadfile_swd.jlink
                       BYPRODUCTS ${JLINK_LOG_FILE}
                       COMMENT "Manual flashing command for ${ARG_TEST_NAME} test."
