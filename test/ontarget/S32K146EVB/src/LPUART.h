@@ -39,18 +39,19 @@
 #include <stddef.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-void LPUART1_init(void);
-void LPUART1_transmit_char(char send);
-void LPUART1_transmit_string(const char data_string[]);
-void LPUART1_transmit_string_len(const char data_string[], size_t len);
-char LPUART1_receive_char(void);
-void LPUART1_receive_and_echo_char(void);
+    void LPUART1_init(void);
+    void LPUART1_transmit_char(char send);
+    void LPUART1_transmit_string(const char data_string[]);
+    void LPUART1_transmit_string_len(const char data_string[], size_t len);
+    char LPUART1_receive_char(void);
+    void LPUART1_receive_and_echo_char(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* LPUART_H_ */
+#endif  // LPUART_H_

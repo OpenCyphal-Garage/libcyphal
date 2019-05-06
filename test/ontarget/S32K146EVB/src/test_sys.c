@@ -32,7 +32,7 @@ int mkdir(const char* path, mode_t mode)
 // our replacement for the libc call.
 __attribute__((visibility("default"))) int _gettimeofday(struct timeval* tp, void* tzp)
 {
-    (void)tzp;
+    (void) tzp;
     if (tp)
     {
         // TODO: use systick
@@ -49,7 +49,7 @@ __attribute__((visibility("default"))) int _gettimeofday(struct timeval* tp, voi
 
 int _write(int fd, const void* buf, size_t count)
 {
-    (void)fd;
+    (void) fd;
     if (count == 0 || buf == 0)
     {
         errno = EINVAL;
@@ -70,12 +70,12 @@ int _open(const char* filename, int oflag, int pmode)
 
 int _close(int fd)
 {
-    (void)fd;
+    (void) fd;
     errno = EIO;
     return -1;
 }
 
 void _putchar(int c)
 {
-    LPUART1_transmit_char((char)c);
+    LPUART1_transmit_char((char) c);
 }

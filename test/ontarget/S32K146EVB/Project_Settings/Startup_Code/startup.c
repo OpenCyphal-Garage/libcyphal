@@ -57,9 +57,9 @@
 #include <stdint.h>
 
 #if (defined(__ICCARM__))
-    #pragma section = ".data"
-    #pragma section = ".data_init"
-    #pragma section = ".bss"
+#    pragma section = ".data"
+#    pragma section = ".data_init"
+#    pragma section = ".bss"
 #endif
 
 /*******************************************************************************
@@ -87,18 +87,18 @@
 void init_data_bss(void)
 {
     uint32_t n;
-    uint8_t coreId;
+    uint8_t  coreId;
 
-    volatile uint32_t * vectors[NUMBER_OF_CORES] = FEATURE_INTERRUPT_INT_VECTORS;
+    volatile uint32_t* vectors[NUMBER_OF_CORES] = FEATURE_INTERRUPT_INT_VECTORS;
 
     /* Declare pointers for various data sections. These pointers
      * are initialized using values pulled in from the linker file */
-    uint8_t * data_ram;
-    uint8_t * code_ram;
-    uint8_t * bss_start;
-    const uint8_t * data_rom, * data_rom_end;
-    const uint8_t * code_rom, * code_rom_end;
-    const uint8_t * bss_end;
+    uint8_t*       data_ram;
+    uint8_t*       code_ram;
+    uint8_t*       bss_start;
+    const uint8_t *data_rom, *data_rom_end;
+    const uint8_t *code_rom, *code_rom_end;
+    const uint8_t* bss_end;
 
     /* Addresses for VECTOR_TABLE and VECTOR_RAM come from the linker file */
 
@@ -114,21 +114,21 @@ void init_data_bss(void)
     /* Get section information from linker files */
 #if defined(__ICCARM__)
     /* Data */
-    data_ram        = __section_begin(".data");
-    data_rom        = __section_begin(".data_init");
-    data_rom_end    = __section_end(".data_init");
+    data_ram     = __section_begin(".data");
+    data_rom     = __section_begin(".data_init");
+    data_rom_end = __section_end(".data_init");
 
-    /* CODE RAM */
-    #pragma section = "__CODE_ROM"
-    #pragma section = "__CODE_RAM"
+/* CODE RAM */
+#    pragma section = "__CODE_ROM"
+#    pragma section = "__CODE_RAM"
     code_ram        = __section_begin("__CODE_RAM");
     code_rom        = __section_begin("__CODE_ROM");
     code_rom_end    = __section_end("__CODE_ROM");
 
     /* BSS */
-    bss_start       = __section_begin(".bss");
-    bss_end         = __section_end(".bss");
-#elif defined (__ARMCC_VERSION)
+    bss_start = __section_begin(".bss");
+    bss_end   = __section_end(".bss");
+#elif defined(__ARMCC_VERSION)
     extern uint32_t __DATA_ROM;
     extern uint32_t __DATA_RAM;
     extern uint32_t __DATA_END;
@@ -140,23 +140,22 @@ void init_data_bss(void)
     extern uint32_t __BSS_START;
     extern uint32_t __BSS_END;
 
-
     /* Data */
-    data_ram        = (uint8_t *)__DATA_RAM;
-    data_rom        = (uint8_t *)__DATA_ROM;
-    data_rom_end    = (uint8_t *)__DATA_END;
+    data_ram     = (uint8_t*) __DATA_RAM;
+    data_rom     = (uint8_t*) __DATA_ROM;
+    data_rom_end = (uint8_t*) __DATA_END;
     /* CODE RAM */
-    code_ram        = (uint8_t *)__CODE_RAM;
-    code_rom        = (uint8_t *)__CODE_ROM;
-    code_rom_end    = (uint8_t *)__CODE_END;
+    code_ram     = (uint8_t*) __CODE_RAM;
+    code_rom     = (uint8_t*) __CODE_ROM;
+    code_rom_end = (uint8_t*) __CODE_END;
     /* BSS */
-    bss_start       = (uint8_t *)__BSS_START;
-    bss_end         = (uint8_t *)__BSS_END;
+    bss_start = (uint8_t*) __BSS_START;
+    bss_end   = (uint8_t*) __BSS_END;
 
     /* VECTOR TABLE*/
-    uint8_t * vector_table_size = (uint8_t *)__RAM_VECTOR_TABLE_SIZE;
-    uint8_t * vector_rom    = (uint8_t *)__VECTOR_ROM;
-    uint8_t * vector_ram    = (uint8_t *)__VECTOR_RAM;
+    uint8_t* vector_table_size = (uint8_t*) __RAM_VECTOR_TABLE_SIZE;
+    uint8_t* vector_rom        = (uint8_t*) __VECTOR_ROM;
+    uint8_t* vector_ram        = (uint8_t*) __VECTOR_RAM;
 #else
     extern uint32_t __DATA_ROM[];
     extern uint32_t __DATA_RAM[];
@@ -170,42 +169,42 @@ void init_data_bss(void)
     extern uint32_t __BSS_END[];
 
     /* Data */
-    data_ram        = (uint8_t *)__DATA_RAM;
-    data_rom        = (uint8_t *)__DATA_ROM;
-    data_rom_end    = (uint8_t *)__DATA_END;
+    data_ram     = (uint8_t*) __DATA_RAM;
+    data_rom     = (uint8_t*) __DATA_ROM;
+    data_rom_end = (uint8_t*) __DATA_END;
     /* CODE RAM */
-    code_ram        = (uint8_t *)__CODE_RAM;
-    code_rom        = (uint8_t *)__CODE_ROM;
-    code_rom_end    = (uint8_t *)__CODE_END;
+    code_ram     = (uint8_t*) __CODE_RAM;
+    code_rom     = (uint8_t*) __CODE_ROM;
+    code_rom_end = (uint8_t*) __CODE_END;
     /* BSS */
-    bss_start       = (uint8_t *)__BSS_START;
-    bss_end         = (uint8_t *)__BSS_END;
+    bss_start = (uint8_t*) __BSS_START;
+    bss_end   = (uint8_t*) __BSS_END;
 #endif
-    coreId = (uint8_t)GET_CORE_ID();
-#if defined (__ARMCC_VERSION)
-        /* Copy the vector table from ROM to RAM */
-                /* Workaround */
-        for (n = 0; n < (((uint32_t)(vector_table_size))/sizeof(uint32_t)); n++)
-        {
-            *(vector_ram) = *(vector_rom);
-        }
-        /* Point the VTOR to the position of vector table */
+    coreId = (uint8_t) GET_CORE_ID();
+#if defined(__ARMCC_VERSION)
+    /* Copy the vector table from ROM to RAM */
+    /* Workaround */
+    for (n = 0; n < (((uint32_t)(vector_table_size)) / sizeof(uint32_t)); n++)
+    {
+        *(vector_ram) = *(vector_rom);
+    }
+    /* Point the VTOR to the position of vector table */
 #else
     /* Check if VECTOR_TABLE copy is needed */
     if (__VECTOR_RAM != __VECTOR_TABLE)
     {
         /* Copy the vector table from ROM to RAM */
-        for (n = 0; n < (((uint32_t)__RAM_VECTOR_TABLE_SIZE)/sizeof(uint32_t)); n++)
+        for (n = 0; n < (((uint32_t) __RAM_VECTOR_TABLE_SIZE) / sizeof(uint32_t)); n++)
         {
             __VECTOR_RAM[n] = __VECTOR_TABLE[n];
         }
         /* Point the VTOR to the position of vector table */
-        *vectors[coreId] = (uint32_t)__VECTOR_RAM;
+        *vectors[coreId] = (uint32_t) __VECTOR_RAM;
     }
     else
     {
         /* Point the VTOR to the position of vector table */
-        *vectors[coreId] = (uint32_t)__VECTOR_TABLE;
+        *vectors[coreId] = (uint32_t) __VECTOR_TABLE;
     }
 #endif
 
@@ -226,7 +225,7 @@ void init_data_bss(void)
     }
 
     /* Clear the zero-initialized data section */
-    while(bss_end != bss_start)
+    while (bss_end != bss_start)
     {
         *bss_start = 0;
         bss_start++;
@@ -236,4 +235,3 @@ void init_data_bss(void)
 /*******************************************************************************
  * EOF
  ******************************************************************************/
-
