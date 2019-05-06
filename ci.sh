@@ -36,7 +36,7 @@ pushd build_ci_native
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/clang-native.cmake \
       -DLIBUAVCAN_EXT_FOLDER=build_ci_ext \
       ..
-make -j16
+make -j4
 ctest -VV
 
 popd
@@ -55,4 +55,4 @@ cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/gcc-arm-none-eabi.cmake \
       -DLIBUAVCAN_EXT_FOLDER=build_ci_ext \
       ..
 
-make -j16
+make -j4
