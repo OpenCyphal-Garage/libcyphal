@@ -1,9 +1,9 @@
 UAVCAN stack in C++
 ===================
 
-[![Coverity Scan](https://scan.coverity.com/projects/1513/badge.svg)](https://scan.coverity.com/projects/1513)
-[![Travis CI](https://travis-ci.org/UAVCAN/libuavcan.svg?branch=master)](https://travis-ci.org/UAVCAN/libuavcan)
-[![Gitter](https://img.shields.io/badge/gitter-join%20chat-green.svg)](https://gitter.im/UAVCAN/general)
+**This is an experimental version of libuavcan v0 that supports CAN-FD. This version is not supported by the community as all future development is focused on libuavcan v1.**
+
+The uavcan-v0.5 branch will be maintained until the end of 2020 (Jan 1, 2021) at which time the branch will be deleted.
 
 Portable reference implementation of the [UAVCAN protocol stack](http://uavcan.org) in C++ for embedded systems
 and Linux.
