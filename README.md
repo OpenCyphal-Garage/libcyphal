@@ -1,7 +1,7 @@
 UAVCAN stack in C++
 ===================
 
-[![Travis CI](https://travis-ci.org/UAVCAN/libuavcan.svg?branch=uavcan-v1.0-bluesky)](https://travis-ci.org/UAVCAN/libuavcan)
+[![Build Status](https://badge.buildkite.com/af844974c06af6406e3b2192d98298b02b30f6ebebb5f8b16c.svg)](https://buildkite.com/uavcan/libuavcan-v1)
 [![Forum](https://img.shields.io/discourse/https/forum.uavcan.org/users.svg)](https://forum.uavcan.org)
 
 Portable reference implementation of the [UAVCAN protocol stack](https://new.uavcan.org) in C++ for embedded systems, Linux, and POSIX-compliant RTOSs.

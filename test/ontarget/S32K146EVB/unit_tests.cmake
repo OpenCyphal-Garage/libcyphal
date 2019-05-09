@@ -62,8 +62,8 @@ function(define_ontarget_unit_test ARG_TEST_NAME ARG_TEST_SOURCE)
                     COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${LOCAL_TEST_ELF}> ${CMAKE_CURRENT_BINARY_DIR}/${LOCAL_TEST_BIN}
                     COMMENT "${LOCAL_TEST_ELF} -> ${LOCAL_TEST_BIN}")
 
-    set(JLINK_LOG_FILE ${CMAKE_CURRENT_BINARY_DIR}/${ARG_TEST_NAME}_jlink.log)
-    set(JLINK_HEX ${CMAKE_CURRENT_BINARY_DIR}/${LOCAL_TEST_HEX})
+    set(JLINK_LOG_FILE ${ARG_TEST_NAME}_jlink.log)
+    set(JLINK_HEX ${LOCAL_TEST_HEX})
     
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/test/ontarget/loadfile_swd.jlink 
                    ${CMAKE_CURRENT_BINARY_DIR}/${ARG_TEST_NAME}_loadfile_swd.jlink)
@@ -74,6 +74,7 @@ function(define_ontarget_unit_test ARG_TEST_NAME ARG_TEST_SOURCE)
                               ${CMAKE_CURRENT_BINARY_DIR}/${LOCAL_TEST_HEX}
                               ${CMAKE_CURRENT_BINARY_DIR}/${ARG_TEST_NAME}_loadfile_swd.jlink
                       BYPRODUCTS ${JLINK_LOG_FILE}
+                      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
                       COMMENT "Manual flashing command for ${ARG_TEST_NAME} test."
     )
 
