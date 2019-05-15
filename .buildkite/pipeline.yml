@@ -1,0 +1,35 @@
+steps:
+  - label: ':hammer: native build and :mag: test'
+    command: "./ci/native-build-and-test.sh"
+    artifact_paths: 
+      - "build_ci_native/libuavcan"
+      - "build_ci_native/docs/**/*"
+    plugins:
+      - docker#v3.1.0:
+          workdir: /repo
+          image: "uavcan/libuavcan:latest"
+    env:
+      VERBOSE: 1
+    agents:
+      queue: 'default'
+  - label: ':hammer: s32k build'
+    command: "./ci/ontarget-s32k-build.sh"
+    artifact_paths: 
+      - "build_ci_ontarget_s32k/**/*.log"
+      - "build_ci_ontarget_s32k/**/*.elf"
+      - "build_ci_ontarget_s32k/**/*.hex"
+      - "build_ci_ontarget_s32k/**/*.bin"
+      - "build_ci_ontarget_s32k/**/*.jlink"
+    plugins:
+      - docker#v3.1.0:
+          workdir: /repo
+          image: "uavcan/libuavcan:latest"
+    env:
+      VERBOSE: 1
+    agents:
+      queue: 'default'
+  - wait
+  - label: ":mag: ontarget testing"
+    command: "./ci/ontarget-s32k-test.sh"
+    agents:
+      queue: "ontarget-s32k"

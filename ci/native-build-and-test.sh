@@ -19,9 +19,11 @@ set -o errexit
 set -o pipefail
 
 # +----------------------------------------------------------+
-# | This script is the common set of commands run as part of
-# | a continuous integration build. It should be run inside
-# | of the uavcan/libuavcan container.
+# | This script is one of the common set of commands run as
+# | part of a continuous integration build pipeline.
+# | These scrips are named using the following scheme:
+# |
+# |   [build_type]-[(optional)build_type qualifier]-[build|test|report|upload].sh
 # |
 # | Of course, libuavcan is a header-only distribution so
 # | CI is used to verify and test rather than package and
@@ -37,22 +39,9 @@ cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/clang-native.cmake \
       -DLIBUAVCAN_EXT_FOLDER=build_ci_ext \
       ..
 make -j4
+
 ctest -VV
 
+make docs
+
 popd
-
-# Do this all again but for our "on target" build and test.
-mkdir -p build_ci_ontarget
-pushd build_ci_ontarget
-
-# For now we only conpile for arm. In the future we'll actually run the compiled
-# tests on-target.
-cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/gcc-arm-none-eabi.cmake \
-      -DGTEST_USE_LOCAL_BUILD=ON \
-      -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/cortex-m4-fpv4-sp-d16-nosys.cmake \
-      -DLIBUAVCAN_TESTBUILD=../test/ontarget/S32K146EVB/unit_tests.cmake \
-      -DLIBUAVCAN_SKIP_DOCS=ON \
-      -DLIBUAVCAN_EXT_FOLDER=build_ci_ext \
-      ..
-
-make -j4
