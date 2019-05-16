@@ -73,7 +73,7 @@ find_package(clangformat REQUIRED)
 # +---------------------------------------------------------------------------+
 # | SOURCE GENERATION
 # +---------------------------------------------------------------------------+
-find_package(dsdlgenj REQUIRED)
+find_package(nnvg REQUIRED)
 
 create_dsdl_target(dsdl-regulated
                    OFF
