@@ -74,7 +74,7 @@ Prerequisites:
 * CMake 3.5+
 * clang-format
 * python3
-* nunuvut and (transitively) pydsdl
+* nunavut and (transitively) pydsdl
 
 Building the debug version and running the unit tests:
 ```bash
