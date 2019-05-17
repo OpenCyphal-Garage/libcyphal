@@ -2,11 +2,11 @@
 # installed. If not you'll need to manually setup the correct python3 environment
 # and install these requirements.
 
-# libuavcan has a single python dependency although pydsdlgen itself will
+# libuavcan has a single python dependency although nunavut itself will
 # have one or more dependencies including (but not necessarily limited to)
 # pydsdl
 
-pydsdlgen >= 1.0, < 2.0
+nunavut
 
 # Not actually required but provides extra debugging for templates.
 pyyaml

@@ -1,12 +1,12 @@
 #
-# Find dsdlgenj and setup python environment to generate C++ from DSDL.
+# Find nnvg and setup python environment to generate C++ from DSDL.
 #
 
 # +---------------------------------------------------------------------------+
 # | CONSTANTS
 # +---------------------------------------------------------------------------+
-set(DSDLGENJ_EXTENSION .hpp)
-set(DSDLGENJ_MINIMUM_VERSION 1.0)
+set(NNVG_EXTENSION .hpp)
+set(NNVG_MINIMUM_VERSION 0.1)
 
 # +---------------------------------------------------------------------------+
 # | BUILD FUNCTIONS
@@ -15,7 +15,7 @@ set(DSDLGENJ_MINIMUM_VERSION 1.0)
 # :function: create_dsdl_target
 # Creates a target that will generate source code from dsdl definitions.
 #
-# The source is generated to files with ${DSDLGENJ_EXTENSION} as the extension.
+# The source is generated to files with ${NNVG_EXTENSION} as the extension.
 #
 # :param str ARG_TARGET_NAME:               The name to give the target.
 # :param bool ARG_ADD_TO_ALL:               If true the target is added to the default build target.
@@ -37,9 +37,9 @@ function (create_dsdl_target ARG_TARGET_NAME ARG_ADD_TO_ALL ARG_OUTPUT_FOLDER AR
         endforeach(ARG_N)
     endif()
 
-    execute_process(COMMAND ${PYTHON} ${DSDLGENJ} 
+    execute_process(COMMAND ${PYTHON} ${NNVG} 
                                         --list-outputs
-                                        --output-extension ${DSDLGENJ_EXTENSION}
+                                        --output-extension ${NNVG_EXTENSION}
                                         -O ${ARG_OUTPUT_FOLDER}
                                         ${LOOKUP_DIR_CMD_ARGS}
                                         ${ARG_DSDL_ROOT_DIR}
@@ -47,12 +47,12 @@ function (create_dsdl_target ARG_TARGET_NAME ARG_ADD_TO_ALL ARG_OUTPUT_FOLDER AR
                     RESULT_VARIABLE LIST_OUTPUTS_RESULT)
 
     if(NOT LIST_OUTPUTS_RESULT EQUAL 0)
-        message(FATAL_ERROR "Failed to retrieve a list of headers dsdlgenj would "
+        message(FATAL_ERROR "Failed to retrieve a list of headers nnvg would "
                             "generate for the ${ARG_TARGET_NAME} target (${LIST_OUTPUTS_RESULT})"
-                            " (${PYTHON} ${DSDLGENJ})")
+                            " (${PYTHON} ${NNVG})")
     endif()
 
-    execute_process(COMMAND ${PYTHON} ${DSDLGENJ} 
+    execute_process(COMMAND ${PYTHON} ${NNVG} 
                                         --list-inputs
                                         -O ${ARG_OUTPUT_FOLDER}
                                         --templates ${ARG_TEMPLATES_DIR}
@@ -62,21 +62,21 @@ function (create_dsdl_target ARG_TARGET_NAME ARG_ADD_TO_ALL ARG_OUTPUT_FOLDER AR
                     RESULT_VARIABLE LIST_INPUTS_RESULT)
 
     if(NOT LIST_INPUTS_RESULT EQUAL 0)
-        message(FATAL_ERROR "Failed to resolve inputs using dsdlgenj for the ${ARG_TARGET_NAME} "
+        message(FATAL_ERROR "Failed to resolve inputs using nnvg for the ${ARG_TARGET_NAME} "
                             "target (${LIST_INPUTS_RESULT})"
-                            " (${PYTHON} ${DSDLGENJ})")
+                            " (${PYTHON} ${NNVG})")
     endif()
 
     add_custom_command(OUTPUT ${OUTPUT_FILES}
-                       COMMAND ${PYTHON} ${DSDLGENJ} 
+                       COMMAND ${PYTHON} ${NNVG} 
                                            --templates ${ARG_TEMPLATES_DIR}
-                                           --output-extension ${DSDLGENJ_EXTENSION}
+                                           --output-extension ${NNVG_EXTENSION}
                                            -O ${ARG_OUTPUT_FOLDER}
                                            ${LOOKUP_DIR_CMD_ARGS}
                                            ${ARG_DSDL_ROOT_DIR}
                        DEPENDS ${INPUT_FILES}
                        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                       COMMENT "Running dsdlgenj")
+                       COMMENT "Running nnvg")
 
     if (ARG_ADD_TO_ALL)
         add_custom_target(${ARG_TARGET_NAME} ALL DEPENDS ${OUTPUT_FILES})
@@ -96,10 +96,10 @@ find_program(VIRTUALENV virtualenv)
 
 if(NOT VIRTUALENV)
 
-    message(STATUS "virtualenv was not found. You must have pydsdlgen and its"
+    message(STATUS "virtualenv was not found. You must have nunavut and its"
                    " dependencies available in the global python environment.")
 
-    find_program(DSDLGENJ dsdlgenj)
+    find_program(NNVG nnvg)
 
 else()
 
@@ -125,33 +125,33 @@ else()
         message(STATUS "virtualenv ${VIRTUALENV_OUTPUT} exists. Not recreating (delete this directory to re-create).")
     endif()
 
-    find_program(DSDLGENJ dsdlgenj HINTS ${PYTHON_BIN})
+    find_program(NNVG nnvg HINTS ${PYTHON_BIN})
 
-    if (NOT DSDLGENJ)
-        message(WARNING "dsdlgenj program was not found. The build will probably fail. (${DSDLGENJ})")
+    if (NOT NNVG)
+        message(WARNING "nnvg program was not found. The build will probably fail. (${NNVG})")
     endif()
 endif()
 
 # +---------------------------------------------------------------------------+
-# | CONFIGURE: VALIDATE DSDLGENJ
+# | CONFIGURE: VALIDATE NNVG
 # +---------------------------------------------------------------------------+
-if (DSDLGENJ)
-    execute_process(COMMAND ${PYTHON} ${DSDLGENJ} --version
-                    OUTPUT_VARIABLE DSDLGENJ_VERSION
-                    RESULT_VARIABLE DSDLGENJ_VERSION_RESULT)
+if (NNVG)
+    execute_process(COMMAND ${PYTHON} ${NNVG} --version
+                    OUTPUT_VARIABLE NNVG_VERSION
+                    RESULT_VARIABLE NNVG_VERSION_RESULT)
 
-    if(DSDLGENJ_VERSION_RESULT EQUAL 0)
-        message(STATUS "${PYTHON} ${DSDLGENJ} --version: ${DSDLGENJ_VERSION}")
+    if(NNVG_VERSION_RESULT EQUAL 0)
+        message(STATUS "${PYTHON} ${NNVG} --version: ${NNVG_VERSION}")
     endif()
 endif()
 
 include(FindPackageHandleStandardArgs)
  
-find_package_handle_standard_args(dsdlgenj
-    REQUIRED_VARS DSDLGENJ_VERSION
+find_package_handle_standard_args(nnvg
+    REQUIRED_VARS NNVG_VERSION
 )
 
-if(DSDLGENJ_VERSION VERSION_LESS ${DSDLGENJ_MINIMUM_VERSION})
-    message(FATAL_ERROR "dsdlgenj version ${DSDLGENJ_MINIMUM_VERSION} or greater required. ${DSDLGENJ_VERSION} found."
-                        " you must update your version of dsdlgenj to build libuavcan.")
+if(NNVG_VERSION VERSION_LESS ${NNVG_MINIMUM_VERSION})
+    message(FATAL_ERROR "nnvg version ${NNVG_MINIMUM_VERSION} or greater required. ${NNVG_VERSION} found."
+                        " you must update your version of nnvg to build libuavcan.")
 endif()
