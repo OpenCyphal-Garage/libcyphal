@@ -40,6 +40,6 @@ nait -vv \
      --port \
      /dev/serial/by-id/usb-Signoid_Kft._USB-UART_adapter_MACX98-if00-port0 \
      --port-speed 115200 \
-     *.jlink
+     \*.jlink
 
 popd

@@ -8,16 +8,27 @@
  * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 
-#ifndef UAVCAN_INTROSPECTION_HPP_INCLUDED
-#define UAVCAN_INTROSPECTION_HPP_INCLUDED
+#ifndef LIBUAVCAN_INTROSPECTION_HPP_INCLUDED
+#define LIBUAVCAN_INTROSPECTION_HPP_INCLUDED
 
-#include "uavcan/uavcan.hpp"
+#include "libuavcan/libuavcan.hpp"
 
-#ifndef UAVCAN_INTROSPECTION_TRACE_ENABLE
-#    define UAVCAN_INTROSPECTION_TRACE_ENABLE 0
+#ifndef LIBUAVCAN_INTROSPECTION_TRACE_ENABLE
+#    define LIBUAVCAN_INTROSPECTION_TRACE_ENABLE 0
 #endif
 
-#if UAVCAN_INTROSPECTION_TRACE_ENABLE
+/**
+ * Enable runtime asserts within libuavcan.
+ *
+ * Obviously, this is not a reccommended thing to turn on in production code but
+ * these asserts are used for some library tests and may help diagnose bugs if
+ * enabled in a special build of your software.
+ */
+#ifndef LIBUAVCAN_INTROSPECTION_ENABLE_ASSERT
+#    define LIBUAVCAN_INTROSPECTION_ENABLE_ASSERT 0
+#endif
+
+#if LIBUAVCAN_INTROSPECTION_TRACE_ENABLE
 
 #    if __GNUC__
 __attribute__((format(printf, 2, 3)))
@@ -39,7 +50,7 @@ UAVCAN_TRACE(const char* src, const char* fmt, ...)
 
 #endif
 
-#if UAVCAN_ENABLE_ASSERT
+#if LIBUAVCAN_INTROSPECTION_ENABLE_ASSERT
 #    include <cassert>
 #    define UAVCAN_ASSERT(statement) \
         {                            \
@@ -49,4 +60,4 @@ UAVCAN_TRACE(const char* src, const char* fmt, ...)
 #    define UAVCAN_ASSERT(...) ((void) 0)
 #endif
 
-#endif  // UAVCAN_INTROSPECTION_HPP_INCLUDED
+#endif  // LIBUAVCAN_INTROSPECTION_HPP_INCLUDED

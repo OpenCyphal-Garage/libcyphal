@@ -4,12 +4,12 @@
  */
 /** @file */
 
-#ifndef UAVCAN_BUS_CAN_HPP_INCLUDED
-#define UAVCAN_BUS_CAN_HPP_INCLUDED
+#ifndef LIBUAVCAN_BUS_CAN_HPP_INCLUDED
+#define LIBUAVCAN_BUS_CAN_HPP_INCLUDED
 
 #include <array>
 
-#include "uavcan/uavcan.hpp"
+#include "libuavcan/libuavcan.hpp"
 
 namespace libuavcan
 {
@@ -32,10 +32,10 @@ constexpr static size_t TailByteSizeBytes = 1;
 constexpr static size_t TransferCrcSizeBytes = 2;
 
 /**
- * @namespace TypeFd
+ * @namespace TypeFD
  * Properties of an ISO compliant CAN-FD bus.
  */
-namespace TypeFd
+namespace TypeFD
 {
 /**
  * The maximum size of a data frame for this bus.
@@ -51,7 +51,7 @@ constexpr static std::array<uint8_t, MaxFrameSizeBytes> PayloadLengthToFrameLeng
      23, 23, 31, 31, 31, 31, 31, 31, 31, 31, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
      47, 47, 47, 47, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63}};
 
-}  // end namespace TypeFd
+}  // end namespace TypeFD
 
 /**
  * @namespace Type2_0
@@ -80,12 +80,12 @@ constexpr static std::array<uint8_t, MaxFrameSizeBytes> PayloadLengthToFrameLeng
  */
 constexpr uint8_t BytePaddingPattern = 0x55;
 
-#if (UAVCAN_ENABLE_FD)
+#if (LIBUAVCAN_FEATURE_ENABLE_FD)
 
 /**
  * The MTU based on the current build configuration.
  */
-constexpr uint16_t MTU = TypeFd::MaxFrameSizeBytes;
+constexpr uint16_t MTU = TypeFD::MaxFrameSizeBytes;
 
 #else
 
@@ -100,4 +100,4 @@ constexpr uint16_t MTU = Type2_0::MaxFrameSizeBytes;
 }  // end namespace bus
 }  // end namespace libuavcan
 
-#endif  // UAVCAN_BUS_CAN_HPP_INCLUDED
+#endif  // LIBUAVCAN_BUS_CAN_HPP_INCLUDED

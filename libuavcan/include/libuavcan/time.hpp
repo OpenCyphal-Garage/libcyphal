@@ -6,11 +6,11 @@
  */
 /** @file */
 
-#ifndef UAVCAN_TIME_HPP_INCLUDED
-#define UAVCAN_TIME_HPP_INCLUDED
+#ifndef LIBUAVCAN_TIME_HPP_INCLUDED
+#define LIBUAVCAN_TIME_HPP_INCLUDED
 
-#include "uavcan/uavcan.hpp"
-#include "uavcan/util/math.hpp"
+#include "libuavcan/libuavcan.hpp"
+#include "libuavcan/util/math.hpp"
 
 namespace libuavcan
 {
@@ -158,9 +158,9 @@ public:
     }
 };
 
-class UAVCAN_EXPORT MonotonicDuration : public DurationBase<MonotonicDuration>
+class LIBUAVCAN_EXPORT MonotonicDuration : public DurationBase<MonotonicDuration>
 {};
 
 }  // namespace libuavcan
 
-#endif  // UAVCAN_TIME_HPP_INCLUDED
+#endif  // LIBUAVCAN_TIME_HPP_INCLUDED

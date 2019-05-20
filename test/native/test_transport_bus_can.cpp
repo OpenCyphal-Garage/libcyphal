@@ -8,16 +8,22 @@
 #include "libuavcan/bus/can.hpp"
 #include "gtest/gtest.h"
 
+namespace libuavcan
+{
 /**
  * Verify the immutable properties of CAN FD
  */
-TEST(CanBusTest, TypeFD) {
-    ASSERT_EQ(64U, libuavcan::bus::CAN::TypeFD::MaxFrameSizeBytes);
+TEST(CanBusTest, TypeFD)
+{
+    ASSERT_EQ(64U, bus::CAN::TypeFD::MaxFrameSizeBytes);
 }
 
 /**
  * Verify the immutable properties of CAN 2.0
  */
-TEST(CanBusTest, Type2_0) {
-    ASSERT_EQ(8U, libuavcan::bus::CAN::Type2_0::MaxFrameSizeBytes);
+TEST(CanBusTest, Type2_0)
+{
+    ASSERT_EQ(8U, bus::CAN::Type2_0::MaxFrameSizeBytes);
 }
+
+}  // namespace libuavcan

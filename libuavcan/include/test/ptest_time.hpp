@@ -4,11 +4,11 @@
  * Unit tests of time types and functions.
  */
 /** @file */
-#ifndef UAVCAN_TEST_TIME_HPP_INCLUDED
-#define UAVCAN_TEST_TIME_HPP_INCLUDED
+#ifndef LIBUAVCAN_TEST_TIME_HPP_INCLUDED
+#define LIBUAVCAN_TEST_TIME_HPP_INCLUDED
 
-#include "uavcan/uavcan.hpp"
-#include "uavcan/time.hpp"
+#include "libuavcan/libuavcan.hpp"
+#include "libuavcan/time.hpp"
 #include "gtest/gtest.h"
 
 namespace libuavcan
@@ -84,4 +84,4 @@ REGISTER_TYPED_TEST_SUITE_P(DurationTest,  //
 }  // end namespace test
 }  // end namespace libuavcan
 
-#endif  // UAVCAN_TEST_TIME_HPP_INCLUDED
+#endif  // LIBUAVCAN_TEST_TIME_HPP_INCLUDED

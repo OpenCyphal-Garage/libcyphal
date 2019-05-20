@@ -5,7 +5,7 @@
  * This header should be included by the user application.
  */
 /** @file */
-#include "uavcan/build_config.hpp"
+#include "libuavcan/build_config.hpp"
 
 #include <cstdint>
 #include <limits>

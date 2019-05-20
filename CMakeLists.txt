@@ -15,7 +15,7 @@ include(${CMAKE_SOURCE_DIR}/cmake/common.cmake)
 #
 file(MAKE_DIRECTORY ${EXTERNAL_PROJECT_DIRECTORY})
 
-set(LIBUAVCAN_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/libuavcan/include")
+set(LIBUAVCAN_INCLUDE "${CMAKE_SOURCE_DIR}/libuavcan/include")
 set(LIBUAVCAN_INCLUDE_GENERATED "${CMAKE_CURRENT_BINARY_DIR}/dsdl")
 
 include_directories(
@@ -78,7 +78,7 @@ find_package(nnvg REQUIRED)
 create_dsdl_target(dsdl-regulated
                    OFF
                    ${EXTERNAL_PROJECT_DIRECTORY}/public-regulated-data-types-gen
-                   ${CMAKE_CURRENT_SOURCE_DIR}/libuavcan/include/uavcan/templates
+                   ${CMAKE_SOURCE_DIR}/libuavcan/include/libuavcan/templates
                    ${EXTERNAL_PROJECT_DIRECTORY}/public-regulated-data-types-src/uavcan)
 
 # +---------------------------------------------------------------------------+

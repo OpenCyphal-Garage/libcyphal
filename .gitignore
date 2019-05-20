@@ -3,7 +3,6 @@
 *.d
 lib*.so
 lib*.so.*
-build*
 .dep
 __pycache__
 *.pyc
@@ -25,8 +24,11 @@ __pycache__
 # vagrant
 .vagrant
 
-# libuavcan DSDL compiler default output directory
-dsdlc_generated
-
 # Log files
 *.log
+
+# Build folders
+build
+build_ci_*
+build_ext
+
