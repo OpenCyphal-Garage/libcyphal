@@ -30,18 +30,15 @@ set -o pipefail
 # | deploy (i.e. There's really no 'I' going on).
 # +----------------------------------------------------------+
 
-mkdir -p build_ci_native
-pushd build_ci_native
-# We build native tests using clang since we use gcc for
-# cross-compiling. This gives us coverage by two different
-# compilers.
+mkdir -p build_ci_native_clang
+pushd build_ci_native_clang
+# We ensure we can build using clang but we rely on GCC for testing
+# since clang's coverage metrics have been broken for the last 
+# several years.
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/clang-native.cmake \
-      -DLIBUAVCAN_EXT_FOLDER=build_ci_ext \
+      -DLIBUAVCAN_EXT_FOLDER=build_ci_ext_clang \
       ..
+
 make -j4
-
-ctest -VV
-
-make docs
 
 popd

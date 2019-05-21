@@ -34,10 +34,10 @@
 __attribute__((format(printf, 2, 3)))
 #    endif
 static void
-UAVCAN_TRACE(const char* src, const char* fmt, ...)
+LIBUAVCAN_TRACE(const char* src, const char* fmt, ...)
 {
     va_list args;
-    (void) std::printf("UAVCAN: %s: ", src);
+    (void) std::printf("LIBUAVCAN: %s: ", src);
     va_start(args, fmt);
     (void) std::vprintf(fmt, args);
     va_end(args);
@@ -46,18 +46,18 @@ UAVCAN_TRACE(const char* src, const char* fmt, ...)
 
 #else
 
-#    define UAVCAN_TRACE(...) ((void) 0)
+#    define LIBUAVCAN_TRACE(...) ((void) 0)
 
 #endif
 
 #if LIBUAVCAN_INTROSPECTION_ENABLE_ASSERT
 #    include <cassert>
-#    define UAVCAN_ASSERT(statement) \
-        {                            \
-            assert(statement);       \
+#    define LIBUAVCAN_ASSERT(statement) \
+        {                               \
+            assert(statement);          \
         }
 #else
-#    define UAVCAN_ASSERT(...) ((void) 0)
+#    define LIBUAVCAN_ASSERT(...) ((void) 0)
 #endif
 
 #endif  // LIBUAVCAN_INTROSPECTION_HPP_INCLUDED

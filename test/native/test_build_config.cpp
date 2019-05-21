@@ -8,7 +8,7 @@
 #include "gtest/gtest.h"
 
 /**
- * Test that the UAVCAN_VERSION_MAJOR number is expected.
+ * Test that the version numbers in the build_config header are expected.
  */
 TEST(BuildConfigTest, Version) {
     ASSERT_EQ(2, LIBUAVCAN_VERSION_MAJOR) << "These tests are designed for version 2 of libuavcan" << std::endl;

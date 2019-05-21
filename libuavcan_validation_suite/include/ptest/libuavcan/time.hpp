@@ -4,21 +4,15 @@
  * Unit tests of time types and functions.
  */
 /** @file */
-#ifndef LIBUAVCAN_TEST_TIME_HPP_INCLUDED
-#define LIBUAVCAN_TEST_TIME_HPP_INCLUDED
+#ifndef LIBUAVCAN_LVS_PTEST_TIME_HPP_INCLUDED
+#define LIBUAVCAN_LVS_PTEST_TIME_HPP_INCLUDED
+
+#include "gtest/gtest.h"
 
 #include "libuavcan/libuavcan.hpp"
 #include "libuavcan/time.hpp"
-#include "gtest/gtest.h"
 
 namespace libuavcan
-{
-/**
- * @namespace test
- * Contains test fixtures, test helpers, and parameterized tests to help
- * implement libuavcan for a given application.
- */
-namespace test
 {
 /**
  * Test fixture for testing realizations of the libuavcan::DurationBase template.
@@ -81,7 +75,6 @@ REGISTER_TYPED_TEST_SUITE_P(DurationTest,  //
                             SaturatedAdd,
                             SaturatedSubtract);
 
-}  // end namespace test
 }  // end namespace libuavcan
 
-#endif  // LIBUAVCAN_TEST_TIME_HPP_INCLUDED
+#endif  // LIBUAVCAN_LVS_PTEST_TIME_HPP_INCLUDED

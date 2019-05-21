@@ -128,7 +128,7 @@ To use visual studio code to debug ontarget tests for the S32K146EVB you'll need
 ```
  {
     "cwd": "${workspaceRoot}",
-    "executable": "build/test_bus.elf",
+    "executable": "build/test_util_math.elf",
     "name": "On-target unit test.",
     "request": "launch",
     "type": "cortex-debug",
