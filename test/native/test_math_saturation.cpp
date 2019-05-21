@@ -4,8 +4,8 @@
  * Unit tests of the saturation math utilities in util/math.hpp
  */
 
-#include "uavcan/uavcan.hpp"
-#include "uavcan/util/math.hpp"
+#include "libuavcan/libuavcan.hpp"
+#include "libuavcan/util/math.hpp"
 #include "gtest/gtest.h"
 
 namespace

@@ -6,13 +6,13 @@
  */
 /** @file */
 
-#ifndef UAVCAN_UTIL_MATH_HPP_INCLUDED
-#define UAVCAN_UTIL_MATH_HPP_INCLUDED
+#ifndef LIBUAVCAN_UTIL_MATH_HPP_INCLUDED
+#define LIBUAVCAN_UTIL_MATH_HPP_INCLUDED
 
-#include "uavcan/uavcan.hpp"
+#include "libuavcan/libuavcan.hpp"
 #include <cstdlib>
 #include <cmath>
-#include "uavcan/introspection.hpp"
+#include "libuavcan/introspection.hpp"
 
 namespace libuavcan
 {
@@ -195,4 +195,4 @@ constexpr UNSIGNED_TYPE saturating_sub(UNSIGNED_TYPE left, UNSIGNED_TYPE right)
 }  // namespace util
 }  // namespace libuavcan
 
-#endif  // UAVCAN_UTIL_MATH_HPP_INCLUDED
+#endif  // LIBUAVCAN_UTIL_MATH_HPP_INCLUDED

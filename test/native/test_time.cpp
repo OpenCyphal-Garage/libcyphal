@@ -6,8 +6,8 @@
 
 #include "gtest/gtest.h"
 
-#include "uavcan/uavcan.hpp"
-#include "uavcan/time.hpp"
+#include "libuavcan/libuavcan.hpp"
+#include "libuavcan/time.hpp"
 #include "test/ptest_time.hpp"
 
 namespace libuavcan

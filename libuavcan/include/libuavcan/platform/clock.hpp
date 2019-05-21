@@ -5,11 +5,11 @@
  */
 /** @file */
 
-#ifndef UAVCAN_PLATFORM_CLOCK_HPP_INCLUDED
-#define UAVCAN_PLATFORM_CLOCK_HPP_INCLUDED
+#ifndef LIBUAVCAN_PLATFORM_CLOCK_HPP_INCLUDED
+#define LIBUAVCAN_PLATFORM_CLOCK_HPP_INCLUDED
 
-#include "uavcan/uavcan.hpp"
-#include "uavcan/time.hpp"
+#include "libuavcan/libuavcan.hpp"
+#include "libuavcan/time.hpp"
 
 namespace libuavcan
 {
@@ -22,7 +22,7 @@ namespace platform
 /**
  * Platform interface for a system's clock.
  */
-struct UAVCAN_EXPORT IClock
+struct LIBUAVCAN_EXPORT IClock
 {
     virtual ~IClock() = default;
 
@@ -63,4 +63,4 @@ struct UAVCAN_EXPORT IClock
 }  // namespace platform
 }  // namespace libuavcan
 
-#endif  // UAVCAN_PLATFORM_CLOCK_HPP_INCLUDED
+#endif  // LIBUAVCAN_PLATFORM_CLOCK_HPP_INCLUDED
