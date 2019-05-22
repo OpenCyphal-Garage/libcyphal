@@ -40,6 +40,10 @@ cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/gcc-native.cmake \
 
 make -j4
 
+# We use ctest to run our compile tests.
+ctest -VV
+
+# This builds, runs, and reports on our native unit tests.
 # TODO: when we integrate with coveralls or codacity run make cov_info
 # instead to skip the genhtml step.
 make cov_all

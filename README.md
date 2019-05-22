@@ -42,6 +42,8 @@ The reason we opted for a complete rewrite is that so much is changing. Between 
 
 **/test/ontarget** - Tests cross-compiled for specific hardware* and run on a set of dedicated test devices. These tests may have strict timing constraints and may require specific physical or virtual busses and other test apparatuses be present. Each on-target test will fully document its requirements to enable anyone with access to the appropriate hardware to reproduce the tests. Furthermore, these tests must be inherently automateable having clear pass/fail criteria reducible to a boolean condition.
 
+**/test/compile** – Tests that run in the compiler. Most of these will be tests that pass if they fail to compile. For example, some tests will purposefully define template parameters that will cause static_asserts to fail. Tests that pass if they do compile are less interesting here since such happy paths are normally covered by unit-tests.
+
 **/example** - Contains a set of example applications providing real, practical, and tested uses of libuavcan.
 
 **/commons** - Reference implementations for parts of the libuavcan library. These implementations are optional but are provided as a convenience to accelerate evaluation and integration of libuavcan.

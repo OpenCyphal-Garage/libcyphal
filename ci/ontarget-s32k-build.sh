@@ -45,4 +45,7 @@ cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/gcc-arm-none-eabi.cmake \
 
 make -j4
 
+# We use ctest to run our compile tests.
+ctest -VV
+
 popd

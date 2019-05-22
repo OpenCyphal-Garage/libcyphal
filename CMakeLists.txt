@@ -96,9 +96,14 @@ add_dependencies(format-generated dsdl-regulated)
 create_check_style_target(format-check ON "${LIBUAVCAN_INCLUDE}/**/*.hpp")
 
 # +---------------------------------------------------------------------------+
-# | BUILD AND RUN UNIT TESTS
+# | BUILD UNIT TESTS
 # +---------------------------------------------------------------------------+
 include(${LIBUAVCAN_TESTBUILD})
+
+# +---------------------------------------------------------------------------+
+# | DEFINE COMPILE-TIME TESTS
+# +---------------------------------------------------------------------------+
+include(${CMAKE_SOURCE_DIR}/test/compile/compile_tests.cmake)
 
 # +---------------------------------------------------------------------------+
 # | DOCUMENTATION GENERATION
