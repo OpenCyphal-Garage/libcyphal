@@ -70,7 +70,7 @@ namespace Type2_0
 /**
  * The maximum size of a data frame for this bus.
  */
-constexpr static size_t MaxFrameSizeBytes = 8;
+constexpr static std::size_t MaxFrameSizeBytes = 8;
 
 /**
  * Lookup table to find the data length that would be used to
