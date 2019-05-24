@@ -36,6 +36,7 @@ pushd build_ci_native_gcc
 # coverage metrics.
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/gcc-native.cmake \
       -DLIBUAVCAN_EXT_FOLDER=build_ci_ext_gcc \
+      -DLIBUAVCAN_INTROSPECTION_ENABLE_ASSERT=1 \
       ..
 
 make -j4

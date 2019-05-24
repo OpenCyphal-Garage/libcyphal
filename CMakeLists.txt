@@ -87,6 +87,13 @@ create_dsdl_target(dsdl-regulated
 apply_flag_set(${LIBUAVCAN_FLAG_SET})
 
 # +---------------------------------------------------------------------------+
+# | CONFIGURABLE DEFINITIONS
+# +---------------------------------------------------------------------------+
+if(DEFINED LIBUAVCAN_INTROSPECTION_ENABLE_ASSERT)
+    add_compile_definitions(LIBUAVCAN_INTROSPECTION_ENABLE_ASSERT=${LIBUAVCAN_INTROSPECTION_ENABLE_ASSERT})
+endif()
+
+# +---------------------------------------------------------------------------+
 # | STYLE
 # +---------------------------------------------------------------------------+
 create_apply_style_target(format-generated OFF ${dsdl-regulated-OUTPUT})
