@@ -1,7 +1,7 @@
 #
 # Builds a docker image for test and validation builds.
 #
-FROM uavcan/libuavcan
+FROM uavcan/libuavcan:1.0
 
 VOLUME /repo
 
