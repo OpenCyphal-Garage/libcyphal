@@ -31,10 +31,20 @@ function(apply_flag_set ARG_FLAG_SET)
         set(LOCAL_CMAKE_ASM_FLAGS "${LOCAL_CMAKE_ASM_FLAGS} ${ITEM}")
     endforeach()
 
+    # +-----------------------------------------------------------------------+
+    # | CONFIGURABLE DEFINITIONS
+    # +-----------------------------------------------------------------------+
+    if(DEFINED LIBUAVCAN_INTROSPECTION_ENABLE_ASSERT)
+        set(LOCAL_CMAKE_C_FLAGS "${LOCAL_CMAKE_C_FLAGS} -DLIBUAVCAN_INTROSPECTION_ENABLE_ASSERT=${LIBUAVCAN_INTROSPECTION_ENABLE_ASSERT}")
+        set(LOCAL_CMAKE_CXX_FLAGS "${LOCAL_CMAKE_CXX_FLAGS} -DLIBUAVCAN_INTROSPECTION_ENABLE_ASSERT=${LIBUAVCAN_INTROSPECTION_ENABLE_ASSERT}")
+    endif()
+    # +-----------------------------------------------------------------------+
+
     set(CMAKE_C_FLAGS ${LOCAL_CMAKE_C_FLAGS} PARENT_SCOPE)
     set(CMAKE_CXX_FLAGS ${LOCAL_CMAKE_CXX_FLAGS} PARENT_SCOPE)
     set(CMAKE_EXE_LINKER_FLAGS ${LOCAL_CMAKE_EXE_LINKER_FLAGS} PARENT_SCOPE)
     set(CMAKE_ASM_FLAGS ${LOCAL_CMAKE_ASM_FLAGS} PARENT_SCOPE)
     
     add_definitions(${DEFINITIONS_SET})
+
 endfunction()

@@ -48,11 +48,11 @@ TYPED_TEST_SUITE_P(FrameTest);
 TYPED_TEST_P(FrameTest, Initialization)
 {
     TypeParam instance;
-    ASSERT_EQ(0, instance.id);
+    ASSERT_EQ(0U, instance.id);
     ASSERT_EQ(CAN::FrameDLC::CodeForLength0, instance.getDLC());
     for (std::size_t i = 0; i < TypeParam::MTUBytes; ++i)
     {
-        ASSERT_EQ(0, instance.data[i]);
+        ASSERT_EQ(0U, instance.data[i]);
     }
 }
 
@@ -64,9 +64,9 @@ TYPED_TEST_P(FrameTest, InitWithData)
     const std::uint8_t data[] = {0, 1, 2, 3, 4, 5, 6, 7, 8};
     TypeParam          instance(1, data, FrameDLC::CodeForLength5);
 
-    ASSERT_EQ(1, instance.id);
+    ASSERT_EQ(1U, instance.id);
     ASSERT_EQ(CAN::FrameDLC::CodeForLength5, instance.getDLC());
-    ASSERT_EQ(5, instance.getDataLength());
+    ASSERT_EQ(5U, instance.getDataLength());
 
     for (std::size_t i = 0; i < instance.getDataLength(); ++i)
     {
@@ -80,9 +80,9 @@ TYPED_TEST_P(FrameTest, InitWithData)
 TYPED_TEST_P(FrameTest, InitWithData_NullPtr)
 {
     TypeParam instance(1, nullptr, FrameDLC::CodeForLength5);
-    ASSERT_EQ(1, instance.id);
+    ASSERT_EQ(1U, instance.id);
     ASSERT_EQ(CAN::FrameDLC::CodeForLength0, instance.getDLC());
-    ASSERT_EQ(0, instance.getDataLength());
+    ASSERT_EQ(0U, instance.getDataLength());
 }
 
 /**
@@ -152,7 +152,7 @@ TYPED_TEST_P(FrameTest, DLCToLengthEvil)
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
-    ASSERT_EQ(0, TypeParam::dlcToLength((FrameDLC)TypeFD::MaxFrameSizeBytes));
+    ASSERT_EQ(0U, TypeParam::dlcToLength((FrameDLC)TypeFD::MaxFrameSizeBytes));
 #pragma GCC diagnostic pop
 }
 
@@ -202,7 +202,7 @@ TYPED_TEST_P(FrameTest, FrameEqual)
     TypeParam lhs(0xFFFFFFFF, fake_data_lhs, FrameDLC::CodeForLength8);
     TypeParam rhs(0x1FFFFFFF, fake_data_rhs, FrameDLC::CodeForLength8);
 
-    ASSERT_EQ(lhs, rhs);
+    ASSERT_TRUE(lhs == rhs);
 }
 
 /**

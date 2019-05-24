@@ -30,7 +30,7 @@ function (create_docs_target ARG_DOCS_TARGET_NAME ARG_ADD_TO_ALL)
     set(DOXYGEN_RDOMAIN_W_PROJECT org.uavcan.libuavcan)
     set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/docs)
     set(DOXYGEN_CONFIG_FILE ${DOXYGEN_OUTPUT_DIRECTORY}/doxygen.config)
-    set(DOXYGEN_INPUT "\"${CMAKE_CURRENT_SOURCE_DIR}/libuavcan/include\" \"${CMAKE_CURRENT_SOURCE_DIR}/README.md\"")
+    set(DOXYGEN_INPUT "\"${CMAKE_CURRENT_SOURCE_DIR}/libuavcan/include\" \"${CMAKE_CURRENT_SOURCE_DIR}/README.md\" \"${CMAKE_CURRENT_SOURCE_DIR}/doc_source/media.md\"")
     set(DOXYGEN_MAINPAGE "\"${CMAKE_CURRENT_SOURCE_DIR}/README.md\"")
 
     # +-----------------------------------------------------------------------+
@@ -40,6 +40,10 @@ function (create_docs_target ARG_DOCS_TARGET_NAME ARG_ADD_TO_ALL)
     set(DOXYGEN_HTML_STYLESHEET ${DOXYGEN_OUTPUT_DIRECTORY}/customdoxygen.css)
     set(DOXYGEN_HTML_HEADER ${DOXYGEN_OUTPUT_DIRECTORY}/header.html)
     set(DOXYGEN_HTML_FOOTER ${DOXYGEN_OUTPUT_DIRECTORY}/footer.html)
+    set(DOXYGEN_IMAGE_PATH ${DOXYGEN_OUTPUT_DIRECTORY}/images)
+    set(DOXYGEN_LOGO ${DOXYGEN_OUTPUT_DIRECTORY}/images/html/uavcan_logo_icon.png)
+
+    file(COPY ${DOXYGEN_SOURCE}/images DESTINATION ${DOXYGEN_OUTPUT_DIRECTORY})
 
     configure_file(${DOXYGEN_SOURCE}/header.html
                     ${DOXYGEN_OUTPUT_DIRECTORY}/header.html

@@ -15,28 +15,27 @@
 
 namespace libuavcan
 {
-
 /**
  * @namespace transport
  * Contains transport-specific types and namespaces.
  */
 namespace transport
 {
-
 /**
  * @namespace media
  * Contains media-specific types and namespaces.
+ *
+ * See the @ref MediaPortingGuide for details
+ * on porting the media layer to a given platform.
  */
 namespace media
 {
-
 /**
  * @namespace CAN
  * Types for working with UAVCAN on a Controller Area Network.
  */
 namespace CAN
 {
-
 /** The size of the tail byte, in bytes. */
 constexpr static std::size_t TailByteSizeBytes = 1;
 
@@ -120,7 +119,16 @@ enum class FrameDLC : std::uint_fast8_t
 };
 
 /**
- * Raw CAN frame, as passed to/from a CAN driver.
+ * A raw CAN frame, as passed to/from a CAN peripheral or subsystem. This is the datastructure used by
+ * the media layer of libuavcan to buffer incoming data that is "interesting" before the transport
+ * layer parses it into the high-level types defined by DSDL. Interesting data is defined as CAN
+ * frames that are compatible with the UAVCAN protocol. For CAN bus, this omits error frames,
+ * remote frames, and any frame using 11-bit identifiers. Such uninteresting frames are not compatible
+ * with UAVCAN and it is undefined behaviour to attempt to load such data into a Frame instance.
+ *
+ * For systems which consume unsupported CAN frames it is recommended that another data path is
+ * established that does not involve libuavcan. For example, a "statistics" interface might
+ * be supported by a driver on a system to handle bus error rate at an application level.
  *
  * @tparam  MTUBytesParam       The maximum number of bytes that can be stored in this frame.
  * @tparam  FlagBitsCompareMask A mask of the upper thee bits of this class's id field. By
@@ -128,11 +136,29 @@ enum class FrameDLC : std::uint_fast8_t
  *                              class. If an implemenation wants to use these three bits as
  *                              meta-data it should provide a different compare mask to include
  *                              the bits when comparing identifiers.
+ *
+ * <h4>Data Domains and Filtering</h4>
+ *
+ * Libuavcan will introduce two copies of data received on a CAN bus into and then across system
+ * memory before this data becomes available to an application. Because of this the media layer
+ * should be implemented as close to the incoming data as possible. For embedded systems it is ideal
+ * if a Frame is the first location in system memory the received data occupies after being read
+ * out of peripheral memory. For higher-level systems it is ideal if a Frame is the first location
+ * in user-space the data occupies after being received from a kernel.
+ *
+ * @image html html/data_domains.png width=100%
+ * @image latex latex/data_domains.eps
+ *
+ * As demonstrated by the above diagram, careful configuration of hardware filters and proper elision
+ * of unsupported data will minimize the amount of CPU used by libuavcan to copy data through system
+ * memory.
+ *
  */
 template <std::uint16_t MTUBytesParam, std::uint8_t FlagBitsCompareMask = 0x00>
 struct LIBUAVCAN_EXPORT Frame
 {
-    static_assert(MTUBytesParam <= TypeFD::MaxFrameSizeBytes, "CAN::Frame cannot hold anything larger than an CAN FD frame.");
+    static_assert(MTUBytesParam <= TypeFD::MaxFrameSizeBytes,
+                  "CAN::Frame cannot hold anything larger than an CAN FD frame.");
 
     /**
      * 29-bit mask for extended frame identifiers.
@@ -142,7 +168,8 @@ struct LIBUAVCAN_EXPORT Frame
     /**
      * The mask to use when comparing two Frame::id fields.
      */
-    static constexpr std::uint32_t MaskIdWithFlags = MaskExtID | (static_cast<std::uint32_t>(FlagBitsCompareMask) << 29);
+    static constexpr std::uint32_t MaskIdWithFlags =
+        MaskExtID | (static_cast<std::uint32_t>(FlagBitsCompareMask) << 29);
 
     /**
      * The maximum number of bytes this frame can hold. This
@@ -153,7 +180,7 @@ struct LIBUAVCAN_EXPORT Frame
 
     /**
      * Converts a given frame length value into a Data Length Code.
-     * 
+     *
      * @param  length   The data length value to convert.
      * @return Returns the appropriate DLC value but saturates to the DLC
      *         for the MTUBytesParam parameter.
@@ -190,7 +217,7 @@ struct LIBUAVCAN_EXPORT Frame
 
     /**
      * Converts a Data Length Code into a frame length.
-     * 
+     *
      * @param  dlc   The DLC to convert.
      * @return The maximum number of bytes the frame can occupy for the given
      *         DLC.
@@ -217,8 +244,26 @@ struct LIBUAVCAN_EXPORT Frame
         }
     }
 
-    std::uint32_t id;  ///< CAN ID
-    std::uint8_t  data[MTUBytesParam]; ///< Frame data payload.
+    /**
+     * The 29-bit CAN identifier. The upper three bits is ignored by default but
+     * applications can use these bits either opaquely or by enabling in frame
+     * comparisons them using the @p FlagBitsCompareMask template parameter.
+     *
+     * @code
+     * // Enable comparison of the 30th bit in the identifier.
+     * CAN::Frame<CAN::TypeFD::MaxFrameSizeBytes,0x01> frame;
+     *
+     * // Use the 30th bit.
+     * frame.id = (can_id | (MY_FLAG << 29);
+     * @endcode
+     */
+    std::uint32_t id;
+
+    /**
+     * System memory buffer of a CAN frame.
+     *
+     */
+    std::uint8_t data[MTUBytesParam];
 
 private:
     FrameDLC dlc_;  ///< Data Length Code.
@@ -231,8 +276,8 @@ public:
     {}
 
     /**
-     * Construct a new Frame object that copies data into this instance.
-     * 
+     * Constructs a new Frame object that copies data into this instance.
+     *
      * @param can_id    The 29-bit CAN id.
      * @param can_data  The data to copy into this instance.
      * @param in_dlc    The data length code for the can_data.
@@ -253,6 +298,11 @@ public:
         }
     }
 
+    /**
+     * Get the Data Length Code set for this instance.
+     *
+     * @return The DLC set for this instance.
+     */
     FrameDLC getDLC() const
     {
         return dlc_;
@@ -263,7 +313,7 @@ public:
      * for some lengths as only the Data Length Code is stored internally.
      * So setDataLength(some_value) may not be equal to getDataLength().
      * after it is called.
-     * 
+     *
      * @param data_length  The data length in bytes.
      */
     void setDataLength(std::uint_fast8_t data_length)
@@ -273,7 +323,7 @@ public:
 
     /**
      * Get length of the frame data in bytes.
-     * 
+     *
      * @return std::uint_fast8_t  The number of bytes this Frame object contains.
      */
     std::uint_fast8_t getDataLength() const
@@ -282,9 +332,11 @@ public:
     }
 
     /**
-     * Logical inverse of @ref libuavcan::transport::media::CAN::Frame::operator==(const libuavcan::transport::media::CAN::Frame&) const
-     * 
-     * @return true if @ref libuavcan::transport::media::CAN::Frame::operator==(const libuavcan::transport::media::CAN::Frame&) const returns false.
+     * Logical inverse of @ref libuavcan::transport::media::CAN::Frame::operator==(const
+     * libuavcan::transport::media::CAN::Frame&) const
+     *
+     * @return true if @ref libuavcan::transport::media::CAN::Frame::operator==(const
+     * libuavcan::transport::media::CAN::Frame&) const returns false.
      */
     bool operator!=(const Frame& rhs) const
     {
@@ -293,15 +345,14 @@ public:
 
     /**
      * Compares equality for the CAN Frame identifier, DLC (Data Length Code), and data.
-     * 
+     *
      * @return true if both identifiers masked by MaskIdWithFlags are equal, both DLCs are
      *         equal, and the data in both frames are equal.
      */
     bool operator==(const Frame& rhs) const
     {
-        return ((id & MaskIdWithFlags) == (rhs.id & MaskIdWithFlags)) &&
-                (dlc_ == rhs.dlc_) &&
-                std::equal(data, data + dlcToLength(dlc_), rhs.data);
+        return ((id & MaskIdWithFlags) == (rhs.id & MaskIdWithFlags)) && (dlc_ == rhs.dlc_) &&
+               std::equal(data, data + dlcToLength(dlc_), rhs.data);
     }
 
     /**
@@ -331,7 +382,7 @@ public:
      *
      * @param  rhs  A frame to compare with.
      * @return true if the rhs identifier is < this frame's id.
-     * 
+     *
      * @note See Marco Di Natale - <a href="http://inst.cs.berkeley.edu/~ee249/fa08/Lectures/handout_canbus2.pdf">
      * "Understanding and using the Controller Area Network"</a> for information on how CAN message identifiers are
      * used in CAN arbitration.
