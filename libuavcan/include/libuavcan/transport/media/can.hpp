@@ -221,7 +221,7 @@ struct LIBUAVCAN_EXPORT Frame
     std::uint8_t  data[MTUBytesParam]; ///< Frame data payload.
 
 private:
-    FrameDLC dlc_;  ///< Data Length Code,
+    FrameDLC dlc_;  ///< Data Length Code.
 
 public:
     Frame()
