@@ -22,6 +22,7 @@ set(opts
     "UAVCAN_PLATFORM:STRING:generic:generic kinetis linux stm32:Platform."
     "CONTINUOUS_INTEGRATION_BUILD:BOOL:OFF::Disable error redirection and timing tests"
     "UAVCAN_CMAKE_VERBOSE:BOOL:OFF::Verbose CMake configure output"
+    "UAVCAN_CPP_VERSION:STRING:2011:2011 2014 2017:CPP version to force."
     )
 foreach(_opt ${opts})
     # arguments are : delimited

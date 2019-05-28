@@ -28,12 +28,16 @@ int main(int argc, char **argv)
 #ifndef UAVCAN_CPP_VERSION
 # error UAVCAN_CPP_VERSION
 #endif
-#if UAVCAN_CPP_VERSION == UAVCAN_CPP11
+#if UAVCAN_CPP_VERSION == UAVCAN_CPP17
+    std::cout << "C++17" << std::endl;
+#elif UAVCAN_CPP_VERSION == UAVCAN_CPP14
+    std::cout << "C++14" << std::endl;
+#elif UAVCAN_CPP_VERSION == UAVCAN_CPP11
     std::cout << "C++11" << std::endl;
 #elif UAVCAN_CPP_VERSION == UAVCAN_CPP03
     std::cout << "C++03" << std::endl;
 #else
-# error UAVCAN_CPP_VERSION
+    std::cout << "(unknown)" << std::endl;
 #endif
 
     ::testing::InitGoogleTest(&argc, argv);

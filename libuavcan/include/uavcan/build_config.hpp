@@ -25,6 +25,8 @@
  * standard than used by the compiler, in which case this symbol can be overridden manually via
  * compiler flags.
  */
+#define UAVCAN_CPP17    2017
+#define UAVCAN_CPP14    2014
 #define UAVCAN_CPP11    2011
 #define UAVCAN_CPP03    2003
 
