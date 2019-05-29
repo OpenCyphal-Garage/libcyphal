@@ -3,6 +3,7 @@ UAVCAN stack in C++
 
 [![Build Status](https://badge.buildkite.com/af844974c06af6406e3b2192d98298b02b30f6ebebb5f8b16c.svg)](https://buildkite.com/uavcan/libuavcan-v1)
 [![Forum](https://img.shields.io/discourse/https/forum.uavcan.org/users.svg)](https://forum.uavcan.org)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/5d487b332d99498699a0af687fa513a1)](https://www.codacy.com/app/UAVCAN/libuavcan_v1?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=UAVCAN/libuavcan&amp;utm_campaign=Badge_Grade)
 
 Portable reference implementation of the [UAVCAN protocol stack](https://new.uavcan.org) in C++ for embedded systems, Linux, and POSIX-compliant RTOSs.
 
@@ -25,7 +26,7 @@ You should never rewrite a codebase from scratch. It's a terrible idea. We're re
 
 Sorry.
 
-The reason we opted for a complete rewrite is that so much is changing. Between the updates to the specification, the abandonment of C++98 support, switching to header-only, removing the drivers from the main repository, adding CAN-FD support, etc, etc, etc; it was obvious that we'd be rewriting everything anyway. The good news is that v0 exists, is fully supported, and will be liberally copy-and-pasted from as this makes sense for v1. What we don't have is any git history tracing from v1 since this would be deceiving. Futhermore, the unit tests in uavcan v0 are a bit of a mess so we'll be writing them in a way that is more sustainable.
+The reason we opted for a complete rewrite is that so much is changing. Between the updates to the specification, the abandonment of C++98 support, switching to header-only, removing the drivers from the main repository, adding CAN FD support, etc, etc, etc; it was obvious that we'd be rewriting everything anyway. The good news is that v0 exists, is fully supported, and will be liberally copy-and-pasted from as this makes sense for v1. What we don't have is any git history tracing from v1 since this would be deceiving. Futhermore, the unit tests in uavcan v0 are a bit of a mess so we'll be writing them in a way that is more sustainable.
 
 ## Documentation
 
@@ -41,6 +42,8 @@ The reason we opted for a complete rewrite is that so much is changing. Between 
 **/test/native** - Unit-tests that validate the libuavcan library. These tests compile and execute using the build host's native environment. They also do not require any communication interfaces, virtual or otherwise, from the operating system and have no timing constraints.
 
 **/test/ontarget** - Tests cross-compiled for specific hardware* and run on a set of dedicated test devices. These tests may have strict timing constraints and may require specific physical or virtual busses and other test apparatuses be present. Each on-target test will fully document its requirements to enable anyone with access to the appropriate hardware to reproduce the tests. Furthermore, these tests must be inherently automateable having clear pass/fail criteria reducible to a boolean condition.
+
+**/test/compile** – Tests that run in the compiler. Most of these will be tests that pass if they fail to compile. For example, some tests will purposefully define template parameters that will cause static_asserts to fail. Tests that pass if they do compile are less interesting here since such happy paths are normally covered by unit-tests.
 
 **/example** - Contains a set of example applications providing real, practical, and tested uses of libuavcan.
 
@@ -128,7 +131,7 @@ To use visual studio code to debug ontarget tests for the S32K146EVB you'll need
 ```
  {
     "cwd": "${workspaceRoot}",
-    "executable": "build/test_bus.elf",
+    "executable": "build/test_util_math.elf",
     "name": "On-target unit test.",
     "request": "launch",
     "type": "cortex-debug",

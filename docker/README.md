@@ -7,7 +7,7 @@ for development, continuous-integration, and test automation.
 
 (these instructions assume you have docker installed and running)
 
-```
+```bash
 cd /path/to/libuavcan
 
 docker pull uavcan/libuavcan:latest
@@ -21,7 +21,7 @@ docker run --rm -t -v /path/to/libuavcan/build:/repo uavcan/libuavcan:latest /bi
 
 On macintosh you'll probably want to optimize osxfs with something like cached or delegated:
 
-```
+```bash
 docker run --rm -t -v /path/to/libuavcan/build:/repo:delegated uavcan/libuavcan:latest /bin/sh -c 'cd build_docker && mkdir make -j8'
 ```
 
@@ -29,7 +29,7 @@ See ["Performance tuning for volume mounts"](https://docs.docker.com/docker-for-
 
 Finally, to enter an interactive shell in this container something like this should work:
 
-```
+```bash
 docker run --rm -it -v /path/to/libuavcan:/repo uavcan/libuavcan:latest
 ```
 
@@ -37,7 +37,7 @@ docker run --rm -it -v /path/to/libuavcan:/repo uavcan/libuavcan:latest
 
 You can use this in your .travis.yml like this:
 
-```
+```bash
 language: cpp
 
 services:
@@ -55,16 +55,16 @@ script:
 
 These instructions are for maintainers with permissions to push to the [uavcan organization on Docker Hub](https://cloud.docker.com/u/uavcan).
 
-```
+```bash
 docker build .
 ```
-```
+```bash
 docker images
 
 REPOSITORY   TAG      IMAGE ID       CREATED              SIZE
 <none>       <none>   736647481ad3   About a minute ago   1GB
 ```
-```
+```bash
 docker tag 736647481ad3 uavcan/libuavcan:latest
 docker login --username=yourhubusername
 docker push uavcan/libuavcan:latest

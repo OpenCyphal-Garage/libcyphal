@@ -30,17 +30,24 @@ set -o pipefail
 # | deploy (i.e. There's really no 'I' going on).
 # +----------------------------------------------------------+
 
-mkdir -p build_ci_native
-pushd build_ci_native
-# We build native tests using clang since we use gcc for
-# cross-compiling. This gives us coverage by two different
-# compilers.
-cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/clang-native.cmake \
-      -DLIBUAVCAN_EXT_FOLDER=build_ci_ext \
+mkdir -p build_ci_native_gcc
+pushd build_ci_native_gcc
+# GCC is our reference compiler since it does a better job with
+# coverage metrics.
+cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/gcc-native.cmake \
+      -DLIBUAVCAN_EXT_FOLDER=build_ci_ext_gcc \
+      -DLIBUAVCAN_INTROSPECTION_ENABLE_ASSERT=1 \
       ..
+
 make -j4
 
+# We use ctest to run our compile tests.
 ctest -VV
+
+# This builds, runs, and reports on our native unit tests.
+# TODO: when we integrate with coveralls or codacy run make cov_info
+# instead to skip the genhtml step.
+make cov_all
 
 make docs
 

@@ -64,26 +64,4 @@
 
 /** @} */  // end of macros_platform
 
-// +--------------------------------------------------------------------------+
-/** @defgroup macros_features Feature macros.
- *
- * Macros to configure what features to enable in the library. Some features
- * may change the amount of memory or CPU required at runtime so read the
- * documentation for each carefully.
- *  @{
- */
-/**
- * Enable support for CAN-FD.
- *
- * Enabling this feature will increase the size of many memory buffers to
- * accommodate the larger frame size of CAN-FD. This larger payload size
- * translates into larger message sizes which may impact performance where
- * message payloads must be transferred through system memory.
- */
-#ifndef LIBUAVCAN_FEATURE_ENABLE_FD
-#    define LIBUAVCAN_FEATURE_ENABLE_FD 1
-#endif
-
-/** @} */  // end of macors_features
-
 #endif  // LIBUAVCAN_BUILD_CONFIG_HPP_INCLUDED

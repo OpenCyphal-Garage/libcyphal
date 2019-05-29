@@ -1,9 +1,10 @@
 steps:
   - label: ':hammer: native build and :mag: test'
-    command: "./ci/native-build-and-test.sh"
+    id: native-gcc-build-and-test
+    command: "./ci/native-gcc-build-and-test.sh"
     artifact_paths: 
-      - "build_ci_native/libuavcan"
-      - "build_ci_native/docs/**/*"
+      - "build_ci_native_gcc/libuavcan"
+      - "build_ci_native_gcc/docs/**/*"
     plugins:
       - docker#v3.1.0:
           workdir: /repo
@@ -12,7 +13,21 @@ steps:
       VERBOSE: 1
     agents:
       queue: 'default'
+    timeout_in_minutes: 15
+  - label: ':hammer: native build using clang'
+    id: native-clang-build
+    command: "./ci/native-clang-build.sh"
+    plugins:
+      - docker#v3.1.0:
+          workdir: /repo
+          image: "uavcan/libuavcan:latest"
+    env:
+      VERBOSE: 1
+    agents:
+      queue: 'default'
+    timeout_in_minutes: 15
   - label: ':hammer: s32k build'
+    id: ontarget-s32k-build
     command: "./ci/ontarget-s32k-build.sh"
     artifact_paths: 
       - "build_ci_ontarget_s32k/**/*.log"
@@ -28,6 +43,7 @@ steps:
       VERBOSE: 1
     agents:
       queue: 'default'
+    timeout_in_minutes: 15
   - wait
   - label: ":mag: ontarget testing"
     command: "./ci/ontarget-s32k-test.sh"

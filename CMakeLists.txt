@@ -17,10 +17,12 @@ file(MAKE_DIRECTORY ${EXTERNAL_PROJECT_DIRECTORY})
 
 set(LIBUAVCAN_INCLUDE "${CMAKE_SOURCE_DIR}/libuavcan/include")
 set(LIBUAVCAN_INCLUDE_GENERATED "${CMAKE_CURRENT_BINARY_DIR}/dsdl")
+set(LIBUAVCAN_INCLUDE_LVS_PTEST "${CMAKE_SOURCE_DIR}/libuavcan_validation_suite/include")
 
 include_directories(
     ${LIBUAVCAN_INCLUDE}
     ${LIBUAVCAN_INCLUDE_GENERATED}
+    ${LIBUAVCAN_INCLUDE_LVS_PTEST}
 )
 
 if(NOT LIBUAVCAN_FLAG_SET)
@@ -54,11 +56,6 @@ find_package(public_regulated_data_types REQUIRED)
 # googletest (and googlemock) external project.
 #
 find_package(gtest REQUIRED)
-
-#
-# We generate coverage reports. Please look at them.
-#
-find_package(lcov REQUIRED)
 
 #
 # Finds programs needed to build the libuavcan documentation
@@ -99,9 +96,14 @@ add_dependencies(format-generated dsdl-regulated)
 create_check_style_target(format-check ON "${LIBUAVCAN_INCLUDE}/**/*.hpp")
 
 # +---------------------------------------------------------------------------+
-# | BUILD AND RUN UNIT TESTS
+# | BUILD UNIT TESTS
 # +---------------------------------------------------------------------------+
 include(${LIBUAVCAN_TESTBUILD})
+
+# +---------------------------------------------------------------------------+
+# | DEFINE COMPILE-TIME TESTS
+# +---------------------------------------------------------------------------+
+include(${CMAKE_SOURCE_DIR}/test/compile/compile_tests.cmake)
 
 # +---------------------------------------------------------------------------+
 # | DOCUMENTATION GENERATION
