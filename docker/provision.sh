@@ -38,5 +38,8 @@ apt-get -y install doxygen
 apt-get -y install lcov
 apt-get -y install valgrind
 apt-get -y install clang-tidy
+apt-get -y install npm
 
 pip install virtualenv
+
+npm install -g gh-pages

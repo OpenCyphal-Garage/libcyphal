@@ -91,9 +91,9 @@ make ARGS=-VV test
 We also support a docker-based workflow which is used for CI build automation. If you want to use this locally either to verify that the CI build will succeed or just to avoid manually installing and maintaining the above dependencies then you can do:
 
 ```bash
-docker pull uavcan/libuavcan:latest
+docker pull uavcan/libuavcan:1.0
 
-docker run --rm -v /path/to/libuavcan:/repo uavcan/libuavcan:latest /bin/sh -c ./ci.sh
+docker run --rm -v /path/to/libuavcan:/repo uavcan/libuavcan:1.0 /bin/sh -c ./ci.sh
 ```
 
 Test outputs can be found in the build directory under `libuavcan`.

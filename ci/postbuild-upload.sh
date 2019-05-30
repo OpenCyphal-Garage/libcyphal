@@ -29,17 +29,13 @@ set -o pipefail
 # | CI is used to verify and test rather than package and
 # | deploy (i.e. There's really no 'I' going on).
 # +----------------------------------------------------------+
-mkdir -p build_ci_ontarget_s32k
-pushd build_ci_ontarget_s32k
+mkdir -p build_ci_native_gcc
+pushd build_ci_native_gcc
 
-buildkite-agent artifact download "build_ci_ontarget_s32k/*.hex" .
-buildkite-agent artifact download "build_ci_ontarget_s32k/*.jlink" .
-ls -lAh
+buildkite-agent artifact download "build_ci_native_gcc/docs/html.gz" .
 
-nait -vv \
-     --port \
-     /dev/serial/by-id/usb-Signoid_Kft._USB-UART_adapter_MACX98-if00-port0 \
-     --port-speed 115200 \
-     \*.jlink
+tar -xvf docs/html.gz
+
+gh-pages --dotfiles --message "Doc upload for build ${BUILDKITE_BUILD_NUMBER}" --dist docs/html
 
 popd

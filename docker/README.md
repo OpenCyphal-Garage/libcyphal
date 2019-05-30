@@ -10,19 +10,19 @@ for development, continuous-integration, and test automation.
 ```bash
 cd /path/to/libuavcan
 
-docker pull uavcan/libuavcan:latest
+docker pull uavcan/libuavcan:1.0
 
 mkdir /path/to/libuavcan/build_docker
 
-docker run --rm -t -v /path/to/libuavcan:/repo uavcan/libuavcan:latest /bin/sh -c 'cd build_docker && cmake ..'
+docker run --rm -t -v /path/to/libuavcan:/repo uavcan/libuavcan:1.0 /bin/sh -c 'cd build_docker && cmake ..'
 
-docker run --rm -t -v /path/to/libuavcan/build:/repo uavcan/libuavcan:latest /bin/sh -c 'cd build_docker && mkdir make -j8'
+docker run --rm -t -v /path/to/libuavcan/build:/repo uavcan/libuavcan:1.0 /bin/sh -c 'cd build_docker && mkdir make -j8'
 ```
 
 On macintosh you'll probably want to optimize osxfs with something like cached or delegated:
 
 ```bash
-docker run --rm -t -v /path/to/libuavcan/build:/repo:delegated uavcan/libuavcan:latest /bin/sh -c 'cd build_docker && mkdir make -j8'
+docker run --rm -t -v /path/to/libuavcan/build:/repo:delegated uavcan/libuavcan:1.0 /bin/sh -c 'cd build_docker && mkdir make -j8'
 ```
 
 See ["Performance tuning for volume mounts"](https://docs.docker.com/docker-for-mac/osxfs-caching/) for details.
@@ -30,7 +30,7 @@ See ["Performance tuning for volume mounts"](https://docs.docker.com/docker-for-
 Finally, to enter an interactive shell in this container something like this should work:
 
 ```bash
-docker run --rm -it -v /path/to/libuavcan:/repo uavcan/libuavcan:latest
+docker run --rm -it -v /path/to/libuavcan:/repo uavcan/libuavcan:1.0
 ```
 
 ## Travis CI
@@ -44,10 +44,10 @@ services:
   - docker
 
 before_install:
-  - docker pull uavcan/libuavcan:latest
+  - docker pull uavcan/libuavcan:1.0
 
 script:
-  - docker run --rm -v $TRAVIS_BUILD_DIR:/repo uavcan/libuavcan:latest /bin/sh -c ci.sh
+  - docker run --rm -v $TRAVIS_BUILD_DIR:/repo uavcan/libuavcan:1.0 /bin/sh -c ci.sh
 
 ```
 
@@ -65,7 +65,7 @@ REPOSITORY   TAG      IMAGE ID       CREATED              SIZE
 <none>       <none>   736647481ad3   About a minute ago   1GB
 ```
 ```bash
-docker tag 736647481ad3 uavcan/libuavcan:latest
+docker tag 736647481ad3 uavcan/libuavcan:1.0
 docker login --username=yourhubusername
-docker push uavcan/libuavcan:latest
+docker push uavcan/libuavcan:1.0
 ```
