@@ -19,27 +19,22 @@ set -o errexit
 set -o pipefail
 
 # +----------------------------------------------------------+
-export DEBIAN_FRONTEND=noninteractive
+# | This script is one of the common set of commands run as
+# | part of a continuous integration build pipeline.
+# | These scrips are named using the following scheme:
+# |
+# |   [build_type]-[(optional)build_type qualifier]-[build|test|report|upload].sh
+# |
+# | Of course, libuavcan is a header-only distribution so
+# | CI is used to verify and test rather than package and
+# | deploy (i.e. There's really no 'I' going on).
+# +----------------------------------------------------------+
+mkdir -p build_ci_native_gcc
+pushd build_ci_native_gcc
 
-apt-get update
-apt-get -y install software-properties-common
-add-apt-repository ppa:team-gcc-arm-embedded/ppa -y
-apt-get update
-apt-get -y install apt-utils
-apt-get -y install python3
-apt-get -y install python-pip
-apt-get -y install python3-venv
-apt-get -y install cmake
-apt-get -y install git
-apt-get -y install gcc-arm-embedded
-apt-get -y install clang
-apt-get -y install clang-format
-apt-get -y install doxygen
-apt-get -y install lcov
-apt-get -y install valgrind
-apt-get -y install clang-tidy
-apt-get -y install npm
+buildkite-agent artifact download "build_ci_native_gcc/docs/**/*" .
+git config user.email "libuavcan-v1-upload@uavcan.org"
+git config user.name "libuavcan-v1"
+gh-pages --dotfiles --message "Doc upload for build ${BUILDKITE_BUILD_NUMBER}" --dist docs/html
 
-pip install virtualenv
-
-npm install -g gh-pages
+popd

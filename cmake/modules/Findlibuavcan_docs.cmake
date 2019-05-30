@@ -37,7 +37,7 @@ function (create_docs_target ARG_DOCS_TARGET_NAME ARG_ADD_TO_ALL)
     # +-----------------------------------------------------------------------+
     # | HTML (BOOTSTRAPPED)
     # +-----------------------------------------------------------------------+
-    set(DOXYGEN_HTML_EXTRA_FILES "${DOXYGEN_SOURCE}/doxygen-bootstrapped/doxy-boot.js ${DOXYGEN_SOURCE}/doxygen-bootstrapped/jquery.smartmenus.js ${DOXYGEN_SOURCE}/doxygen-bootstrapped/addons/bootstrap/jquery.smartmenus.bootstrap.js ${DOXYGEN_SOURCE}/doxygen-bootstrapped/addons/bootstrap/jquery.smartmenus.bootstrap.css")
+    set(DOXYGEN_HTML_EXTRA_FILES "${DOXYGEN_SOURCE}/doxygen-bootstrapped/doxy-boot.js ${DOXYGEN_SOURCE}/doxygen-bootstrapped/jquery.smartmenus.js ${DOXYGEN_SOURCE}/doxygen-bootstrapped/addons/bootstrap/jquery.smartmenus.bootstrap.js ${DOXYGEN_SOURCE}/doxygen-bootstrapped/addons/bootstrap/jquery.smartmenus.bootstrap.css ${DOXYGEN_SOURCE}/.nojekyll")
     set(DOXYGEN_HTML_STYLESHEET ${DOXYGEN_OUTPUT_DIRECTORY}/customdoxygen.css)
     set(DOXYGEN_HTML_HEADER ${DOXYGEN_OUTPUT_DIRECTORY}/header.html)
     set(DOXYGEN_HTML_FOOTER ${DOXYGEN_OUTPUT_DIRECTORY}/footer.html)

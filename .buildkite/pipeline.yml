@@ -49,3 +49,14 @@ steps:
     command: "./ci/ontarget-s32k-test.sh"
     agents:
       queue: "ontarget-s32k"
+  - wait
+  - label: ":shipit: post-build publishing reports and documentation"
+    command: "./ci/postbuild-upload.sh"
+    concurrency: 1
+    concurrency_group: "uavcan-v1/upload"
+    retry:
+      manual:
+        allowed: false
+        reason: "Sorry, you can't retry a deployment"
+    agents:
+      queue: 'default'
