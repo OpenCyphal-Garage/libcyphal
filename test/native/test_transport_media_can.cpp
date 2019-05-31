@@ -6,10 +6,9 @@
 #include "gtest/gtest.h"
 
 #include "libuavcan/libuavcan.hpp"
-#include "libuavcan/transport/media/can.hpp"
-#include "ptest/libuavcan/transport/media/can_frame.hpp"
+#include "lvs/transport/media/can_frame.hpp"
 
-namespace libuavcan
+namespace lvs
 {
 namespace transport
 {
@@ -41,4 +40,4 @@ INSTANTIATE_TYPED_TEST_SUITE_P(Generic, FrameTest, MyTypes, );
 }  // namespace CAN
 }  // namespace media
 }  // namespace transport
-}  // namespace libuavcan
+}  // namespace lvs

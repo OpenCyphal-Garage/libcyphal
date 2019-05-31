@@ -5,19 +5,17 @@
  */
 /** @file */
 
-#ifndef LIBUAVCAN_PLATFORM_CLOCK_HPP_INCLUDED
-#define LIBUAVCAN_PLATFORM_CLOCK_HPP_INCLUDED
+#ifndef LIBUAVCAN_TRANSPORT_MEDIA_CLOCK_HPP_INCLUDED
+#define LIBUAVCAN_TRANSPORT_MEDIA_CLOCK_HPP_INCLUDED
 
 #include "libuavcan/libuavcan.hpp"
 #include "libuavcan/time.hpp"
 
 namespace libuavcan
 {
-/**
- * @namespace platform
- * Contains namespaces and types used to port libuavcan to various systems.
- */
-namespace platform
+namespace transport
+{
+namespace media
 {
 /**
  * Platform interface for a system's clock.
@@ -60,7 +58,8 @@ struct LIBUAVCAN_EXPORT IClock
     virtual void adjustUtc(UtcDuration adjustment) = 0;
 };
 
-}  // namespace platform
+}  // namespace media
+}  // namespace transport
 }  // namespace libuavcan
 
-#endif  // LIBUAVCAN_PLATFORM_CLOCK_HPP_INCLUDED
+#endif  // LIBUAVCAN_TRANSPORT_MEDIA_CLOCK_HPP_INCLUDED

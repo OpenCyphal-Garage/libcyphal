@@ -4,15 +4,15 @@
  * Parameterized unit test for the CAN Frame template.
  */
 /** @file */
-#ifndef LIBUAVCAN_LVS_PTEST_TRANSPORT_MEDIA_CAN_FRAME_HPP_INCLUDED
-#define LIBUAVCAN_LVS_PTEST_TRANSPORT_MEDIA_CAN_FRAME_HPP_INCLUDED
+#ifndef LIBUAVCAN_LVS_TRANSPORT_MEDIA_CAN_FRAME_HPP_INCLUDED
+#define LIBUAVCAN_LVS_TRANSPORT_MEDIA_CAN_FRAME_HPP_INCLUDED
 
 #include "gtest/gtest.h"
 
 #include "libuavcan/libuavcan.hpp"
 #include "libuavcan/transport/media/can.hpp"
 
-namespace libuavcan
+namespace lvs
 {
 namespace transport
 {
@@ -20,6 +20,9 @@ namespace media
 {
 namespace CAN
 {
+
+using namespace libuavcan::transport::media::CAN;
+
 // +==========================================================================+
 // | FrameTest
 // +==========================================================================+
@@ -253,6 +256,6 @@ REGISTER_TYPED_TEST_SUITE_P(FrameTest,  //
 }  // namespace CAN
 }  // namespace media
 }  // namespace transport
-}  // end namespace libuavcan
+}  // end namespace lvs
 
-#endif  // LIBUAVCAN_LVS_PTEST_TRANSPORT_MEDIA_CAN_FRAME_HPP_INCLUDED
+#endif  // LIBUAVCAN_LVS_TRANSPORT_MEDIA_CAN_FRAME_HPP_INCLUDED

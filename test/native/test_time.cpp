@@ -8,9 +8,9 @@
 
 #include "libuavcan/libuavcan.hpp"
 #include "libuavcan/time.hpp"
-#include "ptest/libuavcan/time.hpp"
+#include "lvs/time.hpp"
 
-namespace libuavcan
+namespace lvs
 {
 
 typedef ::testing::Types<libuavcan::MonotonicDuration> MyTypes;
@@ -18,4 +18,4 @@ typedef ::testing::Types<libuavcan::MonotonicDuration> MyTypes;
 // The trailing comma is required. See https://github.com/google/googletest/issues/1419
 INSTANTIATE_TYPED_TEST_SUITE_P(Time, DurationTest, MyTypes, );
 
-}  // namespace libuavcan
+}  // namespace lvs

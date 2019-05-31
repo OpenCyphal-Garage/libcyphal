@@ -4,11 +4,12 @@ steps:
     command: "./ci/native-gcc-build-and-test.sh"
     artifact_paths: 
       - "build_ci_native_gcc/libuavcan"
-      - "build_ci_native_gcc/docs/**/*"
+      - "build_ci_native_gcc/docs/html.gz"
     plugins:
       - docker#v3.1.0:
           workdir: /repo
-          image: "uavcan/libuavcan:latest"
+          image: "uavcan/libuavcan:1.0"
+          propagate-environment: true
     env:
       VERBOSE: 1
     agents:
@@ -20,7 +21,8 @@ steps:
     plugins:
       - docker#v3.1.0:
           workdir: /repo
-          image: "uavcan/libuavcan:latest"
+          image: "uavcan/libuavcan:1.0"
+          propagate-environment: true
     env:
       VERBOSE: 1
     agents:
@@ -38,7 +40,8 @@ steps:
     plugins:
       - docker#v3.1.0:
           workdir: /repo
-          image: "uavcan/libuavcan:latest"
+          image: "uavcan/libuavcan:1.0"
+          propagate-environment: true
     env:
       VERBOSE: 1
     agents:
@@ -46,6 +49,25 @@ steps:
     timeout_in_minutes: 15
   - wait
   - label: ":mag: ontarget testing"
-    command: "./ci/ontarget-s32k-test.sh"
+    id: ontarget-s32k-test
+    command: "/etc/buildkite-agent/hooks/command"
     agents:
       queue: "ontarget-s32k"
+  - wait
+  - label: ":github: post-build publishing reports and documentation"
+    command: "./ci/postbuild-upload.sh"
+    concurrency: 1
+    concurrency_group: "uavcan-v1/upload"
+    plugins:
+      - docker#v3.1.0:
+          workdir: /repo
+          image: "uavcan/libuavcan:1.0"
+          propagate-environment: true
+          mount-ssh-agent: true
+    agents:
+      queue: 'default'
+    timeout_in_minutes: 15
+    branches:
+      uavcan-v1
+    env:
+      VERBOSE: 1
