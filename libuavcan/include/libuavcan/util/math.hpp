@@ -192,6 +192,28 @@ constexpr UNSIGNED_TYPE saturating_sub(UNSIGNED_TYPE left, UNSIGNED_TYPE right)
     return (right > left) ? std::numeric_limits<UNSIGNED_TYPE>::min() : static_cast<UNSIGNED_TYPE>(left - right);
 }
 
+template <class LHS_TYPE,
+          class RHS_TYPE,
+          typename std::enable_if<std::is_integral<LHS_TYPE>::value && !std::is_signed<LHS_TYPE>::value &&
+                                      std::is_integral<RHS_TYPE>::value && std::is_signed<RHS_TYPE>::value,
+                                  int>::type = 0>
+constexpr LHS_TYPE saturating_sub(LHS_TYPE left, RHS_TYPE right)
+{
+    return (right >= 0) ? saturating_sub<LHS_TYPE>(left, static_cast<LHS_TYPE>(right))
+                        : saturating_add<LHS_TYPE>(left, static_cast<LHS_TYPE>(right));
+}
+
+template <class LHS_TYPE,
+          class RHS_TYPE,
+          typename std::enable_if<std::is_integral<LHS_TYPE>::value && !std::is_signed<LHS_TYPE>::value &&
+                                      std::is_integral<RHS_TYPE>::value && std::is_signed<RHS_TYPE>::value,
+                                  int>::type = 0>
+constexpr LHS_TYPE saturating_add(LHS_TYPE left, RHS_TYPE right)
+{
+    return (right >= 0) ? saturating_add<LHS_TYPE>(left, static_cast<LHS_TYPE>(right))
+                        : saturating_sub<LHS_TYPE>(left, static_cast<LHS_TYPE>(right));
+}
+
 }  // namespace util
 }  // namespace libuavcan
 
