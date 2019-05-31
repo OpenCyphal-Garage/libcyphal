@@ -3,7 +3,38 @@
  *
  * Parameterized unit test for the CAN Frame template.
  */
-/** @file */
+/** @file 
+ * Implement this test for any libuavcan::transport::media::CAN::Frame object you
+ * implement in your media layer.
+ *
+ * <h3>Example:</H3>
+ * @code
+ * #include "gtest/gtest.h"
+ *
+ * #include "libuavcan/libuavcan.hpp"
+ * #include "lvs/transport/media/can_frame.hpp"
+ * 
+ * namespace lvs
+ * {
+ * namespace transport
+ * {
+ * namespace media
+ * {
+ * namespace CAN
+ * {
+ *
+ * typedef ::testing::Types<MyFrameType0, MyFrameType1> MyTypes;
+ * 
+ * // The trailing comma is required. See https://github.com/google/googletest/issues/1419
+ * INSTANTIATE_TYPED_TEST_SUITE_P(MyFrameTypeTest, FrameTest, MyTypes, );
+ * 
+ * }  // namespace CAN
+ * }  // namespace media
+ * }  // namespace transport
+ * }  // namespace lvs
+ * @endcode
+ * 
+*/
 #ifndef LIBUAVCAN_LVS_TRANSPORT_MEDIA_CAN_FRAME_HPP_INCLUDED
 #define LIBUAVCAN_LVS_TRANSPORT_MEDIA_CAN_FRAME_HPP_INCLUDED
 
@@ -31,6 +62,8 @@ using namespace libuavcan::transport::media::CAN;
  * Test fixture for testing realizations of the libuavcan::transport::media::CAN::Frame template.
  * See https://github.com/google/googletest/blob/master/googletest/docs/advanced.md for
  * more information about typed gtests.
+ *
+ * See @ref can_frame.hpp for full test documentation and examples.
  *
  * @tparam T    The type for a given test realization. Available as TypeParam
  *              from within a test case.

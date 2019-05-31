@@ -18,21 +18,21 @@ set(NNVG_MINIMUM_VERSION 0.1)
 # The source is generated to files with ${NNVG_EXTENSION} as the extension.
 #
 # :param str ARG_TARGET_NAME:               The name to give the target.
-# :param bool ARG_ADD_TO_ALL:               If true the target is added to the default build target.
 # :param Path ARG_OUTPUT_FOLDER:            The directory to generate all source under.
 # :param Path ARG_TEMPLATES_DIR:            A directory containing the templates to use to generate the source.
 # :param Path ARG_DSDL_ROOT_DIR:            A directory containing the root namespace dsdl.
+# :param bool ARG_ENABLE_CLANG_FORMAT:      If ON then clang-format will be run on each generated file.
 # :param ...:                               A list of paths to use when looking up dependent DSDL types.
 # :returns: Sets a variable "ARG_TARGET_NAME"-OUTPUT in the parent scope to the list of files the target 
 #           will generate. For example, if ARG_TARGET_NAME == 'foo-bar' then after calling this function
 #           ${foo-bar-OUTPUT} will be set to the list of output files.
 #
-function (create_dsdl_target ARG_TARGET_NAME ARG_ADD_TO_ALL ARG_OUTPUT_FOLDER ARG_TEMPLATES_DIR ARG_DSDL_ROOT_DIR)
+function (create_dsdl_target ARG_TARGET_NAME ARG_OUTPUT_FOLDER ARG_TEMPLATES_DIR ARG_DSDL_ROOT_DIR ARG_ENABLE_CLANG_FORMAT)
 
     set(LOOKUP_DIR_CMD_ARGS "")
 
-    if (${ARGC} GREATER 5)
-        foreach(ARG_N RANGE 5 ${ARGC}-1)
+    if (${ARGC} GREATER 6)
+        foreach(ARG_N RANGE 6 ${ARGC}-1)
             list(APPEND LOOKUP_DIR_CMD_ARGS " -I ${ARGV${ARG_N}}")
         endforeach(ARG_N)
     endif()
@@ -67,22 +67,32 @@ function (create_dsdl_target ARG_TARGET_NAME ARG_ADD_TO_ALL ARG_OUTPUT_FOLDER AR
                             " (${PYTHON} ${NNVG})")
     endif()
 
+    if(ARG_ENABLE_CLANG_FORMAT AND CLANG_FORMAT)
+        set(CLANG_FORMAT_ARGS -pp-rp=${CLANG_FORMAT} -pp-rpa=-i -pp-rpa=-style=file)
+    else()
+        set(CLANG_FORMAT_ARGS "")
+    endif()
+
     add_custom_command(OUTPUT ${OUTPUT_FILES}
                        COMMAND ${PYTHON} ${NNVG} 
                                            --templates ${ARG_TEMPLATES_DIR}
                                            --output-extension ${NNVG_EXTENSION}
                                            -O ${ARG_OUTPUT_FOLDER}
                                            ${LOOKUP_DIR_CMD_ARGS}
+                                           ${CLANG_FORMAT_ARGS}
                                            ${ARG_DSDL_ROOT_DIR}
                        DEPENDS ${INPUT_FILES}
                        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                        COMMENT "Running nnvg")
 
-    if (ARG_ADD_TO_ALL)
-        add_custom_target(${ARG_TARGET_NAME} ALL DEPENDS ${OUTPUT_FILES})
-    else()
-        add_custom_target(${ARG_TARGET_NAME} DEPENDS ${OUTPUT_FILES})
-    endif()
+    add_custom_target(${ARG_TARGET_NAME}-gen 
+                      DEPENDS ${OUTPUT_FILES})
+
+    add_library(${ARG_TARGET_NAME} INTERFACE)
+
+    add_dependencies(${ARG_TARGET_NAME} ${ARG_TARGET_NAME}-gen)
+
+    target_include_directories(${ARG_TARGET_NAME} INTERFACE ${ARG_OUTPUT_FOLDER})
 
     set(${ARG_TARGET_NAME}-OUTPUT ${OUTPUT_FILES} PARENT_SCOPE)
 
@@ -92,7 +102,6 @@ endfunction(create_dsdl_target)
 # +---------------------------------------------------------------------------+
 # | CONFIGURE: PYTHON ENVIRONMENT
 # +---------------------------------------------------------------------------+
-find_program(VIRTUALENV virtualenv)
 
 if(NOT VIRTUALENV)
 
@@ -103,29 +112,7 @@ if(NOT VIRTUALENV)
 
 else()
 
-    set(VIRTUALENV_OUTPUT ${EXTERNAL_PROJECT_DIRECTORY}/.pyenv)
-    set(PYTHON_BIN ${VIRTUALENV_OUTPUT}/bin)
-    set(PYTHON ${PYTHON_BIN}/python)
-    set(PIP ${PYTHON} -m pip)
-    set(PYTHON_REQUIREMENTS ${CMAKE_CURRENT_SOURCE_DIR}/requirements.txt)
-
-    if(NOT EXISTS ${VIRTUALENV_OUTPUT})
-        message(STATUS "virtualenv found. Creating a virtual environment and installing requirements for build.")
-
-        execute_process(COMMAND ${VIRTUALENV} -p python3 ${VIRTUALENV_OUTPUT}
-                        WORKING_DIRECTORY ${EXTERNAL_PROJECT_DIRECTORY})
-        #
-        # Pypi: pull python dependencies from PyPi
-        #
-        # Pull packages we need to support our build and test environment.
-        #
-        execute_process(COMMAND ${PIP} --disable-pip-version-check --isolated install -r ${PYTHON_REQUIREMENTS}
-                        WORKING_DIRECTORY ${EXTERNAL_PROJECT_DIRECTORY})
-    else()
-        message(STATUS "virtualenv ${VIRTUALENV_OUTPUT} exists. Not recreating (delete this directory to re-create).")
-    endif()
-
-    find_program(NNVG nnvg HINTS ${PYTHON_BIN})
+    find_program(NNVG nnvg HINTS ${VIRTUALENV_PYTHON_BIN})
 
     if (NOT NNVG)
         message(WARNING "nnvg program was not found. The build will probably fail. (${NNVG})")

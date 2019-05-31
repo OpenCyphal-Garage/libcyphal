@@ -192,6 +192,21 @@ constexpr UnsignedType saturating_sub(UnsignedType left, UnsignedType right)
     return (right > left) ? std::numeric_limits<UnsignedType>::min() : static_cast<UnsignedType>(left - right);
 }
 
+/**
+ * Generic implementation of a saturating subtraction operation that does not require integer promotion (i.e. will work
+ * with int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that use
+ * hardware support for saturation arithmetic.
+ *
+ * This version allows a saturated subtraction of a signed integer from an unsigned.
+ *
+ * @tparam LHS_TYPE The unsigned integer type of the left-hand-side operand.
+ * @tparam RHS_TYPE The signed integer type of the right-hand-side operand.
+ * @tparam 0 For SFINAE
+ * @param left The signed left operand.
+ * @param right The unsigned right operand.
+ * @return LHS_TYPE The result which will saturate to {@code std::numeric_limits<LHS_TYPE>::min()} or {@code
+ * std::numeric_limits<LHS_TYPE>::max()}
+ */
 template <class LhsType,
           class RhsType,
           typename std::enable_if<std::is_integral<LhsType>::value && !std::is_signed<LhsType>::value &&
@@ -203,6 +218,21 @@ constexpr LhsType saturating_sub(LhsType left, RhsType right)
                         : saturating_add<LhsType>(left, static_cast<LhsType>(right));
 }
 
+/**
+ * Generic implementation of a saturating subtraction operation that does not require integer promotion (i.e. will work
+ * with int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that use
+ * hardware support for saturation arithmetic.
+ *
+ * This version allows a saturated addition of a signed integer with an unsigned.
+ *
+ * @tparam LHS_TYPE The unsigned integer type of the left-hand-side operand.
+ * @tparam RHS_TYPE The signed integer type of the right-hand-side operand.
+ * @tparam 0 For SFINAE
+ * @param left The signed left operand.
+ * @param right The unsigned right operand.
+ * @return LHS_TYPE The result which will saturate to {@code std::numeric_limits<LHS_TYPE>::min()} or {@code
+ * std::numeric_limits<LHS_TYPE>::max()}
+ */
 template <class LhsType,
           class RhsType,
           typename std::enable_if<std::is_integral<LhsType>::value && !std::is_signed<LhsType>::value &&

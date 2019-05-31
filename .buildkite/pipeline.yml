@@ -5,6 +5,7 @@ steps:
     artifact_paths: 
       - "build_ci_native_gcc/libuavcan"
       - "build_ci_native_gcc/docs/html.gz"
+      - "build_ci_native_gcc/tests/coverage.info"
     plugins:
       - docker#v3.1.0:
           workdir: /repo
@@ -64,10 +65,10 @@ steps:
           image: "uavcan/libuavcan:1.0"
           propagate-environment: true
           mount-ssh-agent: true
+          environment:
+            - "COVERALLS_TOKEN"
     agents:
       queue: 'default'
     timeout_in_minutes: 15
-    branches:
-      uavcan-v1.0
     env:
       VERBOSE: 1

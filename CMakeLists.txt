@@ -48,6 +48,13 @@ endif()
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 
 #
+# We prefer to install python dependencies for the build in an virtualenv.
+# If you don't have this setup you'll need to manually make any python
+# dependencies available to the version of python the build will use.
+#
+find_package(virtualenv)
+
+#
 # DSDL public, regulated types for validating libuavcan.
 #
 find_package(public_regulated_data_types REQUIRED)
@@ -73,10 +80,10 @@ find_package(clangformat REQUIRED)
 find_package(nnvg REQUIRED)
 
 create_dsdl_target(dsdl-regulated
-                   OFF
                    ${EXTERNAL_PROJECT_DIRECTORY}/public-regulated-data-types-gen
                    ${CMAKE_SOURCE_DIR}/libuavcan/include/libuavcan/templates
-                   ${EXTERNAL_PROJECT_DIRECTORY}/public-regulated-data-types-src/uavcan)
+                   ${EXTERNAL_PROJECT_DIRECTORY}/public-regulated-data-types-src/uavcan
+                   ON)
 
 # +---------------------------------------------------------------------------+
 # | FLAG SETS
@@ -89,10 +96,6 @@ apply_flag_set(${LIBUAVCAN_FLAG_SET})
 # +---------------------------------------------------------------------------+
 # | STYLE
 # +---------------------------------------------------------------------------+
-create_apply_style_target(format-generated OFF ${dsdl-regulated-OUTPUT})
-
-add_dependencies(format-generated dsdl-regulated)
-
 create_check_style_target(format-check ON "${LIBUAVCAN_INCLUDE}/**/*.hpp")
 
 # +---------------------------------------------------------------------------+

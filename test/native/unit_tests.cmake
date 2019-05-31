@@ -23,7 +23,7 @@ find_package(lcov REQUIRED)
 function(define_native_unit_test ARG_TEST_NAME ARG_TEST_SOURCE ARG_OUTDIR)
 
      add_executable(${ARG_TEST_NAME} ${ARG_TEST_SOURCE})
-     add_dependencies(${ARG_TEST_NAME} dsdl-regulated)
+     target_link_libraries(${ARG_TEST_NAME} dsdl-regulated)
      target_link_libraries(${ARG_TEST_NAME} gmock_main)
 
      set_target_properties(${ARG_TEST_NAME}
@@ -42,14 +42,34 @@ endfunction()
 
 #
 # function: define_native_test_run - creates a makefile target that will build and
-# run individual unit tests. This also properly sets up the coverage counters.
+# run individual unit tests.
 #
-# param: ARG_TEST_NAME string - The name of the test to run.
+# param: ARG_TEST_NAME string - The name of the test to run. A target will be created
+#                          with the name run_${ARG_TEST_NAME}
 # param: ARG_OUTDIR path - The path where the test binaries live.
 #
 function(define_native_test_run ARG_TEST_NAME ARG_OUTDIR)
      add_custom_target(
           run_${ARG_TEST_NAME}
+          COMMAND
+               ${ARG_OUTDIR}/${ARG_TEST_NAME}
+          DEPENDS
+               ${ARG_TEST_NAME}
+     )
+
+endfunction()
+
+
+#
+# function: define_native_test_run_with_lcov - creates a makefile target that will build and
+# run individual unit tests. This also properly sets up the coverage counters.
+#
+# param: ARG_TEST_NAME string - The name of the test to run. A target will be created
+#                          with the name run_${ARG_TEST_NAME}_with_lcov
+# param: ARG_OUTDIR path - The path where the test binaries live.
+#
+function(define_native_test_run_with_lcov ARG_TEST_NAME ARG_OUTDIR)
+     add_custom_command(
           COMMAND # Reset coverage data
                ${LCOV}
                     ${LIBUAVCAN_GCOV_TOOL_ARG}
@@ -58,10 +78,11 @@ function(define_native_test_run ARG_TEST_NAME ARG_OUTDIR)
           COMMAND # Generate initial "zero coverage" data.
                ${LCOV}
                     ${LIBUAVCAN_GCOV_TOOL_ARG}
+                    --rc lcov_branch_coverage=1
                     --capture
                     --initial
                     --directory ${CMAKE_CURRENT_BINARY_DIR}
-                    --output-file ${ARG_OUTDIR}/coverage.baseline.info
+                    --output-file ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.baseline.info
           COMMAND
                ${ARG_OUTDIR}/${ARG_TEST_NAME}
           COMMAND # Generate coverage from tests.
@@ -76,7 +97,7 @@ function(define_native_test_run ARG_TEST_NAME ARG_OUTDIR)
                ${LCOV}
                     ${LIBUAVCAN_GCOV_TOOL_ARG}
                     --rc lcov_branch_coverage=1
-                    --add-tracefile ${ARG_OUTDIR}/coverage.baseline.info
+                    --add-tracefile ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.baseline.info
                     --add-tracefile ${ARG_OUTDIR}/coverage.${ARG_TEST_NAME}.test.info
                     --output-file ${ARG_OUTDIR}/coverage.${ARG_TEST_NAME}.info
           COMMAND # Only use data for things under libuavcan.
@@ -88,6 +109,11 @@ function(define_native_test_run ARG_TEST_NAME ARG_OUTDIR)
                     --output-file ${ARG_OUTDIR}/coverage.${ARG_TEST_NAME}.filtered.info
           OUTPUT ${ARG_OUTDIR}/coverage.${ARG_TEST_NAME}.filtered.info
           DEPENDS ${ARG_TEST_NAME}
+     )
+
+     add_custom_target(
+          run_${ARG_TEST_NAME}_with_lcov
+          DEPENDS ${ARG_OUTDIR}/coverage.${ARG_TEST_NAME}.filtered.info
      )
 
 endfunction()
@@ -116,7 +142,7 @@ function(define_natve_test_coverage ARG_TEST_NAME ARG_OUTDIR)
                     --highlight
                     --show-details
                     ${ARG_OUTDIR}/coverage.${ARG_TEST_NAME}.filtered.info
-          DEPENDS run_${ARG_TEST_NAME}
+          DEPENDS run_${ARG_TEST_NAME}_with_lcov
      )
 endfunction()
 
@@ -167,15 +193,27 @@ file(GLOB NATIVE_TESTS
      ${CMAKE_CURRENT_SOURCE_DIR}/test/native/test_*.cpp
 )
 
+add_custom_target(
+     lcov_zero
+     ${LCOV}
+          ${LIBUAVCAN_GCOV_TOOL_ARG}
+          --zerocounters
+          --directory ${CMAKE_CURRENT_BINARY_DIR}
+     COMMENT "Resetting coverage counters."
+)
+
 set(ALL_TESTS "")
+set(ALL_TESTS_WITH_LCOV "")
 set(ALL_TEST_COVERAGE "")
 
 foreach(NATIVE_TEST ${NATIVE_TESTS})
     get_filename_component(NATIVE_TEST_NAME ${NATIVE_TEST} NAME_WE)
     define_native_unit_test(${NATIVE_TEST_NAME} ${NATIVE_TEST} ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR})
     define_native_test_run(${NATIVE_TEST_NAME} ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR})
+    define_native_test_run_with_lcov(${NATIVE_TEST_NAME} ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR})
     define_natve_test_coverage(${NATIVE_TEST_NAME} ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR})
     list(APPEND ALL_TESTS "run_${NATIVE_TEST_NAME}")
+    list(APPEND ALL_TESTS_WITH_LCOV "run_${NATIVE_TEST_NAME}_with_lcov")
     list(APPEND ALL_TEST_COVERAGE "--add-tracefile")
     list(APPEND ALL_TEST_COVERAGE "${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.${NATIVE_TEST_NAME}.filtered.info")
 endforeach()
@@ -192,7 +230,7 @@ add_custom_command(
                --rc lcov_branch_coverage=1
                ${ALL_TEST_COVERAGE}
                --output-file ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.all.info
-     DEPENDS ${ALL_TESTS}
+     DEPENDS ${ALL_TESTS_WITH_LCOV}
 )
 
 add_custom_command(
@@ -226,7 +264,32 @@ add_custom_target(
           --show-details
           ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.info
      DEPENDS ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.info
+     COMMENT "Build and run all tests and generate an overall html coverage report."
 )
+
+add_custom_target(
+     test_all
+     DEPENDS
+          ${ALL_TESTS}
+)
+
+# +---------------------------------------------------------------------------+
+#   If we can we try to upload the report to coveralls.
+#
+find_package(coveralls)
+
+if (COVERALLS)
+     message(STATUS "coveralls upload binary was defined. Adding the upload target: coveralls_upload")
+     add_custom_target(
+          coveralls_upload
+          ${COVERALLS} --root ${CMAKE_CURRENT_SOURCE_DIR} ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.info -v
+          COMMENT "Upload to coveralls (requires that COVERALLS_TOKEN is defined in the environment)."
+     )
+
+else()
+     message(WARNING "coveralls upload script not found. Upload target will not be available.")
+endif()
+
 
 # Write a README to create the tests folder.
 file(WRITE ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/README.txt

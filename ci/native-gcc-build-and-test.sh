@@ -45,8 +45,6 @@ make -j4
 ctest -VV
 
 # This builds, runs, and reports on our native unit tests.
-# TODO: when we integrate with coveralls or codacy run make cov_info
-# instead to skip the genhtml step.
 make cov_all
 
 make docs

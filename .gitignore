@@ -1,3 +1,6 @@
+# Dumb OS crap
+.DS_Store
+
 # Build outputs
 *.o
 *.d
@@ -32,3 +35,7 @@ build
 build_ci_*
 build_ext
 
+# Python
+*.egg-info
+*.pyc
+.mypy_cache
