@@ -68,6 +68,6 @@ steps:
       queue: 'default'
     timeout_in_minutes: 15
     branches:
-      uavcan-v1
+      uavcan-v1.0
     env:
       VERBOSE: 1
