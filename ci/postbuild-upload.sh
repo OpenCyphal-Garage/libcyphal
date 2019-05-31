@@ -36,6 +36,6 @@ buildkite-agent artifact download "build_ci_native_gcc/docs/html.gz" .
 
 tar -xvf docs/html.gz
 
-gh-pages --dotfiles --message "Doc upload for build ${BUILDKITE_BUILD_NUMBER}" --dist docs/html
+gh-pages --dotfiles --message "Doc upload for build ${BUILDKITE_BUILD_NUMBER}" --user "uavcan1.0 <uavcan1.0@uavcan.org>" --dist docs/html
 
 popd
