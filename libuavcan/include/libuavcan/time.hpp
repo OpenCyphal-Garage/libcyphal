@@ -91,7 +91,7 @@ public:
 
     Base& operator=(Base&& rhs)
     {
-        usec_ = rhs.usec_;
+        usec_     = rhs.usec_;
         rhs.usec_ = 0;
         return *this;
     }
@@ -241,7 +241,7 @@ public:
 
     Base& operator=(Base&& rhs)
     {
-        usec_ = rhs.usec_;
+        usec_     = rhs.usec_;
         rhs.usec_ = 0;
         return *this;
     }

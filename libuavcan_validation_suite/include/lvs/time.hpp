@@ -44,7 +44,7 @@ TYPED_TEST_SUITE_P(DurationOrTimeTest);
 TYPED_TEST_P(DurationOrTimeTest, DefaultOperations)
 {
     const typename TypeParam::MicrosecondType default_value = static_cast<typename TypeParam::MicrosecondType>(0);
-    const typename TypeParam::MicrosecondType alt_value = static_cast<typename TypeParam::MicrosecondType>(2);
+    const typename TypeParam::MicrosecondType alt_value     = static_cast<typename TypeParam::MicrosecondType>(2);
 
     // Per http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#cctor-constructors-assignments-and-destructors
     // default ctor
@@ -53,7 +53,7 @@ TYPED_TEST_P(DurationOrTimeTest, DefaultOperations)
 
     // assignment
     TypeParam assignFrom = TypeParam::fromMicrosecond(alt_value);
-    defaultCtor = assignFrom;
+    defaultCtor          = assignFrom;
     ASSERT_EQ(alt_value, defaultCtor.toMicrosecond());
     ASSERT_EQ(alt_value, assignFrom.toMicrosecond());
 
@@ -68,7 +68,7 @@ TYPED_TEST_P(DurationOrTimeTest, DefaultOperations)
 
     // move assignment
     TypeParam moveFrom = TypeParam::fromMicrosecond(alt_value);
-    defaultCtor = std::move(moveFrom);
+    defaultCtor        = std::move(moveFrom);
     ASSERT_EQ(alt_value, defaultCtor.toMicrosecond());
     ASSERT_EQ(default_value, moveFrom.toMicrosecond());
 
@@ -91,8 +91,8 @@ TYPED_TEST_P(DurationOrTimeTest, Concept_fromMicrosecond)
  */
 TYPED_TEST_P(DurationOrTimeTest, SaturatedAdd)
 {
-    TypeParam instance =
-        TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::max()) + TypeParam::DurationType::fromMicrosecond(1);
+    TypeParam instance = TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::max()) +
+                         TypeParam::DurationType::fromMicrosecond(1);
     ASSERT_EQ(std::numeric_limits<typename TypeParam::MicrosecondType>::max(), instance.toMicrosecond());
 }
 
@@ -101,8 +101,8 @@ TYPED_TEST_P(DurationOrTimeTest, SaturatedAdd)
  */
 TYPED_TEST_P(DurationOrTimeTest, SaturatedSubtract)
 {
-    TypeParam instance =
-        TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::min()) - TypeParam::DurationType::fromMicrosecond(1);
+    TypeParam instance = TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::min()) -
+                         TypeParam::DurationType::fromMicrosecond(1);
     ASSERT_EQ(std::numeric_limits<typename TypeParam::MicrosecondType>::min(), instance.toMicrosecond());
 }
 
@@ -136,7 +136,7 @@ TYPED_TEST_SUITE_P(DurationTest);
 TYPED_TEST_P(DurationTest, DefaultOperations)
 {
     const typename TypeParam::MicrosecondType default_value = static_cast<typename TypeParam::MicrosecondType>(0);
-    const typename TypeParam::MicrosecondType alt_value = static_cast<typename TypeParam::MicrosecondType>(2);
+    const typename TypeParam::MicrosecondType alt_value     = static_cast<typename TypeParam::MicrosecondType>(2);
 
     // Per http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#cctor-constructors-assignments-and-destructors
     // default ctor
@@ -145,7 +145,7 @@ TYPED_TEST_P(DurationTest, DefaultOperations)
 
     // assignment
     TypeParam assignFrom = TypeParam::fromMicrosecond(alt_value);
-    defaultCtor = assignFrom;
+    defaultCtor          = assignFrom;
     ASSERT_EQ(alt_value, defaultCtor.toMicrosecond());
     ASSERT_EQ(alt_value, assignFrom.toMicrosecond());
 
@@ -160,7 +160,7 @@ TYPED_TEST_P(DurationTest, DefaultOperations)
 
     // move assignment
     TypeParam moveFrom = TypeParam::fromMicrosecond(alt_value);
-    defaultCtor = std::move(moveFrom);
+    defaultCtor        = std::move(moveFrom);
     ASSERT_EQ(alt_value, defaultCtor.toMicrosecond());
     ASSERT_EQ(default_value, moveFrom.toMicrosecond());
 
@@ -197,7 +197,7 @@ TYPED_TEST_SUITE_P(TimeTest);
 TYPED_TEST_P(TimeTest, DefaultOperations)
 {
     const typename TypeParam::MicrosecondType default_value = static_cast<typename TypeParam::MicrosecondType>(0);
-    const typename TypeParam::MicrosecondType alt_value = static_cast<typename TypeParam::MicrosecondType>(2);
+    const typename TypeParam::MicrosecondType alt_value     = static_cast<typename TypeParam::MicrosecondType>(2);
 
     // Per http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#cctor-constructors-assignments-and-destructors
     // default ctor
@@ -206,7 +206,7 @@ TYPED_TEST_P(TimeTest, DefaultOperations)
 
     // assignment
     TypeParam assignFrom = TypeParam::fromMicrosecond(alt_value);
-    defaultCtor = assignFrom;
+    defaultCtor          = assignFrom;
     ASSERT_EQ(alt_value, defaultCtor.toMicrosecond());
     ASSERT_EQ(alt_value, assignFrom.toMicrosecond());
 
@@ -221,7 +221,7 @@ TYPED_TEST_P(TimeTest, DefaultOperations)
 
     // move assignment
     TypeParam moveFrom = TypeParam::fromMicrosecond(alt_value);
-    defaultCtor = std::move(moveFrom);
+    defaultCtor        = std::move(moveFrom);
     ASSERT_EQ(alt_value, defaultCtor.toMicrosecond());
     ASSERT_EQ(default_value, moveFrom.toMicrosecond());
 
