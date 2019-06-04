@@ -150,7 +150,7 @@ namespace time
  * @tparam USecT         The datatype returned when retrieving time from
  *                       realizations of this base class. This type must be unsigned.
  */
-template <typename Type, typename DType, typename USecT = uint64_t>
+template <typename Type, typename DType, typename USecT = std::uint64_t>
 class Base
 {
     USecT usec_;
