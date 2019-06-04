@@ -41,10 +41,41 @@ TYPED_TEST_SUITE_P(DurationOrTimeTest);
 /**
  * Ensure that the default duration is 0.
  */
-TYPED_TEST_P(DurationOrTimeTest, DefaultValue)
+TYPED_TEST_P(DurationOrTimeTest, DefaultOperations)
 {
-    TypeParam instance;
-    ASSERT_EQ(static_cast<typename TypeParam::MicrosecondType>(0), instance.toMicrosecond());
+    const typename TypeParam::MicrosecondType default_value = static_cast<typename TypeParam::MicrosecondType>(0);
+    const typename TypeParam::MicrosecondType alt_value = static_cast<typename TypeParam::MicrosecondType>(2);
+
+    // Per http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#cctor-constructors-assignments-and-destructors
+    // default ctor
+    TypeParam defaultCtor;
+    ASSERT_EQ(default_value, defaultCtor.toMicrosecond());
+
+    // assignment
+    TypeParam assignFrom = TypeParam::fromMicrosecond(alt_value);
+    defaultCtor = assignFrom;
+    ASSERT_EQ(alt_value, defaultCtor.toMicrosecond());
+    ASSERT_EQ(alt_value, assignFrom.toMicrosecond());
+
+    // copy ctor
+    TypeParam copyCtorLhs(defaultCtor);
+    ASSERT_EQ(alt_value, copyCtorLhs.toMicrosecond());
+
+    // move ctor
+    TypeParam movedInto(std::move(defaultCtor));
+    ASSERT_EQ(alt_value, movedInto.toMicrosecond());
+    ASSERT_EQ(default_value, defaultCtor.toMicrosecond());
+
+    // move assignment
+    TypeParam moveFrom = TypeParam::fromMicrosecond(alt_value);
+    defaultCtor = std::move(moveFrom);
+    ASSERT_EQ(alt_value, defaultCtor.toMicrosecond());
+    ASSERT_EQ(default_value, moveFrom.toMicrosecond());
+
+    {
+        TypeParam destructed;
+        ASSERT_EQ(default_value, destructed.toMicrosecond());
+    }
 }
 
 /**
@@ -76,7 +107,7 @@ TYPED_TEST_P(DurationOrTimeTest, SaturatedSubtract)
 }
 
 REGISTER_TYPED_TEST_SUITE_P(DurationOrTimeTest,  //
-                            DefaultValue,
+                            DefaultOperations,
                             Concept_fromMicrosecond,
                             SaturatedAdd,
                             SaturatedSubtract);
@@ -102,14 +133,45 @@ TYPED_TEST_SUITE_P(DurationTest);
 /**
  * Ensure that the default duration is 0.
  */
-TYPED_TEST_P(DurationTest, DefaultValue)
+TYPED_TEST_P(DurationTest, DefaultOperations)
 {
-    TypeParam instance;
-    ASSERT_EQ(static_cast<typename TypeParam::MicrosecondType>(0), instance.toMicrosecond());
+    const typename TypeParam::MicrosecondType default_value = static_cast<typename TypeParam::MicrosecondType>(0);
+    const typename TypeParam::MicrosecondType alt_value = static_cast<typename TypeParam::MicrosecondType>(2);
+
+    // Per http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#cctor-constructors-assignments-and-destructors
+    // default ctor
+    TypeParam defaultCtor;
+    ASSERT_EQ(default_value, defaultCtor.toMicrosecond());
+
+    // assignment
+    TypeParam assignFrom = TypeParam::fromMicrosecond(alt_value);
+    defaultCtor = assignFrom;
+    ASSERT_EQ(alt_value, defaultCtor.toMicrosecond());
+    ASSERT_EQ(alt_value, assignFrom.toMicrosecond());
+
+    // copy ctor
+    TypeParam copyCtorLhs(defaultCtor);
+    ASSERT_EQ(alt_value, copyCtorLhs.toMicrosecond());
+
+    // move ctor
+    TypeParam movedInto(std::move(defaultCtor));
+    ASSERT_EQ(alt_value, movedInto.toMicrosecond());
+    ASSERT_EQ(default_value, defaultCtor.toMicrosecond());
+
+    // move assignment
+    TypeParam moveFrom = TypeParam::fromMicrosecond(alt_value);
+    defaultCtor = std::move(moveFrom);
+    ASSERT_EQ(alt_value, defaultCtor.toMicrosecond());
+    ASSERT_EQ(default_value, moveFrom.toMicrosecond());
+
+    {
+        TypeParam destructed;
+        ASSERT_EQ(default_value, destructed.toMicrosecond());
+    }
 }
 
 REGISTER_TYPED_TEST_SUITE_P(DurationTest,  //
-                            DefaultValue);
+                            DefaultOperations);
 
 /**
  * Test fixture for testing realizations of the libuavcan::time::Base template.
@@ -132,14 +194,45 @@ TYPED_TEST_SUITE_P(TimeTest);
 /**
  * Ensure that the default duration is 0.
  */
-TYPED_TEST_P(TimeTest, DefaultValue)
+TYPED_TEST_P(TimeTest, DefaultOperations)
 {
-    TypeParam instance;
-    ASSERT_EQ(static_cast<typename TypeParam::MicrosecondType>(0), instance.toMicrosecond());
+    const typename TypeParam::MicrosecondType default_value = static_cast<typename TypeParam::MicrosecondType>(0);
+    const typename TypeParam::MicrosecondType alt_value = static_cast<typename TypeParam::MicrosecondType>(2);
+
+    // Per http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#cctor-constructors-assignments-and-destructors
+    // default ctor
+    TypeParam defaultCtor;
+    ASSERT_EQ(default_value, defaultCtor.toMicrosecond());
+
+    // assignment
+    TypeParam assignFrom = TypeParam::fromMicrosecond(alt_value);
+    defaultCtor = assignFrom;
+    ASSERT_EQ(alt_value, defaultCtor.toMicrosecond());
+    ASSERT_EQ(alt_value, assignFrom.toMicrosecond());
+
+    // copy ctor
+    TypeParam copyCtorLhs(defaultCtor);
+    ASSERT_EQ(alt_value, copyCtorLhs.toMicrosecond());
+
+    // move ctor
+    TypeParam movedInto(std::move(defaultCtor));
+    ASSERT_EQ(alt_value, movedInto.toMicrosecond());
+    ASSERT_EQ(default_value, defaultCtor.toMicrosecond());
+
+    // move assignment
+    TypeParam moveFrom = TypeParam::fromMicrosecond(alt_value);
+    defaultCtor = std::move(moveFrom);
+    ASSERT_EQ(alt_value, defaultCtor.toMicrosecond());
+    ASSERT_EQ(default_value, moveFrom.toMicrosecond());
+
+    {
+        TypeParam destructed;
+        ASSERT_EQ(default_value, destructed.toMicrosecond());
+    }
 }
 
 REGISTER_TYPED_TEST_SUITE_P(TimeTest,  //
-                            DefaultValue);
+                            DefaultOperations);
 }  // end namespace lvs
 
 #endif  // LIBUAVCAN_LVS_TIME_HPP_INCLUDED

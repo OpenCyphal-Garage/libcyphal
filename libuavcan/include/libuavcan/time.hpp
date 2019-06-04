@@ -40,8 +40,22 @@ protected:
         : usec_(0)
     {
         static_assert(sizeof(Type) == sizeof(USecT),
-                      "The duratiotn abstraction must be the same size as the underlying duration type.");
+                      "The duration abstraction must be the same size as the underlying duration type.");
         static_assert(std::is_signed<USecT>::value, "The microsecond type must be signed for durations.");
+    }
+
+    Base(const Base& rhs)
+        : usec_(rhs.usec_)
+    {}
+
+    /**
+     * Move constructor takes value from rhs and
+     * resets rhs to 0.
+     */
+    Base(Base&& rhs)
+        : usec_(rhs.usec_)
+    {
+        rhs.usec_ = 0;
     }
 
 public:
@@ -73,6 +87,19 @@ public:
     Type getAbs() const
     {
         return Type::fromMicrosecond(std::abs(usec_));
+    }
+
+    Base& operator=(Base&& rhs)
+    {
+        usec_ = rhs.usec_;
+        rhs.usec_ = 0;
+        return *this;
+    }
+
+    Base& operator=(const Base& rhs)
+    {
+        usec_ = rhs.usec_;
+        return *this;
     }
 
     bool operator==(const Type& r) const
@@ -172,6 +199,20 @@ protected:
                       "Microsecond Type must be the same size as the duration type.");
     }
 
+    Base(const Base& rhs)
+        : usec_(rhs.usec_)
+    {}
+
+    /**
+     * Move constructor takes value from rhs and
+     * resets rhs to 0.
+     */
+    Base(Base&& rhs)
+        : usec_(rhs.usec_)
+    {
+        rhs.usec_ = 0;
+    }
+
 public:
     using MicrosecondType = USecT;
     using DurationType    = DType;
@@ -196,6 +237,19 @@ public:
     USecT toMillisecond() const
     {
         return usec_ / static_cast<USecT>(1000);
+    }
+
+    Base& operator=(Base&& rhs)
+    {
+        usec_ = rhs.usec_;
+        rhs.usec_ = 0;
+        return *this;
+    }
+
+    Base& operator=(const Base& rhs)
+    {
+        usec_ = rhs.usec_;
+        return *this;
     }
 
     bool operator==(const Type& r) const
