@@ -29,7 +29,7 @@
             <div class="container">
                 <div class="navbar-header">
                     <a class="navbar-brand" href="https://uavcan.org"><img src="uavcan_logo.svg" style="float:left;height:1.5em;padding:0em .5em .25em 0em;"/> libuavcan</a>
-                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/82" style="font-size: .75em; color: coral">build:82</a></em>
+                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/91" style="font-size: .75em; color: coral">build:91</a></em>
                 </div>
             </div>
         </nav>
@@ -94,46 +94,54 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a9986596e13f639e968fb96d533cb7e7e"><td class="memTemplParams" colspan="2"><a id="a9986596e13f639e968fb96d533cb7e7e"></a>
-template&lt;class SIGNED_TYPE , typename std::enable_if&lt; std::is_integral&lt; SIGNED_TYPE &gt;::value &amp;&amp;std::is_signed&lt; SIGNED_TYPE &gt;::value, int &gt;::type  = 0&gt; </td></tr>
-<tr class="memitem:a9986596e13f639e968fb96d533cb7e7e"><td class="memTemplItemLeft" align="right" valign="top">constexpr SIGNED_TYPE&#160;</td><td class="memTemplItemRight" valign="bottom"><b>libuavcan::util::_saturating_add_d</b> (SIGNED_TYPE left, SIGNED_TYPE right)</td></tr>
-<tr class="separator:a9986596e13f639e968fb96d533cb7e7e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2b553cbd4c00860b75b4fead4edf5b7c"><td class="memTemplParams" colspan="2"><a id="a2b553cbd4c00860b75b4fead4edf5b7c"></a>
-template&lt;class SIGNED_TYPE , typename std::enable_if&lt; std::is_integral&lt; SIGNED_TYPE &gt;::value &amp;&amp;std::is_signed&lt; SIGNED_TYPE &gt;::value, int &gt;::type  = 0&gt; </td></tr>
-<tr class="memitem:a2b553cbd4c00860b75b4fead4edf5b7c"><td class="memTemplItemLeft" align="right" valign="top">constexpr SIGNED_TYPE&#160;</td><td class="memTemplItemRight" valign="bottom"><b>libuavcan::util::_saturating_sub_d</b> (SIGNED_TYPE left, SIGNED_TYPE right)</td></tr>
-<tr class="separator:a2b553cbd4c00860b75b4fead4edf5b7c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a39450761d4388ad8f892c95537177475"><td class="memTemplParams" colspan="2">template&lt;class SIGNED_TYPE , typename std::enable_if&lt; std::is_integral&lt; SIGNED_TYPE &gt;::value &amp;&amp;std::is_signed&lt; SIGNED_TYPE &gt;::value, int &gt;::type  = 0&gt; </td></tr>
-<tr class="memitem:a39450761d4388ad8f892c95537177475"><td class="memTemplItemLeft" align="right" valign="top">SIGNED_TYPE&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="math_8hpp.html#a39450761d4388ad8f892c95537177475">libuavcan::util::saturating_add</a> (SIGNED_TYPE left, SIGNED_TYPE right)</td></tr>
-<tr class="separator:a39450761d4388ad8f892c95537177475"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a57a75db6062de8e249d06a4be65c5a85"><td class="memTemplParams" colspan="2">template&lt;class SIGNED_TYPE , typename std::enable_if&lt; std::is_integral&lt; SIGNED_TYPE &gt;::value &amp;&amp;std::is_signed&lt; SIGNED_TYPE &gt;::value, int &gt;::type  = 0&gt; </td></tr>
-<tr class="memitem:a57a75db6062de8e249d06a4be65c5a85"><td class="memTemplItemLeft" align="right" valign="top">SIGNED_TYPE&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="math_8hpp.html#a57a75db6062de8e249d06a4be65c5a85">libuavcan::util::saturating_sub</a> (SIGNED_TYPE left, SIGNED_TYPE right)</td></tr>
-<tr class="separator:a57a75db6062de8e249d06a4be65c5a85"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1f0b543fcb2342b8c77424fad83e3e02"><td class="memTemplParams" colspan="2">template&lt;class UNSIGNED_TYPE , typename std::enable_if&lt; std::is_integral&lt; UNSIGNED_TYPE &gt;::value &amp;&amp;!std::is_signed&lt; UNSIGNED_TYPE &gt;::value, int &gt;::type  = 0&gt; </td></tr>
-<tr class="memitem:a1f0b543fcb2342b8c77424fad83e3e02"><td class="memTemplItemLeft" align="right" valign="top">constexpr UNSIGNED_TYPE&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="math_8hpp.html#a1f0b543fcb2342b8c77424fad83e3e02">libuavcan::util::saturating_add</a> (UNSIGNED_TYPE left, UNSIGNED_TYPE right)</td></tr>
-<tr class="separator:a1f0b543fcb2342b8c77424fad83e3e02"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2f815398b1e160b9d2981d5ad6078961"><td class="memTemplParams" colspan="2">template&lt;class UNSIGNED_TYPE , typename std::enable_if&lt; std::is_integral&lt; UNSIGNED_TYPE &gt;::value &amp;&amp;!std::is_signed&lt; UNSIGNED_TYPE &gt;::value, int &gt;::type  = 0&gt; </td></tr>
-<tr class="memitem:a2f815398b1e160b9d2981d5ad6078961"><td class="memTemplItemLeft" align="right" valign="top">constexpr UNSIGNED_TYPE&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="math_8hpp.html#a2f815398b1e160b9d2981d5ad6078961">libuavcan::util::saturating_sub</a> (UNSIGNED_TYPE left, UNSIGNED_TYPE right)</td></tr>
-<tr class="separator:a2f815398b1e160b9d2981d5ad6078961"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab38d9ecfb8f47a72b66166d5cbe4866b"><td class="memTemplParams" colspan="2"><a id="ab38d9ecfb8f47a72b66166d5cbe4866b"></a>
+template&lt;class SignedType , typename std::enable_if&lt; std::is_integral&lt; SignedType &gt;::value &amp;&amp;std::is_signed&lt; SignedType &gt;::value, int &gt;::type  = 0&gt; </td></tr>
+<tr class="memitem:ab38d9ecfb8f47a72b66166d5cbe4866b"><td class="memTemplItemLeft" align="right" valign="top">constexpr SignedType&#160;</td><td class="memTemplItemRight" valign="bottom"><b>libuavcan::util::_saturating_add_d</b> (SignedType left, SignedType right)</td></tr>
+<tr class="separator:ab38d9ecfb8f47a72b66166d5cbe4866b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4ba72981bb31fd946613089b05aa3c4f"><td class="memTemplParams" colspan="2"><a id="a4ba72981bb31fd946613089b05aa3c4f"></a>
+template&lt;class SignedType , typename std::enable_if&lt; std::is_integral&lt; SignedType &gt;::value &amp;&amp;std::is_signed&lt; SignedType &gt;::value, int &gt;::type  = 0&gt; </td></tr>
+<tr class="memitem:a4ba72981bb31fd946613089b05aa3c4f"><td class="memTemplItemLeft" align="right" valign="top">constexpr SignedType&#160;</td><td class="memTemplItemRight" valign="bottom"><b>libuavcan::util::_saturating_sub_d</b> (SignedType left, SignedType right)</td></tr>
+<tr class="separator:a4ba72981bb31fd946613089b05aa3c4f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a130f5b835333d35ea6da4f07b05a4e4e"><td class="memTemplParams" colspan="2">template&lt;class SignedType , typename std::enable_if&lt; std::is_integral&lt; SignedType &gt;::value &amp;&amp;std::is_signed&lt; SignedType &gt;::value, int &gt;::type  = 0&gt; </td></tr>
+<tr class="memitem:a130f5b835333d35ea6da4f07b05a4e4e"><td class="memTemplItemLeft" align="right" valign="top">SignedType&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="math_8hpp.html#a130f5b835333d35ea6da4f07b05a4e4e">libuavcan::util::saturating_add</a> (SignedType left, SignedType right)</td></tr>
+<tr class="separator:a130f5b835333d35ea6da4f07b05a4e4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a201b27a804c60b03f058528b823fd48f"><td class="memTemplParams" colspan="2">template&lt;class SignedType , typename std::enable_if&lt; std::is_integral&lt; SignedType &gt;::value &amp;&amp;std::is_signed&lt; SignedType &gt;::value, int &gt;::type  = 0&gt; </td></tr>
+<tr class="memitem:a201b27a804c60b03f058528b823fd48f"><td class="memTemplItemLeft" align="right" valign="top">SignedType&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="math_8hpp.html#a201b27a804c60b03f058528b823fd48f">libuavcan::util::saturating_sub</a> (SignedType left, SignedType right)</td></tr>
+<tr class="separator:a201b27a804c60b03f058528b823fd48f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acdf973f3646b5898334f5477a34334f9"><td class="memTemplParams" colspan="2">template&lt;class UnsignedType , typename std::enable_if&lt; std::is_integral&lt; UnsignedType &gt;::value &amp;&amp;!std::is_signed&lt; UnsignedType &gt;::value, int &gt;::type  = 0&gt; </td></tr>
+<tr class="memitem:acdf973f3646b5898334f5477a34334f9"><td class="memTemplItemLeft" align="right" valign="top">constexpr UnsignedType&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="math_8hpp.html#acdf973f3646b5898334f5477a34334f9">libuavcan::util::saturating_add</a> (UnsignedType left, UnsignedType right)</td></tr>
+<tr class="separator:acdf973f3646b5898334f5477a34334f9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a56c8860fb590d6a0abaa714b5bdf65be"><td class="memTemplParams" colspan="2">template&lt;class UnsignedType , typename std::enable_if&lt; std::is_integral&lt; UnsignedType &gt;::value &amp;&amp;!std::is_signed&lt; UnsignedType &gt;::value, int &gt;::type  = 0&gt; </td></tr>
+<tr class="memitem:a56c8860fb590d6a0abaa714b5bdf65be"><td class="memTemplItemLeft" align="right" valign="top">constexpr UnsignedType&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="math_8hpp.html#a56c8860fb590d6a0abaa714b5bdf65be">libuavcan::util::saturating_sub</a> (UnsignedType left, UnsignedType right)</td></tr>
+<tr class="separator:a56c8860fb590d6a0abaa714b5bdf65be"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5667709fe68a30e385f945c305afb1ea"><td class="memTemplParams" colspan="2"><a id="a5667709fe68a30e385f945c305afb1ea"></a>
+template&lt;class LhsType , class RhsType , typename std::enable_if&lt; std::is_integral&lt; LhsType &gt;::value &amp;&amp;!std::is_signed&lt; LhsType &gt;::value &amp;&amp;std::is_integral&lt; RhsType &gt;::value &amp;&amp;std::is_signed&lt; RhsType &gt;::value, int &gt;::type  = 0&gt; </td></tr>
+<tr class="memitem:a5667709fe68a30e385f945c305afb1ea"><td class="memTemplItemLeft" align="right" valign="top">constexpr LhsType&#160;</td><td class="memTemplItemRight" valign="bottom"><b>libuavcan::util::saturating_sub</b> (LhsType left, RhsType right)</td></tr>
+<tr class="separator:a5667709fe68a30e385f945c305afb1ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa939a66f319610d42fbef6e45fee3fe9"><td class="memTemplParams" colspan="2"><a id="aa939a66f319610d42fbef6e45fee3fe9"></a>
+template&lt;class LhsType , class RhsType , typename std::enable_if&lt; std::is_integral&lt; LhsType &gt;::value &amp;&amp;!std::is_signed&lt; LhsType &gt;::value &amp;&amp;std::is_integral&lt; RhsType &gt;::value &amp;&amp;std::is_signed&lt; RhsType &gt;::value, int &gt;::type  = 0&gt; </td></tr>
+<tr class="memitem:aa939a66f319610d42fbef6e45fee3fe9"><td class="memTemplItemLeft" align="right" valign="top">constexpr LhsType&#160;</td><td class="memTemplItemRight" valign="bottom"><b>libuavcan::util::saturating_add</b> (LhsType left, RhsType right)</td></tr>
+<tr class="separator:aa939a66f319610d42fbef6e45fee3fe9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Function Documentation</h2>
-<a id="file_a39450761d4388ad8f892c95537177475"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#file_a39450761d4388ad8f892c95537177475">&#9670;&nbsp;</a></span>saturating_add() <span class="overload">[1/2]</span></h2>
+<a id="file_a130f5b835333d35ea6da4f07b05a4e4e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#file_a130f5b835333d35ea6da4f07b05a4e4e">&#9670;&nbsp;</a></span>saturating_add() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;class SIGNED_TYPE , typename std::enable_if&lt; std::is_integral&lt; SIGNED_TYPE &gt;::value &amp;&amp;std::is_signed&lt; SIGNED_TYPE &gt;::value, int &gt;::type  = 0&gt; </div>
+template&lt;class SignedType , typename std::enable_if&lt; std::is_integral&lt; SignedType &gt;::value &amp;&amp;std::is_signed&lt; SignedType &gt;::value, int &gt;::type  = 0&gt; </div>
       <table class="memname">
         <tr>
-          <td class="memname">SIGNED_TYPE libuavcan::util::saturating_add </td>
+          <td class="memname">SignedType libuavcan::util::saturating_add </td>
           <td>(</td>
-          <td class="paramtype">SIGNED_TYPE&#160;</td>
+          <td class="paramtype">SignedType&#160;</td>
           <td class="paramname"><em>left</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">SIGNED_TYPE&#160;</td>
+          <td class="paramtype">SignedType&#160;</td>
           <td class="paramname"><em>right</em>&#160;</td>
         </tr>
         <tr>
@@ -146,7 +154,7 @@ template&lt;class SIGNED_TYPE , typename std::enable_if&lt; std::is_integral&lt;
 <p>Generic implementation of a saturating add operation that does not require integer promotion (i.e. will work with int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that use hardware support for saturation arithmetic.</p>
 <dl class="tparams"><dt>Template Parameters</dt><dd>
   <table class="tparams">
-    <tr><td class="paramname">SIGNED_TYPE</td><td>The signed integer type of both operands. </td></tr>
+    <tr><td class="paramname">SignedType</td><td>The signed integer type of both operands. </td></tr>
     <tr><td class="paramname">0</td><td>For SFINAE </td></tr>
   </table>
   </dd>
@@ -158,32 +166,28 @@ template&lt;class SIGNED_TYPE , typename std::enable_if&lt; std::is_integral&lt;
   </table>
   </dd>
 </dl>
-<dl class="section return"><dt>Returns</dt><dd>SIGNED_TYPE The result which will saturate to<div class="fragment"><div class="line">std::numeric_limits&lt;SIGNED_TYPE&gt;::min() </div></div><!-- fragment --> or<div class="fragment"><div class="line">std::numeric_limits&lt;SIGNED_TYPE&gt;::max() </div></div><!-- fragment --> </dd></dl>
-
-<p class="reference">References <a class="el" href="math_8hpp.html#a39450761d4388ad8f892c95537177475">libuavcan::util::saturating_add()</a>.</p>
-
-<p class="reference">Referenced by <a class="el" href="math_8hpp.html#a39450761d4388ad8f892c95537177475">libuavcan::util::saturating_add()</a>.</p>
+<dl class="section return"><dt>Returns</dt><dd>SignedType The result which will saturate to<div class="fragment"><div class="line">std::numeric_limits&lt;SignedType&gt;::min() </div></div><!-- fragment --> or<div class="fragment"><div class="line">std::numeric_limits&lt;SignedType&gt;::max() </div></div><!-- fragment --> </dd></dl>
 
 </div>
 </div>
-<a id="file_a1f0b543fcb2342b8c77424fad83e3e02"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#file_a1f0b543fcb2342b8c77424fad83e3e02">&#9670;&nbsp;</a></span>saturating_add() <span class="overload">[2/2]</span></h2>
+<a id="file_acdf973f3646b5898334f5477a34334f9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#file_acdf973f3646b5898334f5477a34334f9">&#9670;&nbsp;</a></span>saturating_add() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;class UNSIGNED_TYPE , typename std::enable_if&lt; std::is_integral&lt; UNSIGNED_TYPE &gt;::value &amp;&amp;!std::is_signed&lt; UNSIGNED_TYPE &gt;::value, int &gt;::type  = 0&gt; </div>
+template&lt;class UnsignedType , typename std::enable_if&lt; std::is_integral&lt; UnsignedType &gt;::value &amp;&amp;!std::is_signed&lt; UnsignedType &gt;::value, int &gt;::type  = 0&gt; </div>
       <table class="memname">
         <tr>
-          <td class="memname">constexpr UNSIGNED_TYPE libuavcan::util::saturating_add </td>
+          <td class="memname">constexpr UnsignedType libuavcan::util::saturating_add </td>
           <td>(</td>
-          <td class="paramtype">UNSIGNED_TYPE&#160;</td>
+          <td class="paramtype">UnsignedType&#160;</td>
           <td class="paramname"><em>left</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">UNSIGNED_TYPE&#160;</td>
+          <td class="paramtype">UnsignedType&#160;</td>
           <td class="paramname"><em>right</em>&#160;</td>
         </tr>
         <tr>
@@ -196,7 +200,7 @@ template&lt;class UNSIGNED_TYPE , typename std::enable_if&lt; std::is_integral&l
 <p>Generic implementation of a saturating add operation that does not require integer promotion (i.e. will work with int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that use hardware support for saturation arithmetic.</p>
 <dl class="tparams"><dt>Template Parameters</dt><dd>
   <table class="tparams">
-    <tr><td class="paramname">UNSIGNED_TYPE</td><td>The unsigned integer type of both operands. </td></tr>
+    <tr><td class="paramname">UnsignedType</td><td>The unsigned integer type of both operands. </td></tr>
     <tr><td class="paramname">0</td><td>For SFINAE </td></tr>
   </table>
   </dd>
@@ -208,30 +212,28 @@ template&lt;class UNSIGNED_TYPE , typename std::enable_if&lt; std::is_integral&l
   </table>
   </dd>
 </dl>
-<dl class="section return"><dt>Returns</dt><dd>UNSIGNED_TYPE The result which will saturate to<div class="fragment"><div class="line">std::numeric_limits&lt;UNSIGNED_TYPE&gt;::min() </div></div><!-- fragment --> or<div class="fragment"><div class="line">std::numeric_limits&lt;UNSIGNED_TYPE&gt;::max() </div></div><!-- fragment --> </dd></dl>
-
-<p class="reference">References <a class="el" href="math_8hpp.html#a39450761d4388ad8f892c95537177475">libuavcan::util::saturating_add()</a>.</p>
+<dl class="section return"><dt>Returns</dt><dd>UnsignedType The result which will saturate to<div class="fragment"><div class="line">std::numeric_limits&lt;UnsignedType&gt;::min() </div></div><!-- fragment --> or<div class="fragment"><div class="line">std::numeric_limits&lt;UnsignedType&gt;::max() </div></div><!-- fragment --> </dd></dl>
 
 </div>
 </div>
-<a id="file_a57a75db6062de8e249d06a4be65c5a85"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#file_a57a75db6062de8e249d06a4be65c5a85">&#9670;&nbsp;</a></span>saturating_sub() <span class="overload">[1/2]</span></h2>
+<a id="file_a201b27a804c60b03f058528b823fd48f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#file_a201b27a804c60b03f058528b823fd48f">&#9670;&nbsp;</a></span>saturating_sub() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;class SIGNED_TYPE , typename std::enable_if&lt; std::is_integral&lt; SIGNED_TYPE &gt;::value &amp;&amp;std::is_signed&lt; SIGNED_TYPE &gt;::value, int &gt;::type  = 0&gt; </div>
+template&lt;class SignedType , typename std::enable_if&lt; std::is_integral&lt; SignedType &gt;::value &amp;&amp;std::is_signed&lt; SignedType &gt;::value, int &gt;::type  = 0&gt; </div>
       <table class="memname">
         <tr>
-          <td class="memname">SIGNED_TYPE libuavcan::util::saturating_sub </td>
+          <td class="memname">SignedType libuavcan::util::saturating_sub </td>
           <td>(</td>
-          <td class="paramtype">SIGNED_TYPE&#160;</td>
+          <td class="paramtype">SignedType&#160;</td>
           <td class="paramname"><em>left</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">SIGNED_TYPE&#160;</td>
+          <td class="paramtype">SignedType&#160;</td>
           <td class="paramname"><em>right</em>&#160;</td>
         </tr>
         <tr>
@@ -244,7 +246,7 @@ template&lt;class SIGNED_TYPE , typename std::enable_if&lt; std::is_integral&lt;
 <p>Generic implementation of a saturating subtract operation that does not require integer promotion (i.e. will work with int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that use hardware support for saturation arithmetic.</p>
 <dl class="tparams"><dt>Template Parameters</dt><dd>
   <table class="tparams">
-    <tr><td class="paramname">SIGNED_TYPE</td><td>The signed integer type of both operands. </td></tr>
+    <tr><td class="paramname">SignedType</td><td>The signed integer type of both operands. </td></tr>
     <tr><td class="paramname">0</td><td>For SFINAE </td></tr>
   </table>
   </dd>
@@ -256,32 +258,28 @@ template&lt;class SIGNED_TYPE , typename std::enable_if&lt; std::is_integral&lt;
   </table>
   </dd>
 </dl>
-<dl class="section return"><dt>Returns</dt><dd>SIGNED_TYPE The result which will saturate to<div class="fragment"><div class="line">std::numeric_limits&lt;SIGNED_TYPE&gt;::min() </div></div><!-- fragment --> or<div class="fragment"><div class="line">std::numeric_limits&lt;SIGNED_TYPE&gt;::max() </div></div><!-- fragment --> </dd></dl>
-
-<p class="reference">References <a class="el" href="math_8hpp.html#a57a75db6062de8e249d06a4be65c5a85">libuavcan::util::saturating_sub()</a>.</p>
-
-<p class="reference">Referenced by <a class="el" href="math_8hpp.html#a57a75db6062de8e249d06a4be65c5a85">libuavcan::util::saturating_sub()</a>.</p>
+<dl class="section return"><dt>Returns</dt><dd>SignedType The result which will saturate to<div class="fragment"><div class="line">std::numeric_limits&lt;SignedType&gt;::min() </div></div><!-- fragment --> or<div class="fragment"><div class="line">std::numeric_limits&lt;SignedType&gt;::max() </div></div><!-- fragment --> </dd></dl>
 
 </div>
 </div>
-<a id="file_a2f815398b1e160b9d2981d5ad6078961"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#file_a2f815398b1e160b9d2981d5ad6078961">&#9670;&nbsp;</a></span>saturating_sub() <span class="overload">[2/2]</span></h2>
+<a id="file_a56c8860fb590d6a0abaa714b5bdf65be"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#file_a56c8860fb590d6a0abaa714b5bdf65be">&#9670;&nbsp;</a></span>saturating_sub() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;class UNSIGNED_TYPE , typename std::enable_if&lt; std::is_integral&lt; UNSIGNED_TYPE &gt;::value &amp;&amp;!std::is_signed&lt; UNSIGNED_TYPE &gt;::value, int &gt;::type  = 0&gt; </div>
+template&lt;class UnsignedType , typename std::enable_if&lt; std::is_integral&lt; UnsignedType &gt;::value &amp;&amp;!std::is_signed&lt; UnsignedType &gt;::value, int &gt;::type  = 0&gt; </div>
       <table class="memname">
         <tr>
-          <td class="memname">constexpr UNSIGNED_TYPE libuavcan::util::saturating_sub </td>
+          <td class="memname">constexpr UnsignedType libuavcan::util::saturating_sub </td>
           <td>(</td>
-          <td class="paramtype">UNSIGNED_TYPE&#160;</td>
+          <td class="paramtype">UnsignedType&#160;</td>
           <td class="paramname"><em>left</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">UNSIGNED_TYPE&#160;</td>
+          <td class="paramtype">UnsignedType&#160;</td>
           <td class="paramname"><em>right</em>&#160;</td>
         </tr>
         <tr>
@@ -294,7 +292,7 @@ template&lt;class UNSIGNED_TYPE , typename std::enable_if&lt; std::is_integral&l
 <p>Generic implementation of a saturating subtraction operation that does not require integer promotion (i.e. will work with int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that use hardware support for saturation arithmetic.</p>
 <dl class="tparams"><dt>Template Parameters</dt><dd>
   <table class="tparams">
-    <tr><td class="paramname">UNSIGNED_TYPE</td><td>The unsigned integer type of both operands. </td></tr>
+    <tr><td class="paramname">UnsignedType</td><td>The unsigned integer type of both operands. </td></tr>
     <tr><td class="paramname">0</td><td>For SFINAE </td></tr>
   </table>
   </dd>
@@ -306,9 +304,7 @@ template&lt;class UNSIGNED_TYPE , typename std::enable_if&lt; std::is_integral&l
   </table>
   </dd>
 </dl>
-<dl class="section return"><dt>Returns</dt><dd>UNSIGNED_TYPE The result which will saturate to<div class="fragment"><div class="line">std::numeric_limits&lt;UNSIGNED_TYPE&gt;::min() </div></div><!-- fragment --> or<div class="fragment"><div class="line">std::numeric_limits&lt;UNSIGNED_TYPE&gt;::max() </div></div><!-- fragment --> </dd></dl>
-
-<p class="reference">References <a class="el" href="math_8hpp.html#a57a75db6062de8e249d06a4be65c5a85">libuavcan::util::saturating_sub()</a>.</p>
+<dl class="section return"><dt>Returns</dt><dd>UnsignedType The result which will saturate to<div class="fragment"><div class="line">std::numeric_limits&lt;UnsignedType&gt;::min() </div></div><!-- fragment --> or<div class="fragment"><div class="line">std::numeric_limits&lt;UnsignedType&gt;::max() </div></div><!-- fragment --> </dd></dl>
 
 </div>
 </div>

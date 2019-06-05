@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['monotonicduration',['MonotonicDuration',['../classlibuavcan_1_1_monotonic_duration.html',1,'libuavcan']]]
+  ['iclock',['IClock',['../structlibuavcan_1_1transport_1_1media_1_1_i_clock.html',1,'libuavcan::transport::media']]]
 ];

@@ -29,7 +29,7 @@
             <div class="container">
                 <div class="navbar-header">
                     <a class="navbar-brand" href="https://uavcan.org"><img src="uavcan_logo.svg" style="float:left;height:1.5em;padding:0em .5em .25em 0em;"/> libuavcan</a>
-                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/82" style="font-size: .75em; color: coral">build:82</a></em>
+                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/91" style="font-size: .75em; color: coral">build:91</a></em>
                 </div>
             </div>
         </nav>
@@ -113,7 +113,7 @@ $(function() {
 <li><b>Posix</b> - We will produce examples that can run on top of SocketCAN on Ubuntu 18 or newer. While expect that these examples will be generally compatible with other common linux distros or posix compliant operating systems (that also support SocketCAN) we will compile and test the examples using Ubuntu 18 as part of our CI build.</li>
 </ol>
 <ol type="1">
-<li><b>Bare-metal on NXP s32K146 devkit</b> - We expect to produce examples and tests that run on the s32K146 MCU populated on the standard s32146 evaluation board available from NXP. This is the primary test fixture for the project and will be used as the basis for specifying on-target test rigs.</li>
+<li><b>Bare-metal on NXP S32K148 devkit</b> - We expect to produce examples and tests that run on the S32K148 MCU populated on the standard S32K148 evaluation board available from NXP. This is the primary test fixture for the project and will be used as the basis for specifying on-target test rigs.</li>
 </ol>
 <ol type="1">
 <li><b>Nuttx on Pixhawk4</b> - We expect to produce examples and possibly tests that can run on top of the latest pixhawk hardware and version of Nuttx used by the px4 software stack. This is a lower-priority for the initial development for v1 but will become a focus once we have a fully functional stack.</li>
@@ -184,8 +184,8 @@ $(function() {
 </li>
 </ol>
 <h3>VSCode</h3>
-<p>To use visual studio code to debug ontarget tests for the S32K146EVB you'll need the <a href="https://marketplace.visualstudio.com/items?itemName=marus25.cortex-debug">cortex debug</a> plugin. Here's an example configuration using JLink:</p>
-<div class="fragment"><div class="line"> {</div><div class="line">    &quot;cwd&quot;: &quot;${workspaceRoot}&quot;,</div><div class="line">    &quot;executable&quot;: &quot;build/test_util_math.elf&quot;,</div><div class="line">    &quot;name&quot;: &quot;On-target unit test.&quot;,</div><div class="line">    &quot;request&quot;: &quot;launch&quot;,</div><div class="line">    &quot;type&quot;: &quot;cortex-debug&quot;,</div><div class="line">    &quot;servertype&quot;: &quot;jlink&quot;,</div><div class="line">    &quot;device&quot;: &quot;S32K146&quot;,</div><div class="line">    &quot;svdFile&quot;: &quot;test/ontarget/S32K146EVB/S32K146.svd&quot;</div><div class="line">},</div></div><!-- fragment --> </div></div><!-- contents -->
+<p>To use visual studio code to debug ontarget tests for the S32K148EVB you'll need the <a href="https://marketplace.visualstudio.com/items?itemName=marus25.cortex-debug">cortex debug</a> plugin. Here's an example configuration using JLink:</p>
+<div class="fragment"><div class="line"> {</div><div class="line">    &quot;cwd&quot;: &quot;${workspaceRoot}&quot;,</div><div class="line">    &quot;executable&quot;: &quot;build/test_util_math.elf&quot;,</div><div class="line">    &quot;name&quot;: &quot;On-target unit test.&quot;,</div><div class="line">    &quot;request&quot;: &quot;launch&quot;,</div><div class="line">    &quot;type&quot;: &quot;cortex-debug&quot;,</div><div class="line">    &quot;servertype&quot;: &quot;jlink&quot;,</div><div class="line">    &quot;device&quot;: &quot;S32K148&quot;,</div><div class="line">    &quot;svdFile&quot;: &quot;test/ontarget/S32K148EVB/S32K148.svd&quot;</div><div class="line">},</div></div><!-- fragment --> </div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.8-->
 <!-- start footer part -->
 </div>
