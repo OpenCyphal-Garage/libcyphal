@@ -33,13 +33,13 @@ namespace util
  * be omitted for most platforms where saturation operations were available.
  */
 template <
-    class SIGNED_TYPE,
-    typename std::enable_if<std::is_integral<SIGNED_TYPE>::value && std::is_signed<SIGNED_TYPE>::value, int>::type = 0>
-constexpr SIGNED_TYPE _saturating_add_d(SIGNED_TYPE left, SIGNED_TYPE right)
+    class SignedType,
+    typename std::enable_if<std::is_integral<SignedType>::value && std::is_signed<SignedType>::value, int>::type = 0>
+constexpr SignedType _saturating_add_d(SignedType left, SignedType right)
 {
-    return (left >= 0 && right > (std::numeric_limits<SIGNED_TYPE>::max() - left))
-               ? std::numeric_limits<SIGNED_TYPE>::max()
-               : static_cast<SIGNED_TYPE>(left + right);
+    return (left >= 0 && right > (std::numeric_limits<SignedType>::max() - left))
+               ? std::numeric_limits<SignedType>::max()
+               : static_cast<SignedType>(left + right);
 }
 
 /*
@@ -49,13 +49,13 @@ constexpr SIGNED_TYPE _saturating_add_d(SIGNED_TYPE left, SIGNED_TYPE right)
  * be omitted for most platforms where saturation operations were available.
  */
 template <
-    class SIGNED_TYPE,
-    typename std::enable_if<std::is_integral<SIGNED_TYPE>::value && std::is_signed<SIGNED_TYPE>::value, int>::type = 0>
-constexpr SIGNED_TYPE _saturating_sub_d(SIGNED_TYPE left, SIGNED_TYPE right)
+    class SignedType,
+    typename std::enable_if<std::is_integral<SignedType>::value && std::is_signed<SignedType>::value, int>::type = 0>
+constexpr SignedType _saturating_sub_d(SignedType left, SignedType right)
 {
-    return (left <= 0 && right >= std::abs(std::numeric_limits<SIGNED_TYPE>::min() - left))
-               ? std::numeric_limits<SIGNED_TYPE>::min()
-               : static_cast<SIGNED_TYPE>(left - right);
+    return (left <= 0 && right >= std::abs(std::numeric_limits<SignedType>::min() - left))
+               ? std::numeric_limits<SignedType>::min()
+               : static_cast<SignedType>(left - right);
 }
 
 /**
@@ -63,42 +63,42 @@ constexpr SIGNED_TYPE _saturating_sub_d(SIGNED_TYPE left, SIGNED_TYPE right)
  * int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that use
  * hardware support for saturation arithmetic.
  *
- * @tparam SIGNED_TYPE The signed integer type of both operands.
+ * @tparam SignedType The signed integer type of both operands.
  * @tparam 0 For SFINAE
  * @param left The left operand.
  * @param right The right operand.
- * @return SIGNED_TYPE The result which will saturate to {@code std::numeric_limits<SIGNED_TYPE>::min()} or {@code
- * std::numeric_limits<SIGNED_TYPE>::max()}
+ * @return SignedType The result which will saturate to {@code std::numeric_limits<SignedType>::min()} or {@code
+ * std::numeric_limits<SignedType>::max()}
  */
 template <
-    class SIGNED_TYPE,
-    typename std::enable_if<std::is_integral<SIGNED_TYPE>::value && std::is_signed<SIGNED_TYPE>::value, int>::type = 0>
-SIGNED_TYPE saturating_add(SIGNED_TYPE left, SIGNED_TYPE right)
+    class SignedType,
+    typename std::enable_if<std::is_integral<SignedType>::value && std::is_signed<SignedType>::value, int>::type = 0>
+SignedType saturating_add(SignedType left, SignedType right)
 {
-    SIGNED_TYPE result;
+    SignedType result;
     if (right >= 0)  // make sure this is actually substraction
     {
-        result = _saturating_add_d<SIGNED_TYPE>(left, right);
+        result = _saturating_add_d<SignedType>(left, right);
     }
-    else if (right == std::numeric_limits<SIGNED_TYPE>::min())
+    else if (right == std::numeric_limits<SignedType>::min())
     {
-        static_assert(std::numeric_limits<SIGNED_TYPE>::max() + std::numeric_limits<SIGNED_TYPE>::min() == -1,
+        static_assert(std::numeric_limits<SignedType>::max() + std::numeric_limits<SignedType>::min() == -1,
                       "This header assumes two's complement integer representations.");
         // For two's compliment the abs(max) !- abs(min). This is the only
         // place we assume two's compliment. If we need to port this to another integer representation
         // this should be the only thing we need to fix.
-        result = _saturating_sub_d<SIGNED_TYPE>(left, std::numeric_limits<SIGNED_TYPE>::max());
-        if (result > std::numeric_limits<SIGNED_TYPE>::min())
+        result = _saturating_sub_d<SignedType>(left, std::numeric_limits<SignedType>::max());
+        if (result > std::numeric_limits<SignedType>::min())
         {
-            result = static_cast<SIGNED_TYPE>(result - 1);
+            result = static_cast<SignedType>(result - 1);
         }
     }
     else
     {
         // Flip the sign-bit and delegate to the subtraction implementation.
         // We assume that the integer representation can flip the bit without
-        // promotion where right > std::numeric_limits<SIGNED_TYPE>::min().
-        result = _saturating_sub_d<SIGNED_TYPE>(left, static_cast<SIGNED_TYPE>(-right));
+        // promotion where right > std::numeric_limits<SignedType>::min().
+        result = _saturating_sub_d<SignedType>(left, static_cast<SignedType>(-right));
     }
     return result;
 }
@@ -108,40 +108,40 @@ SIGNED_TYPE saturating_add(SIGNED_TYPE left, SIGNED_TYPE right)
  * with int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that use
  * hardware support for saturation arithmetic.
  *
- * @tparam SIGNED_TYPE The signed integer type of both operands.
+ * @tparam SignedType The signed integer type of both operands.
  * @tparam 0 For SFINAE
  * @param left The left operand.
  * @param right The right operand.
- * @return SIGNED_TYPE The result which will saturate to {@code std::numeric_limits<SIGNED_TYPE>::min()} or {@code
- * std::numeric_limits<SIGNED_TYPE>::max()}
+ * @return SignedType The result which will saturate to {@code std::numeric_limits<SignedType>::min()} or {@code
+ * std::numeric_limits<SignedType>::max()}
  */
 template <
-    class SIGNED_TYPE,
-    typename std::enable_if<std::is_integral<SIGNED_TYPE>::value && std::is_signed<SIGNED_TYPE>::value, int>::type = 0>
-SIGNED_TYPE saturating_sub(SIGNED_TYPE left, SIGNED_TYPE right)
+    class SignedType,
+    typename std::enable_if<std::is_integral<SignedType>::value && std::is_signed<SignedType>::value, int>::type = 0>
+SignedType saturating_sub(SignedType left, SignedType right)
 {
-    SIGNED_TYPE result;
+    SignedType result;
     if (right >= 0)  // make sure this is actually substraction
     {
-        result = _saturating_sub_d<SIGNED_TYPE>(left, right);
+        result = _saturating_sub_d<SignedType>(left, right);
     }
-    else if (right == std::numeric_limits<SIGNED_TYPE>::min())
+    else if (right == std::numeric_limits<SignedType>::min())
     {
         // For two's compliment the abs(max) !- abs(min). This is the only
         // place we assume two's compliment. If we need to port this to another integer representation
         // this should be the only thing we need to fix.
-        result = _saturating_add_d<SIGNED_TYPE>(left, std::numeric_limits<SIGNED_TYPE>::max());
-        if (result < std::numeric_limits<SIGNED_TYPE>::max())
+        result = _saturating_add_d<SignedType>(left, std::numeric_limits<SignedType>::max());
+        if (result < std::numeric_limits<SignedType>::max())
         {
-            result = static_cast<SIGNED_TYPE>(result + 1);
+            result = static_cast<SignedType>(result + 1);
         }
     }
     else
     {
         // Flip the sign-bit and delegate to the addition implementation.
         // We assume that the integer representation can flip the bit
-        // without promotion where right > std::numeric_limits<SIGNED_TYPE>::min().
-        result = _saturating_add_d<SIGNED_TYPE>(left, static_cast<SIGNED_TYPE>(-right));
+        // without promotion where right > std::numeric_limits<SignedType>::min().
+        result = _saturating_add_d<SignedType>(left, static_cast<SignedType>(-right));
     }
     return result;
 }
@@ -151,25 +151,25 @@ SIGNED_TYPE saturating_sub(SIGNED_TYPE left, SIGNED_TYPE right)
  * int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that use
  * hardware support for saturation arithmetic.
  *
- * @tparam UNSIGNED_TYPE The unsigned integer type of both operands.
+ * @tparam UnsignedType The unsigned integer type of both operands.
  * @tparam 0 For SFINAE
  * @param left The left operand.
  * @param right The right operand.
- * @return UNSIGNED_TYPE The result which will saturate to {@code std::numeric_limits<UNSIGNED_TYPE>::min()} or {@code
- * std::numeric_limits<UNSIGNED_TYPE>::max()}
+ * @return UnsignedType The result which will saturate to {@code std::numeric_limits<UnsignedType>::min()} or {@code
+ * std::numeric_limits<UnsignedType>::max()}
  */
-template <class UNSIGNED_TYPE,
-          typename std::enable_if<std::is_integral<UNSIGNED_TYPE>::value && !std::is_signed<UNSIGNED_TYPE>::value,
+template <class UnsignedType,
+          typename std::enable_if<std::is_integral<UnsignedType>::value && !std::is_signed<UnsignedType>::value,
                                   int>::type = 0>
-constexpr UNSIGNED_TYPE saturating_add(UNSIGNED_TYPE left, UNSIGNED_TYPE right)
+constexpr UnsignedType saturating_add(UnsignedType left, UnsignedType right)
 {
     // Be careful here. Some ways of writing this logic will run afoul of
     // optimizers where the compiler may assume that the result must be <
     // than the rhs and will elide any post processing logic. To make this
     // more stable we've written it as pre-processing logic.
-    return (right > static_cast<UNSIGNED_TYPE>(std::numeric_limits<UNSIGNED_TYPE>::max() - left))
-               ? std::numeric_limits<UNSIGNED_TYPE>::max()
-               : static_cast<UNSIGNED_TYPE>(left + right);
+    return (right > static_cast<UnsignedType>(std::numeric_limits<UnsignedType>::max() - left))
+               ? std::numeric_limits<UnsignedType>::max()
+               : static_cast<UnsignedType>(left + right);
 }
 
 /**
@@ -177,19 +177,41 @@ constexpr UNSIGNED_TYPE saturating_add(UNSIGNED_TYPE left, UNSIGNED_TYPE right)
  * with int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that use
  * hardware support for saturation arithmetic.
  *
- * @tparam UNSIGNED_TYPE The unsigned integer type of both operands.
+ * @tparam UnsignedType The unsigned integer type of both operands.
  * @tparam 0 For SFINAE
  * @param left The left operand.
  * @param right The right operand.
- * @return UNSIGNED_TYPE The result which will saturate to {@code std::numeric_limits<UNSIGNED_TYPE>::min()} or {@code
- * std::numeric_limits<UNSIGNED_TYPE>::max()}
+ * @return UnsignedType The result which will saturate to {@code std::numeric_limits<UnsignedType>::min()} or {@code
+ * std::numeric_limits<UnsignedType>::max()}
  */
-template <class UNSIGNED_TYPE,
-          typename std::enable_if<std::is_integral<UNSIGNED_TYPE>::value && !std::is_signed<UNSIGNED_TYPE>::value,
+template <class UnsignedType,
+          typename std::enable_if<std::is_integral<UnsignedType>::value && !std::is_signed<UnsignedType>::value,
                                   int>::type = 0>
-constexpr UNSIGNED_TYPE saturating_sub(UNSIGNED_TYPE left, UNSIGNED_TYPE right)
+constexpr UnsignedType saturating_sub(UnsignedType left, UnsignedType right)
 {
-    return (right > left) ? std::numeric_limits<UNSIGNED_TYPE>::min() : static_cast<UNSIGNED_TYPE>(left - right);
+    return (right > left) ? std::numeric_limits<UnsignedType>::min() : static_cast<UnsignedType>(left - right);
+}
+
+template <class LhsType,
+          class RhsType,
+          typename std::enable_if<std::is_integral<LhsType>::value && !std::is_signed<LhsType>::value &&
+                                      std::is_integral<RhsType>::value && std::is_signed<RhsType>::value,
+                                  int>::type = 0>
+constexpr LhsType saturating_sub(LhsType left, RhsType right)
+{
+    return (right >= 0) ? saturating_sub<LhsType>(left, static_cast<LhsType>(right))
+                        : saturating_add<LhsType>(left, static_cast<LhsType>(right));
+}
+
+template <class LhsType,
+          class RhsType,
+          typename std::enable_if<std::is_integral<LhsType>::value && !std::is_signed<LhsType>::value &&
+                                      std::is_integral<RhsType>::value && std::is_signed<RhsType>::value,
+                                  int>::type = 0>
+constexpr LhsType saturating_add(LhsType left, RhsType right)
+{
+    return (right >= 0) ? saturating_add<LhsType>(left, static_cast<LhsType>(right))
+                        : saturating_sub<LhsType>(left, static_cast<LhsType>(right));
 }
 
 }  // namespace util

@@ -38,7 +38,7 @@ pushd build_ci_ontarget_s32k
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/gcc-arm-none-eabi.cmake \
       -DGTEST_USE_LOCAL_BUILD=ON \
       -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/cortex-m4-fpv4-sp-d16-nosys.cmake \
-      -DLIBUAVCAN_TESTBUILD=../test/ontarget/S32K146EVB/unit_tests.cmake \
+      -DLIBUAVCAN_TESTBUILD=../test/ontarget/S32K148EVB/unit_tests.cmake \
       -DLIBUAVCAN_SKIP_DOCS=ON \
       -DLIBUAVCAN_EXT_FOLDER=build_ci_ext \
       ..

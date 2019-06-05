@@ -54,7 +54,7 @@ The reason we opted for a complete rewrite is that so much is changing. Between 
 The following list of standardized* test environments will be used to validate the libuavcan implementation**:
 
 1. **Posix** - We will produce examples that can run on top of SocketCAN on Ubuntu 18 or newer. While expect that these examples will be generally compatible with other common linux distros or posix compliant operating systems (that also support SocketCAN) we will compile and test the examples using Ubuntu 18 as part of our CI build.
-1. **Bare-metal on NXP s32K146 devkit** - We expect to produce examples and tests that run on the s32K146 MCU populated on the standard s32146 evaluation board available from NXP. This is the primary test fixture for the project and will be used as the basis for specifying on-target test rigs.
+1. **Bare-metal on NXP S32K148 devkit** - We expect to produce examples and tests that run on the S32K148 MCU populated on the standard S32K148 evaluation board available from NXP. This is the primary test fixture for the project and will be used as the basis for specifying on-target test rigs.
 1. **Nuttx on Pixhawk4** - We expect to produce examples and possibly tests that can run on top of the latest pixhawk hardware and version of Nuttx used by the px4 software stack. This is a lower-priority for the initial development for v1 but will become a focus once we have a fully functional stack.
 
 \* Note that libuavcan is a header only library suitable for a wide range of processors and operating systems. The targets and test environments mentioned here are chosen only as standardized test fixtures and are not considered more "supported" or "optimal" than any other platform.
@@ -126,7 +126,7 @@ Reviewers, please check the following items when reviewing a pull-request:
 
 ### VSCode
 
-To use visual studio code to debug ontarget tests for the S32K146EVB you'll need the [cortex debug](https://marketplace.visualstudio.com/items?itemName=marus25.cortex-debug) plugin. Here's an example configuration using JLink:
+To use visual studio code to debug ontarget tests for the S32K148EVB you'll need the [cortex debug](https://marketplace.visualstudio.com/items?itemName=marus25.cortex-debug) plugin. Here's an example configuration using JLink:
 
 ```
  {
@@ -136,7 +136,7 @@ To use visual studio code to debug ontarget tests for the S32K146EVB you'll need
     "request": "launch",
     "type": "cortex-debug",
     "servertype": "jlink",
-    "device": "S32K146",
-    "svdFile": "test/ontarget/S32K146EVB/S32K146.svd"
+    "device": "S32K148",
+    "svdFile": "test/ontarget/S32K148EVB/S32K148.svd"
 },
 ```
