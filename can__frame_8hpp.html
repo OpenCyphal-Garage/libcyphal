@@ -29,7 +29,7 @@
             <div class="container">
                 <div class="navbar-header">
                     <a class="navbar-brand" href="https://uavcan.org"><img src="uavcan_logo.svg" style="float:left;height:1.5em;padding:0em .5em .25em 0em;"/> libuavcan</a>
-                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/91" style="font-size: .75em; color: coral">build:91</a></em>
+                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/99" style="font-size: .75em; color: coral">build:99</a></em>
                 </div>
             </div>
         </nav>
@@ -132,7 +132,10 @@ Functions</h2></td></tr>
 &#160;</td><td class="memItemRight" valign="bottom"><b>lvs::transport::media::CAN::REGISTER_TYPED_TEST_SUITE_P</b> (FrameTest, Initialization, InitWithData, InitWithData_NullPtr, SetDataLength, GetDLC, DLCToLengthEvil, PriorityHigherThan, PriorityLowerThan, FrameEqual, FrameNotEqual, FrameNotEqualWithFlags)</td></tr>
 <tr class="separator:a49878c39e4182e16dbb6c460bd30f22a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Function Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>Implement this test for any <a class="el" href="structlibuavcan_1_1transport_1_1media_1_1_c_a_n_1_1_frame.html">libuavcan::transport::media::CAN::Frame</a> object you implement in your media layer.</p>
+<h3>Example:</h3>
+<div class="fragment"><div class="line"><span class="preprocessor">#include &quot;gtest/gtest.h&quot;</span></div><div class="line"></div><div class="line"><span class="preprocessor">#include &quot;<a class="code" href="libuavcan_8hpp.html">libuavcan/libuavcan.hpp</a>&quot;</span></div><div class="line"><span class="preprocessor">#include &quot;<a class="code" href="can__frame_8hpp.html">lvs/transport/media/can_frame.hpp</a>&quot;</span></div><div class="line"></div><div class="line"><span class="keyword">namespace </span><a class="code" href="namespacelvs.html">lvs</a></div><div class="line">{</div><div class="line"><span class="keyword">namespace </span><a class="code" href="namespacetransport.html">transport</a></div><div class="line">{</div><div class="line"><span class="keyword">namespace </span><a class="code" href="namespacemedia.html">media</a></div><div class="line">{</div><div class="line"><span class="keyword">namespace </span><a class="code" href="namespace_c_a_n.html">CAN</a></div><div class="line">{</div><div class="line"></div><div class="line">typedef ::testing::Types&lt;MyFrameType0, MyFrameType1&gt; MyTypes;</div><div class="line"></div><div class="line"><span class="comment">// The trailing comma is required. See https://github.com/google/googletest/issues/1419</span></div><div class="line">INSTANTIATE_TYPED_TEST_SUITE_P(MyFrameTypeTest, FrameTest, MyTypes, );</div><div class="line"></div><div class="line">}  <span class="comment">// namespace CAN</span></div><div class="line">}  <span class="comment">// namespace media</span></div><div class="line">}  <span class="comment">// namespace transport</span></div><div class="line">}  <span class="comment">// namespace lvs</span></div></div><!-- fragment --> </div><h2 class="groupheader">Function Documentation</h2>
 <a id="file_aa54026e80dd79b091ce19f9bfa565ce2"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#file_aa54026e80dd79b091ce19f9bfa565ce2">&#9670;&nbsp;</a></span>TYPED_TEST_P() <span class="overload">[1/11]</span></h2>
 
