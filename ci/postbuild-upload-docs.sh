@@ -4,6 +4,11 @@
 # | BASH : Modifying Shell Behaviour
 # |    (https://www.gnu.org/software/bash/manual)
 # +----------------------------------------------------------+
+# Treat unset variables and parameters other than the special
+# parameters ‘@’ or ‘*’ as an error when performing parameter
+# expansion. An error message will be written to the standard
+# error, and a non-interactive shell will exit.
+set -o nounset
 
 # Exit immediately if a pipeline returns a non-zero status.
 set -o errexit
@@ -27,18 +32,8 @@ set -o pipefail
 mkdir -p build_ci_native_gcc
 pushd build_ci_native_gcc
 
-if [ -z "$BUILDKITE_PULL_REQUEST" ]; then
-    buildkite-agent artifact download "build_ci_native_gcc/docs/html.gz" .
-    tar -xvf docs/html.gz
-    gh-pages --dotfiles --message "Doc upload for build ${BUILDKITE_BUILD_NUMBER}" --user "uavcan1.0 <uavcan1.0@uavcan.org>" --dist docs/html
-else
-    echo "Skipping doc upload for pull-requests."
-fi
-
-buildkite-agent artifact download "build_ci_native_gcc/tests/coverage.info" .
-
-# Our custom lcov tracefile and coveralls.io upload script.
-# This is only available in our docker container.
-info_to_coveralls --root ../ tests/coverage.info
+buildkite-agent artifact download "build_ci_native_gcc/docs/html.gz" .
+tar -xvf docs/html.gz
+gh-pages --dotfiles --message "Doc upload for build ${BUILDKITE_BUILD_NUMBER}" --user "uavcan1.0 <uavcan1.0@uavcan.org>" --dist docs/html
 
 popd
