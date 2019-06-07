@@ -46,7 +46,7 @@ function(define_ontarget_unit_test ARG_TEST_NAME ARG_TEST_SOURCE)
 
     add_executable(${LOCAL_TEST_ELF} ${ARG_TEST_SOURCE} ${SOURCE_FILES})
 
-    add_dependencies(${LOCAL_TEST_ELF} dsdl-regulated)
+    target_link_libraries(${LOCAL_TEST_ELF} dsdl-regulated)
  
     set_target_properties(${LOCAL_TEST_ELF}
                     PROPERTIES

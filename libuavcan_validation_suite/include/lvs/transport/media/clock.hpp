@@ -3,6 +3,7 @@
  *
  * Parameterized unit test for the clock interface.
  */
+/** @file */
 #ifndef LIBUAVCAN_LVS_TRANSPORT_MEDIA_CLOCK_HPP_INCLUDED
 #define LIBUAVCAN_LVS_TRANSPORT_MEDIA_CLOCK_HPP_INCLUDED
 

@@ -4,7 +4,6 @@
 # | BASH : Modifying Shell Behaviour
 # |    (https://www.gnu.org/software/bash/manual)
 # +----------------------------------------------------------+
-
 # Exit immediately if a pipeline returns a non-zero status.
 set -o errexit
 
@@ -23,22 +22,33 @@ set -o pipefail
 # | Of course, libuavcan is a header-only distribution so
 # | CI is used to verify and test rather than package and
 # | deploy (i.e. There's really no 'I' going on).
+# |
+# | NOTE: You must have the environment variable NAIT_UART_DEVICE
+# | set to the serial port you are using to monitor hardware
+# | tests or supply this as the first argument to this script.
 # +----------------------------------------------------------+
-mkdir -p build_ci_native_gcc
-pushd build_ci_native_gcc
+mkdir -p build_ci_ontarget_s32k
+pushd build_ci_ontarget_s32k
 
-if [ -z "$BUILDKITE_PULL_REQUEST" ]; then
-    buildkite-agent artifact download "build_ci_native_gcc/docs/html.gz" .
-    tar -xvf docs/html.gz
-    gh-pages --dotfiles --message "Doc upload for build ${BUILDKITE_BUILD_NUMBER}" --user "uavcan1.0 <uavcan1.0@uavcan.org>" --dist docs/html
+if [ ! -z "$BUILDKITE_BUILD_ID"]; then
+    buildkite-agent artifact download "build_ci_ontarget_s32k/*.hex" .
+    buildkite-agent artifact download "build_ci_ontarget_s32k/*.jlink" .
+    ls -lAh
 else
-    echo "Skipping doc upload for pull-requests."
+    echo "No BUILDKITE_BUILD_ID. Skipping artifact download."
 fi
 
-buildkite-agent artifact download "build_ci_native_gcc/tests/coverage.info" .
+PORT_VALUE=${1:-$NAIT_UART_DEVICE}
 
-# Our custom lcov tracefile and coveralls.io upload script.
-# This is only available in our docker container.
-info_to_coveralls --root ../ tests/coverage.info
+if [ -z "$PORT_VALUE" ]; then
+    echo "Either set NAIT_UART_DEVICE in your environment or pass the serial port as the first argument to this script."
+    exit 1
+fi
+
+nait -vv \
+     --port \
+    ${PORT_VALUE} \
+     --port-speed 115200 \
+     \*.jlink
 
 popd

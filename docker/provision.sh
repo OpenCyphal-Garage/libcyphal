@@ -27,7 +27,7 @@ add-apt-repository ppa:team-gcc-arm-embedded/ppa -y
 apt-get update
 apt-get -y install apt-utils
 apt-get -y install python3
-apt-get -y install python-pip
+apt-get -y install python3-pip
 apt-get -y install python3-venv
 apt-get -y install cmake
 apt-get -y install git
@@ -42,4 +42,10 @@ apt-get -y install npm
 
 pip install virtualenv
 
+# a well-known workaround for npm install on docker
+# what. a. fail.
+mv /usr/local/lib/node_modules /usr/local/lib/node_modules.tmp && \
+mv /usr/local/lib/node_modules.tmp /usr/local/lib/node_modules && \
 npm install -g gh-pages
+
+pip3 install /coveralls/

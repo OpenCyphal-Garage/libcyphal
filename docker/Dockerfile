@@ -8,5 +8,6 @@ VOLUME /repo
 WORKDIR /repo
 
 COPY provision.sh /
+COPY coveralls /coveralls
 
 RUN /provision.sh
