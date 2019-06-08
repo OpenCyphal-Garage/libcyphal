@@ -66,14 +66,6 @@
 #    define LIBUAVCAN_EXPORT
 #endif
 
-/**
- * Allows selecting the size of the microsecond timestamp type used by libuavcan.
- * Valid values are 8, 4, and 2.
- */
-#ifndef LIBUAVCAN_MICROSECOND_SIZE_BYTES
-#    define LIBUAVCAN_MICROSECOND_SIZE_BYTES 8
-#endif
-
 /** @} */  // end of macros_platform
 
 #endif  // LIBUAVCAN_BUILD_CONFIG_HPP_INCLUDED
