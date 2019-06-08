@@ -1,11 +1,13 @@
 /*
+ * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ */
+/**
+ * @file
  * Optional utilites to provide introspection into libuavcan
  * objects and to provide metrics for library performance.
  * Facilities defined in this header can be compiled out of
  * production code and should be used for debugging or targeted
  * testing activities.
- *
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 
 #ifndef LIBUAVCAN_INTROSPECTION_HPP_INCLUDED

@@ -48,34 +48,48 @@ TYPED_TEST_P(DurationOrTimeTest, DefaultOperations)
 
     // Per http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#cctor-constructors-assignments-and-destructors
     // default ctor
-    TypeParam defaultCtor;
-    ASSERT_EQ(default_value, defaultCtor.toMicrosecond());
+    TypeParam default_ctor;
+    ASSERT_EQ(default_value, default_ctor.toMicrosecond());
 
     // assignment
     TypeParam assignFrom = TypeParam::fromMicrosecond(alt_value);
-    defaultCtor          = assignFrom;
-    ASSERT_EQ(alt_value, defaultCtor.toMicrosecond());
+    default_ctor         = assignFrom;
+    ASSERT_EQ(alt_value, default_ctor.toMicrosecond());
     ASSERT_EQ(alt_value, assignFrom.toMicrosecond());
 
     // copy ctor
-    TypeParam copyCtorLhs(defaultCtor);
+    TypeParam copyCtorLhs(default_ctor);
     ASSERT_EQ(alt_value, copyCtorLhs.toMicrosecond());
 
     // move ctor
-    TypeParam movedInto(std::move(defaultCtor));
-    ASSERT_EQ(alt_value, movedInto.toMicrosecond());
-    ASSERT_EQ(default_value, defaultCtor.toMicrosecond());
+    TypeParam moved_into(std::move(default_ctor));
+    ASSERT_EQ(alt_value, moved_into.toMicrosecond());
+    ASSERT_EQ(default_value, default_ctor.toMicrosecond());
 
     // move assignment
-    TypeParam moveFrom = TypeParam::fromMicrosecond(alt_value);
-    defaultCtor        = std::move(moveFrom);
-    ASSERT_EQ(alt_value, defaultCtor.toMicrosecond());
-    ASSERT_EQ(default_value, moveFrom.toMicrosecond());
+    TypeParam move_from = TypeParam::fromMicrosecond(alt_value);
+    default_ctor        = std::move(move_from);
+    ASSERT_EQ(alt_value, default_ctor.toMicrosecond());
+    ASSERT_EQ(default_value, move_from.toMicrosecond());
 
     {
         TypeParam destructed;
         ASSERT_EQ(default_value, destructed.toMicrosecond());
     }
+}
+
+/**
+ * Test the standard comparison operators supported by duration and time types.
+ */
+TYPED_TEST_P(DurationOrTimeTest, ComparisonOperators)
+{
+    TypeParam lhs, rhs;
+    ASSERT_TRUE(lhs == rhs);
+    ASSERT_FALSE(lhs != rhs);
+    ASSERT_FALSE(lhs < rhs);
+    ASSERT_FALSE(lhs > rhs);
+    ASSERT_TRUE(lhs <= rhs);
+    ASSERT_TRUE(lhs >= rhs);
 }
 
 /**
@@ -106,10 +120,21 @@ TYPED_TEST_P(DurationOrTimeTest, SaturatedSubtract)
     ASSERT_EQ(std::numeric_limits<typename TypeParam::MicrosecondType>::min(), instance.toMicrosecond());
 }
 
+/**
+ * Ensure that all duration types properly implement the {@code getMaximum()} method.
+ */
+TYPED_TEST_P(DurationOrTimeTest, GetMaximum)
+{
+    ASSERT_EQ(TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::max()),
+              TypeParam::getMaximum());
+}
+
 REGISTER_TYPED_TEST_SUITE_P(DurationOrTimeTest,  //
+                            ComparisonOperators,
                             DefaultOperations,
                             Concept_fromMicrosecond,
                             SaturatedAdd,
+                            GetMaximum,
                             SaturatedSubtract);
 
 /**
@@ -140,29 +165,29 @@ TYPED_TEST_P(DurationTest, DefaultOperations)
 
     // Per http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#cctor-constructors-assignments-and-destructors
     // default ctor
-    TypeParam defaultCtor;
-    ASSERT_EQ(default_value, defaultCtor.toMicrosecond());
+    TypeParam default_ctor;
+    ASSERT_EQ(default_value, default_ctor.toMicrosecond());
 
     // assignment
     TypeParam assignFrom = TypeParam::fromMicrosecond(alt_value);
-    defaultCtor          = assignFrom;
-    ASSERT_EQ(alt_value, defaultCtor.toMicrosecond());
+    default_ctor         = assignFrom;
+    ASSERT_EQ(alt_value, default_ctor.toMicrosecond());
     ASSERT_EQ(alt_value, assignFrom.toMicrosecond());
 
     // copy ctor
-    TypeParam copyCtorLhs(defaultCtor);
+    TypeParam copyCtorLhs(default_ctor);
     ASSERT_EQ(alt_value, copyCtorLhs.toMicrosecond());
 
     // move ctor
-    TypeParam movedInto(std::move(defaultCtor));
-    ASSERT_EQ(alt_value, movedInto.toMicrosecond());
-    ASSERT_EQ(default_value, defaultCtor.toMicrosecond());
+    TypeParam moved_into(std::move(default_ctor));
+    ASSERT_EQ(alt_value, moved_into.toMicrosecond());
+    ASSERT_EQ(default_value, default_ctor.toMicrosecond());
 
     // move assignment
-    TypeParam moveFrom = TypeParam::fromMicrosecond(alt_value);
-    defaultCtor        = std::move(moveFrom);
-    ASSERT_EQ(alt_value, defaultCtor.toMicrosecond());
-    ASSERT_EQ(default_value, moveFrom.toMicrosecond());
+    TypeParam move_from = TypeParam::fromMicrosecond(alt_value);
+    default_ctor        = std::move(move_from);
+    ASSERT_EQ(alt_value, default_ctor.toMicrosecond());
+    ASSERT_EQ(default_value, move_from.toMicrosecond());
 
     {
         TypeParam destructed;
@@ -170,7 +195,42 @@ TYPED_TEST_P(DurationTest, DefaultOperations)
     }
 }
 
+/**
+ * Verify the ability to get the absolute value of a duration as a duration.
+ */
+TYPED_TEST_P(DurationTest, AbsoluteValue)
+{
+    TypeParam instance{TypeParam::fromMicrosecond(-1)};
+    ASSERT_EQ(static_cast<typename TypeParam::MicrosecondType>(1), instance.getAbs().toMicrosecond());
+
+    instance = TypeParam::fromMicrosecond(1);
+    ASSERT_EQ(static_cast<typename TypeParam::MicrosecondType>(1), instance.getAbs().toMicrosecond());
+}
+
+/**
+ * Test the standard arithmetic operators for duration types.
+ */
+TYPED_TEST_P(DurationTest, ArithmeticOperators)
+{
+    TypeParam lhs{TypeParam::fromMicrosecond(1)};
+    TypeParam rhs{TypeParam::fromMicrosecond(1)};
+    ASSERT_EQ(TypeParam::fromMicrosecond(2), lhs += rhs);
+    ASSERT_EQ(TypeParam::getMaximum(), lhs += TypeParam::getMaximum());
+    ASSERT_EQ(TypeParam::fromMicrosecond(-1), -TypeParam::fromMicrosecond(1));
+    ASSERT_EQ(TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::min()),
+              -TypeParam::getMaximum() - TypeParam::fromMicrosecond(1));
+    ASSERT_EQ(TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::min() + 1),
+              -TypeParam::getMaximum());
+    ASSERT_EQ(TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::min() + 2),
+              -(TypeParam::getMaximum() - TypeParam::fromMicrosecond(1)));
+    ASSERT_EQ(TypeParam::fromMicrosecond(0), TypeParam::fromMicrosecond(1) -= TypeParam::fromMicrosecond(1));
+}
+
+// +--------------------------------------------------------------------------+
+
 REGISTER_TYPED_TEST_SUITE_P(DurationTest,  //
+                            AbsoluteValue,
+                            ArithmeticOperators,
                             DefaultOperations);
 
 /**
@@ -201,29 +261,29 @@ TYPED_TEST_P(TimeTest, DefaultOperations)
 
     // Per http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#cctor-constructors-assignments-and-destructors
     // default ctor
-    TypeParam defaultCtor;
-    ASSERT_EQ(default_value, defaultCtor.toMicrosecond());
+    TypeParam default_ctor;
+    ASSERT_EQ(default_value, default_ctor.toMicrosecond());
 
     // assignment
     TypeParam assignFrom = TypeParam::fromMicrosecond(alt_value);
-    defaultCtor          = assignFrom;
-    ASSERT_EQ(alt_value, defaultCtor.toMicrosecond());
+    default_ctor         = assignFrom;
+    ASSERT_EQ(alt_value, default_ctor.toMicrosecond());
     ASSERT_EQ(alt_value, assignFrom.toMicrosecond());
 
     // copy ctor
-    TypeParam copyCtorLhs(defaultCtor);
+    TypeParam copyCtorLhs(default_ctor);
     ASSERT_EQ(alt_value, copyCtorLhs.toMicrosecond());
 
     // move ctor
-    TypeParam movedInto(std::move(defaultCtor));
-    ASSERT_EQ(alt_value, movedInto.toMicrosecond());
-    ASSERT_EQ(default_value, defaultCtor.toMicrosecond());
+    TypeParam moved_into(std::move(default_ctor));
+    ASSERT_EQ(alt_value, moved_into.toMicrosecond());
+    ASSERT_EQ(default_value, default_ctor.toMicrosecond());
 
     // move assignment
-    TypeParam moveFrom = TypeParam::fromMicrosecond(alt_value);
-    defaultCtor        = std::move(moveFrom);
-    ASSERT_EQ(alt_value, defaultCtor.toMicrosecond());
-    ASSERT_EQ(default_value, moveFrom.toMicrosecond());
+    TypeParam move_from = TypeParam::fromMicrosecond(alt_value);
+    default_ctor        = std::move(move_from);
+    ASSERT_EQ(alt_value, default_ctor.toMicrosecond());
+    ASSERT_EQ(default_value, move_from.toMicrosecond());
 
     {
         TypeParam destructed;
@@ -231,7 +291,24 @@ TYPED_TEST_P(TimeTest, DefaultOperations)
     }
 }
 
+/**
+ * Test the standard arithmetic operators for duration types.
+ */
+TYPED_TEST_P(TimeTest, ArithmeticOperators)
+{
+    ASSERT_EQ(TypeParam::fromMicrosecond(2),
+              TypeParam::fromMicrosecond(1) += TypeParam::DurationType::fromMicrosecond(1));
+
+    TypeParam time_plus_max_duration{TypeParam::fromMicrosecond(0) += TypeParam::DurationType::getMaximum()};
+    typename TypeParam::DurationType::MicrosecondType t =
+        static_cast<typename TypeParam::DurationType::MicrosecondType>(time_plus_max_duration.toMicrosecond());
+    ASSERT_EQ(TypeParam::DurationType::getMaximum(), TypeParam::DurationType::fromMicrosecond(t));
+    ASSERT_EQ(TypeParam::getMaximum(), TypeParam::getMaximum() += TypeParam::DurationType::getMaximum());
+    ASSERT_EQ(TypeParam::fromMicrosecond(0), TypeParam::fromMicrosecond(1) -= TypeParam::DurationType::fromMicrosecond(1));
+}
+
 REGISTER_TYPED_TEST_SUITE_P(TimeTest,  //
+                            ArithmeticOperators,
                             DefaultOperations);
 }  // end namespace lvs
 

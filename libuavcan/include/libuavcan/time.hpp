@@ -13,19 +13,42 @@
 #include "libuavcan/libuavcan.hpp"
 #include "libuavcan/util/math.hpp"
 
+/**
+ * @namespace libuavcan
+ * The top-level namespace which contains all  types, definitions, and nested
+ * namespaces for libuavcan.
+ */
 namespace libuavcan
 {
+#if LIBUAVCAN_MICROSECOND_SIZE_BYTES == 8
+using DefaultMicrosecondSignedType   = std::int64_t;
+using DefaultMicrosecondUnsignedType = std::uint64_t;
+#elif LIBUAVCAN_MICROSECOND_SIZE_BYTES == 4
+using DefaultMicrosecondSignedType   = std::int32_t;
+using DefaultMicrosecondUnsignedType = std::uint32_t;
+#elif LIBUAVCAN_MICROSECOND_SIZE_BYTES == 2
+using DefaultMicrosecondSignedType   = std::int16_t;
+using DefaultMicrosecondUnsignedType = std::uint16_t;
+#else
+#    error LIBUAVCAN_MICROSECOND_SIZE_BYTES is not a valid integer size for this library.
+#endif
+
 namespace duration
 {
 /**
- * Protected base class for duration values.
+ * Protected base class for duration values. This provides a common implementation for
+ * various duration datatypes and enforces two concepts:
+ *
+ * -# duration math is saturing – MAX_DURATION + 1 == MAX_DURATION
+ * -# durations are signed integers – By default 8 byte integers but USecT can be redefined by
+ *    a specialization.
  *
  * @tparam Type          The type of the derived class. This must be an empty type.
  *                       All storage will be provided by this base class.
  * @tparam USecT         The datatype returned when retrieving durations from
  *                       realizations of this base class. This type must be signed.
  */
-template <typename Type, typename USecT = std::int64_t>
+template <typename Type, typename USecT = libuavcan::DefaultMicrosecondSignedType>
 class Base
 {
     USecT usec_; /**< Internal storage of the duration value in microseconds. */
@@ -59,14 +82,27 @@ protected:
     }
 
 public:
+    /**
+     * The underlying datatype for microsecond values. This must be signed for duration types.
+     */
     using MicrosecondType = USecT;
-    using DurationType    = Type;
 
-    static Type getInfinite()
+    /**
+     * The specialized type of this base duration type.
+     */
+    using DurationType = Type;
+
+    /**
+     * Get the largest possible number of microseconds this type can store.
+     */
+    static Type getMaximum()
     {
         return fromMicrosecond(std::numeric_limits<USecT>::max());
     }
 
+    /**
+     * Construct an instance of Type from a microsecond value.
+     */
     static Type fromMicrosecond(USecT us)
     {
         Type d;
@@ -74,16 +110,17 @@ public:
         return d;
     }
 
+    /**
+     * Obtain the underlying microsecond value without conversion.
+     */
     USecT toMicrosecond() const
     {
         return usec_;
     }
 
-    USecT toMillisecond() const
-    {
-        return usec_ / static_cast<USecT>(1000);
-    }
-
+    /**
+     * Get the absolute value of the duration as a duration type.
+     */
     Type getAbs() const
     {
         return Type::fromMicrosecond(std::abs(usec_));
@@ -144,7 +181,14 @@ public:
 
     Type operator-() const
     {
-        return fromMicrosecond(-usec_);
+        if (usec_ == std::numeric_limits<USecT>::max())
+        {
+            return fromMicrosecond(std::numeric_limits<USecT>::min() + 1);
+        }
+        else
+        {
+            return fromMicrosecond(-usec_);
+        }
     }
 
     Type& operator+=(const Type& r)
@@ -160,6 +204,9 @@ public:
     }
 };
 
+/**
+ * A monotonic duration used by libuavcan.
+ */
 class LIBUAVCAN_EXPORT Monotonic : public Base<Monotonic>
 {};
 
@@ -177,7 +224,7 @@ namespace time
  * @tparam USecT         The datatype returned when retrieving time from
  *                       realizations of this base class. This type must be unsigned.
  */
-template <typename Type, typename DType, typename USecT = std::uint64_t>
+template <typename Type, typename DType, typename USecT = DefaultMicrosecondUnsignedType>
 class Base
 {
     USecT usec_;
@@ -214,14 +261,27 @@ protected:
     }
 
 public:
+    /**
+     * The underlying datatype for microsecond values. This must be unsigned for time types.
+     */
     using MicrosecondType = USecT;
-    using DurationType    = DType;
 
-    static Type getMax()
+    /**
+     * The specialized type of this base time type.
+     */
+    using DurationType = DType;
+
+    /**
+     * Get the largest possible number of microseconds this type can store.
+     */
+    static Type getMaximum()
     {
         return fromMicrosecond(std::numeric_limits<USecT>::max());
     }
 
+    /**
+     * Construct an instance of Type from a microsecond value.
+     */
     static Type fromMicrosecond(USecT us)
     {
         Type t;
@@ -229,14 +289,12 @@ public:
         return t;
     }
 
+    /**
+     * Obtain the underlying microsecond value without conversion.
+     */
     USecT toMicrosecond() const
     {
         return usec_;
-    }
-
-    USecT toMillisecond() const
-    {
-        return usec_ / static_cast<USecT>(1000);
     }
 
     Base& operator=(Base&& rhs)
@@ -292,11 +350,6 @@ public:
         return fromMicrosecond(libuavcan::util::saturating_sub(usec_, r.toMicrosecond()));
     }
 
-    DType operator-(const Type& r) const
-    {
-        return DType::fromMicrosecond(libuavcan::util::saturating_sub(usec_, r.toMicrosecond()));
-    }
-
     Type& operator+=(const DType& r)
     {
         *this = *this + r;
@@ -310,6 +363,9 @@ public:
     }
 };
 
+/**
+ * A monotonic time value used by libuavcan.
+ */
 class LIBUAVCAN_EXPORT Monotonic : public Base<Monotonic, duration::Monotonic>
 {};
 
