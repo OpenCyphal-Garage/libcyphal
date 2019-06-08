@@ -32,8 +32,7 @@ set -o pipefail
 
 mkdir -p build_ci_native_gcc
 pushd build_ci_native_gcc
-# GCC is our reference compiler since it does a better job with
-# coverage metrics.
+
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/gcc-native.cmake \
       -DLIBUAVCAN_EXT_FOLDER=build_ci_ext_gcc \
       -DLIBUAVCAN_INTROSPECTION_ENABLE_ASSERT=1 \
