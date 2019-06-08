@@ -86,6 +86,7 @@ TYPED_TEST_P(FrameTest, Initialization)
     TypeParam instance;
     ASSERT_EQ(0U, instance.id);
     ASSERT_EQ(CAN::FrameDLC::CodeForLength0, instance.getDLC());
+    ASSERT_EQ(0U, instance.timestamp.toMicrosecond());
     for (std::size_t i = 0; i < TypeParam::MTUBytes; ++i)
     {
         ASSERT_EQ(0U, instance.data[i]);
@@ -138,6 +139,17 @@ TYPED_TEST_P(FrameTest, SetDataLength)
     }
     constexpr std::uint16_t MTUBytes = TypeParam::MTUBytes;
     ASSERT_GE(MTUBytes, instance.getDataLength());
+}
+
+/**
+ * Happy-path initialization with a timestamp.
+ */
+TYPED_TEST_P(FrameTest, InitWithDataAndTimestamp)
+{
+    const std::uint8_t* random_ptr = nullptr;
+    TypeParam          instance(1, libuavcan::time::Monotonic::fromMicrosecond(32), random_ptr, FrameDLC::CodeForLength0);
+
+    ASSERT_EQ(libuavcan::time::Monotonic::fromMicrosecond(32U), instance.timestamp);
 }
 
 template <std::size_t I, std::size_t LEN, std::uint16_t MTUBytes>
@@ -277,6 +289,7 @@ REGISTER_TYPED_TEST_SUITE_P(FrameTest,  //
                             Initialization,
                             InitWithData,
                             InitWithData_NullPtr,
+                            InitWithDataAndTimestamp,
                             SetDataLength,
                             GetDLC,
                             DLCToLengthEvil,

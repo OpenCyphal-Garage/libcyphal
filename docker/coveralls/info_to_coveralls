@@ -89,19 +89,19 @@ def upload_blocking(job: typing.Dict, args: argparse.Namespace) -> int:
 
     coveralls_job_api = '{}/api/{}/jobs'.format(args.coveralls_endpoint, args.coveralls_api_version)
 
-    # TODO: I have a support email out to coveralls. This is supposed to work but it doesn't.
-    # import zlib
-    # compressed = zlib.compress(json.dumps(job).encode('utf-8'))
+    if args.coveralls_gzip:
+        import zlib
+        compressed = zlib.compress(json.dumps(job).encode('utf-8'))
 
-    # response = requests.request('POST',
-    #                             coveralls_job_api,
-    #                             files={'json_file': ('json_file', compressed, 'gzip/json')},
-    #                             )
-
-    response = requests.request('POST',
-                                coveralls_job_api,
-                                files={'json_file': json.dumps(job)},
-                                )
+        response = requests.request('POST',
+                                    coveralls_job_api,
+                                    files={'json_file': ('json_file', compressed, 'gzip/json')},
+                                    )
+    else:
+        response = requests.request('POST',
+                                    coveralls_job_api,
+                                    files={'json_file': json.dumps(job)},
+                                    )
 
     try:
         result = {'status_code': response.status_code,
@@ -164,7 +164,7 @@ def parse_info(root_dir: pathlib.Path, info_file_path: pathlib.Path) -> typing.L
         sf_pattern = re.compile(r'SF:(\S*)')
         fn_pattern = re.compile(r'FN:(\d+),(\S+)')
         fnda_pattern = re.compile(r'FNDA:(\d+),(\S+)')
-        da_pattern = re.compile(r'DA:(\d+)(\d+)')
+        da_pattern = re.compile(r'DA:(\d+),(\d+)')
         brda_pattern = re.compile(r'BRDA:(\d+),(\d+),(\d+),(\d+)')
 
         section = None  # type: typing.Optional[typing.Dict]
@@ -221,7 +221,7 @@ def parse_info(root_dir: pathlib.Path, info_file_path: pathlib.Path) -> typing.L
             if da_match:
                 lineno = int(da_match.group(1))
                 assert lineno > 0
-                execution_count = int(da_match.group(1))
+                execution_count = int(da_match.group(2))
                 try:
                     section['coverage'][lineno - 1] += execution_count
                 except TypeError:
@@ -333,6 +333,8 @@ def _make_parser() -> argparse.ArgumentParser:
     parser.add_argument('--coveralls-endpoint', default='https://coveralls.io', help='The host and prefix for the coveralls.io service.')
 
     parser.add_argument('--coveralls-api-version', default='v1', help='The coveralls REST API version.')
+
+    parser.add_argument('--coveralls-gzip', action='store_true', help='If specified use gzip compression on uploads to coveralls endpoint.')
 
     return parser
 

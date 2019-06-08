@@ -5,7 +5,7 @@
  */
 
 #include "libuavcan/libuavcan.hpp"
-#include "gtest/gtest.h"
+#include "lvs/lvs.hpp"
 
 /**
  * Test that the version numbers in the build_config header are expected.

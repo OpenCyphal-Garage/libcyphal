@@ -2,6 +2,10 @@
  * Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
  * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
+/**
+ * @file
+ * Build-time configuration macros, templates, and constant expressions.
+ */
 
 #ifndef LIBUAVCAN_BUILD_CONFIG_HPP_INCLUDED
 #define LIBUAVCAN_BUILD_CONFIG_HPP_INCLUDED

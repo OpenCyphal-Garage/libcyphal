@@ -177,7 +177,7 @@ if (${LIBUAVCAN_USE_LLVM_COV})
                               GROUP_EXECUTE
                               WORLD_READ
                               WORLD_EXECUTE)
-          set(LIBUAVCAN_GCOV_TOOL_ARG "--gcov-tool ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/gcov_tool.sh")
+          set(LIBUAVCAN_GCOV_TOOL_ARG "--gcov-tool" "${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/gcov_tool.sh")
      else()
           message(WARNING "llvm-cov was not found but we are compiling using clang. The coverage report build step may fail.")
      endif()

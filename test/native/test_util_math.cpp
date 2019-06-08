@@ -6,7 +6,7 @@
 
 #include "libuavcan/libuavcan.hpp"
 #include "libuavcan/util/math.hpp"
-#include "gtest/gtest.h"
+#include "lvs/lvs.hpp"
 
 namespace
 {

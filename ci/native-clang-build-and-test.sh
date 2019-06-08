@@ -44,4 +44,6 @@ make -j4
 # We use ctest to run our compile tests.
 ctest -VV
 
+make cov_all
+
 popd
