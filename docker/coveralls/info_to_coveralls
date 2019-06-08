@@ -308,7 +308,7 @@ def _make_parser() -> argparse.ArgumentParser:
     parser.add_argument('--verbose', '-v', action='count',
                         help='verbosity level (-v, -vv)')
 
-    parser.add_argument('--version', action='version', version='1.0')
+    parser.add_argument('--version', action='version', version='1.1')
 
     parser.add_argument('-b', '--build-number', default=os.environ.get('BUILDKITE_BUILD_NUMBER'), help='build number')
 
