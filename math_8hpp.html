@@ -29,7 +29,7 @@
             <div class="container">
                 <div class="navbar-header">
                     <a class="navbar-brand" href="https://uavcan.org"><img src="uavcan_logo.svg" style="float:left;height:1.5em;padding:0em .5em .25em 0em;"/> libuavcan</a>
-                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/101" style="font-size: .75em; color: coral">build:101</a></em>
+                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/108" style="font-size: .75em; color: coral">build:108</a></em>
                 </div>
             </div>
         </nav>
@@ -83,25 +83,19 @@ $(function() {
 <div class="textblock"><code>#include &quot;<a class="el" href="libuavcan_8hpp_source.html">libuavcan/libuavcan.hpp</a>&quot;</code><br />
 <code>#include &lt;cstdlib&gt;</code><br />
 <code>#include &lt;cmath&gt;</code><br />
-<code>#include &quot;libuavcan/introspection.hpp&quot;</code><br />
+<code>#include &quot;<a class="el" href="introspection_8hpp_source.html">libuavcan/introspection.hpp</a>&quot;</code><br />
 </div>
 <p><a href="math_8hpp_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
+<tr class="memitem:namespacelibuavcan"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacelibuavcan.html">libuavcan</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:namespaceutil"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceutil.html">util</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:ab38d9ecfb8f47a72b66166d5cbe4866b"><td class="memTemplParams" colspan="2"><a id="ab38d9ecfb8f47a72b66166d5cbe4866b"></a>
-template&lt;class SignedType , typename std::enable_if&lt; std::is_integral&lt; SignedType &gt;::value &amp;&amp;std::is_signed&lt; SignedType &gt;::value, int &gt;::type  = 0&gt; </td></tr>
-<tr class="memitem:ab38d9ecfb8f47a72b66166d5cbe4866b"><td class="memTemplItemLeft" align="right" valign="top">constexpr SignedType&#160;</td><td class="memTemplItemRight" valign="bottom"><b>libuavcan::util::_saturating_add_d</b> (SignedType left, SignedType right)</td></tr>
-<tr class="separator:ab38d9ecfb8f47a72b66166d5cbe4866b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4ba72981bb31fd946613089b05aa3c4f"><td class="memTemplParams" colspan="2"><a id="a4ba72981bb31fd946613089b05aa3c4f"></a>
-template&lt;class SignedType , typename std::enable_if&lt; std::is_integral&lt; SignedType &gt;::value &amp;&amp;std::is_signed&lt; SignedType &gt;::value, int &gt;::type  = 0&gt; </td></tr>
-<tr class="memitem:a4ba72981bb31fd946613089b05aa3c4f"><td class="memTemplItemLeft" align="right" valign="top">constexpr SignedType&#160;</td><td class="memTemplItemRight" valign="bottom"><b>libuavcan::util::_saturating_sub_d</b> (SignedType left, SignedType right)</td></tr>
-<tr class="separator:a4ba72981bb31fd946613089b05aa3c4f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a130f5b835333d35ea6da4f07b05a4e4e"><td class="memTemplParams" colspan="2">template&lt;class SignedType , typename std::enable_if&lt; std::is_integral&lt; SignedType &gt;::value &amp;&amp;std::is_signed&lt; SignedType &gt;::value, int &gt;::type  = 0&gt; </td></tr>
 <tr class="memitem:a130f5b835333d35ea6da4f07b05a4e4e"><td class="memTemplItemLeft" align="right" valign="top">SignedType&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="math_8hpp.html#a130f5b835333d35ea6da4f07b05a4e4e">libuavcan::util::saturating_add</a> (SignedType left, SignedType right)</td></tr>
 <tr class="separator:a130f5b835333d35ea6da4f07b05a4e4e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -426,7 +420,12 @@ template&lt;class LhsType , class RhsType , typename std::enable_if&lt; std::is_
 </div>
 </div>
 </div>
-<hr class="footer"/>
+<address class="footer-copyright"><small>
+  <a href="https://uavcan.org">UAVCAN</a>
+  – Copyright (C) 2014-1029 Pavel Kirienko <pavel.kirienko@gmail.com>
+  – Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved
+  – This documentation is provided under the MIT licence as part of the <a href="https://github.com/UAVCAN/libuavcan/blob/master/LICENSE">libuavcan project</a>.
+  </small></address>
 </body>
         <script type="text/javascript" src="doxy-boot.js"></script>
 </html>

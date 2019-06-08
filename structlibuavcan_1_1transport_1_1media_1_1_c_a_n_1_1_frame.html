@@ -29,7 +29,7 @@
             <div class="container">
                 <div class="navbar-header">
                     <a class="navbar-brand" href="https://uavcan.org"><img src="uavcan_logo.svg" style="float:left;height:1.5em;padding:0em .5em .25em 0em;"/> libuavcan</a>
-                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/101" style="font-size: .75em; color: coral">build:101</a></em>
+                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/108" style="font-size: .75em; color: coral">build:108</a></em>
                 </div>
             </div>
         </nav>
@@ -69,7 +69,7 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><b>libuavcan</b></li><li class="navelem"><b>transport</b></li><li class="navelem"><b>media</b></li><li class="navelem"><b>CAN</b></li><li class="navelem"><a class="el" href="structlibuavcan_1_1transport_1_1media_1_1_c_a_n_1_1_frame.html">Frame</a></li>  </ul>
+<li class="navelem"><a class="el" href="namespacelibuavcan.html">libuavcan</a></li><li class="navelem"><b>transport</b></li><li class="navelem"><b>media</b></li><li class="navelem"><b>CAN</b></li><li class="navelem"><a class="el" href="structlibuavcan_1_1transport_1_1media_1_1_c_a_n_1_1_frame.html">Frame</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
@@ -87,6 +87,8 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
+<tr class="memitem:a46567d7d8ad42939e3dfba429f6e80ce"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structlibuavcan_1_1transport_1_1media_1_1_c_a_n_1_1_frame.html#a46567d7d8ad42939e3dfba429f6e80ce">Frame</a> (std::uint32_t can_id, <a class="el" href="classlibuavcan_1_1time_1_1_monotonic.html">libuavcan::time::Monotonic</a> can_timestamp, const std::uint8_t *can_data, <a class="el" href="can_8hpp.html#a2598020b48ef33e837c92549fdf9e382">FrameDLC</a> in_dlc)</td></tr>
+<tr class="separator:a46567d7d8ad42939e3dfba429f6e80ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6040d786f85c07bbf341d0566ec3b449"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structlibuavcan_1_1transport_1_1media_1_1_c_a_n_1_1_frame.html#a6040d786f85c07bbf341d0566ec3b449">Frame</a> (std::uint32_t can_id, const std::uint8_t *can_data, <a class="el" href="can_8hpp.html#a2598020b48ef33e837c92549fdf9e382">FrameDLC</a> in_dlc)</td></tr>
 <tr class="separator:a6040d786f85c07bbf341d0566ec3b449"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a48bc62489c24031951a4e5312bd59e7e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="can_8hpp.html#a2598020b48ef33e837c92549fdf9e382">FrameDLC</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structlibuavcan_1_1transport_1_1media_1_1_c_a_n_1_1_frame.html#a48bc62489c24031951a4e5312bd59e7e">getDLC</a> () const</td></tr>
@@ -119,6 +121,8 @@ Static Public Member Functions</h2></td></tr>
 Data Fields</h2></td></tr>
 <tr class="memitem:a67ec9861b5fe8278e20fcf6f2d5201b4"><td class="memItemLeft" align="right" valign="top">std::uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structlibuavcan_1_1transport_1_1media_1_1_c_a_n_1_1_frame.html#a67ec9861b5fe8278e20fcf6f2d5201b4">id</a></td></tr>
 <tr class="separator:a67ec9861b5fe8278e20fcf6f2d5201b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae1fade62a5ded15785e31d6d0d13a421"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classlibuavcan_1_1time_1_1_monotonic.html">libuavcan::time::Monotonic</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structlibuavcan_1_1transport_1_1media_1_1_c_a_n_1_1_frame.html#ae1fade62a5ded15785e31d6d0d13a421">timestamp</a></td></tr>
+<tr class="separator:ae1fade62a5ded15785e31d6d0d13a421"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a72c102dc1c3087fbfa3491cc5b540fbc"><td class="memItemLeft" align="right" valign="top">std::uint8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structlibuavcan_1_1transport_1_1media_1_1_c_a_n_1_1_frame.html#a72c102dc1c3087fbfa3491cc5b540fbc">data</a> [MTUBytesParam]</td></tr>
 <tr class="separator:a72c102dc1c3087fbfa3491cc5b540fbc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -151,8 +155,68 @@ struct libuavcan::transport::media::CAN::Frame&lt; MTUBytesParam, FlagBitsCompar
 </div>
  <p>As demonstrated by the above diagram, careful configuration of hardware filters and proper elision of unsupported data will minimize the amount of CPU used by libuavcan to copy data through system memory. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a id="a46567d7d8ad42939e3dfba429f6e80ce"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a46567d7d8ad42939e3dfba429f6e80ce">&#9670;&nbsp;</a></span>Frame() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;std::uint16_t MTUBytesParam, std::uint8_t FlagBitsCompareMask = 0x00&gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structlibuavcan_1_1transport_1_1media_1_1_c_a_n_1_1_frame.html">libuavcan::transport::media::CAN::Frame</a>&lt; MTUBytesParam, FlagBitsCompareMask &gt;::<a class="el" href="structlibuavcan_1_1transport_1_1media_1_1_c_a_n_1_1_frame.html">Frame</a> </td>
+          <td>(</td>
+          <td class="paramtype">std::uint32_t&#160;</td>
+          <td class="paramname"><em>can_id</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classlibuavcan_1_1time_1_1_monotonic.html">libuavcan::time::Monotonic</a>&#160;</td>
+          <td class="paramname"><em>can_timestamp</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::uint8_t *&#160;</td>
+          <td class="paramname"><em>can_data</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="can_8hpp.html#a2598020b48ef33e837c92549fdf9e382">FrameDLC</a>&#160;</td>
+          <td class="paramname"><em>in_dlc</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Constructs a new <a class="el" href="structlibuavcan_1_1transport_1_1media_1_1_c_a_n_1_1_frame.html">Frame</a> object with timestamp that copies data into this instance.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">can_id</td><td>The 29-bit <a class="el" href="namespace_c_a_n.html">CAN</a> id. </td></tr>
+    <tr><td class="paramname">can_timestamp</td><td>A monotonic timestamp that should be as close to the time the start-of-frame was received (for rx frames) or put-on-bus (for tx frames) as possible. </td></tr>
+    <tr><td class="paramname">can_data</td><td>The data to copy into this instance. </td></tr>
+    <tr><td class="paramname">in_dlc</td><td>The data length code for the can_data. </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
 <a id="a6040d786f85c07bbf341d0566ec3b449"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6040d786f85c07bbf341d0566ec3b449">&#9670;&nbsp;</a></span>Frame()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a6040d786f85c07bbf341d0566ec3b449">&#9670;&nbsp;</a></span>Frame() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -687,6 +751,23 @@ template&lt;std::uint16_t MTUBytesParam, std::uint8_t FlagBitsCompareMask = 0x00
 
 </div>
 </div>
+<a id="ae1fade62a5ded15785e31d6d0d13a421"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae1fade62a5ded15785e31d6d0d13a421">&#9670;&nbsp;</a></span>timestamp</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;std::uint16_t MTUBytesParam, std::uint8_t FlagBitsCompareMask = 0x00&gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classlibuavcan_1_1time_1_1_monotonic.html">libuavcan::time::Monotonic</a> <a class="el" href="structlibuavcan_1_1transport_1_1media_1_1_c_a_n_1_1_frame.html">libuavcan::transport::media::CAN::Frame</a>&lt; MTUBytesParam, FlagBitsCompareMask &gt;::timestamp</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>A monotonic timestamp. Libuavcan operates optimally when this value is a hardware supplied timestamp recorded at the start-of-frame. </p>
+
+</div>
+</div>
 <hr/>The documentation for this struct was generated from the following file:<ul>
 <li>libuavcan/include/libuavcan/transport/media/<a class="el" href="can_8hpp_source.html">can.hpp</a></li>
 </ul>
@@ -698,7 +779,12 @@ template&lt;std::uint16_t MTUBytesParam, std::uint8_t FlagBitsCompareMask = 0x00
 </div>
 </div>
 </div>
-<hr class="footer"/>
+<address class="footer-copyright"><small>
+  <a href="https://uavcan.org">UAVCAN</a>
+  – Copyright (C) 2014-1029 Pavel Kirienko <pavel.kirienko@gmail.com>
+  – Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved
+  – This documentation is provided under the MIT licence as part of the <a href="https://github.com/UAVCAN/libuavcan/blob/master/LICENSE">libuavcan project</a>.
+  </small></address>
 </body>
         <script type="text/javascript" src="doxy-boot.js"></script>
 </html>

@@ -29,7 +29,7 @@
             <div class="container">
                 <div class="navbar-header">
                     <a class="navbar-brand" href="https://uavcan.org"><img src="uavcan_logo.svg" style="float:left;height:1.5em;padding:0em .5em .25em 0em;"/> libuavcan</a>
-                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/101" style="font-size: .75em; color: coral">build:101</a></em>
+                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/108" style="font-size: .75em; color: coral">build:108</a></em>
                 </div>
             </div>
         </nav>
@@ -74,7 +74,9 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
-<a href="#nested-classes">Data Structures</a>  </div>
+<a href="#nested-classes">Data Structures</a> &#124;
+<a href="#namespaces">Namespaces</a> &#124;
+<a href="#typedef-members">Typedefs</a>  </div>
   <div class="headertitle">
 <div class="title">time.hpp File Reference</div>  </div>
 </div><!--header-->
@@ -94,8 +96,28 @@ Data Structures</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classlibuavcan_1_1time_1_1_monotonic.html">libuavcan::time::Monotonic</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
+Namespaces</h2></td></tr>
+<tr class="memitem:namespacelibuavcan"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacelibuavcan.html">libuavcan</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:namespaceduration"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespaceduration.html">duration</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:namespacetime"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacetime.html">time</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="typedef-members"></a>
+Typedefs</h2></td></tr>
+<tr class="memitem:a3e21a067162f5bfcf166019b6477b6ca"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacelibuavcan.html#a3e21a067162f5bfcf166019b6477b6ca">libuavcan::DefaultMicrosecondSignedType</a> = std::int64_t</td></tr>
+<tr class="separator:a3e21a067162f5bfcf166019b6477b6ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a14bbe1547cccbdc709a859fd1cd86bf0"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacelibuavcan.html#a14bbe1547cccbdc709a859fd1cd86bf0">libuavcan::DefaultMicrosecondUnsignedType</a> = std::uint64_t</td></tr>
+<tr class="separator:a14bbe1547cccbdc709a859fd1cd86bf0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-</div><!-- contents -->
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>This header specifies the concepts used by libuavcan when handling time scalars and vectors. Applications may optionally choose to extend these concepts for their own use but shall always use them, as documented, when exchanging data with libuavcan.</p>
+<h3>Signed Integer Assumptions</h3>
+<p>Please note that libuavcan makes some assumptions that signed integers are represented as twos compliment by a machine. You may experience undefined behaviour if your architecture does not use twos compliment integers. </p>
+</div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.8-->
 <!-- start footer part -->
 </div>
@@ -103,7 +125,12 @@ Data Structures</h2></td></tr>
 </div>
 </div>
 </div>
-<hr class="footer"/>
+<address class="footer-copyright"><small>
+  <a href="https://uavcan.org">UAVCAN</a>
+  – Copyright (C) 2014-1029 Pavel Kirienko <pavel.kirienko@gmail.com>
+  – Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved
+  – This documentation is provided under the MIT licence as part of the <a href="https://github.com/UAVCAN/libuavcan/blob/master/LICENSE">libuavcan project</a>.
+  </small></address>
 </body>
         <script type="text/javascript" src="doxy-boot.js"></script>
 </html>

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['lvs',['lvs',['../namespacelvs.html',1,'']]]
+  ['duration',['duration',['../namespaceduration.html',1,'']]]
 ];

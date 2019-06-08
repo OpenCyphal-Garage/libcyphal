@@ -5,6 +5,7 @@ var searchData=
   ['math_2ehpp',['math.hpp',['../math_8hpp.html',1,'']]],
   ['maxframesizebytes',['MaxFrameSizeBytes',['../can_8hpp.html#a29a863f479a8d573abcfc5c4dfe0e140',1,'libuavcan::transport::media::CAN::TypeFD::MaxFrameSizeBytes()'],['../can_8hpp.html#aa435547cf897d04c35ec877d8d7430a6',1,'libuavcan::transport::media::CAN::Type2_0::MaxFrameSizeBytes()']]],
   ['media',['media',['../namespacemedia.html',1,'']]],
+  ['microsecondtype',['MicrosecondType',['../classlibuavcan_1_1duration_1_1_base.html#af58fa6fa6bfcfd8f84347d6d4a2b607c',1,'libuavcan::duration::Base::MicrosecondType()'],['../classlibuavcan_1_1time_1_1_base.html#a073333f039f7cef6285fefef28165840',1,'libuavcan::time::Base::MicrosecondType()']]],
   ['monotonic',['Monotonic',['../classlibuavcan_1_1duration_1_1_monotonic.html',1,'libuavcan::duration::Monotonic'],['../classlibuavcan_1_1time_1_1_monotonic.html',1,'libuavcan::time::Monotonic']]],
   ['mtubytes',['MTUBytes',['../structlibuavcan_1_1transport_1_1media_1_1_c_a_n_1_1_frame.html#a1054b5f3de0898b557c46e1cd76fa906',1,'libuavcan::transport::media::CAN::Frame']]]
 ];
