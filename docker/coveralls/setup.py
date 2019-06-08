@@ -13,4 +13,4 @@ if int(setuptools.__version__.split('.')[0]) < 30:
           file=sys.stderr)
     sys.exit(1)
 
-setuptools.setup(version='1.0.0')
+setuptools.setup(version='1.1.0')
