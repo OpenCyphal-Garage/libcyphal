@@ -5,7 +5,16 @@
  * Concepts and requirements for exchanging time values between libuavcan, media
  * layer implementations, and applications.
  */
-/** @file */
+/** @file
+ * This header specifies the concepts used by libuavcan when handling time scalars and vectors.
+ * Applications may optionally choose to extend these concepts for their own use but shall always
+ * use them, as documented, when exchanging data with libuavcan.
+ *
+ * <h3>Signed Integer Assumptions</h3>
+ * Please note that libuavcan makes some assumptions that signed integers are represented as
+ * twos compliment by a machine. You may experience undefined behaviour if your architecture
+ * does not use twos compliment integers.
+ */
 
 #ifndef LIBUAVCAN_TIME_HPP_INCLUDED
 #define LIBUAVCAN_TIME_HPP_INCLUDED
@@ -20,19 +29,20 @@
  */
 namespace libuavcan
 {
-#if LIBUAVCAN_MICROSECOND_SIZE_BYTES == 8
-using DefaultMicrosecondSignedType   = std::int64_t;
-using DefaultMicrosecondUnsignedType = std::uint64_t;
-#elif LIBUAVCAN_MICROSECOND_SIZE_BYTES == 4
-using DefaultMicrosecondSignedType   = std::int32_t;
-using DefaultMicrosecondUnsignedType = std::uint32_t;
-#elif LIBUAVCAN_MICROSECOND_SIZE_BYTES == 2
-using DefaultMicrosecondSignedType   = std::int16_t;
-using DefaultMicrosecondUnsignedType = std::uint16_t;
-#else
-#    error LIBUAVCAN_MICROSECOND_SIZE_BYTES is not a valid integer size for this library.
-#endif
+/**
+ * The default signed integer type used in libuavcan for signed microseconds (e.g. all duration types).
+ */
+using DefaultMicrosecondSignedType = std::int64_t;
 
+/**
+ * The default unsigned integer type used in libuavcan for unsigned microseconds (e.g. all time types).
+ */
+using DefaultMicrosecondUnsignedType = std::uint64_t;
+
+/**
+ * @namespace duration
+ * Contains concepts and types that implement these concepts for time vector values.
+ */
 namespace duration
 {
 /**
@@ -181,9 +191,9 @@ public:
 
     Type operator-() const
     {
-        if (usec_ == std::numeric_limits<USecT>::max())
+        if (usec_ == std::numeric_limits<USecT>::min())
         {
-            return fromMicrosecond(std::numeric_limits<USecT>::min() + 1);
+            return fromMicrosecond(std::numeric_limits<USecT>::max());
         }
         else
         {
@@ -212,6 +222,10 @@ class LIBUAVCAN_EXPORT Monotonic : public Base<Monotonic>
 
 }  // namespace duration
 
+/**
+ * @namespace time
+ * Contains concepts and types that implement these concepts for time scalar values.
+ */
 namespace time
 {
 /**

@@ -1,9 +1,36 @@
 /*
  * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Unit tests of time types and functions.
  */
-/** @file */
+/** @file
+ * Implement this test for any libuavcan::duration or libuavcan::time objects
+ * you create that support the base concepts defined in libuavcan/time.hpp.
+ *
+ * <h3>Example:</H3>
+ * @code
+ * #include "lvs/lvs.hpp"
+ * #include "lvs/time.hpp"
+ *
+ * namespace lvs
+ * {
+ * typedef ::testing::Types<libuavcan::duration::Monotonic,
+ *                          libuavcan::time::Monotonic,
+ *                          mynamespace::MyDurationType,
+ *                          mynamespace::MyTimeType> MyDurationAndTimeTypes;
+ *
+ * // The trailing comma is required. See https://github.com/google/googletest/issues/1419
+ * INSTANTIATE_TYPED_TEST_SUITE_P(Time, DurationOrTimeTest, MyDurationAndTimeTypes, );
+ *
+ * typedef ::testing::Types<libuavcan::duration::Monotonic, mynamespace::MyDurationType> MyDurationTypes;
+ *
+ * INSTANTIATE_TYPED_TEST_SUITE_P(Time, DurationTest, MyDurationTypes, );
+ *
+ * typedef ::testing::Types<libuavcan::time::Monotonic, mynamespace::MyTimeType> MyTimeTypes;
+ *
+ * INSTANTIATE_TYPED_TEST_SUITE_P(Time, TimeTest, MyTimeTypes, );
+ *
+ * }  // namespace lvs
+ * @endcode
+ */
 #ifndef LIBUAVCAN_LVS_TIME_HPP_INCLUDED
 #define LIBUAVCAN_LVS_TIME_HPP_INCLUDED
 
@@ -12,10 +39,6 @@
 #include "libuavcan/libuavcan.hpp"
 #include "libuavcan/time.hpp"
 
-/**
- * Libuavcan Validation Suite
- * @ref LVSGuide
- */
 namespace lvs
 {
 /**
@@ -217,13 +240,25 @@ TYPED_TEST_P(DurationTest, ArithmeticOperators)
     ASSERT_EQ(TypeParam::fromMicrosecond(2), lhs += rhs);
     ASSERT_EQ(TypeParam::getMaximum(), lhs += TypeParam::getMaximum());
     ASSERT_EQ(TypeParam::fromMicrosecond(-1), -TypeParam::fromMicrosecond(1));
-    ASSERT_EQ(TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::min()),
-              -TypeParam::getMaximum() - TypeParam::fromMicrosecond(1));
+
+    // +--[ -MAX ]------------------------------------------------------------+
     ASSERT_EQ(TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::min() + 1),
               -TypeParam::getMaximum());
+    
     ASSERT_EQ(TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::min() + 2),
               -(TypeParam::getMaximum() - TypeParam::fromMicrosecond(1)));
-    ASSERT_EQ(TypeParam::fromMicrosecond(0), TypeParam::fromMicrosecond(1) -= TypeParam::fromMicrosecond(1));
+
+    // +--[ -MIN ]------------------------------------------------------------+
+    // because -MIN == MAX + 1 for twos complement integers we must assume that the minimum duration will
+    // remain saturated for -MIN
+    ASSERT_EQ(TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::max()),
+              -TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::min()));
+
+    ASSERT_EQ(TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::max()),
+              -TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::min() + 1));
+
+    ASSERT_EQ(TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::max() - 1),
+              -TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::min() + 2));
 }
 
 // +--------------------------------------------------------------------------+
@@ -304,7 +339,8 @@ TYPED_TEST_P(TimeTest, ArithmeticOperators)
         static_cast<typename TypeParam::DurationType::MicrosecondType>(time_plus_max_duration.toMicrosecond());
     ASSERT_EQ(TypeParam::DurationType::getMaximum(), TypeParam::DurationType::fromMicrosecond(t));
     ASSERT_EQ(TypeParam::getMaximum(), TypeParam::getMaximum() += TypeParam::DurationType::getMaximum());
-    ASSERT_EQ(TypeParam::fromMicrosecond(0), TypeParam::fromMicrosecond(1) -= TypeParam::DurationType::fromMicrosecond(1));
+    ASSERT_EQ(TypeParam::fromMicrosecond(0),
+              TypeParam::fromMicrosecond(1) -= TypeParam::DurationType::fromMicrosecond(1));
 }
 
 REGISTER_TYPED_TEST_SUITE_P(TimeTest,  //

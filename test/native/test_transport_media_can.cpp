@@ -3,7 +3,7 @@
  *
  * Unit tests of the libuavcan CAN media header.
  */
-#include "gtest/gtest.h"
+#include "lvs/lvs.hpp"
 
 #include "libuavcan/libuavcan.hpp"
 #include "lvs/transport/media/can_frame.hpp"
