@@ -16,19 +16,8 @@
 
 namespace libuavcan
 {
-/**
- * @namespace transport
- * Contains transport-specific types and namespaces.
- */
 namespace transport
 {
-/**
- * @namespace media
- * Contains media-specific types and namespaces.
- *
- * See the @ref MediaDevGuide for details
- * on porting the media layer to a given platform.
- */
 namespace media
 {
 /**
