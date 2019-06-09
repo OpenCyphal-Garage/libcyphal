@@ -238,7 +238,10 @@ TYPED_TEST_P(DurationTest, ArithmeticOperators)
     TypeParam lhs{TypeParam::fromMicrosecond(1)};
     TypeParam rhs{TypeParam::fromMicrosecond(1)};
     ASSERT_EQ(TypeParam::fromMicrosecond(2), lhs += rhs);
-    ASSERT_EQ(TypeParam::getMaximum(), lhs += TypeParam::getMaximum());
+    lhs += TypeParam::getMaximum();
+    ASSERT_EQ(TypeParam::getMaximum(), lhs);
+    lhs -= TypeParam::fromMicrosecond(10);
+    ASSERT_EQ(TypeParam::getMaximum() - TypeParam::fromMicrosecond(10), lhs);
     ASSERT_EQ(TypeParam::fromMicrosecond(-1), -TypeParam::fromMicrosecond(1));
 
     // +--[ -MAX ]------------------------------------------------------------+
