@@ -31,11 +31,14 @@ __pycache__
 *.log
 
 # Build folders
-build
-build_ci_*
-build_ext
+build*
 
 # Python
 *.egg-info
 *.pyc
 .mypy_cache
+
+# We don't maintain a Vagrantfile as
+# part of our toolchain so don't check
+# it in if you are using one.
+Vagrantfile

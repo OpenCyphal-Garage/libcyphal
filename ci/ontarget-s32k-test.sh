@@ -27,12 +27,12 @@ set -o pipefail
 # | set to the serial port you are using to monitor hardware
 # | tests or supply this as the first argument to this script.
 # +----------------------------------------------------------+
-mkdir -p build_ci_ontarget_s32k
-pushd build_ci_ontarget_s32k
+mkdir -p build_ontarget_s32k
+pushd build_ontarget_s32k
 
 if [ ! -z "$BUILDKITE_BUILD_ID"]; then
-    buildkite-agent artifact download "build_ci_ontarget_s32k/*.hex" .
-    buildkite-agent artifact download "build_ci_ontarget_s32k/*.jlink" .
+    buildkite-agent artifact download "build_ontarget_s32k/*.hex" .
+    buildkite-agent artifact download "build_ontarget_s32k/*.jlink" .
     ls -lAh
 else
     echo "No BUILDKITE_BUILD_ID. Skipping artifact download."

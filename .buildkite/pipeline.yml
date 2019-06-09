@@ -3,8 +3,8 @@ steps:
     id: native-gcc-build-and-test
     command: "./ci/native-gcc-build-and-test.sh"
     artifact_paths: 
-      - "build_ci_native_gcc/docs/html.gz"
-      - "build_ci_native_gcc/tests/coverage.info"
+      - "build_native_gcc/docs/html.gz"
+      - "build_native_gcc/tests/coverage.info"
     plugins:
       - docker#v3.1.0:
           workdir: /repo
@@ -32,11 +32,11 @@ steps:
     id: ontarget-s32k-build
     command: "./ci/ontarget-s32k-build.sh"
     artifact_paths: 
-      - "build_ci_ontarget_s32k/**/*.log"
-      - "build_ci_ontarget_s32k/**/*.elf"
-      - "build_ci_ontarget_s32k/**/*.hex"
-      - "build_ci_ontarget_s32k/**/*.bin"
-      - "build_ci_ontarget_s32k/**/*.jlink"
+      - "build_ontarget_s32k/**/*.log"
+      - "build_ontarget_s32k/**/*.elf"
+      - "build_ontarget_s32k/**/*.hex"
+      - "build_ontarget_s32k/**/*.bin"
+      - "build_ontarget_s32k/**/*.jlink"
     plugins:
       - docker#v3.1.0:
           workdir: /repo

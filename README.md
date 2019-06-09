@@ -47,7 +47,7 @@ The reason we opted for a complete rewrite is that so much is changing. Between 
 
 **/test/compile** – Tests that run in the compiler. Most of these will be tests that pass if they fail to compile. For example, some tests will purposefully define template parameters that will cause static_asserts to fail. Tests that pass if they do compile are less interesting here since such happy paths are normally covered by unit-tests.
 
-**/example** - Contains a set of example applications providing real, practical, and tested uses of libuavcan.
+**/example** - Contains a set of example applications providing real, practical, and (somewhat) tested uses of libuavcan.
 
 **/commons** - Reference implementations for parts of the libuavcan library. These implementations are optional but are provided as a convenience to accelerate evaluation and integration of libuavcan.
 

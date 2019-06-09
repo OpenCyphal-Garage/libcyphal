@@ -30,17 +30,16 @@ set -o pipefail
 # | deploy (i.e. There's really no 'I' going on).
 # +----------------------------------------------------------+
 
-mkdir -p build_ci_ontarget_s32k
-pushd build_ci_ontarget_s32k
+mkdir -p build_ontarget_s32k
+pushd build_ontarget_s32k
 
 # For now we only conpile for arm. In the future we'll actually run the compiled
 # tests on-target.
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/gcc-arm-none-eabi.cmake \
       -DGTEST_USE_LOCAL_BUILD=ON \
       -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/cortex-m4-fpv4-sp-d16-nosys.cmake \
-      -DLIBUAVCAN_TESTBUILD=../test/ontarget/S32K148EVB/unit_tests.cmake \
+      -DLIBUAVCAN_TESTBUILD=../test/ontarget/S32K148EVB/tests.cmake \
       -DLIBUAVCAN_SKIP_DOCS=ON \
-      -DLIBUAVCAN_EXT_FOLDER=build_ci_ext \
       ..
 
 make -j4

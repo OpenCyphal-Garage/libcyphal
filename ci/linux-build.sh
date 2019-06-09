@@ -29,13 +29,15 @@ set -o pipefail
 # | CI is used to verify and test rather than package and
 # | deploy (i.e. There's really no 'I' going on).
 # +----------------------------------------------------------+
-mkdir -p build_native_gcc
-pushd build_native_gcc
 
-buildkite-agent artifact download "build_native_gcc/tests/coverage.info" .
+mkdir -p build_linux
+pushd build_linux
+# We ensure we can build using clang but we rely on GCC for testing
+# since clang's coverage metrics have been broken for the last 
+# several years.
+cmake -DLIBUAVCAN_TESTBUILD=../test/linux/tests.cmake \
+      ..
 
-# Our custom lcov tracefile and coveralls.io upload script.
-# This is only available in our docker container.
-info_to_coveralls --root ../ tests/coverage.info
+make -j4
 
 popd

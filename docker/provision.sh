@@ -40,7 +40,7 @@ apt-get -y install valgrind
 apt-get -y install clang-tidy
 apt-get -y install npm
 
-pip install virtualenv
+pip3 install virtualenv
 
 # a well-known workaround for npm install on docker
 # what. a. fail.

@@ -16,19 +16,8 @@
 
 namespace libuavcan
 {
-/**
- * @namespace transport
- * Contains transport-specific types and namespaces.
- */
 namespace transport
 {
-/**
- * @namespace media
- * Contains media-specific types and namespaces.
- *
- * See the @ref MediaDevGuide for details
- * on porting the media layer to a given platform.
- */
 namespace media
 {
 /**
@@ -271,6 +260,26 @@ struct LIBUAVCAN_EXPORT Frame
      *
      */
     std::uint8_t data[MTUBytesParam];
+
+    /**
+     * Filter type for CAN frames.
+     */
+    struct Filter
+    {
+        /**
+         * The id filter.
+         */
+        std::uint32_t id = 0;
+        /**
+         * A mask for the id field.
+         */
+        std::uint32_t mask = 0;
+
+        bool operator==(const Filter& rhs) const
+        {
+            return rhs.id == id && rhs.mask == mask;
+        }
+    };
 
 private:
     FrameDLC dlc_;  ///< Data Length Code.

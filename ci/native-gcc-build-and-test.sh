@@ -30,12 +30,11 @@ set -o pipefail
 # | deploy (i.e. There's really no 'I' going on).
 # +----------------------------------------------------------+
 
-mkdir -p build_ci_native_gcc
-pushd build_ci_native_gcc
+mkdir -p build_native_gcc
+pushd build_native_gcc
 
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/gcc-native.cmake \
       -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/native_unittest.cmake \
-      -DLIBUAVCAN_EXT_FOLDER=build_ci_ext_gcc \
       -DLIBUAVCAN_INTROSPECTION_ENABLE_ASSERT=1 \
       ..
 

@@ -1,6 +1,128 @@
-Libuavcan Build and Test Automation {#BuildCiGuide}
+Libuavcan Library Developer Guide {#LibDevGuide}
 ====================================================
 
+> This is a guide for developers of libuavcan itself. If you are a user of libuavcan you don't need to read this, but hey; Thanks for using our software.
+-----------------------------------------------------
+> And now...on to the sausage making!
+
+## Build System
+
+We require [cmake 3.6](https://cmake.org/cmake/help/v3.6/) or greater because that's what Ubuntu 18.04 ships with and Ubuntu 18.04 is the reference operating system we as our generic build and test environment. At the time of this writing we have only tested the GNU Makefile generator but there's no reason why ninja shouldn't work either.
+
+The default cmake setup and build should always work:
+
+```
+mkdir build
+cd build
+cmake ..
+make -j8 && echo "this is fine."
+```
+
+To run the same commands as the automated builds use the scripts under the `ci/` folder. These create subdirectories under the project root folder using the following rules:
+
+```
+build_{build_type}_{build_type qualifier}
+build_ext_{build_type}_{build_type qualifier}
+```
+
+For example:
+```
+./ci/native-gcc-build-and-test.sh
+# will create and build using two directories
+build_native_gcc
+build_ext_native_gcc
+```
+
+The naming for these files and the folders they create follow this pattern:
+
+```
+[build_type]-[(optional)build_type qualifier]-[build|test|report|upload].sh
+```
+
+Because of these rules, you can super-clean your package directory with `rm -rf build*` (or `git rm -dfx` but that will also blow away other things you might still want).
+
+### build_ext
+
+build_ext in folder prefixes stands for "external build". The cmake build will pull some dependencies from the internet including from github (for googletest) and Pypi. These downloads and the builds for these downloaded projects are stored under this "ext" folder. If you `rm -rf` just the build directory you can recreate and build without downloading anything again.
+
+## Developer Environment
+
+> **TODO** (hint: it'll be about vscode since it's good and it's free)
+
+## OSX
+
+Where we use linux SocketCAN for examples you will need to build and run on a linux machine. To make this easier on
+OSX developers we provide a [Vagrantfile](https://www.vagrantup.com/) in this document that pulls an Ubuntu image
+for [VirtualBox](https://www.virtualbox.org/) which has the SocketCAN kernel modules and can-utils installed. This image
+is maintained by [thirtytwobits](https://app.vagrantup.com/thirtytwobits/boxes/libuavcan_v1)) so it's not necessarily
+part of the libuavcan toolchain but it should work. After you provision this image (i.e. `vagrant up`) you can attach
+USB CAN probes directly to it or you can setup `vcan` links which will allow the libuavcan linux examples to run normally.
+
+### Vagrantfile
+
+```
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# We use docker as our reference build environment but this Vagrant file is handy
+# if you need to test real SocketCAN devices on OSX.
+Vagrant.configure("2") do |config|
+  
+    config.vm.box = "thirtytwobits/libuavcan_v1"
+    config.vm.box_version = "1.0"
+
+    config.vm.provider :virtualbox do |v|
+      v.customize [ "guestproperty", "set", :id, "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold", 10000 ]
+    end 
+    config.vm.provision "shell" do |s|
+      s.inline = <<-SCRIPT
+        # Change directory automatically on ssh login
+        echo "export CXX=\"g++-7\" CC=\"gcc-7\"" >> /home/vagrant/.bashrc
+        echo "cd    /vagrant" >> /home/vagrant/.bashrc
+      SCRIPT
+    end
+  end
+```
+
+or just do:
+
+```bash
+vagrant init thirtytwobits/libuavcan_v1 --box-version 1.0
+vagrant up
+```
+
+### Vagrant Cheatsheet
+
+```
+vagrant up
+vagrant ssh
+```
+
+Attach a CAN probe to the guest using VBoxManage:
+
+```
+# first, find your vagrant guest.
+VBoxManage list vms
+
+# next, find the UUID of the usb device on the host. In this example
+# we look for a PCAN probe:
+VBoxManage list usbhost | grep --context=7 PCAN
+
+# now, attach the usb device to the guest.
+VBoxManage controlvm my_libuavcan_vagrant_guest_3249032840 usbattach a2d153de-63f1-411d-08d2-eefc42b792fa
+
+# You can also setup a filter so this device will be auto-captured:
+VBoxManage usbfilter add 0 --target my_libuavcan_vagrant_guest_3249032840 --name PEAK --action hold --product "PCAN-USB Pro FD"
+```
+
+## Linux
+
+> TODO: document common SocketCAN setups for running linux examples.
+
+Libuavcan Library Developer Continuous Integration {#LibCIGuide}
+====================================================================
+
+> TODO buildkite documentation
 
 ## Pi worker
 
@@ -161,11 +283,11 @@ set -o pipefail
 # | CI is used to verify and test rather than package and
 # | deploy (i.e. There's really no 'I' going on).
 # +----------------------------------------------------------+
-mkdir -p build_ci_ontarget_s32k
-pushd build_ci_ontarget_s32k
+mkdir -p build_ontarget_s32k
+pushd build_ontarget_s32k
 
-buildkite-agent artifact download "build_ci_ontarget_s32k/*.hex" .
-buildkite-agent artifact download "build_ci_ontarget_s32k/*.jlink" .
+buildkite-agent artifact download "build_ontarget_s32k/*.hex" .
+buildkite-agent artifact download "build_ontarget_s32k/*.jlink" .
 ls -lAh
 
 nait -vv \

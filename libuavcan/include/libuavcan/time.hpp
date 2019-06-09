@@ -22,11 +22,6 @@
 #include "libuavcan/libuavcan.hpp"
 #include "libuavcan/util/math.hpp"
 
-/**
- * @namespace libuavcan
- * The top-level namespace which contains all  types, definitions, and nested
- * namespaces for libuavcan.
- */
 namespace libuavcan
 {
 /**

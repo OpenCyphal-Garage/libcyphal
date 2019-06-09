@@ -69,7 +69,7 @@ if(GTEST_USE_LOCAL_BUILD)
     # These are all "namespaced" with GTEST and may be needed by gtest headers so
     # we're right to add them to the global set of build definitions.
     #
-    add_definitions(-DGTEST_HAS_POSIX_RE=0 
+    add_definitions(-DGTEST_HAS_POSIX_RE=0
                     -DGTEST_HAS_PTHREAD=0
                     -DGTEST_HAS_DEATH_TEST=0
                     -DGTEST_HAS_STREAM_REDIRECTION=0
