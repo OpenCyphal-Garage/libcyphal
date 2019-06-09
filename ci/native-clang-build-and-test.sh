@@ -36,6 +36,7 @@ pushd build_ci_native_clang
 # since clang's coverage metrics have been broken for the last 
 # several years.
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/clang-native.cmake \
+      -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/native.cmake \
       -DLIBUAVCAN_EXT_FOLDER=build_ci_ext_clang \
       ..
 
@@ -44,6 +45,6 @@ make -j4
 # We use ctest to run our compile tests.
 ctest -VV
 
-make cov_all
+make test_all
 
 popd

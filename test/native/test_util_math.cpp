@@ -78,10 +78,6 @@ class SaturatedMathTest : public ::testing::Test
 {
     static_assert(sizeof(typename T::LeftHandSideType) == sizeof(typename T::RightHandSideType),
                   "These tests may only be used to compare signed and unsigned versions of the same type.");
-    static_assert((std::numeric_limits<typename T::RightHandSideType>::is_signed &&
-                   std::numeric_limits<typename T::RightHandSideType>::min() < 0) ||
-                      !std::numeric_limits<typename T::RightHandSideType>::is_signed,
-                  "It should be impossible to have a zero size, signed integer. Any yet, here we are?");
     static_assert(
         (std::numeric_limits<typename T::LeftHandSideType>::is_signed ==
          std::numeric_limits<typename T::RightHandSideType>::is_signed) ||
