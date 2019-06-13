@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "cortex-debug",
+            "cwd": "${workspaceRoot}",
+            "executable": "${workspaceRoot}/build_ci_ontarget_s32k/test_util_math.elf",
+            "name": "Debug tests",
+            "request": "launch",
+            "servertype": "jlink",
+            "device": "S32K148",
+            "svdFile": "${workspaceRoot}/test/ontarget/S32K148EVB/S32K148.svd"
+        },
+        {
+            "type": "lldb",
+            "name": "(lldb) Launch",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/tests/test_util_math",
+            "args": ["--gtest_filter=SaturatedMathTest/* MixedTypeMathParams<unsigned, signed>.SaturatingSubMaxMax"],
+            "cwd": "${workspaceFolder}",
+        }
+    ]
+}

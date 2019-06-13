@@ -1,0 +1,43 @@
+{
+    "configurations": [
+        {
+            "name": "Mac",
+            "intelliSenseMode": "clang-x64",
+            "includePath": [
+                "${workspaceFolder}/libuavcan/include",
+                "${workspaceFolder}/libuavcan_validation_suite/include"
+            ],
+            "browse": {
+                "path": [
+                    "${workspaceFolder}/libuavcan/include",
+                    "${workspaceFolder}/libuavcan_validation_suite/include"
+                ],
+                "limitSymbolsToIncludedHeaders": false
+            },
+            "macFrameworkPath": [
+                "/System/Library/Frameworks",
+                "/Library/Frameworks"
+            ],
+            "compileCommands": "${workspaceFolder}/.vscode/compile_commands.json",
+            "configurationProvider": "vector-of-bool.cmake-tools"
+        },
+        {
+            "name": "Linux",
+            "intelliSenseMode": "gcc-x64",
+            "includePath": [
+                "${workspaceFolder}/libuavcan/include",
+                "${workspaceFolder}/libuavcan_validation_suite/include"
+            ],
+            "browse": {
+                "path": [
+                    "${workspaceFolder}/libuavcan/include",
+                    "${workspaceFolder}/libuavcan_validation_suite/include"
+                ],
+                "limitSymbolsToIncludedHeaders": false
+            },
+            "compileCommands": "${workspaceFolder}/.vscode/compile_commands.json",
+            "configurationProvider": "vector-of-bool.cmake-tools"
+        }
+    ],
+    "version": 4
+}

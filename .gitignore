@@ -21,9 +21,6 @@ __pycache__
 .pydevproject
 .gdbinit
 
-# vsstudio code
-.vscode*
-
 # vagrant
 .vagrant
 
