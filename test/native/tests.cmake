@@ -2,6 +2,9 @@
 # Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 
+# All test binaries and reports will be created under this directory.
+set(LIBUAVCAN_NATIVE_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/tests)
+
 #
 # We generate coverage reports. Please look at them (It wasn't easy to get this to work).
 #
@@ -52,9 +55,6 @@ function(define_native_test_run ARG_TEST_NAME ARG_OUTDIR)
      )
 
 endfunction()
-
-# All test binaries and reports will be created under this directory.
-set(LIBUAVCAN_NATIVE_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/tests)
 
 # +---------------------------------------------------------------------------+
 #   We generate individual test binaires so we can record which test generated
