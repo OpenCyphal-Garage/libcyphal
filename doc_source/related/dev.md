@@ -58,6 +58,9 @@ is maintained by [thirtytwobits](https://app.vagrantup.com/thirtytwobits/boxes/l
 part of the libuavcan toolchain but it should work. After you provision this image (i.e. `vagrant up`) you can attach
 USB CAN probes directly to it or you can setup `vcan` links which will allow the libuavcan linux examples to run normally.
 
+Note that there is currently a problem with cloning repositories on virtualbox shared directories. If you are using a virtualbox
+Vagrant provider you'll need to locate the external build directory outside of the share. You can use `-DLIBUAVCAN_EXT_FOLDER=/home/vagrant/libuavcan_build_ext` when you configure, for example.
+
 ### Vagrantfile
 
 ```
@@ -67,13 +70,13 @@ USB CAN probes directly to it or you can setup `vcan` links which will allow the
 # We use docker as our reference build environment but this Vagrant file is handy
 # if you need to test real SocketCAN devices on OSX.
 Vagrant.configure("2") do |config|
-  
+
     config.vm.box = "thirtytwobits/libuavcan_v1"
     config.vm.box_version = "1.0"
 
     config.vm.provider :virtualbox do |v|
       v.customize [ "guestproperty", "set", :id, "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold", 10000 ]
-    end 
+    end
     config.vm.provision "shell" do |s|
       s.inline = <<-SCRIPT
         # Change directory automatically on ssh login
@@ -154,11 +157,11 @@ sudo raspi-config
 ```bash
 sudo apt update
 sudo apt upgrade -y
-sudo apt install git
+sudo apt install -y git
 sudo apt install -y python3-pip
 git clone https://github.com/thirtytwobits/nanaimo.git
 cd nanaimo
-pip3 install --system .
+sudo pip3 install --system .
 ```
 
 #### [Segger JLink](https://www.segger.com/downloads/jlink)
@@ -169,7 +172,7 @@ Download the J-Link software for Linux ARM systems.
 scp path/to/JLink_Linux_VXXX_arm.tgz pi@[ip address]:~
 ssh pi@[ip address]
 tar -xvf JLink_Linux_VXXX_arm.tgz
-mv JLink_Linux_VXXX_arm /opt/
+sudo mv JLink_Linux_VXXX_arm /opt/
 cd /opt/JLink_Linux_VXXX_arm
 sudo cp 99-jlink.rules /etc/udev/rules.d/
 sudo ln -s /opt/JLink_Linux_VXXX_arm/JLinkExe /bin/JLinkExe
@@ -195,7 +198,7 @@ sudo shutdown -r now
 sudo apt-get install -y apt-transport-https dirmngr
 sudo apt-key adv --keyserver ipv4.pool.sks-keyservers.net --recv-keys 32A37959C2FA5C3C99EFBC32A79206696452D198
 ssh-keygen -t rsa -b 4096 -C "[hostname]@uavcan.org"
-"echo deb https://apt.buildkite.com/buildkite-agent stable main" | sudo tee /etc/apt/sources.list.d/buildkite-agent.list
+echo "deb https://apt.buildkite.com/buildkite-agent stable main" | sudo tee /etc/apt/sources.list.d/buildkite-agent.list
 
 # Install the Agent
 sudo apt-get update && sudo apt-get install -y buildkite-agent
@@ -211,7 +214,17 @@ Once you have this token you can complete the agent installation:
 ```bash
 # Add the libuavcan token
 sudo sed -i "s/xxx/INSERT-YOUR-AGENT-TOKEN-HERE/g" /etc/buildkite-agent/buildkite-agent.cfg
+```
 
+Edit the config with the proper tags
+```bash
+sudo vi /etc/buildkite-agent/buildkite-agent.cfg
+```
+
+uncomment "tags" and set with the proper queue tags (e.g. `tags="queue=ontarget-s32k"`)
+
+Finally, start the service.
+```bash
 # Start the service
 sudo systemctl enable buildkite-agent && sudo systemctl start buildkite-agent
 ```
@@ -225,7 +238,7 @@ sudo journalctl -f -u buildkite-agent
 Allow the agent to use serial devices:
 
 ```bash
-usermod -a -G dialout buildkite-agent
+sudo usermod -a -G dialout buildkite-agent
 ```
 
 #### Hooks
@@ -234,20 +247,19 @@ We setup bespoke PI workers which allows us to avoid key management issues for t
 
 ```bash
 cd /etc/buildkite-agent/hooks
-mv environment.sample environment
-mv command.sample command
+sudo mv environment.sample environment
+sudo mv command.sample command
 ```
 
 Sudo edit the `environment` file and change it to:
 
 ```bash
 set -eu
-echo '--- :strawberry: Setting up a no-source environment for raspberry pi.'
+echo '--- :raspberry: Setting up a no-source environment for raspberry pi.'
 
+# Empty value prevents source cloning. The workers don't have access to source.
 export BUILDKITE_REPO=
 ```
-
-(vote for [this feature request](https://forum.buildkite.community/t/emoji/533) to get a :raspberry: emoji added to buildkite.)
 
 Sudo edit the `command` file and change it to:
 
@@ -301,3 +313,22 @@ popd
 ```
 
 where the serial port is the one connected to the S32K dev kit.
+
+### Other PI stuff
+
+#### Adafruit Display
+
+I use an [800x480 Adafruit LCD](https://www.adafruit.com/product/2232) for emergency, local access to PIs in my farm. This display requires hat the resolution is set specifically to 800x480 since it does not contain a video scaler. See [This tutorial](https://learn.adafruit.com/adafruit-5-800x480-tft-hdmi-monitor-touchscreen-backpack/raspberry-pi-config) for details.
+
+#### SSH
+
+If you are getting:
+```
+Received disconnect from [ip address] port 22:2: Too many authentication failures
+```
+
+Then ssh is trying to use an invalid key. Force password login as such:
+
+```
+ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no pi@[ip address]
+```

@@ -29,5 +29,13 @@
         "cmakeSettings": {
             "LIBUAVCAN_TESTBUILD": "../test/linux/tests.cmake"
         }
+    },
+    {
+        "name": "linux-vagrant",
+        "toolchainFile": "${workspaceFolder}/cmake/toolchains/gcc-native.cmake",
+        "cmakeSettings": {
+            "LIBUAVCAN_TESTBUILD": "../test/linux/tests.cmake",
+            "LIBUAVCAN_EXT_FOLDER": "/home/vagrant/libuavcan_build_ext"
+        }
     }
 ]

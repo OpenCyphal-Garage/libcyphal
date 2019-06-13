@@ -21,9 +21,6 @@ __pycache__
 .pydevproject
 .gdbinit
 
-# vagrant
-.vagrant
-
 # Log files
 *.log
 
@@ -38,4 +35,5 @@ build*
 # We don't maintain a Vagrantfile as
 # part of our toolchain so don't check
 # it in if you are using one.
+.vagrant
 Vagrantfile
