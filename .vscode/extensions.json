@@ -15,6 +15,6 @@
         "streetsidesoftware.code-spell-checker",
         "xaver.clang-format",
         "dannymidnight.vscode-buildkite",
-        "vadimcn.vscode-lldb",
+        "vadimcn.vscode-lldb"
     ]
 }

@@ -76,5 +76,5 @@
     "search.showLineNumbers": true,
     "window.title": "${dirty} ${activeEditorMedium}${separator}${rootName}",
     "workbench.editor.highlightModifiedTabs": true,
-    "workbench.settings.enableNaturalLanguageSearch": false,
+    "workbench.settings.enableNaturalLanguageSearch": false
 }

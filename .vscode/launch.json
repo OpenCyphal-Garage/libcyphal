@@ -17,7 +17,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/tests/test_util_math",
             "args": ["--gtest_filter=SaturatedMathTest/* MixedTypeMathParams<unsigned, signed>.SaturatingSubMaxMax"],
-            "cwd": "${workspaceFolder}",
+            "cwd": "${workspaceFolder}"
         }
     ]
 }
