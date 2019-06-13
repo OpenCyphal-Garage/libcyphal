@@ -2,7 +2,9 @@ Libuavcan Library Developer Guide {#LibDevGuide}
 ====================================================
 
 > This is a guide for developers of libuavcan itself. If you are a user of libuavcan you don't need to read this, but hey; Thanks for using our software.
+
 -----------------------------------------------------
+
 > And now...on to the sausage making!
 
 ## Build System
@@ -44,6 +46,10 @@ Because of these rules, you can super-clean your package directory with `rm -rf 
 ### build_ext
 
 build_ext in folder prefixes stands for "external build". The cmake build will pull some dependencies from the internet including from github (for googletest) and Pypi. These downloads and the builds for these downloaded projects are stored under this "ext" folder. If you `rm -rf` just the build directory you can recreate and build without downloading anything again.
+
+### CMAKE_BUILD_TYPE
+
+`Debug` enables introspection options by default. This should be enabled for at least one ci build and disabled for at least one other ci build. Any explicit introspection defines are not effected by the build type. See libuavcan/libuavcan.hpp for more details.
 
 ## Developer Environment
 

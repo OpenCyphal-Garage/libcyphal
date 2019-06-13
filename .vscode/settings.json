@@ -68,7 +68,7 @@
     "editor.minimap.showSlider": "always",
     "editor.smoothScrolling": true,
     "editor.suggest.localityBonus": true,
-    "editor.tabSize": 8,
+    "editor.tabSize": 4,
     "editor.wordWrapColumn": 120,
     "explorer.openEditors.visible": 0,
     "files.insertFinalNewline": true,

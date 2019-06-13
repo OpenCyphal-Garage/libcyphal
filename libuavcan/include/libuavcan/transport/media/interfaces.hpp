@@ -35,14 +35,13 @@ namespace media
  * hardware peripherals with other components and/or processes for a given system a media layer interface
  * object shall be the sole access to a single hardware connection to a bus for this library.
  *
- * @tparm  FrameType    The media-specific frame type to be exchanged across this interface.
+ * @tparam  FrameType    The media-specific frame type to be exchanged across this interface.
  */
 template <typename FrameType>
 class LIBUAVCAN_EXPORT Interface
 {
 public:
     virtual ~Interface() = default;
-
     /**
      * Return the index for this interface. The interface index is the canonical identifier used by libuavcan
      * to open, close, and access a given interface. Per the v1 specification, lower indicies are preferred
@@ -56,6 +55,20 @@ public:
      * Non-blocking transmission.
      *
      * If the frame wasn't transmitted by the TX deadline, the interface shall discard it.
+     *
+     * @note There are no requirements on a given media layer implementation to limit the size of the
+     * internal buffers. As such, enqueuing large numbers of messages may use an arbitrarily large
+     * amount of system resources. It is up to the media layer integrator to decide how to handle
+     * this. The simplest strategy is to put a hard upper limit and return -1 (i.e. buffer full) when
+     * this limit is reached. Other strategies could include application-specific interfaces implemented
+     * by the same underlying object implementing this Interface that allowed a component to monitor
+     * memory usage, peripheral state, and application activity to coordinate an optimal response
+     * (e.g. If this were an interface to a CAN driver and the driver was off-bus the coordinating
+     * component could choose to change the application state so it would no longer try to send
+     * messages. etc).
+     *
+     * @image html html/media_interface_fig1.png width=100%
+     * @image latex latex/media_interface_fig1.eps
      *
      * <h3>Media Layer Requirements</h3>
      *
@@ -83,6 +96,9 @@ public:
      * Non-blocking transmission. Messages enqueued for transmission using this method will remain enqueued
      * until they are transmitted.
      *
+     * @note See note on the enqueue(const FrameType&, libuavcan::time::Monotonic) override for a discussion
+     * of memory utilization by objects implementing this interface.
+     *
      * @return
      *          - 0 = one frame enqueued for transmission.
      *          - -1 = TX buffer full.
@@ -105,6 +121,11 @@ public:
      *          - negative for error
      */
     virtual libuavcan::Result popBack(FrameType& out_frame) = 0;
+
+    /**
+     * Send one message and receive one message.
+     */
+    virtual libuavcan::Result exchange() = 0;
 };
 
 /**
@@ -113,13 +134,17 @@ public:
  * interface manager should define a single logical bus). How manager objects are exposed to an application
  * is not specified by libuavcan.
  *
- * @tparm  FrameType    The media-specific frame type to be exchanged on interfaces opened through
- *                      this manager.
+ * @tparam  FrameType       The media-specific frame type to be exchanged on interfaces opened through
+ *                          this manager.
+ * @tparam  InterfaceType   The type to use for interfaces. Must implement Interface.
  */
-template <typename FrameType>
+template <typename FrameType, typename InterfaceType = Interface<FrameType>>
 class LIBUAVCAN_EXPORT InterfaceManager
 {
 public:
+    static_assert(std::is_base_of<Interface<FrameType>, InterfaceType>::value,
+                  "InterfaceType must implement libuavcan::transport::media::Interface.");
+
     virtual ~InterfaceManager() = default;
 
     /**
@@ -148,7 +173,7 @@ public:
     virtual libuavcan::Result openInterface(std::uint_fast16_t                interface_index,
                                             const typename FrameType::Filter* filter_config,
                                             std::size_t                       filter_config_length,
-                                            Interface<FrameType>*&            out_interface) = 0;
+                                            InterfaceType*&                   out_interface) = 0;
 
     /**
      * Closes an interface.
@@ -162,7 +187,7 @@ public:
      *          - < -1 for other errors that prevented normal closing of the interface. The state
      *            of the interface is undefined when this value returns.
      */
-    virtual libuavcan::Result closeInterface(Interface<FrameType>*& inout_interface) = 0;
+    virtual libuavcan::Result closeInterface(InterfaceType*& inout_interface) = 0;
 
     /**
      * The total number of available hardware interfaces. On some systems additional virtual interfaces can be

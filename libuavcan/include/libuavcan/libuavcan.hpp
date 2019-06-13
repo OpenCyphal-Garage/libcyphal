@@ -8,7 +8,10 @@
  */
 #include "libuavcan/build_config.hpp"
 
+#define __STDC_FORMAT_MACROS
+
 #include <cstdint>
+#include <cinttypes>
 #include <limits>
 #include <type_traits>
 

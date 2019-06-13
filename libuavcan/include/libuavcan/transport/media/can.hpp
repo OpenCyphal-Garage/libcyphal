@@ -293,6 +293,23 @@ public:
     {}
 
     /**
+     * Copy constructor for frames.
+     *
+     * @param  rhs  The frame to copy from.
+     */
+    Frame(const Frame& rhs)
+        : id(rhs.id)
+        , timestamp(rhs.timestamp)
+        , data{}
+        , dlc_(rhs.dlc_)
+    {
+        if (nullptr != rhs.data)
+        {
+            std::copy(rhs.data, rhs.data + MTUBytesParam, data);
+        }
+    }
+
+    /**
      * Constructs a new Frame object with timestamp that copies data into this instance.
      *
      * @param can_id        The 29-bit CAN id.
@@ -404,6 +421,24 @@ public:
     bool operator>(const Frame& other) const
     {
         return this->priorityHigherThan(other);
+    }
+
+    /**
+     * Assignment operator. This will copy all the data from rhs into this
+     * instance.
+     *
+     * @param rhs   The frame to copy data from.
+     */
+    Frame& operator=(const Frame& rhs)
+    {
+        id        = rhs.id;
+        timestamp = rhs.timestamp;
+        dlc_      = rhs.dlc_;
+        if (nullptr != rhs.data)
+        {
+            std::copy(rhs.data, rhs.data + MTUBytesParam, data);
+        }
+        return *this;
     }
 
     /**

@@ -34,8 +34,8 @@ mkdir -p build_native_gcc
 pushd build_native_gcc
 
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/gcc-native.cmake \
+      -DCMAKE_BUILD_TYPE=Debug\
       -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/native_unittest.cmake \
-      -DLIBUAVCAN_INTROSPECTION_ENABLE_ASSERT=1 \
       ..
 
 make -j4
