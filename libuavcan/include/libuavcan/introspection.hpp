@@ -34,9 +34,12 @@
 
 #    include <cstdio>
 
-#    define LIBUAVCAN_TRACE(src, fmt, ...) std::printf("%s: " fmt, src, __VA_ARGS__)
+#    define LIBUAVCAN_TRACEF(src, fmt, ...) std::printf("%s: " fmt "\r\n", src, __VA_ARGS__)
+#    define LIBUAVCAN_TRACE(src, msg) std::printf("%s: " msg "\r\n", src)
+
 #else
 
+#    define LIBUAVCAN_TRACEF(...) ((void) 0)
 #    define LIBUAVCAN_TRACE(...) ((void) 0)
 
 #endif

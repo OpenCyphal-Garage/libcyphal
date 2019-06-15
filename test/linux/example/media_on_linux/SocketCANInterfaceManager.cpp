@@ -24,7 +24,6 @@ namespace libuavcan
 {
 namespace example
 {
-
 SocketCANInterfaceManager::SocketCANInterfaceManager()
     : interface_list_()
 {}
@@ -40,10 +39,10 @@ SocketCANInterfaceManager::~SocketCANInterfaceManager()
     }
 }
 
-libuavcan::Result SocketCANInterfaceManager::openInterface(std::uint_fast16_t     interface_index,
+libuavcan::Result SocketCANInterfaceManager::openInterface(std::uint_fast8_t      interface_index,
                                                            const CanFilterConfig* filter_config,
                                                            std::size_t            filter_config_length,
-                                                           CanInterface*& out_interface)
+                                                           CanInterface*&         out_interface)
 {
     if (interface_index >= interface_list_.size())
     {
@@ -76,17 +75,28 @@ libuavcan::Result SocketCANInterfaceManager::closeInterface(CanInterface*& inout
     {
         InterfaceRecord& ir = interface_list_[inout_interface->getInterfaceIndex()];
         ir.connected_interface.reset(nullptr);
-        inout_interface        = nullptr;
+        inout_interface = nullptr;
     }
     return -1;
 }
 
-std::size_t SocketCANInterfaceManager::getHardwareInterfaceCount() const
+std::uint_fast8_t SocketCANInterfaceManager::getHardwareInterfaceCount() const
 {
-    return interface_list_.size();
+    const auto list_size = interface_list_.size();
+    // Remember that fast 8 can be > 8 but never < 8. Therefore we should saturate
+    // at 8 to provide a consistent behaviour regardless of architecure.
+    if(list_size > std::numeric_limits<std::uint8_t>::max())
+    {
+        return std::numeric_limits<std::uint8_t>::max();
+    }
+    else
+    {
+        return static_cast<std::uint_fast8_t>(list_size);
+    }
+
 }
 
-std::size_t SocketCANInterfaceManager::getMaxHardwareFrameFilters(std::uint_fast16_t interface_index) const
+std::size_t SocketCANInterfaceManager::getMaxHardwareFrameFilters(std::uint_fast8_t interface_index) const
 {
     // We assume that the underlying driver does not use hardware filters. This
     // is not necessarily the case but assume the worst.
@@ -94,7 +104,7 @@ std::size_t SocketCANInterfaceManager::getMaxHardwareFrameFilters(std::uint_fast
     return 0;
 }
 
-std::size_t SocketCANInterfaceManager::getMaxFrameFilters(std::uint_fast16_t interface_index) const
+std::size_t SocketCANInterfaceManager::getMaxFrameFilters(std::uint_fast8_t interface_index) const
 {
     (void) interface_index;
     return std::numeric_limits<std::size_t>::max();
@@ -137,6 +147,7 @@ std::int16_t SocketCANInterfaceManager::configureFilters(const int              
                                                          const CanFilterConfig* const filter_configs,
                                                          const std::size_t            num_configs)
 {
+    // TODO: CAN_RAW_FILTER_MAX
     if (filter_configs == nullptr && num_configs != 0)
     {
         return -1;
@@ -159,8 +170,8 @@ std::int16_t SocketCANInterfaceManager::configureFilters(const int              
     {
         const CanFilterConfig& fc = filter_configs[i];
         // Use CAN_EFF_FLAG to let the kernel know this is an EFF filter.
-        socket_filters.emplace_back(std::move<::can_filter>(
-            {fc.id & libuavcan::example::CanFrame::MaskExtID, fc.mask & CAN_EFF_FLAG}));
+        socket_filters.emplace_back(::can_filter{(fc.id & libuavcan::example::CanFrame::MaskExtID) | CAN_EFF_FLAG,  //
+                                                 fc.mask | CAN_EFF_FLAG});
     }
 
     static_assert(sizeof(socklen_t) <= sizeof(std::size_t) &&

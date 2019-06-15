@@ -65,13 +65,13 @@ private:
         TxQueueItem(const TxQueueItem&) = delete;
         TxQueueItem& operator=(const TxQueueItem&) = delete;
     };
-    const std::uint_fast16_t         index_;
+    const std::uint_fast8_t          index_;
     const int                        fd_;
     std::priority_queue<TxQueueItem> tx_queue_;
     std::queue<CanFrame>             rx_queue_;
 
 public:
-    SocketCANInterface(std::uint_fast16_t index, int fd);
+    SocketCANInterface(std::uint_fast8_t index, int fd);
 
     virtual ~SocketCANInterface();
 
@@ -84,15 +84,13 @@ public:
     // +----------------------------------------------------------------------+
     // | CanInterface
     // +----------------------------------------------------------------------+
-    virtual std::uint_fast16_t getInterfaceIndex() const override;
+    virtual std::uint_fast8_t getInterfaceIndex() const override;
 
-    virtual libuavcan::Result enqueue(const CanFrame& frame, libuavcan::time::Monotonic tx_deadline) override;
+    virtual libuavcan::Result sendOrEnqueue(const CanFrame& frame, libuavcan::time::Monotonic tx_deadline) override;
 
-    virtual libuavcan::Result enqueue(const CanFrame& frame) override;
+    virtual libuavcan::Result sendOrEnqueue(const CanFrame& frame) override;
 
-    virtual libuavcan::Result popBack(CanFrame& out_frame) override;
-
-    virtual libuavcan::Result exchange() override;
+    virtual libuavcan::Result receive(CanFrame& out_frame) override;
 
 private:
     /**

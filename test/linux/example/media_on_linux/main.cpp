@@ -33,15 +33,19 @@ int main(int argc, char* argv[])
 {
     (void) argc;
     (void) argv;
+    // TODO: accept argument for interface name pattern.
     std::cout << "starting up." << std::endl;
     libuavcan::example::SocketCANInterfaceManager manager;
     const std::size_t                             found_count = manager.reenumerateInterfaces();
     std::cout << "Found " << found_count << " interfaces." << std::endl;
 
-    for (std::size_t i = 0, if_count = manager.getHardwareInterfaceCount(); i < if_count; ++i)
+    libuavcan::example::CanFilterConfig c;
+    c.id = 0xFFFFFFFFU;
+    c.mask = 0x00U;
+    for (std::uint_fast8_t i = 0, if_count = manager.getHardwareInterfaceCount(); i < if_count; ++i)
     {
         libuavcan::example::CanInterface* interface_ptr;
-        if (0 == manager.openInterface(i, nullptr, 0, interface_ptr))
+        if (0 == manager.openInterface(i, &c, 1, interface_ptr))
         {
             // demonstration of how to convert the media layer APIs into RAII patterns.
             auto interface_deleter = [&](libuavcan::example::CanInterface* interface) {
@@ -56,7 +60,7 @@ int main(int argc, char* argv[])
                                                     nullptr,
                                                     libuavcan::transport::media::CAN::FrameDLC::CodeForLength0};
 
-            if (0 <= interface->enqueue(test_frame))
+            if (0 <= interface->sendOrEnqueue(test_frame))
             {
                 std::cout << "Successfully enqueued a frame on " << manager.getInterfaceName(*interface_ptr)
                           << std::endl;
@@ -67,7 +71,9 @@ int main(int argc, char* argv[])
             }
             while (true)
             {
-                interface->exchange();
+                libuavcan::example::CanFrame frame;
+                interface->receive(frame);
+                (void)frame;
             }
         }
         else

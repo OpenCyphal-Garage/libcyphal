@@ -84,18 +84,18 @@ public:
     // | InterfaceManager
     // +----------------------------------------------------------------------+
 
-    virtual libuavcan::Result openInterface(std::uint_fast16_t     interface_index,
+    virtual libuavcan::Result openInterface(std::uint_fast8_t      interface_index,
                                             const CanFilterConfig* filter_config,
                                             std::size_t            filter_config_length,
                                             CanInterface*&         out_interface) override;
 
     virtual libuavcan::Result closeInterface(CanInterface*& inout_interface) override;
 
-    virtual std::size_t getHardwareInterfaceCount() const override;
+    virtual std::uint_fast8_t getHardwareInterfaceCount() const override;
 
-    virtual std::size_t getMaxHardwareFrameFilters(std::uint_fast16_t interface_index) const override;
+    virtual std::size_t getMaxHardwareFrameFilters(std::uint_fast8_t interface_index) const override;
 
-    virtual std::size_t getMaxFrameFilters(std::uint_fast16_t interface_index) const override;
+    virtual std::size_t getMaxFrameFilters(std::uint_fast8_t interface_index) const override;
 
     // +----------------------------------------------------------------------+
 
