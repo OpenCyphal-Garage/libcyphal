@@ -33,7 +33,7 @@ int main(int argc, char* argv[])
 {
     (void) argc;
     (void) argv;
-    // TODO: accept argument for interface name pattern.
+    // TODO: Turn this into a pass|fail test
     std::cout << "starting up." << std::endl;
     libuavcan::example::SocketCANInterfaceManager manager;
     const std::size_t                             found_count = manager.reenumerateInterfaces();

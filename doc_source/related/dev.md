@@ -165,6 +165,7 @@ sudo apt update
 sudo apt upgrade -y
 sudo apt install -y git
 sudo apt install -y python3-pip
+sudo apt install -y can-utils
 git clone https://github.com/thirtytwobits/nanaimo.git
 cd nanaimo
 sudo pip3 install --system .
@@ -319,6 +320,22 @@ popd
 ```
 
 where the serial port is the one connected to the S32K dev kit.
+
+### CAN
+
+To enable SocketCAN testing you should create a single `vcan0` interface on boot:
+
+1. edit `/etc/modules` and add vcan
+2. create and add the following to `/etc/network/interfaces.d/vcan0
+
+```bash
+auto vcan0
+   iface vcan0 inet manual
+   pre-up /sbin/ip link add dev $IFACE type vcan
+   up /sbin/ifconfig $IFACE up
+```
+
+Restart the worker and do `ifconfig` when it comes back to to verify you have setup vcan0.
 
 ### Other PI stuff
 
