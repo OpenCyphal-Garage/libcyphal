@@ -3,7 +3,7 @@
  *
  * Parameterized unit test for the CAN Frame template.
  */
-/** @file 
+/** @file
  * Implement this test for any libuavcan::transport::media::CAN::Frame object you
  * implement in your media layer.
  *
@@ -13,7 +13,7 @@
  *
  * #include "libuavcan/libuavcan.hpp"
  * #include "lvs/transport/media/can_frame.hpp"
- * 
+ *
  * namespace lvs
  * {
  * namespace transport
@@ -24,16 +24,16 @@
  * {
  *
  * typedef ::testing::Types<MyFrameType0, MyFrameType1> MyTypes;
- * 
+ *
  * // The trailing comma is required. See https://github.com/google/googletest/issues/1419
  * INSTANTIATE_TYPED_TEST_SUITE_P(MyFrameTypeTest, FrameTest, MyTypes, );
- * 
+ *
  * }  // namespace CAN
  * }  // namespace media
  * }  // namespace transport
  * }  // namespace lvs
  * @endcode
- * 
+ *
 */
 #ifndef LIBUAVCAN_LVS_TRANSPORT_MEDIA_CAN_FRAME_HPP_INCLUDED
 #define LIBUAVCAN_LVS_TRANSPORT_MEDIA_CAN_FRAME_HPP_INCLUDED
@@ -147,7 +147,7 @@ TYPED_TEST_P(FrameTest, SetDataLength)
 TYPED_TEST_P(FrameTest, InitWithDataAndTimestamp)
 {
     const std::uint8_t* random_ptr = nullptr;
-    TypeParam          instance(1, libuavcan::time::Monotonic::fromMicrosecond(32), random_ptr, FrameDLC::CodeForLength0);
+    TypeParam          instance(1, random_ptr, FrameDLC::CodeForLength0, libuavcan::time::Monotonic::fromMicrosecond(32));
 
     ASSERT_EQ(libuavcan::time::Monotonic::fromMicrosecond(32U), instance.timestamp);
 }
@@ -196,7 +196,7 @@ TYPED_TEST_P(FrameTest, GetDLC)
  * Ensure that doing something really terrible results in defined
  * behaviour.
  */
-TYPED_TEST_P(FrameTest, DLCToLengthEvil) 
+TYPED_TEST_P(FrameTest, DLCToLengthEvil)
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"

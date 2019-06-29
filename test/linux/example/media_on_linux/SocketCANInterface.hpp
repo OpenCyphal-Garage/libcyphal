@@ -2,8 +2,16 @@
  * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 
+#ifndef LIBUAVCAN_EXAMPLE_SOCKETCANINTERFACE_HPP_INCLUDED
+#define LIBUAVCAN_EXAMPLE_SOCKETCANINTERFACE_HPP_INCLUDED
+
 #include <queue>
 #include <memory>
+
+#include <linux/can.h>
+#include <linux/can/raw.h>
+
+#include <sys/socket.h>
 
 #include "libuavcan/libuavcan.hpp"
 #include "libuavcan/transport/media/interfaces.hpp"
@@ -21,7 +29,10 @@ namespace libuavcan
 namespace example
 {
 using CanFrame = libuavcan::transport::media::CAN::Frame<libuavcan::transport::media::CAN::Type2_0::MaxFrameSizeBytes>;
-using CanInterface = libuavcan::transport::media::Interface<CanFrame>;
+using CanInterface                  = libuavcan::transport::media::Interface<CanFrame, 4, 4>;
+using SocketCanFrame                = ::canfd_frame;
+static constexpr size_t ControlSize = sizeof(cmsghdr) + sizeof(::timeval);
+using ControlStorage                = typename std::aligned_storage<ControlSize>::type;
 
 /**
  * Example of a media::Interface implemented for <a
@@ -30,45 +41,12 @@ using CanInterface = libuavcan::transport::media::Interface<CanFrame>;
 class SocketCANInterface : public CanInterface
 {
 private:
-    struct TxQueueItem
-    {
-        /**
-         * Copy frames into the system heap when in the priority queue to prevent
-         * unnecessary payload copies.
-         */
-        std::unique_ptr<CanFrame>  frame;
-        libuavcan::time::Monotonic deadline;
-
-        TxQueueItem(const CanFrame& frame, libuavcan::time::Monotonic deadline)
-            : frame(new CanFrame(frame))
-            , deadline(deadline)
-        {}
-        TxQueueItem(TxQueueItem&& rhs)
-            : frame(std::move(rhs.frame))
-            , deadline(rhs.deadline)
-        {}
-        ~TxQueueItem()       = default;
-        TxQueueItem& operator=(TxQueueItem&& rhs)
-        {
-            frame    = std::move(rhs.frame);
-            deadline = rhs.deadline;
-            return *this;
-        }
-        bool operator<(const TxQueueItem& rhs) const
-        {
-            if (frame->priorityLowerThan(*rhs.frame))
-            {
-                return true;
-            }
-            return false;
-        }
-        TxQueueItem(const TxQueueItem&) = delete;
-        TxQueueItem& operator=(const TxQueueItem&) = delete;
-    };
-    const std::uint_fast8_t          index_;
-    const int                        fd_;
-    std::priority_queue<TxQueueItem> tx_queue_;
-    std::queue<CanFrame>             rx_queue_;
+    const std::uint_fast8_t index_;
+    const int               fd_;
+    SocketCanFrame          trx_socketcan_frames_[RxFramesLen];
+    ::iovec                 trx_iovec_[RxFramesLen];
+    ControlStorage          trx_control_[RxFramesLen];
+    ::mmsghdr               trx_msghdrs_[RxFramesLen];
 
 public:
     SocketCANInterface(std::uint_fast8_t index, int fd);
@@ -86,11 +64,11 @@ public:
     // +----------------------------------------------------------------------+
     virtual std::uint_fast8_t getInterfaceIndex() const override;
 
-    virtual libuavcan::Result sendOrEnqueue(const CanFrame& frame, libuavcan::time::Monotonic tx_deadline) override;
+    virtual libuavcan::Result write(const CanFrame (&frame)[TxFramesLen],
+                                    std::size_t  frames_len,
+                                    std::size_t& out_frames_written) override;
 
-    virtual libuavcan::Result sendOrEnqueue(const CanFrame& frame) override;
-
-    virtual libuavcan::Result receive(CanFrame& out_frame) override;
+    virtual libuavcan::Result read(CanFrame (&out_frames)[RxFramesLen], std::size_t& out_frames_read) override;
 
 private:
     /**
@@ -104,3 +82,5 @@ private:
 }  // namespace example
 /** @} */  // end of examples group
 }  // namespace libuavcan
+
+#endif  // LIBUAVCAN_EXAMPLE_SOCKETCANINTERFACE_HPP_INCLUDED

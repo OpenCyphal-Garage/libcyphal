@@ -35,13 +35,45 @@ namespace media
  * hardware peripherals with other components and/or processes for a given system a media layer interface
  * object shall be the sole access to a single hardware connection to a bus for this library.
  *
- * @tparam  FrameType    The media-specific frame type to be exchanged across this interface.
+ * MaxTxFrames and MaxRxFrames are template parameters to allow an implementation to allocate adequate buffers
+ * as part of their type. As such, these values may affect the amount of heap, bss, or stack RAM used depending
+ * on where the media layer objects are placed for a given system or if an implementation chooses to use dynamic
+ * memory internally. Media layer implementations should document this and all other paramters that affect
+ * the amount and type of memory used for a particular system and provide guidance for tuning performance versus
+ * memory size to the user.
+ *
+ * @tparam  FrameT          The media-specific frame type to be exchanged across this interface.
+ * @tparam  MaxTxFrames     The maximum number of frames that can be written in a single operation using
+ *                          this interface. This value must be > 0. If set to 1 then specializations may
+ *                          use different system APIs then if set to > 1.
+ * @tparam  MaxRxFrames     The maximum number of frames that can be read in a single operation using
+ *                          this interface. This value must be > 0. If set to 1 then specializations may
+ *                          use different system APIs then if set to > 1.
  */
-template <typename FrameType>
+template <typename FrameT, std::size_t MaxTxFrames = 1, std::size_t MaxRxFrames = 1>
 class LIBUAVCAN_EXPORT Interface
 {
 public:
     virtual ~Interface() = default;
+
+    static_assert(MaxTxFrames > 0, "MaxTxFrames must be > 0");
+    static_assert(MaxRxFrames > 0, "MaxRxFrames must be > 0");
+
+    /**
+     * The media-specific frame type exchanged across this interface.
+     */
+    using FrameType = FrameT;
+
+    /**
+     * The length of arrays used to write frames through this interface.
+     */
+    static constexpr std::size_t RxFramesLen = MaxRxFrames;
+
+    /**
+     * The length of arrays used to read frames from this interface.
+     */
+    static constexpr std::size_t TxFramesLen = MaxTxFrames;
+
     /**
      * Return the index for this interface. The interface index is the canonical identifier used by libuavcan
      * to open, close, and access a given interface. Per the v1 specification, lower indicies are preferred
@@ -52,71 +84,31 @@ public:
     virtual std::uint_fast8_t getInterfaceIndex() const = 0;
 
     /**
-     * Non-blocking transmission. Frames may be sent to the driver immediately or may be enqueued for
-     * later transmission. This method may borrow CPU time to send another, higher priority frame
-     * after enqueueing the given frame. In this case or if the provided frame is sent directly this
-     * method shall only send a single frame to the driver when called.
+     * Non-blocking transmission. All implementations will have some intermediate buffer this method
+     * writes to since it does not block on actual transmission of the frame. For some implementations,
+     * this method may borrow CPU time to move another, higher priority frame into a lower-level queue
+     * after enqueueing the given one in an intermediate queue.
      *
-     * If the frame was enqueued but wasn't sent by the TX deadline it shall be discarded.
+     * @note Implementations are allowed to provide queues based on message priority. Because of this,
+     * if a given message cannot be written the media layer should keep trying to write other messages
+     * with a different priority.
      *
-     * @note There are no requirements on a given media layer implementation to limit the size of
-     * internal buffers. As such, enqueuing large numbers of frames may use an arbitrarily large
-     * amount of system resources. It is up to the media layer integrator to decide how to handle
-     * this. The simplest strategy is to put a hard upper limit and return -1 (i.e. buffer full) when
-     * this limit is reached. Other strategies could include application-specific interfaces implemented
-     * by the same underlying object implementing this Interface allowing other components to monitor
-     * memory usage, peripheral state, and application activity to coordinate an optimal response
-     * (e.g. If this were an interface to a CAN driver and the driver was off-bus the coordinating
-     * component could choose to change the application state so it would no longer try to send
-     * messages. etc).
-     *
-     * @image html html/media_interface_fig1.png width=100%
-     * @image latex latex/media_interface_fig1.eps
-     *
-     * <h3>Implementation Notes</h3>
-     * For some systems the hardware may provide adequate tx queues and frame cancellation facilities to
-     * fully implement the Interface contract. Where the hardware cannot support message cancellation the
-     * implementation must either provide software buffers or must accept the limited performance of only
-     * buffering a single message at a time.
-     *
-     * <h3>Media Layer Requirements</h3>
-     *
-     * 1. Valid @ref MediaDevGuide "media layer" implementations must guarantee a +- 1 second
-     * resolution when evaluating the tx_deadline value. This allows for messages to be discarded 1 up to
-     * one second before they expire or be sent 1 second after they expire. Where an implementation can measure
-     * this time more accurately, it should.
-     *
-     * 2. Because of (1) and because this timer is monotonic, clock-skew in the media layer's internal monotonic
-     * clock is not acceptable and could lead to data loss.
-     *
-     * 3. When rounding time values used to calculate the tx deadline implementations should prefer to retain
-     * a message rather than discard it.
-     *
-     * @param   tx_deadline The time, measured from when this call completes, within which the frame
-     *                      should be sent. If this time expires the frame should be discarded.
-     *
+     * @param  frames       1..* frames to write into the system queues for immediate transmission.
+     * @param  frames_len   The number of frames in the frames array that should be sent
+     *                      (starting from frame 0).
+     * @param  out_frames_written
+     *                      The number of frames written. If this is less than frames_len then frames
+     *                      [0 - out_frames_written) were enqueued for transmission. Frames
+     *                      [out_frames_written - frames_len) were not able to be sent. Nominally this is
+     *                      due to the internal queues being full.
      * @return
      *          - 0 = one frame enqueued for transmission.
-     *          - -1 = TX buffer full.
+     *          - -1 = TX buffer full for messages of this type.
      *          - All other negative values are errors.
      */
-    virtual libuavcan::Result sendOrEnqueue(const FrameType& frame, libuavcan::time::Monotonic tx_deadline) = 0;
-
-    /**
-     * Non-blocking transmission. Frames may be sent to the driver immediately or may be enqueued for
-     * later transmission. If enqueued using this method they will remain so until they are sent.
-     * This method may also borrow CPU time to send another, higher priority frame after enqueueing the
-     * given one. In either case this method shall only ever send a single frame when called.
-     *
-     * @note See note on the enqueue(const FrameType&, libuavcan::time::Monotonic) override for a discussion
-     * of memory utilization by objects implementing this interface.
-     *
-     * @return
-     *          - 0 = one frame enqueued for transmission.
-     *          - -1 = TX buffer full.
-     *          - All other negative values are errors.
-     */
-    virtual libuavcan::Result sendOrEnqueue(const FrameType& frame) = 0;
+    virtual libuavcan::Result write(const FrameT (&frames)[MaxTxFrames],
+                                    std::size_t  frames_len,
+                                    std::size_t& out_frames_written) = 0;
 
     /**
      * Non-blocking reception.
@@ -132,7 +124,7 @@ public:
      *          - 0 = RX buffer empty
      *          - negative for error
      */
-    virtual libuavcan::Result receive(FrameType& out_frame) = 0;
+    virtual libuavcan::Result read(FrameT (&out_frames)[MaxRxFrames], std::size_t& out_frames_read) = 0;
 };
 
 /**
@@ -141,17 +133,12 @@ public:
  * interface manager should define a single logical bus). How manager objects are exposed to an application
  * is not specified by libuavcan.
  *
- * @tparam  FrameType       The media-specific frame type to be exchanged on interfaces opened through
- *                          this manager.
  * @tparam  InterfaceType   The type to use for interfaces. Must implement Interface.
  */
-template <typename FrameType, typename InterfaceType = Interface<FrameType>>
+template <typename InterfaceType>
 class LIBUAVCAN_EXPORT InterfaceManager
 {
 public:
-    static_assert(std::is_base_of<Interface<FrameType>, InterfaceType>::value,
-                  "InterfaceType must implement libuavcan::transport::media::Interface.");
-
     virtual ~InterfaceManager() = default;
 
     /**
@@ -177,10 +164,10 @@ public:
      *         - -1 if the interface_index was invalid.
      *         - < -1 for all other errors.
      */
-    virtual libuavcan::Result openInterface(std::uint_fast8_t                 interface_index,
-                                            const typename FrameType::Filter* filter_config,
-                                            std::size_t                       filter_config_length,
-                                            InterfaceType*&                   out_interface) = 0;
+    virtual libuavcan::Result openInterface(std::uint_fast8_t                                interface_index,
+                                            const typename InterfaceType::FrameType::Filter* filter_config,
+                                            std::size_t                                      filter_config_length,
+                                            InterfaceType*&                                  out_interface) = 0;
 
     /**
      * Closes an interface.

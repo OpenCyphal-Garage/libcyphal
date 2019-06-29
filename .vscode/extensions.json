@@ -6,7 +6,7 @@
         "github.vscode-pull-request-github",
         "marus25.cortex-debug",
         "ms-vscode.cpptools",
-        "peterjausovec.vscode-docker",
+        "ms-azuretools.vscode-docker",
         "twxs.cmake",
         "uavcan.dsdl",
         "vector-of-bool.cmake-tools",

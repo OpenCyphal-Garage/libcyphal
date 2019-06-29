@@ -13,19 +13,56 @@
 #include <net/if.h>
 #include <cstring>
 
-#include <linux/can.h>
-#include <linux/can/raw.h>
-
 #include "SocketCANInterface.hpp"
 
 namespace libuavcan
 {
 namespace example
 {
+namespace
+{
+constexpr std::size_t get_message_length(const struct ::can_frame frame)
+{
+    return frame.can_dlc;
+}
+
+constexpr std::size_t get_message_length(const struct ::canfd_frame& frame)
+{
+    return frame.len;
+}
+
+inline void set_message_length(struct ::can_frame& frame, std::uint8_t message_length)
+{
+    frame.can_dlc = message_length;
+}
+
+inline void set_message_length(struct ::canfd_frame& frame, std::uint8_t message_length)
+{
+    frame.len = message_length;
+}
+
+}  // namespace
+
 SocketCANInterface::SocketCANInterface(std::uint_fast8_t index, int fd)
     : index_(index)
     , fd_(fd)
-{}
+    , trx_socketcan_frames_()
+    , trx_iovec_{{&trx_socketcan_frames_[0], sizeof(trx_socketcan_frames_[0])},
+                 {&trx_socketcan_frames_[1], sizeof(trx_socketcan_frames_[1])},
+                 {&trx_socketcan_frames_[2], sizeof(trx_socketcan_frames_[2])},
+                 {&trx_socketcan_frames_[3], sizeof(trx_socketcan_frames_[3])}}
+    , trx_msghdrs_{{{nullptr, 0, &trx_iovec_[0], 1, &trx_control_[0], ControlSize, 0}, 0},
+                   {{nullptr, 0, &trx_iovec_[1], 1, &trx_control_[1], ControlSize, 0}, 0},
+                   {{nullptr, 0, &trx_iovec_[2], 1, &trx_control_[2], ControlSize, 0}, 0},
+                   {{nullptr, 0, &trx_iovec_[3], 1, &trx_control_[3], ControlSize, 0}, 0}}
+{
+    static_assert(RxFramesLen == 4,
+                  "The SocketCANInterface example is hard-coded to 4 rx frames to allow static initialization of the "
+                  "internal buffers.");
+    static_assert(TxFramesLen == RxFramesLen,
+                  "The SocketCANInterface example re-uses the same buffers for send and receive (i.e. not thread-safe) "
+                  "so TxFramesLen must be the same as RxFramesLen");
+}
 
 SocketCANInterface::~SocketCANInterface()
 {
@@ -38,112 +75,108 @@ std::uint_fast8_t SocketCANInterface::getInterfaceIndex() const
     return index_;
 }
 
-libuavcan::Result SocketCANInterface::sendOrEnqueue(const CanFrame& frame, libuavcan::time::Monotonic tx_deadline)
+libuavcan::Result SocketCANInterface::write(const CanFrame (&frames)[TxFramesLen],
+                                            std::size_t  frames_len,
+                                            std::size_t& out_frames_written)
 {
-    tx_queue_.emplace(frame, tx_deadline);
-    return writeNextFrame();
-}
+    errno = 0;
+    out_frames_written = 0;
 
-libuavcan::Result SocketCANInterface::sendOrEnqueue(const CanFrame& frame)
-{
-    // Seriously. The difference between 584,942 years and infinity for
-    // the tx deadline is ludicrously academic.
-    tx_queue_.emplace(frame, libuavcan::time::Monotonic::getMaximum());
-    return writeNextFrame();
-}
-
-libuavcan::Result SocketCANInterface::receive(CanFrame& out_frame)
-{
-    errno           = 0;
-    auto        iov = ::iovec();
-    ::can_frame socketcan_frame;
-    // TODO CAN-FD
-    iov.iov_base = &socketcan_frame;
-    iov.iov_len  = sizeof(socketcan_frame);
-
-    static constexpr size_t ControlSize = sizeof(cmsghdr) + sizeof(::timeval);
-    using ControlStorage                = typename std::aligned_storage<ControlSize>::type;
-    ControlStorage control_storage;
-    std::uint8_t*  control = reinterpret_cast<std::uint8_t*>(&control_storage);
-    std::fill(control, control + ControlSize, 0x00);
-
-    auto msg           = ::msghdr();
-    msg.msg_iov        = &iov;
-    msg.msg_iovlen     = 1;
-    msg.msg_control    = control;
-    msg.msg_controllen = ControlSize;
-
-    const auto res = ::recvmsg(fd_, &msg, MSG_DONTWAIT);
-
-    if (res <= 0)
+    if (frames_len == 0)
     {
-        return (res < 0 && errno == EWOULDBLOCK) ? 0 : -1;
+        return libuavcan::results::bad_argument;
     }
 
-    const ::cmsghdr* const cmsg = CMSG_FIRSTHDR(&msg);
-    if (cmsg && cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SO_TIMESTAMPING)
+    for (size_t i = 0; i < frames_len; ++i)
     {
-        auto tv = ::timeval();
-        (void) std::memcpy(&tv, CMSG_DATA(cmsg), sizeof(tv));  // Copy to avoid alignment problems.
-        auto ts = libuavcan::time::Monotonic::fromMicrosecond(static_cast<std::uint64_t>(tv.tv_sec) * 1000000ULL +
-                                                              static_cast<std::uint64_t>(tv.tv_usec));
+        const CanFrame& frame           = frames[i];
+        SocketCanFrame& socketcan_frame = trx_socketcan_frames_[i];
 
-        out_frame = {socketcan_frame.can_id & CAN_EFF_MASK,
-                     ts,
-                     socketcan_frame.data,
-                     libuavcan::transport::media::CAN::FrameDLC(socketcan_frame.can_dlc)};
-        // TODO: provide CAN ID trace helpers.
-        LIBUAVCAN_TRACEF("SocketCAN",
-                         "rx [%" PRIu32 "] tv_sec=%ld, tv_usec=%ld (ts_utc=%" PRIu64 ")",
-                         out_frame.id,
-                         tv.tv_sec,
-                         tv.tv_usec,
-                         ts.toMicrosecond());
-    }
-    else
-    {
-        out_frame = {socketcan_frame.can_id & CAN_EFF_MASK,
-                     socketcan_frame.data,
-                     libuavcan::transport::media::CAN::FrameDLC(socketcan_frame.can_dlc)};
-        LIBUAVCAN_TRACEF("SocketCAN", "rx [%" PRIu32 "] (no ts)", out_frame.id);
+        // All UAVCAN frames use the extended frame format.
+        socketcan_frame.can_id = CAN_EFF_FLAG | (frame.id & CanFrame::MaskExtID);
+        set_message_length(socketcan_frame,
+                           static_cast<std::underlying_type<libuavcan::transport::media::CAN::FrameDLC>::type>(
+                               frame.getDLC()));
+        std::copy(frame.data, frame.data + frame.getDataLength(), socketcan_frame.data);
     }
 
-    return 0;
-}
+    const auto res = ::sendmmsg(fd_, trx_msghdrs_, static_cast<unsigned int>(frames_len), 0);
 
-libuavcan::Result SocketCANInterface::writeNextFrame()
-{
-    if (tx_queue_.empty())
-    {
-        return -1;
-    }
-    const TxQueueItem& item  = tx_queue_.top();
-    const auto&        frame = *item.frame;
-    errno                    = 0;
-
-    ::can_frame socketcan_frame;
-    // All UAVCAN frames use the extended frame format.
-    socketcan_frame.can_id = CAN_EFF_FLAG | (frame.id & CanFrame::MaskExtID);
-    socketcan_frame.can_dlc =
-        static_cast<std::underlying_type<libuavcan::transport::media::CAN::FrameDLC>::type>(frame.getDLC());
-    std::copy(frame.data, frame.data + frame.getDataLength(), socketcan_frame.data);
-    // TODO ::canfd_frame CANFD_BRS and CANFD_ESI
-
-    const auto res = ::write(fd_, &socketcan_frame, sizeof(socketcan_frame));
     if (res <= 0)
     {
         if (errno == ENOBUFS || errno == EAGAIN)  // Writing is not possible atm
         {
-            return -1;
+            return libuavcan::results::buffer_full;
         }
-        return -2;
+        return libuavcan::results::failure;
     }
-    if (static_cast<std::size_t>(res) != sizeof(socketcan_frame))
+    out_frames_written = static_cast<std::size_t>(res);
+    if (out_frames_written < frames_len)
     {
-        return -3;
+        return libuavcan::results::success_partial;
     }
-    tx_queue_.pop();
-    return 0;
+    else
+    {
+        return libuavcan::results::success;
+    }
+}
+
+libuavcan::Result SocketCANInterface::read(CanFrame (&out_frames)[RxFramesLen], std::size_t& out_frames_read)
+{
+    errno           = 0;
+    out_frames_read = 0;
+
+    /*
+     * We're demonstrating a linux-specific optimization here allowed by the 'n frames' templating of read
+     * and write in the interface template. For a posix system that does not support recvmmsg the media
+     * layer can simply be defined with RxFramesLen = 1.
+     */
+    const auto res = ::recvmmsg(fd_, &trx_msghdrs_[0], RxFramesLen, MSG_DONTWAIT, nullptr);
+
+    if (res <= 0)
+    {
+        return (res < 0 && errno == EWOULDBLOCK) ? libuavcan::results::success_nothing
+                                                 : libuavcan::results::unknown_internal_error;
+    }
+
+    out_frames_read = static_cast<std::size_t>(res);
+
+    for (int i = 0; i < res; ++i)
+    {
+        const ::msghdr&        message_header  = trx_msghdrs_[i].msg_hdr;
+        const SocketCanFrame&  socketcan_frame = trx_socketcan_frames_[i];
+        const ::cmsghdr* const cmsg            = CMSG_FIRSTHDR(&message_header);
+        CanFrame&              out_frame       = out_frames[i];
+
+        if (cmsg && cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SO_TIMESTAMPING &&
+            message_header.msg_controllen >= ControlSize)
+        {
+            auto tv = ::timeval();
+            (void) std::memcpy(&tv, CMSG_DATA(cmsg), sizeof(tv));  // Copy to avoid alignment problems.
+            auto ts = libuavcan::time::Monotonic::fromMicrosecond(static_cast<std::uint64_t>(tv.tv_sec) * 1000000ULL +
+                                                                  static_cast<std::uint64_t>(tv.tv_usec));
+
+            out_frame = {socketcan_frame.can_id & CAN_EFF_MASK,
+                         socketcan_frame.data,
+                         libuavcan::transport::media::CAN::FrameDLC(get_message_length(socketcan_frame)),
+                         ts};
+            // TODO: provide CAN ID trace helpers.
+            LIBUAVCAN_TRACEF("SocketCAN",
+                             "rx [%" PRIu32 "] tv_sec=%ld, tv_usec=%ld (ts_utc=%" PRIu64 ")",
+                             out_frame.id,
+                             tv.tv_sec,
+                             tv.tv_usec,
+                             ts.toMicrosecond());
+        }
+        else
+        {
+            out_frame = {socketcan_frame.can_id & CAN_EFF_MASK,
+                         socketcan_frame.data,
+                         libuavcan::transport::media::CAN::FrameDLC(get_message_length(socketcan_frame))};
+            LIBUAVCAN_TRACEF("SocketCAN", "rx [%" PRIu32 "] (no ts)", out_frame.id);
+        }
+    }
+    return libuavcan::results::success;
 }
 
 }  // namespace example

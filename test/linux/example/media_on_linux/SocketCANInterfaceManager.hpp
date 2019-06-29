@@ -2,6 +2,9 @@
  * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 
+#ifndef LIBUAVCAN_EXAMPLE_SOCKETCANINTERFACEMANAGER_HPP_INCLUDED
+#define LIBUAVCAN_EXAMPLE_SOCKETCANINTERFACEMANAGER_HPP_INCLUDED
+
 #include <queue>
 #include <memory>
 #include <string>
@@ -19,10 +22,7 @@ namespace libuavcan
  */
 namespace example
 {
-using CanFrame = libuavcan::transport::media::CAN::Frame<libuavcan::transport::media::CAN::Type2_0::MaxFrameSizeBytes>;
-using CanInterface = libuavcan::transport::media::Interface<CanFrame>;
-
-using CanInterfaceManager = libuavcan::transport::media::InterfaceManager<libuavcan::example::CanFrame>;
+using CanInterfaceManager = libuavcan::transport::media::InterfaceManager<CanInterface>;
 using CanFilterConfig     = libuavcan::example::CanFrame::Filter;
 
 /**
@@ -65,6 +65,8 @@ class SocketCANInterfaceManager : public CanInterfaceManager
 {
 private:
     std::vector<InterfaceRecord> interface_list_;
+    bool                         enable_can_fd_;
+    bool                         receive_own_messages_;
 
 public:
     // +----------------------------------------------------------------------+
@@ -76,7 +78,14 @@ public:
     SocketCANInterfaceManager& operator=(const SocketCANInterfaceManager&)   = delete;
     SocketCANInterfaceManager& operator&&(const SocketCANInterfaceManager&&) = delete;
 
-    SocketCANInterfaceManager();
+    /**
+     * Required constructor.
+     * @param  enable_can_fd    If true then the manager will attempt to enable CAN-FD
+     *                          for all interfaces opened.
+     * @param  receive_own_messages IF true then the manager will enable receiving messages
+     *                          sent by this process. This is used only for testing.
+     */
+    SocketCANInterfaceManager(bool enable_can_fd, bool receive_own_messages);
 
     virtual ~SocketCANInterfaceManager();
 
@@ -104,16 +113,21 @@ public:
     std::size_t        reenumerateInterfaces();
 
 private:
-    std::int16_t configureFilters(const int                    fd,
-                                  const CanFilterConfig* const filter_configs,
-                                  const std::size_t            num_configs);
+    libuavcan::Result configureFilters(const int                    fd,
+                                       const CanFilterConfig* const filter_configs,
+                                       const std::size_t            num_configs);
     /**
      * Open and configure a CAN socket on iface specified by name.
-     * @param iface_name String containing iface name, e.g. "can0", "vcan1", "slcan0"
+     * @param  iface_name String containing iface name, e.g. "can0", "vcan1", "slcan0"
+     * @param  enable_canfd If true then the method will attempt to enable can-fd for the interface.
+     * @param  enable_receive_own_messages  If true then the socket will also receive any messages sent
+     *         from this process. This is normally only useful for testing.
      * @return Socket descriptor or negative number on error.
      */
-    static int openSocket(const std::string& iface_name, bool enable_canfd);
+    static int openSocket(const std::string& iface_name, bool enable_canfd, bool enable_receive_own_messages);
 };
 }  // namespace example
 /** @} */  // end of examples group
 }  // namespace libuavcan
+
+#endif  // LIBUAVCAN_EXAMPLE_SOCKETCANINTERFACEMANAGER_HPP_INCLUDED

@@ -250,12 +250,6 @@ struct LIBUAVCAN_EXPORT Frame
     std::uint32_t id;
 
     /**
-     * A monotonic timestamp. Libuavcan operates optimally when this value is a
-     * hardware supplied timestamp recorded at the start-of-frame.
-     */
-    libuavcan::time::Monotonic timestamp;
-
-    /**
      * System memory buffer of a CAN frame.
      *
      */
@@ -285,11 +279,17 @@ private:
     FrameDLC dlc_;  ///< Data Length Code.
 
 public:
+    /**
+     * A monotonic timestamp. Libuavcan operates optimally when this value is a
+     * hardware supplied timestamp recorded at the start-of-frame.
+     */
+    libuavcan::time::Monotonic timestamp;
+
     Frame()
         : id(0)
-        , timestamp()
         , data{}
         , dlc_(FrameDLC::CodeForLength0)
+        , timestamp()
     {}
 
     /**
@@ -299,9 +299,9 @@ public:
      */
     Frame(const Frame& rhs)
         : id(rhs.id)
-        , timestamp(rhs.timestamp)
         , data{}
         , dlc_(rhs.dlc_)
+        , timestamp(rhs.timestamp)
     {
         if (nullptr != rhs.data)
         {
@@ -313,16 +313,16 @@ public:
      * Constructs a new Frame object with timestamp that copies data into this instance.
      *
      * @param can_id        The 29-bit CAN id.
-     * @param can_timestamp A monotonic timestamp that should be as close to the time the start-of-frame was
-     *                      received (for rx frames) or put-on-bus (for tx frames) as possible.
      * @param can_data      The data to copy into this instance.
      * @param in_dlc        The data length code for the can_data.
+     * @param can_timestamp A monotonic timestamp that should be as close to the time the start-of-frame was
+     *                      received (for rx frames) or put-on-bus (for tx frames) as possible.
      */
-    Frame(std::uint32_t can_id, libuavcan::time::Monotonic can_timestamp, const std::uint8_t* can_data, FrameDLC in_dlc)
+    Frame(std::uint32_t can_id, const std::uint8_t* can_data, FrameDLC in_dlc, libuavcan::time::Monotonic can_timestamp)
         : id(can_id)
-        , timestamp(can_timestamp)
         , data{}
         , dlc_(in_dlc)
+        , timestamp(can_timestamp)
     {
         if (nullptr == can_data)
         {
@@ -343,7 +343,7 @@ public:
      * @param in_dlc        The data length code for the can_data.
      */
     Frame(std::uint32_t can_id, const std::uint8_t* can_data, FrameDLC in_dlc)
-        : Frame(can_id, libuavcan::time::Monotonic::fromMicrosecond(0), can_data, in_dlc)
+        : Frame(can_id, can_data, in_dlc, libuavcan::time::Monotonic::fromMicrosecond(0))
     {}
 
     /**

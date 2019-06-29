@@ -13,6 +13,8 @@
 #include <net/if.h>
 #include <cstring>
 #include <ifaddrs.h>
+#include <memory>
+#include <fcntl.h>
 
 #include <linux/can.h>
 #include <linux/can/raw.h>
@@ -24,8 +26,10 @@ namespace libuavcan
 {
 namespace example
 {
-SocketCANInterfaceManager::SocketCANInterfaceManager()
+SocketCANInterfaceManager::SocketCANInterfaceManager(bool enable_can_fd, bool receive_own_messages)
     : interface_list_()
+    , enable_can_fd_(enable_can_fd)
+    , receive_own_messages_(receive_own_messages)
 {}
 
 SocketCANInterfaceManager::~SocketCANInterfaceManager()
@@ -46,27 +50,28 @@ libuavcan::Result SocketCANInterfaceManager::openInterface(std::uint_fast8_t    
 {
     if (interface_index >= interface_list_.size())
     {
-        return -1;
+        return libuavcan::results::bad_argument;
     }
     InterfaceRecord& ir = interface_list_[interface_index];
-    const int        fd = openSocket(ir.name, false);
+    const int        fd = openSocket(ir.name, enable_can_fd_, receive_own_messages_);
     if (fd <= 0)
     {
-        return -2;
+        return libuavcan::results::unknown_internal_error;
     }
-    if (0 != configureFilters(fd, filter_config, filter_config_length))
+    const auto result = configureFilters(fd, filter_config, filter_config_length);
+    if (!result)
     {
-        return -3;
+        return result;
     }
     ir.connected_interface.reset(new SocketCANInterface(interface_index, fd));
     if (!ir.connected_interface)
     {
         // If compiling without c++ exceptions new can return null if OOM.
         ::close(fd);
-        return -4;
+        return libuavcan::results::out_of_memory;
     }
     out_interface = ir.connected_interface.get();
-    return 0;
+    return libuavcan::results::success;
 }
 
 libuavcan::Result SocketCANInterfaceManager::closeInterface(CanInterface*& inout_interface)
@@ -77,7 +82,7 @@ libuavcan::Result SocketCANInterfaceManager::closeInterface(CanInterface*& inout
         ir.connected_interface.reset(nullptr);
         inout_interface = nullptr;
     }
-    return -1;
+    return libuavcan::results::success;
 }
 
 std::uint_fast8_t SocketCANInterfaceManager::getHardwareInterfaceCount() const
@@ -85,7 +90,7 @@ std::uint_fast8_t SocketCANInterfaceManager::getHardwareInterfaceCount() const
     const auto list_size = interface_list_.size();
     // Remember that fast 8 can be > 8 but never < 8. Therefore we should saturate
     // at 8 to provide a consistent behaviour regardless of architecure.
-    if(list_size > std::numeric_limits<std::uint8_t>::max())
+    if (list_size > std::numeric_limits<std::uint8_t>::max())
     {
         return std::numeric_limits<std::uint8_t>::max();
     }
@@ -93,7 +98,6 @@ std::uint_fast8_t SocketCANInterfaceManager::getHardwareInterfaceCount() const
     {
         return static_cast<std::uint_fast8_t>(list_size);
     }
-
 }
 
 std::size_t SocketCANInterfaceManager::getMaxHardwareFrameFilters(std::uint_fast8_t interface_index) const
@@ -127,30 +131,37 @@ std::size_t SocketCANInterfaceManager::reenumerateInterfaces()
     struct ifaddrs* ifap;
     if (0 == ::getifaddrs(&ifap))
     {
-        std::cout << "Got ifaddrs" << std::endl;
+        auto iffree = [](struct ifaddrs* p) {
+            if (p)
+            {
+                ::freeifaddrs(p);
+            }
+        };
+        std::unique_ptr<struct ifaddrs, decltype(iffree)> raii_closer(ifap, iffree);
+
         struct ifaddrs* i = ifap;
         while (i)
         {
-            if (0 == std::strncmp("vcan", i->ifa_name, 4))
+            const int fd = openSocket(i->ifa_name, enable_can_fd_, receive_own_messages_);
+            if (fd > 0)
             {
-                std::cout << "Found vcan adapter " << i->ifa_name << std::endl;
+                ::close(fd);
+                std::cout << "Found can socket " << i->ifa_name << std::endl;
                 interface_list_.emplace_back(i->ifa_name);
             }
             i = i->ifa_next;
         }
-        ::freeifaddrs(ifap);
     }
     return interface_list_.size();
 }
 
-std::int16_t SocketCANInterfaceManager::configureFilters(const int                    fd,
-                                                         const CanFilterConfig* const filter_configs,
-                                                         const std::size_t            num_configs)
+libuavcan::Result SocketCANInterfaceManager::configureFilters(const int                    fd,
+                                                              const CanFilterConfig* const filter_configs,
+                                                              const std::size_t            num_configs)
 {
-    // TODO: CAN_RAW_FILTER_MAX
-    if (filter_configs == nullptr && num_configs != 0)
+    if (filter_configs == nullptr && num_configs != 0 && num_configs <= CAN_RAW_FILTER_MAX)
     {
-        return -1;
+        return libuavcan::results::bad_argument;
     }
 
     std::vector<::can_filter> socket_filters;
@@ -161,9 +172,9 @@ std::int16_t SocketCANInterfaceManager::configureFilters(const int              
         // be used to ignore all ingress CAN frames.
         if (0 != setsockopt(fd, SOL_CAN_RAW, CAN_RAW_FILTER, nullptr, 0))
         {
-            return -1;
+            return libuavcan::results::unknown_internal_error;
         }
-        return 0;
+        return libuavcan::results::success;
     }
 
     for (unsigned i = 0; i < num_configs; i++)
@@ -184,18 +195,15 @@ std::int16_t SocketCANInterfaceManager::configureFilters(const int              
                         socket_filters.data(),
                         static_cast<socklen_t>(sizeof(can_filter) * socket_filters.size())))
     {
-        return -1;
+        return libuavcan::results::unknown_internal_error;
     }
 
-    return 0;
+    return libuavcan::results::success;
 }
 
-/**
- * Open and configure a CAN socket on iface specified by name.
- * @param iface_name String containing iface name, e.g. "can0", "vcan1", "slcan0"
- * @return Socket descriptor or negative number on error.
- */
-int SocketCANInterfaceManager::openSocket(const std::string& iface_name, bool enable_canfd)
+int SocketCANInterfaceManager::openSocket(const std::string& iface_name,
+                                          bool               enable_canfd,
+                                          bool               enable_receive_own_messages)
 {
     errno = 0;
 
@@ -205,6 +213,15 @@ int SocketCANInterfaceManager::openSocket(const std::string& iface_name, bool en
         return s;
     }
 
+    auto socket_deleter = [](const int* socket) {
+        if (nullptr != socket)
+        {
+            (void) ::close(*socket);
+        }
+    };
+
+    std::unique_ptr<const int, decltype(socket_deleter)> raii_closer(&s, socket_deleter);
+
     if (enable_canfd)
     {
         const int canfd_on     = 1;
@@ -212,32 +229,22 @@ int SocketCANInterfaceManager::openSocket(const std::string& iface_name, bool en
 
         if (canfd_result != 0)
         {
-            return 0;
+            return -1;
         }
     }
 
-    class RaiiCloser
+    if (enable_receive_own_messages)
     {
-        int fd_;
+        const int receive_own_messages = 1;
 
-    public:
-        RaiiCloser(int filedesc)
-            : fd_(filedesc)
+        const int receive_own_messages_result =
+            setsockopt(s, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS, &receive_own_messages, sizeof(receive_own_messages));
+
+        if (receive_own_messages_result != 0)
         {
-            LIBUAVCAN_ASSERT(fd_ >= 0);
+            return -1;
         }
-        ~RaiiCloser()
-        {
-            if (fd_ >= 0)
-            {
-                (void) ::close(fd_);
-            }
-        }
-        void disarm()
-        {
-            fd_ = -1;
-        }
-    } raii_closer(s);
+    }
 
     // Detect the iface index
     auto ifr = ::ifreq();
@@ -272,6 +279,12 @@ int SocketCANInterfaceManager::openSocket(const std::string& iface_name, bool en
         {
             return -1;
         }
+        int enable_rxq_ovfl = 1;
+        if (setsockopt(s, SOL_SOCKET, SO_RXQ_OVFL, &enable_rxq_ovfl, sizeof(enable_rxq_ovfl)) < 0)
+        {
+            // TODO: handle this in the APIs. Do we allow operating without this support?
+            return -1;
+        }
     }
 
     // Validate the resulting socket
@@ -286,7 +299,7 @@ int SocketCANInterfaceManager::openSocket(const std::string& iface_name, bool en
         }
     }
 
-    raii_closer.disarm();
+    raii_closer.release();
     return s;
 }
 
