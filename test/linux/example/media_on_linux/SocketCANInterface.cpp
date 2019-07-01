@@ -141,7 +141,7 @@ libuavcan::Result SocketCANInterface::read(CanFrame (&out_frames)[RxFramesLen], 
 
     out_frames_read = static_cast<std::size_t>(res);
 
-    for (int i = 0; i < res && i < RxFramesLen; ++i)
+    for (std::size_t i = 0; i < static_cast<std::size_t>(res) && i < RxFramesLen; ++i)
     {
         const ::msghdr&        message_header  = trx_msghdrs_[i].msg_hdr;
         const SocketCanFrame&  socketcan_frame = trx_socketcan_frames_[i];

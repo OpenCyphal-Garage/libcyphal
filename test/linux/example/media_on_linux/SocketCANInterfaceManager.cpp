@@ -124,11 +124,11 @@ const std::string& SocketCANInterfaceManager::getInterfaceName(CanInterface& int
     return getInterfaceName(interface.getInterfaceIndex());
 }
 
-std::size_t SocketCANInterfaceManager::reenumerateInterfaces()
+libuavcan::Result SocketCANInterfaceManager::reenumerateInterfaces()
 {
     interface_list_.clear();
 
-    struct ifaddrs* ifap;
+    struct ::ifaddrs* ifap;
     if (0 == ::getifaddrs(&ifap))
     {
         auto iffree = [](struct ifaddrs* p) {
@@ -139,9 +139,13 @@ std::size_t SocketCANInterfaceManager::reenumerateInterfaces()
         };
         std::unique_ptr<struct ifaddrs, decltype(iffree)> raii_closer(ifap, iffree);
 
-        struct ifaddrs* i = ifap;
+        struct ::ifaddrs* i = ifap;
         while (i)
         {
+            if (interface_list_.size() >= std::numeric_limits<std::uint_fast8_t>::max())
+            {
+                return libuavcan::results::success_partial;
+            }
             const int fd = openSocket(i->ifa_name, enable_can_fd_, receive_own_messages_);
             if (fd > 0)
             {
@@ -152,7 +156,24 @@ std::size_t SocketCANInterfaceManager::reenumerateInterfaces()
             i = i->ifa_next;
         }
     }
-    return interface_list_.size();
+    return (interface_list_.size() > 0) ? libuavcan::results::success : libuavcan::results::not_found;
+}
+
+libuavcan::Result SocketCANInterfaceManager::getInterfaceIndex(const std::string& interface_name, std::uint_fast8_t& out_index) const
+{
+    for(std::size_t i = 0; i < interface_list_.size(); ++i)
+    {
+        if (i > std::numeric_limits<std::uint_fast8_t>::max())
+        {
+            break;
+        }
+        if (interface_list_[i].name == interface_name)
+        {
+            out_index = static_cast<std::uint_fast8_t>(i);
+            return libuavcan::results::success;
+        }
+    }
+    return libuavcan::results::not_found;
 }
 
 libuavcan::Result SocketCANInterfaceManager::configureFilters(const int                    fd,

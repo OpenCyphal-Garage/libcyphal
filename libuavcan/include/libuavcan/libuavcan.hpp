@@ -97,6 +97,10 @@ constexpr Result unknown_internal_error = -3;
 constexpr Result out_of_memory = -4;
 
 /**
+ * A lookup failed to find anything for the given search parameters.
+ */
+constexpr Result not_found = -5;
+/**
  * @}
  */
 

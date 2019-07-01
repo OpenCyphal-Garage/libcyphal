@@ -110,7 +110,8 @@ public:
 
     const std::string& getInterfaceName(std::size_t interface_index) const;
     const std::string& getInterfaceName(CanInterface& interface) const;
-    std::size_t        reenumerateInterfaces();
+    libuavcan::Result  getInterfaceIndex(const std::string& interface_name, std::uint_fast8_t& out_index) const;
+    libuavcan::Result  reenumerateInterfaces();
 
 private:
     libuavcan::Result configureFilters(const int                    fd,
