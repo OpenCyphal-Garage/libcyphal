@@ -39,6 +39,7 @@ apt-get -y install lcov
 apt-get -y install valgrind
 apt-get -y install clang-tidy
 apt-get -y install npm
+apt-get -y install graphviz
 
 pip3 install virtualenv
 
