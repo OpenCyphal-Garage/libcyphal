@@ -18,6 +18,7 @@
 
 #include <linux/can.h>
 #include <linux/can/raw.h>
+#include <linux/can/error.h>
 #include <linux/net_tstamp.h>
 
 #include "SocketCANInterfaceManager.hpp"
@@ -43,17 +44,17 @@ SocketCANInterfaceManager::~SocketCANInterfaceManager()
     }
 }
 
-libuavcan::Result SocketCANInterfaceManager::openInterface(std::uint_fast8_t      interface_index,
-                                                           const CanFilterConfig* filter_config,
-                                                           std::size_t            filter_config_length,
-                                                           CanInterface*&         out_interface)
+libuavcan::Result SocketCANInterfaceManager::openInterface(std::uint_fast8_t                       interface_index,
+                                                           const InterfaceType::FrameType::Filter* filter_config,
+                                                           std::size_t                             filter_config_length,
+                                                           InterfaceType*&                         out_interface)
 {
     if (interface_index >= interface_list_.size())
     {
         return libuavcan::results::bad_argument;
     }
-    InterfaceRecord& ir = interface_list_[interface_index];
-    const int        fd = openSocket(ir.name, enable_can_fd_, receive_own_messages_);
+    InterfaceRecord<InterfaceType>& ir = interface_list_[interface_index];
+    const int                       fd = openSocket(ir.name, enable_can_fd_, receive_own_messages_);
     if (fd <= 0)
     {
         return libuavcan::results::unknown_internal_error;
@@ -63,7 +64,7 @@ libuavcan::Result SocketCANInterfaceManager::openInterface(std::uint_fast8_t    
     {
         return result;
     }
-    ir.connected_interface.reset(new SocketCANInterface(interface_index, fd));
+    ir.connected_interface.reset(new InterfaceType(interface_index, fd));
     if (!ir.connected_interface)
     {
         // If compiling without c++ exceptions new can return null if OOM.
@@ -74,11 +75,11 @@ libuavcan::Result SocketCANInterfaceManager::openInterface(std::uint_fast8_t    
     return libuavcan::results::success;
 }
 
-libuavcan::Result SocketCANInterfaceManager::closeInterface(CanInterface*& inout_interface)
+libuavcan::Result SocketCANInterfaceManager::closeInterface(InterfaceType*& inout_interface)
 {
     if (nullptr != inout_interface)
     {
-        InterfaceRecord& ir = interface_list_[inout_interface->getInterfaceIndex()];
+        InterfaceRecord<InterfaceType>& ir = interface_list_[inout_interface->getInterfaceIndex()];
         ir.connected_interface.reset(nullptr);
         inout_interface = nullptr;
     }
@@ -119,7 +120,7 @@ const std::string& SocketCANInterfaceManager::getInterfaceName(std::size_t inter
     return interface_list_[interface_index].name;
 }
 
-const std::string& SocketCANInterfaceManager::getInterfaceName(CanInterface& interface) const
+const std::string& SocketCANInterfaceManager::getInterfaceName(const InterfaceType& interface) const
 {
     return getInterfaceName(interface.getInterfaceIndex());
 }
@@ -159,9 +160,10 @@ libuavcan::Result SocketCANInterfaceManager::reenumerateInterfaces()
     return (interface_list_.size() > 0) ? libuavcan::results::success : libuavcan::results::not_found;
 }
 
-libuavcan::Result SocketCANInterfaceManager::getInterfaceIndex(const std::string& interface_name, std::uint_fast8_t& out_index) const
+libuavcan::Result SocketCANInterfaceManager::getInterfaceIndex(const std::string& interface_name,
+                                                               std::uint_fast8_t& out_index) const
 {
-    for(std::size_t i = 0; i < interface_list_.size(); ++i)
+    for (std::size_t i = 0; i < interface_list_.size(); ++i)
     {
         if (i > std::numeric_limits<std::uint_fast8_t>::max())
         {
@@ -176,9 +178,10 @@ libuavcan::Result SocketCANInterfaceManager::getInterfaceIndex(const std::string
     return libuavcan::results::not_found;
 }
 
-libuavcan::Result SocketCANInterfaceManager::configureFilters(const int                    fd,
-                                                              const CanFilterConfig* const filter_configs,
-                                                              const std::size_t            num_configs)
+libuavcan::Result SocketCANInterfaceManager::configureFilters(
+    const int                                     fd,
+    const InterfaceType::FrameType::Filter* const filter_configs,
+    const std::size_t                             num_configs)
 {
     if (filter_configs == nullptr && num_configs != 0 && num_configs <= CAN_RAW_FILTER_MAX)
     {
@@ -200,12 +203,14 @@ libuavcan::Result SocketCANInterfaceManager::configureFilters(const int         
 
     for (unsigned i = 0; i < num_configs; i++)
     {
-        const CanFilterConfig& fc = filter_configs[i];
+        const InterfaceType::FrameType::Filter& fc = filter_configs[i];
         // Use CAN_EFF_FLAG to let the kernel know this is an EFF filter.
-        socket_filters.emplace_back(::can_filter{(fc.id & libuavcan::example::CanFrame::MaskExtID) | CAN_EFF_FLAG,  //
+        socket_filters.emplace_back(::can_filter{(fc.id & InterfaceType::FrameType::MaskExtID) | CAN_EFF_FLAG,  //
                                                  fc.mask | CAN_EFF_FLAG});
     }
 
+    // TODO: do we need to modify our filters to get error frames or is that taken care of by the
+    // setsockopt call below?
     static_assert(sizeof(socklen_t) <= sizeof(std::size_t) &&
                       std::is_signed<socklen_t>::value == std::is_signed<std::size_t>::value,
                   "socklen_t is not of the expected integer type?");
@@ -246,7 +251,7 @@ int SocketCANInterfaceManager::openSocket(const std::string& iface_name,
     if (enable_canfd)
     {
         const int canfd_on     = 1;
-        const int canfd_result = setsockopt(s, SOL_CAN_RAW, CAN_RAW_FD_FRAMES, &canfd_on, sizeof(canfd_on));
+        const int canfd_result = ::setsockopt(s, SOL_CAN_RAW, CAN_RAW_FD_FRAMES, &canfd_on, sizeof(canfd_on));
 
         if (canfd_result != 0)
         {
@@ -259,7 +264,7 @@ int SocketCANInterfaceManager::openSocket(const std::string& iface_name,
         const int receive_own_messages = 1;
 
         const int receive_own_messages_result =
-            setsockopt(s, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS, &receive_own_messages, sizeof(receive_own_messages));
+            ::setsockopt(s, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS, &receive_own_messages, sizeof(receive_own_messages));
 
         if (receive_own_messages_result != 0)
         {
@@ -301,10 +306,14 @@ int SocketCANInterfaceManager::openSocket(const std::string& iface_name,
             return -1;
         }
         int enable_rxq_ovfl = 1;
-        if (setsockopt(s, SOL_SOCKET, SO_RXQ_OVFL, &enable_rxq_ovfl, sizeof(enable_rxq_ovfl)) < 0)
+        if (::setsockopt(s, SOL_SOCKET, SO_RXQ_OVFL, &enable_rxq_ovfl, sizeof(enable_rxq_ovfl)) < 0)
         {
-            // TODO: handle this in the APIs. Do we allow operating without this support?
-            return -1;
+            std::cout << "SO_RXQ_OVFL was not supported for socket " << iface_name << std::endl;
+        }
+        ::can_err_mask_t err_mask = ( CAN_ERR_TX_TIMEOUT | CAN_ERR_BUSOFF );
+        if (::setsockopt(s, SOL_CAN_RAW, CAN_RAW_ERR_FILTER, &err_mask, sizeof(err_mask)) < 0)
+        {
+            std::cout << "CAN_RAW_ERR_FILTER was not supported for socket " << iface_name << std::endl;
         }
     }
 

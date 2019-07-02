@@ -3,9 +3,10 @@
         "DLCs",
         "Kirienko",
         "Pavel",
+        "UAVCAN",
         "gtests",
         "libuavcan",
-        "UAVCAN"
+        "ovfl"
     ],
     "files.associations": {
         "array": "cpp",

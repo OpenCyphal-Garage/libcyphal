@@ -19,7 +19,7 @@ namespace CAN
 /**
  * Verify the immutable properties of CAN FD
  */
-TEST(CanBusTest, TypeFD)
+TEST(CANBusTest, TypeFD)
 {
     ASSERT_EQ(64U, TypeFD::MaxFrameSizeBytes);
 }
@@ -27,7 +27,7 @@ TEST(CanBusTest, TypeFD)
 /**
  * Verify the immutable properties of CAN 2.0
  */
-TEST(CanBusTest, Type2_0)
+TEST(CANBusTest, Type2_0)
 {
     ASSERT_EQ(8U, Type2_0::MaxFrameSizeBytes);
 }

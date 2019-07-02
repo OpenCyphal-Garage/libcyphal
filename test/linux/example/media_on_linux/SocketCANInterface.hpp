@@ -28,9 +28,8 @@ namespace libuavcan
  */
 namespace example
 {
-using CanFrame = libuavcan::transport::media::CAN::Frame<libuavcan::transport::media::CAN::Type2_0::MaxFrameSizeBytes>;
-using CanInterface                  = libuavcan::transport::media::Interface<CanFrame, 4, 4>;
-using SocketCanFrame                = ::canfd_frame;
+using CANFrame = libuavcan::transport::media::CAN::Frame<libuavcan::transport::media::CAN::TypeFD::MaxFrameSizeBytes>;
+using SocketCANFrame                = ::canfd_frame;
 static constexpr size_t ControlSize = sizeof(cmsghdr) + sizeof(::timeval);
 using ControlStorage                = typename std::aligned_storage<ControlSize>::type;
 
@@ -38,12 +37,20 @@ using ControlStorage                = typename std::aligned_storage<ControlSize>
  * Example of a media::Interface implemented for <a
  * href="https://www.kernel.org/doc/Documentation/networking/can.txt">SocketCAN</a>.
  */
-class SocketCANInterface : public CanInterface
+class SocketCANInterface : public libuavcan::transport::media::Interface<CANFrame, 4, 4>
 {
+public:
+    struct Statistics
+    {
+        std::uint_fast32_t rx_total   = 0;
+        std::uint_fast32_t rx_dropped = 0;
+    };
+
 private:
     const std::uint_fast8_t index_;
     const int               fd_;
-    SocketCanFrame          trx_socketcan_frames_[RxFramesLen];
+    Statistics              stats_;
+    SocketCANFrame          trx_socketcan_frames_[RxFramesLen];
     ::iovec                 trx_iovec_[RxFramesLen];
     ControlStorage          trx_control_[RxFramesLen];
     ::mmsghdr               trx_msghdrs_[RxFramesLen];
@@ -54,29 +61,21 @@ public:
     virtual ~SocketCANInterface();
 
     /**
-     * Provide time for this object to read and write messages to and from
-     * RX and TX queues.
+     * Get the current statistics for this interface.
      */
-    void execute();
+    void getStatistics(Statistics& out_stats) const;
 
     // +----------------------------------------------------------------------+
-    // | CanInterface
+    // | libuavcan::transport::media::Interface
     // +----------------------------------------------------------------------+
     virtual std::uint_fast8_t getInterfaceIndex() const override;
 
-    virtual libuavcan::Result write(const CanFrame (&frame)[TxFramesLen],
+    virtual libuavcan::Result write(const FrameType (&frame)[TxFramesLen],
                                     std::size_t  frames_len,
                                     std::size_t& out_frames_written) override;
 
-    virtual libuavcan::Result read(CanFrame (&out_frames)[RxFramesLen], std::size_t& out_frames_read) override;
+    virtual libuavcan::Result read(FrameType (&out_frames)[RxFramesLen], std::size_t& out_frames_read) override;
 
-private:
-    /**
-     * dequeue and send one frame from the tx_queue_ if there are any.
-     */
-    libuavcan::Result writeNextFrame();
-
-    libuavcan::Result readOneFrameIntoQueueIfAvailable();
 };
 
 }  // namespace example

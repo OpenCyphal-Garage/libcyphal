@@ -46,6 +46,7 @@ inline void set_message_length(struct ::canfd_frame& frame, std::uint8_t message
 SocketCANInterface::SocketCANInterface(std::uint_fast8_t index, int fd)
     : index_(index)
     , fd_(fd)
+    , stats_()
     , trx_socketcan_frames_()
     , trx_iovec_{{&trx_socketcan_frames_[0], sizeof(trx_socketcan_frames_[0])},
                  {&trx_socketcan_frames_[1], sizeof(trx_socketcan_frames_[1])},
@@ -75,11 +76,16 @@ std::uint_fast8_t SocketCANInterface::getInterfaceIndex() const
     return index_;
 }
 
-libuavcan::Result SocketCANInterface::write(const CanFrame (&frames)[TxFramesLen],
+void SocketCANInterface::getStatistics(Statistics& out_stats) const
+{
+    out_stats = stats_;
+}
+
+libuavcan::Result SocketCANInterface::write(const FrameType (&frames)[TxFramesLen],
                                             std::size_t  frames_len,
                                             std::size_t& out_frames_written)
 {
-    errno = 0;
+    errno              = 0;
     out_frames_written = 0;
 
     if (frames_len == 0)
@@ -89,11 +95,11 @@ libuavcan::Result SocketCANInterface::write(const CanFrame (&frames)[TxFramesLen
 
     for (size_t i = 0; i < frames_len; ++i)
     {
-        const CanFrame& frame           = frames[i];
-        SocketCanFrame& socketcan_frame = trx_socketcan_frames_[i];
+        const FrameType& frame           = frames[i];
+        SocketCANFrame&  socketcan_frame = trx_socketcan_frames_[i];
 
         // All UAVCAN frames use the extended frame format.
-        socketcan_frame.can_id = CAN_EFF_FLAG | (frame.id & CanFrame::MaskExtID);
+        socketcan_frame.can_id = CAN_EFF_FLAG | (frame.id & FrameType::MaskExtID);
         set_message_length(socketcan_frame,
                            static_cast<std::underlying_type<libuavcan::transport::media::CAN::FrameDLC>::type>(
                                frame.getDLC()));
@@ -121,7 +127,7 @@ libuavcan::Result SocketCANInterface::write(const CanFrame (&frames)[TxFramesLen
     }
 }
 
-libuavcan::Result SocketCANInterface::read(CanFrame (&out_frames)[RxFramesLen], std::size_t& out_frames_read)
+libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen], std::size_t& out_frames_read)
 {
     errno           = 0;
     out_frames_read = 0;
@@ -139,43 +145,55 @@ libuavcan::Result SocketCANInterface::read(CanFrame (&out_frames)[RxFramesLen], 
                                                  : libuavcan::results::unknown_internal_error;
     }
 
-    out_frames_read = static_cast<std::size_t>(res);
-
     for (std::size_t i = 0; i < static_cast<std::size_t>(res) && i < RxFramesLen; ++i)
     {
-        const ::msghdr&        message_header  = trx_msghdrs_[i].msg_hdr;
-        const SocketCanFrame&  socketcan_frame = trx_socketcan_frames_[i];
-        const ::cmsghdr* const cmsg            = CMSG_FIRSTHDR(&message_header);
-        CanFrame&              out_frame       = out_frames[i];
+        ::msghdr&                  message_header  = trx_msghdrs_[i].msg_hdr;
+        const SocketCANFrame&      socketcan_frame = trx_socketcan_frames_[i];
+        FrameType&                 out_frame       = out_frames[out_frames_read];
+        libuavcan::time::Monotonic timestamp;
 
-        if (cmsg && cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SO_TIMESTAMPING &&
-            message_header.msg_controllen >= ControlSize)
+        for (::cmsghdr* cmsg = CMSG_FIRSTHDR(&message_header); cmsg; cmsg = CMSG_NXTHDR(&message_header, cmsg))
         {
-            auto tv = ::timeval();
-            (void) std::memcpy(&tv, CMSG_DATA(cmsg), sizeof(tv));  // Copy to avoid alignment problems.
-            auto ts = libuavcan::time::Monotonic::fromMicrosecond(static_cast<std::uint64_t>(tv.tv_sec) * 1000000ULL +
-                                                                  static_cast<std::uint64_t>(tv.tv_usec));
+            if (cmsg->cmsg_level == SOL_SOCKET)
+            {
+                if (cmsg->cmsg_type == SO_TIMESTAMPING && message_header.msg_controllen >= ControlSize)
+                {
+                    auto tv = ::timeval();
+                    (void) std::memcpy(&tv, CMSG_DATA(cmsg), sizeof(tv));  // Copy to avoid alignment problems.
+                    timestamp = libuavcan::time::Monotonic::fromMicrosecond(
+                        static_cast<std::uint64_t>(tv.tv_sec) * 1000000ULL + static_cast<std::uint64_t>(tv.tv_usec));
 
-            out_frame = {socketcan_frame.can_id & CAN_EFF_MASK,
-                         socketcan_frame.data,
-                         libuavcan::transport::media::CAN::FrameDLC(get_message_length(socketcan_frame)),
-                         ts};
-            // TODO: provide CAN ID trace helpers.
-            LIBUAVCAN_TRACEF("SocketCAN",
-                             "rx [%" PRIu32 "] tv_sec=%ld, tv_usec=%ld (ts_utc=%" PRIu64 ")",
-                             out_frame.id,
-                             tv.tv_sec,
-                             tv.tv_usec,
-                             ts.toMicrosecond());
+                    LIBUAVCAN_TRACEF("SocketCAN",
+                                     "rx timestamp: tv_sec=%ld, tv_usec=%ld (ts_utc=%" PRIu64 ")",
+                                     tv.tv_sec,
+                                     tv.tv_usec,
+                                     timestamp.toMicrosecond());
+                }
+                else if (cmsg->cmsg_type == SO_RXQ_OVFL && cmsg->cmsg_len >= 4)
+                {
+                    stats_.rx_dropped += *reinterpret_cast<std::uint_fast32_t*>(CMSG_DATA(cmsg));
+                }
+            }
         }
-        else
+
+        if (socketcan_frame.can_id & CAN_ERR_FLAG)
         {
-            out_frame = {socketcan_frame.can_id & CAN_EFF_MASK,
-                         socketcan_frame.data,
-                         libuavcan::transport::media::CAN::FrameDLC(get_message_length(socketcan_frame))};
-            LIBUAVCAN_TRACEF("SocketCAN", "rx [%" PRIu32 "] (no ts)", out_frame.id);
+            // TODO: collect error statistics.
+            std::cout << "got an error frame." << std::endl;
         }
+        else if (socketcan_frame.can_id & CAN_EFF_MASK)
+        {
+            out_frame = {socketcan_frame.can_id,
+                        socketcan_frame.data,
+                        libuavcan::transport::media::CAN::FrameDLC(get_message_length(socketcan_frame)),
+                        timestamp};
+            out_frames_read += 1;
+            // FUTURE #255: provide frame traceing helpers.
+            LIBUAVCAN_TRACEF("SocketCAN", "rx [%" PRIu32 "]", out_frame.id);
+        }
+        // else our filters weren't optimal since we shouldn't get non EFF frames that aren't errors.
     }
+    stats_.rx_total += out_frames_read;
     return libuavcan::results::success;
 }
 

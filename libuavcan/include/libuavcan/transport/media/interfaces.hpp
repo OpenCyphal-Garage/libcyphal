@@ -133,13 +133,18 @@ public:
  * interface manager should define a single logical bus). How manager objects are exposed to an application
  * is not specified by libuavcan.
  *
- * @tparam  InterfaceType   The type to use for interfaces. Must implement Interface.
+ * @tparam  InterfaceT   The type to use for interfaces. Must implement Interface.
  */
-template <typename InterfaceType>
+template <typename InterfaceT>
 class LIBUAVCAN_EXPORT InterfaceManager
 {
 public:
     virtual ~InterfaceManager() = default;
+
+    /**
+     * The media-specific interface managed by this object.
+     */
+    using InterfaceType = InterfaceT;
 
     /**
      * Opens an interface for receiveing and transmitting.
@@ -167,7 +172,7 @@ public:
     virtual libuavcan::Result openInterface(std::uint_fast8_t                                interface_index,
                                             const typename InterfaceType::FrameType::Filter* filter_config,
                                             std::size_t                                      filter_config_length,
-                                            InterfaceType*&                                  out_interface) = 0;
+                                            InterfaceT*&                                     out_interface) = 0;
 
     /**
      * Closes an interface.
@@ -181,7 +186,7 @@ public:
      *          - < -1 for other errors that prevented normal closing of the interface. The state
      *            of the interface is undefined when this value returns.
      */
-    virtual libuavcan::Result closeInterface(InterfaceType*& inout_interface) = 0;
+    virtual libuavcan::Result closeInterface(InterfaceT*& inout_interface) = 0;
 
     /**
      * The total number of available hardware interfaces. On some systems additional virtual interfaces can be

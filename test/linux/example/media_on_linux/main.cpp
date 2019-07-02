@@ -25,6 +25,8 @@
  */
 #include <iostream>
 #include <getopt.h>
+#include <chrono>
+#include <thread>
 
 #include "libuavcan/libuavcan.hpp"
 #include "libuavcan/transport/media/interfaces.hpp"
@@ -33,14 +35,22 @@
 
 namespace argparse
 {
-static struct ::option long_options[] = {{"device", required_argument, nullptr, 'd'}, {nullptr, 0, nullptr, 0}};
+static struct ::option long_options[] = {{"device", required_argument, nullptr, 'd'},
+                                         {"continuous", 0, nullptr, 'c'},
+                                         {nullptr, 0, nullptr, 0}};
 
 /**
  * Quick argument parser result structure object modeled on python's argparse (sorta).
  */
 struct Namespace
 {
+    Namespace()
+        : device()
+        , run_continuously(false)
+    {}
+
     std::string device;
+    bool        run_continuously;
 };
 
 /**
@@ -50,6 +60,10 @@ inline void print_usage()
 {
     std::cout << "Usage:" << std::endl;
     std::cout << "\t--device, -d : ip device name to use for the test." << std::endl << std::endl;
+    std::cout << "\t--continuous, -c : run continuously. By default this is a pass (0)" << std::endl;
+    std::cout << "\t                   fail(non-zero) test. This changes that behaviour" << std::endl;
+    std::cout << "\t                   to be more interactive." << std::endl;
+    std::cout << std::endl;
     std::cout << "\tTo create a virtual device on linux do:" << std::endl << std::endl;
     std::cout << "\t\tip link add dev vcan0 type vcan" << std::endl;
     std::cout << "\t\tip link set up vcan0" << std::endl << std::endl;
@@ -72,6 +86,10 @@ inline libuavcan::Result parse_args(int argc, char* argv[], Namespace& out_names
             keep_going = false;
             break;
 
+        case 'c':
+            out_namespace.run_continuously = true;
+            break;
+
         case 'd':
             out_namespace.device               = optarg;
             long_options[option_index].has_arg = 0;
@@ -90,6 +108,18 @@ inline libuavcan::Result parse_args(int argc, char* argv[], Namespace& out_names
 }
 
 }  // namespace argparse
+
+namespace
+{
+inline void print_stats(const libuavcan::example::SocketCANInterfaceManager& manager,
+                        const libuavcan::example::SocketCANInterfaceManager::InterfaceType&        interface)
+{
+    static libuavcan::example::SocketCANInterfaceManager::InterfaceType::Statistics stats;
+    interface.getStatistics(stats);
+    std::cout << manager.getInterfaceName(interface) << ": rx=" << stats.rx_total;
+    std::cout << ", rx_dropped=" << stats.rx_dropped << std::endl;
+}
+}  // namespace
 
 int main(int argc, char* argv[])
 {
@@ -119,29 +149,31 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    libuavcan::example::CanFilterConfig c;
-    c.id   = 0xFFFFFFFFU;
-    c.mask = 0x00U;
-    libuavcan::example::CanInterface* interface_ptr;
+    // Get everything.
+    libuavcan::example::SocketCANInterfaceManager::InterfaceType::FrameType::Filter c;
+    c.id   = 0;
+    c.mask = 0;
+    libuavcan::example::SocketCANInterfaceManager::InterfaceType* interface_ptr;
     if (libuavcan::results::success == manager.openInterface(test_device_index, &c, 1, interface_ptr))
     {
         // demonstration of how to convert the media layer APIs into RAII patterns.
-        auto interface_deleter = [&](libuavcan::example::CanInterface* interface) {
+        auto interface_deleter = [&](libuavcan::example::SocketCANInterfaceManager::InterfaceType* interface) {
             manager.closeInterface(interface);
         };
-        std::unique_ptr<libuavcan::example::CanInterface, decltype(interface_deleter)> interface(interface_ptr,
-                                                                                                 interface_deleter);
+        std::unique_ptr<libuavcan::example::SocketCANInterfaceManager::InterfaceType, decltype(interface_deleter)>
+            interface(interface_ptr, interface_deleter);
         std::cout << "Opened interface " << manager.getInterfaceName(test_device_index) << std::endl;
 
-        libuavcan::example::CanFrame test_frames[libuavcan::example::CanInterface::TxFramesLen] =
-            {{1,
-              nullptr,
-              libuavcan::transport::media::CAN::FrameDLC::CodeForLength0,
-              libuavcan::time::Monotonic::fromMicrosecond(0)},
-             {2,
-              nullptr,
-              libuavcan::transport::media::CAN::FrameDLC::CodeForLength0,
-              libuavcan::time::Monotonic::fromMicrosecond(1)}};
+        libuavcan::example::SocketCANInterfaceManager::InterfaceType::FrameType
+            test_frames[libuavcan::example::SocketCANInterfaceManager::InterfaceType::TxFramesLen] =
+                {{1,
+                  nullptr,
+                  libuavcan::transport::media::CAN::FrameDLC::CodeForLength0,
+                  libuavcan::time::Monotonic::fromMicrosecond(0)},
+                 {2,
+                  nullptr,
+                  libuavcan::transport::media::CAN::FrameDLC::CodeForLength0,
+                  libuavcan::time::Monotonic::fromMicrosecond(1)}};
 
         std::size_t frames_written;
         if (interface->write(test_frames, 2, frames_written))
@@ -153,36 +185,41 @@ int main(int argc, char* argv[])
         {
             std::cout << "Failed to enqueue a frame on " << manager.getInterfaceName(*interface_ptr) << std::endl;
         }
+
+        auto last_period = std::chrono::steady_clock::now();
+
         while (true)
         {
-            libuavcan::example::CanFrame frames[libuavcan::example::CanInterface::RxFramesLen];
-            std::size_t                  frames_read = 0;
+            auto now = std::chrono::steady_clock::now();
+            if (now - last_period >= std::chrono::seconds(1))
+            {
+                print_stats(manager, *interface);
+                last_period = now;
+            }
+            libuavcan::example::SocketCANInterfaceManager::InterfaceType::FrameType
+                        frames[libuavcan::example::SocketCANInterfaceManager::InterfaceType::RxFramesLen];
+            std::size_t frames_read = 0;
             if (interface->read(frames, frames_read) && frames_read > 0)
             {
                 std::cout << "Got " << frames_read << " frame(s)..." << std::endl;
-                bool all_matched = false;
+                std::size_t match_count = 0;
                 for (size_t i = 0; i < frames_read; ++i)
                 {
                     if (frames[i] == test_frames[i])
                     {
-                        all_matched = true;
+                        match_count += 1;
                     }
-                    else
+                }
+                if (match_count == 2)
+                {
+                    std::cout << "...Yep! Got our frames. Test passed." << std::endl;
+                    if (!args.run_continuously)
                     {
-                        all_matched = false;
                         break;
                     }
                 }
-                if (!all_matched)
-                {
-                    std::cout << "...hmm.  Don't know what some of these are. I'll keep listening." << std::endl;
-                }
-                else
-                {
-                    std::cout << "...Yep! Got our frames. Test passed." << std::endl;
-                    break;
-                }
             }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     }
     else

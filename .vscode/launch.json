@@ -6,7 +6,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/tests/linux/example/media_on_linux",
-            "args": [],
+            "args": ["--device", "vcan0"],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}/build",
             "environment": [],

@@ -22,13 +22,14 @@ namespace libuavcan
  */
 namespace example
 {
-using CanInterfaceManager = libuavcan::transport::media::InterfaceManager<CanInterface>;
-using CanFilterConfig     = libuavcan::example::CanFrame::Filter;
 
 /**
  * This datastruture is part of the SocketCANInterfaceManager's internal
  * interface management storage.
+ *
+ * @tparam InterfaceT   The interface type for the manager.
  */
+template <typename InterfaceT>
 struct InterfaceRecord final
 {
     InterfaceRecord(const InterfaceRecord&) = delete;
@@ -51,8 +52,8 @@ struct InterfaceRecord final
 
     ~InterfaceRecord() = default;
 
-    const std::string             name;
-    std::unique_ptr<CanInterface> connected_interface;
+    const std::string           name;
+    std::unique_ptr<InterfaceT> connected_interface;
 };
 
 /**
@@ -61,12 +62,12 @@ struct InterfaceRecord final
  * management. For low-level systems this could be a very simple and static object that assumes interfaces
  * are never closed.
  */
-class SocketCANInterfaceManager : public CanInterfaceManager
+class SocketCANInterfaceManager : public libuavcan::transport::media::InterfaceManager<SocketCANInterface>
 {
 private:
-    std::vector<InterfaceRecord> interface_list_;
-    bool                         enable_can_fd_;
-    bool                         receive_own_messages_;
+    std::vector<InterfaceRecord<InterfaceType>> interface_list_;
+    bool                                        enable_can_fd_;
+    bool                                        receive_own_messages_;
 
 public:
     // +----------------------------------------------------------------------+
@@ -82,7 +83,7 @@ public:
      * Required constructor.
      * @param  enable_can_fd    If true then the manager will attempt to enable CAN-FD
      *                          for all interfaces opened.
-     * @param  receive_own_messages IF true then the manager will enable receiving messages
+     * @param  receive_own_messages If true then the manager will enable receiving messages
      *                          sent by this process. This is used only for testing.
      */
     SocketCANInterfaceManager(bool enable_can_fd, bool receive_own_messages);
@@ -93,12 +94,12 @@ public:
     // | InterfaceManager
     // +----------------------------------------------------------------------+
 
-    virtual libuavcan::Result openInterface(std::uint_fast8_t      interface_index,
-                                            const CanFilterConfig* filter_config,
-                                            std::size_t            filter_config_length,
-                                            CanInterface*&         out_interface) override;
+    virtual libuavcan::Result openInterface(std::uint_fast8_t                       interface_index,
+                                            const InterfaceType::FrameType::Filter* filter_config,
+                                            std::size_t                             filter_config_length,
+                                            InterfaceType*&                         out_interface) override;
 
-    virtual libuavcan::Result closeInterface(CanInterface*& inout_interface) override;
+    virtual libuavcan::Result closeInterface(InterfaceType*& inout_interface) override;
 
     virtual std::uint_fast8_t getHardwareInterfaceCount() const override;
 
@@ -109,14 +110,14 @@ public:
     // +----------------------------------------------------------------------+
 
     const std::string& getInterfaceName(std::size_t interface_index) const;
-    const std::string& getInterfaceName(CanInterface& interface) const;
+    const std::string& getInterfaceName(const InterfaceType& interface) const;
     libuavcan::Result  getInterfaceIndex(const std::string& interface_name, std::uint_fast8_t& out_index) const;
     libuavcan::Result  reenumerateInterfaces();
 
 private:
-    libuavcan::Result configureFilters(const int                    fd,
-                                       const CanFilterConfig* const filter_configs,
-                                       const std::size_t            num_configs);
+    libuavcan::Result configureFilters(const int                                     fd,
+                                       const InterfaceType::FrameType::Filter* const filter_configs,
+                                       const std::size_t                             num_configs);
     /**
      * Open and configure a CAN socket on iface specified by name.
      * @param  iface_name String containing iface name, e.g. "can0", "vcan1", "slcan0"
