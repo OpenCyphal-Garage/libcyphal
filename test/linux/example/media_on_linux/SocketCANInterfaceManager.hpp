@@ -121,6 +121,8 @@ public:
     const std::string& getInterfaceName(const InterfaceType& interface) const;
     libuavcan::Result  getInterfaceIndex(const std::string& interface_name, std::uint_fast8_t& out_index) const;
     libuavcan::Result  reenumerateInterfaces();
+    bool doesReceiveOwnMessages() const;
+    bool isFDEnabled() const;
 
 private:
     libuavcan::Result configureFilters(const int                                     fd,

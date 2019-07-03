@@ -44,7 +44,15 @@
         "algorithm": "cpp",
         "*.jinja": "jinja",
         "deque": "cpp",
-        "new": "cpp"
+        "new": "cpp",
+        "chrono": "cpp",
+        "cinttypes": "cpp",
+        "cstddef": "cpp",
+        "ctime": "cpp",
+        "functional": "cpp",
+        "iomanip": "cpp",
+        "ratio": "cpp",
+        "thread": "cpp"
     },
     "C_Cpp.default.cppStandard": "c++11",
     "C_Cpp.default.cStandard": "c99",

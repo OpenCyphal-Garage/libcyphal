@@ -148,6 +148,10 @@ public:
      */
     using InterfaceType = InterfaceT;
 
+    /**
+     * The pointer type used for pointers to InterfaceType. This can be a raw pointer or a smart pointer.
+     * The temporization is provided to allow either based on how a given media layer is implemented.
+     */
     using InterfacePtrType = InterfacePtrT;
 
     /**

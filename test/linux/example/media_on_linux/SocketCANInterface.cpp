@@ -68,7 +68,7 @@ SocketCANInterface::SocketCANInterface(std::uint_fast8_t index, int fd)
 
 SocketCANInterface::~SocketCANInterface()
 {
-    std::cout << "closing socket." << std::endl;
+    LIBUAVCAN_TRACE("SocketCANInterface", "closing socket.");
     ::close(fd_);
 }
 
@@ -107,8 +107,7 @@ libuavcan::Result SocketCANInterface::write(const FrameType (&frames)[TxFramesLe
         // All UAVCAN frames use the extended frame format.
         socketcan_frame.can_id = CAN_EFF_FLAG | (frame.id & FrameType::MaskExtID);
         set_message_length(socketcan_frame,
-                           static_cast<std::underlying_type<libuavcan::media::CAN::FrameDLC>::type>(
-                               frame.getDLC()));
+                           static_cast<std::underlying_type<libuavcan::media::CAN::FrameDLC>::type>(frame.getDLC()));
         std::copy(frame.data, frame.data + frame.getDataLength(), socketcan_frame.data);
     }
 
@@ -162,23 +161,28 @@ libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
         {
             if (cmsg->cmsg_level == SOL_SOCKET)
             {
-                if (cmsg->cmsg_type == SO_TIMESTAMPING && message_header.msg_controllen >= ControlSize)
+                if (cmsg->cmsg_type == SO_TIMESTAMP && message_header.msg_controllen >= sizeof(::timeval))
                 {
                     auto tv = ::timeval();
                     (void) std::memcpy(&tv, CMSG_DATA(cmsg), sizeof(tv));  // Copy to avoid alignment problems.
                     timestamp = libuavcan::time::Monotonic::fromMicrosecond(
                         static_cast<std::uint64_t>(tv.tv_sec) * 1000000ULL + static_cast<std::uint64_t>(tv.tv_usec));
-
-                    LIBUAVCAN_TRACEF("SocketCAN",
-                                     "rx timestamp: tv_sec=%ld, tv_usec=%ld (ts_utc=%" PRIu64 ")",
-                                     tv.tv_sec,
-                                     tv.tv_usec,
-                                     timestamp.toMicrosecond());
                 }
                 else if (cmsg->cmsg_type == SO_RXQ_OVFL && cmsg->cmsg_len >= 4)
                 {
                     stats_.rx_dropped += *reinterpret_cast<std::uint32_t*>(CMSG_DATA(cmsg));
                 }
+                else
+                {
+                    LIBUAVCAN_TRACEF("SocketCANInterface",
+                                     "Unknown header found. type=%d, size=%zu",
+                                     cmsg->cmsg_type,
+                                     message_header.msg_controllen);
+                }
+            }
+            else
+            {
+                LIBUAVCAN_TRACEF("SocketCANInterface", "Unknown header level. level=%d", cmsg->cmsg_level);
             }
         }
 
@@ -224,12 +228,15 @@ libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
         else if (socketcan_frame.can_id & CAN_EFF_MASK)
         {
             out_frame = {socketcan_frame.can_id,
-                        socketcan_frame.data,
-                        libuavcan::media::CAN::FrameDLC(get_message_length(socketcan_frame)),
-                        timestamp};
+                         socketcan_frame.data,
+                         libuavcan::media::CAN::FrameDLC(get_message_length(socketcan_frame)),
+                         timestamp};
             out_frames_read += 1;
             // FUTURE #255: provide frame traceing helpers.
-            LIBUAVCAN_TRACEF("SocketCAN", "rx [%" PRIu32 "]", out_frame.id);
+            LIBUAVCAN_TRACEF("SocketCANInterface",
+                             "rx [%" PRIu32 ":%" PRIu64 "]",
+                             out_frame.id,
+                             timestamp.toMicrosecond());
         }
         // else our filters weren't optimal since we shouldn't get non EFF frames that aren't errors.
     }

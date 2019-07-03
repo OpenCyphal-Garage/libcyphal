@@ -40,7 +40,9 @@ SocketCANInterfaceManager::~SocketCANInterfaceManager()
     {
         if (nullptr != ir.connected_interface)
         {
-            std::cout << "Interface " << ir.name << " was still open when the manager was destroyed?!" << std::endl;
+            LIBUAVCAN_TRACEF("SocketCANInterfaceManager",
+                             "Interface %s was still open when the manager was destroyed?!",
+                             ir.name.c_str());
         }
     }
 }
@@ -133,8 +135,22 @@ const std::string& SocketCANInterfaceManager::getInterfaceName(const InterfaceTy
     return getInterfaceName(interface.getInterfaceIndex());
 }
 
+bool SocketCANInterfaceManager::doesReceiveOwnMessages() const
+{
+    return receive_own_messages_;
+}
+
+bool SocketCANInterfaceManager::isFDEnabled() const
+{
+    return enable_can_fd_;
+}
+
 libuavcan::Result SocketCANInterfaceManager::reenumerateInterfaces()
 {
+    // This is example code and is probably not the best way to discover can interfaces on
+    // a system.
+    // I believe using the netlink socket layer in linux is the proper way but I didn't
+    // have time to figure this out. Contributions welcome.
     interface_list_.clear();
 
     struct ::ifaddrs* ifap;
@@ -159,7 +175,7 @@ libuavcan::Result SocketCANInterfaceManager::reenumerateInterfaces()
             if (fd > 0)
             {
                 ::close(fd);
-                std::cout << "Found can socket " << i->ifa_name << std::endl;
+                LIBUAVCAN_TRACEF("SocketCANInterfaceManager", "Found can socket %s", i->ifa_name);
                 interface_list_.emplace_back(i->ifa_name);
             }
             i = i->ifa_next;
@@ -355,22 +371,27 @@ int SocketCANInterfaceManager::openSocket(const std::string& iface_name,
 
     // Configure
     {
-        const int ts_flags = SOF_TIMESTAMPING_TX_HARDWARE | SOF_TIMESTAMPING_RX_HARDWARE;
-
-        // Hardware Timestamping
-        if (::setsockopt(s, SOL_SOCKET, SO_TIMESTAMPING, &ts_flags, sizeof(ts_flags)) < 0)
+        const int enable_timestamps = 1;
+        if (::setsockopt(s, SOL_SOCKET, SO_TIMESTAMP, &enable_timestamps, sizeof(enable_timestamps)) < 0)
         {
-            std::cout << "SO_TIMESTAMPING was not supported for socket " << iface_name << std::endl;
+            LIBUAVCAN_TRACEF("SocketCANInterfaceManager",
+                             "SO_TIMESTAMP was not supported for socket %s",
+                             iface_name.c_str());
         }
+
         int enable_rxq_ovfl = 1;
         if (::setsockopt(s, SOL_SOCKET, SO_RXQ_OVFL, &enable_rxq_ovfl, sizeof(enable_rxq_ovfl)) < 0)
         {
-            std::cout << "SO_RXQ_OVFL was not supported for socket " << iface_name << std::endl;
+            LIBUAVCAN_TRACEF("SocketCANInterfaceManager",
+                             "SO_RXQ_OVFL was not supported for socket %s",
+                             iface_name.c_str());
         }
         ::can_err_mask_t err_mask = CAN_ERR_MASK;
         if (::setsockopt(s, SOL_CAN_RAW, CAN_RAW_ERR_FILTER, &err_mask, sizeof(err_mask)) < 0)
         {
-            std::cout << "CAN_RAW_ERR_FILTER was not supported for socket " << iface_name << std::endl;
+            LIBUAVCAN_TRACEF("SocketCANInterfaceManager",
+                             "SOL_CAN_RAW was not supported for socket %s",
+                             iface_name.c_str());
         }
     }
 
