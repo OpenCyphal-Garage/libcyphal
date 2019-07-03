@@ -62,7 +62,7 @@ struct InterfaceRecord final
  * management. For low-level systems this could be a very simple and static object that assumes interfaces
  * are never closed.
  */
-class SocketCANInterfaceManager : public libuavcan::transport::media::InterfaceManager<SocketCANInterface>
+class SocketCANInterfaceManager : public libuavcan::media::InterfaceManager<SocketCANInterface>
 {
 private:
     std::vector<InterfaceRecord<InterfaceType>> interface_list_;

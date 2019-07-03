@@ -14,8 +14,8 @@
 #include <sys/socket.h>
 
 #include "libuavcan/libuavcan.hpp"
-#include "libuavcan/transport/media/interfaces.hpp"
-#include "libuavcan/transport/media/can.hpp"
+#include "libuavcan/media/interfaces.hpp"
+#include "libuavcan/media/can.hpp"
 
 namespace libuavcan
 {
@@ -28,7 +28,7 @@ namespace libuavcan
  */
 namespace example
 {
-using CANFrame = libuavcan::transport::media::CAN::Frame<libuavcan::transport::media::CAN::TypeFD::MaxFrameSizeBytes>;
+using CANFrame = libuavcan::media::CAN::Frame<libuavcan::media::CAN::TypeFD::MaxFrameSizeBytes>;
 using SocketCANFrame                = ::canfd_frame;
 static constexpr size_t ControlSize = sizeof(cmsghdr) + sizeof(::timeval);
 using ControlStorage                = typename std::aligned_storage<ControlSize>::type;
@@ -37,7 +37,7 @@ using ControlStorage                = typename std::aligned_storage<ControlSize>
  * Example of a media::Interface implemented for <a
  * href="https://www.kernel.org/doc/Documentation/networking/can.txt">SocketCAN</a>.
  */
-class SocketCANInterface : public libuavcan::transport::media::Interface<CANFrame, 4, 4>
+class SocketCANInterface : public libuavcan::media::Interface<CANFrame, 4, 4>
 {
 public:
     struct Statistics
@@ -80,7 +80,7 @@ public:
     int getFd() const;
 
     // +----------------------------------------------------------------------+
-    // | libuavcan::transport::media::Interface
+    // | libuavcan::media::Interface
     // +----------------------------------------------------------------------+
     virtual std::uint_fast8_t getInterfaceIndex() const override;
 

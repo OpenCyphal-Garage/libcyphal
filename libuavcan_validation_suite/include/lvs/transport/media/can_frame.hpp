@@ -4,7 +4,7 @@
  * Parameterized unit test for the CAN Frame template.
  */
 /** @file
- * Implement this test for any libuavcan::transport::media::CAN::Frame object you
+ * Implement this test for any libuavcan::media::CAN::Frame object you
  * implement in your media layer.
  *
  * <h3>Example:</H3>
@@ -41,7 +41,7 @@
 #include "gtest/gtest.h"
 
 #include "libuavcan/libuavcan.hpp"
-#include "libuavcan/transport/media/can.hpp"
+#include "libuavcan/media/can.hpp"
 
 namespace lvs
 {
@@ -52,14 +52,14 @@ namespace media
 namespace CAN
 {
 
-using namespace libuavcan::transport::media::CAN;
+using namespace libuavcan::media::CAN;
 
 // +==========================================================================+
 // | FrameTest
 // +==========================================================================+
 
 /**
- * Test fixture for testing realizations of the libuavcan::transport::media::CAN::Frame template.
+ * Test fixture for testing realizations of the libuavcan::media::CAN::Frame template.
  * See https://github.com/google/googletest/blob/master/googletest/docs/advanced.md for
  * more information about typed gtests.
  *

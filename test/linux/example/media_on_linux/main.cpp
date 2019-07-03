@@ -28,8 +28,8 @@
 #include <chrono>
 
 #include "libuavcan/libuavcan.hpp"
-#include "libuavcan/transport/media/interfaces.hpp"
-#include "libuavcan/transport/media/can.hpp"
+#include "libuavcan/media/interfaces.hpp"
+#include "libuavcan/media/can.hpp"
 #include "SocketCANInterfaceManager.hpp"
 
 namespace argparse
@@ -177,11 +177,11 @@ int main(int argc, char* argv[])
             test_frames[libuavcan::example::SocketCANInterfaceManager::InterfaceType::TxFramesLen] =
                 {{1,
                   nullptr,
-                  libuavcan::transport::media::CAN::FrameDLC::CodeForLength0,
+                  libuavcan::media::CAN::FrameDLC::CodeForLength0,
                   libuavcan::time::Monotonic::fromMicrosecond(0)},
                  {2,
                   nullptr,
-                  libuavcan::transport::media::CAN::FrameDLC::CodeForLength0,
+                  libuavcan::media::CAN::FrameDLC::CodeForLength0,
                   libuavcan::time::Monotonic::fromMicrosecond(1)}};
 
         std::size_t frames_written;

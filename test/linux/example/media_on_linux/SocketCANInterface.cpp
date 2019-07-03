@@ -107,7 +107,7 @@ libuavcan::Result SocketCANInterface::write(const FrameType (&frames)[TxFramesLe
         // All UAVCAN frames use the extended frame format.
         socketcan_frame.can_id = CAN_EFF_FLAG | (frame.id & FrameType::MaskExtID);
         set_message_length(socketcan_frame,
-                           static_cast<std::underlying_type<libuavcan::transport::media::CAN::FrameDLC>::type>(
+                           static_cast<std::underlying_type<libuavcan::media::CAN::FrameDLC>::type>(
                                frame.getDLC()));
         std::copy(frame.data, frame.data + frame.getDataLength(), socketcan_frame.data);
     }
@@ -225,7 +225,7 @@ libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
         {
             out_frame = {socketcan_frame.can_id,
                         socketcan_frame.data,
-                        libuavcan::transport::media::CAN::FrameDLC(get_message_length(socketcan_frame)),
+                        libuavcan::media::CAN::FrameDLC(get_message_length(socketcan_frame)),
                         timestamp};
             out_frames_read += 1;
             // FUTURE #255: provide frame traceing helpers.

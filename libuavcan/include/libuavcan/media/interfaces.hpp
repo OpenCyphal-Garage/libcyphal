@@ -18,8 +18,6 @@
 
 namespace libuavcan
 {
-namespace transport
-{
 /**
  * @namespace media
  * Contains media-specific types and namespaces.
@@ -254,7 +252,6 @@ public:
 };
 
 }  // namespace media
-}  // namespace transport
 }  // namespace libuavcan
 
 #endif  // LIBUAVCAN_TRANSPORT_MEDIA_INTERFACES_HPP_INCLUDED

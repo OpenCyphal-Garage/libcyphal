@@ -16,8 +16,6 @@
 
 namespace libuavcan
 {
-namespace transport
-{
 namespace media
 {
 /**
@@ -380,11 +378,11 @@ public:
     }
 
     /**
-     * Logical inverse of @ref libuavcan::transport::media::CAN::Frame::operator==(const
-     * libuavcan::transport::media::CAN::Frame&) const
+     * Logical inverse of @ref libuavcan::media::CAN::Frame::operator==(const
+     * libuavcan::media::CAN::Frame&) const
      *
-     * @return true if @ref libuavcan::transport::media::CAN::Frame::operator==(const
-     * libuavcan::transport::media::CAN::Frame&) const returns false.
+     * @return true if @ref libuavcan::media::CAN::Frame::operator==(const
+     * libuavcan::media::CAN::Frame&) const returns false.
      */
     bool operator!=(const Frame& rhs) const
     {
@@ -476,7 +474,6 @@ public:
 
 }  // end namespace CAN
 }  // end namespace media
-}  // end namespace transport
 }  // end namespace libuavcan
 
 #endif  // LIBUAVCAN_TRANSPORT_MEDIA_CAN_HPP_INCLUDED
