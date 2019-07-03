@@ -98,10 +98,10 @@ public:
      *                      [0 - out_frames_written) were enqueued for transmission. Frames
      *                      [out_frames_written - frames_len) were not able to be sent. Nominally this is
      *                      due to the internal queues being full.
-     * @return
-     *          - 0 = one frame enqueued for transmission.
-     *          - -1 = TX buffer full for messages of this type.
-     *          - All other negative values are errors.
+     * @return libuavcan::Result::success_partial if some but not all of the frames were written.
+     *         libuavcan::Result::buffer_full if no frames could be written because the buffer was
+     *         full.
+     *         libuavcan::Result::success if all frames were written.
      */
     virtual libuavcan::Result write(const FrameT (&frames)[MaxTxFrames],
                                     std::size_t  frames_len,
@@ -116,10 +116,7 @@ public:
      * these timestamps are used only for protocol timing validation  (i.e. transfer timeouts and
      * inter-transfer intervals).
      *
-     * @return
-     *          - 1 = one frame received
-     *          - 0 = RX buffer empty
-     *          - negative for error
+     * @return libuavcan::Result::success If no errors occurred.
      */
     virtual libuavcan::Result read(FrameT (&out_frames)[MaxRxFrames], std::size_t& out_frames_read) = 0;
 };
@@ -131,13 +128,16 @@ public:
  * is not specified by libuavcan.
  *
  * @tparam  InterfaceT              The type to use for interfaces. Must implement Interface.
+ * @tparam  InterfacePtrT           The pointer type to use for InterfaceT pointers in this class. On
+ *                                  systems without dynamic memory this can probably be simply <code>InterfaceT*</code>
+ *                                  but where dynamic memory is used some sort of smart pointer is recommended.
  * @tparam  MaxSelectInterfacesVal  The maximum number of interfaces the manager's select method can support.
  *                                  This is required since the media layer interfaces do not require dynamic memory.
  *                                  It's also not expected that more than two or three interfaces would ever be
  *                                  required (i.e. it is expected that the manager's select will be used to wait
  *                                  on a redundant set of interfaces to a single bus).
  */
-template <typename InterfaceT, std::size_t MaxSelectInterfacesVal = 2>
+template <typename InterfaceT, typename InterfacePtrT, std::size_t MaxSelectInterfacesVal = 2>
 class LIBUAVCAN_EXPORT InterfaceManager
 {
 public:
@@ -147,6 +147,8 @@ public:
      * The media-specific interface managed by this object.
      */
     using InterfaceType = InterfaceT;
+
+    using InterfacePtrType = InterfacePtrT;
 
     /**
      * The maximum number of interfaces the select method must support in a single invocation.
@@ -163,23 +165,18 @@ public:
      *                                      filters is dependant on the interface in use and the Frame type.
      * @param       filter_config_length    The number of filter configurations in the filter_config array.
      * @param[out]  out_interface           If successful, the pointer is set to an open interface abstraction
-     *                                      owned by this manager instance. This memory will remain valid while
-     *                                      the manager object is valid.
-     * @return
-     *         - 0 if a new interface was opened and returned.
-     *         - 1 is returned if the interface was already opened and out_interface was given a reference to it.
-     *             The behaviour in this case is implementation defined since the pointers vended by this class
-     *             are not valid after closeInterface is called on any one of them. For embedded systems where
-     *             interfaces are not closed this never becomes an issue. For higher-level systems the media
-     *             layer implementation should provide stronger memory ownership semantics perhaps wrapping this
-     *             interface in another that vends std::shared_ptr instances.
-     *         - -1 if the interface_index was invalid.
-     *         - < -1 for all other errors.
+     *                                      owned by this manager instance. This memory shall remain valid while
+     *                                      the manager object is valid. It is undefined behavior to destroy a manager
+     *                                      with open interfaces still allocated.
+     *                                      Implementations must define the semantics for calling this method multiple
+     *                                      times with the same interface_index and for calling closeInterface on
+     *                                      a shared pointer to an interface.
+     * @return libuavcan::Result::success if the interface was successfully opened and returned,
      */
     virtual libuavcan::Result openInterface(std::uint_fast8_t                                interface_index,
                                             const typename InterfaceType::FrameType::Filter* filter_config,
                                             std::size_t                                      filter_config_length,
-                                            InterfaceT*&                                     out_interface) = 0;
+                                            InterfacePtrT&                                   out_interface) = 0;
 
     /**
      * Block for a specified amount of time or until an interface becomes ready to read or write.
@@ -210,15 +207,12 @@ public:
      * Closes an interface.
      *
      * @param[in,out] inout_interface    On input this is a pointer to an interface to close. On output
-     *                                   this pointer will be set to `nullptr`.
+     *                                   this pointer will be reset (set to `nullptr` for raw pointers).
      *
-     * @return
-     *          - 0 if the interface was closed. inout_interface will be set to `nullptr`.
-     *          - -1 if inout_interface was already `nullptr`.
-     *          - < -1 for other errors that prevented normal closing of the interface. The state
-     *            of the interface is undefined when this value returns.
+     * @return libuavcan::Result::success if the interface was closed and inout_interface is now invalid.
+     *         Implementations must define the semantics for calling this method with a shared_ptr.
      */
-    virtual libuavcan::Result closeInterface(InterfaceT*& inout_interface) = 0;
+    virtual libuavcan::Result closeInterface(InterfacePtrT& inout_interface) = 0;
 
     /**
      * The total number of available hardware interfaces. On some systems additional virtual interfaces can be

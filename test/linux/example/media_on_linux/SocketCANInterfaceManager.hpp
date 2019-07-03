@@ -61,8 +61,10 @@ struct InterfaceRecord final
  * authority to monitor hardware availability and to provide a single location for interface lifecycle
  * management. For low-level systems this could be a very simple and static object that assumes interfaces
  * are never closed.
+ *
+ * TODO: SocketCANInterface* should be a std::shared_ptr or we shouldn't actually ever delete interface objects.
  */
-class SocketCANInterfaceManager : public libuavcan::media::InterfaceManager<SocketCANInterface>
+class SocketCANInterfaceManager : public libuavcan::media::InterfaceManager<SocketCANInterface, SocketCANInterface*>
 {
 private:
     std::vector<InterfaceRecord<InterfaceType>> interface_list_;

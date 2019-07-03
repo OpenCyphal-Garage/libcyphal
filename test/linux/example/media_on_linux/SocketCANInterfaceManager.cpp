@@ -55,22 +55,25 @@ libuavcan::Result SocketCANInterfaceManager::openInterface(std::uint_fast8_t    
         return libuavcan::Result::bad_argument;
     }
     InterfaceRecord<InterfaceType>& ir = interface_list_[interface_index];
-    const int                       fd = openSocket(ir.name, enable_can_fd_, receive_own_messages_);
-    if (fd <= 0)
-    {
-        return libuavcan::Result::unknown_internal_error;
-    }
-    const auto result = configureFilters(fd, filter_config, filter_config_length);
-    if (!result)
-    {
-        return result;
-    }
-    ir.connected_interface.reset(new InterfaceType(interface_index, fd));
     if (!ir.connected_interface)
     {
-        // If compiling without c++ exceptions new can return null if OOM.
-        ::close(fd);
-        return libuavcan::Result::out_of_memory;
+        const int fd = openSocket(ir.name, enable_can_fd_, receive_own_messages_);
+        if (fd <= 0)
+        {
+            return libuavcan::Result::unknown_internal_error;
+        }
+        const auto result = configureFilters(fd, filter_config, filter_config_length);
+        if (!result)
+        {
+            return result;
+        }
+        ir.connected_interface.reset(new InterfaceType(interface_index, fd));
+        if (!ir.connected_interface)
+        {
+            // If compiling without c++ exceptions new can return null if OOM.
+            ::close(fd);
+            return libuavcan::Result::out_of_memory;
+        }
     }
     out_interface = ir.connected_interface.get();
     return libuavcan::Result::success;
@@ -81,6 +84,10 @@ libuavcan::Result SocketCANInterfaceManager::closeInterface(InterfaceType*& inou
     if (nullptr != inout_interface)
     {
         InterfaceRecord<InterfaceType>& ir = interface_list_[inout_interface->getInterfaceIndex()];
+        if (inout_interface != ir.connected_interface.get())
+        {
+            return libuavcan::Result::bad_argument;
+        }
         ir.connected_interface.reset(nullptr);
         inout_interface = nullptr;
     }
