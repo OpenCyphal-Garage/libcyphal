@@ -96,7 +96,7 @@ libuavcan::Result SocketCANInterface::write(const FrameType (&frames)[TxFramesLe
 
     if (frames_len == 0)
     {
-        return libuavcan::results::bad_argument;
+        return libuavcan::Result::bad_argument;
     }
 
     for (size_t i = 0; i < frames_len; ++i)
@@ -118,18 +118,18 @@ libuavcan::Result SocketCANInterface::write(const FrameType (&frames)[TxFramesLe
     {
         if (errno == ENOBUFS || errno == EAGAIN)  // Writing is not possible atm
         {
-            return libuavcan::results::buffer_full;
+            return libuavcan::Result::buffer_full;
         }
-        return libuavcan::results::failure;
+        return libuavcan::Result::failure;
     }
     out_frames_written = static_cast<std::size_t>(res);
     if (out_frames_written < frames_len)
     {
-        return libuavcan::results::success_partial;
+        return libuavcan::Result::success_partial;
     }
     else
     {
-        return libuavcan::results::success;
+        return libuavcan::Result::success;
     }
 }
 
@@ -147,8 +147,8 @@ libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
 
     if (res <= 0)
     {
-        return (res < 0 && errno == EWOULDBLOCK) ? libuavcan::results::success_nothing
-                                                 : libuavcan::results::unknown_internal_error;
+        return (res < 0 && errno == EWOULDBLOCK) ? libuavcan::Result::success_nothing
+                                                 : libuavcan::Result::unknown_internal_error;
     }
 
     for (std::size_t i = 0; i < static_cast<std::size_t>(res) && i < RxFramesLen; ++i)
@@ -234,7 +234,7 @@ libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
         // else our filters weren't optimal since we shouldn't get non EFF frames that aren't errors.
     }
     stats_.rx_total += static_cast<std::uint32_t>(out_frames_read);
-    return libuavcan::results::success;
+    return libuavcan::Result::success;
 }
 
 }  // namespace example

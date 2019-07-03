@@ -192,16 +192,16 @@ public:
      * @param [in]     inout_interfaces   The interfaces to wait on.
      * @param [in]     interfaces_length  The number of interfaces in the @p interfaces array. Note that the
      *                                    interfaces array is not sparse. Any null pointers found before reaching
-     *                                    @p interfaces_length will cause libuavcan::results::bad_argument to be
+     *                                    @p interfaces_length will cause libuavcan::Result::bad_argument to be
      *                                    returned.
      * @param [in]     timeout            The amount of time to wait for an event.
      * @param [in]     ignore_write_available If true then this method will not return if interfaces become available
      *                                    only for write.
      *
-     * @return  libuavcan::results::success_timeout if no events ocurred but the select operation timedout.
-     *          libuavcan::results::success if one or more of the provided interfaces are ready for read, and if
+     * @return  libuavcan::Result::success_timeout if no events ocurred but the select operation timedout.
+     *          libuavcan::Result::success if one or more of the provided interfaces are ready for read, and if
      *          @p ignore_write_available is false, or write.
-     *          libuavcan::results::success_partial if one or more errors were reported for one or more interfaces.
+     *          libuavcan::Result::success_partial if one or more errors were reported for one or more interfaces.
      */
     virtual libuavcan::Result select(const InterfaceType* const (&interfaces)[MaxSelectInterfacesVal],
                                      std::size_t                    interfaces_length,

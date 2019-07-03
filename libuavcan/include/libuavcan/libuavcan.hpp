@@ -28,94 +28,110 @@ namespace libuavcan
 /**
  * Common return type for functions that report a result. Since libuavcan does not
  * require C++ exceptions this return type is used to signal failures within a function.
- * Negative values are errors. 1 is a nominal result and values > 1 are also considered
- * nominal results. The meaning of a given result that is < or > 1 is different for each
- * function and each function must document this semantic.
+ * Negative values and zero are errors. 1 is a nominal result and values > 1 are also considered
+ * nominal results.
  */
-using Result = std::int_fast8_t;
-
-/**
- * @namespace results
- * See the {@link result_mnemonics Result Mnemonics} group for documentation.
- */
-namespace results
+enum struct Result : std::int_fast8_t
 {
-/**
- * @defgroup result_mnemonics Result Mnemonics
- *
- * These Result values are provided as mnemonics for interpreting result values but their use is
- * not required. The definitions are fixed and libuavcan will not remap these values.
- *
- * Greather-than or equal to 1 is a successful result.
- * Less-than 1 is a un-successful result.
- * @{
- */
+
+    /**
+     * > 0 are success values for libuavcan results.
+     */
+    success = 1,
+
+    /**
+     * Some parts of a non-atomic operation completed successfully but other parts failed.
+     * This result will only be used where additional information about the failure parts
+     * can allow the caller to recover.
+     */
+    success_partial = 2,
+
+    /**
+     * The operation didn't do anything but no failures occurred. For example, this would be
+     * returned for a read operation that read nothing successfully.
+     */
+    success_nothing = 3,
+
+    /**
+     * No errors occurred but the operation did complete because a timeout period was reached.
+     */
+    success_timeout = 4,
+
+    /**
+     * An operation failed because a buffer was full. For some operations this implies
+     * that trying again with the same input can be successful.
+     */
+    buffer_full = 0,
+
+    /**
+     * A generic failure.
+     */
+    failure = -1,
+
+    /**
+     * One or more parameters provided to a function were invalid.
+     */
+    bad_argument = -2,
+
+    /**
+     * The operation experienced an internal inconsistency or an unexpected
+     * result from a lower layer.
+     */
+    unknown_internal_error = -3,
+
+    /**
+     * An operation failed because there was inadequate memory available.
+     */
+    out_of_memory = -4,
+
+    /**
+     * A lookup failed to find anything for the given search parameters.
+     */
+    not_found = -5,
+
+    /**
+     * The operation failed because it was not implemented.
+     */
+    not_implemented = -6
+
+};
 
 /**
- * > 0 are success values for libuavcan results.
+ * Allows unary syntax for evaluating a result. For example:
+ * @code
+ *  if (!!someMethodThatReturnsResult())
+ *  {
+ *      // success!
+ *  }
+ * @endcode
  */
-constexpr Result success = 1;
+constexpr bool operator!(const Result& result)
+{
+    return (static_cast<std::underlying_type<Result>::type>(result) <= 0);
+}
 
 /**
- * Some parts of a non-atomic operation completed successfully but other parts failed.
- * This result will only be used where additional information about the failure parts
- * can allow the caller to recover.
+ * Helper to evaluate that the result is a success. Equivalent to:
+ * @code
+ *    static_cast<std::underlying_type<Result>::type>(result) > 0
+ * @endcode
  */
-constexpr Result success_partial = 2;
+constexpr bool success(const Result& result)
+{
+    return !!result;
+}
 
 /**
- * The operation didn't do anything but no failures occurred. For example, this would be
- * returned for a read operation that read nothing successfully.
+ * Helper to evaluate that the result is a success. Equivalent to:
+ * @code
+ *    static_cast<std::underlying_type<Result>::type>(result) <= 0
+ * @endcode
  */
-constexpr Result success_nothing = 3;
+constexpr bool failure(const Result& result)
+{
+    return !result;
+}
 
-/**
- * No errors occurred but the operation did complete because a timeout period was reached.
- */
-constexpr Result success_timeout = 4;
-
-/**
- * An operation failed because a buffer was full. For some operations this implies
- * that trying again with the same input can be successful.
- */
-constexpr Result buffer_full = 0;
-
-/**
- * A generic failure.
- */
-constexpr Result failure = -1;
-
-/**
- * One or more parameters provided to a function were invalid.
- */
-constexpr Result bad_argument = -2;
-
-/**
- * The operation experienced an internal inconsistency or an unexpected
- * result from a lower layer.
- */
-constexpr Result unknown_internal_error = -3;
-
-/**
- * An operation failed because there was inadequate memory available.
- */
-constexpr Result out_of_memory = -4;
-
-/**
- * A lookup failed to find anything for the given search parameters.
- */
-constexpr Result not_found = -5;
-
-/**
- * The operation failed because it was not implemented.
- */
-constexpr Result not_implemented = -6;
-
-/**
- * @}
- */
-
-}  // namespace results
 }  // namespace libuavcan
 
 #endif  // LIBUAVCAN_HPP_INCLUDED

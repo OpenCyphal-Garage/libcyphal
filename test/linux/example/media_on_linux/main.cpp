@@ -95,15 +95,15 @@ inline libuavcan::Result parse_args(int argc, char* argv[], Namespace& out_names
             break;
 
         case '?':
-            return libuavcan::results::success_partial;
+            return libuavcan::Result::success_partial;
 
         default:
-            return libuavcan::results::failure;
+            return libuavcan::Result::failure;
         }
     }
 
-    return (long_options[0].has_arg == required_argument) ? libuavcan::results::bad_argument
-                                                          : libuavcan::results::success;
+    return (long_options[0].has_arg == required_argument) ? libuavcan::Result::bad_argument
+                                                          : libuavcan::Result::success;
 }
 
 }  // namespace argparse
@@ -134,7 +134,7 @@ int main(int argc, char* argv[])
 {
     argparse::Namespace args;
 
-    if (libuavcan::results::success != argparse::parse_args(argc, argv, args))
+    if (libuavcan::Result::success != argparse::parse_args(argc, argv, args))
     {
         argparse::print_usage();
         return -1;
@@ -148,7 +148,7 @@ int main(int argc, char* argv[])
         std::cout << "Failed to enumerate available CAN interfaces." << std::endl;
     }
 
-    if (0 < manager.getInterfaceIndex(args.device, test_device_index))
+    if (!!manager.getInterfaceIndex(args.device, test_device_index))
     {
         std::cout << "Found " << args.device << " at index " << test_device_index << "." << std::endl;
     }
@@ -163,7 +163,7 @@ int main(int argc, char* argv[])
     c.id   = 0;
     c.mask = 0;
     libuavcan::example::SocketCANInterfaceManager::InterfaceType* interface_ptr;
-    if (libuavcan::results::success == manager.openInterface(test_device_index, &c, 1, interface_ptr))
+    if (libuavcan::Result::success == manager.openInterface(test_device_index, &c, 1, interface_ptr))
     {
         // demonstration of how to convert the media layer APIs into RAII patterns.
         auto interface_deleter = [&](libuavcan::example::SocketCANInterfaceManager::InterfaceType* interface) {
@@ -185,7 +185,7 @@ int main(int argc, char* argv[])
                   libuavcan::time::Monotonic::fromMicrosecond(1)}};
 
         std::size_t frames_written;
-        if (interface->write(test_frames, 2, frames_written))
+        if (!!interface->write(test_frames, 2, frames_written))
         {
             std::cout << "Successfully enqueued " << frames_written << " frame(s) on "
                       << manager.getInterfaceName(*interface_ptr) << std::endl;
@@ -215,7 +215,7 @@ int main(int argc, char* argv[])
             libuavcan::example::SocketCANInterfaceManager::InterfaceType::FrameType
                         frames[libuavcan::example::SocketCANInterfaceManager::InterfaceType::RxFramesLen];
             std::size_t frames_read = 0;
-            if (interface->read(frames, frames_read) && frames_read > 0)
+            if (!!interface->read(frames, frames_read) && frames_read > 0)
             {
                 std::cout << "Got " << frames_read << " frame(s)..." << std::endl;
                 std::size_t match_count = 0;
