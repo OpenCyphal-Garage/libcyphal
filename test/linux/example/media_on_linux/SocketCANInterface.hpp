@@ -42,8 +42,17 @@ class SocketCANInterface : public libuavcan::transport::media::Interface<CANFram
 public:
     struct Statistics
     {
-        std::uint_fast32_t rx_total   = 0;
-        std::uint_fast32_t rx_dropped = 0;
+        std::uint32_t rx_total   = 0;
+        std::uint32_t rx_dropped = 0;
+        std::uint32_t err_tx_timeout = 0;
+        std::uint32_t err_lostarb = 0;
+        std::uint32_t err_crtl = 0;
+        std::uint32_t err_prot = 0;
+        std::uint32_t err_trx = 0;
+        std::uint32_t err_ack = 0;
+        std::uint32_t err_bussoff = 0;
+        std::uint32_t err_buserror = 0;
+        std::uint32_t err_restarted = 0;
     };
 
 private:
@@ -64,6 +73,11 @@ public:
      * Get the current statistics for this interface.
      */
     void getStatistics(Statistics& out_stats) const;
+
+    /**
+     * Get the underlying file descriptor this object encapsulates.
+     */
+    int getFd() const;
 
     // +----------------------------------------------------------------------+
     // | libuavcan::transport::media::Interface

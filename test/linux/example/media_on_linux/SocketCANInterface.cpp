@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <net/if.h>
 #include <cstring>
+#include <linux/can/error.h>
 
 #include "SocketCANInterface.hpp"
 
@@ -79,6 +80,11 @@ std::uint_fast8_t SocketCANInterface::getInterfaceIndex() const
 void SocketCANInterface::getStatistics(Statistics& out_stats) const
 {
     out_stats = stats_;
+}
+
+int SocketCANInterface::getFd() const
+{
+    return fd_;
 }
 
 libuavcan::Result SocketCANInterface::write(const FrameType (&frames)[TxFramesLen],
@@ -171,15 +177,49 @@ libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
                 }
                 else if (cmsg->cmsg_type == SO_RXQ_OVFL && cmsg->cmsg_len >= 4)
                 {
-                    stats_.rx_dropped += *reinterpret_cast<std::uint_fast32_t*>(CMSG_DATA(cmsg));
+                    stats_.rx_dropped += *reinterpret_cast<std::uint32_t*>(CMSG_DATA(cmsg));
                 }
             }
         }
 
         if (socketcan_frame.can_id & CAN_ERR_FLAG)
         {
-            // TODO: collect error statistics.
-            std::cout << "got an error frame." << std::endl;
+            if (socketcan_frame.can_id & CAN_ERR_TX_TIMEOUT)
+            {
+                stats_.err_tx_timeout += 1;
+            }
+            if (socketcan_frame.can_id & CAN_ERR_LOSTARB)
+            {
+                stats_.err_lostarb += 1;
+            }
+            if (socketcan_frame.can_id & CAN_ERR_CRTL)
+            {
+                stats_.err_crtl += 1;
+            }
+            if (socketcan_frame.can_id & CAN_ERR_PROT)
+            {
+                stats_.err_prot += 1;
+            }
+            if (socketcan_frame.can_id & CAN_ERR_TRX)
+            {
+                stats_.err_trx += 1;
+            }
+            if (socketcan_frame.can_id & CAN_ERR_ACK)
+            {
+                stats_.err_ack += 1;
+            }
+            if (socketcan_frame.can_id & CAN_ERR_BUSOFF)
+            {
+                stats_.err_bussoff += 1;
+            }
+            if (socketcan_frame.can_id & CAN_ERR_BUSERROR)
+            {
+                stats_.err_buserror += 1;
+            }
+            if (socketcan_frame.can_id & CAN_ERR_RESTARTED)
+            {
+                stats_.err_restarted += 1;
+            }
         }
         else if (socketcan_frame.can_id & CAN_EFF_MASK)
         {
@@ -193,7 +233,7 @@ libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
         }
         // else our filters weren't optimal since we shouldn't get non EFF frames that aren't errors.
     }
-    stats_.rx_total += out_frames_read;
+    stats_.rx_total += static_cast<std::uint32_t>(out_frames_read);
     return libuavcan::results::success;
 }
 

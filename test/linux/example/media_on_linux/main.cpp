@@ -26,7 +26,6 @@
 #include <iostream>
 #include <getopt.h>
 #include <chrono>
-#include <thread>
 
 #include "libuavcan/libuavcan.hpp"
 #include "libuavcan/transport/media/interfaces.hpp"
@@ -111,13 +110,23 @@ inline libuavcan::Result parse_args(int argc, char* argv[], Namespace& out_names
 
 namespace
 {
-inline void print_stats(const libuavcan::example::SocketCANInterfaceManager& manager,
-                        const libuavcan::example::SocketCANInterfaceManager::InterfaceType&        interface)
+inline void print_stats(const libuavcan::example::SocketCANInterfaceManager&                manager,
+                        const libuavcan::example::SocketCANInterfaceManager::InterfaceType& interface)
 {
     static libuavcan::example::SocketCANInterfaceManager::InterfaceType::Statistics stats;
     interface.getStatistics(stats);
     std::cout << manager.getInterfaceName(interface) << ": rx=" << stats.rx_total;
-    std::cout << ", rx_dropped=" << stats.rx_dropped << std::endl;
+    std::cout << ", rx_dropped=" << stats.rx_dropped;
+    std::cout << ", err_ack=" << stats.err_ack;
+    std::cout << ", err_bussoff=" << stats.err_bussoff;
+    std::cout << ", err_buserror=" << stats.err_buserror;
+    std::cout << ", err_crtl=" << stats.err_crtl;
+    std::cout << ", err_tx_timeout=" << stats.err_tx_timeout;
+    std::cout << ", err_lostarb=" << stats.err_lostarb;
+    std::cout << ", err_prot=" << stats.err_prot;
+    std::cout << ", err_trx=" << stats.err_trx;
+    std::cout << ", err_restarted=" << stats.err_restarted;
+    std::cout << std::endl;
 }
 }  // namespace
 
@@ -190,6 +199,13 @@ int main(int argc, char* argv[])
 
         while (true)
         {
+            const libuavcan::example::SocketCANInterfaceManager::InterfaceType* const
+                interfaces[libuavcan::example::SocketCANInterfaceManager::MaxSelectInterfaces] = {interface.get(),
+                                                                                                  nullptr};
+            // Wait for a bit unless some data comes in. Either way, we'll want to loop around and check in on the
+            // driver statistics so don't wait too long.
+            manager.select(interfaces, 1, libuavcan::duration::Monotonic::fromMicrosecond(100000U), true);
+
             auto now = std::chrono::steady_clock::now();
             if (now - last_period >= std::chrono::seconds(1))
             {
@@ -219,7 +235,6 @@ int main(int argc, char* argv[])
                     }
                 }
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     }
     else

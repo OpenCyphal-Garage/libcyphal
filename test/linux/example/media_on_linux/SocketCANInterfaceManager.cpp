@@ -29,6 +29,7 @@ namespace example
 {
 SocketCANInterfaceManager::SocketCANInterfaceManager(bool enable_can_fd, bool receive_own_messages)
     : interface_list_()
+    , pollfds_()
     , enable_can_fd_(enable_can_fd)
     , receive_own_messages_(receive_own_messages)
 {}
@@ -160,6 +161,57 @@ libuavcan::Result SocketCANInterfaceManager::reenumerateInterfaces()
     return (interface_list_.size() > 0) ? libuavcan::results::success : libuavcan::results::not_found;
 }
 
+libuavcan::Result SocketCANInterfaceManager::select(const InterfaceType* const (&interfaces)[MaxSelectInterfaces],
+                                                    std::size_t                    interfaces_length,
+                                                    libuavcan::duration::Monotonic timeout,
+                                                    bool                           ignore_write_available)
+{
+    short int events = POLLIN | POLLPRI;
+
+    if (!ignore_write_available)
+    {
+        events |= POLLOUT;
+    }
+
+    for (size_t i = 0; i < MaxSelectInterfaces && i < interfaces_length; ++i)
+    {
+        const InterfaceType* const interface = interfaces[i];
+        if (interface)
+        {
+            pollfds_[i] = {interface->getFd(), events, 0};
+        }
+        else
+        {
+            return libuavcan::results::bad_argument;
+        }
+    }
+
+    ::timespec timeout_spec = {timeout.toMicrosecond() / 1000000U, 0};
+    timeout_spec.tv_nsec =
+        (timeout - libuavcan::duration::Monotonic::fromMicrosecond(timeout_spec.tv_sec * 1000000U)).toMicrosecond();
+
+    const int result = ::ppoll(pollfds_, interfaces_length, &timeout_spec, nullptr);
+
+    if (0 == result)
+    {
+        return libuavcan::results::success_timeout;
+    }
+
+    if (0 > result)
+    {
+        return libuavcan::results::failure;
+    }
+
+    for (size_t i = 0; i < MaxSelectInterfaces && i < interfaces_length; ++i)
+    {
+        if (0 != (pollfds_[i].revents & (POLLPRI | POLLERR | POLLHUP | POLLNVAL)))
+        {
+            return libuavcan::results::success_partial;
+        }
+    }
+    return libuavcan::results::success;
+}
+
 libuavcan::Result SocketCANInterfaceManager::getInterfaceIndex(const std::string& interface_name,
                                                                std::uint_fast8_t& out_index) const
 {
@@ -209,8 +261,6 @@ libuavcan::Result SocketCANInterfaceManager::configureFilters(
                                                  fc.mask | CAN_EFF_FLAG});
     }
 
-    // TODO: do we need to modify our filters to get error frames or is that taken care of by the
-    // setsockopt call below?
     static_assert(sizeof(socklen_t) <= sizeof(std::size_t) &&
                       std::is_signed<socklen_t>::value == std::is_signed<std::size_t>::value,
                   "socklen_t is not of the expected integer type?");
@@ -303,14 +353,14 @@ int SocketCANInterfaceManager::openSocket(const std::string& iface_name,
         // Hardware Timestamping
         if (::setsockopt(s, SOL_SOCKET, SO_TIMESTAMPING, &ts_flags, sizeof(ts_flags)) < 0)
         {
-            return -1;
+            std::cout << "SO_TIMESTAMPING was not supported for socket " << iface_name << std::endl;
         }
         int enable_rxq_ovfl = 1;
         if (::setsockopt(s, SOL_SOCKET, SO_RXQ_OVFL, &enable_rxq_ovfl, sizeof(enable_rxq_ovfl)) < 0)
         {
             std::cout << "SO_RXQ_OVFL was not supported for socket " << iface_name << std::endl;
         }
-        ::can_err_mask_t err_mask = ( CAN_ERR_TX_TIMEOUT | CAN_ERR_BUSOFF );
+        ::can_err_mask_t err_mask = CAN_ERR_MASK;
         if (::setsockopt(s, SOL_CAN_RAW, CAN_RAW_ERR_FILTER, &err_mask, sizeof(err_mask)) < 0)
         {
             std::cout << "CAN_RAW_ERR_FILTER was not supported for socket " << iface_name << std::endl;

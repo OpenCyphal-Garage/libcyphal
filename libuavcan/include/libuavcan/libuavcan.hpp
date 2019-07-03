@@ -70,6 +70,11 @@ constexpr Result success_partial = 2;
 constexpr Result success_nothing = 3;
 
 /**
+ * No errors occurred but the operation did complete because a timeout period was reached.
+ */
+constexpr Result success_timeout = 4;
+
+/**
  * An operation failed because a buffer was full. For some operations this implies
  * that trying again with the same input can be successful.
  */
@@ -100,6 +105,12 @@ constexpr Result out_of_memory = -4;
  * A lookup failed to find anything for the given search parameters.
  */
 constexpr Result not_found = -5;
+
+/**
+ * The operation failed because it was not implemented.
+ */
+constexpr Result not_implemented = -6;
+
 /**
  * @}
  */

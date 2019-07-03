@@ -8,6 +8,7 @@
 #include <queue>
 #include <memory>
 #include <string>
+#include <poll.h>
 
 #include "libuavcan/libuavcan.hpp"
 #include "SocketCANInterface.hpp"
@@ -22,7 +23,6 @@ namespace libuavcan
  */
 namespace example
 {
-
 /**
  * This datastruture is part of the SocketCANInterfaceManager's internal
  * interface management storage.
@@ -66,6 +66,7 @@ class SocketCANInterfaceManager : public libuavcan::transport::media::InterfaceM
 {
 private:
     std::vector<InterfaceRecord<InterfaceType>> interface_list_;
+    struct ::pollfd                             pollfds_[MaxSelectInterfaces];
     bool                                        enable_can_fd_;
     bool                                        receive_own_messages_;
 
@@ -98,6 +99,11 @@ public:
                                             const InterfaceType::FrameType::Filter* filter_config,
                                             std::size_t                             filter_config_length,
                                             InterfaceType*&                         out_interface) override;
+
+    virtual libuavcan::Result select(const InterfaceType* const (&interfaces)[MaxSelectInterfaces],
+                                     std::size_t                    interfaces_length,
+                                     libuavcan::duration::Monotonic timeout,
+                                     bool                           ignore_write_available) override;
 
     virtual libuavcan::Result closeInterface(InterfaceType*& inout_interface) override;
 

@@ -10,7 +10,6 @@
 #ifndef LIBUAVCAN_TRANSPORT_MEDIA_INTERFACES_HPP_INCLUDED
 #define LIBUAVCAN_TRANSPORT_MEDIA_INTERFACES_HPP_INCLUDED
 
-#include <array>
 #include <algorithm>
 
 #include "libuavcan/libuavcan.hpp"
@@ -133,9 +132,14 @@ public:
  * interface manager should define a single logical bus). How manager objects are exposed to an application
  * is not specified by libuavcan.
  *
- * @tparam  InterfaceT   The type to use for interfaces. Must implement Interface.
+ * @tparam  InterfaceT              The type to use for interfaces. Must implement Interface.
+ * @tparam  MaxSelectInterfacesVal  The maximum number of interfaces the manager's select method can support.
+ *                                  This is required since the media layer interfaces do not require dynamic memory.
+ *                                  It's also not expected that more than two or three interfaces would ever be
+ *                                  required (i.e. it is expected that the manager's select will be used to wait
+ *                                  on a redundant set of interfaces to a single bus).
  */
-template <typename InterfaceT>
+template <typename InterfaceT, std::size_t MaxSelectInterfacesVal = 2>
 class LIBUAVCAN_EXPORT InterfaceManager
 {
 public:
@@ -145,6 +149,11 @@ public:
      * The media-specific interface managed by this object.
      */
     using InterfaceType = InterfaceT;
+
+    /**
+     * The maximum number of interfaces the select method must support in a single invocation.
+     */
+    static constexpr std::size_t MaxSelectInterfaces = MaxSelectInterfacesVal;
 
     /**
      * Opens an interface for receiveing and transmitting.
@@ -175,10 +184,35 @@ public:
                                             InterfaceT*&                                     out_interface) = 0;
 
     /**
+     * Block for a specified amount of time or until an interface becomes ready to read or write.
+     *
+     * Note that it is allowed to return from this method even if no requested events actually happened, or if
+     * there are events that were not requested by the library.
+     *
+     * @param [in]     inout_interfaces   The interfaces to wait on.
+     * @param [in]     interfaces_length  The number of interfaces in the @p interfaces array. Note that the
+     *                                    interfaces array is not sparse. Any null pointers found before reaching
+     *                                    @p interfaces_length will cause libuavcan::results::bad_argument to be
+     *                                    returned.
+     * @param [in]     timeout            The amount of time to wait for an event.
+     * @param [in]     ignore_write_available If true then this method will not return if interfaces become available
+     *                                    only for write.
+     *
+     * @return  libuavcan::results::success_timeout if no events ocurred but the select operation timedout.
+     *          libuavcan::results::success if one or more of the provided interfaces are ready for read, and if
+     *          @p ignore_write_available is false, or write.
+     *          libuavcan::results::success_partial if one or more errors were reported for one or more interfaces.
+     */
+    virtual libuavcan::Result select(const InterfaceType* const (&interfaces)[MaxSelectInterfacesVal],
+                                     std::size_t                    interfaces_length,
+                                     libuavcan::duration::Monotonic timeout,
+                                     bool                           ignore_write_available) = 0;
+
+    /**
      * Closes an interface.
      *
-     * @param[inout] inout_interface    On input this is a pointer to an interface to close. On output
-     *                                  this pointer will be set to `nullptr`.
+     * @param[in,out] inout_interface    On input this is a pointer to an interface to close. On output
+     *                                   this pointer will be set to `nullptr`.
      *
      * @return
      *          - 0 if the interface was closed. inout_interface will be set to `nullptr`.
