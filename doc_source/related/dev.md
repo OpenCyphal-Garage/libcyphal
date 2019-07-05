@@ -142,15 +142,16 @@ Libuavcan Library Developer Continuous Integration {#LibCIGuide}
 
 ### Software
 
-Raspbian Stretch Lite
+Raspbian Buster Lite
 
-- Version:April 2019
-- Release date:2019-04-08
-- Kernel version:4.14
-- SHA-256: 03ec326d45c6eb6cef848cf9a1d6c7315a9410b49a276a6b28e67a40b11fdfcf
+- Version: June 2019
+- Release date: 2019-06-20
+- Kernel version: 4.19
+- SHA-256: 9009409a9f969b117602d85d992d90563f181a904bc3812bdd880fc493185234
 
 ### Post Install Steps
 
+#### raspi-config
 ```bash
 sudo raspi-config
 ```
@@ -160,15 +161,65 @@ sudo raspi-config
 3. Expand the filesystem to use the entire SD card.
 4. Change the hostname to something useful and unique (this will appear as the agent name in buildkite. It must be changed from the default).
 
+#### security
+
+Some hardening steps.
+
+```bash
+cd /etc/sysctl.d
+sudo vi 98-rpi.conf
+```
+
+In 98-rpi.conf add:
+
+```bash
+fs.protected_hardlinks = 1
+fs.protected_symlinks = 1
+```
+
+then reboot.
+
+#### Software
+
 ```bash
 sudo apt update
 sudo apt upgrade -y
+sudo apt install -y vim
 sudo apt install -y git
 sudo apt install -y python3-pip
 sudo apt install -y can-utils
 git clone https://github.com/thirtytwobits/nanaimo.git
 cd nanaimo
 sudo pip3 install --system .
+echo "alias la='ls -lah'" | sudo tee -a /etc/bash.bashrc
+```
+
+#### CAN
+
+Load vcan on boot:
+
+```bash
+echo vcan | sudo tee -a /etc/modules
+```
+
+Configure vcan0, and if using a can adapter, can0 on boot:
+
+```bash
+sudo vi /etc/network/interfaces.d/can
+```
+
+```bash
+auto vcan0
+	iface vcan0 inet manual
+	pre-up /sbin/ip link add dev $IFACE type vcan
+	up /sbin/ifconfig $IFACE up
+
+auto can0
+	iface can0 inet manual
+	pre-up /sbin/ip link set $IFACE type can bitrate 1000000 dbitrate 2000000 fd on sample-point .8 dsample-point .8 berr-reporting off fd-non-iso off restart-ms 100
+	up /sbin/ifconfig $IFACE up
+	down /sbin/ifconfig $IFACE down
+
 ```
 
 #### [Segger JLink](https://www.segger.com/downloads/jlink)
@@ -262,7 +313,7 @@ Sudo edit the `environment` file and change it to:
 
 ```bash
 set -eu
-echo '--- :raspberry: Setting up a no-source environment for raspberry pi.'
+echo '--- :raspberry-pi: Setting up a no-source environment for raspberry pi.'
 
 # Empty value prevents source cloning. The workers don't have access to source.
 export BUILDKITE_REPO=
@@ -313,6 +364,7 @@ nait -vv \
      --port \
      /dev/serial/by-id/usb-Signoid_Kft._USB-UART_adapter_MACX98-if00-port0 \
      --port-speed 115200 \
+     --test-timeout-seconds 300 \
      \*.jlink
 
 popd
