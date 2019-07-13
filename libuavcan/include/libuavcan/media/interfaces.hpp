@@ -62,7 +62,7 @@ public:
     using FrameType = FrameT;
 
     /**
-     * The length of arrays used to write frames through this interface.
+     * The length of arrays used to read frames through this interface.
      */
     static constexpr std::size_t RxFramesLen = MaxRxFrames;
 
