@@ -21,14 +21,14 @@ public:
         (void)frame;
         (void)frames_len;
         (void)out_frames_written;
-        return libuavcan::Result::not_implemented;
+        return libuavcan::Result::NotImplemented;
     }
 
     virtual libuavcan::Result read(FrameType (&out_frames)[RxFramesLen], std::size_t& out_frames_read) override
     {
         (void)out_frames;
         (void)out_frames_read;
-        return libuavcan::Result::not_implemented;
+        return libuavcan::Result::NotImplemented;
     }
 };
 

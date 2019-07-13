@@ -12,24 +12,24 @@
  */
 TEST(ResultTest, ResultBangOperator)
 {
-    ASSERT_TRUE(!!libuavcan::Result::success);
-    ASSERT_FALSE(!libuavcan::Result::success);
-    ASSERT_TRUE(!libuavcan::Result::failure);
-    ASSERT_FALSE(!!libuavcan::Result::failure);
+    ASSERT_TRUE(!!libuavcan::Result::Success);
+    ASSERT_FALSE(!libuavcan::Result::Success);
+    ASSERT_TRUE(!libuavcan::Result::Failure);
+    ASSERT_FALSE(!!libuavcan::Result::Failure);
 }
 
 TEST(ResultTest, ResultSuccessHelper)
 {
-    ASSERT_TRUE(libuavcan::success(libuavcan::Result::success));
-    ASSERT_FALSE(libuavcan::success(libuavcan::Result::failure));
-    ASSERT_TRUE(libuavcan::success(libuavcan::Result::success_timeout));
-    ASSERT_FALSE(libuavcan::success(libuavcan::Result::bad_argument));
+    ASSERT_TRUE(libuavcan::isSuccess(libuavcan::Result::Success));
+    ASSERT_FALSE(libuavcan::isSuccess(libuavcan::Result::Failure));
+    ASSERT_TRUE(libuavcan::isSuccess(libuavcan::Result::SuccessTimeout));
+    ASSERT_FALSE(libuavcan::isSuccess(libuavcan::Result::BadArgument));
 }
 
 TEST(ResultTest, ResultFailureHelper)
 {
-    ASSERT_TRUE(libuavcan::failure(libuavcan::Result::failure));
-    ASSERT_FALSE(libuavcan::failure(libuavcan::Result::success));
-    ASSERT_TRUE(libuavcan::failure(libuavcan::Result::bad_argument));
-    ASSERT_FALSE(libuavcan::failure(libuavcan::Result::success_nothing));
+    ASSERT_TRUE(libuavcan::isFailure(libuavcan::Result::Failure));
+    ASSERT_FALSE(libuavcan::isFailure(libuavcan::Result::Success));
+    ASSERT_TRUE(libuavcan::isFailure(libuavcan::Result::BadArgument));
+    ASSERT_FALSE(libuavcan::isFailure(libuavcan::Result::SuccessNothing));
 }

@@ -11,8 +11,6 @@
 
 #include "libuavcan/build_config.hpp"
 
-#define __STDC_FORMAT_MACROS
-
 #include <cstdint>
 #include <cinttypes>
 #include <limits>
@@ -37,62 +35,62 @@ enum struct Result : std::int_fast8_t
     /**
      * > 0 are success values for libuavcan results.
      */
-    success = 1,
+    Success = 1,
 
     /**
      * Some parts of a non-atomic operation completed successfully but other parts failed.
      * This result will only be used where additional information about the failure parts
      * can allow the caller to recover.
      */
-    success_partial = 2,
+    SuccessPartial = 2,
 
     /**
      * The operation didn't do anything but no failures occurred. For example, this would be
      * returned for a read operation that read nothing successfully.
      */
-    success_nothing = 3,
+    SuccessNothing = 3,
 
     /**
      * No errors occurred but the operation did complete because a timeout period was reached.
      */
-    success_timeout = 4,
+    SuccessTimeout = 4,
 
     /**
      * An operation failed because a buffer was full. For some operations this implies
      * that trying again with the same input can be successful.
      */
-    buffer_full = 0,
+    BufferFull = 0,
 
     /**
      * A generic failure.
      */
-    failure = -1,
+    Failure = -1,
 
     /**
      * One or more parameters provided to a function were invalid.
      */
-    bad_argument = -2,
+    BadArgument = -2,
 
     /**
      * The operation experienced an internal inconsistency or an unexpected
      * result from a lower layer.
      */
-    unknown_internal_error = -3,
+    UnknownInternalError = -3,
 
     /**
      * An operation failed because there was inadequate memory available.
      */
-    out_of_memory = -4,
+    OutOfMemory = -4,
 
     /**
      * A lookup failed to find anything for the given search parameters.
      */
-    not_found = -5,
+    NotFound = -5,
 
     /**
      * The operation failed because it was not implemented.
      */
-    not_implemented = -6
+    NotImplemented = -6
 
 };
 
@@ -116,7 +114,7 @@ constexpr bool operator!(const Result& result)
  *    static_cast<std::underlying_type<Result>::type>(result) > 0
  * @endcode
  */
-constexpr bool success(const Result& result)
+constexpr bool isSuccess(const Result& result)
 {
     return !!result;
 }
@@ -127,7 +125,7 @@ constexpr bool success(const Result& result)
  *    static_cast<std::underlying_type<Result>::type>(result) <= 0
  * @endcode
  */
-constexpr bool failure(const Result& result)
+constexpr bool isFailure(const Result& result)
 {
     return !result;
 }

@@ -24,14 +24,14 @@ namespace libuavcan
  *
  * @{
  * @file
- * @namespace example   Namespace containing example implementations of libuavcan.
+ * @namespace example   Namespace containing example applications of libuavcan.
  */
 namespace example
 {
 using CANFrame = libuavcan::media::CAN::Frame<libuavcan::media::CAN::TypeFD::MaxFrameSizeBytes>;
 using SocketCANFrame                = ::canfd_frame;
-static constexpr std::size_t ControlSize = sizeof(cmsghdr) + sizeof(::timeval);
-using ControlStorage                = typename std::aligned_storage<ControlSize>::type;
+static constexpr size_t ControlSize = sizeof(cmsghdr) + sizeof(::timeval);
+using ControlStorage                = std::aligned_storage<ControlSize>::type;
 
 /**
  * Example of a media::Interface implemented for <a
@@ -42,22 +42,22 @@ class SocketCANInterface : public libuavcan::media::Interface<CANFrame, 4, 4>
 public:
     struct Statistics
     {
-        std::uint32_t rx_total   = 0;
-        std::uint32_t rx_dropped = 0;
-        std::uint32_t err_tx_timeout = 0;
-        std::uint32_t err_lostarb = 0;
-        std::uint32_t err_crtl = 0;
-        std::uint32_t err_prot = 0;
-        std::uint32_t err_trx = 0;
-        std::uint32_t err_ack = 0;
-        std::uint32_t err_bussoff = 0;
-        std::uint32_t err_buserror = 0;
-        std::uint32_t err_restarted = 0;
+        std::uint64_t rx_total   = 0;
+        std::uint64_t rx_dropped = 0;
+        std::uint64_t err_tx_timeout = 0;
+        std::uint64_t err_lostarb = 0;
+        std::uint64_t err_crtl = 0;
+        std::uint64_t err_prot = 0;
+        std::uint64_t err_trx = 0;
+        std::uint64_t err_ack = 0;
+        std::uint64_t err_bussoff = 0;
+        std::uint64_t err_buserror = 0;
+        std::uint64_t err_restarted = 0;
     };
 
 private:
     const std::uint_fast8_t index_;
-    const int               fd_;
+    const int               socket_descriptor_;
     Statistics              stats_;
     SocketCANFrame          trx_socketcan_frames_[RxFramesLen];
     ::iovec                 trx_iovec_[RxFramesLen];
@@ -65,7 +65,7 @@ private:
     ::mmsghdr               trx_msghdrs_[RxFramesLen];
 
 public:
-    SocketCANInterface(std::uint_fast8_t index, int fd);
+    SocketCANInterface(std::uint_fast8_t index, int socket_descriptor);
 
     virtual ~SocketCANInterface();
 

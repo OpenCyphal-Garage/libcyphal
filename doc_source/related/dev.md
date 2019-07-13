@@ -247,6 +247,8 @@ and restart.
 sudo shutdown -r now
 ```
 
+Another compelling solution is the [Black Magic Probe](https://1bitsquared.com/products/black-magic-probe) but I haven't had time to try using this with the PI/NXP setup. I will try to write a section on how to use this probe in the future.
+
 #### Build Kite Agent
 
 (taken from the [buildkit agent for Debian instructions](https://buildkite.com/docs/agent/v3/debian))

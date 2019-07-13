@@ -96,15 +96,15 @@ inline libuavcan::Result parse_args(int argc, char* argv[], Namespace& out_names
             break;
 
         case '?':
-            return libuavcan::Result::success_partial;
+            return libuavcan::Result::SuccessPartial;
 
         default:
-            return libuavcan::Result::failure;
+            return libuavcan::Result::Failure;
         }
     }
 
-    return (long_options[0].has_arg == required_argument) ? libuavcan::Result::bad_argument
-                                                          : libuavcan::Result::success;
+    return (long_options[0].has_arg == required_argument) ? libuavcan::Result::BadArgument
+                                                          : libuavcan::Result::Success;
 }
 
 }  // namespace argparse
@@ -222,7 +222,7 @@ int main(int argc, char* argv[])
 {
     argparse::Namespace args;
 
-    if (libuavcan::Result::success != argparse::parse_args(argc, argv, args))
+    if (libuavcan::Result::Success != argparse::parse_args(argc, argv, args))
     {
         argparse::print_usage();
         return -1;

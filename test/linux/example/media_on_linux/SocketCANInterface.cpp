@@ -44,9 +44,9 @@ inline void set_message_length(struct ::canfd_frame& frame, std::uint8_t message
 
 }  // namespace
 
-SocketCANInterface::SocketCANInterface(std::uint_fast8_t index, int fd)
+SocketCANInterface::SocketCANInterface(std::uint_fast8_t index, int socket_descriptor)
     : index_(index)
-    , fd_(fd)
+    , socket_descriptor_(socket_descriptor)
     , stats_()
     , trx_socketcan_frames_()
     , trx_iovec_{{&trx_socketcan_frames_[0], sizeof(trx_socketcan_frames_[0])},
@@ -69,7 +69,7 @@ SocketCANInterface::SocketCANInterface(std::uint_fast8_t index, int fd)
 SocketCANInterface::~SocketCANInterface()
 {
     LIBUAVCAN_TRACE("SocketCANInterface", "closing socket.");
-    ::close(fd_);
+    ::close(socket_descriptor_);
 }
 
 std::uint_fast8_t SocketCANInterface::getInterfaceIndex() const
@@ -84,7 +84,7 @@ void SocketCANInterface::getStatistics(Statistics& out_stats) const
 
 int SocketCANInterface::getFd() const
 {
-    return fd_;
+    return socket_descriptor_;
 }
 
 libuavcan::Result SocketCANInterface::write(const FrameType (&frames)[TxFramesLen],
@@ -96,7 +96,7 @@ libuavcan::Result SocketCANInterface::write(const FrameType (&frames)[TxFramesLe
 
     if (frames_len == 0)
     {
-        return libuavcan::Result::bad_argument;
+        return libuavcan::Result::BadArgument;
     }
 
     for (size_t i = 0; i < frames_len; ++i)
@@ -111,24 +111,24 @@ libuavcan::Result SocketCANInterface::write(const FrameType (&frames)[TxFramesLe
         std::copy(frame.data, frame.data + frame.getDataLength(), socketcan_frame.data);
     }
 
-    const auto res = ::sendmmsg(fd_, trx_msghdrs_, static_cast<unsigned int>(frames_len), 0);
+    const auto res = ::sendmmsg(socket_descriptor_, trx_msghdrs_, static_cast<unsigned int>(frames_len), 0);
 
     if (res <= 0)
     {
         if (errno == ENOBUFS || errno == EAGAIN)  // Writing is not possible atm
         {
-            return libuavcan::Result::buffer_full;
+            return libuavcan::Result::BufferFull;
         }
-        return libuavcan::Result::failure;
+        return libuavcan::Result::Failure;
     }
     out_frames_written = static_cast<std::size_t>(res);
     if (out_frames_written < frames_len)
     {
-        return libuavcan::Result::success_partial;
+        return libuavcan::Result::SuccessPartial;
     }
     else
     {
-        return libuavcan::Result::success;
+        return libuavcan::Result::Success;
     }
 }
 
@@ -142,12 +142,12 @@ libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
      * and write in the interface template. For a posix system that does not support recvmmsg the media
      * layer can simply be defined with RxFramesLen = 1.
      */
-    const auto res = ::recvmmsg(fd_, &trx_msghdrs_[0], RxFramesLen, MSG_DONTWAIT, nullptr);
+    const auto res = ::recvmmsg(socket_descriptor_, &trx_msghdrs_[0], RxFramesLen, MSG_DONTWAIT, nullptr);
 
     if (res <= 0)
     {
-        return (res < 0 && errno == EWOULDBLOCK) ? libuavcan::Result::success_nothing
-                                                 : libuavcan::Result::unknown_internal_error;
+        return (res < 0 && errno == EWOULDBLOCK) ? libuavcan::Result::SuccessNothing
+                                                 : libuavcan::Result::UnknownInternalError;
     }
 
     for (std::size_t i = 0; i < static_cast<std::size_t>(res) && i < RxFramesLen; ++i)
@@ -244,7 +244,7 @@ libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
         }
     }
     stats_.rx_total += static_cast<std::uint32_t>(out_frames_read);
-    return libuavcan::Result::success;
+    return libuavcan::Result::Success;
 }
 
 }  // namespace example

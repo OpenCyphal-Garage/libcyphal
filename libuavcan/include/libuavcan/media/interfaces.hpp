@@ -98,10 +98,10 @@ public:
      *                      [0 - out_frames_written) were enqueued for transmission. Frames
      *                      [out_frames_written - frames_len) were not able to be sent. Nominally this is
      *                      due to the internal queues being full.
-     * @return libuavcan::Result::success_partial if some but not all of the frames were written.
-     *         libuavcan::Result::buffer_full if no frames could be written because the buffer was
+     * @return libuavcan::Result::SuccessPartial if some but not all of the frames were written.
+     *         libuavcan::Result::BufferFull if no frames could be written because the buffer was
      *         full.
-     *         libuavcan::Result::success if all frames were written.
+     *         libuavcan::Result::Success if all frames were written.
      */
     virtual libuavcan::Result write(const FrameT (&frames)[MaxTxFrames],
                                     std::size_t  frames_len,
@@ -116,7 +116,7 @@ public:
      * these timestamps are used only for protocol timing validation  (i.e. transfer timeouts and
      * inter-transfer intervals).
      *
-     * @return libuavcan::Result::success If no errors occurred.
+     * @return libuavcan::Result::Success If no errors occurred.
      */
     virtual libuavcan::Result read(FrameT (&out_frames)[MaxRxFrames], std::size_t& out_frames_read) = 0;
 };
@@ -137,7 +137,7 @@ public:
  *                                  required (i.e. it is expected that the manager's select will be used to wait
  *                                  on a redundant set of interfaces to a single bus).
  */
-template <typename InterfaceT, typename InterfacePtrT, std::size_t MaxSelectInterfacesVal = 2>
+template <typename InterfaceT, typename InterfacePtrT, std::size_t MaxSelectInterfacesVal = 3>
 class LIBUAVCAN_EXPORT InterfaceManager
 {
 public:
@@ -160,29 +160,6 @@ public:
     static constexpr std::size_t MaxSelectInterfaces = MaxSelectInterfacesVal;
 
     /**
-     * Opens an interface for receiveing and transmitting.
-     *
-     * @param       interface_index         The index of the interface to open. See getHardwareInterfaceCount()
-     *                                      for the valid range of interface indicies. The behaviour of this method
-     *                                      given an index >= getHardwareInterfaceCount() is implementation defined.
-     * @param       filter_config           An array of frame filtering parameters. The contents and behaviour of
-     *                                      filters is dependant on the interface in use and the Frame type.
-     * @param       filter_config_length    The number of filter configurations in the filter_config array.
-     * @param[out]  out_interface           If successful, the pointer is set to an open interface abstraction
-     *                                      owned by this manager instance. This memory shall remain valid while
-     *                                      the manager object is valid. It is undefined behavior to destroy a manager
-     *                                      with open interfaces still allocated.
-     *                                      Implementations must define the semantics for calling this method multiple
-     *                                      times with the same interface_index and for calling closeInterface on
-     *                                      a shared pointer to an interface.
-     * @return libuavcan::Result::success if the interface was successfully opened and returned,
-     */
-    virtual libuavcan::Result openInterface(std::uint_fast8_t                                interface_index,
-                                            const typename InterfaceType::FrameType::Filter* filter_config,
-                                            std::size_t                                      filter_config_length,
-                                            InterfacePtrT&                                   out_interface) = 0;
-
-    /**
      * Block for a specified amount of time or until an interface becomes ready to read or write.
      *
      * Note that it is allowed to return from this method even if no requested events actually happened, or if
@@ -191,32 +168,21 @@ public:
      * @param [in]     inout_interfaces   The interfaces to wait on.
      * @param [in]     interfaces_length  The number of interfaces in the @p interfaces array. Note that the
      *                                    interfaces array is not sparse. Any null pointers found before reaching
-     *                                    @p interfaces_length will cause libuavcan::Result::bad_argument to be
+     *                                    @p interfaces_length will cause libuavcan::Result::BadArgument to be
      *                                    returned.
      * @param [in]     timeout            The amount of time to wait for an event.
      * @param [in]     ignore_write_available If true then this method will not return if interfaces become available
      *                                    only for write.
      *
-     * @return  libuavcan::Result::success_timeout if no events ocurred but the select operation timedout.
-     *          libuavcan::Result::success if one or more of the provided interfaces are ready for read, and if
+     * @return  libuavcan::Result::SuccessTimeout if no events ocurred but the select operation timedout.
+     *          libuavcan::Result::Success if one or more of the provided interfaces are ready for read, and if
      *          @p ignore_write_available is false, or write.
-     *          libuavcan::Result::success_partial if one or more errors were reported for one or more interfaces.
+     *          libuavcan::Result::SuccessPartial if one or more errors were reported for one or more interfaces.
      */
     virtual libuavcan::Result select(const InterfaceType* const (&interfaces)[MaxSelectInterfacesVal],
                                      std::size_t                    interfaces_length,
                                      libuavcan::duration::Monotonic timeout,
                                      bool                           ignore_write_available) = 0;
-
-    /**
-     * Closes an interface.
-     *
-     * @param[in,out] inout_interface    On input this is a pointer to an interface to close. On output
-     *                                   this pointer will be reset (set to `nullptr` for raw pointers).
-     *
-     * @return libuavcan::Result::success if the interface was closed and inout_interface is now invalid.
-     *         Implementations must define the semantics for calling this method with a shared_ptr.
-     */
-    virtual libuavcan::Result closeInterface(InterfacePtrT& inout_interface) = 0;
 
     /**
      * The total number of available hardware interfaces. On some systems additional virtual interfaces can be

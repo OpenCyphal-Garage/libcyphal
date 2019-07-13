@@ -54,7 +54,7 @@ libuavcan::Result SocketCANInterfaceManager::openInterface(std::uint_fast8_t    
 {
     if (interface_index >= interface_list_.size())
     {
-        return libuavcan::Result::bad_argument;
+        return libuavcan::Result::BadArgument;
     }
     InterfaceRecord<InterfaceType>& ir = interface_list_[interface_index];
     if (!ir.connected_interface)
@@ -62,7 +62,7 @@ libuavcan::Result SocketCANInterfaceManager::openInterface(std::uint_fast8_t    
         const int fd = openSocket(ir.name, enable_can_fd_, receive_own_messages_);
         if (fd <= 0)
         {
-            return libuavcan::Result::unknown_internal_error;
+            return libuavcan::Result::UnknownInternalError;
         }
         const auto result = configureFilters(fd, filter_config, filter_config_length);
         if (!result)
@@ -74,11 +74,11 @@ libuavcan::Result SocketCANInterfaceManager::openInterface(std::uint_fast8_t    
         {
             // If compiling without c++ exceptions new can return null if OOM.
             ::close(fd);
-            return libuavcan::Result::out_of_memory;
+            return libuavcan::Result::OutOfMemory;
         }
     }
     out_interface = ir.connected_interface.get();
-    return libuavcan::Result::success;
+    return libuavcan::Result::Success;
 }
 
 libuavcan::Result SocketCANInterfaceManager::closeInterface(InterfaceType*& inout_interface)
@@ -88,12 +88,12 @@ libuavcan::Result SocketCANInterfaceManager::closeInterface(InterfaceType*& inou
         InterfaceRecord<InterfaceType>& ir = interface_list_[inout_interface->getInterfaceIndex()];
         if (inout_interface != ir.connected_interface.get())
         {
-            return libuavcan::Result::bad_argument;
+            return libuavcan::Result::BadArgument;
         }
         ir.connected_interface.reset(nullptr);
         inout_interface = nullptr;
     }
-    return libuavcan::Result::success;
+    return libuavcan::Result::Success;
 }
 
 std::uint_fast8_t SocketCANInterfaceManager::getHardwareInterfaceCount() const
@@ -122,6 +122,8 @@ std::size_t SocketCANInterfaceManager::getMaxHardwareFrameFilters(std::uint_fast
 std::size_t SocketCANInterfaceManager::getMaxFrameFilters(std::uint_fast8_t interface_index) const
 {
     (void) interface_index;
+    // Some arbitrary number that seemed reasonable for CAN in 2019. This is just an example implementation
+    // so don't assume this constant is generically applicable to to libuavcan::media::InterfaceManager.
     return 512;
 }
 
@@ -169,7 +171,7 @@ libuavcan::Result SocketCANInterfaceManager::reenumerateInterfaces()
         {
             if (interface_list_.size() >= std::numeric_limits<std::uint_fast8_t>::max())
             {
-                return libuavcan::Result::success_partial;
+                return libuavcan::Result::SuccessPartial;
             }
             const int fd = openSocket(i->ifa_name, enable_can_fd_, receive_own_messages_);
             if (fd > 0)
@@ -181,7 +183,7 @@ libuavcan::Result SocketCANInterfaceManager::reenumerateInterfaces()
             i = i->ifa_next;
         }
     }
-    return (interface_list_.size() > 0) ? libuavcan::Result::success : libuavcan::Result::not_found;
+    return (interface_list_.size() > 0) ? libuavcan::Result::Success : libuavcan::Result::NotFound;
 }
 
 libuavcan::Result SocketCANInterfaceManager::select(const InterfaceType* const (&interfaces)[MaxSelectInterfaces],
@@ -205,7 +207,7 @@ libuavcan::Result SocketCANInterfaceManager::select(const InterfaceType* const (
         }
         else
         {
-            return libuavcan::Result::bad_argument;
+            return libuavcan::Result::BadArgument;
         }
     }
 
@@ -217,22 +219,22 @@ libuavcan::Result SocketCANInterfaceManager::select(const InterfaceType* const (
 
     if (0 == result)
     {
-        return libuavcan::Result::success_timeout;
+        return libuavcan::Result::SuccessTimeout;
     }
 
     if (0 > result)
     {
-        return libuavcan::Result::failure;
+        return libuavcan::Result::Failure;
     }
 
     for (size_t i = 0; i < MaxSelectInterfaces && i < interfaces_length; ++i)
     {
         if (0 != (pollfds_[i].revents & (POLLPRI | POLLERR | POLLHUP | POLLNVAL)))
         {
-            return libuavcan::Result::success_partial;
+            return libuavcan::Result::SuccessPartial;
         }
     }
-    return libuavcan::Result::success;
+    return libuavcan::Result::Success;
 }
 
 libuavcan::Result SocketCANInterfaceManager::getInterfaceIndex(const std::string& interface_name,
@@ -247,10 +249,10 @@ libuavcan::Result SocketCANInterfaceManager::getInterfaceIndex(const std::string
         if (interface_list_[i].name == interface_name)
         {
             out_index = static_cast<std::uint_fast8_t>(i);
-            return libuavcan::Result::success;
+            return libuavcan::Result::Success;
         }
     }
-    return libuavcan::Result::not_found;
+    return libuavcan::Result::NotFound;
 }
 
 libuavcan::Result SocketCANInterfaceManager::configureFilters(
@@ -260,7 +262,7 @@ libuavcan::Result SocketCANInterfaceManager::configureFilters(
 {
     if (filter_configs == nullptr && num_configs != 0 && num_configs <= CAN_RAW_FILTER_MAX)
     {
-        return libuavcan::Result::bad_argument;
+        return libuavcan::Result::BadArgument;
     }
 
     std::vector<::can_filter> socket_filters;
@@ -271,9 +273,9 @@ libuavcan::Result SocketCANInterfaceManager::configureFilters(
         // be used to ignore all ingress CAN frames.
         if (0 != setsockopt(fd, SOL_CAN_RAW, CAN_RAW_FILTER, nullptr, 0))
         {
-            return libuavcan::Result::unknown_internal_error;
+            return libuavcan::Result::UnknownInternalError;
         }
-        return libuavcan::Result::success;
+        return libuavcan::Result::Success;
     }
 
     for (unsigned i = 0; i < num_configs; i++)
@@ -294,10 +296,10 @@ libuavcan::Result SocketCANInterfaceManager::configureFilters(
                         socket_filters.data(),
                         static_cast<socklen_t>(sizeof(can_filter) * socket_filters.size())))
     {
-        return libuavcan::Result::unknown_internal_error;
+        return libuavcan::Result::UnknownInternalError;
     }
 
-    return libuavcan::Result::success;
+    return libuavcan::Result::Success;
 }
 
 int SocketCANInterfaceManager::openSocket(const std::string& iface_name,

@@ -97,17 +97,9 @@ public:
     // | InterfaceManager
     // +----------------------------------------------------------------------+
 
-    virtual libuavcan::Result openInterface(std::uint_fast8_t                       interface_index,
-                                            const InterfaceType::FrameType::Filter* filter_config,
-                                            std::size_t                             filter_config_length,
-                                            InterfaceType*&                         out_interface) override;
-
     virtual libuavcan::Result select(const InterfaceType* const (&interfaces)[MaxSelectInterfaces],
-                                     std::size_t                    interfaces_length,
                                      libuavcan::duration::Monotonic timeout,
                                      bool                           ignore_write_available) override;
-
-    virtual libuavcan::Result closeInterface(InterfaceType*& inout_interface) override;
 
     virtual std::uint_fast8_t getHardwareInterfaceCount() const override;
 
@@ -116,13 +108,46 @@ public:
     virtual std::size_t getMaxFrameFilters(std::uint_fast8_t interface_index) const override;
 
     // +----------------------------------------------------------------------+
+    /**
+     * Opens an interface for receiveing and transmitting.
+     *
+     * @param       interface_index         The index of the interface to open. See getHardwareInterfaceCount()
+     *                                      for the valid range of interface indicies. The behaviour of this method
+     *                                      given an index >= getHardwareInterfaceCount() is implementation defined.
+     * @param       filter_config           An array of frame filtering parameters. The contents and behaviour of
+     *                                      filters is dependant on the interface in use and the Frame type.
+     * @param       filter_config_length    The number of filter configurations in the filter_config array.
+     * @param[out]  out_interface           If successful, the pointer is set to an open interface abstraction
+     *                                      owned by this manager instance. This memory shall remain valid while
+     *                                      the manager object is valid. It is undefined behavior to destroy a manager
+     *                                      with open interfaces still allocated.
+     *                                      Implementations must define the semantics for calling this method multiple
+     *                                      times with the same interface_index and for calling closeInterface on
+     *                                      a shared pointer to an interface.
+     * @return libuavcan::Result::Success if the interface was successfully opened and returned,
+     */
+    libuavcan::Result openInterface(std::uint_fast8_t                                interface_index,
+                                    const typename InterfaceType::FrameType::Filter* filter_config,
+                                    std::size_t                                      filter_config_length,
+                                    InterfacePtrType&                                out_interface);
+
+    /**
+     * Closes an interface.
+     *
+     * @param[in,out] inout_interface    On input this is a pointer to an interface to close. On output
+     *                                   this pointer will be reset (set to `nullptr` for raw pointers).
+     *
+     * @return libuavcan::Result::Success if the interface was closed and inout_interface is now invalid.
+     *         Implementations must define the semantics for calling this method with a shared_ptr.
+     */
+    libuavcan::Result closeInterface(InterfaceType*& inout_interface);
 
     const std::string& getInterfaceName(std::size_t interface_index) const;
     const std::string& getInterfaceName(const InterfaceType& interface) const;
     libuavcan::Result  getInterfaceIndex(const std::string& interface_name, std::uint_fast8_t& out_index) const;
     libuavcan::Result  reenumerateInterfaces();
-    bool doesReceiveOwnMessages() const;
-    bool isFDEnabled() const;
+    bool               doesReceiveOwnMessages() const;
+    bool               isFDEnabled() const;
 
 private:
     libuavcan::Result configureFilters(const int                                     fd,
