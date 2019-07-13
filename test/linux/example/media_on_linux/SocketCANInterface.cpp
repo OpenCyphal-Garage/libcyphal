@@ -238,7 +238,10 @@ libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
                              out_frame.id,
                              timestamp.toMicrosecond());
         }
-        // else our filters weren't optimal since we shouldn't get non EFF frames that aren't errors.
+        else
+        {
+            ;  // our filters weren't optimal since we shouldn't get non EFF frames that aren't errors.
+        }
     }
     stats_.rx_total += static_cast<std::uint32_t>(out_frames_read);
     return libuavcan::Result::success;
