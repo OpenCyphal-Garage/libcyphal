@@ -378,7 +378,7 @@ where the serial port is the one connected to the S32K dev kit.
 To enable SocketCAN testing you should create a single `vcan0` interface on boot:
 
 1. edit `/etc/modules` and add vcan
-2. create and add the following to `/etc/network/interfaces.d/vcan0
+2. create and add the following to `/etc/network/interfaces.d/vcan0`
 
 ```bash
 auto vcan0
