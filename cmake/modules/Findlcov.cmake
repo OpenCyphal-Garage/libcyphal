@@ -7,7 +7,7 @@ if(LCOV)
     # +---------------------------------------------------------------------------+
     #   What follows are some gymnastics to allow coverage reports to be generated
     #   using either gcc or clang but resulting in the same .info format. The
-    #   consistent output is needed to ensure we can merge and compare coveage data
+    #   consistent output is needed to ensure we can merge and compare coverage data
     #   regardless of the compiler used to create the tests.
 
     set(LIBUAVCAN_GCOV_TOOL_ARG )
