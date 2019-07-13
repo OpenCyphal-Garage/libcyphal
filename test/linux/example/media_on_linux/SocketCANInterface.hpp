@@ -30,7 +30,7 @@ namespace example
 {
 using CANFrame = libuavcan::media::CAN::Frame<libuavcan::media::CAN::TypeFD::MaxFrameSizeBytes>;
 using SocketCANFrame                = ::canfd_frame;
-static constexpr size_t ControlSize = sizeof(cmsghdr) + sizeof(::timeval);
+static constexpr std::size_t ControlSize = sizeof(cmsghdr) + sizeof(::timeval);
 using ControlStorage                = typename std::aligned_storage<ControlSize>::type;
 
 /**
