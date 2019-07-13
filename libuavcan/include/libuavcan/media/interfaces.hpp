@@ -42,7 +42,7 @@ namespace media
  * @tparam  FrameT          The media-specific frame type to be exchanged across this interface.
  * @tparam  MaxTxFrames     The maximum number of frames that can be written in a single operation using
  *                          this interface. This value must be > 0. If set to 1 then specializations may
- *                          use different system APIs then if set to > 1.
+ *                          use different system APIs than if set to > 1.
  * @tparam  MaxRxFrames     The maximum number of frames that can be read in a single operation using
  *                          this interface. This value must be > 0. If set to 1 then specializations may
  *                          use different system APIs then if set to > 1.
