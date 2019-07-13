@@ -9,7 +9,7 @@ Libuavcan Library Developer Guide {#LibDevGuide}
 
 ## Build System
 
-We require [cmake 3.6](https://cmake.org/cmake/help/v3.6/) or greater because that's what Ubuntu 18.04 ships with and Ubuntu 18.04 is the reference operating system we as our generic build and test environment. At the time of this writing we have only tested the GNU Makefile generator but there's no reason why ninja shouldn't work either.
+We require [cmake 3.6](https://cmake.org/cmake/help/v3.6/) or greater because that's what Ubuntu 18.04 ships with and Ubuntu 18.04 is the reference operating system we use as our generic build and test environment. At the time of this writing we have only tested the GNU Makefile generator but there's no reason why ninja shouldn't work either.
 
 The default cmake setup and build should always work:
 
