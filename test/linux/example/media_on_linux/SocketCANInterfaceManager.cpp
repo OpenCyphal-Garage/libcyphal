@@ -122,7 +122,7 @@ std::size_t SocketCANInterfaceManager::getMaxHardwareFrameFilters(std::uint_fast
 std::size_t SocketCANInterfaceManager::getMaxFrameFilters(std::uint_fast8_t interface_index) const
 {
     (void) interface_index;
-    return std::numeric_limits<std::size_t>::max();
+    return 512;
 }
 
 const std::string& SocketCANInterfaceManager::getInterfaceName(std::size_t interface_index) const
