@@ -60,7 +60,7 @@ build_ext in folder prefixes stands for "external build". The cmake build will p
 Where we use linux SocketCAN for examples you will need to build and run on a linux machine. To make this easier on
 OSX developers we provide a [Vagrantfile](https://www.vagrantup.com/) in this document that pulls an Ubuntu image
 for [VirtualBox](https://www.virtualbox.org/) which has the SocketCAN kernel modules and can-utils installed. This image
-is maintained by [thirtytwobits](https://app.vagrantup.com/thirtytwobits/boxes/libuavcan_v1)) so it's not necessarily
+is maintained by [thirtytwobits](https://app.vagrantup.com/thirtytwobits/boxes/libuavcan_v1) so it's not necessarily
 part of the libuavcan toolchain but it should work. After you provision this image (i.e. `vagrant up`) you can attach
 USB CAN probes directly to it or you can setup `vcan` links which will allow the libuavcan linux examples to run normally.
 
