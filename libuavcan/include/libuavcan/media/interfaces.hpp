@@ -112,7 +112,7 @@ public:
      *
      * Timestamps should be provided by the media driver, ideally by the hardware peripheral.
      *
-     * While the monotonic timestamp is required the UAVCAN protoocol can tolerate imprecision since
+     * While the monotonic timestamp is required the UAVCAN protocol can tolerate imprecision since
      * these timestamps are used only for protocol timing validation  (i.e. transfer timeouts and
      * inter-transfer intervals).
      *
