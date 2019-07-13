@@ -35,7 +35,7 @@ namespace media
  * MaxTxFrames and MaxRxFrames are template parameters to allow an implementation to allocate adequate buffers
  * as part of their type. As such, these values may affect the amount of heap, bss, or stack RAM used depending
  * on where the media layer objects are placed for a given system or if an implementation chooses to use dynamic
- * memory internally. Media layer implementations should document this and all other paramters that affect
+ * memory internally. Media layer implementations should document this and all other parameters that affect
  * the amount and type of memory used for a particular system and provide guidance for tuning performance versus
  * memory size to the user.
  *
