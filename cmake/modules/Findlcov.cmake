@@ -5,7 +5,7 @@ find_program(GENHTML genhtml)
 if(LCOV)
 
     # +---------------------------------------------------------------------------+
-    #   What follows are some gynastics to allow coverage reports to be generated
+    #   What follows are some gymnastics to allow coverage reports to be generated
     #   using either gcc or clang but resulting in the same .info format. The
     #   consistent output is needed to ensure we can merge and compare coveage data
     #   regardless of the compiler used to create the tests.
