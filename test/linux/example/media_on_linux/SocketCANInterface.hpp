@@ -52,7 +52,7 @@ public:
 
     static constexpr std::size_t TxFramesLen = 4;
     static constexpr std::size_t RxFramesLen = 4;
-    static constexpr size_t      ControlSize = sizeof(cmsghdr) + sizeof(::timeval);
+    static constexpr std::size_t ControlSize = sizeof(cmsghdr) + sizeof(::timeval);
     using FrameType      = libuavcan::media::CAN::Frame<libuavcan::media::CAN::TypeFD::MaxFrameSizeBytes>;
     using ControlStorage = std::aligned_storage<ControlSize>::type;
     using SocketCANFrame = ::canfd_frame;
