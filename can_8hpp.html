@@ -8,7 +8,7 @@
         <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
         <meta name="generator" content="Doxygen 1.8.13"/>
         <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
-        <title>libuavcan: libuavcan/include/libuavcan/transport/media/can.hpp File Reference</title>
+        <title>libuavcan: libuavcan/include/libuavcan/media/can.hpp File Reference</title>
         <!--<link href="tabs.css" rel="stylesheet" type="text/css"/>-->
         <script type="text/javascript" src="dynsections.js"></script>
         <link href="search/search.css" rel="stylesheet" type="text/css"/>
@@ -29,7 +29,7 @@
             <div class="container">
                 <div class="navbar-header">
                     <a class="navbar-brand" href="https://uavcan.org"><img src="uavcan_logo.svg" style="float:left;height:1.5em;padding:0em .5em .25em 0em;"/> libuavcan</a>
-                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/115" style="font-size: .75em; color: coral">build:115</a></em>
+                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/170" style="font-size: .75em; color: coral">build:170</a></em>
                 </div>
             </div>
         </nav>
@@ -69,7 +69,7 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_98c44b89a12d002f39c5108647d06f40.html">libuavcan</a></li><li class="navelem"><a class="el" href="dir_f04fc569e1e7491947fcd337df35adfb.html">include</a></li><li class="navelem"><a class="el" href="dir_dcab73918335b4830b775b39d5c36acd.html">libuavcan</a></li><li class="navelem"><a class="el" href="dir_8d2351ca0d3fd48f5539602395ddd0c6.html">transport</a></li><li class="navelem"><a class="el" href="dir_753c8c52416dca189eb7e84188d9a7d1.html">media</a></li>  </ul>
+<li class="navelem"><a class="el" href="dir_98c44b89a12d002f39c5108647d06f40.html">libuavcan</a></li><li class="navelem"><a class="el" href="dir_f04fc569e1e7491947fcd337df35adfb.html">include</a></li><li class="navelem"><a class="el" href="dir_dcab73918335b4830b775b39d5c36acd.html">libuavcan</a></li><li class="navelem"><a class="el" href="dir_c9d95540f67d74af0ea62ee8c931a785.html">media</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
@@ -83,25 +83,46 @@ $(function() {
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &lt;array&gt;</code><br />
-<code>#include &lt;algorithm&gt;</code><br />
 <code>#include &quot;<a class="el" href="libuavcan_8hpp_source.html">libuavcan/libuavcan.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="introspection_8hpp_source.html">libuavcan/introspection.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="include_2libuavcan_2time_8hpp_source.html">libuavcan/time.hpp</a>&quot;</code><br />
+</div><div class="textblock"><div class="dynheader">
+Include dependency graph for can.hpp:</div>
+<div class="dyncontent">
+<div class="center"><img src="can_8hpp__incl.png" border="0" usemap="#libuavcan_2include_2libuavcan_2media_2can_8hpp" alt=""/></div>
+<map name="libuavcan_2include_2libuavcan_2media_2can_8hpp" id="libuavcan_2include_2libuavcan_2media_2can_8hpp">
+<area shape="rect" id="node3" href="libuavcan_8hpp.html" title="libuavcan/libuavcan.hpp" alt="" coords="266,319,446,345"/>
+<area shape="rect" id="node9" href="introspection_8hpp.html" title="libuavcan/introspection.hpp" alt="" coords="596,244,799,271"/>
+<area shape="rect" id="node10" href="include_2libuavcan_2time_8hpp.html" title="libuavcan/time.hpp" alt="" coords="317,95,464,121"/>
+<area shape="rect" id="node4" href="build__config_8hpp.html" title="libuavcan/build_config.hpp" alt="" coords="5,393,200,420"/>
+<area shape="rect" id="node11" href="math_8hpp.html" title="libuavcan/util/math.hpp" alt="" coords="368,169,544,196"/>
+</map>
+</div>
+</div><div class="textblock"><div class="dynheader">
+This graph shows which files directly or indirectly include this file:</div>
+<div class="dyncontent">
+<div class="center"><img src="can_8hpp__dep__incl.png" border="0" usemap="#libuavcan_2include_2libuavcan_2media_2can_8hppdep" alt=""/></div>
+<map name="libuavcan_2include_2libuavcan_2media_2can_8hppdep" id="libuavcan_2include_2libuavcan_2media_2can_8hppdep">
+<area shape="rect" id="node2" href="can__frame_8hpp.html" title="libuavcan_validation\l_suite/include/lvs/transport\l/media/can_frame.hpp" alt="" coords="5,95,204,151"/>
+<area shape="rect" id="node3" href="main_8cpp.html" title="test/linux/example\l/media_on_linux/main.cpp" alt="" coords="228,407,421,448"/>
+<area shape="rect" id="node4" href="_socket_c_a_n_interface_8hpp.html" title="test/linux/example\l/media_on_linux/SocketCANInterface.hpp" alt="" coords="278,102,569,143"/>
+<area shape="rect" id="node5" href="_socket_c_a_n_interface_group_8hpp.html" title="test/linux/example\l/media_on_linux/SocketCANInterface\lGroup.hpp" alt="" coords="285,199,548,255"/>
+<area shape="rect" id="node6" href="_socket_c_a_n_interface_manager_8hpp.html" title="test/linux/example\l/media_on_linux/SocketCANInterface\lManager.hpp" alt="" coords="281,303,544,359"/>
+</map>
+</div>
 </div>
 <p><a href="can_8hpp_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Data Structures</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structlibuavcan_1_1transport_1_1media_1_1_c_a_n_1_1_frame.html">libuavcan::transport::media::CAN::Frame&lt; MTUBytesParam, FlagBitsCompareMask &gt;</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html">libuavcan::media::CAN::Frame&lt; MTUBytesParam, FlagBitsCompareMask &gt;</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structlibuavcan_1_1media_1_1_c_a_n_1_1_frame_1_1_filter.html">libuavcan::media::CAN::Frame&lt; MTUBytesParam, FlagBitsCompareMask &gt;::Filter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacelibuavcan"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacelibuavcan.html">libuavcan</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:namespacetransport"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacetransport.html">transport</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:namespacemedia"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacemedia.html">media</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:namespace_c_a_n"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespace_c_a_n.html">CAN</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -112,50 +133,50 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
 Enumerations</h2></td></tr>
-<tr class="memitem:a2598020b48ef33e837c92549fdf9e382"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="can_8hpp.html#a2598020b48ef33e837c92549fdf9e382">libuavcan::transport::media::CAN::FrameDLC</a> : std::uint_fast8_t { <br />
-&#160;&#160;<b>libuavcan::transport::media::CAN::FrameDLC::CodeForLength0</b> = 0, 
-<b>libuavcan::transport::media::CAN::FrameDLC::CodeForLength1</b> = 1, 
-<b>libuavcan::transport::media::CAN::FrameDLC::CodeForLength2</b> = 2, 
-<b>libuavcan::transport::media::CAN::FrameDLC::CodeForLength3</b> = 3, 
+<tr class="memitem:a0ad1b9afc0a21a51edf6cc41df1bf96e"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="can_8hpp.html#a0ad1b9afc0a21a51edf6cc41df1bf96e">libuavcan::media::CAN::FrameDLC</a> : std::uint_fast8_t { <br />
+&#160;&#160;<b>libuavcan::media::CAN::FrameDLC::CodeForLength0</b> = 0, 
+<b>libuavcan::media::CAN::FrameDLC::CodeForLength1</b> = 1, 
+<b>libuavcan::media::CAN::FrameDLC::CodeForLength2</b> = 2, 
+<b>libuavcan::media::CAN::FrameDLC::CodeForLength3</b> = 3, 
 <br />
-&#160;&#160;<b>libuavcan::transport::media::CAN::FrameDLC::CodeForLength4</b> = 4, 
-<b>libuavcan::transport::media::CAN::FrameDLC::CodeForLength5</b> = 5, 
-<b>libuavcan::transport::media::CAN::FrameDLC::CodeForLength6</b> = 6, 
-<b>libuavcan::transport::media::CAN::FrameDLC::CodeForLength7</b> = 7, 
+&#160;&#160;<b>libuavcan::media::CAN::FrameDLC::CodeForLength4</b> = 4, 
+<b>libuavcan::media::CAN::FrameDLC::CodeForLength5</b> = 5, 
+<b>libuavcan::media::CAN::FrameDLC::CodeForLength6</b> = 6, 
+<b>libuavcan::media::CAN::FrameDLC::CodeForLength7</b> = 7, 
 <br />
-&#160;&#160;<b>libuavcan::transport::media::CAN::FrameDLC::CodeForLength8</b> = 8, 
-<b>libuavcan::transport::media::CAN::FrameDLC::CodeForLength12</b> = 9, 
-<b>libuavcan::transport::media::CAN::FrameDLC::CodeForLength16</b> = 10, 
-<b>libuavcan::transport::media::CAN::FrameDLC::CodeForLength20</b> = 11, 
+&#160;&#160;<b>libuavcan::media::CAN::FrameDLC::CodeForLength8</b> = 8, 
+<b>libuavcan::media::CAN::FrameDLC::CodeForLength12</b> = 9, 
+<b>libuavcan::media::CAN::FrameDLC::CodeForLength16</b> = 10, 
+<b>libuavcan::media::CAN::FrameDLC::CodeForLength20</b> = 11, 
 <br />
-&#160;&#160;<b>libuavcan::transport::media::CAN::FrameDLC::CodeForLength24</b> = 12, 
-<b>libuavcan::transport::media::CAN::FrameDLC::CodeForLength32</b> = 13, 
-<b>libuavcan::transport::media::CAN::FrameDLC::CodeForLength48</b> = 14, 
-<b>libuavcan::transport::media::CAN::FrameDLC::CodeForLength64</b> = 15
+&#160;&#160;<b>libuavcan::media::CAN::FrameDLC::CodeForLength24</b> = 12, 
+<b>libuavcan::media::CAN::FrameDLC::CodeForLength32</b> = 13, 
+<b>libuavcan::media::CAN::FrameDLC::CodeForLength48</b> = 14, 
+<b>libuavcan::media::CAN::FrameDLC::CodeForLength64</b> = 15
 <br />
  }</td></tr>
-<tr class="separator:a2598020b48ef33e837c92549fdf9e382"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="separator:a0ad1b9afc0a21a51edf6cc41df1bf96e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
 Variables</h2></td></tr>
-<tr class="memitem:aea0a5db1910bdd4d1d25db4e25bad0ad"><td class="memItemLeft" align="right" valign="top">static constexpr std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="can_8hpp.html#aea0a5db1910bdd4d1d25db4e25bad0ad">libuavcan::transport::media::CAN::TailByteSizeBytes</a> = 1</td></tr>
-<tr class="separator:aea0a5db1910bdd4d1d25db4e25bad0ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aafe22fd777e7005371d1738fa0223a9b"><td class="memItemLeft" align="right" valign="top">static constexpr std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="can_8hpp.html#aafe22fd777e7005371d1738fa0223a9b">libuavcan::transport::media::CAN::TransferCrcSizeBytes</a> = 2</td></tr>
-<tr class="separator:aafe22fd777e7005371d1738fa0223a9b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a29a863f479a8d573abcfc5c4dfe0e140"><td class="memItemLeft" align="right" valign="top">static constexpr std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="can_8hpp.html#a29a863f479a8d573abcfc5c4dfe0e140">libuavcan::transport::media::CAN::TypeFD::MaxFrameSizeBytes</a> = 64</td></tr>
-<tr class="separator:a29a863f479a8d573abcfc5c4dfe0e140"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a43e3a5db7aa9b7c1af2fe237bc441d25"><td class="memItemLeft" align="right" valign="top">static constexpr std::array&lt; std::uint8_t, MaxFrameSizeBytes &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="can_8hpp.html#a43e3a5db7aa9b7c1af2fe237bc441d25">libuavcan::transport::media::CAN::TypeFD::PayloadLengthToFrameLength</a></td></tr>
-<tr class="separator:a43e3a5db7aa9b7c1af2fe237bc441d25"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa435547cf897d04c35ec877d8d7430a6"><td class="memItemLeft" align="right" valign="top">static constexpr std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="can_8hpp.html#aa435547cf897d04c35ec877d8d7430a6">libuavcan::transport::media::CAN::Type2_0::MaxFrameSizeBytes</a> = 8</td></tr>
-<tr class="separator:aa435547cf897d04c35ec877d8d7430a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aea32b90f02781bdf69da9a0470cee770"><td class="memItemLeft" align="right" valign="top">static constexpr std::array&lt; std::uint8_t, MaxFrameSizeBytes &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="can_8hpp.html#aea32b90f02781bdf69da9a0470cee770">libuavcan::transport::media::CAN::Type2_0::PayloadLengthToFrameLength</a> = {{0, 1, 2, 3, 4, 5, 6, 7}}</td></tr>
-<tr class="separator:aea32b90f02781bdf69da9a0470cee770"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abec647b166efce2d32240d70b556afe2"><td class="memItemLeft" align="right" valign="top">constexpr std::uint8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="can_8hpp.html#abec647b166efce2d32240d70b556afe2">libuavcan::transport::media::CAN::BytePaddingPattern</a> = 0x55</td></tr>
-<tr class="separator:abec647b166efce2d32240d70b556afe2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a018a4c108415976178da1016ae153f29"><td class="memItemLeft" align="right" valign="top">static constexpr std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="can_8hpp.html#a018a4c108415976178da1016ae153f29">libuavcan::media::CAN::TailByteSizeBytes</a> = 1</td></tr>
+<tr class="separator:a018a4c108415976178da1016ae153f29"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a633ddba894e91536a1cd4214b59fe57c"><td class="memItemLeft" align="right" valign="top">static constexpr std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="can_8hpp.html#a633ddba894e91536a1cd4214b59fe57c">libuavcan::media::CAN::TransferCrcSizeBytes</a> = 2</td></tr>
+<tr class="separator:a633ddba894e91536a1cd4214b59fe57c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac6adf09c161cafffe1f12a41f705f9ea"><td class="memItemLeft" align="right" valign="top">static constexpr std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="can_8hpp.html#ac6adf09c161cafffe1f12a41f705f9ea">libuavcan::media::CAN::TypeFD::MaxFrameSizeBytes</a> = 64</td></tr>
+<tr class="separator:ac6adf09c161cafffe1f12a41f705f9ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae81075d96a450f21a1b53d286217af3e"><td class="memItemLeft" align="right" valign="top">static constexpr std::array&lt; std::uint8_t, MaxFrameSizeBytes &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="can_8hpp.html#ae81075d96a450f21a1b53d286217af3e">libuavcan::media::CAN::TypeFD::PayloadLengthToFrameLength</a></td></tr>
+<tr class="separator:ae81075d96a450f21a1b53d286217af3e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3a0f0b310bc66498fa921e22d50862c4"><td class="memItemLeft" align="right" valign="top">static constexpr std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="can_8hpp.html#a3a0f0b310bc66498fa921e22d50862c4">libuavcan::media::CAN::Type2_0::MaxFrameSizeBytes</a> = 8</td></tr>
+<tr class="separator:a3a0f0b310bc66498fa921e22d50862c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0c9ea624a89a4a4036b9e3e130d7582a"><td class="memItemLeft" align="right" valign="top">static constexpr std::array&lt; std::uint8_t, MaxFrameSizeBytes &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="can_8hpp.html#a0c9ea624a89a4a4036b9e3e130d7582a">libuavcan::media::CAN::Type2_0::PayloadLengthToFrameLength</a> = {{0, 1, 2, 3, 4, 5, 6, 7}}</td></tr>
+<tr class="separator:a0c9ea624a89a4a4036b9e3e130d7582a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9e7f363b8562f40648357f6891269648"><td class="memItemLeft" align="right" valign="top">constexpr std::uint8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="can_8hpp.html#a9e7f363b8562f40648357f6891269648">libuavcan::media::CAN::BytePaddingPattern</a> = 0x55</td></tr>
+<tr class="separator:a9e7f363b8562f40648357f6891269648"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Enumeration Type Documentation</h2>
-<a id="file_a2598020b48ef33e837c92549fdf9e382"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#file_a2598020b48ef33e837c92549fdf9e382">&#9670;&nbsp;</a></span>FrameDLC</h2>
+<a id="file_a0ad1b9afc0a21a51edf6cc41df1bf96e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#file_a0ad1b9afc0a21a51edf6cc41df1bf96e">&#9670;&nbsp;</a></span>FrameDLC</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -164,7 +185,7 @@ Variables</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">enum <a class="el" href="can_8hpp.html#a2598020b48ef33e837c92549fdf9e382">libuavcan::transport::media::CAN::FrameDLC</a> : std::uint_fast8_t</td>
+          <td class="memname">enum <a class="el" href="can_8hpp.html#a0ad1b9afc0a21a51edf6cc41df1bf96e">libuavcan::media::CAN::FrameDLC</a> : std::uint_fast8_t</td>
         </tr>
       </table>
   </td>
@@ -179,14 +200,14 @@ Variables</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Variable Documentation</h2>
-<a id="file_abec647b166efce2d32240d70b556afe2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#file_abec647b166efce2d32240d70b556afe2">&#9670;&nbsp;</a></span>BytePaddingPattern</h2>
+<a id="file_a9e7f363b8562f40648357f6891269648"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#file_a9e7f363b8562f40648357f6891269648">&#9670;&nbsp;</a></span>BytePaddingPattern</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">constexpr std::uint8_t libuavcan::transport::media::CAN::BytePaddingPattern = 0x55</td>
+          <td class="memname">constexpr std::uint8_t libuavcan::media::CAN::BytePaddingPattern = 0x55</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -195,8 +216,8 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a id="file_a29a863f479a8d573abcfc5c4dfe0e140"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#file_a29a863f479a8d573abcfc5c4dfe0e140">&#9670;&nbsp;</a></span>MaxFrameSizeBytes <span class="overload">[1/2]</span></h2>
+<a id="file_ac6adf09c161cafffe1f12a41f705f9ea"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#file_ac6adf09c161cafffe1f12a41f705f9ea">&#9670;&nbsp;</a></span>MaxFrameSizeBytes <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -205,7 +226,7 @@ Variables</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">constexpr std::size_t libuavcan::transport::media::CAN::TypeFD::MaxFrameSizeBytes = 64</td>
+          <td class="memname">constexpr std::size_t libuavcan::media::CAN::TypeFD::MaxFrameSizeBytes = 64</td>
         </tr>
       </table>
   </td>
@@ -218,8 +239,8 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a id="file_aa435547cf897d04c35ec877d8d7430a6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#file_aa435547cf897d04c35ec877d8d7430a6">&#9670;&nbsp;</a></span>MaxFrameSizeBytes <span class="overload">[2/2]</span></h2>
+<a id="file_a3a0f0b310bc66498fa921e22d50862c4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#file_a3a0f0b310bc66498fa921e22d50862c4">&#9670;&nbsp;</a></span>MaxFrameSizeBytes <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -228,7 +249,7 @@ Variables</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">constexpr std::size_t libuavcan::transport::media::CAN::Type2_0::MaxFrameSizeBytes = 8</td>
+          <td class="memname">constexpr std::size_t libuavcan::media::CAN::Type2_0::MaxFrameSizeBytes = 8</td>
         </tr>
       </table>
   </td>
@@ -241,8 +262,8 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a id="file_a43e3a5db7aa9b7c1af2fe237bc441d25"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#file_a43e3a5db7aa9b7c1af2fe237bc441d25">&#9670;&nbsp;</a></span>PayloadLengthToFrameLength <span class="overload">[1/2]</span></h2>
+<a id="file_ae81075d96a450f21a1b53d286217af3e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#file_ae81075d96a450f21a1b53d286217af3e">&#9670;&nbsp;</a></span>PayloadLengthToFrameLength <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -251,7 +272,7 @@ Variables</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">constexpr std::array&lt;std::uint8_t, MaxFrameSizeBytes&gt; libuavcan::transport::media::CAN::TypeFD::PayloadLengthToFrameLength</td>
+          <td class="memname">constexpr std::array&lt;std::uint8_t, MaxFrameSizeBytes&gt; libuavcan::media::CAN::TypeFD::PayloadLengthToFrameLength</td>
         </tr>
       </table>
   </td>
@@ -264,8 +285,8 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a id="file_aea32b90f02781bdf69da9a0470cee770"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#file_aea32b90f02781bdf69da9a0470cee770">&#9670;&nbsp;</a></span>PayloadLengthToFrameLength <span class="overload">[2/2]</span></h2>
+<a id="file_a0c9ea624a89a4a4036b9e3e130d7582a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#file_a0c9ea624a89a4a4036b9e3e130d7582a">&#9670;&nbsp;</a></span>PayloadLengthToFrameLength <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -274,7 +295,7 @@ Variables</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">constexpr std::array&lt;std::uint8_t, MaxFrameSizeBytes&gt; libuavcan::transport::media::CAN::Type2_0::PayloadLengthToFrameLength = {{0, 1, 2, 3, 4, 5, 6, 7}}</td>
+          <td class="memname">constexpr std::array&lt;std::uint8_t, MaxFrameSizeBytes&gt; libuavcan::media::CAN::Type2_0::PayloadLengthToFrameLength = {{0, 1, 2, 3, 4, 5, 6, 7}}</td>
         </tr>
       </table>
   </td>
@@ -287,8 +308,8 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a id="file_aea0a5db1910bdd4d1d25db4e25bad0ad"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#file_aea0a5db1910bdd4d1d25db4e25bad0ad">&#9670;&nbsp;</a></span>TailByteSizeBytes</h2>
+<a id="file_a018a4c108415976178da1016ae153f29"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#file_a018a4c108415976178da1016ae153f29">&#9670;&nbsp;</a></span>TailByteSizeBytes</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -297,7 +318,7 @@ Variables</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">constexpr std::size_t libuavcan::transport::media::CAN::TailByteSizeBytes = 1</td>
+          <td class="memname">constexpr std::size_t libuavcan::media::CAN::TailByteSizeBytes = 1</td>
         </tr>
       </table>
   </td>
@@ -310,8 +331,8 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a id="file_aafe22fd777e7005371d1738fa0223a9b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#file_aafe22fd777e7005371d1738fa0223a9b">&#9670;&nbsp;</a></span>TransferCrcSizeBytes</h2>
+<a id="file_a633ddba894e91536a1cd4214b59fe57c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#file_a633ddba894e91536a1cd4214b59fe57c">&#9670;&nbsp;</a></span>TransferCrcSizeBytes</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -320,7 +341,7 @@ Variables</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">constexpr std::size_t libuavcan::transport::media::CAN::TransferCrcSizeBytes = 2</td>
+          <td class="memname">constexpr std::size_t libuavcan::media::CAN::TransferCrcSizeBytes = 2</td>
         </tr>
       </table>
   </td>

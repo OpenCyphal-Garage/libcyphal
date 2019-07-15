@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['versioning_20macros_2e',['Versioning macros.',['../group__macros__versioning.html',1,'']]]
+  ['platform_20integration_20macros_2e',['Platform integration macros.',['../group__macros__platform.html',1,'']]]
 ];

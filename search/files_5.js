@@ -1,4 +1,6 @@
 var searchData=
 [
-  ['time_2ehpp',['time.hpp',['../include_2libuavcan_2time_8hpp.html',1,'(Global Namespace)'],['../validation__suite_2include_2lvs_2time_8hpp.html',1,'(Global Namespace)']]]
+  ['socketcaninterface_2ehpp',['SocketCANInterface.hpp',['../_socket_c_a_n_interface_8hpp.html',1,'']]],
+  ['socketcaninterfacegroup_2ehpp',['SocketCANInterfaceGroup.hpp',['../_socket_c_a_n_interface_group_8hpp.html',1,'']]],
+  ['socketcaninterfacemanager_2ehpp',['SocketCANInterfaceManager.hpp',['../_socket_c_a_n_interface_manager_8hpp.html',1,'']]]
 ];

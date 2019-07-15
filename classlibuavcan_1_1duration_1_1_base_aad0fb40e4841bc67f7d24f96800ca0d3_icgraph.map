@@ -1,0 +1,6 @@
+<map id="libuavcan::duration::Base::fromMicrosecond" name="libuavcan::duration::Base::fromMicrosecond">
+<area shape="rect" id="node2" href="$classlibuavcan_1_1duration_1_1_base.html#a04629dd31ca655ac8325c4e968b5d8cd" title="libuavcan::duration\l::Base\&lt; Monotonic \&gt;\l::getAbs" alt="" coords="264,5,423,61"/>
+<area shape="rect" id="node3" href="$classlibuavcan_1_1duration_1_1_base.html#ab6e6a87659f8813386404cff0d0f00fd" title="libuavcan::duration\l::Base\&lt; Monotonic \&gt;\l::getMaximum" alt="" coords="264,85,423,141"/>
+<area shape="rect" id="node4" href="$classlibuavcan_1_1time_1_1_base.html#a8606726bc0af901c4ccabe7d7ea2e187" title="libuavcan::time::Base\l\&lt; Monotonic, duration\l::Monotonic \&gt;::getMaximum" alt="" coords="240,165,447,221"/>
+<area shape="rect" id="node5" href="$classlibuavcan_1_1time_1_1_base.html#a66753bb163f93ce953893ad9e1d6eacc" title="libuavcan::time::Base\l\&lt; Monotonic, duration\l::Monotonic \&gt;::toMicrosecond" alt="" coords="236,245,451,301"/>
+</map>

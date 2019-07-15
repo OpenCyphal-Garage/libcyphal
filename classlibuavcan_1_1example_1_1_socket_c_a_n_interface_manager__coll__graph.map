@@ -1,0 +1,4 @@
+<map id="libuavcan::example::SocketCANInterfaceManager" name="libuavcan::example::SocketCANInterfaceManager">
+<area shape="rect" id="node2" href="$classlibuavcan_1_1media_1_1_interface_manager.html" title="{libuavcan::media::Interface\lManager\&lt; SocketCANInterfaceGroup,\l std::shared_ptr\&lt; SocketCANInterfaceGroup \&gt; \&gt;\n||+ ~InterfaceManager()\l+ startInterfaceGroup()\l+ stopInterfaceGroup()\l+ getMaxFrameFilters()\l}" alt="" coords="5,248,343,399"/>
+<area shape="rect" id="node3" href="$classlibuavcan_1_1media_1_1_interface_manager.html" title="{libuavcan::media::Interface\lManager\&lt; InterfaceGroupT,\l InterfaceGroupPtrT \&gt;\n||+ ~InterfaceManager()\l+ startInterfaceGroup()\l+ stopInterfaceGroup()\l+ getMaxFrameFilters()\l}" alt="" coords="73,5,275,156"/>
+</map>

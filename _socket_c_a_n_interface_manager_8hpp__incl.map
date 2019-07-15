@@ -1,0 +1,11 @@
+<map id="test/linux/example/media_on_linux/SocketCANInterfaceManager.hpp" name="test/linux/example/media_on_linux/SocketCANInterfaceManager.hpp">
+<area shape="rect" id="node5" href="$libuavcan_8hpp.html" title="libuavcan/libuavcan.hpp" alt="" coords="731,557,911,584"/>
+<area shape="rect" id="node11" href="$_socket_c_a_n_interface_group_8hpp.html" title="SocketCANInterfaceGroup.hpp" alt="" coords="1017,109,1236,136"/>
+<area shape="rect" id="node6" href="$build__config_8hpp.html" title="libuavcan/build_config.hpp" alt="" coords="647,632,841,659"/>
+<area shape="rect" id="node13" href="$_socket_c_a_n_interface_8hpp.html" title="SocketCANInterface.hpp" alt="" coords="357,184,537,211"/>
+<area shape="rect" id="node17" href="$interfaces_8hpp.html" title="libuavcan/media/interfaces.hpp" alt="" coords="767,259,993,285"/>
+<area shape="rect" id="node23" href="$can_8hpp.html" title="libuavcan/media/can.hpp" alt="" coords="485,259,670,285"/>
+<area shape="rect" id="node18" href="$introspection_8hpp.html" title="libuavcan/introspection.hpp" alt="" coords="720,483,923,509"/>
+<area shape="rect" id="node19" href="$include_2libuavcan_2time_8hpp.html" title="libuavcan/time.hpp" alt="" coords="776,333,923,360"/>
+<area shape="rect" id="node20" href="$math_8hpp.html" title="libuavcan/util/math.hpp" alt="" coords="525,408,701,435"/>
+</map>

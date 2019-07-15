@@ -29,7 +29,7 @@
             <div class="container">
                 <div class="navbar-header">
                     <a class="navbar-brand" href="https://uavcan.org"><img src="uavcan_logo.svg" style="float:left;height:1.5em;padding:0em .5em .25em 0em;"/> libuavcan</a>
-                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/115" style="font-size: .75em; color: coral">build:115</a></em>
+                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/170" style="font-size: .75em; color: coral">build:170</a></em>
                 </div>
             </div>
         </nav>
@@ -73,16 +73,84 @@ $(function() {
 </div>
 </div><!-- top -->
 <div class="header">
+  <div class="summary">
+<a href="#namespaces">Namespaces</a> &#124;
+<a href="#enum-members">Enumerations</a> &#124;
+<a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">libuavcan.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &quot;<a class="el" href="build__config_8hpp_source.html">libuavcan/build_config.hpp</a>&quot;</code><br />
 <code>#include &lt;cstdint&gt;</code><br />
+<code>#include &lt;cinttypes&gt;</code><br />
 <code>#include &lt;limits&gt;</code><br />
 <code>#include &lt;type_traits&gt;</code><br />
+</div><div class="textblock"><div class="dynheader">
+Include dependency graph for libuavcan.hpp:</div>
+<div class="dyncontent">
+<div class="center"><img src="libuavcan_8hpp__incl.png" border="0" usemap="#libuavcan_2include_2libuavcan_2libuavcan_8hpp" alt=""/></div>
+<map name="libuavcan_2include_2libuavcan_2libuavcan_8hpp" id="libuavcan_2include_2libuavcan_2libuavcan_8hpp">
+<area shape="rect" id="node2" href="build__config_8hpp.html" title="libuavcan/build_config.hpp" alt="" coords="5,95,200,121"/>
+</map>
+</div>
+</div><div class="textblock"><div class="dynheader">
+This graph shows which files directly or indirectly include this file:</div>
+<div class="dyncontent">
+<div class="center"><img src="libuavcan_8hpp__dep__incl.png" border="0" usemap="#libuavcan_2include_2libuavcan_2libuavcan_8hppdep" alt=""/></div>
+<map name="libuavcan_2include_2libuavcan_2libuavcan_8hppdep" id="libuavcan_2include_2libuavcan_2libuavcan_8hppdep">
+<area shape="rect" id="node2" href="introspection_8hpp.html" title="libuavcan/include/libuavcan\l/introspection.hpp" alt="" coords="487,102,689,143"/>
+<area shape="rect" id="node3" href="can_8hpp.html" title="libuavcan/include/libuavcan\l/media/can.hpp" alt="" coords="467,377,669,419"/>
+<area shape="rect" id="node4" href="can__frame_8hpp.html" title="libuavcan_validation\l_suite/include/lvs/transport\l/media/can_frame.hpp" alt="" coords="143,467,342,523"/>
+<area shape="rect" id="node5" href="main_8cpp.html" title="test/linux/example\l/media_on_linux/main.cpp" alt="" coords="434,779,627,820"/>
+<area shape="rect" id="node6" href="_socket_c_a_n_interface_8hpp.html" title="test/linux/example\l/media_on_linux/SocketCANInterface.hpp" alt="" coords="367,474,657,515"/>
+<area shape="rect" id="node7" href="_socket_c_a_n_interface_group_8hpp.html" title="test/linux/example\l/media_on_linux/SocketCANInterface\lGroup.hpp" alt="" coords="237,571,499,627"/>
+<area shape="rect" id="node8" href="_socket_c_a_n_interface_manager_8hpp.html" title="test/linux/example\l/media_on_linux/SocketCANInterface\lManager.hpp" alt="" coords="237,675,499,731"/>
+<area shape="rect" id="node9" href="interfaces_8hpp.html" title="libuavcan/include/libuavcan\l/media/interfaces.hpp" alt="" coords="693,377,896,419"/>
+<area shape="rect" id="node10" href="math_8hpp.html" title="libuavcan/include/libuavcan\l/util/math.hpp" alt="" coords="397,199,600,240"/>
+<area shape="rect" id="node11" href="include_2libuavcan_2time_8hpp.html" title="libuavcan/include/libuavcan\l/time.hpp" alt="" coords="397,288,600,329"/>
+<area shape="rect" id="node12" href="validation__suite_2include_2lvs_2time_8hpp.html" title="libuavcan_validation\l_suite/include/lvs/time.hpp" alt="" coords="245,377,443,419"/>
+<area shape="rect" id="node13" href="lvs_8hpp.html" title="libuavcan_validation\l_suite/include/lvs/lvs.hpp" alt="" coords="776,102,963,143"/>
+<area shape="rect" id="node14" href="clock_8hpp.html" title="libuavcan_validation\l_suite/include/lvs/transport\l/media/clock.hpp" alt="" coords="987,95,1186,151"/>
+</map>
+</div>
 </div>
 <p><a href="libuavcan_8hpp_source.html">Go to the source code of this file.</a></p>
+<table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
+Namespaces</h2></td></tr>
+<tr class="memitem:namespacelibuavcan"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacelibuavcan.html">libuavcan</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
+Enumerations</h2></td></tr>
+<tr class="memitem:acec218dc94b3c1d8e218122515f49bbd"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacelibuavcan.html#acec218dc94b3c1d8e218122515f49bbd">libuavcan::Result</a> : std::int_fast8_t { <br />
+&#160;&#160;<a class="el" href="namespacelibuavcan.html#acec218dc94b3c1d8e218122515f49bbda505a83f220c02df2f85c3810cd9ceb38">libuavcan::Result::Success</a> = 1, 
+<a class="el" href="namespacelibuavcan.html#acec218dc94b3c1d8e218122515f49bbdac8b8689d3e92659667d6558bafc569cf">libuavcan::Result::SuccessPartial</a> = 2, 
+<a class="el" href="namespacelibuavcan.html#acec218dc94b3c1d8e218122515f49bbda7cc6bdc58cf3ddd30cc6d678b900a1c8">libuavcan::Result::SuccessNothing</a> = 3, 
+<a class="el" href="namespacelibuavcan.html#acec218dc94b3c1d8e218122515f49bbda2b7ebb9a4b6667e014f9b7cd8d49fbc7">libuavcan::Result::SuccessTimeout</a> = 4, 
+<br />
+&#160;&#160;<a class="el" href="namespacelibuavcan.html#acec218dc94b3c1d8e218122515f49bbda1a22c40923d2978b2a258720df650702">libuavcan::Result::BufferFull</a> = 0, 
+<a class="el" href="namespacelibuavcan.html#acec218dc94b3c1d8e218122515f49bbdae139a585510a502bbf1841cf589f5086">libuavcan::Result::Failure</a> = -1, 
+<a class="el" href="namespacelibuavcan.html#acec218dc94b3c1d8e218122515f49bbdaf6ed8680cdcc84dd73c333b9b4efa900">libuavcan::Result::BadArgument</a> = -2, 
+<a class="el" href="namespacelibuavcan.html#acec218dc94b3c1d8e218122515f49bbda5b33c36fea0f806d800db8231fcdfd0a">libuavcan::Result::UnknownInternalError</a> = -3, 
+<br />
+&#160;&#160;<a class="el" href="namespacelibuavcan.html#acec218dc94b3c1d8e218122515f49bbdab498327feeb51430af73e07deac268fd">libuavcan::Result::OutOfMemory</a> = -4, 
+<a class="el" href="namespacelibuavcan.html#acec218dc94b3c1d8e218122515f49bbda38c300f4fc9ce8a77aad4a30de05cad8">libuavcan::Result::NotFound</a> = -5, 
+<a class="el" href="namespacelibuavcan.html#acec218dc94b3c1d8e218122515f49bbda997ca4ce119685f40f03a9a8a6c5346e">libuavcan::Result::NotImplemented</a> = -6
+<br />
+ }</td></tr>
+<tr class="separator:acec218dc94b3c1d8e218122515f49bbd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
+Functions</h2></td></tr>
+<tr class="memitem:ad3a35be7eefd543600cd6fff94151dec"><td class="memItemLeft" align="right" valign="top">constexpr bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacelibuavcan.html#ad3a35be7eefd543600cd6fff94151dec">libuavcan::operator!</a> (const Result &amp;result)</td></tr>
+<tr class="separator:ad3a35be7eefd543600cd6fff94151dec"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afc8428232b2d620bd43350e1024c6849"><td class="memItemLeft" align="right" valign="top">constexpr bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacelibuavcan.html#afc8428232b2d620bd43350e1024c6849">libuavcan::isSuccess</a> (const Result &amp;result)</td></tr>
+<tr class="separator:afc8428232b2d620bd43350e1024c6849"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8f59ec8cac7f65118195809019e06eb6"><td class="memItemLeft" align="right" valign="top">constexpr bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacelibuavcan.html#a8f59ec8cac7f65118195809019e06eb6">libuavcan::isFailure</a> (const Result &amp;result)</td></tr>
+<tr class="separator:a8f59ec8cac7f65118195809019e06eb6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>This header should be included by the user application. </p>
 </div></div><!-- contents -->

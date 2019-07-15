@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['adjustutc',['adjustUtc',['../structlibuavcan_1_1transport_1_1media_1_1_i_clock.html#aa5772ffa6ca83f91b9af8a73c12a0746',1,'libuavcan::transport::media::IClock']]]
+  ['base',['Base',['../classlibuavcan_1_1duration_1_1_base.html#adf928a50b911603a1e615ea8043196f4',1,'libuavcan::duration::Base::Base()'],['../classlibuavcan_1_1time_1_1_base.html#a1bb2bdd69891d95d944e86f894a6c395',1,'libuavcan::time::Base::Base()']]]
 ];

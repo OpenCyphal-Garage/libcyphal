@@ -1,8 +1,10 @@
 var searchData=
 [
-  ['platform_20integration_20macros_2e',['Platform integration macros.',['../group__macros__platform.html',1,'']]],
-  ['payloadlengthtoframelength',['PayloadLengthToFrameLength',['../can_8hpp.html#a43e3a5db7aa9b7c1af2fe237bc441d25',1,'libuavcan::transport::media::CAN::TypeFD::PayloadLengthToFrameLength()'],['../can_8hpp.html#aea32b90f02781bdf69da9a0470cee770',1,'libuavcan::transport::media::CAN::Type2_0::PayloadLengthToFrameLength()']]],
-  ['printobjectasbytes',['PrintObjectAsBytes',['../namespacelvs.html#afa483752712989fadcf0559559426ad5',1,'lvs']]],
-  ['priorityhigherthan',['priorityHigherThan',['../structlibuavcan_1_1transport_1_1media_1_1_c_a_n_1_1_frame.html#a25e297a64d8118147e87921159f00110',1,'libuavcan::transport::media::CAN::Frame']]],
-  ['prioritylowerthan',['priorityLowerThan',['../structlibuavcan_1_1transport_1_1media_1_1_c_a_n_1_1_frame.html#a3f2a6fa09ff6ff4fbfec00db9ed2d2f1',1,'libuavcan::transport::media::CAN::Frame']]]
+  ['operator_21',['operator!',['../namespacelibuavcan.html#ad3a35be7eefd543600cd6fff94151dec',1,'libuavcan']]],
+  ['operator_21_3d',['operator!=',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#a695aff92f84e1e513deae2d7c0d6cfb2',1,'libuavcan::media::CAN::Frame']]],
+  ['operator_3c',['operator&lt;',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#a53a9aa982a961cea7e930d74f8a69a85',1,'libuavcan::media::CAN::Frame']]],
+  ['operator_3d',['operator=',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#aabce585db499eb1d688e3052b86b5530',1,'libuavcan::media::CAN::Frame']]],
+  ['operator_3d_3d',['operator==',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#a923a7e4e9cc03d737dd71258928e6cfb',1,'libuavcan::media::CAN::Frame']]],
+  ['operator_3e',['operator&gt;',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#af9d956ffede16256c9f584f46f137bce',1,'libuavcan::media::CAN::Frame']]],
+  ['outofmemory',['OutOfMemory',['../namespacelibuavcan.html#acec218dc94b3c1d8e218122515f49bbdab498327feeb51430af73e07deac268fd',1,'libuavcan']]]
 ];

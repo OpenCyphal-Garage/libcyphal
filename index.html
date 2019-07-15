@@ -29,7 +29,7 @@
             <div class="container">
                 <div class="navbar-header">
                     <a class="navbar-brand" href="https://uavcan.org"><img src="uavcan_logo.svg" style="float:left;height:1.5em;padding:0em .5em .25em 0em;"/> libuavcan</a>
-                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/115" style="font-size: .75em; color: coral">build:115</a></em>
+                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/170" style="font-size: .75em; color: coral">build:170</a></em>
                 </div>
             </div>
         </nav>
@@ -98,6 +98,7 @@ $(function() {
 <ul>
 <li><a href="http://uavcan.org">UAVCAN website</a></li>
 <li><a href="https://forum.uavcan.org">UAVCAN forum</a></li>
+<li><a href="https://32bits.io/blog/2019/5/26/libuavcan-hil-test-automation-using-buildkite-and-raspberry-pi">HIL testing</a></li>
 </ul>
 <h3>Folder Structure</h3>
 <p>**/libuavcan/include** - Contains the entire header-only libuavcan library.</p>
@@ -105,7 +106,7 @@ $(function() {
 <p>**/test/native** - Unit-tests that validate the libuavcan library. These tests compile and execute using the build host's native environment. They also do not require any communication interfaces, virtual or otherwise, from the operating system and have no timing constraints.</p>
 <p>**/test/ontarget** - Tests cross-compiled for specific hardware* and run on a set of dedicated test devices. These tests may have strict timing constraints and may require specific physical or virtual busses and other test apparatuses be present. Each on-target test will fully document its requirements to enable anyone with access to the appropriate hardware to reproduce the tests. Furthermore, these tests must be inherently automateable having clear pass/fail criteria reducible to a boolean condition.</p>
 <p>**/test/compile** – Tests that run in the compiler. Most of these will be tests that pass if they fail to compile. For example, some tests will purposefully define template parameters that will cause static_asserts to fail. Tests that pass if they do compile are less interesting here since such happy paths are normally covered by unit-tests.</p>
-<p>**/example** - Contains a set of example applications providing real, practical, and tested uses of libuavcan.</p>
+<p>**/example** - Contains a set of example applications providing real, practical, and (somewhat) tested uses of libuavcan.</p>
 <p>**/commons** - Reference implementations for parts of the libuavcan library. These implementations are optional but are provided as a convenience to accelerate evaluation and integration of libuavcan.</p>
 <h4>Test Environments</h4>
 <p>The following list of standardized* test environments will be used to validate the libuavcan implementation**:</p>
@@ -147,35 +148,25 @@ $(function() {
 <li>Is the code correct.</li>
 </ul>
 </li>
-</ol>
-<ol type="1">
 <li><b>clarity</b><ul>
 <li>Is the code easily understood?</li>
 <li>It is overly complex?</li>
 </ul>
 </li>
-</ol>
-<ol type="1">
 <li><b>test coverage</b><ul>
 <li>Were tests written to cover the changes?</li>
 </ul>
 </li>
-</ol>
-<ol type="1">
 <li><b>test effectiveness and correctness</b><ul>
 <li>Are the tests good tests that provide some guarantee that the logic is, and will remain, correct?</li>
 </ul>
 </li>
-</ol>
-<ol type="1">
 <li><b>documentation</b><ul>
 <li>Is the code properly documented?</li>
 <li>Are there changes needed to auxillary documentation that is missing?</li>
 <li>Are there good examples for how to use the code?</li>
 </ul>
 </li>
-</ol>
-<ol type="1">
 <li><b>design</b><ul>
 <li>Is the code maintainable?</li>
 <li>Are the tests maintainable?</li>
