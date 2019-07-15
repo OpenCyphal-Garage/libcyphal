@@ -10,8 +10,6 @@
 #ifndef LIBUAVCAN_TRANSPORT_MEDIA_INTERFACES_HPP_INCLUDED
 #define LIBUAVCAN_TRANSPORT_MEDIA_INTERFACES_HPP_INCLUDED
 
-#include <algorithm>
-
 #include "libuavcan/libuavcan.hpp"
 #include "libuavcan/introspection.hpp"
 #include "libuavcan/time.hpp"
@@ -98,7 +96,7 @@ public:
      *
      * This inteface does not provide a "write to all interfaces in group" because of the complexity in
      * handling partial failures. Higher layers must handle the logic of dispatching messages accross
-     * redundant groups and handling individual interface failures appropriately.
+     * redundant interfaces in groups and handle individual interface failures appropriately.
      *
      * @note Implementations are allowed to provide queues based on message priority. Because of this,
      * if a given message cannot be written the media layer should keep trying to write other messages
@@ -140,6 +138,23 @@ public:
     virtual libuavcan::Result read(std::uint_fast8_t interface_index,
                                    FrameT (&out_frames)[MaxRxFrames],
                                    std::size_t& out_frames_read) = 0;
+
+    /**
+     * Reconfigure the filters for all interfaces in the group. This is an optional method that is only
+     * required if applications wish to dynamically subscribe and unsubscribe to messages after the media
+     * layer has been initialized. For less dynamic applications this method can simply return
+     * libuavcan::Result::NotImplemented.
+     *
+     * @param  filter_config         The filtering to apply equally to all members of the group.
+     * @param  filter_config_length  The length of the @p filter_config argument.
+     * @return libuavcan::Result::Success if the group's receive filtering was successfully reconfigured.
+     *         libuavcan::Result::NotImplemented if this media layer implementation does not support
+     *         dynamic filter reconfiguration.
+     *         Errors shall be returned if one or more interfaces in this group are not configured since
+     *         this will leave the group in an unspecified state.
+     */
+    virtual libuavcan::Result reconfigureFilters(const typename FrameType::Filter* filter_config,
+                                                 std::size_t                       filter_config_length) = 0;
 
     /**
      * Block for a specified amount of time or until any interface in the group becomes ready to read or write.
@@ -194,16 +209,14 @@ public:
      * Called by libuavcan when it is starting to use the group of interfaces managed by this object.
      * Libuavcan shall only invoke this once initially and only ever again if stopInterfaceGroup was first successfully
      * invoked.
-     * @param  filter_config         The filtering to apply equally to all members of the group. While applications may
-     * expose APIs allowing dynamic modification of filters libuavcan does not require this and will only ever request
-     * filtering once per call to this method.
+     * @param  filter_config         The filtering to apply equally to all members of the group.
      * @param  filter_config_length  The length of the @p filter_config argument.
      * @param  out_group             A pointer to set to the started group. This will be nullptr if the start method
-     * fails.
+     *                               fails.
      * @return libuavcan::Result::Success if the group was successfully started and a valid pointer was returned.
-     *         libuavcan::Result::SuccessParital can be returned to signal that the desired level of redundancy was not
+     *         libuavcan::Result::SuccessParital can be returned to signal that a desired level of redundancy was not
      *         achieved but libuavcan may not modify its behavior based on this signal.
-     *         The caller should assume that @p out_group is not a valid pointer if any failure is returned.
+     *         The caller should assume that @p out_group is an invalid pointer if any failure is returned.
      */
     virtual libuavcan::Result startInterfaceGroup(const typename InterfaceGroupType::FrameType::Filter* filter_config,
                                                   std::size_t            filter_config_length,

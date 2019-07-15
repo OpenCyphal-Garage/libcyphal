@@ -33,7 +33,7 @@ enum struct Result : std::int_fast8_t
 {
 
     /**
-     * > 0 are success values for libuavcan results.
+     * Values greater than 0 are success values for libuavcan results.
      */
     Success = 1,
 

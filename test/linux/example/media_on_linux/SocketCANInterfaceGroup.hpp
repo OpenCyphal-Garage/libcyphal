@@ -58,6 +58,10 @@ public:
 
     const SocketCANInterface* getInterface(std::uint_fast8_t index) const;
 
+    static libuavcan::Result configureFilters(const int                      socket_descriptor,
+                                              const FrameType::Filter* const filter_configs,
+                                              const std::size_t              num_configs);
+
     // +----------------------------------------------------------------------+
     // | libuavcan::media::InterfaceGroup
     // +----------------------------------------------------------------------+
@@ -70,6 +74,9 @@ public:
     virtual libuavcan::Result read(std::uint_fast8_t interface_index,
                                    InterfaceType::FrameType (&out_frames)[RxFramesLen],
                                    std::size_t& out_frames_read) override;
+
+    virtual libuavcan::Result reconfigureFilters(const typename FrameType::Filter* filter_config,
+                                                 std::size_t                       filter_config_length) override;
 
     virtual libuavcan::Result select(libuavcan::duration::Monotonic timeout, bool ignore_write_available) override;
 };

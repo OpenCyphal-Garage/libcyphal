@@ -37,7 +37,7 @@
 // | COMMANDLINE ARGUMENT PARSING
 // +--------------------------------------------------------------------------+
 
-namespace argparse
+namespace
 {
 static struct ::option long_options[] = {{"device", required_argument, nullptr, 'd'},
                                          {"continuous", 0, nullptr, 'c'},
@@ -109,10 +109,6 @@ inline libuavcan::Result parse_args(int argc, char* argv[], Namespace& out_names
     return (long_options[0].has_arg == required_argument) ? libuavcan::Result::BadArgument : libuavcan::Result::Success;
 }
 
-}  // namespace argparse
-
-namespace
-{
 // +--------------------------------------------------------------------------+
 // | HELPERS
 // +--------------------------------------------------------------------------+
@@ -361,11 +357,11 @@ private:
 
 int main(int argc, char* argv[])
 {
-    argparse::Namespace args;
+    Namespace args;
 
-    if (libuavcan::Result::Success != argparse::parse_args(argc, argv, args))
+    if (libuavcan::Result::Success != parse_args(argc, argv, args))
     {
-        argparse::print_usage();
+        print_usage();
         return -1;
     }
 

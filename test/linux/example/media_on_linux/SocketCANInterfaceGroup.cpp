@@ -93,6 +93,20 @@ libuavcan::Result SocketCANInterfaceGroup::read(std::uint_fast8_t interface_inde
     }
 }
 
+libuavcan::Result SocketCANInterfaceGroup::reconfigureFilters(const typename FrameType::Filter* filter_config,
+                                                              std::size_t                       filter_config_length)
+{
+    for(std::uint8_t i = 0; i < interfaces_.size(); ++i)
+    {
+        const auto result = configureFilters(interfaces_[i]->getSocketDescriptor(), filter_config, filter_config_length);
+        if (!result)
+        {
+            return result;
+        }
+    }
+    return libuavcan::Result::Success;
+}
+
 libuavcan::Result SocketCANInterfaceGroup::select(libuavcan::duration::Monotonic timeout, bool ignore_write_available)
 {
     short int         events         = POLLIN | POLLPRI;
@@ -135,6 +149,52 @@ libuavcan::Result SocketCANInterfaceGroup::select(libuavcan::duration::Monotonic
             return libuavcan::Result::SuccessPartial;
         }
     }
+    return libuavcan::Result::Success;
+}
+
+libuavcan::Result SocketCANInterfaceGroup::configureFilters(const int                      socket_descriptor,
+                                                            const FrameType::Filter* const filter_configs,
+                                                            const std::size_t              num_configs)
+{
+    if (filter_configs == nullptr && num_configs != 0 && num_configs <= CAN_RAW_FILTER_MAX)
+    {
+        return libuavcan::Result::BadArgument;
+    }
+
+    std::vector<::can_filter> socket_filters;
+
+    if (num_configs == 0)
+    {
+        // The SocketCAN spec indicates that a zero sized filter array can
+        // be used to ignore all ingress CAN frames.
+        if (0 != setsockopt(socket_descriptor, SOL_CAN_RAW, CAN_RAW_FILTER, nullptr, 0))
+        {
+            return libuavcan::Result::UnknownInternalError;
+        }
+        return libuavcan::Result::Success;
+    }
+
+    for (unsigned i = 0; i < num_configs; i++)
+    {
+        const SocketCANInterfaceGroup::FrameType::Filter& fc = filter_configs[i];
+        // Use CAN_EFF_FLAG to let the kernel know this is an EFF filter.
+        socket_filters.emplace_back(::can_filter{(fc.id & FrameType::MaskExtID) | CAN_EFF_FLAG,  //
+                                                 fc.mask | CAN_EFF_FLAG});
+    }
+
+    static_assert(sizeof(socklen_t) <= sizeof(std::size_t) &&
+                      std::is_signed<socklen_t>::value == std::is_signed<std::size_t>::value,
+                  "socklen_t is not of the expected integer type?");
+
+    if (0 != setsockopt(socket_descriptor,
+                        SOL_CAN_RAW,
+                        CAN_RAW_FILTER,
+                        socket_filters.data(),
+                        static_cast<socklen_t>(sizeof(can_filter) * socket_filters.size())))
+    {
+        return libuavcan::Result::UnknownInternalError;
+    }
+
     return libuavcan::Result::Success;
 }
 

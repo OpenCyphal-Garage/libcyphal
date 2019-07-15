@@ -152,6 +152,7 @@ Raspbian Buster Lite
 ### Post Install Steps
 
 #### raspi-config
+
 ```bash
 sudo raspi-config
 ```

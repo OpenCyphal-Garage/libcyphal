@@ -8,7 +8,6 @@
 #define LIBUAVCAN_TRANSPORT_MEDIA_CAN_HPP_INCLUDED
 
 #include <array>
-#include <algorithm>
 
 #include "libuavcan/libuavcan.hpp"
 #include "libuavcan/introspection.hpp"
