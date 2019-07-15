@@ -51,7 +51,7 @@ enum struct Result : std::int_fast8_t
     SuccessNothing = 3,
 
     /**
-     * No errors occurred but the operation did complete because a timeout period was reached.
+     * No errors occurred but the operation did not complete because a timeout period was reached.
      */
     SuccessTimeout = 4,
 

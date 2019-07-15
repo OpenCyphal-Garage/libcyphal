@@ -44,8 +44,9 @@ inline void set_message_length(struct ::canfd_frame& frame, std::uint8_t message
 
 }  // namespace
 
-SocketCANInterface::SocketCANInterface(std::uint_fast8_t index, int socket_descriptor)
+SocketCANInterface::SocketCANInterface(std::uint_fast8_t index, const std::string& name, int socket_descriptor)
     : index_(index)
+    , name_(name)
     , socket_descriptor_(socket_descriptor)
     , stats_()
     , trx_socketcan_frames_()
@@ -72,6 +73,11 @@ SocketCANInterface::~SocketCANInterface()
     ::close(socket_descriptor_);
 }
 
+const std::string& SocketCANInterface::getInterfaceName() const
+{
+    return name_;
+}
+
 std::uint_fast8_t SocketCANInterface::getInterfaceIndex() const
 {
     return index_;
@@ -82,7 +88,7 @@ void SocketCANInterface::getStatistics(Statistics& out_stats) const
     out_stats = stats_;
 }
 
-int SocketCANInterface::getFd() const
+int SocketCANInterface::getSocketDescriptor() const
 {
     return socket_descriptor_;
 }

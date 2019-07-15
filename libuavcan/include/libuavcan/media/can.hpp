@@ -261,11 +261,26 @@ struct LIBUAVCAN_EXPORT Frame
         /**
          * The id filter.
          */
-        std::uint32_t id = 0;
+        std::uint32_t id;
         /**
          * A mask for the id field.
          */
-        std::uint32_t mask = 0;
+        std::uint32_t mask;
+
+        Filter()
+            : id(0)
+            , mask(0)
+        {}
+
+        Filter(std::uint32_t id, std::uint32_t mask)
+            : id(id)
+            , mask(mask)
+        {}
+
+        Filter(const Filter& rhs)
+            : id(rhs.id)
+            , mask(rhs.mask)
+        {}
 
         bool operator==(const Filter& rhs) const
         {

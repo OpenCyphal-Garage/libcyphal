@@ -26,11 +26,16 @@
 #include <iostream>
 #include <getopt.h>
 #include <chrono>
+#include <memory>
 
 #include "libuavcan/libuavcan.hpp"
 #include "libuavcan/media/interfaces.hpp"
 #include "libuavcan/media/can.hpp"
 #include "SocketCANInterfaceManager.hpp"
+
+// +--------------------------------------------------------------------------+
+// | COMMANDLINE ARGUMENT PARSING
+// +--------------------------------------------------------------------------+
 
 namespace argparse
 {
@@ -45,12 +50,12 @@ static struct ::option long_options[] = {{"device", required_argument, nullptr, 
 struct Namespace
 {
     Namespace()
-        : device()
+        : devices()
         , run_continuously(false)
     {}
 
-    std::string device;
-    bool        run_continuously;
+    std::vector<std::string> devices;
+    bool                     run_continuously;
 };
 
 /**
@@ -59,10 +64,8 @@ struct Namespace
 inline void print_usage()
 {
     std::cout << "Usage:" << std::endl;
-    std::cout << "\t--device, -d      : ip device name to use for the test." << std::endl << std::endl;
-    std::cout << "\t--continuous, --c : run continuously. By default this is a pass (0)" << std::endl;
-    std::cout << "\t                    fail(non-zero) test. This flag requires ctrl+c" << std::endl;
-    std::cout << "\t                    to end the test." << std::endl;
+    std::cout << "\t--device, -d      : ip device name(s) to use for the test." << std::endl << std::endl;
+    std::cout << "\t--continuous, --c : run until the test times out." << std::endl;
     std::cout << std::endl;
     std::cout << "\tTo create a virtual device on linux do:" << std::endl << std::endl;
     std::cout << "\t\tip link add dev vcan0 type vcan" << std::endl;
@@ -91,7 +94,7 @@ inline libuavcan::Result parse_args(int argc, char* argv[], Namespace& out_names
             break;
 
         case 'd':
-            out_namespace.device               = optarg;
+            out_namespace.devices.push_back(optarg);
             long_options[option_index].has_arg = 0;
             break;
 
@@ -103,48 +106,71 @@ inline libuavcan::Result parse_args(int argc, char* argv[], Namespace& out_names
         }
     }
 
-    return (long_options[0].has_arg == required_argument) ? libuavcan::Result::BadArgument
-                                                          : libuavcan::Result::Success;
+    return (long_options[0].has_arg == required_argument) ? libuavcan::Result::BadArgument : libuavcan::Result::Success;
 }
 
 }  // namespace argparse
 
 namespace
 {
-inline void print_stats(const libuavcan::example::SocketCANInterfaceManager&                manager,
-                        const libuavcan::example::SocketCANInterfaceManager::InterfaceType& interface)
+// +--------------------------------------------------------------------------+
+// | HELPERS
+// +--------------------------------------------------------------------------+
+/**
+ * Helper to print interface statistics to stdout.
+ */
+inline void print_stats(const libuavcan::example::SocketCANInterface* interface)
 {
-    static libuavcan::example::SocketCANInterfaceManager::InterfaceType::Statistics stats;
-    interface.getStatistics(stats);
-    std::cout << manager.getInterfaceName(interface) << ": rx=" << stats.rx_total;
-    std::cout << ", rx_dropped=" << stats.rx_dropped;
-    std::cout << ", err_ack=" << stats.err_ack;
-    std::cout << ", err_bussoff=" << stats.err_bussoff;
-    std::cout << ", err_buserror=" << stats.err_buserror;
-    std::cout << ", err_crtl=" << stats.err_crtl;
-    std::cout << ", err_tx_timeout=" << stats.err_tx_timeout;
-    std::cout << ", err_lostarb=" << stats.err_lostarb;
-    std::cout << ", err_prot=" << stats.err_prot;
-    std::cout << ", err_trx=" << stats.err_trx;
-    std::cout << ", err_restarted=" << stats.err_restarted;
-    std::cout << std::endl;
+    if (nullptr != interface)
+    {
+        static libuavcan::example::SocketCANInterface::Statistics stats;
+        interface->getStatistics(stats);
+        std::cout << interface->getInterfaceName() << ": rx=" << stats.rx_total;
+        std::cout << ", rx_dropped=" << stats.rx_dropped;
+        std::cout << ", err_ack=" << stats.err_ack;
+        std::cout << ", err_bussoff=" << stats.err_bussoff;
+        std::cout << ", err_buserror=" << stats.err_buserror;
+        std::cout << ", err_crtl=" << stats.err_crtl;
+        std::cout << ", err_tx_timeout=" << stats.err_tx_timeout;
+        std::cout << ", err_lostarb=" << stats.err_lostarb;
+        std::cout << ", err_prot=" << stats.err_prot;
+        std::cout << ", err_trx=" << stats.err_trx;
+        std::cout << ", err_restarted=" << stats.err_restarted;
+        std::cout << std::endl;
+    }
 }
 
+// +--------------------------------------------------------------------------+
+// | LoopBackTest
+// +--------------------------------------------------------------------------+
+
 /**
- * Class to encapsulate our loopback test states.
+ * Test class that manages sending frames and verifing that the frames were
+ * looped-back.
  */
 class LoopBackTest final
 {
+    static constexpr std::size_t TxTestFramesLen = 2;
+    static constexpr std::size_t TestFiltersLen  = 1;
+
+    const libuavcan::example::SocketCANInterfaceManager::InterfaceGroupType::FrameType
+        test_frames_[libuavcan::example::SocketCANInterfaceGroup::TxFramesLen];
+
+    const libuavcan::example::SocketCANInterfaceManager::InterfaceGroupType::FrameType::Filter
+                              test_filters_[TestFiltersLen];
+    std::vector<unsigned int> test_frames_found_;
+    const std::chrono::duration<std::uint64_t> test_timeout_;
+    const bool run_continuously_;
+    std::chrono::steady_clock::time_point test_started_at_;
+    libuavcan::Result test_result_;
+
 public:
     LoopBackTest(const LoopBackTest&)  = delete;
     LoopBackTest(const LoopBackTest&&) = delete;
     LoopBackTest& operator=(const LoopBackTest&) = delete;
 
-    static constexpr std::size_t TxTestFramesLen = 2;
-
-    LoopBackTest(libuavcan::example::SocketCANInterfaceManager& manager)
-        : manager_(manager)
-        , test_frames_{{1,
+    LoopBackTest(bool run_continuously, std::chrono::duration<std::uint64_t> test_timeout = std::chrono::seconds(10))
+        : test_frames_{{1,
                         nullptr,
                         libuavcan::media::CAN::FrameDLC::CodeForLength0,
                         libuavcan::time::Monotonic::fromMicrosecond(0)},
@@ -152,71 +178,186 @@ public:
                         nullptr,
                         libuavcan::media::CAN::FrameDLC::CodeForLength0,
                         libuavcan::time::Monotonic::fromMicrosecond(1)}}
-        , test_frames_found_(0)
+        , test_filters_{{0, 0}}
+        , test_frames_found_()
+        , test_timeout_(test_timeout)
+        , run_continuously_(run_continuously)
+        , test_started_at_()
+        , test_result_(libuavcan::Result::Failure)
     {}
 
-    bool start_test(libuavcan::example::SocketCANInterfaceManager::InterfaceType& interface)
+    /**
+     * Start performing the loopback test.
+     * This is a one-shot test so this method can only be called once.
+     *
+     * @return The interface group obtained from the manager or nullptr if the test failed to start.
+     */
+    libuavcan::example::SocketCANInterfaceManager::InterfaceGroupPtrType start_test(
+        libuavcan::example::SocketCANInterfaceManager& manager)
     {
-        if (!manager_.doesReceiveOwnMessages())
+        libuavcan::example::SocketCANInterfaceManager::InterfaceGroupPtrType interface_group;
+        if (test_frames_found_.size() > 0)
+        {
+            // Test was already started?
+            return interface_group;
+        }
+        if (!manager.doesReceiveOwnMessages())
         {
             std::cout << "You must enable local loopback of frames sent from this process for this test to work."
                       << std::endl;
-            return false;
+            return interface_group;
         }
-        std::size_t frames_written;
-        if (!!interface.write(test_frames_, TxTestFramesLen, frames_written))
+        if (libuavcan::isFailure(manager.startInterfaceGroup(test_filters_, TestFiltersLen, interface_group)))
         {
-            std::cout << "Successfully enqueued " << frames_written << " frame(s) on "
-                      << manager_.getInterfaceName(interface) << std::endl;
+            return interface_group;
+        }
+        std::cout << "Opened " << static_cast<unsigned int>(interface_group->getInterfaceCount()) << " interface(s)."
+                  << std::endl;
+        std::size_t frames_written;
+        bool        success = (interface_group->getInterfaceCount() > 0);
+        test_frames_found_.clear();
+        for (std::uint_fast8_t i = 0; i < interface_group->getInterfaceCount(); ++i)
+        {
+            if (!!interface_group->write(i, test_frames_, TxTestFramesLen, frames_written))
+            {
+                std::cout << "Successfully enqueued " << frames_written << " frame(s) on interface "
+                          << interface_group->getInterfaceName(i) << std::endl;
+                test_frames_found_.push_back(0);
+            }
+            else
+            {
+                std::cout << "Failed to enqueue a frame on interface group " << interface_group->getInterfaceName(i)
+                          << std::endl;
+                success = false;
+                break;
+            }
+        }
+        if (!success)
+        {
+            test_frames_found_.clear();
+            interface_group = nullptr;
+        }
+        test_started_at_ = std::chrono::steady_clock::now();
+        return interface_group;
+    }
+
+    libuavcan::Result run_test(libuavcan::example::SocketCANInterfaceManager::InterfaceGroupPtrType interface_group)
+    {
+        auto last_period = std::chrono::steady_clock::now();
+
+        while (true)
+        {
+            if (std::chrono::steady_clock::now() - test_started_at_ > test_timeout_)
+            {
+                std::cout << "Test timed out after " << test_timeout_.count() << std::endl;
+                break;
+            }
+
+            // Wait for a bit unless some data comes in. Either way, we'll want to loop around and check in on the
+            // driver statistics so don't wait too long.
+            interface_group->select(libuavcan::duration::Monotonic::fromMicrosecond(100000U), true);
+
+            auto now = std::chrono::steady_clock::now();
+            if (now - last_period >= std::chrono::seconds(1))
+            {
+                for (std::uint_fast8_t i = 0; i < interface_group->getInterfaceCount(); ++i)
+                {
+                    print_stats(interface_group->getInterface(i));
+                }
+                last_period = now;
+            }
+
+            libuavcan::example::SocketCANInterfaceManager::InterfaceGroupType::FrameType
+                frames[libuavcan::example::SocketCANInterfaceManager::InterfaceGroupType::RxFramesLen];
+
+            for (std::uint8_t i = 0; i < interface_group->getInterfaceCount(); ++i)
+            {
+                std::size_t frames_read = 0;
+                if (!!interface_group->read(i, frames, frames_read) && frames_read > 0)
+                {
+                    if (!test_result_)
+                    {
+                        evaluate(interface_group, i, frames, frames_read);
+                    }
+                }
+            }
+
+            if (isComplete(interface_group))
+            {
+                test_result_ = libuavcan::Result::Success;
+                if (!run_continuously_)
+                {
+                    break;
+                }
+            }
+        }
+        return test_result_;
+    }
+
+private:
+    /**
+     * After the loopback test has started call this method after receiving any messages on a given interfaces.
+     * @return true if all the messages for this one interface were now received.
+     */
+    bool evaluate(libuavcan::example::SocketCANInterfaceManager::InterfaceGroupPtrType interface_group,
+                  std::uint_fast8_t                                                    index,
+                  libuavcan::example::SocketCANInterfaceManager::InterfaceGroupType::FrameType (
+                      &frames)[libuavcan::example::SocketCANInterfaceManager::InterfaceGroupType::RxFramesLen],
+                  const std::size_t frames_read)
+    {
+        std::cout << "Evaluating " << frames_read << " frame(s)..." << std::endl;
+        bool          all_found         = false;
+        unsigned int& test_frames_found = test_frames_found_[index];
+        if (test_frames_found != 0x03)
+        {
+            for (size_t i = 0; i < frames_read; ++i)
+            {
+                for (size_t j = 0; j < 2 && j < sizeof(test_frames_found) * 8; ++j)
+                {
+                    const unsigned int frame_bit = 1U << j;
+                    if ((test_frames_found & frame_bit) == 0 && frames[i] == test_frames_[j])
+                    {
+                        test_frames_found |= 1U << j;
+                    }
+                }
+            }
+            if (test_frames_found == 0x03)
+            {
+                all_found = true;
+                std::cout << "...Got all frames for interface " << interface_group->getInterfaceName(index)
+                          << std::endl;
+            }
+        }
+        return all_found;
+    }
+
+    /**
+     * Test to see if all messages were received for all interfaces in a group.
+     */
+    bool isComplete(libuavcan::example::SocketCANInterfaceManager::InterfaceGroupPtrType interface_group) const
+    {
+        if (interface_group->getInterfaceCount() == test_frames_found_.size() && test_frames_found_.size() > 0)
+        {
+            for (std::uint_fast8_t i = 0; i < interface_group->getInterfaceCount(); ++i)
+            {
+                if ((test_frames_found_[i] & 0x03) != 0x03)
+                {
+                    return false;
+                }
+            }
             return true;
         }
         else
         {
-            std::cout << "Failed to enqueue a frame on " << manager_.getInterfaceName(interface) << std::endl;
             return false;
         }
     }
-
-    bool evalute(const libuavcan::example::SocketCANInterfaceManager::InterfaceType::FrameType (
-                     &frames)[libuavcan::example::SocketCANInterfaceManager::InterfaceType::RxFramesLen],
-                 const std::size_t frames_read)
-    {
-        std::cout << "Evaluating " << frames_read << " frame(s)..." << std::endl;
-        if (test_frames_found_ != 0x03)
-        {
-            for (size_t i = 0; i < frames_read; ++i)
-            {
-                for (size_t j = 0; j < 2 && j < sizeof(test_frames_found_) * 8; ++j)
-                {
-                    const unsigned int frame_bit = 1U << j;
-                    if ((test_frames_found_ & frame_bit) == 0 && frames[i] == test_frames_[j])
-                    {
-                        test_frames_found_ |= 1U << j;
-                    }
-                }
-            }
-            if (test_frames_found_ == 0x03)
-            {
-                std::cout << "...Yep! Got our frames. Test passed." << std::endl;
-            }
-        }
-        return static_cast<bool>(*this);
-    }
-
-    explicit operator bool() const
-    {
-        return (test_frames_found_ & 0x03) == 0x03;
-    }
-
-private:
-    libuavcan::example::SocketCANInterfaceManager& manager_;
-
-    libuavcan::example::SocketCANInterfaceManager::InterfaceType::FrameType
-        test_frames_[libuavcan::example::SocketCANInterface::TxFramesLen];
-
-    unsigned int test_frames_found_;
 };
 }  // namespace
+
+// +--------------------------------------------------------------------------+
+// | main
+// +--------------------------------------------------------------------------+
 
 int main(int argc, char* argv[])
 {
@@ -229,81 +370,41 @@ int main(int argc, char* argv[])
     }
 
     // Enable "receive own messages" to allow us to test send and receive using just this one process.
-    libuavcan::example::SocketCANInterfaceManager manager(true, true);
-    std::uint_fast8_t                             test_device_index;
-    if (!manager.reenumerateInterfaces())
-    {
-        std::cout << "Failed to enumerate available CAN interfaces." << std::endl;
-    }
+    libuavcan::example::SocketCANInterfaceManager manager(std::move(args.devices), true, true);
 
-    if (!!manager.getInterfaceIndex(args.device, test_device_index))
+    // Create our loopback test.
+    LoopBackTest test(args.run_continuously);
+
+    // Start the test saving the interface_group so we can use it later if we want to.
+    libuavcan::example::SocketCANInterfaceManager::InterfaceGroupPtrType interface_group = test.start_test(manager);
+
+    if (!interface_group)
     {
-        std::cout << "Found " << args.device << " at index " << test_device_index << "." << std::endl;
-    }
-    else
-    {
-        std::cout << "Device " << args.device << " was not found." << std::endl;
         return -1;
     }
 
-    // Get everything.
-    libuavcan::example::SocketCANInterfaceManager::InterfaceType::FrameType::Filter c;
-    c.id   = 0;
-    c.mask = 0;
-    libuavcan::example::SocketCANInterfaceManager::InterfaceType* interface_ptr;
-    if (!manager.openInterface(test_device_index, &c, 1, interface_ptr))
     {
-        std::cout << "Failed to open interface " << manager.getInterfaceName(test_device_index) << std::endl;
-        return -1;
-    }
+        auto stop_on_exit = [&manager](libuavcan::example::SocketCANInterfaceManager::InterfaceGroupPtrType* group) {
+            if (group && *group)
+            {
+                manager.stopInterfaceGroup(*group);
+                std::cout << "Stopped interface group." << std::endl;
+            }
+        };
 
-    // demonstration of how to convert the media layer APIs into RAII patterns.
-    auto interface_deleter = [&](libuavcan::example::SocketCANInterfaceManager::InterfaceType* interface) {
-        manager.closeInterface(interface);
-    };
-    std::unique_ptr<libuavcan::example::SocketCANInterfaceManager::InterfaceType, decltype(interface_deleter)>
-        interface(interface_ptr, interface_deleter);
-    std::cout << "Opened interface " << manager.getInterfaceName(test_device_index) << std::endl;
+        // Call stopInterfaceGroup when we exit this block.
+        std::unique_ptr<libuavcan::example::SocketCANInterfaceManager::InterfaceGroupPtrType, decltype(stop_on_exit)>
+            raii_stopper(&interface_group, stop_on_exit);
 
-    {
-        // Don't let the test have the manager reference longer than the manager is valid.
-        LoopBackTest test(manager);
-
-        auto last_period = std::chrono::steady_clock::now();
-
-        if (!test.start_test(*interface_ptr))
+        if (!test.run_test(interface_group))
         {
             return -1;
         }
-
-        while (true)
+        else
         {
-            const libuavcan::example::SocketCANInterfaceManager::InterfaceType* const
-                interfaces[libuavcan::example::SocketCANInterfaceManager::MaxSelectInterfaces] = {interface.get(),
-                                                                                                  nullptr};
-            // Wait for a bit unless some data comes in. Either way, we'll want to loop around and check in on the
-            // driver statistics so don't wait too long.
-            manager.select(interfaces, 1, libuavcan::duration::Monotonic::fromMicrosecond(100000U), true);
-
-            auto now = std::chrono::steady_clock::now();
-            if (now - last_period >= std::chrono::seconds(1))
-            {
-                print_stats(manager, *interface);
-                last_period = now;
-            }
-
-            libuavcan::example::SocketCANInterfaceManager::InterfaceType::FrameType
-                frames[libuavcan::example::SocketCANInterfaceManager::InterfaceType::RxFramesLen];
-
-            std::size_t frames_read = 0;
-            if (!!interface->read(frames, frames_read) && frames_read > 0)
-            {
-                if (!test && test.evalute(frames, frames_read) && !args.run_continuously)
-                {
-                    break;
-                }
-            }
+            std::cout << "Test passed!" << std::endl;
         }
+
     }
     return 0;
 }

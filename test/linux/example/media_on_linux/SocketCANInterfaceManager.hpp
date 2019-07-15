@@ -5,13 +5,12 @@
 #ifndef LIBUAVCAN_EXAMPLE_SOCKETCANINTERFACEMANAGER_HPP_INCLUDED
 #define LIBUAVCAN_EXAMPLE_SOCKETCANINTERFACEMANAGER_HPP_INCLUDED
 
-#include <queue>
-#include <memory>
 #include <string>
-#include <poll.h>
+#include <memory>
+#include <vector>
 
 #include "libuavcan/libuavcan.hpp"
-#include "SocketCANInterface.hpp"
+#include "SocketCANInterfaceGroup.hpp"
 
 namespace libuavcan
 {
@@ -24,53 +23,17 @@ namespace libuavcan
 namespace example
 {
 /**
- * This datastruture is part of the SocketCANInterfaceManager's internal
- * interface management storage.
- *
- * @tparam InterfaceT   The interface type for the manager.
- */
-template <typename InterfaceT>
-struct InterfaceRecord final
-{
-    InterfaceRecord(const InterfaceRecord&) = delete;
-    const InterfaceRecord& operator=(const InterfaceRecord&) = delete;
-
-    InterfaceRecord()
-        : name()
-        , connected_interface()
-    {}
-
-    InterfaceRecord(const char* cname)
-        : name(cname)
-        , connected_interface()
-    {}
-
-    InterfaceRecord(InterfaceRecord&& rhs)
-        : name(std::move(rhs.name))
-        , connected_interface(std::move(rhs.connected_interface))
-    {}
-
-    ~InterfaceRecord() = default;
-
-    const std::string           name;
-    std::unique_ptr<InterfaceT> connected_interface;
-};
-
-/**
  * For higher-level systems where interfaces may come and go the manager pattern allows a central
  * authority to monitor hardware availability and to provide a single location for interface lifecycle
  * management. For low-level systems this could be a very simple and static object that assumes interfaces
  * are never closed.
- *
- * TODO: SocketCANInterface* should be a std::shared_ptr or we shouldn't actually ever delete interface objects.
  */
-class SocketCANInterfaceManager : public libuavcan::media::InterfaceManager<SocketCANInterface, SocketCANInterface*>
+class SocketCANInterfaceManager final
+    : public libuavcan::media::InterfaceManager<SocketCANInterfaceGroup, std::shared_ptr<SocketCANInterfaceGroup>>
 {
-private:
-    std::vector<InterfaceRecord<InterfaceType>> interface_list_;
-    struct ::pollfd                             pollfds_[MaxSelectInterfaces];
-    bool                                        enable_can_fd_;
-    bool                                        receive_own_messages_;
+    const std::vector<std::string> required_interfaces_;
+    bool                           enable_can_fd_;
+    bool                           receive_own_messages_;
 
 public:
     // +----------------------------------------------------------------------+
@@ -89,79 +52,47 @@ public:
      * @param  receive_own_messages If true then the manager will enable receiving messages
      *                          sent by this process. This is used only for testing.
      */
-    SocketCANInterfaceManager(bool enable_can_fd, bool receive_own_messages);
+    SocketCANInterfaceManager(const std::vector<std::string>&& required_interfaces,
+                              bool                             enable_can_fd,
+                              bool                             receive_own_messages);
 
-    virtual ~SocketCANInterfaceManager();
+    virtual ~SocketCANInterfaceManager() = default;
+
+    bool doesReceiveOwnMessages() const;
 
     // +----------------------------------------------------------------------+
     // | InterfaceManager
     // +----------------------------------------------------------------------+
 
-    virtual libuavcan::Result select(const InterfaceType* const (&interfaces)[MaxSelectInterfaces],
-                                     libuavcan::duration::Monotonic timeout,
-                                     bool                           ignore_write_available) override;
+    virtual libuavcan::Result startInterfaceGroup(const InterfaceGroupType::FrameType::Filter* filter_config,
+                                                  std::size_t                                  filter_config_length,
+                                                  InterfaceGroupPtrType&                       out_group) override;
 
-    virtual std::uint_fast8_t getHardwareInterfaceCount() const override;
+    virtual libuavcan::Result stopInterfaceGroup(std::shared_ptr<SocketCANInterfaceGroup>& inout_group) override;
 
-    virtual std::size_t getMaxHardwareFrameFilters(std::uint_fast8_t interface_index) const override;
-
-    virtual std::size_t getMaxFrameFilters(std::uint_fast8_t interface_index) const override;
+    virtual std::size_t getMaxFrameFilters() const override;
 
     // +----------------------------------------------------------------------+
+private:
     /**
      * Opens an interface for receiveing and transmitting.
      *
-     * @param       interface_index         The index of the interface to open. See getHardwareInterfaceCount()
-     *                                      for the valid range of interface indicies. The behaviour of this method
-     *                                      given an index >= getHardwareInterfaceCount() is implementation defined.
+     * @param       interface_index         The index to assign to the interface. This is the index used in the
+     *                                      libuavcan::media::InterfaceGroup interface.
+     * @param       interface_name          The name of the interface to open on the system. This is the primary
+     *                                      identifier used by the example to open a socket.
      * @param       filter_config           An array of frame filtering parameters. The contents and behaviour of
      *                                      filters is dependant on the interface in use and the Frame type.
      * @param       filter_config_length    The number of filter configurations in the filter_config array.
-     * @param[out]  out_interface           If successful, the pointer is set to an open interface abstraction
-     *                                      owned by this manager instance. This memory shall remain valid while
-     *                                      the manager object is valid. It is undefined behavior to destroy a manager
-     *                                      with open interfaces still allocated.
-     *                                      Implementations must define the semantics for calling this method multiple
-     *                                      times with the same interface_index and for calling closeInterface on
-     *                                      a shared pointer to an interface.
+     * @param[out]  out_interface           If successful, the pointer is populated with a new interface object. The
+     *                                      caller owns this memory after the method exits.
      * @return libuavcan::Result::Success if the interface was successfully opened and returned,
      */
-    libuavcan::Result openInterface(std::uint_fast8_t                                interface_index,
-                                    const typename InterfaceType::FrameType::Filter* filter_config,
-                                    std::size_t                                      filter_config_length,
-                                    InterfacePtrType&                                out_interface);
-
-    /**
-     * Closes an interface.
-     *
-     * @param[in,out] inout_interface    On input this is a pointer to an interface to close. On output
-     *                                   this pointer will be reset (set to `nullptr` for raw pointers).
-     *
-     * @return libuavcan::Result::Success if the interface was closed and inout_interface is now invalid.
-     *         Implementations must define the semantics for calling this method with a shared_ptr.
-     */
-    libuavcan::Result closeInterface(InterfaceType*& inout_interface);
-
-    const std::string& getInterfaceName(std::size_t interface_index) const;
-    const std::string& getInterfaceName(const InterfaceType& interface) const;
-    libuavcan::Result  getInterfaceIndex(const std::string& interface_name, std::uint_fast8_t& out_index) const;
-    libuavcan::Result  reenumerateInterfaces();
-    bool               doesReceiveOwnMessages() const;
-    bool               isFDEnabled() const;
-
-private:
-    libuavcan::Result configureFilters(const int                                     fd,
-                                       const InterfaceType::FrameType::Filter* const filter_configs,
-                                       const std::size_t                             num_configs);
-    /**
-     * Open and configure a CAN socket on iface specified by name.
-     * @param  iface_name String containing iface name, e.g. "can0", "vcan1", "slcan0"
-     * @param  enable_canfd If true then the method will attempt to enable can-fd for the interface.
-     * @param  enable_receive_own_messages  If true then the socket will also receive any messages sent
-     *         from this process. This is normally only useful for testing.
-     * @return Socket descriptor or negative number on error.
-     */
-    static int openSocket(const std::string& iface_name, bool enable_canfd, bool enable_receive_own_messages);
+    libuavcan::Result createInterface(std::uint_fast8_t                                          interface_index,
+                                      const std::string&                                         interface_name,
+                                      const typename SocketCANInterfaceGroup::FrameType::Filter* filter_config,
+                                      std::size_t                                                filter_config_length,
+                                      std::unique_ptr<SocketCANInterfaceGroup::InterfaceType>&   out_interface);
 };
 }  // namespace example
 /** @} */  // end of examples group
