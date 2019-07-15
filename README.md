@@ -34,6 +34,7 @@ The reason we opted for a complete rewrite is that so much is changing. Between 
 
 * [UAVCAN website](http://uavcan.org)
 * [UAVCAN forum](https://forum.uavcan.org)
+* [HIL testing](https://32bits.io/blog/2019/5/26/libuavcan-hil-test-automation-using-buildkite-and-raspberry-pi)
 
 ### Folder Structure
 
@@ -47,7 +48,7 @@ The reason we opted for a complete rewrite is that so much is changing. Between 
 
 **/test/compile** – Tests that run in the compiler. Most of these will be tests that pass if they fail to compile. For example, some tests will purposefully define template parameters that will cause static_asserts to fail. Tests that pass if they do compile are less interesting here since such happy paths are normally covered by unit-tests.
 
-**/example** - Contains a set of example applications providing real, practical, and tested uses of libuavcan.
+**/example** - Contains a set of example applications providing real, practical, and (somewhat) tested uses of libuavcan.
 
 **/commons** - Reference implementations for parts of the libuavcan library. These implementations are optional but are provided as a convenience to accelerate evaluation and integration of libuavcan.
 
@@ -110,18 +111,18 @@ Reviewers, please check the following items when reviewing a pull-request:
 
 1. **correctness**
     * Is the code correct.
-1. **clarity**
-    * Is the code easily understood? 
+2. **clarity**
+    * Is the code easily understood?
     * It is overly complex?
-1. **test coverage**
+3. **test coverage**
     * Were tests written to cover the changes?
-1. **test effectiveness and correctness**
+4. **test effectiveness and correctness**
     * Are the tests good tests that provide some guarantee that the logic is, and will remain, correct?
-1. **documentation**
+5. **documentation**
     * Is the code properly documented?
     * Are there changes needed to auxillary documentation that is missing?
     * Are there good examples for how to use the code?
-1. **design**
+6. **design**
     * Is the code maintainable?
     * Are the tests maintainable?
     * Is the code in the right namespace/class/function?

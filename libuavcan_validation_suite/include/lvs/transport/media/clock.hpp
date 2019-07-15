@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "libuavcan/libuavcan.hpp"
-#include "libuavcan/transport/media/clock.hpp"
+#include "libuavcan/media/clock.hpp"
 
 namespace lvs
 {
@@ -23,7 +23,7 @@ namespace media
 // +==========================================================================+
 
 /**
- * Test fixture for testing realizations of the libuavcan::transport::media::IClock interface.
+ * Test fixture for testing realizations of the libuavcan::media::IClock interface.
  * See https://github.com/google/googletest/blob/master/googletest/docs/advanced.md for
  * more information about typed gtests.
  *

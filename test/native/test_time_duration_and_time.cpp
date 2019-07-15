@@ -47,12 +47,4 @@ typedef ::testing::Types<libuavcan::duration::Monotonic, libuavcan::time::Monoto
 // The trailing comma is required. See https://github.com/google/googletest/issues/1419
 INSTANTIATE_TYPED_TEST_SUITE_P(Time, DurationOrTimeTest, MyDurationAndTimeTypes, );
 
-typedef ::testing::Types<libuavcan::duration::Monotonic> MyDurationTypes;
-
-INSTANTIATE_TYPED_TEST_SUITE_P(Time, DurationTest, MyDurationTypes, );
-
-typedef ::testing::Types<libuavcan::time::Monotonic> MyTimeTypes;
-
-INSTANTIATE_TYPED_TEST_SUITE_P(Time, TimeTest, MyTimeTypes, );
-
 }  // namespace lvs

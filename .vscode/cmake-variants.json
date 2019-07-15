@@ -1,0 +1,18 @@
+{
+    "buildType": {
+        "default": "debug",
+        "description": "Variant for libuavcan build kits.",
+        "choices": {
+            "debug": {
+                "short": "Debug",
+                "long": "Debug builds enable most of the introspection options by default (see libuavcan/introspection.hpp)",
+                "buildType": "Debug"
+            },
+            "release": {
+                "short": "Release",
+                "long": "Release build disables all introspection by default (see libuavcan/introspection.hpp).",
+                "buildType": "Release"
+            }
+        }
+    }
+}

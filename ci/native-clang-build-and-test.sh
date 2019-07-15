@@ -30,14 +30,13 @@ set -o pipefail
 # | deploy (i.e. There's really no 'I' going on).
 # +----------------------------------------------------------+
 
-mkdir -p build_ci_native_clang
-pushd build_ci_native_clang
+mkdir -p build_native_clang
+pushd build_native_clang
 # We ensure we can build using clang but we rely on GCC for testing
-# since clang's coverage metrics have been broken for the last 
+# since clang's coverage metrics have been broken for the last
 # several years.
 cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/clang-native.cmake \
       -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/native.cmake \
-      -DLIBUAVCAN_EXT_FOLDER=build_ci_ext_clang \
       ..
 
 make -j4

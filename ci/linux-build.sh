@@ -30,22 +30,14 @@ set -o pipefail
 # | deploy (i.e. There's really no 'I' going on).
 # +----------------------------------------------------------+
 
-mkdir -p build_native_gcc
-pushd build_native_gcc
-
-cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/gcc-native.cmake \
-      -DCMAKE_BUILD_TYPE=Debug\
-      -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/native_unittest.cmake \
+mkdir -p build_linux
+pushd build_linux
+# We ensure we can build using clang but we rely on GCC for testing
+# since clang's coverage metrics have been broken for the last 
+# several years.
+cmake -DLIBUAVCAN_TESTBUILD=../test/linux/tests.cmake \
       ..
 
 make -j4
-
-# We use ctest to run our compile tests.
-ctest -VV
-
-# This builds, runs, and reports on our native unit tests.
-make cov_all
-
-make docs
 
 popd

@@ -1,0 +1,41 @@
+[
+    {
+        "name": "native-gcc",
+        "toolchainFile": "${workspaceFolder}/cmake/toolchains/gcc-native.cmake",
+        "cmakeSettings": {
+            "LIBUAVCAN_FLAG_SET": "../cmake/compiler_flag_sets/native_unittest.cmake"
+        }
+    },
+    {
+        "name": "ontarget-s32k",
+        "toolchainFile": "${workspaceFolder}/cmake/toolchains/gcc-arm-none-eabi.cmake",
+        "cmakeSettings": {
+            "LIBUAVCAN_FLAG_SET": "../cmake/compiler_flag_sets/cortex-m4-fpv4-sp-d16-nosys.cmake",
+            "LIBUAVCAN_TESTBUILD": "../test/ontarget/S32K148EVB/tests.cmake",
+            "GTEST_USE_LOCAL_BUILD": "ON",
+            "LIBUAVCAN_SKIP_DOCS": "ON"
+        }
+    },
+    {
+        "name": "native-clang",
+        "toolchainFile": "${workspaceFolder}/cmake/toolchains/clang-native.cmake",
+        "cmakeSettings": {
+            "LIBUAVCAN_FLAG_SET": "../cmake/compiler_flag_sets/native.cmake"
+        }
+    },
+    {
+        "name": "linux",
+        "toolchainFile": "${workspaceFolder}/cmake/toolchains/gcc-native.cmake",
+        "cmakeSettings": {
+            "LIBUAVCAN_TESTBUILD": "../test/linux/tests.cmake"
+        }
+    },
+    {
+        "name": "linux-vagrant",
+        "toolchainFile": "${workspaceFolder}/cmake/toolchains/gcc-native.cmake",
+        "cmakeSettings": {
+            "LIBUAVCAN_TESTBUILD": "../test/linux/tests.cmake",
+            "LIBUAVCAN_EXT_FOLDER": "/home/vagrant/libuavcan_build_ext"
+        }
+    }
+]

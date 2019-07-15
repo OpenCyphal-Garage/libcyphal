@@ -29,12 +29,20 @@ function (create_docs_target ARG_DOCS_TARGET_NAME ARG_ADD_TO_ALL)
     set(DOXYGEN_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/doc_source)
     set(DOXYGEN_RDOMAIN org.uavcan)
     set(DOXYGEN_RDOMAIN_W_PROJECT org.uavcan.libuavcan)
+    set(DOXYGEN_PROJECT_NAME "libuavcan")
+    set(DOXYGEN_PROJECT_BRIEF "Portable reference implementation of the UAVCAN protocol stack written in C++ for embedded systems, Linux, and POSIX-compliant RTOSs")
     set(DOXYGEN_OUTPUT_DIRECTORY_PARENT ${CMAKE_BINARY_DIR})
     set(DOXYGEN_OUTPUT_DIRECTORY ${DOXYGEN_OUTPUT_DIRECTORY_PARENT}/docs)
     set(DOXYGEN_CONFIG_FILE ${DOXYGEN_OUTPUT_DIRECTORY}/doxygen.config)
-    set(DOXYGEN_INPUT "\"${CMAKE_CURRENT_SOURCE_DIR}/libuavcan/include\" \"${CMAKE_CURRENT_SOURCE_DIR}/README.md\" \"${CMAKE_CURRENT_SOURCE_DIR}/doc_source/related\" \"${CMAKE_CURRENT_SOURCE_DIR}/libuavcan_validation_suite/include\"")
+    set(DOXYGEN_INPUT "\"${CMAKE_CURRENT_SOURCE_DIR}/libuavcan/include\" \
+                       \"${CMAKE_CURRENT_SOURCE_DIR}/README.md\" \
+                       \"${CMAKE_CURRENT_SOURCE_DIR}/doc_source/related\" \
+                       \"${CMAKE_CURRENT_SOURCE_DIR}/libuavcan_validation_suite/include\" \
+                       \"${CMAKE_CURRENT_SOURCE_DIR}/test/linux/example\" \
+                       ")
     set(DOXYGEN_MAINPAGE "\"${CMAKE_CURRENT_SOURCE_DIR}/README.md\"")
     set(DOXYGEN_LIBUAVCAN_VERSION $ENV{BUILDKITE_BUILD_NUMBER})
+    set(DOXYGEN_LIBUAVCAN_INCLUDE_PREFIX_STRIP "\"${CMAKE_CURRENT_SOURCE_DIR}/libuavcan/include\"")
 
     # +-----------------------------------------------------------------------+
     # | HTML (BOOTSTRAPPED)
@@ -111,7 +119,7 @@ endfunction(create_docs_target)
 
 
 include(FindPackageHandleStandardArgs)
- 
+
 find_package_handle_standard_args(libuavcan_docs
     REQUIRED_VARS DOXYGEN_FOUND
 )

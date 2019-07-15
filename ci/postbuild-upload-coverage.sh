@@ -29,10 +29,10 @@ set -o pipefail
 # | CI is used to verify and test rather than package and
 # | deploy (i.e. There's really no 'I' going on).
 # +----------------------------------------------------------+
-mkdir -p build_ci_native_gcc
-pushd build_ci_native_gcc
+mkdir -p build_native_gcc
+pushd build_native_gcc
 
-buildkite-agent artifact download "build_ci_native_gcc/tests/coverage.info" .
+buildkite-agent artifact download "build_native_gcc/tests/coverage.info" .
 
 # Our custom lcov tracefile and coveralls.io upload script.
 # This is only available in our docker container.

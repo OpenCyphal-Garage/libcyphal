@@ -8,7 +8,6 @@
 #define LIBUAVCAN_TRANSPORT_MEDIA_CAN_HPP_INCLUDED
 
 #include <array>
-#include <algorithm>
 
 #include "libuavcan/libuavcan.hpp"
 #include "libuavcan/introspection.hpp"
@@ -16,19 +15,6 @@
 
 namespace libuavcan
 {
-/**
- * @namespace transport
- * Contains transport-specific types and namespaces.
- */
-namespace transport
-{
-/**
- * @namespace media
- * Contains media-specific types and namespaces.
- *
- * See the @ref MediaDevGuide for details
- * on porting the media layer to a given platform.
- */
 namespace media
 {
 /**
@@ -261,42 +247,94 @@ struct LIBUAVCAN_EXPORT Frame
     std::uint32_t id;
 
     /**
-     * A monotonic timestamp. Libuavcan operates optimally when this value is a
-     * hardware supplied timestamp recorded at the start-of-frame.
-     */
-    libuavcan::time::Monotonic timestamp;
-
-    /**
      * System memory buffer of a CAN frame.
      *
      */
     std::uint8_t data[MTUBytesParam];
 
+    /**
+     * Filter type for CAN frames.
+     */
+    struct Filter
+    {
+        /**
+         * The id filter.
+         */
+        std::uint32_t id;
+        /**
+         * A mask for the id field.
+         */
+        std::uint32_t mask;
+
+        Filter()
+            : id(0)
+            , mask(0)
+        {}
+
+        Filter(std::uint32_t id, std::uint32_t mask)
+            : id(id)
+            , mask(mask)
+        {}
+
+        Filter(const Filter& rhs)
+            : id(rhs.id)
+            , mask(rhs.mask)
+        {}
+
+        bool operator==(const Filter& rhs) const
+        {
+            return rhs.id == id && rhs.mask == mask;
+        }
+    };
+
 private:
     FrameDLC dlc_;  ///< Data Length Code.
 
 public:
+    /**
+     * A monotonic timestamp. Libuavcan operates optimally when this value is a
+     * hardware supplied timestamp recorded at the start-of-frame.
+     */
+    libuavcan::time::Monotonic timestamp;
+
     Frame()
         : id(0)
-        , timestamp()
         , data{}
         , dlc_(FrameDLC::CodeForLength0)
+        , timestamp()
     {}
+
+    /**
+     * Copy constructor for frames.
+     *
+     * @param  rhs  The frame to copy from.
+     */
+    Frame(const Frame& rhs)
+        : id(rhs.id)
+        , data{}
+        , dlc_(rhs.dlc_)
+        , timestamp(rhs.timestamp)
+    {
+        if (nullptr != rhs.data)
+        {
+            std::copy(rhs.data, rhs.data + MTUBytesParam, data);
+        }
+    }
 
     /**
      * Constructs a new Frame object with timestamp that copies data into this instance.
      *
      * @param can_id        The 29-bit CAN id.
-     * @param can_timestamp A monotonic timestamp that should be as close to the time the start-of-frame was
-     *                      received (for rx frames) or put-on-bus (for tx frames) as possible.
      * @param can_data      The data to copy into this instance.
      * @param in_dlc        The data length code for the can_data.
+     * @param can_timestamp A monotonic timestamp that should be as close to the time the start-of-frame was
+     *                      received (for rx frames) or put-on-bus (for tx frames) as possible.
      */
-    Frame(std::uint32_t can_id, libuavcan::time::Monotonic can_timestamp, const std::uint8_t* can_data, FrameDLC in_dlc)
+    Frame(std::uint32_t can_id, const std::uint8_t* can_data, FrameDLC in_dlc, libuavcan::time::Monotonic can_timestamp)
         : id(can_id)
-        , timestamp(can_timestamp)
         , data{}
         , dlc_(in_dlc)
+        , timestamp(can_timestamp)
     {
         if (nullptr == can_data)
         {
@@ -317,7 +355,7 @@ public:
      * @param in_dlc        The data length code for the can_data.
      */
     Frame(std::uint32_t can_id, const std::uint8_t* can_data, FrameDLC in_dlc)
-        : Frame(can_id, libuavcan::time::Monotonic::fromMicrosecond(0), can_data, in_dlc)
+        : Frame(can_id, can_data, in_dlc, libuavcan::time::Monotonic::fromMicrosecond(0))
     {}
 
     /**
@@ -354,11 +392,11 @@ public:
     }
 
     /**
-     * Logical inverse of @ref libuavcan::transport::media::CAN::Frame::operator==(const
-     * libuavcan::transport::media::CAN::Frame&) const
+     * Logical inverse of @ref libuavcan::media::CAN::Frame::operator==(const
+     * libuavcan::media::CAN::Frame&) const
      *
-     * @return true if @ref libuavcan::transport::media::CAN::Frame::operator==(const
-     * libuavcan::transport::media::CAN::Frame&) const returns false.
+     * @return true if @ref libuavcan::media::CAN::Frame::operator==(const
+     * libuavcan::media::CAN::Frame&) const returns false.
      */
     bool operator!=(const Frame& rhs) const
     {
@@ -398,6 +436,24 @@ public:
     }
 
     /**
+     * Assignment operator. This will copy all the data from rhs into this
+     * instance.
+     *
+     * @param rhs   The frame to copy data from.
+     */
+    Frame& operator=(const Frame& rhs)
+    {
+        id        = rhs.id;
+        timestamp = rhs.timestamp;
+        dlc_      = rhs.dlc_;
+        if (nullptr != rhs.data)
+        {
+            std::copy(rhs.data, rhs.data + MTUBytesParam, data);
+        }
+        return *this;
+    }
+
+    /**
      * Simple comparison of CAN identifiers. Since it is illegal to populate a Frame with any
      * message type not supported by UAVCAN (e.g. error frames or frames with 11-bit identifiers)
      * this method does a trivial comparison between two can identifiers.
@@ -432,7 +488,6 @@ public:
 
 }  // end namespace CAN
 }  // end namespace media
-}  // end namespace transport
 }  // end namespace libuavcan
 
 #endif  // LIBUAVCAN_TRANSPORT_MEDIA_CAN_HPP_INCLUDED

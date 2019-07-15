@@ -34,7 +34,7 @@ endif()
 
 if(NOT LIBUAVCAN_TESTBUILD)
     message(STATUS "LIBUAVCAN_TESTBUILD was not defined. Setting to \"native\" as a default")
-    set(LIBUAVCAN_TESTBUILD ${CMAKE_CURRENT_BINARY_DIR}/../test/native/unit_tests.cmake)
+    set(LIBUAVCAN_TESTBUILD ${CMAKE_CURRENT_BINARY_DIR}/../test/native/tests.cmake)
 else()
     set(LIBUAVCAN_TESTBUILD ${CMAKE_CURRENT_BINARY_DIR}/${LIBUAVCAN_TESTBUILD})
 endif()

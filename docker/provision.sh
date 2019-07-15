@@ -39,8 +39,9 @@ apt-get -y install lcov
 apt-get -y install valgrind
 apt-get -y install clang-tidy
 apt-get -y install npm
+apt-get -y install graphviz
 
-pip install virtualenv
+pip3 install virtualenv
 
 # a well-known workaround for npm install on docker
 # what. a. fail.
