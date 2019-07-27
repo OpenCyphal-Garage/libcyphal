@@ -6,11 +6,9 @@
 #include "lvs/lvs.hpp"
 
 #include "libuavcan/libuavcan.hpp"
-#include "lvs/transport/media/can_frame.hpp"
+#include "lvs/media/can_frame.hpp"
 
 namespace lvs
-{
-namespace transport
 {
 namespace media
 {
@@ -39,5 +37,4 @@ INSTANTIATE_TYPED_TEST_SUITE_P(Generic, FrameTest, MyTypes, );
 
 }  // namespace CAN
 }  // namespace media
-}  // namespace transport
 }  // namespace lvs
