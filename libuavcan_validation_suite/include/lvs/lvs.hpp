@@ -36,4 +36,22 @@ void PrintObjectAsBytes(const ObjectType& object, std::ostream& out)
 }
 }  // namespace lvs
 
+#if LIBUAVCAN_ENABLE_EXCEPTIONS
+/**
+ * If exceptions are enabled then expands to gtest `ASSERT_THROW(statement, exception_type)`.
+ * If exceptions are not enabled then expands to gtest `ASSERT_EQ(statement, no_exception_value)`.
+ */
+#    define LVS_ASSERT_THROW_IF_EXCEPTIONS_OR_VALUE(statement, exception_type, no_exception_value) \
+        ASSERT_THROW(statement, exception_type)
+
+#else
+/**
+ * If exceptions are enabled then expands to gtest `ASSERT_THROW(statement, exception_type)`.
+ * If exceptions are not enabled then expands to gtest `ASSERT_EQ(statement, no_exception_value)`.
+ */
+#    define LVS_ASSERT_THROW_IF_EXCEPTIONS_OR_VALUE(statement, exception_type, no_exception_value) \
+        ASSERT_EQ((statement), no_exception_value)
+
+#endif
+
 #endif  // LIBUAVCAN_LVS_HPP_INCLUDED

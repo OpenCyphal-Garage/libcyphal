@@ -43,7 +43,7 @@
 #    if (__cplusplus >= 201800L)
 #        error Unknown C++ standard. You can explicitly define LIBUAVCAN_CPP_VERSION_NOCHECK to silence this error.
 #    elif (__cplusplus > 201100L)
-#        define LIBUAVCAN_CPP_VERSION_NOCHECK
+#        define LIBUAVCAN_CPP_VERSION_NOCHECK 1
 #    else
 #  error Unsupported C++ standard (C++11 or greater required). You can explicitly set LIBUAVCAN_CPP_VERSION_NOCHECK to silence this error.
 #    endif
@@ -64,6 +64,17 @@
  */
 #ifndef LIBUAVCAN_EXPORT
 #    define LIBUAVCAN_EXPORT
+#endif
+
+/**
+ * C++ feature test macros are newer then c++11 so we translate them into a "LIBUAVCAN"
+ * macro to allow us to manually enable exceptions if the compiler doesn't define the __cpp
+ * macro.
+ */
+#ifdef __cpp_exceptions
+#    ifndef LIBUAVCAN_ENABLE_EXCEPTIONS
+#        define LIBUAVCAN_ENABLE_EXCEPTIONS 1
+#    endif
 #endif
 
 /** @} */  // end of macros_platform

@@ -16,27 +16,25 @@ include(${CMAKE_SOURCE_DIR}/cmake/common.cmake)
 file(MAKE_DIRECTORY ${EXTERNAL_PROJECT_DIRECTORY})
 
 set(LIBUAVCAN_INCLUDE "${CMAKE_SOURCE_DIR}/libuavcan/include")
-set(LIBUAVCAN_INCLUDE_GENERATED "${CMAKE_CURRENT_BINARY_DIR}/dsdl")
 set(LIBUAVCAN_INCLUDE_LVS "${CMAKE_SOURCE_DIR}/libuavcan_validation_suite/include")
 
 include_directories(
     ${LIBUAVCAN_INCLUDE}
-    ${LIBUAVCAN_INCLUDE_GENERATED}
     ${LIBUAVCAN_INCLUDE_LVS}
 )
 
 if(NOT LIBUAVCAN_FLAG_SET)
     message(STATUS "LIBUAVCAN_FLAG_SET was not defined. Setting to \"native\" as a default")
-    set(LIBUAVCAN_FLAG_SET ${CMAKE_CURRENT_BINARY_DIR}/../cmake/compiler_flag_sets/native.cmake)
+    set(LIBUAVCAN_FLAG_SET ${CMAKE_BINARY_DIR}/../cmake/compiler_flag_sets/native.cmake)
 else()
-    set(LIBUAVCAN_FLAG_SET ${CMAKE_CURRENT_BINARY_DIR}/${LIBUAVCAN_FLAG_SET})
+    set(LIBUAVCAN_FLAG_SET ${CMAKE_BINARY_DIR}/${LIBUAVCAN_FLAG_SET})
 endif()
 
 if(NOT LIBUAVCAN_TESTBUILD)
     message(STATUS "LIBUAVCAN_TESTBUILD was not defined. Setting to \"native\" as a default")
-    set(LIBUAVCAN_TESTBUILD ${CMAKE_CURRENT_BINARY_DIR}/../test/native/tests.cmake)
+    set(LIBUAVCAN_TESTBUILD ${CMAKE_BINARY_DIR}/../test/native/tests.cmake)
 else()
-    set(LIBUAVCAN_TESTBUILD ${CMAKE_CURRENT_BINARY_DIR}/${LIBUAVCAN_TESTBUILD})
+    set(LIBUAVCAN_TESTBUILD ${CMAKE_BINARY_DIR}/${LIBUAVCAN_TESTBUILD})
 endif()
 
 # +---------------------------------------------------------------------------+
@@ -80,7 +78,7 @@ find_package(clangformat REQUIRED)
 find_package(nnvg REQUIRED)
 
 create_dsdl_target(dsdl-regulated
-                   ${EXTERNAL_PROJECT_DIRECTORY}/public-regulated-data-types-gen
+                   ${CMAKE_BINARY_DIR}/public-regulated-data-types-gen
                    ${CMAKE_SOURCE_DIR}/libuavcan/include/libuavcan/templates
                    ${EXTERNAL_PROJECT_DIRECTORY}/public-regulated-data-types-src/uavcan
                    ON)

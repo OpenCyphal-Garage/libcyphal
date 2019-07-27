@@ -36,7 +36,7 @@
 
 #include "gtest/gtest.h"
 
-#include "libuavcan/libuavcan.hpp"
+#include "lvs/lvs.hpp"
 #include "libuavcan/time.hpp"
 
 namespace lvs
@@ -247,7 +247,7 @@ TYPED_TEST_P(DurationTest, ArithmeticOperators)
     // +--[ -MAX ]------------------------------------------------------------+
     ASSERT_EQ(TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::min() + 1),
               -TypeParam::getMaximum());
-    
+
     ASSERT_EQ(TypeParam::fromMicrosecond(std::numeric_limits<typename TypeParam::MicrosecondType>::min() + 2),
               -(TypeParam::getMaximum() - TypeParam::fromMicrosecond(1)));
 
