@@ -8,6 +8,6 @@ var searchData=
   ['maxframesizebytes',['MaxFrameSizeBytes',['../can_8hpp.html#ac6adf09c161cafffe1f12a41f705f9ea',1,'libuavcan::media::CAN::TypeFD::MaxFrameSizeBytes()'],['../can_8hpp.html#a3a0f0b310bc66498fa921e22d50862c4',1,'libuavcan::media::CAN::Type2_0::MaxFrameSizeBytes()']]],
   ['media',['media',['../namespacemedia.html',1,'']]],
   ['microsecondtype',['MicrosecondType',['../classlibuavcan_1_1duration_1_1_base.html#af58fa6fa6bfcfd8f84347d6d4a2b607c',1,'libuavcan::duration::Base::MicrosecondType()'],['../classlibuavcan_1_1time_1_1_base.html#a073333f039f7cef6285fefef28165840',1,'libuavcan::time::Base::MicrosecondType()']]],
-  ['monotonic',['Monotonic',['../classlibuavcan_1_1duration_1_1_monotonic.html',1,'libuavcan::duration::Monotonic'],['../classlibuavcan_1_1time_1_1_monotonic.html',1,'libuavcan::time::Monotonic']]],
+  ['monotonic',['Monotonic',['../classlibuavcan_1_1time_1_1_monotonic.html',1,'libuavcan::time::Monotonic'],['../classlibuavcan_1_1duration_1_1_monotonic.html',1,'libuavcan::duration::Monotonic']]],
   ['mtubytes',['MTUBytes',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#a5d70a3d96531d233c507a74f0a60759d',1,'libuavcan::media::CAN::Frame']]]
 ];

@@ -8,7 +8,7 @@
         <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
         <meta name="generator" content="Doxygen 1.8.13"/>
         <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
-        <title>libuavcan: libuavcan_validation_suite/include/lvs/transport Directory Reference</title>
+        <title>libuavcan: lvs::media::CAN::FrameTest&lt; T &gt; Class Template Reference</title>
         <!--<link href="tabs.css" rel="stylesheet" type="text/css"/>-->
         <script type="text/javascript" src="dynsections.js"></script>
         <link href="search/search.css" rel="stylesheet" type="text/css"/>
@@ -29,7 +29,7 @@
             <div class="container">
                 <div class="navbar-header">
                     <a class="navbar-brand" href="https://uavcan.org"><img src="uavcan_logo.svg" style="float:left;height:1.5em;padding:0em .5em .25em 0em;"/> libuavcan</a>
-                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/170" style="font-size: .75em; color: coral">build:170</a></em>
+                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/172" style="font-size: .75em; color: coral">build:172</a></em>
                 </div>
             </div>
         </nav>
@@ -69,30 +69,38 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_9d0db4258f0ac4a4cc3c1cf777d21de4.html">libuavcan_validation_suite</a></li><li class="navelem"><a class="el" href="dir_fa4bc144fd19bb8820e6cf9eaa0b4d9d.html">include</a></li><li class="navelem"><a class="el" href="dir_07f6449ad321e470123d12052a3bd2be.html">lvs</a></li><li class="navelem"><a class="el" href="dir_d800d0d1b1112a5a16632b7f7c02901f.html">transport</a></li>  </ul>
+<li class="navelem"><a class="el" href="namespacelvs.html">lvs</a></li><li class="navelem"><b>media</b></li><li class="navelem"><b>CAN</b></li><li class="navelem"><a class="el" href="classlvs_1_1media_1_1_c_a_n_1_1_frame_test.html">FrameTest</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
   <div class="headertitle">
-<div class="title">transport Directory Reference</div>  </div>
+<div class="title">lvs::media::CAN::FrameTest&lt; T &gt; Class Template Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
+
+<p><code>#include &quot;<a class="el" href="can__frame_8hpp_source.html">/repo/libuavcan_validation_suite/include/lvs/media/can_frame.hpp</a>&quot;</code></p>
 <div class="dynheader">
-Directory dependency graph for transport:</div>
+Collaboration diagram for lvs::media::CAN::FrameTest&lt; T &gt;:</div>
 <div class="dyncontent">
-<div class="center"><img src="dir_d800d0d1b1112a5a16632b7f7c02901f_dep.png" border="0" usemap="#dir__d800d0d1b1112a5a16632b7f7c02901f__dep" alt="libuavcan_validation_suite/include/lvs/transport"/></div>
-<map name="dir__d800d0d1b1112a5a16632b7f7c02901f__dep" id="dir__d800d0d1b1112a5a16632b7f7c02901f__dep">
-<area shape="rect" id="node2" href="dir_4bbbf097903e8fce7244be70dfbc7ab6.html" title="media" alt="" coords="37,63,109,111"/>
-<area shape="rect" id="node3" href="dir_98c44b89a12d002f39c5108647d06f40.html" title="libuavcan" alt="" coords="31,159,116,207"/>
-<area shape="rect" id="edge1-headlabel" href="dir_000009_000000.html" title="3" alt="" coords="77,133,86,147"/>
-<area shape="rect" id="clust2" href="dir_d800d0d1b1112a5a16632b7f7c02901f.html" alt="" coords="27,52,227,121"/>
-<area shape="rect" id="clust1" href="dir_07f6449ad321e470123d12052a3bd2be.html" title="lvs" alt="" coords="16,16,237,132"/>
+<div class="center"><img src="classlvs_1_1media_1_1_c_a_n_1_1_frame_test__coll__graph.png" border="0" usemap="#lvs_1_1media_1_1_c_a_n_1_1_frame_test_3_01_t_01_4_coll__map" alt="Collaboration graph"/></div>
+<map name="lvs_1_1media_1_1_c_a_n_1_1_frame_test_3_01_t_01_4_coll__map" id="lvs_1_1media_1_1_c_a_n_1_1_frame_test_3_01_t_01_4_coll__map">
 </map>
 </div>
-<table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="subdirs"></a>
-Directories</h2></td></tr>
-</table>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><h3>template&lt;typename T&gt;<br />
+class lvs::media::CAN::FrameTest&lt; T &gt;</h3>
+
+<p>Test fixture for testing realizations of the <a class="el" href="structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html">libuavcan::media::CAN::Frame</a> template. See <a href="https://github.com/google/googletest/blob/master/googletest/docs/advanced.md">https://github.com/google/googletest/blob/master/googletest/docs/advanced.md</a> for more information about typed gtests.</p>
+<p>See <a class="el" href="can__frame_8hpp.html">can_frame.hpp</a> for full test documentation and examples.</p>
+<dl class="tparams"><dt>Template Parameters</dt><dd>
+  <table class="tparams">
+    <tr><td class="paramname">T</td><td>The type for a given test realization. Available as TypeParam from within a test case. </td></tr>
+  </table>
+  </dd>
+</dl>
+</div><hr/>The documentation for this class was generated from the following file:<ul>
+<li>libuavcan_validation_suite/include/lvs/media/<a class="el" href="can__frame_8hpp_source.html">can_frame.hpp</a></li>
+</ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.8-->
 <!-- start footer part -->

@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['clocktest',['ClockTest',['../classlvs_1_1transport_1_1media_1_1_clock_test.html',1,'lvs::transport::media']]]
+  ['durationortimetest',['DurationOrTimeTest',['../classlvs_1_1_duration_or_time_test.html',1,'lvs']]],
+  ['durationtest',['DurationTest',['../classlvs_1_1_duration_test.html',1,'lvs']]]
 ];
