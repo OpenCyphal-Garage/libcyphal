@@ -16,8 +16,6 @@
  *
  * namespace lvs
  * {
- * namespace transport
- * {
  * namespace media
  * {
  * namespace CAN
@@ -44,8 +42,6 @@
 #include "libuavcan/media/can.hpp"
 
 namespace lvs
-{
-namespace transport
 {
 namespace media
 {
@@ -301,7 +297,6 @@ REGISTER_TYPED_TEST_SUITE_P(FrameTest,  //
 
 }  // namespace CAN
 }  // namespace media
-}  // namespace transport
 }  // end namespace lvs
 
 #endif  // LIBUAVCAN_LVS_TRANSPORT_MEDIA_CAN_FRAME_HPP_INCLUDED
