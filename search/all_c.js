@@ -1,7 +1,12 @@
 var searchData=
 [
-  ['read',['read',['../classlibuavcan_1_1media_1_1_interface_group.html#a8083e54bb47f0690016e4f3a747a93fb',1,'libuavcan::media::InterfaceGroup::read()'],['../classlibuavcan_1_1example_1_1_socket_c_a_n_interface.html#ab26dda72714b7bbfb17daa26a6c072fe',1,'libuavcan::example::SocketCANInterface::read()']]],
-  ['reconfigurefilters',['reconfigureFilters',['../classlibuavcan_1_1media_1_1_interface_group.html#a45e1757e56de6e4ca38e148e734b899e',1,'libuavcan::media::InterfaceGroup']]],
-  ['result',['Result',['../namespacelibuavcan.html#acec218dc94b3c1d8e218122515f49bbd',1,'libuavcan']]],
-  ['rxframeslen',['RxFramesLen',['../classlibuavcan_1_1media_1_1_interface_group.html#a723a5d82a186e0276c4b28fce074182d',1,'libuavcan::media::InterfaceGroup']]]
+  ['platform_20integration_20macros_2e',['Platform integration macros.',['../group__macros__platform.html',1,'']]],
+  ['payloadlengthtoframelength',['PayloadLengthToFrameLength',['../can_8hpp.html#ae81075d96a450f21a1b53d286217af3e',1,'libuavcan::media::CAN::TypeFD::PayloadLengthToFrameLength()'],['../can_8hpp.html#a0c9ea624a89a4a4036b9e3e130d7582a',1,'libuavcan::media::CAN::Type2_0::PayloadLengthToFrameLength()']]],
+  ['poolallocator',['PoolAllocator',['../classlibuavcan_1_1platform_1_1memory_1_1_pool_allocator.html',1,'libuavcan::platform::memory']]],
+  ['poolallocatortest',['PoolAllocatorTest',['../classlvs_1_1platform_1_1memory_1_1_pool_allocator_test.html',1,'lvs::platform::memory']]],
+  ['poolallocatorunorderedmaptest',['PoolAllocatorUnorderedMapTest',['../classlvs_1_1platform_1_1memory_1_1_pool_allocator_unordered_map_test.html',1,'lvs::platform::memory']]],
+  ['poolallocatorvectortest',['PoolAllocatorVectorTest',['../classlvs_1_1platform_1_1memory_1_1_pool_allocator_vector_test.html',1,'lvs::platform::memory']]],
+  ['printobjectasbytes',['PrintObjectAsBytes',['../namespacelvs.html#afa483752712989fadcf0559559426ad5',1,'lvs']]],
+  ['priorityhigherthan',['priorityHigherThan',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#a7f1ae0b9d24e022c4d942f874f92cbc7',1,'libuavcan::media::CAN::Frame']]],
+  ['prioritylowerthan',['priorityLowerThan',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#a2fa7dcd1768a8494c085f70009c234f4',1,'libuavcan::media::CAN::Frame']]]
 ];

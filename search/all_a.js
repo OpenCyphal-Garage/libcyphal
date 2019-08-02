@@ -1,10 +1,6 @@
 var searchData=
 [
-  ['operator_21',['operator!',['../namespacelibuavcan.html#ad3a35be7eefd543600cd6fff94151dec',1,'libuavcan']]],
-  ['operator_21_3d',['operator!=',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#a695aff92f84e1e513deae2d7c0d6cfb2',1,'libuavcan::media::CAN::Frame']]],
-  ['operator_3c',['operator&lt;',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#a53a9aa982a961cea7e930d74f8a69a85',1,'libuavcan::media::CAN::Frame']]],
-  ['operator_3d',['operator=',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#aabce585db499eb1d688e3052b86b5530',1,'libuavcan::media::CAN::Frame']]],
-  ['operator_3d_3d',['operator==',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#a923a7e4e9cc03d737dd71258928e6cfb',1,'libuavcan::media::CAN::Frame']]],
-  ['operator_3e',['operator&gt;',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#af9d956ffede16256c9f584f46f137bce',1,'libuavcan::media::CAN::Frame']]],
-  ['outofmemory',['OutOfMemory',['../namespacelibuavcan.html#acec218dc94b3c1d8e218122515f49bbdab498327feeb51430af73e07deac268fd',1,'libuavcan']]]
+  ['notfound',['NotFound',['../namespacelibuavcan.html#acec218dc94b3c1d8e218122515f49bbda38c300f4fc9ce8a77aad4a30de05cad8',1,'libuavcan']]],
+  ['notimplemented',['NotImplemented',['../namespacelibuavcan.html#acec218dc94b3c1d8e218122515f49bbda997ca4ce119685f40f03a9a8a6c5346e',1,'libuavcan']]],
+  ['numblocks',['NumBlocks',['../classlibuavcan_1_1platform_1_1memory_1_1_pool_allocator.html#a4c74e1933a03692f5454302d5b50521e',1,'libuavcan::platform::memory::PoolAllocator']]]
 ];

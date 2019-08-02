@@ -1,5 +1,9 @@
 var searchData=
 [
-  ['read',['read',['../classlibuavcan_1_1media_1_1_interface_group.html#a8083e54bb47f0690016e4f3a747a93fb',1,'libuavcan::media::InterfaceGroup::read()'],['../classlibuavcan_1_1example_1_1_socket_c_a_n_interface.html#ab26dda72714b7bbfb17daa26a6c072fe',1,'libuavcan::example::SocketCANInterface::read()']]],
-  ['reconfigurefilters',['reconfigureFilters',['../classlibuavcan_1_1media_1_1_interface_group.html#a45e1757e56de6e4ca38e148e734b899e',1,'libuavcan::media::InterfaceGroup']]]
+  ['operator_21',['operator!',['../namespacelibuavcan.html#ad3a35be7eefd543600cd6fff94151dec',1,'libuavcan']]],
+  ['operator_21_3d',['operator!=',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#a695aff92f84e1e513deae2d7c0d6cfb2',1,'libuavcan::media::CAN::Frame']]],
+  ['operator_3c',['operator&lt;',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#a53a9aa982a961cea7e930d74f8a69a85',1,'libuavcan::media::CAN::Frame']]],
+  ['operator_3d',['operator=',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#aabce585db499eb1d688e3052b86b5530',1,'libuavcan::media::CAN::Frame']]],
+  ['operator_3d_3d',['operator==',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#a923a7e4e9cc03d737dd71258928e6cfb',1,'libuavcan::media::CAN::Frame']]],
+  ['operator_3e',['operator&gt;',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#af9d956ffede16256c9f584f46f137bce',1,'libuavcan::media::CAN::Frame']]]
 ];

@@ -1,5 +1,7 @@
 var searchData=
 [
-  ['socketcaninterface',['SocketCANInterface',['../classlibuavcan_1_1example_1_1_socket_c_a_n_interface.html',1,'libuavcan::example']]],
-  ['socketcaninterfacemanager',['SocketCANInterfaceManager',['../classlibuavcan_1_1example_1_1_socket_c_a_n_interface_manager.html',1,'libuavcan::example']]]
+  ['poolallocator',['PoolAllocator',['../classlibuavcan_1_1platform_1_1memory_1_1_pool_allocator.html',1,'libuavcan::platform::memory']]],
+  ['poolallocatortest',['PoolAllocatorTest',['../classlvs_1_1platform_1_1memory_1_1_pool_allocator_test.html',1,'lvs::platform::memory']]],
+  ['poolallocatorunorderedmaptest',['PoolAllocatorUnorderedMapTest',['../classlvs_1_1platform_1_1memory_1_1_pool_allocator_unordered_map_test.html',1,'lvs::platform::memory']]],
+  ['poolallocatorvectortest',['PoolAllocatorVectorTest',['../classlvs_1_1platform_1_1memory_1_1_pool_allocator_vector_test.html',1,'lvs::platform::memory']]]
 ];

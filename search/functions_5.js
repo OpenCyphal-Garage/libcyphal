@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['lengthtodlc',['lengthToDlc',['../structlibuavcan_1_1media_1_1_c_a_n_1_1_frame.html#a719c9c9fbb3c473108cfc7fa12c6c856',1,'libuavcan::media::CAN::Frame']]]
+  ['isfailure',['isFailure',['../namespacelibuavcan.html#a8f59ec8cac7f65118195809019e06eb6',1,'libuavcan']]],
+  ['issuccess',['isSuccess',['../namespacelibuavcan.html#afc8428232b2d620bd43350e1024c6849',1,'libuavcan']]]
 ];
