@@ -15,6 +15,7 @@
 #include <cinttypes>
 #include <limits>
 #include <type_traits>
+#include <cstddef>
 
 /**
  * @namespace libuavcan

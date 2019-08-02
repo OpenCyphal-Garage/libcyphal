@@ -19,7 +19,9 @@
                 "/Library/Frameworks"
             ],
             "compileCommands": "${workspaceFolder}/.vscode/compile_commands.json",
-            "configurationProvider": "vector-of-bool.cmake-tools"
+            "configurationProvider": "vector-of-bool.cmake-tools",
+            "cStandard": "c11",
+            "cppStandard": "c++11"
         },
         {
             "name": "Linux",

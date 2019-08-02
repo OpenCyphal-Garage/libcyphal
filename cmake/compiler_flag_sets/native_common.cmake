@@ -42,7 +42,6 @@ list(APPEND CXX_FLAG_SET
                 "-std=c++11"
                 "-fno-rtti"
                 "-fno-exceptions"
-                "-fno-threadsafe-statics"
 )
 
 #

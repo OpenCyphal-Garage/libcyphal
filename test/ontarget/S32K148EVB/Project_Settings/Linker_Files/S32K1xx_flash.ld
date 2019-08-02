@@ -208,13 +208,6 @@ SECTIONS
 
   __CODE_END = __CODE_ROM + (__code_end__ - __code_start__);
 
-  /* Custom Section Block that can be used to place data at absolute address. */
-  /* Use __attribute__((section (".customSection"))) to place data here. */
-  .customSectionBlock  ORIGIN(m_data_2) :
-  {
-    KEEP(*(.customSection))  /* Keep section even if not referenced. */
-  } > m_data_2
-
   /* Uninitialized data section. */
   .bss :
   {
@@ -228,6 +221,13 @@ SECTIONS
     . = ALIGN(4);
     __bss_end__ = .;
     __BSS_END = .;
+  } > m_data
+
+  /* Custom Section Block that can be used to place data at absolute address. */
+  /* Use __attribute__((section (".customSection"))) to place data here. */
+  .customSectionBlock  ORIGIN(m_data_2) :
+  {
+    KEEP(*(.customSection))  /* Keep section even if not referenced. */
   } > m_data_2
 
   .heap :

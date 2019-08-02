@@ -38,7 +38,7 @@
 
 #include "gtest/gtest.h"
 
-#include "libuavcan/libuavcan.hpp"
+#include "lvs/lvs.hpp"
 #include "libuavcan/media/can.hpp"
 
 namespace lvs

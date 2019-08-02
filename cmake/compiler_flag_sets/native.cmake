@@ -18,3 +18,7 @@ list(APPEND C_FLAG_SET
 
 list(APPEND CXX_FLAG_SET ${C_FLAG_SET})
 list(APPEND ASM_FLAG_SET ${C_FLAG_SET})
+
+list(APPEND CXX_FLAG_SET
+                "-fno-exceptions"
+)
