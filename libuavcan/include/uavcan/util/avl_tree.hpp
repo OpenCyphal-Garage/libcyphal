@@ -159,7 +159,7 @@ private:
     static void appendToEndOf(Node* head, Node* newNode) {
         Node* target = head;
         while(target->equal_keys != UAVCAN_NULLPTR) {
-            target = head->equal_keys;
+            target = target->equal_keys;
         }
 
         target->equal_keys = newNode;
