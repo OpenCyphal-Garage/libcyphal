@@ -135,6 +135,36 @@ TEST(AvlTree, Sanity) {
     EXPECT_EQ(6, pool.getNumUsedBlocks());
 }
 
+/**
+ * Reproduce then verify the fix for Issue #254.
+ */
+TEST(AvlTree, Issue254)
+{
+    constexpr std::size_t block_size = 64;
+    constexpr std::size_t block_count = 24;
+    uavcan::PoolAllocator<block_size * block_count, block_size> pool;
+
+    AvlTree<Entry> tree(pool, 99999);
+
+    Entry* e1_0 = makeEntry(&pool, 1, 1);
+    Entry* e1_1 = makeEntry(&pool, 1, 1);
+    Entry* e1_2 = makeEntry(&pool, 1, 1);
+    Entry* e1_3 = makeEntry(&pool, 1, 1);
+
+    tree.insert(e1_0);
+    tree.insert(e1_1);
+    tree.insert(e1_2);
+    tree.insert(e1_3);
+
+    EXPECT_TRUE(tree.contains(e1_0));
+    EXPECT_TRUE(tree.contains(e1_1));
+    EXPECT_TRUE(tree.contains(e1_2));
+    EXPECT_TRUE(tree.contains(e1_3));
+    EXPECT_EQ(e1_0, tree.max());
+    EXPECT_EQ(4, tree.getSize());
+    EXPECT_EQ(8, pool.getNumUsedBlocks());
+}
+
 /* Test multiple entries with same 'key' */
 TEST(AvlTree, MultipleEntriesPerKey) {
     uavcan::PoolAllocator<64 * 24, 64> pool; // 4 (x2) entries capacity
