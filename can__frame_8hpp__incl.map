@@ -1,9 +1,9 @@
 <map id="libuavcan_validation_suite/include/lvs/media/can_frame.hpp" name="libuavcan_validation_suite/include/lvs/media/can_frame.hpp">
-<area shape="rect" id="node3" href="$lvs_8hpp.html" title="lvs/lvs.hpp" alt="" coords="126,109,218,136"/>
-<area shape="rect" id="node12" href="$can_8hpp.html" title="libuavcan/media/can.hpp" alt="" coords="573,109,758,136"/>
-<area shape="rect" id="node4" href="$libuavcan_8hpp.html" title="libuavcan/libuavcan.hpp" alt="" coords="437,408,617,435"/>
-<area shape="rect" id="node5" href="$build__config_8hpp.html" title="libuavcan/build_config.hpp" alt="" coords="129,483,324,509"/>
-<area shape="rect" id="node14" href="$introspection_8hpp.html" title="libuavcan/introspection.hpp" alt="" coords="564,333,767,360"/>
-<area shape="rect" id="node15" href="$include_2libuavcan_2time_8hpp.html" title="libuavcan/time.hpp" alt="" coords="419,184,565,211"/>
-<area shape="rect" id="node16" href="$math_8hpp.html" title="libuavcan/util/math.hpp" alt="" coords="404,259,580,285"/>
+<area shape="rect" id="node3" href="$lvs_8hpp.html" title="lvs/lvs.hpp" alt="" coords="189,109,281,136"/>
+<area shape="rect" id="node13" href="$can_8hpp.html" title="libuavcan/media/can.hpp" alt="" coords="426,109,611,136"/>
+<area shape="rect" id="node5" href="$libuavcan_8hpp.html" title="libuavcan/libuavcan.hpp" alt="" coords="498,408,678,435"/>
+<area shape="rect" id="node6" href="$build__config_8hpp.html" title="libuavcan/build_config.hpp" alt="" coords="191,483,385,509"/>
+<area shape="rect" id="node15" href="$introspection_8hpp.html" title="libuavcan/introspection.hpp" alt="" coords="487,333,689,360"/>
+<area shape="rect" id="node16" href="$include_2libuavcan_2time_8hpp.html" title="libuavcan/time.hpp" alt="" coords="688,184,835,211"/>
+<area shape="rect" id="node17" href="$math_8hpp.html" title="libuavcan/util/math.hpp" alt="" coords="673,259,849,285"/>
 </map>

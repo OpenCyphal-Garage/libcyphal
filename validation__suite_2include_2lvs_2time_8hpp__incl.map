@@ -1,8 +1,8 @@
 <map id="libuavcan_validation_suite/include/lvs/time.hpp" name="libuavcan_validation_suite/include/lvs/time.hpp">
-<area shape="rect" id="node3" href="$lvs_8hpp.html" title="lvs/lvs.hpp" alt="" coords="179,95,271,121"/>
-<area shape="rect" id="node12" href="$include_2libuavcan_2time_8hpp.html" title="libuavcan/time.hpp" alt="" coords="304,95,451,121"/>
-<area shape="rect" id="node4" href="$libuavcan_8hpp.html" title="libuavcan/libuavcan.hpp" alt="" coords="313,319,493,345"/>
-<area shape="rect" id="node5" href="$build__config_8hpp.html" title="libuavcan/build_config.hpp" alt="" coords="5,393,200,420"/>
-<area shape="rect" id="node13" href="$math_8hpp.html" title="libuavcan/util/math.hpp" alt="" coords="415,169,591,196"/>
-<area shape="rect" id="node16" href="$introspection_8hpp.html" title="libuavcan/introspection.hpp" alt="" coords="643,244,845,271"/>
+<area shape="rect" id="node3" href="$lvs_8hpp.html" title="lvs/lvs.hpp" alt="" coords="202,95,294,121"/>
+<area shape="rect" id="node13" href="$include_2libuavcan_2time_8hpp.html" title="libuavcan/time.hpp" alt="" coords="377,95,524,121"/>
+<area shape="rect" id="node5" href="$libuavcan_8hpp.html" title="libuavcan/libuavcan.hpp" alt="" coords="386,319,566,345"/>
+<area shape="rect" id="node6" href="$build__config_8hpp.html" title="libuavcan/build_config.hpp" alt="" coords="79,393,273,420"/>
+<area shape="rect" id="node14" href="$math_8hpp.html" title="libuavcan/util/math.hpp" alt="" coords="488,169,664,196"/>
+<area shape="rect" id="node17" href="$introspection_8hpp.html" title="libuavcan/introspection.hpp" alt="" coords="716,244,919,271"/>
 </map>
