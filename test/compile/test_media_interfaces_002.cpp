@@ -6,7 +6,7 @@
 #include "libuavcan/media/can.hpp"
 
 class Dummy : public libuavcan::media::
-                  Interface<libuavcan::media::CAN::Frame<libuavcan::media::CAN::TypeFD::MaxFrameSizeBytes>, 0, 4>
+                  InterfaceGroup<libuavcan::media::CAN::Frame<libuavcan::media::CAN::TypeFD::MaxFrameSizeBytes>, 0, 4>
 {
 public:
     virtual std::uint_fast8_t getInterfaceCount() const override

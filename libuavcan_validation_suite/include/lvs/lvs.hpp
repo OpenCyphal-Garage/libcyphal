@@ -8,6 +8,7 @@
 #define LIBUAVCAN_LVS_HPP_INCLUDED
 
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
 #include "libuavcan/libuavcan.hpp"
 
 #include <ostream>

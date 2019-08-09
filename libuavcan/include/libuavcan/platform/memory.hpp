@@ -304,6 +304,100 @@ public:
     }
 };
 
+/**
+ * Copy bits from a byte array using arbitrary alignment to an aligned byte array.
+ *
+ * @param  src              The byte array to copy from.
+ * @param  src_offset_bits  The offset, in bits, from the start of the src array to
+ *                          start copying from.
+ * @param  dst              The byte array to copy data into.
+ * @param  length_bits      The total length of bits to copy. The caller must ensure
+ *                          that the size of src and dst are >= this value.
+ *
+ * @return The number of bits copied.
+ */
+inline std::size_t copyBitsUnalignedToAligned(const std::uint8_t* const src,
+                                              const std::size_t         src_offset_bits,
+                                              std::uint8_t* const       dst,
+                                              const std::size_t         length_bits)
+{
+    if (nullptr == src || nullptr == dst || length_bits == 0)
+    {
+        return 0;
+    }
+    std::size_t       bits_copied  = 0;
+    std::size_t       offset_bits  = src_offset_bits;
+    const std::size_t local_offset = src_offset_bits % 8U;
+    do
+    {
+        std::size_t       current_byte       = offset_bits / 8U;
+        const std::size_t bits_from_src_byte = 8U - local_offset;
+        bits_copied += std::min(length_bits, bits_from_src_byte);
+        dst[current_byte] &= static_cast<std::uint8_t>(0xFF << bits_from_src_byte);
+        dst[current_byte] |= static_cast<std::uint8_t>(src[current_byte] >> local_offset);
+        offset_bits += 8U;
+        if (offset_bits < length_bits)
+        {
+            current_byte      = offset_bits / 8U;
+            dst[current_byte] = static_cast<std::uint8_t>(src[current_byte] << bits_from_src_byte);
+            bits_copied += local_offset;
+        }
+        else
+        {
+            // we don't need to reevaluate the while condition.
+            break;
+        }
+    } while (true);
+    return bits_copied;
+}
+
+/**
+ * Copy aligned bits from a byte array to another byte array using arbitrary alignment.
+ *
+ * @param  src              The byte array to copy from.
+ * @param  dst              The byte array to copy data into.
+ * @param  dst_offset_bits  The offset, in bits, from the start of the dst array to
+ *                          start writing to.
+ * @param  length_bits      The total length of bits to copy. The caller must ensure
+ *                          that the size of src and dst are >= this value.
+ *
+ * @return The number of bits copied.
+ */
+inline std::size_t copyBitsAlignedToUnaligned(const std::uint8_t* const src,
+                                              std::uint8_t* const       dst,
+                                              const std::size_t         dst_offset_bits,
+                                              const std::size_t         length_bits)
+{
+    if (nullptr == src || nullptr == dst || length_bits == 0)
+    {
+        return 0;
+    }
+    std::size_t       bits_copied  = 0;
+    std::size_t       offset_bits  = dst_offset_bits;
+    const std::size_t local_offset = dst_offset_bits % 8U;
+    do
+    {
+        std::size_t       current_byte       = offset_bits / 8U;
+        const std::size_t bits_from_src_byte = 8U - local_offset;
+        dst[current_byte] &= static_cast<std::uint8_t>(0xFF >> bits_from_src_byte);
+        dst[current_byte] |= static_cast<std::uint8_t>(src[current_byte] << local_offset);
+        offset_bits += 8U;
+        bits_copied += std::min(length_bits, bits_from_src_byte);
+        if (offset_bits < length_bits)
+        {
+            dst[current_byte] |= static_cast<std::uint8_t>(src[offset_bits / 8U] >> bits_from_src_byte);
+            bits_copied += local_offset;
+        }
+        else
+        {
+            // we don't need to reevaluate the while condition.
+            break;
+        }
+    } while (true);
+
+    return bits_copied;
+}
+
 }  // namespace memory
 }  // namespace platform
 }  // namespace libuavcan
