@@ -42,6 +42,7 @@ apt-get -y install npm
 apt-get -y install graphviz
 
 pip3 install virtualenv
+pip3 install tox
 
 # a well-known workaround for npm install on docker
 # what. a. fail.
