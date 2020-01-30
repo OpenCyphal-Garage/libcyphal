@@ -69,6 +69,9 @@ public:
         : TimerBase(node)
         , dnida_pub_(node)
         , dnida_sub_(node)
+#if UAVCAN_CPP_VERSION >= UAVCAN_CPP11
+        , unique_id_{0}
+#endif
         , size_of_received_unique_id_(0)
     { }
 
