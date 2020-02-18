@@ -2,11 +2,11 @@ steps:
   - label: ':hammer: native build and :mag: test using gcc'
     id: native-gcc-build-and-test
     command: "./ci/native-gcc-build-and-test.sh"
-    artifact_paths: 
+    artifact_paths:
       - "build_native_gcc/docs/html.gz"
       - "build_native_gcc/tests/coverage.info"
     plugins:
-      - docker#v3.1.0:
+      - docker#v3.5.0:
           workdir: /repo
           image: "uavcan/libuavcan:1.0"
           propagate-environment: true
@@ -19,7 +19,7 @@ steps:
     id: native-clang-build
     command: "./ci/native-clang-build-and-test.sh"
     plugins:
-      - docker#v3.1.0:
+      - docker#v3.5.0:
           workdir: /repo
           image: "uavcan/libuavcan:1.0"
           propagate-environment: true
@@ -31,14 +31,14 @@ steps:
   - label: ':hammer: s32k build'
     id: ontarget-s32k-build
     command: "./ci/ontarget-s32k-build.sh"
-    artifact_paths: 
+    artifact_paths:
       - "build_ontarget_s32k/**/*.log"
       - "build_ontarget_s32k/**/*.elf"
       - "build_ontarget_s32k/**/*.hex"
       - "build_ontarget_s32k/**/*.bin"
       - "build_ontarget_s32k/**/*.jlink"
     plugins:
-      - docker#v3.1.0:
+      - docker#v3.5.0:
           workdir: /repo
           image: "uavcan/libuavcan:1.0"
           propagate-environment: true
@@ -57,7 +57,7 @@ steps:
   - label: ":github: post-build doc publishing"
     command: "./ci/postbuild-upload-docs.sh"
     plugins:
-      - docker#v3.1.0:
+      - docker#v3.5.0:
           workdir: /repo
           image: "uavcan/libuavcan:1.0"
           propagate-environment: true
@@ -72,7 +72,7 @@ steps:
   - label: ":coverage: post-build coverage report"
     command: "./ci/postbuild-upload-coverage.sh"
     plugins:
-      - docker#v3.1.0:
+      - docker#v3.5.0:
           workdir: /repo
           image: "uavcan/libuavcan:1.0"
           propagate-environment: true
