@@ -42,7 +42,7 @@ cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/gcc-arm-none-eabi.cmake \
       -DLIBUAVCAN_SKIP_DOCS=ON \
       ..
 
-make -j4
+make
 
 # We use ctest to run our compile tests.
 ctest -VV

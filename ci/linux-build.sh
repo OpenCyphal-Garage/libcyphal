@@ -33,11 +33,11 @@ set -o pipefail
 mkdir -p build_linux
 pushd build_linux
 # We ensure we can build using clang but we rely on GCC for testing
-# since clang's coverage metrics have been broken for the last 
+# since clang's coverage metrics have been broken for the last
 # several years.
 cmake -DLIBUAVCAN_TESTBUILD=../test/linux/tests.cmake \
       ..
 
-make -j4
+make
 
 popd

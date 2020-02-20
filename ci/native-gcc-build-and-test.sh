@@ -38,7 +38,7 @@ cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/gcc-native.cmake \
       -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/native_unittest.cmake \
       ..
 
-make -j4
+make
 
 # We use ctest to run our compile tests.
 ctest -VV
