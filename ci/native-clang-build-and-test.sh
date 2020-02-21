@@ -39,7 +39,7 @@ cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/clang-native.cmake \
       -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/native.cmake \
       ..
 
-make -j4
+make
 
 # We use ctest to run our compile tests.
 ctest -VV

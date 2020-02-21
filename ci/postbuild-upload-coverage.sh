@@ -34,8 +34,6 @@ pushd build_native_gcc
 
 buildkite-agent artifact download "build_native_gcc/tests/coverage.info" .
 
-# Our custom lcov tracefile and coveralls.io upload script.
-# This is only available in our docker container.
-info_to_coveralls --root ../ tests/coverage.info
+# TODO: enable sonarqube upload of linting and coverage.
 
 popd
