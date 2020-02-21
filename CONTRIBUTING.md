@@ -101,7 +101,7 @@ The documentation should provide advices about how to integrate the library in a
 
 ### Endianess
 
-UAVCAN is little-endian on the wire. Because of this big-endian platforms may use more CPU then the same code on a little-endian platform.
+UAVCAN is little-endian on the wire. Because of this big-endian platforms may use more CPU than the same code on a little-endian platform.
 
 ### Code generation
 
