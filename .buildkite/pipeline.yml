@@ -8,7 +8,7 @@ steps:
     plugins:
       - docker#v3.5.0:
           workdir: /repo
-          image: "uavcan/libuavcan:1.0"
+          image: "uavcan/c_cpp:ubuntu-18.04"
           propagate-environment: true
     env:
       VERBOSE: 1
@@ -21,7 +21,7 @@ steps:
     plugins:
       - docker#v3.5.0:
           workdir: /repo
-          image: "uavcan/libuavcan:1.0"
+          image: "uavcan/c_cpp:ubuntu-18.04"
           propagate-environment: true
     env:
       VERBOSE: 1
@@ -40,7 +40,7 @@ steps:
     plugins:
       - docker#v3.5.0:
           workdir: /repo
-          image: "uavcan/libuavcan:1.0"
+          image: "uavcan/c_cpp:ubuntu-18.04"
           propagate-environment: true
     env:
       VERBOSE: 1
@@ -59,7 +59,7 @@ steps:
     plugins:
       - docker#v3.5.0:
           workdir: /repo
-          image: "uavcan/libuavcan:1.0"
+          image: "uavcan/c_cpp:ubuntu-18.04"
           propagate-environment: true
           mount-ssh-agent: true
     agents:
@@ -74,10 +74,12 @@ steps:
     plugins:
       - docker#v3.5.0:
           workdir: /repo
-          image: "uavcan/libuavcan:1.0"
+          image: "uavcan/c_cpp:ubuntu-18.04"
           propagate-environment: true
           environment:
-            - "COVERALLS_TOKEN"
+            - "SONARQUBE_TOKEN"
+            - "BUILDKITE"
+            - "BUILDKITE_BUILD_NUMBER"
     agents:
       queue: 'default'
     timeout_in_minutes: 15
