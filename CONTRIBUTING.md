@@ -23,7 +23,7 @@ Libuavcan's design goals should be mutually compatible. There is no expectation 
 
 * **Full-Featured**
 
-    This library provides a complete implementation of the specification including the application-level functions defined in section 5.1 of the specification.
+    This library provides a complete implementation of the specification including some of the application-level functions defined in section 5.3 of the specification.
 
 * **Header-only, no dependencies, idiomatic**
 
