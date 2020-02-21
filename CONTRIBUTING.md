@@ -6,6 +6,7 @@ v1.0 is a complete rewrite of libuavcan with the following, fundamental changes 
 1. libuavcan v1 requires C++11 or greater.
 1. libuavcan v1 favors idiomatic C++ over defining its own utilities and helpers.
 1. libuavcan v1 is a header-only library.
+1. libuavcan v1 holds itself to a higher quality standard and is designed for integration into high-integrity, embedded applications.
 
 ## About the Blue Sky effort
 
@@ -13,9 +14,13 @@ You should never rewrite a codebase from scratch. It's a terrible idea. We're re
 
 Sorry.
 
-The reason we opted for a complete rewrite is that so much is changing. Between the updates to the specification, the abandonment of C++98 support, switching to header-only, removing the drivers from the main repository, adding CAN FD support, etc, etc, etc; it was obvious that we'd be rewriting everything anyway. The good news is that v0 exists, is fully supported, and will be liberally copy-and-pasted from as this makes sense for v1. What we don't have is any git history tracing from v1 since this would be deceiving. Futhermore, the unit tests in uavcan v0 are a bit of a mess so we'll be writing them in a way that is more sustainable.
+The reason we opted for a complete rewrite is that so much is changing. Between the updates to the specification, the abandonment of C++98 support, switching to header-only, removing the drivers from the main repository, adding CAN FD support, etc, etc, etc; it was obvious that we'd be rewriting everything anyway. The good news is that v0 exists, is fully supported, and will be liberally copy-and-pasted from as this makes sense for v1. What we don't have is any git history tracing from v0 to v1 since this would be deceiving. Futhermore, the unit tests in uavcan v0 are a bit of a mess so we'll be writing them in a way that is more sustainable.
 
-If you are contributing to the initial v1 effort the place to start is v0. Find the next chunk of v0 functionality to port over to v1, copy-and-paste, rough-out the new tests, and start rewriting as headers-only. Replace all custom TMP and SFINAE constructs with their C++ equivalents, use the standard library appropriately, and continue to develop the tests as you redesign the code.
+If you are contributing to the initial v1 effort the place to start is v0.
+
+1. Find the next chunk of v0 functionality to port over to v1, copy-and-paste, rough-out the new tests, and start rewriting as headers-only.
+2. Replace all custom TMP and SFINAE constructs with their C++ equivalents, use the standard library appropriately, and continue to develop the tests as you redesign the code.
+3. Review all ["milestone constraints" for v1](https://github.com/UAVCAN/libuavcan/issues?q=is%3Aopen+is%3Aissue+label%3A%22milestone+constraint%22+label%3Av1) and make sure the v1 version of your refactored code doesn't violate any of these. Milestone constraints are issues for things found in v0 that we don't want v1 to have. Think of these issues as filters you must apply to all v0 code when it is ported to v1.
 
 ## Design goals
 
@@ -114,7 +119,7 @@ All code generation is performed by [Nunavut](https://github.com/UAVCAN/nunavut)
 
 **/test/compile** – Tests that run in the compiler. Most of these will be tests that pass if they fail to compile. For example, some tests will purposefully define template parameters that will cause static_asserts to fail. Tests that pass if they do compile are less interesting here since such happy paths are normally covered by unit-tests.
 
-**/test/linux** - Tests that run on Linux/SocketCAN. This are provided partially as examples and partially to prove the library functions on a real platform.
+**/test/linux** - Tests that run on SocketCAN/Linux. These are provided partially as examples and partially to prove the library functions on a real platform.
 
 ### Test Environments
 
@@ -138,7 +143,7 @@ C++11 compiler, the library development process assumes that the host OS is Linu
 Prerequisites:
 
 * Google test library for C++ - gtest (downloaded as part of the build from [github](https://github.com/google/googletest))
-* C++11 capable compiler with GCC-like interface (e.g. GCC, Clang)
+* C++11 capable compiler (e.g. GCC, Clang)
 * CMake 3.5+
 * clang-format
 * clang-tidy
@@ -158,9 +163,9 @@ make ARGS=-VV test
 We also support a docker-based workflow which is used for CI build automation. If you want to use this locally either to verify that the CI build will succeed or just to avoid manually installing and maintaining the above dependencies then you can do:
 
 ```bash
-docker pull uavcan/libuavcan:1.0
+docker pull uavcan/c_cpp:ubuntu-18.04
 
-docker run --rm -v ${PWD}:/repo uavcan/libuavcan:1.0 /bin/sh -c ./ci/native-gcc-build-and-test.sh
+docker run --rm -v ${PWD}:/repo uavcan/c_cpp:ubuntu-18.04 /bin/sh -c ./ci/native-gcc-build-and-test.sh
 ```
 
 Test outputs can be found in the build directory under `libuavcan`.
