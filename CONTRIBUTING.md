@@ -85,7 +85,7 @@ This layer must remain as minimal as possible ideally being implemented solely u
 
 #### Transport
 
-The OSI layer 4 implementation of UAVCAN per section 4 of the specification. Uses types and serialization support provided by [Nunavut](https://github.com/uavcan/nunavut). Note that this is where the "node" objects will be ported to.
+The OSI layer 4 implementation of UAVCAN per section 4 of the specification. Uses types and serialization support provided by [Nunavut](https://github.com/uavcan/nunavut). Note that this is where the "node" objects will be mapped to.
 
 #### Application
 
