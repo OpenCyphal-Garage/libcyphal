@@ -55,7 +55,7 @@ Libuavcan's design goals should be mutually compatible. There is no expectation 
 
 * **Modular**
 
-    The library should allow sequential porting of its four layers: platform, media, transport, and application such that users can implement and test each layer in that sequence. The headers should allow compilers to elide the maximum amount of unused code such that the actual cost of the library in ROM is smaller when using fewer application features.
+    The library should allow sequential adoption of its four layers: platform, media, transport, and application such that users can implement and test each layer in that sequence. The headers should allow compilers to elide the maximum amount of unused code such that the actual cost of the library in ROM is smaller when using fewer application features.
 
 ## Documentation
 
