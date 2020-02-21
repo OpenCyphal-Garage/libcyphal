@@ -122,7 +122,7 @@ The following list of standardized* test environments will be used to validate t
 
 1. **Posix** - We will produce examples that can run on top of SocketCAN on a recent version of an Ubuntu-based distro. While we expect that these examples will be generally compatible with other common GNU/Linux distros or POSIX compliant operating systems (that also support SocketCAN) we will compile and test the examples using Ubuntu as part of our CI build.
 1. **Bare-metal on NXP S32K148 devkit** - We expect to produce examples and tests that run on the S32K148 MCU populated on the standard S32K148 evaluation board available from NXP. This is the primary test fixture for the project and will be used as the basis for specifying on-target test rigs.
-1. **Nuttx on Pixhawk4** - We expect to produce examples and possibly tests that can run on top of the latest pixhawk hardware and version of Nuttx used by the px4 software stack. This is a lower-priority for the initial development for v1 but will become a focus once we have a fully functional stack.
+1. **Nuttx on Pixhawk** - We expect to produce examples and possibly tests that can run on top of the latest Pixhawk hardware and version of Nuttx used by the PX4 software stack. This is a lower-priority for the initial development for v1 but will become a focus once we have a fully functional stack.
 
 \* Note that libuavcan is a header only library suitable for a wide range of processors and operating systems. The targets and test environments mentioned here are chosen only as standardized test fixtures and are not considered more "supported" or "optimal" than any other platform.
 
