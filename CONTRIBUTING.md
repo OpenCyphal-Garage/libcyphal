@@ -141,6 +141,7 @@ Prerequisites:
 * C++11 capable compiler with GCC-like interface (e.g. GCC, Clang)
 * CMake 3.5+
 * clang-format
+* clang-tidy
 * python3
 * nunavut and (transitively) pydsdl
 
