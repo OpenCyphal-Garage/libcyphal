@@ -105,7 +105,7 @@ UAVCAN is little-endian on the wire. Because of this big-endian platforms may us
 
 ### Code generation
 
-All code generation is performed by [Nunavut](https://github.com/UAVCAN/nunavut)
+All code generation is performed by [Nunavut](https://github.com/UAVCAN/nunavut).
 
 ### Folder Structure
 
