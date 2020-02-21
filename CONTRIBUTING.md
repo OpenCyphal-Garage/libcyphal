@@ -111,7 +111,7 @@ All code generation is performed by [Nunavut](https://github.com/UAVCAN/nunavut)
 
 **/libuavcan/include** - Contains the entire header-only libuavcan library.
 
-**/libuavcan_validation_suitet** – Test utilities provided to consumers of the library. These are public test fixtures and should be documented, maintained, and designed with the same care given to the rest of the library.
+**/libuavcan_validation_suite** – Test utilities provided to consumers of the library. These are public test fixtures and should be documented, maintained, and designed with the same care given to the rest of the library.
 
 **/test/native** - Unit-tests that validate the libuavcan library. These tests compile and execute using the build host's native environment. They also do not require any communication interfaces, virtual or otherwise, from the operating system and have no timing constraints.
 
