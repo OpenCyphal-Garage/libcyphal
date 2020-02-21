@@ -36,7 +36,7 @@ Libuavcan's design goals should be mutually compatible. There is no expectation 
 * **Portable**
 
   * The library should not present any specific requirements to the underlying hardware or OS, and it must be coded in standard C++11 and be immediately forward compatible to at least C++20 while minimizing use of any deprecated constructs that may limit its compatibility with future versions of C++.
-  * The library should make conservative use of C++ with an eye towards compatibility with coding standards like [Autosar](https://www.autosar.org/fileadmin/user_upload/standards/adaptive/17-03/AUTOSAR_RS_CPP14Guidelines.pdf), HIC++, and the [ISOCpp Core Guidelines](https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md).
+  * The library should make conservative use of C++ with an eye towards compatibility with coding standards like [Autosar](https://www.autosar.org/fileadmin/user_upload/standards/adaptive/17-03/AUTOSAR_RS_CPP14Guidelines.pdf), HIC++, and the [ISOCpp Core Guidelines](http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines).
   * The library must build on as many different, standards-compliant, C++ compilers as is reasonable. At the time of this writing this includes gcc and clang.
   * The library must build for as many different architectures as is reasonable. At the time of this writing this includes arm, arm64, x86, and x86_64.
 
