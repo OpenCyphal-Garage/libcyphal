@@ -46,7 +46,7 @@ Libuavcan's design goals should be mutually compatible. There is no expectation 
 
 * **Clear/Fluent**
 
-    While maximal in implementing the specification, libuavcan should be clearly structured and well-documented. It should prefer additional verbosity over compressed syntax and should utilize object-oriented principals to their greatest effect by creating logically named objects using well-known patterns.
+    While maximal in implementing the specification, libuavcan should be clearly structured and well-documented. It should prefer additional verbosity over compressed syntax and should utilize object-oriented principles to their greatest effect by creating logically named objects using well-known patterns.
 
 * **Modular**
 
