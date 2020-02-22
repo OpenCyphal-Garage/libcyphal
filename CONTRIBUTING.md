@@ -1,12 +1,12 @@
-# ![UAVCAN](doc_source/images/html/uavcan_logo.svg) libuavcan v1.0 development
+# Libuavcan v1.0 contributor guidelines
 
 v1.0 is a complete rewrite of libuavcan with the following, fundamental changes from v0:
 
 1. libuavcan v1 is based on the [UAVCAN v1 specification](https://new.uavcan.org).
-1. libuavcan v1 requires C++11 or greater.
-1. libuavcan v1 favors idiomatic C++ over defining its own utilities and helpers.
-1. libuavcan v1 is a header-only library.
-1. libuavcan v1 holds itself to a higher quality standard and is designed for integration into high-integrity, embedded applications.
+2. libuavcan v1 requires C++11 or greater.
+3. libuavcan v1 favors idiomatic C++ over defining its own utilities and helpers.
+4. libuavcan v1 is a header-only library.
+5. libuavcan v1 holds itself to a higher quality standard and is designed for integration into high-integrity, embedded applications.
 
 ## About the Blue Sky effort
 
@@ -113,6 +113,8 @@ All code generation is performed by [Nunavut](https://github.com/UAVCAN/nunavut)
 
 **/libuavcan_validation_suite** – Test utilities provided to consumers of the library. These are public test fixtures and should be documented, maintained, and designed with the same care given to the rest of the library.
 
+**/test/cmake** - A CMake meta-build system used to verify libuavcan. This is *not* a generalized build system provided for the library. *Libuavcan does not come with a build-system* as it is header-only and has minimal opinions about how it should be built.
+
 **/test/native** - Unit-tests that validate the libuavcan library. These tests compile and execute using the build host's native environment. They also do not require any communication interfaces, virtual or otherwise, from the operating system and have no timing constraints.
 
 **/test/ontarget** - Tests cross-compiled for specific hardware* and run on a set of dedicated test devices. These tests may have strict timing constraints and may require specific physical or virtual busses and other test apparatuses be present. Each on-target test will fully document its requirements to enable anyone with access to the appropriate hardware to reproduce the tests. Furthermore, these tests must be inherently automateable having clear pass/fail criteria reducible to a boolean condition.
@@ -129,7 +131,7 @@ The following list of standardized* test environments will be used to validate t
 1. **Bare-metal on NXP S32K148 devkit** - We expect to produce examples and tests that run on the S32K148 MCU populated on the standard S32K148 evaluation board available from NXP. This is the primary test fixture for the project and will be used as the basis for specifying on-target test rigs.
 1. **Nuttx on Pixhawk** - We expect to produce examples and possibly tests that can run on top of the latest Pixhawk hardware and version of Nuttx used by the PX4 software stack. This is a lower-priority for the initial development for v1 but will become a focus once we have a fully functional stack.
 
-\* Note that libuavcan is a header only library suitable for a wide range of processors and operating systems. The targets and test environments mentioned here are chosen only as standardized test fixtures and are not considered more "supported" or "optimal" than any other platform.
+> \* Libuavcan is a header only library suitable for a wide range of processors and operating systems. The targets and test environments mentioned here are chosen only as standardized test fixtures and are not considered more "supported" or "optimal" than any other platform.
 
 ## Library development
 
@@ -140,19 +142,23 @@ The following list of standardized* test environments will be used to validate t
 Despite the fact that the library itself can be used on virtually any platform that has a standard-compliant
 C++11 compiler, the library development process assumes that the host OS is Linux or OSX.
 
-Prerequisites:
+### Prerequisites
 
-* Google test library for C++ - gtest (downloaded as part of the build from [github](https://github.com/google/googletest))
+We do provide toolchains-as-docker-containers (see next section) but if you want to support building and running the tests without docker you can install the following prerequisites on your development system:
+
 * C++11 capable compiler (e.g. GCC, Clang)
 * CMake 3.5+
 * clang-format
 * clang-tidy
 * python3
-* nunavut and (transitively) pydsdl
+* GNU make 4.1+
+
+> *note* The first time you run cmake .. you will need an internet connection. The cmake build will cache all external dependencies in a `build_ext` folder so subsequent builds can be performed offline.
 
 Building the debug version and running the unit tests:
 
 ```bash
+cd test
 mkdir build
 cd build
 cmake ..
@@ -160,15 +166,39 @@ make -j8
 make ARGS=-VV test
 ```
 
-We also support a docker-based workflow which is used for CI build automation. If you want to use this locally either to verify that the CI build will succeed or just to avoid manually installing and maintaining the above dependencies then you can do:
+### Toolchains
+
+We provide docker-based toolchains. If you want to use this locally either to verify that the CI build will succeed or just to avoid manually installing and maintaining the above dependencies then you can do:
 
 ```bash
 docker pull uavcan/c_cpp:ubuntu-18.04
 
-docker run --rm -v ${PWD}:/repo uavcan/c_cpp:ubuntu-18.04 /bin/sh -c ./ci/native-gcc-build-and-test.sh
+docker run --rm -v ${PWD}:/repo uavcan/c_cpp:ubuntu-18.04 /bin/sh -c ./test/ci/native-gcc-build-and-test.sh
 ```
 
-Test outputs can be found in the build directory under `libuavcan`.
+For [docker-on-osx](https://docs.docker.com/docker-for-mac/osxfs-caching/) add `:delegated` to the end of your volume (-v) option:
+
+```bash
+docker run --rm -v ${PWD}:/repo:delegated uavcan/c_cpp:ubuntu-18.04 /bin/sh -c ./test/ci/native-gcc-build-and-test.sh
+```
+
+To launch into an interactive shell in the container do:
+
+```bash
+docker run --rm -it -v ${PWD}:/repo uavcan/c_cpp:ubuntu-18.04
+```
+
+or on osx:
+
+```bash
+docker run --rm -it -v ${PWD}:/repo:delegated uavcan/c_cpp:ubuntu-18.04
+```
+
+### Standards
+
+Please adhere to [Autosar C++ guidelines](https://www.autosar.org/fileadmin/user_upload/standards/adaptive/17-03/AUTOSAR_RS_CPP14Guidelines.pdf).
+
+### Style
 
 Contributors, please follow the [Zubax C++ Coding Conventions](https://kb.zubax.com/x/84Ah) and always use `clang-format` when authoring or modifying files (the build scripts will enforce but not apply the rules in .clang-format).
 
@@ -203,7 +233,7 @@ To use visual studio code to debug ontarget tests for the S32K148EVB you'll need
 ```yaml
  {
     "cwd": "${workspaceRoot}",
-    "executable": "build/test_util_math.elf",
+    "executable": "test/build/test_util_math.elf",
     "name": "On-target unit test.",
     "request": "launch",
     "type": "cortex-debug",

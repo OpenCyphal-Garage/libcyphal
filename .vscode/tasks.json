@@ -12,7 +12,7 @@
                 "isDefault": true
             },
             "options": {
-                "cwd": "${workspaceRoot}/build"
+                "cwd": "${workspaceRoot}/test/build"
             },
             "presentation": {
                 "clear": true,

@@ -5,10 +5,6 @@
 
 
 find_package(Doxygen QUIET)
-find_program(PDFLATEX pdflatex)
-find_program(MAKEINDEX makeindex)
-find_program(EGREP egrep)
-find_program(MAKE make)
 find_program(TAR tar)
 
 # +---------------------------------------------------------------------------+
@@ -26,7 +22,7 @@ find_program(TAR tar)
 #
 function (create_docs_target ARG_DOCS_TARGET_NAME ARG_ADD_TO_ALL)
 
-    set(DOXYGEN_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/doc_source)
+    set(DOXYGEN_SOURCE ${LIBUAVCAN_PROJECT_ROOT}/doc_source)
     set(DOXYGEN_RDOMAIN org.uavcan)
     set(DOXYGEN_RDOMAIN_W_PROJECT org.uavcan.libuavcan)
     set(DOXYGEN_PROJECT_NAME "libuavcan")
@@ -34,15 +30,16 @@ function (create_docs_target ARG_DOCS_TARGET_NAME ARG_ADD_TO_ALL)
     set(DOXYGEN_OUTPUT_DIRECTORY_PARENT ${CMAKE_BINARY_DIR})
     set(DOXYGEN_OUTPUT_DIRECTORY ${DOXYGEN_OUTPUT_DIRECTORY_PARENT}/docs)
     set(DOXYGEN_CONFIG_FILE ${DOXYGEN_OUTPUT_DIRECTORY}/doxygen.config)
-    set(DOXYGEN_INPUT "\"${CMAKE_CURRENT_SOURCE_DIR}/libuavcan/include\" \
-                       \"${CMAKE_CURRENT_SOURCE_DIR}/README.md\" \
-                       \"${CMAKE_CURRENT_SOURCE_DIR}/doc_source/related\" \
-                       \"${CMAKE_CURRENT_SOURCE_DIR}/libuavcan_validation_suite/include\" \
-                       \"${CMAKE_CURRENT_SOURCE_DIR}/test/linux/example\" \
+    set(DOXYGEN_INPUT "\"${LIBUAVCAN_PROJECT_ROOT}/libuavcan/include\" \
+                       \"${LIBUAVCAN_PROJECT_ROOT}/README.md\" \
+                       \"${LIBUAVCAN_PROJECT_ROOT}/CONTRIBUTING.md\" \
+                       \"${LIBUAVCAN_PROJECT_ROOT}/doc_source/related\" \
+                       \"${LIBUAVCAN_PROJECT_ROOT}/libuavcan_validation_suite/include\" \
+                       \"${CMAKE_CURRENT_SOURCE_DIR}/linux/example\" \
                        ")
-    set(DOXYGEN_MAINPAGE "\"${CMAKE_CURRENT_SOURCE_DIR}/README.md\"")
+    set(DOXYGEN_MAINPAGE "\"${LIBUAVCAN_PROJECT_ROOT}/README.md\"")
     set(DOXYGEN_LIBUAVCAN_VERSION $ENV{BUILDKITE_BUILD_NUMBER})
-    set(DOXYGEN_LIBUAVCAN_INCLUDE_PREFIX_STRIP "\"${CMAKE_CURRENT_SOURCE_DIR}/libuavcan/include\"")
+    set(DOXYGEN_LIBUAVCAN_INCLUDE_PREFIX_STRIP "\"${LIBUAVCAN_PROJECT_ROOT}/libuavcan/include\"")
 
     # +-----------------------------------------------------------------------+
     # | HTML (BOOTSTRAPPED)
@@ -51,10 +48,10 @@ function (create_docs_target ARG_DOCS_TARGET_NAME ARG_ADD_TO_ALL)
     set(DOXYGEN_HTML_STYLESHEET ${DOXYGEN_OUTPUT_DIRECTORY}/customdoxygen.css)
     set(DOXYGEN_HTML_HEADER ${DOXYGEN_OUTPUT_DIRECTORY}/header.html)
     set(DOXYGEN_HTML_FOOTER ${DOXYGEN_OUTPUT_DIRECTORY}/footer.html)
-    set(DOXYGEN_IMAGE_PATH ${DOXYGEN_OUTPUT_DIRECTORY}/images)
-    set(DOXYGEN_LOGO ${DOXYGEN_OUTPUT_DIRECTORY}/images/html/uavcan_logo.svg)
+    set(DOXYGEN_IMAGE_PATH ${DOXYGEN_OUTPUT_DIRECTORY}/doc_source/images)
+    set(DOXYGEN_LOGO ${DOXYGEN_OUTPUT_DIRECTORY}/doc_source/images/html/uavcan_logo.svg)
 
-    file(COPY ${DOXYGEN_SOURCE}/images DESTINATION ${DOXYGEN_OUTPUT_DIRECTORY})
+    file(COPY ${DOXYGEN_SOURCE}/images DESTINATION ${DOXYGEN_OUTPUT_DIRECTORY}/doc_source)
 
     configure_file(${DOXYGEN_SOURCE}/header.html
                     ${DOXYGEN_OUTPUT_DIRECTORY}/header.html
@@ -90,29 +87,6 @@ function (create_docs_target ARG_DOCS_TARGET_NAME ARG_ADD_TO_ALL)
         add_custom_target(${ARG_DOCS_TARGET_NAME} ALL DEPENDS ${DOXYGEN_OUTPUT_DIRECTORY}/html.gz)
     else()
         add_custom_target(${ARG_DOCS_TARGET_NAME} DEPENDS ${DOXYGEN_OUTPUT_DIRECTORY}/html.gz)
-    endif()
-
-    # +-----------------------------------------------------------------------+
-    # | PDF
-    # +-----------------------------------------------------------------------+
-    if (PDFLATEX AND MAKEINDEX AND EGREP AND MAKE)
-
-        message(STATUS "Latex and make found. Will also generate a PDF using doxygen's makefile.")
-
-        add_custom_command(OUTPUT ${DOXYGEN_OUTPUT_DIRECTORY}/latex/refman.pdf
-                            COMMAND ${MAKE} pdf
-                            DEPENDS ${DOXYGEN_OUTPUT_DIRECTORY}/latex/refman.tex
-                            WORKING_DIRECTORY ${DOXYGEN_OUTPUT_DIRECTORY}/latex
-                            COMMENT "Generating refman idx"
-                )
-
-        add_custom_target(${ARG_DOCS_TARGET_NAME}-pdf DEPENDS ${DOXYGEN_OUTPUT_DIRECTORY}/latex/refman.pdf)
-
-        add_dependencies(${ARG_DOCS_TARGET_NAME} ${ARG_DOCS_TARGET_NAME}-pdf)
-
-    else()
-        message(STATUS "One or more programs needed to generate PDF documentation was missing. "
-                    "Only HTML docs will be generated for this project.")
     endif()
 
 endfunction(create_docs_target)

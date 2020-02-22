@@ -28,22 +28,37 @@ set -o pipefail
 # | Of course, libuavcan is a header-only distribution so
 # | CI is used to verify and test rather than package and
 # | deploy (i.e. There's really no 'I' going on).
+# |
+# | Standard parameters:
+# |
+# |   CMAKE_BUILD_TYPE = either 'Release' or 'Debug'. The
+# |         default is Debug
+# |   MAKEFILE_JOBS_COMPILATION = number of concurrent jobs
+# |         to use when compiling using Unix Makefiles. The
+# |         default is 1
 # +----------------------------------------------------------+
 
-mkdir -p build_native_clang
-pushd build_native_clang
+if [ -z "${CMAKE_BUILD_TYPE+xxx}" ]; then
+CMAKE_BUILD_TYPE=Debug
+fi
+
+if [ -z "${MAKEFILE_JOBS_COMPILATION+xxx}" ]; then
+MAKEFILE_JOBS_COMPILATION=1
+fi
+
+# +----------------------------------------------------------+
+
+mkdir -p test/build_linux
+pushd test/build_linux
 # We ensure we can build using clang but we rely on GCC for testing
 # since clang's coverage metrics have been broken for the last
 # several years.
-cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/clang-native.cmake \
-      -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/native.cmake \
+cmake -DLIBUAVCAN_TESTBUILD=../linux/tests.cmake \
       ..
 
-make
-
-# We use ctest to run our compile tests.
-ctest -VV
-
-make test_all
+cmake --build .\
+      --config ${CMAKE_BUILD_TYPE} \
+      --target all \
+      -- -j${MAKEFILE_JOBS_COMPILATION}
 
 popd

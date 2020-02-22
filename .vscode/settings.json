@@ -88,10 +88,12 @@
     "C_Cpp.formatting": "Disabled",
     "C_Cpp.intelliSenseEngine": "Default",
     "C_Cpp.intelliSenseEngineFallback": "Disabled",
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "cmake.configureOnOpen": false,
     "cmake.autoRestartBuild": true,
-    "cmake.buildDirectory": "${workspaceFolder}/build",
+    "cmake.buildDirectory": "${workspaceFolder}/test/build",
+    "cmake.sourceDirectory": "${workspaceFolder}/test",
     "cmake.buildBeforeRun": true,
-    "cmake.configureOnOpen": true,
     "cmake.copyCompileCommands": "${workspaceFolder}/.vscode/compile_commands.json",
     "cmake.preferredGenerators":[
         "Unix Makefiles"

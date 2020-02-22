@@ -5,10 +5,10 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/tests/linux/example/media_on_linux",
+            "program": "${workspaceFolder}/test/build/tests/linux/example/media_on_linux",
             "args": ["--device", "vcan0"],
             "stopAtEntry": true,
-            "cwd": "${workspaceFolder}/build",
+            "cwd": "${workspaceFolder}/test/build",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
@@ -34,7 +34,7 @@
             "type": "lldb",
             "name": "(lldb) Launch",
             "request": "launch",
-            "program": "${workspaceFolder}/build/tests/test_util_math",
+            "program": "${workspaceFolder}/test/build/tests/test_util_math",
             "args": ["--gtest_filter=SaturatedMathTest/* MixedTypeMathParams<unsigned, signed>.SaturatingSubMaxMax"],
             "cwd": "${workspaceFolder}"
         }
