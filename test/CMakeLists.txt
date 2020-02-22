@@ -7,6 +7,16 @@ cmake_minimum_required(VERSION 3.6.0)
 
 project(libuavcan ASM CXX C)
 
+if (NOT DEFINED LIBUAVCAN_PROJECT_ROOT)
+    get_filename_component(LIBUAVCAN_PROJECT_ROOT
+                           "${CMAKE_SOURCE_DIR}/../"
+                           REALPATH BASE_DIR
+                           "${CMAKE_BINARY_DIR}")
+    message(STATUS "Setting LIBUAVCAN_PROJECT_ROOT = ${LIBUAVCAN_PROJECT_ROOT}")
+else()
+    message(STATUS "Using ${LIBUAVCAN_PROJECT_ROOT} for LIBUAVCAN_PROJECT_ROOT")
+endif()
+
 include(${CMAKE_SOURCE_DIR}/cmake/common.cmake)
 
 #
@@ -15,8 +25,8 @@ include(${CMAKE_SOURCE_DIR}/cmake/common.cmake)
 #
 file(MAKE_DIRECTORY ${EXTERNAL_PROJECT_DIRECTORY})
 
-set(LIBUAVCAN_INCLUDE "${CMAKE_SOURCE_DIR}/libuavcan/include")
-set(LIBUAVCAN_INCLUDE_LVS "${CMAKE_SOURCE_DIR}/libuavcan_validation_suite/include")
+set(LIBUAVCAN_INCLUDE "${LIBUAVCAN_PROJECT_ROOT}/libuavcan/include")
+set(LIBUAVCAN_INCLUDE_LVS "${LIBUAVCAN_PROJECT_ROOT}/libuavcan_validation_suite/include")
 
 include_directories(
     ${LIBUAVCAN_INCLUDE}
@@ -25,14 +35,14 @@ include_directories(
 
 if(NOT LIBUAVCAN_FLAG_SET)
     message(STATUS "LIBUAVCAN_FLAG_SET was not defined. Setting to \"native\" as a default")
-    set(LIBUAVCAN_FLAG_SET ${CMAKE_BINARY_DIR}/../cmake/compiler_flag_sets/native.cmake)
+    set(LIBUAVCAN_FLAG_SET ${CMAKE_SOURCE_DIR}/cmake/compiler_flag_sets/native.cmake)
 else()
     set(LIBUAVCAN_FLAG_SET ${CMAKE_BINARY_DIR}/${LIBUAVCAN_FLAG_SET})
 endif()
 
 if(NOT LIBUAVCAN_TESTBUILD)
     message(STATUS "LIBUAVCAN_TESTBUILD was not defined. Setting to \"native\" as a default")
-    set(LIBUAVCAN_TESTBUILD ${CMAKE_BINARY_DIR}/../test/native/tests.cmake)
+    set(LIBUAVCAN_TESTBUILD ${CMAKE_SOURCE_DIR}/native/tests.cmake)
 else()
     set(LIBUAVCAN_TESTBUILD ${CMAKE_BINARY_DIR}/${LIBUAVCAN_TESTBUILD})
 endif()
@@ -79,7 +89,7 @@ find_package(nnvg REQUIRED)
 
 create_dsdl_target(dsdl-regulated
                    ${CMAKE_BINARY_DIR}/public-regulated-data-types-gen
-                   ${CMAKE_SOURCE_DIR}/libuavcan/include/libuavcan/templates
+                   ${LIBUAVCAN_PROJECT_ROOT}/libuavcan/include/libuavcan/templates
                    ${EXTERNAL_PROJECT_DIRECTORY}/public-regulated-data-types-src/uavcan
                    ON)
 
@@ -104,7 +114,7 @@ include(${LIBUAVCAN_TESTBUILD})
 # +---------------------------------------------------------------------------+
 # | DEFINE COMPILE-TIME TESTS
 # +---------------------------------------------------------------------------+
-include(${CMAKE_SOURCE_DIR}/test/compile/compile_tests.cmake)
+include(${CMAKE_SOURCE_DIR}/compile/compile_tests.cmake)
 
 # +---------------------------------------------------------------------------+
 # | DOCUMENTATION GENERATION

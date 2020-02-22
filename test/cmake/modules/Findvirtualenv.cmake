@@ -10,7 +10,7 @@ if(VIRTUALENV)
     set(VIRTUALENV_PYTHON_BIN ${VIRTUALENV_OUTPUT}/bin)
     set(PYTHON ${VIRTUALENV_PYTHON_BIN}/python)
     set(PIP ${PYTHON} -m pip)
-    set(PYTHON_REQUIREMENTS ${CMAKE_CURRENT_SOURCE_DIR}/requirements.txt)
+    set(PYTHON_REQUIREMENTS ${LIBUAVCAN_PROJECT_ROOT}/requirements.txt)
 
     if(NOT EXISTS ${VIRTUALENV_OUTPUT})
         message(STATUS "virtualenv found. Creating a virtual environment and installing core requirements.")
@@ -31,7 +31,7 @@ if(VIRTUALENV)
 endif()
 
 include(FindPackageHandleStandardArgs)
- 
+
 find_package_handle_standard_args(nnvg
     REQUIRED_VARS VIRTUALENV VIRTUALENV_PYTHON_BIN
 )

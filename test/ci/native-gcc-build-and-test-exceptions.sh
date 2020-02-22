@@ -28,24 +28,48 @@ set -o pipefail
 # | Of course, libuavcan is a header-only distribution so
 # | CI is used to verify and test rather than package and
 # | deploy (i.e. There's really no 'I' going on).
+# |
+# | Standard parameters:
+# |
+# |   CMAKE_BUILD_TYPE = either 'Release' or 'Debug'. The
+# |         default is Debug
+# |   MAKEFILE_JOBS_COMPILATION = number of concurrent jobs
+# |         to use when compiling using Unix Makefiles. The
+# |         default is 1
 # +----------------------------------------------------------+
 
-mkdir -p build_native_gcc_exceptions
-pushd build_native_gcc_exceptions
+if [ -z "${CMAKE_BUILD_TYPE+xxx}" ]; then
+CMAKE_BUILD_TYPE=Debug
+fi
 
-cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/gcc-native.cmake \
-      -DCMAKE_BUILD_TYPE=Debug\
-      -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/native_unittest_w_exceptions.cmake \
+if [ -z "${MAKEFILE_JOBS_COMPILATION+xxx}" ]; then
+MAKEFILE_JOBS_COMPILATION=1
+fi
+
+# +----------------------------------------------------------+
+
+mkdir -p test/build_native_gcc_exceptions
+pushd test/build_native_gcc_exceptions
+
+cmake --no-warn-unused-cli \
+      -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE \
+      -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE} \
+      -DCMAKE_TOOLCHAIN_FILE:FILEPATH=../cmake/toolchains/gcc-native.cmake \
+      -DLIBUAVCAN_FLAG_SET:STRING=../cmake/compiler_flag_sets/native_unittest_w_exceptions.cmake \
+      -G "Unix Makefiles" \
       ..
 
-make
+cmake --build .\
+      --config ${CMAKE_BUILD_TYPE} \
+      --target all \
+      -- -j${MAKEFILE_JOBS_COMPILATION}
 
 # We use ctest to run our compile tests.
 ctest -VV
 
 # This builds, runs, and reports on our native unit tests.
-make cov_all
-
-make docs
+cmake --build .\
+      --config ${CMAKE_BUILD_TYPE} \
+      --target cov_all
 
 popd

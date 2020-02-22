@@ -29,11 +29,43 @@ set -o pipefail
 # | CI is used to verify and test rather than package and
 # | deploy (i.e. There's really no 'I' going on).
 # +----------------------------------------------------------+
-mkdir -p build_native_gcc
-pushd build_native_gcc
 
-buildkite-agent artifact download "build_native_gcc/docs/html.gz" .
-tar -xvf docs/html.gz
-gh-pages --dotfiles --message "Doc upload for build ${BUILDKITE_BUILD_NUMBER}" --user "uavcan1.0 <uavcan1.0@uavcan.org>" --dist docs/html
+if [ -z "${CMAKE_BUILD_TYPE+xxx}" ]; then
+CMAKE_BUILD_TYPE=Debug
+fi
+
+if [ -z "${MAKEFILE_JOBS_COMPILATION+xxx}" ]; then
+MAKEFILE_JOBS_COMPILATION=1
+fi
+
+# +----------------------------------------------------------+
+
+mkdir -p test/build_native_gcc
+pushd test/build_native_gcc
+
+cmake --no-warn-unused-cli \
+      -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE \
+      -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE} \
+      -DCMAKE_TOOLCHAIN_FILE:FILEPATH=../cmake/toolchains/gcc-native.cmake \
+      -DLIBUAVCAN_FLAG_SET:STRING=../cmake/compiler_flag_sets/native_unittest.cmake \
+      -G "Unix Makefiles" \
+      ..
+
+cmake --build .\
+      --config ${CMAKE_BUILD_TYPE} \
+      --target all \
+      -- -j${MAKEFILE_JOBS_COMPILATION}
+
+# We use ctest to run our compile tests.
+ctest -VV
+
+# This builds, runs, and reports on our native unit tests.
+cmake --build .\
+      --config ${CMAKE_BUILD_TYPE} \
+      --target cov_all
+
+cmake --build .\
+      --config ${CMAKE_BUILD_TYPE} \
+      --target docs
 
 popd

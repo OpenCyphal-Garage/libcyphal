@@ -28,21 +28,43 @@ set -o pipefail
 # | Of course, libuavcan is a header-only distribution so
 # | CI is used to verify and test rather than package and
 # | deploy (i.e. There's really no 'I' going on).
+# | Standard parameters:
+# |
+# |   CMAKE_BUILD_TYPE = either 'Release' or 'Debug'. The
+# |         default is Debug
+# |   MAKEFILE_JOBS_COMPILATION = number of concurrent jobs
+# |         to use when compiling using Unix Makefiles. The
+# |         default is 1
 # +----------------------------------------------------------+
 
-mkdir -p build_ontarget_s32k
-pushd build_ontarget_s32k
+if [ -z "${CMAKE_BUILD_TYPE+xxx}" ]; then
+CMAKE_BUILD_TYPE=Debug
+fi
 
-# For now we only conpile for arm. In the future we'll actually run the compiled
-# tests on-target.
-cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/gcc-arm-none-eabi.cmake \
+if [ -z "${MAKEFILE_JOBS_COMPILATION+xxx}" ]; then
+MAKEFILE_JOBS_COMPILATION=1
+fi
+
+# +----------------------------------------------------------+
+
+mkdir -p test/build_ontarget_s32k
+pushd test/build_ontarget_s32k
+
+cmake --no-warn-unused-cli \
+      -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE \
+      -DCMAKE_TOOLCHAIN_FILE:FILEPATH=../cmake/toolchains/gcc-arm-none-eabi.cmake \
+      -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE} \
       -DGTEST_USE_LOCAL_BUILD=ON \
       -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/cortex-m4-fpv4-sp-d16-nosys.cmake \
-      -DLIBUAVCAN_TESTBUILD=../test/ontarget/S32K148EVB/tests.cmake \
+      -DLIBUAVCAN_TESTBUILD=../ontarget/S32K148EVB/tests.cmake \
       -DLIBUAVCAN_SKIP_DOCS=ON \
+      -G "Unix Makefiles" \
       ..
 
-make
+cmake --build .\
+      --config ${CMAKE_BUILD_TYPE} \
+      --target all \
+      -- -j${MAKEFILE_JOBS_COMPILATION}
 
 # We use ctest to run our compile tests.
 ctest -VV

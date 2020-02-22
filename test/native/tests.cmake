@@ -63,7 +63,7 @@ endfunction()
 file(GLOB NATIVE_TESTS
      LIST_DIRECTORIES false
      RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-     ${CMAKE_CURRENT_SOURCE_DIR}/test/native/test_*.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/native/test_*.cpp
 )
 
 add_custom_target(
@@ -113,7 +113,7 @@ add_custom_command(
                ${LIBUAVCAN_GCOV_TOOL_ARG}
                --rc lcov_branch_coverage=1
                --extract ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.all.info
-                         ${CMAKE_CURRENT_SOURCE_DIR}/libuavcan/include/\\*
+                         ${LIBUAVCAN_PROJECT_ROOT}/libuavcan/include/\\*
                --output-file ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.info
      DEPENDS ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.all.info
 )
@@ -147,20 +147,20 @@ add_custom_target(
 )
 
 # +---------------------------------------------------------------------------+
-#   If we can we try to upload the report to coveralls.
+#   If we can we try to upload the report to sonarqube.
 #
-find_package(coveralls)
+find_package(sonarqube)
 
-if (COVERALLS)
-     message(STATUS "coveralls upload binary was defined. Adding the upload target: coveralls_upload")
+if (SONARQUBE)
+     message(STATUS "sonarqube upload binary was defined. Adding the upload target: sonarqube_upload")
      add_custom_target(
-          coveralls_upload
-          ${COVERALLS} --root ${CMAKE_CURRENT_SOURCE_DIR} ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.info -v
-          COMMENT "Upload to coveralls (requires that COVERALLS_TOKEN is defined in the environment)."
+          sonarqube_upload
+          ${SONARQUBE} --root ${CMAKE_CURRENT_SOURCE_DIR} ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.info -v
+          COMMENT "Upload to sonarqube (requires that SONARQUBE_TOKEN is defined in the environment)."
      )
 
 else()
-     message(WARNING "coveralls upload script not found. Upload target will not be available.")
+     message(WARNING "sonarqube upload script not found. Upload target will not be available.")
 endif()
 
 

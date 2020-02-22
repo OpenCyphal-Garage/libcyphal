@@ -46,7 +46,7 @@ endfunction()
 file(GLOB COMPILE_TESTS
      LIST_DIRECTORIES false
      RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-     ${CMAKE_CURRENT_SOURCE_DIR}/test/compile/test_*.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/compile/test_*.cpp
 )
 
 foreach(COMPILE_TEST ${COMPILE_TESTS})

@@ -9,7 +9,7 @@
         "ms-azuretools.vscode-docker",
         "twxs.cmake",
         "uavcan.dsdl",
-        "vector-of-bool.cmake-tools",
+        "ms-vscode.cmake-tools",
         "wholroyd.jinja",
         "zixuanwang.linkerscript",
         "streetsidesoftware.code-spell-checker",

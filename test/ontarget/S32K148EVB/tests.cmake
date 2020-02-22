@@ -9,7 +9,7 @@ set(MCU_LINE S32K148)
 set(JLINK_DEVICE S32K148)
 set(JLINK_DEVICE_RESET_DELAY_MILLIS 400)
 
-set(ONTARGET_TEST_PATH ${CMAKE_SOURCE_DIR}/test/ontarget)
+set(ONTARGET_TEST_PATH ${CMAKE_SOURCE_DIR}/ontarget)
 
 add_definitions(-DCPU_${MCU_LINE})
 
@@ -47,7 +47,7 @@ function(define_ontarget_unit_test ARG_TEST_NAME ARG_TEST_SOURCE)
     add_executable(${LOCAL_TEST_ELF} ${ARG_TEST_SOURCE} ${SOURCE_FILES})
 
     target_link_libraries(${LOCAL_TEST_ELF} dsdl-regulated)
- 
+
     set_target_properties(${LOCAL_TEST_ELF}
                     PROPERTIES
                     LINK_DEPENDS ${MCU_LINKER_SCRIPT})
@@ -64,8 +64,8 @@ function(define_ontarget_unit_test ARG_TEST_NAME ARG_TEST_SOURCE)
 
     set(JLINK_LOG_FILE ${ARG_TEST_NAME}_jlink.log)
     set(JLINK_HEX ${LOCAL_TEST_HEX})
-    
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/test/ontarget/loadfile_swd.jlink 
+
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ontarget/loadfile_swd.jlink
                    ${CMAKE_CURRENT_BINARY_DIR}/${ARG_TEST_NAME}_loadfile_swd.jlink)
 
     add_custom_target(flashtest_${ARG_TEST_NAME}
@@ -83,7 +83,7 @@ endfunction()
 file(GLOB NATIVE_TESTS
      LIST_DIRECTORIES false
      RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-     ${CMAKE_CURRENT_SOURCE_DIR}/test/native/test_*.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/native/test_*.cpp
 )
 
 foreach(NATIVE_TEST ${NATIVE_TESTS})
