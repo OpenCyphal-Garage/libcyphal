@@ -29,11 +29,7 @@ set -o pipefail
 # | CI is used to verify and test rather than package and
 # | deploy (i.e. There's really no 'I' going on).
 # +----------------------------------------------------------+
-mkdir -p test/build_native_gcc
-pushd test/build_native_gcc
-
 buildkite-agent artifact download "test/build_native_gcc/docs/html.gz" .
-tar -xvf docs/html.gz
+tar -xvf test/build_native_gcc/docs/html.gz
 gh-pages --dotfiles --message "Doc upload for build ${BUILDKITE_BUILD_NUMBER}" --user "uavcan1.0 <uavcan1.0@uavcan.org>" --dist docs/html
 
-popd
