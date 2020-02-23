@@ -7,6 +7,3 @@
 # pydsdl
 
 nunavut
-
-# Not actually required but provides extra debugging for templates.
-pyyaml

@@ -9,7 +9,7 @@ set(MCU_FLOAT_ABI hard)
 set(MCU_FLOAT_FPU fpv4-sp-d16)
 set(MCU_CORTEX_MATH_LIB "arm_cortexM4lf_math")
 
-set(DEFINITIONS_SET 
+set(DEFINITIONS_SET
                 "-DARM_MATH_CM4=true"
                 "-D__FPU_PRESENT=1"
 )
@@ -63,7 +63,7 @@ list(APPEND C_FLAG_SET
 # Note that you must use gnu++11 to build googletest using gcc-arm-none-eabi. Not
 # exactly sure why but this seems a reasonable concession given that we only support
 # this one cross compiler for our on-target tests. Nothing about this should
-# limit use of libuavcan itself for applications using clang, IAR, ARM, or 
+# limit use of libuavcan itself for applications using clang, IAR, ARM, or
 # any other c++11 compliant compiler. This is _only_ a googletest limitation.
 #
 list(APPEND CXX_FLAG_SET
@@ -90,7 +90,7 @@ list(APPEND EXE_LINKER_FLAG_SET
                 "-Wl,--print-memory-usage"
                 "-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.map"
                 "-Wl,--start-group"
-                "-L${CMAKE_CURRENT_SOURCE_DIR}/test/ontarget/CMSIS/Lib/GCC"
+                "-L${CMAKE_CURRENT_SOURCE_DIR}/ontarget/CMSIS/Lib/GCC"
                 "-l${MCU_CORTEX_MATH_LIB}"
                 "-lm"
                 "-Wl,--end-group"

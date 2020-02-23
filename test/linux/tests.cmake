@@ -37,8 +37,8 @@ endfunction()
 
 define_native_example("media_on_linux"
                       ${CMAKE_CURRENT_BINARY_DIR}/tests/linux/example
-                      ${CMAKE_CURRENT_SOURCE_DIR}/test/linux/example/media_on_linux/main.cpp
-                      ${CMAKE_CURRENT_SOURCE_DIR}/test/linux/example/media_on_linux/SocketCANInterface.cpp
-                      ${CMAKE_CURRENT_SOURCE_DIR}/test/linux/example/media_on_linux/SocketCANInterfaceGroup.cpp
-                      ${CMAKE_CURRENT_SOURCE_DIR}/test/linux/example/media_on_linux/SocketCANInterfaceManager.cpp
+                      ${CMAKE_CURRENT_SOURCE_DIR}/linux/example/media_on_linux/main.cpp
+                      ${CMAKE_CURRENT_SOURCE_DIR}/linux/example/media_on_linux/SocketCANInterface.cpp
+                      ${CMAKE_CURRENT_SOURCE_DIR}/linux/example/media_on_linux/SocketCANInterfaceGroup.cpp
+                      ${CMAKE_CURRENT_SOURCE_DIR}/linux/example/media_on_linux/SocketCANInterfaceManager.cpp
                     )

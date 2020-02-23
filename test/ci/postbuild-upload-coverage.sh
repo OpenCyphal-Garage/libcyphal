@@ -29,10 +29,10 @@ set -o pipefail
 # | CI is used to verify and test rather than package and
 # | deploy (i.e. There's really no 'I' going on).
 # +----------------------------------------------------------+
-mkdir -p build_native_gcc
-pushd build_native_gcc
+mkdir -p test/build_native_gcc
+pushd test/build_native_gcc
 
-buildkite-agent artifact download "build_native_gcc/tests/coverage.info" .
+buildkite-agent artifact download "test/build_native_gcc/tests/coverage.info" .
 
 # TODO: enable sonarqube upload of linting and coverage.
 
