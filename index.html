@@ -8,7 +8,7 @@
         <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
         <meta name="generator" content="Doxygen 1.8.13"/>
         <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
-        <title>libuavcan: UAVCAN stack in C++</title>
+        <title>libuavcan: ![UAVCAN](doc_source/images/html/uavcan_logo.svg) UAVCAN stack in C++</title>
         <!--<link href="tabs.css" rel="stylesheet" type="text/css"/>-->
         <script type="text/javascript" src="dynsections.js"></script>
         <link href="search/search.css" rel="stylesheet" type="text/css"/>
@@ -29,7 +29,7 @@
             <div class="container">
                 <div class="navbar-header">
                     <a class="navbar-brand" href="https://uavcan.org"><img src="uavcan_logo.svg" style="float:left;height:1.5em;padding:0em .5em .25em 0em;"/> libuavcan</a>
-                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/186" style="font-size: .75em; color: coral">build:186</a></em>
+                    <em><a class="navbar-brand" href="https://buildkite.com/uavcan/libuavcan-v1/builds/221" style="font-size: .75em; color: coral">build:221</a></em>
                 </div>
             </div>
         </nav>
@@ -70,113 +70,13 @@ $(function() {
 
 <div class="header">
   <div class="headertitle">
-<div class="title">UAVCAN stack in C++ </div>  </div>
+<div class="title">![UAVCAN](doc_source/images/html/uavcan_logo.svg) UAVCAN stack in C++ </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p><a href="https://buildkite.com/uavcan/libuavcan-v1"></a> <a href="https://forum.uavcan.org"></a> <a href="https://www.codacy.com/app/UAVCAN/libuavcan_v1?utm_source=github.com&amp;amp;utm_medium=referral&amp;amp;utm_content=UAVCAN/libuavcan&amp;amp;utm_campaign=Badge_Grade"></a> <a href="https://coveralls.io/github/UAVCAN/libuavcan?branch=uavcan-v1.0"></a> <a href="https://uavcan.org/libuavcan/"></a></p>
+<div class="textblock"><p><a href="https://buildkite.com/uavcan/libuavcan-v1"></a> <a href="https://forum.uavcan.org"></a> <a href="https://sonarcloud.io/dashboard?id=UAVCAN_libuavcan"></a> <a href="https://sonarcloud.io/dashboard?id=UAVCAN_libuavcan"></a> <a href="https://uavcan.org/libuavcan/"></a></p>
 <p>Portable reference implementation of the <a href="https://new.uavcan.org">UAVCAN protocol stack</a> in C++ for embedded systems, Linux, and POSIX-compliant RTOSs.</p>
-<p>UAVCAN is a lightweight protocol designed for reliable communication in aerospace and robotic applications over robust vehicular networks.</p>
-<p>v1.0 is a complete rewrite of this library with the following, fundamental changes from v0:</p>
-<ol type="1">
-<li>libuavcan v1 is based on the <a href="https://new.uavcan.org">UAVCAN v1 specification</a>. UAVCAN v1 is <em>not</em> backwards compatible with v0.</li>
-</ol>
-<ol type="1">
-<li>libuavcan v1 requires C++11 or greater.</li>
-</ol>
-<ol type="1">
-<li>libuavcan v1 requires a <em>fairly</em> complete implementation of the c++ standard library.</li>
-</ol>
-<ol type="1">
-<li>libuavcan v1 is a header-only library.</li>
-</ol>
-<p>Some of this documentation in this README is temporary and relevant to the "blue sky" implementation effort. After the first official release of libuavcan v1 sections like this will be removed, v0 will be referred to as legacy, and "blue sky" will become simply mainline.</p>
-<h3>About the Blue Sky effort</h3>
-<p>You should never rewrite a codebase from scratch. It's a terrible idea. We're rewriting libuavcan from scratch. We're terrible developers.</p>
-<p>Sorry.</p>
-<p>The reason we opted for a complete rewrite is that so much is changing. Between the updates to the specification, the abandonment of C++98 support, switching to header-only, removing the drivers from the main repository, adding <a class="el" href="namespace_c_a_n.html">CAN</a> FD support, etc, etc, etc; it was obvious that we'd be rewriting everything anyway. The good news is that v0 exists, is fully supported, and will be liberally copy-and-pasted from as this makes sense for v1. What we don't have is any git history tracing from v1 since this would be deceiving. Futhermore, the unit tests in uavcan v0 are a bit of a mess so we'll be writing them in a way that is more sustainable.</p>
-<h2>Documentation</h2>
-<ul>
-<li><a href="http://uavcan.org">UAVCAN website</a></li>
-<li><a href="https://forum.uavcan.org">UAVCAN forum</a></li>
-<li><a href="https://32bits.io/blog/2019/5/26/libuavcan-hil-test-automation-using-buildkite-and-raspberry-pi">HIL testing</a></li>
-</ul>
-<h3>Folder Structure</h3>
-<p>**/libuavcan/include** - Contains the entire header-only libuavcan library.</p>
-<p>**/libuavcan/include/test** – Test utilities provided to consumers of the library. These are public test fixtures and should be documented, maintained, and designed with the same care given to the rest of the library.</p>
-<p>**/test/native** - Unit-tests that validate the libuavcan library. These tests compile and execute using the build host's native environment. They also do not require any communication interfaces, virtual or otherwise, from the operating system and have no timing constraints.</p>
-<p>**/test/ontarget** - Tests cross-compiled for specific hardware* and run on a set of dedicated test devices. These tests may have strict timing constraints and may require specific physical or virtual busses and other test apparatuses be present. Each on-target test will fully document its requirements to enable anyone with access to the appropriate hardware to reproduce the tests. Furthermore, these tests must be inherently automateable having clear pass/fail criteria reducible to a boolean condition.</p>
-<p>**/test/compile** – Tests that run in the compiler. Most of these will be tests that pass if they fail to compile. For example, some tests will purposefully define template parameters that will cause static_asserts to fail. Tests that pass if they do compile are less interesting here since such happy paths are normally covered by unit-tests.</p>
-<p>**/example** - Contains a set of example applications providing real, practical, and (somewhat) tested uses of libuavcan.</p>
-<p>**/commons** - Reference implementations for parts of the libuavcan library. These implementations are optional but are provided as a convenience to accelerate evaluation and integration of libuavcan.</p>
-<h4>Test Environments</h4>
-<p>The following list of standardized* test environments will be used to validate the libuavcan implementation**:</p>
-<ol type="1">
-<li><b>Posix</b> - We will produce examples that can run on top of SocketCAN on Ubuntu 18 or newer. While expect that these examples will be generally compatible with other common linux distros or posix compliant operating systems (that also support SocketCAN) we will compile and test the examples using Ubuntu 18 as part of our CI build.</li>
-</ol>
-<ol type="1">
-<li><b>Bare-metal on NXP S32K148 devkit</b> - We expect to produce examples and tests that run on the S32K148 MCU populated on the standard S32K148 evaluation board available from NXP. This is the primary test fixture for the project and will be used as the basis for specifying on-target test rigs.</li>
-</ol>
-<ol type="1">
-<li><b>Nuttx on Pixhawk4</b> - We expect to produce examples and possibly tests that can run on top of the latest pixhawk hardware and version of Nuttx used by the px4 software stack. This is a lower-priority for the initial development for v1 but will become a focus once we have a fully functional stack.</li>
-</ol>
-<ul>
-<li>Note that libuavcan is a header only library suitable for a wide range of processors and operating systems. The targets and test environments mentioned here are chosen only as standardized test fixtures and are not considered more "supported" or "optimal" than any other platform.</li>
-</ul>
-<h2>Library development</h2>
-<p><b>Libuavcan development should be test-driven. Write the tests first.</b></p>
-<p><b>Libuavcan source should be fluent. Comment everything in plain prose, build the docs with each change, read the docs to make sure your comments make sense.</b></p>
-<p>Despite the fact that the library itself can be used on virtually any platform that has a standard-compliant C++11 compiler, the library development process assumes that the host OS is Linux or OSX.</p>
-<p>Prerequisites:</p>
-<ul>
-<li>Google test library for C++ - gtest (downloaded as part of the build from <a href="https://github.com/google/googletest">github</a>)</li>
-<li>C++11 capable compiler with GCC-like interface (e.g. GCC, Clang)</li>
-<li>CMake 3.5+</li>
-<li>clang-format</li>
-<li>python3</li>
-<li>nunavut and (transitively) pydsdl</li>
-</ul>
-<p>Building the debug version and running the unit tests: </p><div class="fragment"><div class="line">mkdir build</div><div class="line">cd build</div><div class="line">cmake ..</div><div class="line">make -j8</div><div class="line">make ARGS=-VV test</div></div><!-- fragment --><p>We also support a docker-based workflow which is used for CI build automation. If you want to use this locally either to verify that the CI build will succeed or just to avoid manually installing and maintaining the above dependencies then you can do:</p>
-<div class="fragment"><div class="line">docker pull uavcan/libuavcan:1.0</div><div class="line"></div><div class="line">docker run --rm -v /path/to/libuavcan:/repo uavcan/libuavcan:1.0 /bin/sh -c ./ci.sh</div></div><!-- fragment --><p>Test outputs can be found in the build directory under <code>libuavcan</code>.</p>
-<p>Contributors, please follow the <a href="https://kb.zubax.com/x/84Ah">Zubax C++ Coding Conventions</a> and always use <code>clang-format</code> when authoring or modifying files (the build scripts will enforce but not apply the rules in .clang-format).</p>
-<h3>Pull-Request Checklist</h3>
-<p>Reviewers, please check the following items when reviewing a pull-request:</p>
-<blockquote class="doxtable">
-<p><b>NOTE:</b> This is just the start of this checklist. Expect it to grow and get refined as this project matures. </p>
-</blockquote>
-<ol type="1">
-<li><b>correctness</b><ul>
-<li>Is the code correct.</li>
-</ul>
-</li>
-<li><b>clarity</b><ul>
-<li>Is the code easily understood?</li>
-<li>It is overly complex?</li>
-</ul>
-</li>
-<li><b>test coverage</b><ul>
-<li>Were tests written to cover the changes?</li>
-</ul>
-</li>
-<li><b>test effectiveness and correctness</b><ul>
-<li>Are the tests good tests that provide some guarantee that the logic is, and will remain, correct?</li>
-</ul>
-</li>
-<li><b>documentation</b><ul>
-<li>Is the code properly documented?</li>
-<li>Are there changes needed to auxillary documentation that is missing?</li>
-<li>Are there good examples for how to use the code?</li>
-</ul>
-</li>
-<li><b>design</b><ul>
-<li>Is the code maintainable?</li>
-<li>Are the tests maintainable?</li>
-<li>Is the code in the right namespace/class/function?</li>
-</ul>
-</li>
-</ol>
-<h3>VSCode</h3>
-<p>To use visual studio code to debug ontarget tests for the S32K148EVB you'll need the <a href="https://marketplace.visualstudio.com/items?itemName=marus25.cortex-debug">cortex debug</a> plugin. Here's an example configuration using JLink:</p>
-<div class="fragment"><div class="line"> {</div><div class="line">    &quot;cwd&quot;: &quot;${workspaceRoot}&quot;,</div><div class="line">    &quot;executable&quot;: &quot;build/test_util_math.elf&quot;,</div><div class="line">    &quot;name&quot;: &quot;On-target unit test.&quot;,</div><div class="line">    &quot;request&quot;: &quot;launch&quot;,</div><div class="line">    &quot;type&quot;: &quot;cortex-debug&quot;,</div><div class="line">    &quot;servertype&quot;: &quot;jlink&quot;,</div><div class="line">    &quot;device&quot;: &quot;S32K148&quot;,</div><div class="line">    &quot;svdFile&quot;: &quot;test/ontarget/S32K148EVB/S32K148.svd&quot;</div><div class="line">},</div></div><!-- fragment --> </div></div><!-- contents -->
+<p>UAVCAN is a lightweight protocol designed for reliable communication in aerospace and robotic applications over robust vehicular networks. </p>
+</div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.8-->
 <!-- start footer part -->
 </div>

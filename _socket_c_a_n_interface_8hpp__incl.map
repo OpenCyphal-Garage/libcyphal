@@ -1,4 +1,4 @@
-<map id="test/linux/example/media_on_linux/SocketCANInterface.hpp" name="test/linux/example/media_on_linux/SocketCANInterface.hpp">
+<map id="linux/example/media_on_linux/SocketCANInterface.hpp" name="linux/example/media_on_linux/SocketCANInterface.hpp">
 <area shape="rect" id="node7" href="$libuavcan_8hpp.html" title="libuavcan/libuavcan.hpp" alt="" coords="226,393,406,420"/>
 <area shape="rect" id="node13" href="$interfaces_8hpp.html" title="libuavcan/media/interfaces.hpp" alt="" coords="219,95,445,121"/>
 <area shape="rect" id="node19" href="$can_8hpp.html" title="libuavcan/media/can.hpp" alt="" coords="470,95,655,121"/>

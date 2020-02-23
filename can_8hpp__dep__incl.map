@@ -1,7 +1,7 @@
-<map id="libuavcan/include/libuavcan/media/can.hpp" name="libuavcan/include/libuavcan/media/can.hpp">
-<area shape="rect" id="node2" href="$can__frame_8hpp.html" title="libuavcan_validation\l_suite/include/lvs/media\l/can_frame.hpp" alt="" coords="5,95,185,151"/>
-<area shape="rect" id="node3" href="$main_8cpp.html" title="test/linux/example\l/media_on_linux/main.cpp" alt="" coords="211,407,404,448"/>
-<area shape="rect" id="node4" href="$_socket_c_a_n_interface_8hpp.html" title="test/linux/example\l/media_on_linux/SocketCANInterface.hpp" alt="" coords="261,102,551,143"/>
-<area shape="rect" id="node5" href="$_socket_c_a_n_interface_group_8hpp.html" title="test/linux/example\l/media_on_linux/SocketCANInterface\lGroup.hpp" alt="" coords="268,199,531,255"/>
-<area shape="rect" id="node6" href="$_socket_c_a_n_interface_manager_8hpp.html" title="test/linux/example\l/media_on_linux/SocketCANInterface\lManager.hpp" alt="" coords="264,303,527,359"/>
+<map id="/repo/libuavcan/include/libuavcan/media/can.hpp" name="/repo/libuavcan/include/libuavcan/media/can.hpp">
+<area shape="rect" id="node2" href="$can__frame_8hpp.html" title="/repo/libuavcan_validation\l_suite/include/lvs/media\l/can_frame.hpp" alt="" coords="5,95,200,151"/>
+<area shape="rect" id="node3" href="$main_8cpp.html" title="linux/example/media\l_on_linux/main.cpp" alt="" coords="231,407,391,448"/>
+<area shape="rect" id="node4" href="$_socket_c_a_n_interface_8hpp.html" title="linux/example/media\l_on_linux/SocketCANInterface.hpp" alt="" coords="274,102,521,143"/>
+<area shape="rect" id="node5" href="$_socket_c_a_n_interface_group_8hpp.html" title="linux/example/media\l_on_linux/SocketCANInterface\lGroup.hpp" alt="" coords="281,199,500,255"/>
+<area shape="rect" id="node6" href="$_socket_c_a_n_interface_manager_8hpp.html" title="linux/example/media\l_on_linux/SocketCANInterface\lManager.hpp" alt="" coords="277,303,496,359"/>
 </map>

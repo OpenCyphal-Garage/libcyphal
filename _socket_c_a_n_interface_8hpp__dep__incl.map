@@ -1,5 +1,5 @@
-<map id="test/linux/example/media_on_linux/SocketCANInterface.hpp" name="test/linux/example/media_on_linux/SocketCANInterface.hpp">
-<area shape="rect" id="node2" href="$_socket_c_a_n_interface_group_8hpp.html" title="test/linux/example\l/media_on_linux/SocketCANInterface\lGroup.hpp" alt="" coords="19,95,282,151"/>
-<area shape="rect" id="node3" href="$_socket_c_a_n_interface_manager_8hpp.html" title="test/linux/example\l/media_on_linux/SocketCANInterface\lManager.hpp" alt="" coords="19,199,282,255"/>
-<area shape="rect" id="node4" href="$main_8cpp.html" title="test/linux/example\l/media_on_linux/main.cpp" alt="" coords="54,303,247,344"/>
+<map id="linux/example/media_on_linux/SocketCANInterface.hpp" name="linux/example/media_on_linux/SocketCANInterface.hpp">
+<area shape="rect" id="node2" href="$_socket_c_a_n_interface_group_8hpp.html" title="linux/example/media\l_on_linux/SocketCANInterface\lGroup.hpp" alt="" coords="19,95,238,151"/>
+<area shape="rect" id="node3" href="$_socket_c_a_n_interface_manager_8hpp.html" title="linux/example/media\l_on_linux/SocketCANInterface\lManager.hpp" alt="" coords="19,199,238,255"/>
+<area shape="rect" id="node4" href="$main_8cpp.html" title="linux/example/media\l_on_linux/main.cpp" alt="" coords="49,303,209,344"/>
 </map>

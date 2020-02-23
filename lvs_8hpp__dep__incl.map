@@ -1,6 +1,6 @@
-<map id="libuavcan_validation_suite/include/lvs/lvs.hpp" name="libuavcan_validation_suite/include/lvs/lvs.hpp">
-<area shape="rect" id="node2" href="$can__frame_8hpp.html" title="libuavcan_validation\l_suite/include/lvs/media\l/can_frame.hpp" alt="" coords="5,95,185,151"/>
-<area shape="rect" id="node3" href="$validation__suite_2include_2lvs_2platform_2memory_8hpp.html" title="libuavcan_validation\l_suite/include/lvs/platform\l/memory.hpp" alt="" coords="210,95,405,151"/>
-<area shape="rect" id="node4" href="$memory__copy_8hpp.html" title="libuavcan_validation\l_suite/include/lvs/platform\l/memory_copy.hpp" alt="" coords="429,95,623,151"/>
-<area shape="rect" id="node5" href="$validation__suite_2include_2lvs_2time_8hpp.html" title="libuavcan_validation\l_suite/include/lvs/time.hpp" alt="" coords="647,102,845,143"/>
+<map id="/repo/libuavcan_validation_suite/include/lvs/lvs.hpp" name="/repo/libuavcan_validation_suite/include/lvs/lvs.hpp">
+<area shape="rect" id="node2" href="$can__frame_8hpp.html" title="/repo/libuavcan_validation\l_suite/include/lvs/media\l/can_frame.hpp" alt="" coords="5,95,200,151"/>
+<area shape="rect" id="node3" href="$validation__suite_2include_2lvs_2platform_2memory_8hpp.html" title="/repo/libuavcan_validation\l_suite/include/lvs/platform\l/memory.hpp" alt="" coords="224,95,419,151"/>
+<area shape="rect" id="node4" href="$memory__copy_8hpp.html" title="/repo/libuavcan_validation\l_suite/include/lvs/platform\l/memory_copy.hpp" alt="" coords="443,95,637,151"/>
+<area shape="rect" id="node5" href="$validation__suite_2include_2lvs_2time_8hpp.html" title="/repo/libuavcan_validation\l_suite/include/lvs/time.hpp" alt="" coords="661,102,859,143"/>
 </map>

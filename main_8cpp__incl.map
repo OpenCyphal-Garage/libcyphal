@@ -1,4 +1,4 @@
-<map id="test/linux/example/media_on_linux/main.cpp" name="test/linux/example/media_on_linux/main.cpp">
+<map id="linux/example/media_on_linux/main.cpp" name="linux/example/media_on_linux/main.cpp">
 <area shape="rect" id="node6" href="$libuavcan_8hpp.html" title="libuavcan/libuavcan.hpp" alt="" coords="710,617,890,644"/>
 <area shape="rect" id="node13" href="$interfaces_8hpp.html" title="libuavcan/media/interfaces.hpp" alt="" coords="316,319,543,345"/>
 <area shape="rect" id="node19" href="$can_8hpp.html" title="libuavcan/media/can.hpp" alt="" coords="567,319,753,345"/>
