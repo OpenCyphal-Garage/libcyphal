@@ -28,12 +28,41 @@ set -o pipefail
 # | Of course, libuavcan is a header-only distribution so
 # | CI is used to verify and test rather than package and
 # | deploy (i.e. There's really no 'I' going on).
+# | Standard parameters:
+# |
+# |   SONARQUBE_TOKEN = A token that will enable sonarqube uploads.
+# |   BUILDKITE = Set to "true" when building within a Buildkite pipeline.
+# |
 # +----------------------------------------------------------+
-mkdir -p test/build_native_gcc
-pushd test/build_native_gcc
 
-buildkite-agent artifact download "test/build_native_gcc/tests/coverage.info" .
+if [ -z "${BUILDKITE_BUILD_NUMBER+xxx}" ]; then
+BUILDKITE_BUILD_NUMBER="xxx"
+fi
 
-# TODO: enable sonarqube upload of linting and coverage.
+# +----------------------------------------------------------+
 
-popd
+if [ -z "${BUILDKITE+xxx}" ]; then
+    echo "Not BUILDKITE. Skipping artifact download."
+    mkdir -p test/build_native_gcc
+else
+    buildkite-agent artifact download "test/build_native_gcc/tests/coverage.info" .
+    buildkite-agent artifact download "test/build_native_gcc/build-wrapper-dump.json" .
+fi
+
+echo "+--------------------------------------------------------------+"
+echo "| The contents of test/build_native_gcc"
+echo "+--------------------------------------------------------------+"
+
+ls -lah test/build_native_gcc
+
+echo "+--------------------------------------------------------------+"
+
+if [ -z "${SONARQUBE_TOKEN+xxx}" ]; then
+    echo "No SONARQUBE_TOKEN defined. Skipping upload."
+else
+    sonar-scanner \
+        -Dsonar.login=${SONARQUBE_TOKEN} \
+        -Dsonar.buildString=${BUILDKITE_BUILD_NUMBER} \
+        -Dsonar.working.directory=test/build_native_gcc/.scannerwork \
+        -Dsonar.cfamily.build-wrapper-output=test/build_native_gcc
+fi

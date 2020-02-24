@@ -51,10 +51,17 @@ cmake --no-warn-unused-cli \
       -G "Unix Makefiles" \
       ..
 
+echo "Doing clean first just to be sure we capture a full build for the build-wrapper"
+
 cmake --build .\
       --config ${CMAKE_BUILD_TYPE} \
-      --target all \
-      -- -j${MAKEFILE_JOBS_COMPILATION}
+      --target clean
+
+build-wrapper-linux-x86-64 --out-dir . \
+      cmake --build .\
+            --config ${CMAKE_BUILD_TYPE} \
+            --target all \
+            -- -j${MAKEFILE_JOBS_COMPILATION}
 
 # We use ctest to run our compile tests.
 ctest -VV
