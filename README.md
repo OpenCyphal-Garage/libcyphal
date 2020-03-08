@@ -7,6 +7,8 @@
 [![Sonarqube Coverage](https://sonarcloud.io/api/project_badges/measure?project=UAVCAN_libuavcan&metric=coverage)](https://sonarcloud.io/dashboard?id=UAVCAN_libuavcan)
 [![Documentation](https://img.shields.io/badge/docs-passing-green.svg)](https://uavcan.org/libuavcan/)
 
+> **WARNING** libuavcan v1 is not yet complete. This is a work-in-progress.
+
 Portable reference implementation of the [UAVCAN protocol stack](https://new.uavcan.org) in C++ for embedded systems, Linux, and POSIX-compliant RTOSs.
 
 UAVCAN is a lightweight protocol designed for reliable communication in aerospace and robotic applications over robust vehicular networks.
