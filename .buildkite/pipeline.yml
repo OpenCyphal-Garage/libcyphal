@@ -73,7 +73,7 @@ steps:
       queue: 'default'
     timeout_in_minutes: 15
     branches:
-      uavcan-v1.0
+      master
     env:
       VERBOSE: 1
   - label: ":coverage: post-build coverage report"
@@ -91,6 +91,6 @@ steps:
       queue: 'default'
     timeout_in_minutes: 15
     branches:
-      uavcan-v1.0
+      master
     env:
       VERBOSE: 1
