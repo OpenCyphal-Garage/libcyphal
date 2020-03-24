@@ -24,9 +24,9 @@ class DefaultLogSink : public uavcan::ILogSink
 {
     void log(const uavcan::protocol::debug::LogMessage& message) override
     {
-        //const auto tt = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        const auto tstr = 0; //std::ctime(&tt); FIXME
-        std::cerr << "### UAVCAN " << tstr << message << std::endl;
+        auto ts = ::timespec();
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        std::cerr << "### UAVCAN " << ts.tv_sec << "." << ts.tv_nsec << message << std::endl;
     }
 };
 

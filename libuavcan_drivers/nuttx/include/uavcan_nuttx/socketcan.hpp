@@ -292,19 +292,11 @@ class SocketCanIface : public uavcan::ICanIface
             if (tx.deadline >= clock_.getMonotonic())
             {
                 const int res = write(tx.frame, tx.deadline);
-                if (res == 1)                   // Transmitted successfully
-                {
-                    //incrementNumFramesInSocketTxQueue(); //FIXME
-                    if (tx.flags & uavcan::CanIOFlagLoopback)
-                    {
-                        (void)pending_loopback_ids_.insert(tx.frame.id);
-                    }
-                }
-                else if (res == 0)              // Not transmitted, nor is it an error
+                if (res == 0)              // Not transmitted, nor is it an error
                 {
                     break;                      // Leaving the loop, the frame remains enqueued for the next retry
                 }
-                else                            // Transmission error
+                else if (res != 1)              // Transmission error
                 {
                     registerError(SocketCanError::SocketWriteFailure);
                 }
@@ -330,18 +322,8 @@ class SocketCanIface : public uavcan::ICanIface
             if (res == 1)
             {
                 assert(!rx.ts_utc.isZero());
-                bool accept = true;
-                if (loopback)                   // We receive loopback for all CAN frames
-                {
-                    confirmSentFrame();
-                    rx.flags |= uavcan::CanIOFlagLoopback;
-                    accept = wasInPendingLoopbackSet(rx.frame); // Do we need to send this loopback into the lib?
-                }
-                if (accept)
-                {
-                    rx.ts_utc += clock_.getPrivateAdjustment();
-                    rx_queue_.push(rx);
-                }
+                rx.ts_utc += clock_.getPrivateAdjustment();
+                rx_queue_.push(rx);
             }
             else if (res == 0)
             {
@@ -589,12 +571,9 @@ public:
             {
                 return -1;
             }
-            // Socket loopback UNSUPPORTED in NuttX SocketCAN
-            /*if (setsockopt(s, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS, &on, sizeof(on)) < 0)
-            {
-                return -1;
-            }*/
-
+            
+            // NuttX Feature: Enable TX deadline when sending CAN frames
+            // When a deadline occurs the driver will remove the CAN frame
             if (setsockopt(s, SOL_CAN_RAW, CAN_RAW_TX_DEADLINE, &on, sizeof(on)) < 0)
             {
                 return -1;

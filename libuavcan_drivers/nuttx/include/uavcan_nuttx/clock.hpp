@@ -51,10 +51,10 @@ class SystemClock : public uavcan::ISystemClock
         }
         tv.tv_sec  += usec / Int1e6;
         tv.tv_usec += usec % Int1e6;
-        //return settimeofday(&tv, nullptr) == 0; FIXME no full POSIX support
-        return 1;
+        return settimeofday(&tv, nullptr) == 0;
     }
 
+#ifdef CONFIG_CLOCK_TIMEKEEPING
     bool performGradualAdjustment(const uavcan::UtcDuration adjustment)
     {
         gradual_adj_cnt_++;
@@ -62,9 +62,9 @@ class SystemClock : public uavcan::ISystemClock
         timeval tv;
         tv.tv_sec  = usec / Int1e6;
         tv.tv_usec = usec % Int1e6;
-        //return adjtime(&tv, nullptr) == 0; FIXME no full POSIX support
-        return 1;
+        return adjtime(&tv, nullptr) == 0;
     }
+#endif
 
 public:
     /**
@@ -134,11 +134,13 @@ public:
             assert(!gradual_adj_limit_.isNegative());
 
             bool success = false;
+#ifdef CONFIG_CLOCK_TIMEKEEPING
             if (adjustment.getAbs() < gradual_adj_limit_)
             {
                 success = performGradualAdjustment(adjustment);
             }
             else
+#endif
             {
                 success = performStepAdjustment(adjustment);
             }
