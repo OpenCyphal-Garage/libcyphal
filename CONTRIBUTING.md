@@ -242,3 +242,19 @@ To use visual studio code to debug ontarget tests for the S32K148EVB you'll need
     "svdFile": "test/ontarget/S32K148EVB/S32K148.svd"
 },
 ```
+
+## CAN bus Physical Layer Notes
+
+This section is to help people new to working with physical CAN busses setup tools to verify and debug UAVCAN at the physical layer.
+
+### SocketCAN and CAN utils
+
+On linux systems that support SocketCan you can install [CAN-utils](https://github.com/linux-can/can-utils) to get some nifty debug and test pattern generation tools. If you are using a probe that is supported by your kernel via SocketCAN (e.g. [Kvaser Leaf Pro HS v2](https://www.kvaser.com/product/kvaser-leaf-pro-hs-v2/) or [Peak Systems, PCAN-USB FD](https://www.peak-system.com/PCAN-USB-FD.365.0.html?L=1)) you can configure it using the `ip` and `tc` commands. For example, given a device `can0` you can configure it for 1Mb/4Mb using commands like thus:
+
+```
+sudo ip link set can0 down
+sudo ip link set can0 type can bitrate 1000000 sample-point 0.875 dbitrate 4000000 dsample-point 0.75 fd on
+sudo tc qdisc replace dev can0 root pfifo_fast
+sudo ip link set can0 up
+sudo ip -details link show can0
+```
