@@ -45,7 +45,6 @@ endif()
 # Common unit-test executable setup.
 #
 function(add_driver_test name library)
-    include_directories(${GTEST_INCLUDE_DIRS})
 
     file(GLOB_RECURSE TEST_CXX_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "test/*.cpp")
     add_executable(${name} ${TEST_CXX_FILES})
@@ -54,7 +53,7 @@ function(add_driver_test name library)
     #Tests should always be built as debug
     set_target_properties(${name} PROPERTIES COMPILE_FLAGS "-DUAVCAN_DEBUG=1")
 
-    target_link_libraries(${name} ${GTEST_BOTH_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+    target_link_libraries(${name} gmock_main)
     target_link_libraries(${name} ${library})
 
     add_test(NAME ${name}
@@ -65,7 +64,7 @@ endfunction()
 
 # GTest executables
 if (GTEST_FOUND)
-    message(STATUS "GTest found, tests will be built and run [${GTEST_INCLUDE_DIRS}] [${GTEST_BOTH_LIBRARIES}]")
+    message(STATUS "GTest found, tests will be built and run.")
     add_driver_test(test_posixdriver uavcan)
 else (GTEST_FOUND)
     message(STATUS "GTest was not found, tests will not be built")

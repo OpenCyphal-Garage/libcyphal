@@ -32,12 +32,12 @@ protected:
  */
 TEST_F(SocketCanIfaceTest, makeSocketCanFrame) 
 {
-    uint8_t fakeData[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
-    uavcan::CanFrame input_frame(9, fakeData, uavcan::CanFrameDLC::CodeForLength12);
+    uint8_t fakeData[] = { 1, 2, 3, 4, 5, 6, 7, 8 };
+    uavcan::CanFrame input_frame(9, fakeData, 8);
 
     uavcan_posix::can_frame result = friendly_makeSocketCanFrame(input_frame);
     EXPECT_EQ(input_frame.id, result.can_id);
-    EXPECT_EQ(12, result.len);
+    EXPECT_EQ(8, result.len);
     EXPECT_EQ(0, ::memcmp(fakeData, result.data, sizeof(fakeData)));
 }
 
@@ -46,15 +46,15 @@ TEST_F(SocketCanIfaceTest, makeSocketCanFrame)
  */
 TEST_F(SocketCanIfaceTest, makeUavcanFrame) 
 {
-    uint8_t fakeData[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
+    uint8_t fakeData[] = { 1, 2, 3, 4, 5, 6, 7, 8 };
     uavcan_posix::can_frame input_frame;
     input_frame.can_id = 2;
-    input_frame.len = 9;
+    input_frame.len = 8;
     std::copy(fakeData, fakeData + sizeof(fakeData), input_frame.data);
 
     uavcan::CanFrame result = friendly_makeUavcanFrame(input_frame);
     EXPECT_EQ(result.id, input_frame.can_id);
-    EXPECT_EQ(result.getDataLength(), 12);
+    EXPECT_EQ(result.dlc, 8);
     EXPECT_EQ(0, ::memcmp(result.data, fakeData, sizeof(fakeData)));
 }
 

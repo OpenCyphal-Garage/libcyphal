@@ -21,19 +21,10 @@
 #include <sys/poll.h>
 #include <sys/time.h>
 
-#ifdef __VXWORKS__
-#include <ioLib.h>
-#include <lstLib.h>
-#include <canDevLib.h>
-#include <socketCAN.h>
-
-#else
 #include <linux/can.h>
 #include <linux/can/raw.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
-
-#endif
 
 #include <uavcan/uavcan.hpp>
 #include <uavcan/driver/system_clock.hpp>
@@ -85,12 +76,9 @@ class SocketCanIface : public uavcan::ICanIface
     {
         can_frame sockcan_frame = can_frame();
         sockcan_frame.can_id = uavcan_frame.id & uavcan::CanFrame::MaskExtID;
-        sockcan_frame.len = uavcan_frame.getDataLength();
-#ifndef __VXWORKS__
-        // TODO VSDK-1684: define CANFD_BRS for vxworks.
+        sockcan_frame.len = uavcan_frame.dlc;
         sockcan_frame.flags = CANFD_BRS;
-#endif
-        (void)std::copy(uavcan_frame.data, uavcan_frame.data + uavcan_frame.getDataLength(), sockcan_frame.data);
+        (void)std::copy(uavcan_frame.data, uavcan_frame.data + uavcan_frame.dlc, sockcan_frame.data);
         if (uavcan_frame.isExtended())
         {
             sockcan_frame.can_id |= CAN_EFF_FLAG;
@@ -108,7 +96,7 @@ class SocketCanIface : public uavcan::ICanIface
 
     static inline uavcan::CanFrame makeUavcanFrame(const can_frame& sockcan_frame)
     {
-        uavcan::CanFrame uavcan_frame(sockcan_frame.can_id & CAN_EFF_MASK, sockcan_frame.data, uavcan::CanFrame::length_to_dlc(sockcan_frame.len));
+        uavcan::CanFrame uavcan_frame(sockcan_frame.can_id & CAN_EFF_MASK, sockcan_frame.data, sockcan_frame.len);
         if (sockcan_frame.can_id & CAN_EFF_FLAG)
         {
             uavcan_frame.id |= uavcan::CanFrame::FlagEFF;
@@ -285,7 +273,6 @@ class SocketCanIface : public uavcan::ICanIface
         /*
          * Timestamp
          */
-#ifndef __VXWORKS__
         const ::cmsghdr* const cmsg = CMSG_FIRSTHDR(&msg);
         UAVCAN_ASSERT(cmsg != nullptr);
         if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SO_TIMESTAMP)
@@ -300,12 +287,6 @@ class SocketCanIface : public uavcan::ICanIface
             UAVCAN_ASSERT(0);
             return -1;
         }
-#else
-        // TODO VSDK-1445 - Enable hardware timestamps on vxworks.
-        // VxWorks doesn't support (SOL_SOCKET, SO_TIMESTAMP) in socketCAN. This isn't the best,
-        // but this works fine for now.
-        ts_utc = clock_.getUtc();
-#endif
         return 1;
     }
 
@@ -518,7 +499,6 @@ public:
 
         if (num_configs == 0)
         {
-#ifndef __VXWORKS__
             //The SocketCAN spec indicates that a zero sized filter array can
             // be used to ignore all ingress CAN frames.
             if (setsockopt(fd_, SOL_CAN_RAW, CAN_RAW_FILTER, NULL, 0) == 0)
@@ -531,22 +511,6 @@ public:
                 UAVCAN_ASSERT(0);
                 return -1;
             }
-#else
-            //On VxWorks, setting a zero sized array does not work as expected.
-            // So until VxWorks provides a fix, use the CAN_RAW_XMIT_ONLY socket
-            // option to achieve the same effect.
-            const int optval = 1;
-            if (setsockopt(fd_, SOL_CAN_RAW, CAN_RAW_XMIT_ONLY, &optval, sizeof(int)) == 0)
-            {
-                loopback_filter_configured_ = true;
-            }
-            else
-            {
-                UAVCAN_TRACE("SocketCAN", "SocketCanIface: Failed to enable CAN_RAW_XMIT_ONLY sockopt.");
-                UAVCAN_ASSERT(0);
-                return -1;
-            }
-#endif
             return 0;
         }
 
@@ -634,15 +598,10 @@ public:
         const int canfd_on = 1;
         const int canfd_result = setsockopt(s, SOL_CAN_RAW, CAN_RAW_FD_FRAMES, &canfd_on, sizeof(canfd_on));
 
-#ifdef __VXWORKS__
-        // TODO VSDK-xxxx: return 0 on vxworks
-        (void)canfd_result;
-#else
         if (canfd_result != 0)
         {
             return 0;
         }
-#endif
         class RaiiCloser
         {
             int fd_;
@@ -689,26 +648,15 @@ public:
         // Configure
         {
             const int on = 1;
-#ifndef __VXWORKS__
-            // Timestamping
-            // TODO VSDK-xxxx, WindRiver Enhancement Request pending.
             if (::setsockopt(s, SOL_SOCKET, SO_TIMESTAMP, &on, sizeof(on)) < 0)
             {
                 return -1;
             }
-#endif
-            // Socket loopback
-            if (::setsockopt(s, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS, &on, sizeof(on)) < 0)
-            {
-                return -1;
-            }
-#ifndef __VXWORKS__
             // Non-blocking
             if (::fcntl(s, F_SETFL, O_NONBLOCK) < 0)
             {
                 return -1;
             }
-#endif
         }
 
         // Validate the resulting socket
