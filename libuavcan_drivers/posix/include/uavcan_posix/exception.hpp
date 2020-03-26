@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
+ * Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 
 #pragma once
@@ -7,11 +8,12 @@
 #include <cerrno>
 #include <cstring>
 #include <stdexcept>
+#include <string>
 
-namespace uavcan_linux
+namespace uavcan_posix
 {
 /**
- * This is the root exception class for all exceptions that can be thrown from the libuavcan Linux driver.
+ * This is the root exception class for all exceptions that can be thrown from the libuavcan posix driver.
  */
 class Exception : public std::runtime_error
 {
@@ -37,7 +39,7 @@ public:
 
 /**
  * This type is thrown when a Libuavcan API method exits with error.
- * The error code is stored in the exception object and is avialable via @ref getLibuavcanErrorCode().
+ * The error code is stored in the exception object and is available via @ref getLibuavcanErrorCode().
  */
 class LibuavcanErrorException : public Exception
 {
@@ -66,4 +68,4 @@ public:
     AllIfacesDownException() : Exception("All ifaces are down", ENETDOWN) { }
 };
 
-}
+} // end namespace uavcan_posix
