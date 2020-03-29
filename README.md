@@ -3,26 +3,24 @@ UAVCAN stack in C++
 
 [![Coverity Scan](https://scan.coverity.com/projects/1513/badge.svg)](https://scan.coverity.com/projects/1513)
 [![Travis CI](https://travis-ci.org/UAVCAN/libuavcan.svg?branch=master)](https://travis-ci.org/UAVCAN/libuavcan)
-[![Gitter](https://img.shields.io/badge/gitter-join%20chat-green.svg)](https://gitter.im/UAVCAN/general)
 
-Portable reference implementation of the [UAVCAN protocol stack](http://uavcan.org) in C++ for embedded systems
-and Linux.
-
-UAVCAN is a lightweight protocol designed for reliable communication in aerospace and robotic applications via CAN bus.
+Portable reference implementation of the legacy [UAVCAN v0 protocol stack](http://legacy.uavcan.org) in C++
+for embedded systems and GNU/Linux.
+The platform-specific components (for STM32, SocketCAN, etc.) can be found at
+[github.com/UAVCAN/platform_specific_components](https://github.com/UAVCAN/platform_specific_components/tree/legacy-v0).
 
 ## Documentation
 
-* [UAVCAN website](http://uavcan.org)
+* [UAVCAN v0 website](http://legacy.uavcan.org)
 * [UAVCAN forum](https://forum.uavcan.org)
-* [Libuavcan overview](http://uavcan.org/Implementations/Libuavcan/)
-* [List of platforms officially supported by libuavcan](http://uavcan.org/Implementations/Libuavcan/Platforms/)
-* [Libuavcan tutorials](http://uavcan.org/Implementations/Libuavcan/Tutorials/)
+* [Libuavcan v0 overview](http://legacy.uavcan.org/Implementations/Libuavcan/)
+* [Libuavcan v0 tutorials](http://legacy.uavcan.org/Implementations/Libuavcan/Tutorials/)
 
 ## Library usage
 
 ### Dependencies
 
-* Python 2.7 or 3.3 or newer
+* Python 3.3 or newer
 
 Note that this reporitory includes [Pyuavcan](http://uavcan.org/Implementations/Pyuavcan) as a submodule.
 Such inclusion enables the library to be built even if pyuavcan is not installed in the system.
@@ -37,7 +35,7 @@ git submodule update --init
 
 If this repository is used as a git submodule in your project, make sure to use `--recursive` when updating it.
 
-### Using in a Linux application
+### Using in a GNU/Linux application
 
 Libuavcan can be built as a static library and installed on the system globally as shown below.
 
