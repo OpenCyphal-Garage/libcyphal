@@ -109,7 +109,7 @@ function(add_libuavcan_test name library flags) # Adds GTest executable and crea
 
     target_link_libraries(${name} gmock_main)
     target_link_libraries(${name} ${library})
-    if (${UAVCAN_PLATFORM} STREQUAL "linux")
+    if (UNIX)
         target_link_libraries(${name} rt)
     endif()
 
