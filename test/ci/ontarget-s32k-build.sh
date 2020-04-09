@@ -56,7 +56,7 @@ cmake --no-warn-unused-cli \
       -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE} \
       -DGTEST_USE_LOCAL_BUILD=ON \
       -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/cortex-m4-fpv4-sp-d16-nosys.cmake \
-      -DLIBUAVCAN_TESTBUILD=../ontarget/S32K148EVB/tests.cmake \
+      -DLIBUAVCAN_TESTBUILD=../ontarget/rddrone/tests.cmake \
       -DLIBUAVCAN_SKIP_DOCS=ON \
       -G "Unix Makefiles" \
       ..
