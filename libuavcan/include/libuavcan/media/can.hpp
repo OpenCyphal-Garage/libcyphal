@@ -330,7 +330,10 @@ public:
      * @param can_timestamp A monotonic timestamp that should be as close to the time the start-of-frame was
      *                      received (for rx frames) or put-on-bus (for tx frames) as possible.
      */
-    Frame(std::uint32_t can_id, const std::uint8_t* can_data, FrameDLC in_dlc, libuavcan::time::Monotonic can_timestamp)
+    Frame(std::uint32_t                can_id,
+          volatile const std::uint8_t* can_data,
+          FrameDLC                     in_dlc,
+          libuavcan::time::Monotonic   can_timestamp)
         : id(can_id)
         , data{}
         , dlc_(in_dlc)

@@ -28,7 +28,7 @@ set(C_FLAG_SET  "-mcpu=${MCU_ARCH}"
 # Debug flags for C and C++
 #
 list(APPEND C_FLAG_SET
-                "-Og"
+                "-O0"
                 "-DDEBUG"
                 "-ggdb"
 )
