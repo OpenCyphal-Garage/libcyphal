@@ -13,9 +13,9 @@ namespace platform
 {
 namespace memory
 {
-typedef ::testing::Types<libuavcan::platform::memory::PoolAllocator<1, 1>,
-                         libuavcan::platform::memory::PoolAllocator<1, 8, std::uint64_t>,
-                         libuavcan::platform::memory::PoolAllocator<8, std::numeric_limits<std::uint8_t>::max(), char>>
+typedef ::testing::Types<libcyphal::platform::memory::PoolAllocator<1, 1>,
+                         libcyphal::platform::memory::PoolAllocator<1, 8, std::uint64_t>,
+                         libcyphal::platform::memory::PoolAllocator<8, std::numeric_limits<std::uint8_t>::max(), char>>
     MyTypes;
 
 // The trailing comma is required. See https://github.com/google/googletest/issues/1419

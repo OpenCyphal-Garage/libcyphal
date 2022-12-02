@@ -25,7 +25,7 @@ set -o pipefail
 # |
 # |   [build_type]-[(optional)build_type qualifier]-[build|test|report|upload].sh
 # |
-# | Of course, libuavcan is a header-only distribution so
+# | Of course, libcyphal is a header-only distribution so
 # | CI is used to verify and test rather than package and
 # | deploy (i.e. There's really no 'I' going on).
 # | Standard parameters:
@@ -55,9 +55,9 @@ cmake --no-warn-unused-cli \
       -DCMAKE_TOOLCHAIN_FILE:FILEPATH=../cmake/toolchains/gcc-arm-none-eabi.cmake \
       -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE} \
       -DGTEST_USE_LOCAL_BUILD=ON \
-      -DLIBUAVCAN_FLAG_SET=../cmake/compiler_flag_sets/cortex-m4-fpv4-sp-d16-nosys.cmake \
-      -DLIBUAVCAN_TESTBUILD=../ontarget/rddrone/tests.cmake \
-      -DLIBUAVCAN_SKIP_DOCS=ON \
+      -DLIBCYPHAL_FLAG_SET=../cmake/compiler_flag_sets/cortex-m4-fpv4-sp-d16-nosys.cmake \
+      -DLIBCYPHAL_TESTBUILD=../ontarget/rddrone/tests.cmake \
+      -DLIBCYPHAL_SKIP_DOCS=ON \
       -G "Unix Makefiles" \
       ..
 

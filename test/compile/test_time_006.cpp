@@ -1,12 +1,12 @@
 /*
  * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
-#include "libuavcan/libuavcan.hpp"
-#include "libuavcan/time.hpp"
+#include "libcyphal/libcyphal.hpp"
+#include "libcyphal/time.hpp"
 
 namespace
 {
-class IllegalDurationForTime : public libuavcan::time::Base<IllegalDurationForTime, int64_t, uint64_t>
+class IllegalDurationForTime : public libcyphal::time::Base<IllegalDurationForTime, int64_t, uint64_t>
 {
 };
 }  // namespace

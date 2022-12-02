@@ -3,7 +3,7 @@
 #
 
 # All test binaries and reports will be created under this directory.
-set(LIBUAVCAN_NATIVE_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/tests)
+set(LIBCYPHAL_NATIVE_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/tests)
 
 #
 # We generate coverage reports. Please look at them (It wasn't easy to get this to work).
@@ -69,7 +69,7 @@ file(GLOB NATIVE_TESTS
 add_custom_target(
      lcov_zero
      ${LCOV}
-          ${LIBUAVCAN_GCOV_TOOL_ARG}
+          ${LIBCYPHAL_GCOV_TOOL_ARG}
           --zerocounters
           --directory ${CMAKE_CURRENT_BINARY_DIR}
      COMMENT "Resetting coverage counters."
@@ -81,14 +81,14 @@ set(ALL_TEST_COVERAGE "")
 
 foreach(NATIVE_TEST ${NATIVE_TESTS})
     get_filename_component(NATIVE_TEST_NAME ${NATIVE_TEST} NAME_WE)
-    define_native_unit_test(${NATIVE_TEST_NAME} ${NATIVE_TEST} ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR})
-    define_native_test_run(${NATIVE_TEST_NAME} ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR})
-    define_native_test_run_with_lcov(${NATIVE_TEST_NAME} ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR})
-    define_natve_test_coverage(${NATIVE_TEST_NAME} ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR})
+    define_native_unit_test(${NATIVE_TEST_NAME} ${NATIVE_TEST} ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR})
+    define_native_test_run(${NATIVE_TEST_NAME} ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR})
+    define_native_test_run_with_lcov(${NATIVE_TEST_NAME} ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR})
+    define_natve_test_coverage(${NATIVE_TEST_NAME} ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR})
     list(APPEND ALL_TESTS "run_${NATIVE_TEST_NAME}")
     list(APPEND ALL_TESTS_WITH_LCOV "run_${NATIVE_TEST_NAME}_with_lcov")
     list(APPEND ALL_TEST_COVERAGE "--add-tracefile")
-    list(APPEND ALL_TEST_COVERAGE "${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.${NATIVE_TEST_NAME}.filtered.info")
+    list(APPEND ALL_TEST_COVERAGE "${LIBCYPHAL_NATIVE_TEST_BINARY_DIR}/coverage.${NATIVE_TEST_NAME}.filtered.info")
 endforeach()
 
 # +---------------------------------------------------------------------------+
@@ -96,37 +96,37 @@ endforeach()
 #   to a coverage reporting service as part of the CI pipeline.
 
 add_custom_command(
-     OUTPUT ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.all.info
+     OUTPUT ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR}/coverage.all.info
      COMMAND
           ${LCOV}
-               ${LIBUAVCAN_GCOV_TOOL_ARG}
+               ${LIBCYPHAL_GCOV_TOOL_ARG}
                --rc lcov_branch_coverage=1
                ${ALL_TEST_COVERAGE}
-               --output-file ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.all.info
+               --output-file ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR}/coverage.all.info
      DEPENDS ${ALL_TESTS_WITH_LCOV}
 )
 
 add_custom_command(
-     OUTPUT ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.info
+     OUTPUT ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR}/coverage.info
      COMMAND
           ${LCOV}
-               ${LIBUAVCAN_GCOV_TOOL_ARG}
+               ${LIBCYPHAL_GCOV_TOOL_ARG}
                --rc lcov_branch_coverage=1
-               --extract ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.all.info
-                         ${LIBUAVCAN_PROJECT_ROOT}/libuavcan/include/\\*
-               --output-file ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.info
-     DEPENDS ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.all.info
+               --extract ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR}/coverage.all.info
+                         ${LIBCYPHAL_PROJECT_ROOT}/libcyphal/include/\\*
+               --output-file ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR}/coverage.info
+     DEPENDS ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR}/coverage.all.info
 )
 
 add_custom_target(
      cov_info
-     DEPENDS ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.info
+     DEPENDS ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR}/coverage.info
 )
 
 add_custom_target(
      cov_all
      ${GENHTML} --title "${PROJECT_NAME} native test coverage"
-          --output-directory ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage/all
+          --output-directory ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR}/coverage/all
           --demangle-cpp
           --sort
           --num-spaces 4
@@ -135,8 +135,8 @@ add_custom_target(
           --legend
           --highlight
           --show-details
-          ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.info
-     DEPENDS ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.info
+          ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR}/coverage.info
+     DEPENDS ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR}/coverage.info
      COMMENT "Build and run all tests and generate an overall html coverage report."
 )
 
@@ -155,7 +155,7 @@ if (SONARQUBE)
      message(STATUS "sonarqube upload binary was defined. Adding the upload target: sonarqube_upload")
      add_custom_target(
           sonarqube_upload
-          ${SONARQUBE} --root ${CMAKE_CURRENT_SOURCE_DIR} ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/coverage.info -v
+          ${SONARQUBE} --root ${CMAKE_CURRENT_SOURCE_DIR} ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR}/coverage.info -v
           COMMENT "Upload to sonarqube (requires that SONARQUBE_TOKEN is defined in the environment)."
      )
 
@@ -165,5 +165,5 @@ endif()
 
 
 # Write a README to create the tests folder.
-file(WRITE ${LIBUAVCAN_NATIVE_TEST_BINARY_DIR}/README.txt
+file(WRITE ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR}/README.txt
      "All test binaries and output will appear under here.")

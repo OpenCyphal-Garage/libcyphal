@@ -1,12 +1,12 @@
 /*
  * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
-#include "libuavcan/libuavcan.hpp"
-#include "libuavcan/time.hpp"
+#include "libcyphal/libcyphal.hpp"
+#include "libcyphal/time.hpp"
 
 namespace
 {
-class TooBig : public libuavcan::time::Base<TooBig, libuavcan::duration::Monotonic>
+class TooBig : public libcyphal::time::Base<TooBig, libcyphal::duration::Monotonic>
 {
     uint8_t more_;
 };

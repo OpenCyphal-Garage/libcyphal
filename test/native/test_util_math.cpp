@@ -4,8 +4,8 @@
  * Unit tests of the saturation math utilities in util/math.hpp
  */
 
-#include "libuavcan/libuavcan.hpp"
-#include "libuavcan/util/math.hpp"
+#include "libcyphal/libcyphal.hpp"
+#include "libcyphal/util/math.hpp"
 #include "lvs/lvs.hpp"
 
 namespace
@@ -105,7 +105,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingAdd)
 {
     const typename TypeParam::LeftHandSideType  a = std::numeric_limits<typename TypeParam::LeftHandSideType>::max();
     const typename TypeParam::RightHandSideType b = 1;
-    const typename TypeParam::LeftHandSideType  c = libuavcan::util::saturating_add(a, b);
+    const typename TypeParam::LeftHandSideType  c = libcyphal::util::saturating_add(a, b);
     ASSERT_EQ(a, c);
 }
 
@@ -113,7 +113,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingSub)
 {
     const typename TypeParam::LeftHandSideType  a = std::numeric_limits<typename TypeParam::LeftHandSideType>::min();
     const typename TypeParam::RightHandSideType b = 1;
-    const typename TypeParam::LeftHandSideType  c = libuavcan::util::saturating_sub(a, b);
+    const typename TypeParam::LeftHandSideType  c = libcyphal::util::saturating_sub(a, b);
     ASSERT_EQ(a, c);
 }
 
@@ -121,7 +121,7 @@ TYPED_TEST(SaturatedMathTest, NonSaturatingAdd)
 {
     const typename TypeParam::LeftHandSideType a = std::numeric_limits<typename TypeParam::LeftHandSideType>::max() - 2;
     const typename TypeParam::RightHandSideType b = 1;
-    const typename TypeParam::LeftHandSideType  c = libuavcan::util::saturating_add(a, b);
+    const typename TypeParam::LeftHandSideType  c = libcyphal::util::saturating_add(a, b);
     ASSERT_EQ(static_cast<typename TypeParam::LeftHandSideType>(a + 1), c);
 }
 
@@ -129,7 +129,7 @@ TYPED_TEST(SaturatedMathTest, NonSaturatingSub)
 {
     const typename TypeParam::LeftHandSideType a = std::numeric_limits<typename TypeParam::LeftHandSideType>::min() + 2;
     const typename TypeParam::RightHandSideType b = 1;
-    const typename TypeParam::LeftHandSideType  c = libuavcan::util::saturating_sub(a, b);
+    const typename TypeParam::LeftHandSideType  c = libcyphal::util::saturating_sub(a, b);
     ASSERT_EQ(static_cast<typename TypeParam::LeftHandSideType>(a - 1), c);
 }
 
@@ -138,7 +138,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingAddMaxMax)
 {
     const typename TypeParam::LeftHandSideType  a = std::numeric_limits<typename TypeParam::LeftHandSideType>::max();
     const typename TypeParam::RightHandSideType b = std::numeric_limits<typename TypeParam::RightHandSideType>::max();
-    const typename TypeParam::LeftHandSideType  c = libuavcan::util::saturating_add(a, b);
+    const typename TypeParam::LeftHandSideType  c = libcyphal::util::saturating_add(a, b);
     ASSERT_EQ(std::numeric_limits<typename TypeParam::LeftHandSideType>::max(), c);
 }
 
@@ -146,7 +146,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingAddMinMax)
 {
     const typename TypeParam::LeftHandSideType  a = std::numeric_limits<typename TypeParam::LeftHandSideType>::min();
     const typename TypeParam::RightHandSideType b = std::numeric_limits<typename TypeParam::RightHandSideType>::max();
-    const typename TypeParam::LeftHandSideType  c = libuavcan::util::saturating_add(a, b);
+    const typename TypeParam::LeftHandSideType  c = libcyphal::util::saturating_add(a, b);
     if (std::numeric_limits<typename TypeParam::LeftHandSideType>::is_signed)
     {
         ASSERT_EQ(static_cast<typename TypeParam::LeftHandSideType>(-1), c);
@@ -167,7 +167,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingAddMinMin)
 {
     const typename TypeParam::LeftHandSideType  a = std::numeric_limits<typename TypeParam::LeftHandSideType>::min();
     const typename TypeParam::RightHandSideType b = std::numeric_limits<typename TypeParam::RightHandSideType>::min();
-    const typename TypeParam::LeftHandSideType  c = libuavcan::util::saturating_add(a, b);
+    const typename TypeParam::LeftHandSideType  c = libcyphal::util::saturating_add(a, b);
     ASSERT_EQ(std::numeric_limits<typename TypeParam::LeftHandSideType>::min(), c);
 }
 
@@ -175,7 +175,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingAddMaxMin)
 {
     const typename TypeParam::LeftHandSideType  a = std::numeric_limits<typename TypeParam::LeftHandSideType>::max();
     const typename TypeParam::RightHandSideType b = std::numeric_limits<typename TypeParam::RightHandSideType>::min();
-    const typename TypeParam::LeftHandSideType  c = libuavcan::util::saturating_add(a, b);
+    const typename TypeParam::LeftHandSideType  c = libcyphal::util::saturating_add(a, b);
     if (std::numeric_limits<typename TypeParam::LeftHandSideType>::is_signed)
     {
         ASSERT_EQ(static_cast<typename TypeParam::LeftHandSideType>(-1), c);
@@ -197,7 +197,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingAddMaxMinPlusOne)
     const typename TypeParam::LeftHandSideType  a = std::numeric_limits<typename TypeParam::LeftHandSideType>::max();
     const typename TypeParam::RightHandSideType b =
         std::numeric_limits<typename TypeParam::RightHandSideType>::min() + 1;
-    const typename TypeParam::LeftHandSideType c = libuavcan::util::saturating_add(a, b);
+    const typename TypeParam::LeftHandSideType c = libcyphal::util::saturating_add(a, b);
     if (std::numeric_limits<typename TypeParam::LeftHandSideType>::is_signed)
     {
         ASSERT_EQ(static_cast<typename TypeParam::LeftHandSideType>(0), c);
@@ -218,7 +218,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingAddMinPlusOneMin)
 {
     const typename TypeParam::LeftHandSideType a = std::numeric_limits<typename TypeParam::LeftHandSideType>::min() + 1;
     const typename TypeParam::RightHandSideType b = std::numeric_limits<typename TypeParam::RightHandSideType>::min();
-    const typename TypeParam::LeftHandSideType  c = libuavcan::util::saturating_add(a, b);
+    const typename TypeParam::LeftHandSideType  c = libcyphal::util::saturating_add(a, b);
     if (std::numeric_limits<typename TypeParam::LeftHandSideType>::is_signed)
     {
         ASSERT_EQ(std::numeric_limits<typename TypeParam::LeftHandSideType>::min(), c);
@@ -237,7 +237,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingAddMaxToZero)
 {
     const typename TypeParam::LeftHandSideType  a = 0;
     const typename TypeParam::RightHandSideType b = std::numeric_limits<typename TypeParam::RightHandSideType>::max();
-    const typename TypeParam::LeftHandSideType  c = libuavcan::util::saturating_add(a, b);
+    const typename TypeParam::LeftHandSideType  c = libcyphal::util::saturating_add(a, b);
     ASSERT_EQ(static_cast<typename TypeParam::LeftHandSideType>(
                   std::numeric_limits<typename TypeParam::RightHandSideType>::max()),
               c);
@@ -247,7 +247,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingAddZeroToMax)
 {
     const typename TypeParam::LeftHandSideType  a = std::numeric_limits<typename TypeParam::LeftHandSideType>::max();
     const typename TypeParam::RightHandSideType b = 0;
-    const typename TypeParam::LeftHandSideType  c = libuavcan::util::saturating_add(a, b);
+    const typename TypeParam::LeftHandSideType  c = libcyphal::util::saturating_add(a, b);
     ASSERT_EQ(std::numeric_limits<typename TypeParam::LeftHandSideType>::max(), c);
 }
 
@@ -257,7 +257,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingSubMaxMax)
 {
     const typename TypeParam::LeftHandSideType  a = std::numeric_limits<typename TypeParam::LeftHandSideType>::max();
     const typename TypeParam::RightHandSideType b = std::numeric_limits<typename TypeParam::RightHandSideType>::max();
-    const typename TypeParam::LeftHandSideType  c = libuavcan::util::saturating_sub(a, b);
+    const typename TypeParam::LeftHandSideType  c = libcyphal::util::saturating_sub(a, b);
     if (std::numeric_limits<typename TypeParam::LeftHandSideType>::is_signed ==
         std::numeric_limits<typename TypeParam::RightHandSideType>::is_signed)
     {
@@ -275,7 +275,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingSubMinMax)
 {
     const typename TypeParam::LeftHandSideType  a = std::numeric_limits<typename TypeParam::LeftHandSideType>::min();
     const typename TypeParam::RightHandSideType b = std::numeric_limits<typename TypeParam::RightHandSideType>::max();
-    const typename TypeParam::LeftHandSideType  c = libuavcan::util::saturating_sub(a, b);
+    const typename TypeParam::LeftHandSideType  c = libcyphal::util::saturating_sub(a, b);
     ASSERT_EQ(std::numeric_limits<typename TypeParam::LeftHandSideType>::min(), c);
 }
 
@@ -283,7 +283,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingSubMinMin)
 {
     const typename TypeParam::LeftHandSideType  a = std::numeric_limits<typename TypeParam::LeftHandSideType>::min();
     const typename TypeParam::RightHandSideType b = std::numeric_limits<typename TypeParam::RightHandSideType>::min();
-    const typename TypeParam::LeftHandSideType  c = libuavcan::util::saturating_sub(a, b);
+    const typename TypeParam::LeftHandSideType  c = libcyphal::util::saturating_sub(a, b);
     if (std::numeric_limits<typename TypeParam::LeftHandSideType>::is_signed ==
         std::numeric_limits<typename TypeParam::RightHandSideType>::is_signed)
     {
@@ -301,7 +301,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingSubMaxMin)
 {
     const typename TypeParam::LeftHandSideType  a = std::numeric_limits<typename TypeParam::LeftHandSideType>::max();
     const typename TypeParam::RightHandSideType b = std::numeric_limits<typename TypeParam::RightHandSideType>::min();
-    const typename TypeParam::LeftHandSideType  c = libuavcan::util::saturating_sub(a, b);
+    const typename TypeParam::LeftHandSideType  c = libcyphal::util::saturating_sub(a, b);
     ASSERT_EQ(std::numeric_limits<typename TypeParam::LeftHandSideType>::max(), c);
 }
 
@@ -310,7 +310,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingSubMaxMinPlusOne)
     const typename TypeParam::LeftHandSideType  a = std::numeric_limits<typename TypeParam::LeftHandSideType>::max();
     const typename TypeParam::RightHandSideType b =
         std::numeric_limits<typename TypeParam::RightHandSideType>::min() + 1;
-    const typename TypeParam::LeftHandSideType c = libuavcan::util::saturating_sub(a, b);
+    const typename TypeParam::LeftHandSideType c = libcyphal::util::saturating_sub(a, b);
     if (std::numeric_limits<typename TypeParam::RightHandSideType>::is_signed)
     {
         ASSERT_EQ(std::numeric_limits<typename TypeParam::LeftHandSideType>::max(), c);
@@ -327,7 +327,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingSubMinPlusOneMin)
 {
     const typename TypeParam::LeftHandSideType a = std::numeric_limits<typename TypeParam::LeftHandSideType>::min() + 1;
     const typename TypeParam::RightHandSideType b = std::numeric_limits<typename TypeParam::RightHandSideType>::min();
-    const typename TypeParam::LeftHandSideType  c = libuavcan::util::saturating_sub(a, b);
+    const typename TypeParam::LeftHandSideType  c = libcyphal::util::saturating_sub(a, b);
     if (std::numeric_limits<typename TypeParam::RightHandSideType>::is_signed ==
         std::numeric_limits<typename TypeParam::LeftHandSideType>::is_signed)
     {
@@ -344,10 +344,10 @@ TYPED_TEST(SaturatedMathTest, SaturatingSubMaxFromZero)
     const typename TypeParam::LeftHandSideType  a = 0;
     const typename TypeParam::RightHandSideType b = std::numeric_limits<typename TypeParam::RightHandSideType>::max();
 
-    const typename TypeParam::LeftHandSideType c = libuavcan::util::saturating_sub(a, b);
+    const typename TypeParam::LeftHandSideType c = libcyphal::util::saturating_sub(a, b);
     ASSERT_LE(std::numeric_limits<typename TypeParam::LeftHandSideType>::min(), c);
 
-    const typename TypeParam::LeftHandSideType d = libuavcan::util::saturating_sub(c, b);
+    const typename TypeParam::LeftHandSideType d = libcyphal::util::saturating_sub(c, b);
     ASSERT_EQ(std::numeric_limits<typename TypeParam::LeftHandSideType>::min(), d);
 }
 
@@ -356,7 +356,7 @@ TYPED_TEST(SaturatedMathTest, SaturatingSubZeroFromMax)
     const typename TypeParam::LeftHandSideType  a = std::numeric_limits<typename TypeParam::LeftHandSideType>::max();
     const typename TypeParam::RightHandSideType b = 0;
 
-    const typename TypeParam::LeftHandSideType c = libuavcan::util::saturating_sub(a, b);
+    const typename TypeParam::LeftHandSideType c = libcyphal::util::saturating_sub(a, b);
     ASSERT_LE(std::numeric_limits<typename TypeParam::LeftHandSideType>::max(), c);
 }
 

@@ -5,12 +5,12 @@
 /**
  * @defgroup examples Examples
  *
- * Examples are provided as documentation for how libuavcan can be implemented
+ * Examples are provided as documentation for how libcyphal can be implemented
  * for real systems.
  *
  * @{
  * @file
- * Implements just the media layer of libuavcan on top of <a
+ * Implements just the media layer of libcyphal on top of <a
  * href="https://www.kernel.org/doc/Documentation/networking/can.txt">SocketCAN</a>.
  * To test using virtual can interfaces on linux see the instructions in <a
  * href="https://en.wikipedia.org/wiki/SocketCAN"> the SocketCAN wiki.</a>. These basically amount to
@@ -20,7 +20,7 @@
  * @endcode
  * Note that this is a naive and simplistic implementation. While it may be suitable as prototype
  * it should not be used as an example of how to implement the media layer optimally nor
- * is it tested with any rigor so bugs may exists even while the libuavcan build is passing.
+ * is it tested with any rigor so bugs may exists even while the libcyphal build is passing.
  * @}  // end of examples group
  */
 #include <iostream>
@@ -28,9 +28,9 @@
 #include <chrono>
 #include <memory>
 
-#include "libuavcan/libuavcan.hpp"
-#include "libuavcan/media/interfaces.hpp"
-#include "libuavcan/media/can.hpp"
+#include "libcyphal/libcyphal.hpp"
+#include "libcyphal/media/interfaces.hpp"
+#include "libcyphal/media/can.hpp"
 #include "SocketCANInterfaceManager.hpp"
 
 // +--------------------------------------------------------------------------+
@@ -75,7 +75,7 @@ inline void print_usage()
 /**
  * Quick argument parser object modeled on python's argparse (sorta).
  */
-inline libuavcan::Result parse_args(int argc, char* argv[], Namespace& out_namespace)
+inline libcyphal::Result parse_args(int argc, char* argv[], Namespace& out_namespace)
 {
     bool keep_going = true;
     while (keep_going)
@@ -99,14 +99,14 @@ inline libuavcan::Result parse_args(int argc, char* argv[], Namespace& out_names
             break;
 
         case '?':
-            return libuavcan::Result::SuccessPartial;
+            return libcyphal::Result::SuccessPartial;
 
         default:
-            return libuavcan::Result::Failure;
+            return libcyphal::Result::Failure;
         }
     }
 
-    return (long_options[0].has_arg == required_argument) ? libuavcan::Result::BadArgument : libuavcan::Result::Success;
+    return (long_options[0].has_arg == required_argument) ? libcyphal::Result::BadArgument : libcyphal::Result::Success;
 }
 
 // +--------------------------------------------------------------------------+
@@ -115,11 +115,11 @@ inline libuavcan::Result parse_args(int argc, char* argv[], Namespace& out_names
 /**
  * Helper to print interface statistics to stdout.
  */
-inline void print_stats(const libuavcan::example::SocketCANInterface* interface)
+inline void print_stats(const libcyphal::example::SocketCANInterface* interface)
 {
     if (nullptr != interface)
     {
-        static libuavcan::example::SocketCANInterface::Statistics stats;
+        static libcyphal::example::SocketCANInterface::Statistics stats;
         interface->getStatistics(stats);
         std::cout << interface->getInterfaceName() << ": rx=" << stats.rx_total;
         std::cout << ", rx_dropped=" << stats.rx_dropped;
@@ -149,16 +149,16 @@ class LoopBackTest final
     static constexpr std::size_t TxTestFramesLen = 2;
     static constexpr std::size_t TestFiltersLen  = 1;
 
-    const libuavcan::example::SocketCANInterfaceManager::InterfaceGroupType::FrameType
-        test_frames_[libuavcan::example::SocketCANInterfaceGroup::TxFramesLen];
+    const libcyphal::example::SocketCANInterfaceManager::InterfaceGroupType::FrameType
+        test_frames_[libcyphal::example::SocketCANInterfaceGroup::TxFramesLen];
 
-    const libuavcan::example::SocketCANInterfaceManager::InterfaceGroupType::FrameType::Filter
+    const libcyphal::example::SocketCANInterfaceManager::InterfaceGroupType::FrameType::Filter
                               test_filters_[TestFiltersLen];
     std::vector<unsigned int> test_frames_found_;
     const std::chrono::duration<std::uint64_t> test_timeout_;
     const bool run_continuously_;
     std::chrono::steady_clock::time_point test_started_at_;
-    libuavcan::Result test_result_;
+    libcyphal::Result test_result_;
 
 public:
     LoopBackTest(const LoopBackTest&)  = delete;
@@ -168,18 +168,18 @@ public:
     LoopBackTest(bool run_continuously, std::chrono::duration<std::uint64_t> test_timeout = std::chrono::seconds(10))
         : test_frames_{{1,
                         nullptr,
-                        libuavcan::media::CAN::FrameDLC::CodeForLength0,
-                        libuavcan::time::Monotonic::fromMicrosecond(0)},
+                        libcyphal::media::CAN::FrameDLC::CodeForLength0,
+                        libcyphal::time::Monotonic::fromMicrosecond(0)},
                        {2,
                         nullptr,
-                        libuavcan::media::CAN::FrameDLC::CodeForLength0,
-                        libuavcan::time::Monotonic::fromMicrosecond(1)}}
+                        libcyphal::media::CAN::FrameDLC::CodeForLength0,
+                        libcyphal::time::Monotonic::fromMicrosecond(1)}}
         , test_filters_{{0, 0}}
         , test_frames_found_()
         , test_timeout_(test_timeout)
         , run_continuously_(run_continuously)
         , test_started_at_()
-        , test_result_(libuavcan::Result::Failure)
+        , test_result_(libcyphal::Result::Failure)
     {}
 
     /**
@@ -188,10 +188,10 @@ public:
      *
      * @return The interface group obtained from the manager or nullptr if the test failed to start.
      */
-    libuavcan::example::SocketCANInterfaceManager::InterfaceGroupPtrType start_test(
-        libuavcan::example::SocketCANInterfaceManager& manager)
+    libcyphal::example::SocketCANInterfaceManager::InterfaceGroupPtrType start_test(
+        libcyphal::example::SocketCANInterfaceManager& manager)
     {
-        libuavcan::example::SocketCANInterfaceManager::InterfaceGroupPtrType interface_group;
+        libcyphal::example::SocketCANInterfaceManager::InterfaceGroupPtrType interface_group;
         if (test_frames_found_.size() > 0)
         {
             // Test was already started?
@@ -203,7 +203,7 @@ public:
                       << std::endl;
             return interface_group;
         }
-        if (libuavcan::isFailure(manager.startInterfaceGroup(test_filters_, TestFiltersLen, interface_group)))
+        if (libcyphal::isFailure(manager.startInterfaceGroup(test_filters_, TestFiltersLen, interface_group)))
         {
             return interface_group;
         }
@@ -237,7 +237,7 @@ public:
         return interface_group;
     }
 
-    libuavcan::Result run_test(libuavcan::example::SocketCANInterfaceManager::InterfaceGroupPtrType interface_group)
+    libcyphal::Result run_test(libcyphal::example::SocketCANInterfaceManager::InterfaceGroupPtrType interface_group)
     {
         auto last_period = std::chrono::steady_clock::now();
 
@@ -251,7 +251,7 @@ public:
 
             // Wait for a bit unless some data comes in. Either way, we'll want to loop around and check in on the
             // driver statistics so don't wait too long.
-            interface_group->select(libuavcan::duration::Monotonic::fromMicrosecond(100000U), true);
+            interface_group->select(libcyphal::duration::Monotonic::fromMicrosecond(100000U), true);
 
             auto now = std::chrono::steady_clock::now();
             if (now - last_period >= std::chrono::seconds(1))
@@ -263,8 +263,8 @@ public:
                 last_period = now;
             }
 
-            libuavcan::example::SocketCANInterfaceManager::InterfaceGroupType::FrameType
-                frames[libuavcan::example::SocketCANInterfaceManager::InterfaceGroupType::RxFramesLen];
+            libcyphal::example::SocketCANInterfaceManager::InterfaceGroupType::FrameType
+                frames[libcyphal::example::SocketCANInterfaceManager::InterfaceGroupType::RxFramesLen];
 
             for (std::uint8_t i = 0; i < interface_group->getInterfaceCount(); ++i)
             {
@@ -280,7 +280,7 @@ public:
 
             if (isComplete(interface_group))
             {
-                test_result_ = libuavcan::Result::Success;
+                test_result_ = libcyphal::Result::Success;
                 if (!run_continuously_)
                 {
                     break;
@@ -295,10 +295,10 @@ private:
      * After the loopback test has started call this method after receiving any messages on a given interfaces.
      * @return true if all the messages for this one interface were now received.
      */
-    bool evaluate(libuavcan::example::SocketCANInterfaceManager::InterfaceGroupPtrType interface_group,
+    bool evaluate(libcyphal::example::SocketCANInterfaceManager::InterfaceGroupPtrType interface_group,
                   std::uint_fast8_t                                                    index,
-                  libuavcan::example::SocketCANInterfaceManager::InterfaceGroupType::FrameType (
-                      &frames)[libuavcan::example::SocketCANInterfaceManager::InterfaceGroupType::RxFramesLen],
+                  libcyphal::example::SocketCANInterfaceManager::InterfaceGroupType::FrameType (
+                      &frames)[libcyphal::example::SocketCANInterfaceManager::InterfaceGroupType::RxFramesLen],
                   const std::size_t frames_read)
     {
         std::cout << "Evaluating " << frames_read << " frame(s)..." << std::endl;
@@ -330,7 +330,7 @@ private:
     /**
      * Test to see if all messages were received for all interfaces in a group.
      */
-    bool isComplete(libuavcan::example::SocketCANInterfaceManager::InterfaceGroupPtrType interface_group) const
+    bool isComplete(libcyphal::example::SocketCANInterfaceManager::InterfaceGroupPtrType interface_group) const
     {
         if (interface_group->getInterfaceCount() == test_frames_found_.size() && test_frames_found_.size() > 0)
         {
@@ -359,20 +359,20 @@ int main(int argc, char* argv[])
 {
     Namespace args;
 
-    if (libuavcan::Result::Success != parse_args(argc, argv, args))
+    if (libcyphal::Result::Success != parse_args(argc, argv, args))
     {
         print_usage();
         return -1;
     }
 
     // Enable "receive own messages" to allow us to test send and receive using just this one process.
-    libuavcan::example::SocketCANInterfaceManager manager(std::move(args.devices), true, true);
+    libcyphal::example::SocketCANInterfaceManager manager(std::move(args.devices), true, true);
 
     // Create our loopback test.
     LoopBackTest test(args.run_continuously);
 
     // Start the test saving the interface_group so we can use it later if we want to.
-    libuavcan::example::SocketCANInterfaceManager::InterfaceGroupPtrType interface_group = test.start_test(manager);
+    libcyphal::example::SocketCANInterfaceManager::InterfaceGroupPtrType interface_group = test.start_test(manager);
 
     if (!interface_group)
     {
@@ -380,7 +380,7 @@ int main(int argc, char* argv[])
     }
 
     {
-        auto stop_on_exit = [&manager](libuavcan::example::SocketCANInterfaceManager::InterfaceGroupPtrType* group) {
+        auto stop_on_exit = [&manager](libcyphal::example::SocketCANInterfaceManager::InterfaceGroupPtrType* group) {
             if (group && *group)
             {
                 manager.stopInterfaceGroup(*group);
@@ -389,7 +389,7 @@ int main(int argc, char* argv[])
         };
 
         // Call stopInterfaceGroup when we exit this block.
-        std::unique_ptr<libuavcan::example::SocketCANInterfaceManager::InterfaceGroupPtrType, decltype(stop_on_exit)>
+        std::unique_ptr<libcyphal::example::SocketCANInterfaceManager::InterfaceGroupPtrType, decltype(stop_on_exit)>
             raii_stopper(&interface_group, stop_on_exit);
 
         if (!test.run_test(interface_group))

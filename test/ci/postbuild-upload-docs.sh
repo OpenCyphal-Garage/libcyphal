@@ -25,7 +25,7 @@ set -o pipefail
 # |
 # |   [build_type]-[(optional)build_type qualifier]-[build|test|report|upload].sh
 # |
-# | Of course, libuavcan is a header-only distribution so
+# | Of course, libcyphal is a header-only distribution so
 # | CI is used to verify and test rather than package and
 # | deploy (i.e. There's really no 'I' going on).
 # +----------------------------------------------------------+

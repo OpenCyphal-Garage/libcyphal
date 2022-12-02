@@ -1,30 +1,30 @@
-# Libuavcan v1.0 contributor guidelines
+# Libcyphal v1.0 contributor guidelines
 
-v1.0 is a complete rewrite of libuavcan with the following, fundamental changes from v0:
+v1.0 is a complete rewrite of libcyphal with the following, fundamental changes from v0:
 
-1. libuavcan v1 is based on the [UAVCAN v1 specification](https://new.uavcan.org).
-2. libuavcan v1 requires C++11 or greater.
-3. libuavcan v1 favors idiomatic C++ over defining its own utilities and helpers.
-4. libuavcan v1 is a header-only library.
-5. libuavcan v1 holds itself to a higher quality standard and is designed for integration into high-integrity, embedded applications.
+1. libcyphal v1 is based on the [Cyphal v1 specification](https://new.opencyphal.org).
+2. libcyphal v1 requires C++11 or greater.
+3. libcyphal v1 favors idiomatic C++ over defining its own utilities and helpers.
+4. libcyphal v1 is a header-only library.
+5. libcyphal v1 holds itself to a higher quality standard and is designed for integration into high-integrity, embedded applications.
 
 ## About the Blue Sky effort
 
-You should never rewrite a codebase from scratch. It's a terrible idea. We're rewriting libuavcan from scratch. We're terrible developers.
+You should never rewrite a codebase from scratch. It's a terrible idea. We're rewriting libcyphal from scratch. We're terrible developers.
 
 Sorry.
 
-The reason we opted for a complete rewrite is that so much is changing. Between the updates to the specification, the abandonment of C++98 support, switching to header-only, removing the drivers from the main repository, adding CAN FD support, etc, etc, etc; it was obvious that we'd be rewriting everything anyway. The good news is that v0 exists, is fully supported, and will be liberally copy-and-pasted from as this makes sense for v1. What we don't have is any git history tracing from v0 to v1 since this would be deceiving. Futhermore, the unit tests in uavcan v0 are a bit of a mess so we'll be writing them in a way that is more sustainable.
+The reason we opted for a complete rewrite is that so much is changing. Between the updates to the specification, the abandonment of C++98 support, switching to header-only, removing the drivers from the main repository, adding CAN FD support, etc, etc, etc; it was obvious that we'd be rewriting everything anyway. The good news is that v0 exists, is fully supported, and will be liberally copy-and-pasted from as this makes sense for v1. What we don't have is any git history tracing from v0 to v1 since this would be deceiving. Futhermore, the unit tests in libcyphal v0 are a bit of a mess so we'll be writing them in a way that is more sustainable.
 
 If you are contributing to the initial v1 effort the place to start is v0.
 
 1. Find the next chunk of v0 functionality to port over to v1, copy-and-paste, rough-out the new tests, and start rewriting as headers-only.
 2. Replace all custom TMP and SFINAE constructs with their C++ equivalents, use the standard library appropriately, and continue to develop the tests as you redesign the code.
-3. Review all ["milestone constraints" for v1](https://github.com/UAVCAN/libuavcan/issues?q=is%3Aopen+is%3Aissue+label%3A%22milestone+constraint%22+label%3Av1) and make sure the v1 version of your refactored code doesn't violate any of these. Milestone constraints are issues for things found in v0 that we don't want v1 to have. Think of these issues as filters you must apply to all v0 code when it is ported to v1.
+3. Review all ["milestone constraints" for v1](https://github.com/OpenCyphal-Garage/libcyphal/issues?q=is%3Aopen+is%3Aissue+label%3A%22milestone+constraint%22+label%3Av1) and make sure the v1 version of your refactored code doesn't violate any of these. Milestone constraints are issues for things found in v0 that we don't want v1 to have. Think of these issues as filters you must apply to all v0 code when it is ported to v1.
 
 ## Design goals
 
-Libuavcan's design goals should be mutually compatible. There is no expectation that any significant compromises are needed to achieve all goals given that the architecture should support making trade-offs at compile-time based on a user's build settings.
+Libcyphal's design goals should be mutually compatible. There is no expectation that any significant compromises are needed to achieve all goals given that the architecture should support making trade-offs at compile-time based on a user's build settings.
 
 * **Full-Featured**
 
@@ -32,7 +32,7 @@ Libuavcan's design goals should be mutually compatible. There is no expectation 
 
 * **Header-only, no dependencies, idiomatic**
 
-    Libuavcan is provided as C++11 headers with no external dependencies. The headers do not impose styles or conventions on the user and make the maximum use of C++ templates to allow type flexibility when no specific type is optimal.
+    Libcyphal is provided as C++11 headers with no external dependencies. The headers do not impose styles or conventions on the user and make the maximum use of C++ templates to allow type flexibility when no specific type is optimal.
 
 * **Deterministic by default**
 
@@ -47,11 +47,11 @@ Libuavcan's design goals should be mutually compatible. There is no expectation 
 
 * **Powerful and Flexible**
 
-    This library should enable the full power of UAVCAN scaling up in capability with the target platform but remaining functional for even deeply embedded targets. Furthermore, the code should enable the full power of a given system allowing for use in high-performance and/or hard-realtime systems.
+    This library should enable the full power of Cyphal scaling up in capability with the target platform but remaining functional for even deeply embedded targets. Furthermore, the code should enable the full power of a given system allowing for use in high-performance and/or hard-realtime systems.
 
 * **Clear/Fluent**
 
-    While maximal in implementing the specification, libuavcan should be clearly structured and well-documented. It should prefer additional verbosity over compressed syntax and should utilize object-oriented principles to their greatest effect by creating logically named objects using well-known patterns.
+    While maximal in implementing the specification, libcyphal should be clearly structured and well-documented. It should prefer additional verbosity over compressed syntax and should utilize object-oriented principles to their greatest effect by creating logically named objects using well-known patterns.
 
 * **Modular**
 
@@ -59,8 +59,8 @@ Libuavcan's design goals should be mutually compatible. There is no expectation 
 
 ## Documentation
 
-* [UAVCAN website](http://uavcan.org)
-* [UAVCAN forum](https://forum.uavcan.org)
+* [OpenCyphal website](http://opencyphal.org)
+* [OpenCyphal forum](https://forum.opencyphal.org)
 * [HIL testing](https://nanaimo.readthedocs.io/en/latest/docs/guide.html)
 
 ## Architecture
@@ -69,11 +69,11 @@ Libuavcan's design goals should be mutually compatible. There is no expectation 
 
 The architecture of v1 is composed of three primary layers and one portability layer:
 
-![libuavcan v1 block diagram](doc_source/images/html/block_diagram.png)
+![libcyphal v1 block diagram](doc_source/images/html/block_diagram.png)
 
 #### Util(ity)
 
-Because of the design goal to provide "idiomatic C++," utilities used throughout the library should be minimal and non-trivial (i.e. avoid syntactic sugar). This layer shall contain purely logical constructs and *shall not* contain any abstract objects or anything requiring porting to a given platform. Ideally utilities are used only by libuavcan internals allowing users to write their own syntactic sugar using idioms natural to their codebase.
+Because of the design goal to provide "idiomatic C++," utilities used throughout the library should be minimal and non-trivial (i.e. avoid syntactic sugar). This layer shall contain purely logical constructs and *shall not* contain any abstract objects or anything requiring porting to a given platform. Ideally utilities are used only by libcyphal internals allowing users to write their own syntactic sugar using idioms natural to their codebase.
 
 #### Platform
 
@@ -85,37 +85,37 @@ This layer must remain as minimal as possible ideally being implemented solely u
 
 #### Transport
 
-The OSI layer 4 implementation of UAVCAN per section 4 of the specification. Uses types and serialization support provided by [Nunavut](https://github.com/uavcan/nunavut). Note that this is where the "node" objects will be mapped to.
+The OSI layer 4 implementation of Cyphal per section 4 of the specification. Uses types and serialization support provided by [Nunavut](https://github.com/OpenCyphal/nunavut). Note that this is where the "node" objects will be mapped to.
 
 #### Application
 
-Implementation of section 5 "Application" of the UAVCAN specification.
+Implementation of section 5 "Application" of the Cyphal specification.
 
 
 ### Threading model
 
 The library should be single-threaded, not thread-aware.
-Hence the API will be not thread-safe, which is OK as most applications will likely be running all of the UAVCAN-related logic in one thread.
+Hence the API will be not thread-safe, which is OK as most applications will likely be running all of the Cyphal-related logic in one thread.
 
 The documentation should provide advices about how to integrate the library in a multithreaded environment.
 
 ### Endianess
 
-UAVCAN is little-endian on the wire. Because of this big-endian platforms may use more CPU than the same code on a little-endian platform.
+Cyphal is little-endian on the wire. Because of this big-endian platforms may use more CPU than the same code on a little-endian platform.
 
 ### Code generation
 
-All code generation is performed by [Nunavut](https://github.com/UAVCAN/nunavut).
+All code generation is performed by [Nunavut](https://github.com/OpenCyphal/nunavut).
 
 ### Folder Structure
 
-**/libuavcan/include** - Contains the entire header-only libuavcan library.
+**/libcyphal/include** - Contains the entire header-only libcyphal library.
 
-**/libuavcan_validation_suite** – Test utilities provided to consumers of the library. These are public test fixtures and should be documented, maintained, and designed with the same care given to the rest of the library.
+**/libcyphal_validation_suite** – Test utilities provided to consumers of the library. These are public test fixtures and should be documented, maintained, and designed with the same care given to the rest of the library.
 
-**/test/cmake** - A CMake meta-build system used to verify libuavcan. This is *not* a generalized build system provided for the library. *Libuavcan does not come with a build-system* as it is header-only and has minimal opinions about how it should be built.
+**/test/cmake** - A CMake meta-build system used to verify libcyphal. This is *not* a generalized build system provided for the library. *Libcyphal does not come with a build-system* as it is header-only and has minimal opinions about how it should be built.
 
-**/test/native** - Unit-tests that validate the libuavcan library. These tests compile and execute using the build host's native environment. They also do not require any communication interfaces, virtual or otherwise, from the operating system and have no timing constraints.
+**/test/native** - Unit-tests that validate the libcyphal library. These tests compile and execute using the build host's native environment. They also do not require any communication interfaces, virtual or otherwise, from the operating system and have no timing constraints.
 
 **/test/ontarget** - Tests cross-compiled for specific hardware* and run on a set of dedicated test devices. These tests may have strict timing constraints and may require specific physical or virtual busses and other test apparatuses be present. Each on-target test will fully document its requirements to enable anyone with access to the appropriate hardware to reproduce the tests. Furthermore, these tests must be inherently automateable having clear pass/fail criteria reducible to a boolean condition.
 
@@ -125,19 +125,19 @@ All code generation is performed by [Nunavut](https://github.com/UAVCAN/nunavut)
 
 ### Test Environments
 
-The following list of standardized* test environments will be used to validate the libuavcan implementation**:
+The following list of standardized* test environments will be used to validate the libcyphal implementation**:
 
 1. **Posix** - We will produce examples that can run on top of SocketCAN on a recent version of an Ubuntu-based distro. While we expect that these examples will be generally compatible with other common GNU/Linux distros or POSIX compliant operating systems (that also support SocketCAN) we will compile and test the examples using Ubuntu as part of our CI build.
 1. **Bare-metal on NXP rddrone_uavcan devkit** - We expect to produce examples and tests that run on an rddrone_uavcan adapter board.
 1. **Nuttx on Pixhawk** - We expect to produce examples and possibly tests that can run on top of the latest Pixhawk hardware and version of Nuttx used by the PX4 software stack. This is a lower-priority for the initial development for v1 but will become a focus once we have a fully functional stack.
 
-> \* Libuavcan is a header only library suitable for a wide range of processors and operating systems. The targets and test environments mentioned here are chosen only as standardized test fixtures and are not considered more "supported" or "optimal" than any other platform.
+> \* Libcyphal is a header only library suitable for a wide range of processors and operating systems. The targets and test environments mentioned here are chosen only as standardized test fixtures and are not considered more "supported" or "optimal" than any other platform.
 
 ## Library development
 
-**Libuavcan development should be test-driven. Write the tests first.**
+**Libcyphal development should be test-driven. Write the tests first.**
 
-**Libuavcan source should be fluent. Comment everything in plain prose, build the docs with each change, read the docs to make sure your comments make sense.**
+**Libcyphal source should be fluent. Comment everything in plain prose, build the docs with each change, read the docs to make sure your comments make sense.**
 
 Despite the fact that the library itself can be used on virtually any platform that has a standard-compliant
 C++11 compiler, the library development process assumes that the host OS is Linux or OSX.
@@ -245,7 +245,7 @@ To use visual studio code to debug ontarget tests for the rddrone_uavan you'll n
 
 ## CAN bus Physical Layer Notes
 
-This section is to help people new to working with physical CAN busses setup tools to verify and debug UAVCAN at the physical layer.
+This section is to help people new to working with physical CAN busses setup tools to verify and debug Cyphal at the physical layer.
 
 ### SocketCAN and CAN utils
 

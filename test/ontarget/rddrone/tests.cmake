@@ -49,7 +49,7 @@ function(define_ontarget_unit_test ARG_TEST_NAME ARG_TEST_SOURCE ARG_NODE_ID)
 
     target_link_libraries(${LOCAL_TEST_ELF} dsdl-regulated)
 
-    target_compile_definitions(${LOCAL_TEST_ELF} PUBLIC -DLIBUAVCAN_TEST_NODE_ID=${ARG_NODE_ID})
+    target_compile_definitions(${LOCAL_TEST_ELF} PUBLIC -DLIBCYPHAL_TEST_NODE_ID=${ARG_NODE_ID})
 
     set_target_properties(${LOCAL_TEST_ELF}
                     PROPERTIES

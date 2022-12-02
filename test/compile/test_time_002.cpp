@@ -1,12 +1,12 @@
 /*
  * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
-#include "libuavcan/libuavcan.hpp"
-#include "libuavcan/time.hpp"
+#include "libcyphal/libcyphal.hpp"
+#include "libcyphal/time.hpp"
 
 namespace
 {
-class UnsignedDuration : public libuavcan::duration::Base<UnsignedDuration, uint32_t>
+class UnsignedDuration : public libcyphal::duration::Base<UnsignedDuration, uint32_t>
 {
 };
 }  // namespace

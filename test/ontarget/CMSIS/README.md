@@ -1,5 +1,5 @@
 
-> **libuavcan note:** This is a minimal subset of CMSIS 5 for building our on-target tests. We opted for this because the full CMSIS submodule is spectacularly huge and we don't hate you. CMSIS is also, necessarily, unlikely to change within its major version in a way that would matter for our use case.
+> **libcyphal note:** This is a minimal subset of CMSIS 5 for building our on-target tests. We opted for this because the full CMSIS submodule is spectacularly huge and we don't hate you. CMSIS is also, necessarily, unlikely to change within its major version in a way that would matter for our use case.
 
 # CMSIS Version 5
 

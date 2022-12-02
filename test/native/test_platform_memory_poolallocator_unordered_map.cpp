@@ -14,7 +14,7 @@ namespace platform
 namespace memory
 {
 typedef ::testing::Types<
-    libuavcan::platform::memory::PoolAllocator<PoolAllocatorUnorderedMapTestRequirements::MinimumBlockCount,
+    libcyphal::platform::memory::PoolAllocator<PoolAllocatorUnorderedMapTestRequirements::MinimumBlockCount,
                                                PoolAllocatorUnorderedMapTestRequirements::MinimumBlockSize,
                                                PoolAllocatorUnorderedMapTestRequirements::AllocatorPtrType>>
     MyTypes;

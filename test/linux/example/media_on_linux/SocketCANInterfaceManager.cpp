@@ -24,7 +24,7 @@
 
 #include "SocketCANInterfaceManager.hpp"
 
-namespace libuavcan
+namespace libcyphal
 {
 namespace example
 {
@@ -116,7 +116,7 @@ inline int openSocket(const std::string& iface_name, bool enable_canfd, bool ena
         const int enable_timestamps = 1;
         if (::setsockopt(s, SOL_SOCKET, SO_TIMESTAMP, &enable_timestamps, sizeof(enable_timestamps)) < 0)
         {
-            LIBUAVCAN_TRACEF("SocketCANInterfaceManager",
+            LIBCYPHAL_TRACEF("SocketCANInterfaceManager",
                              "SO_TIMESTAMP was not supported for socket %s",
                              iface_name.c_str());
         }
@@ -124,14 +124,14 @@ inline int openSocket(const std::string& iface_name, bool enable_canfd, bool ena
         int enable_rxq_ovfl = 1;
         if (::setsockopt(s, SOL_SOCKET, SO_RXQ_OVFL, &enable_rxq_ovfl, sizeof(enable_rxq_ovfl)) < 0)
         {
-            LIBUAVCAN_TRACEF("SocketCANInterfaceManager",
+            LIBCYPHAL_TRACEF("SocketCANInterfaceManager",
                              "SO_RXQ_OVFL was not supported for socket %s",
                              iface_name.c_str());
         }
         ::can_err_mask_t err_mask = CAN_ERR_MASK;
         if (::setsockopt(s, SOL_CAN_RAW, CAN_RAW_ERR_FILTER, &err_mask, sizeof(err_mask)) < 0)
         {
-            LIBUAVCAN_TRACEF("SocketCANInterfaceManager",
+            LIBCYPHAL_TRACEF("SocketCANInterfaceManager",
                              "SOL_CAN_RAW was not supported for socket %s",
                              iface_name.c_str());
         }
@@ -167,7 +167,7 @@ SocketCANInterfaceManager::SocketCANInterfaceManager(const std::vector<std::stri
     , receive_own_messages_(receive_own_messages)
 {}
 
-libuavcan::Result SocketCANInterfaceManager::startInterfaceGroup(
+libcyphal::Result SocketCANInterfaceManager::startInterfaceGroup(
     const InterfaceGroupType::FrameType::Filter* filter_config,
     std::size_t                                  filter_config_length,
     InterfaceGroupPtrType&                       out_group)
@@ -185,23 +185,23 @@ libuavcan::Result SocketCANInterfaceManager::startInterfaceGroup(
     }
     if (interfaces.size() == 0)
     {
-        return libuavcan::Result::NotFound;
+        return libcyphal::Result::NotFound;
     }
     else
     {
         out_group.reset(new SocketCANInterfaceGroup(std::move(interfaces)));
-        return (out_group->getInterfaceCount() >= required_interfaces_.size()) ? libuavcan::Result::Success
-                                                                               : libuavcan::Result::SuccessPartial;
+        return (out_group->getInterfaceCount() >= required_interfaces_.size()) ? libcyphal::Result::Success
+                                                                               : libcyphal::Result::SuccessPartial;
     }
 }
 
-libuavcan::Result SocketCANInterfaceManager::stopInterfaceGroup(std::shared_ptr<SocketCANInterfaceGroup>& out_group)
+libcyphal::Result SocketCANInterfaceManager::stopInterfaceGroup(std::shared_ptr<SocketCANInterfaceGroup>& out_group)
 {
     // This implementation doesn't do anything meaningful on stop other than deleing the group.
     // We provide this lifecycle formality for any system where a centralized object must own the
     // group interface memory.
     out_group = nullptr;
-    return libuavcan::Result::Success;
+    return libcyphal::Result::Success;
 }
 
 bool SocketCANInterfaceManager::doesReceiveOwnMessages() const
@@ -209,7 +209,7 @@ bool SocketCANInterfaceManager::doesReceiveOwnMessages() const
     return receive_own_messages_;
 }
 
-libuavcan::Result SocketCANInterfaceManager::createInterface(
+libcyphal::Result SocketCANInterfaceManager::createInterface(
     std::uint_fast8_t                                        interface_index,
     const std::string&                                       interface_name,
     const SocketCANInterfaceGroup::FrameType::Filter*        filter_config,
@@ -219,7 +219,7 @@ libuavcan::Result SocketCANInterfaceManager::createInterface(
     int socket_descriptor = openSocket(interface_name, enable_can_fd_, receive_own_messages_);
     if (socket_descriptor <= 0)
     {
-        return libuavcan::Result::UnknownInternalError;
+        return libcyphal::Result::UnknownInternalError;
     }
     RaiiSocket raii_closer(&socket_descriptor, &socketDeleter);
     const auto result = SocketCANInterfaceGroup::configureFilters(socket_descriptor, filter_config, filter_config_length);
@@ -231,23 +231,23 @@ libuavcan::Result SocketCANInterfaceManager::createInterface(
     if (!out_interface)
     {
         // If compiling without c++ exceptions new can return null if OOM.
-        return libuavcan::Result::OutOfMemory;
+        return libcyphal::Result::OutOfMemory;
     }
     else
     {
         raii_closer.release();
     }
-    return libuavcan::Result::Success;
+    return libcyphal::Result::Success;
 }
 
 std::size_t SocketCANInterfaceManager::getMaxFrameFilters() const
 {
     // Some arbitrary number that seemed reasonable for socketCAN in 2019. This is just an example implementation
-    // so don't assume this constant is generically applicable to to libuavcan::media::InterfaceManager.
+    // so don't assume this constant is generically applicable to to libcyphal::media::InterfaceManager.
     return 512;
 }
 
 }  // namespace example
-}  // namespace libuavcan
+}  // namespace libcyphal
 
 /** @} */  // end of examples group

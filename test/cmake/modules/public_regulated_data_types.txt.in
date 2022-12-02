@@ -4,7 +4,7 @@ project(public-regulated-data-types-download NONE)
 
 include(ExternalProject)
 ExternalProject_Add(dsdl
-  GIT_REPOSITORY    https://github.com/UAVCAN/public_regulated_data_types.git
+  GIT_REPOSITORY    https://github.com/OpenCyphal/public_regulated_data_types.git
   GIT_TAG           c1191d36b19a082f85c74be24131e6b205e46e8f
   SOURCE_DIR        "${EXTERNAL_PROJECT_DIRECTORY}/public-regulated-data-types-src"
   BINARY_DIR        ""

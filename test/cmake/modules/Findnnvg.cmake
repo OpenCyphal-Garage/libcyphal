@@ -140,5 +140,5 @@ find_package_handle_standard_args(nnvg
 
 if(NNVG_VERSION VERSION_LESS ${NNVG_MINIMUM_VERSION})
     message(FATAL_ERROR "nnvg version ${NNVG_MINIMUM_VERSION} or greater required. ${NNVG_VERSION} found."
-                        " you must update your version of nnvg to build libuavcan.")
+                        " you must update your version of nnvg to build libcyphal.")
 endif()

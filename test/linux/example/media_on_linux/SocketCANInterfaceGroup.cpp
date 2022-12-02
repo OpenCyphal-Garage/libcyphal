@@ -24,7 +24,7 @@
 
 #include "SocketCANInterfaceManager.hpp"
 
-namespace libuavcan
+namespace libcyphal
 {
 namespace example
 {
@@ -64,14 +64,14 @@ const SocketCANInterface* SocketCANInterfaceGroup::getInterface(std::uint_fast8_
     }
 }
 
-libuavcan::Result SocketCANInterfaceGroup::write(std::uint_fast8_t interface_index,
+libcyphal::Result SocketCANInterfaceGroup::write(std::uint_fast8_t interface_index,
                                                  const InterfaceType::FrameType (&frames)[TxFramesLen],
                                                  std::size_t  frames_len,
                                                  std::size_t& out_frames_written)
 {
     if (interface_index >= interfaces_.size())
     {
-        return libuavcan::Result::BadArgument;
+        return libcyphal::Result::BadArgument;
     }
     else
     {
@@ -79,13 +79,13 @@ libuavcan::Result SocketCANInterfaceGroup::write(std::uint_fast8_t interface_ind
     }
 }
 
-libuavcan::Result SocketCANInterfaceGroup::read(std::uint_fast8_t interface_index,
+libcyphal::Result SocketCANInterfaceGroup::read(std::uint_fast8_t interface_index,
                                                 InterfaceType::FrameType (&out_frames)[RxFramesLen],
                                                 std::size_t& out_frames_read)
 {
     if (interface_index >= interfaces_.size())
     {
-        return libuavcan::Result::BadArgument;
+        return libcyphal::Result::BadArgument;
     }
     else
     {
@@ -93,7 +93,7 @@ libuavcan::Result SocketCANInterfaceGroup::read(std::uint_fast8_t interface_inde
     }
 }
 
-libuavcan::Result SocketCANInterfaceGroup::reconfigureFilters(const typename FrameType::Filter* filter_config,
+libcyphal::Result SocketCANInterfaceGroup::reconfigureFilters(const typename FrameType::Filter* filter_config,
                                                               std::size_t                       filter_config_length)
 {
     for(std::uint8_t i = 0; i < interfaces_.size(); ++i)
@@ -104,10 +104,10 @@ libuavcan::Result SocketCANInterfaceGroup::reconfigureFilters(const typename Fra
             return result;
         }
     }
-    return libuavcan::Result::Success;
+    return libcyphal::Result::Success;
 }
 
-libuavcan::Result SocketCANInterfaceGroup::select(libuavcan::duration::Monotonic timeout, bool ignore_write_available)
+libcyphal::Result SocketCANInterfaceGroup::select(libcyphal::duration::Monotonic timeout, bool ignore_write_available)
 {
     short int         events         = POLLIN | POLLPRI;
     const std::size_t interfaces_len = interfaces_.size();
@@ -128,37 +128,37 @@ libuavcan::Result SocketCANInterfaceGroup::select(libuavcan::duration::Monotonic
 
     ::timespec timeout_spec = {timeout.toMicrosecond() / 1000000U, 0};
     timeout_spec.tv_nsec =
-        (timeout - libuavcan::duration::Monotonic::fromMicrosecond(timeout_spec.tv_sec * 1000000U)).toMicrosecond();
+        (timeout - libcyphal::duration::Monotonic::fromMicrosecond(timeout_spec.tv_sec * 1000000U)).toMicrosecond();
 
     const int result = ::ppoll(pollfds, interfaces_len, &timeout_spec, nullptr);
 
     if (0 == result)
     {
-        return libuavcan::Result::SuccessTimeout;
+        return libcyphal::Result::SuccessTimeout;
     }
 
     if (0 > result)
     {
-        return libuavcan::Result::Failure;
+        return libcyphal::Result::Failure;
     }
 
     for (size_t i = 0; i < interfaces_len; ++i)
     {
         if (0 != (pollfds[i].revents & (POLLPRI | POLLERR | POLLHUP | POLLNVAL)))
         {
-            return libuavcan::Result::SuccessPartial;
+            return libcyphal::Result::SuccessPartial;
         }
     }
-    return libuavcan::Result::Success;
+    return libcyphal::Result::Success;
 }
 
-libuavcan::Result SocketCANInterfaceGroup::configureFilters(const int                      socket_descriptor,
+libcyphal::Result SocketCANInterfaceGroup::configureFilters(const int                      socket_descriptor,
                                                             const FrameType::Filter* const filter_configs,
                                                             const std::size_t              num_configs)
 {
     if (filter_configs == nullptr && num_configs != 0 && num_configs <= CAN_RAW_FILTER_MAX)
     {
-        return libuavcan::Result::BadArgument;
+        return libcyphal::Result::BadArgument;
     }
 
     std::vector<::can_filter> socket_filters;
@@ -169,9 +169,9 @@ libuavcan::Result SocketCANInterfaceGroup::configureFilters(const int           
         // be used to ignore all ingress CAN frames.
         if (0 != setsockopt(socket_descriptor, SOL_CAN_RAW, CAN_RAW_FILTER, nullptr, 0))
         {
-            return libuavcan::Result::UnknownInternalError;
+            return libcyphal::Result::UnknownInternalError;
         }
-        return libuavcan::Result::Success;
+        return libcyphal::Result::Success;
     }
 
     for (unsigned i = 0; i < num_configs; i++)
@@ -192,13 +192,13 @@ libuavcan::Result SocketCANInterfaceGroup::configureFilters(const int           
                         socket_filters.data(),
                         static_cast<socklen_t>(sizeof(can_filter) * socket_filters.size())))
     {
-        return libuavcan::Result::UnknownInternalError;
+        return libcyphal::Result::UnknownInternalError;
     }
 
-    return libuavcan::Result::Success;
+    return libcyphal::Result::Success;
 }
 
 }  // namespace example
-}  // namespace libuavcan
+}  // namespace libcyphal
 
 /** @} */  // end of examples group
