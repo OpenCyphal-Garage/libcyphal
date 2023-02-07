@@ -21,8 +21,8 @@ jobs:
                           --target ${{matrix.target}}
                           --build-type ${{ matrix.build_type }}
                           --toolchain-family ${{ matrix.compiler }}
-                          --omit-style-check-from-all
                           configure
+                          --omit-style-check-from-all
       - run: test/ci/verify.py -v
                           --target ${{matrix.target}}
                           --build-type ${{ matrix.build_type }}
