@@ -1,14 +1,13 @@
-![UAVCAN](doc_source/images/html/uavcan_logo.svg) UAVCAN stack in C++
+![OpenCyphal](doc_source/images/html/cyphal_logo.svg) Cyphal stack in C++
 ===================
 
-[![Build Status](https://badge.buildkite.com/af844974c06af6406e3b2192d98298b02b30f6ebebb5f8b16c.svg)](https://buildkite.com/uavcan/libuavcan-v1)
-[![Forum](https://img.shields.io/discourse/https/forum.uavcan.org/users.svg)](https://forum.uavcan.org)
-[![Sonarqube Badge](https://sonarcloud.io/api/project_badges/measure?project=UAVCAN_libuavcan&metric=alert_status)](https://sonarcloud.io/dashboard?id=UAVCAN_libuavcan)
-[![Sonarqube Coverage](https://sonarcloud.io/api/project_badges/measure?project=UAVCAN_libuavcan&metric=coverage)](https://sonarcloud.io/dashboard?id=UAVCAN_libuavcan)
-[![Documentation](https://img.shields.io/badge/docs-passing-green.svg)](https://uavcan.org/libuavcan/)
+[![Forum](https://img.shields.io/discourse/https/forum.opencyphal.org/users.svg)](https://forum.opencyphal.org)
+[![Sonarqube Badge](https://sonarcloud.io/api/project_badges/measure?project=OpenCyphal_libcyphal&metric=alert_status)](https://sonarcloud.io/dashboard?id=OpenCyphal_libcyphal)
+[![Sonarqube Coverage](https://sonarcloud.io/api/project_badges/measure?project=OpenCyphal_libcyphal&metric=coverage)](https://sonarcloud.io/dashboard?id=OpenCyphal_libcyphal)
+[![Documentation](https://img.shields.io/badge/docs-passing-green.svg)](https://opencyphal.org/libcyphal/)
 
-> **WARNING** libuavcan v1 is not yet complete. This is a work-in-progress.
+> **WARNING** libcyphal v1 is not yet complete. This is a work-in-progress.
 
-Portable reference implementation of the [UAVCAN protocol stack](https://new.uavcan.org) in C++ for embedded systems, Linux, and POSIX-compliant RTOSs.
+Portable reference implementation of the [OpenCyphal protocol stack](https://opencyphal.org) in C++ for embedded systems, Linux, and POSIX-compliant RTOSs.
 
-UAVCAN is a lightweight protocol designed for reliable communication in aerospace and robotic applications over robust vehicular networks.
+Cyphal is a lightweight protocol designed for reliable communication in aerospace and robotic applications over robust vehicular networks.

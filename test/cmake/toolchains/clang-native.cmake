@@ -1,5 +1,5 @@
 #
-# Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Toolchain for using clang on what-ever-platform-this-is (aka "native").
 # CMake and/or Ubuntu defaults to gcc.
@@ -12,4 +12,4 @@ set(CMAKE_ASM_COMPILER clang CACHE FILEPATH "assembler")
 # clang so they should try to use llvm-cov if it's available.
 # Things are weird between gcov and llvm-cov right now but this
 # seems to work in our Ubuntu 18 Docker container, so...?
-set(LIBUAVCAN_USE_LLVM_COV ON CACHE BOOL "Enable gcov compatibility with lcov coverage tools.")
+set(LIBCYPHAL_USE_LLVM_COV ON CACHE BOOL "Enable gcov compatibility with lcov coverage tools.")

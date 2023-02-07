@@ -25,7 +25,7 @@ set -o pipefail
 # |
 # |   [build_type]-[(optional)build_type qualifier]-[build|test|report|upload].sh
 # |
-# | Of course, libuavcan is a header-only distribution so
+# | Of course, libcyphal is a header-only distribution so
 # | CI is used to verify and test rather than package and
 # | deploy (i.e. There's really no 'I' going on).
 # |
@@ -53,7 +53,7 @@ pushd test/build_linux
 # We ensure we can build using clang but we rely on GCC for testing
 # since clang's coverage metrics have been broken for the last
 # several years.
-cmake -DLIBUAVCAN_TESTBUILD=../linux/tests.cmake \
+cmake -DLIBCYPHAL_TESTBUILD=../linux/tests.cmake \
       ..
 
 cmake --build .\

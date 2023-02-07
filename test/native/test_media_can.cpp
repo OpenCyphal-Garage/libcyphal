@@ -1,11 +1,11 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
- * Unit tests of the libuavcan CAN media header.
+ * Unit tests of the libcyphal CAN media header.
  */
 #include "lvs/lvs.hpp"
 
-#include "libuavcan/libuavcan.hpp"
+#include "libcyphal/libcyphal.hpp"
 #include "lvs/media/can_frame.hpp"
 
 namespace lvs

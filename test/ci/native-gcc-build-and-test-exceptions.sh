@@ -25,7 +25,7 @@ set -o pipefail
 # |
 # |   [build_type]-[(optional)build_type qualifier]-[build|test|report|upload].sh
 # |
-# | Of course, libuavcan is a header-only distribution so
+# | Of course, libcyphal is a header-only distribution so
 # | CI is used to verify and test rather than package and
 # | deploy (i.e. There's really no 'I' going on).
 # |
@@ -55,7 +55,7 @@ cmake --no-warn-unused-cli \
       -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE \
       -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE} \
       -DCMAKE_TOOLCHAIN_FILE:FILEPATH=../cmake/toolchains/gcc-native.cmake \
-      -DLIBUAVCAN_FLAG_SET:STRING=../cmake/compiler_flag_sets/native_unittest_w_exceptions.cmake \
+      -DLIBCYPHAL_FLAG_SET:STRING=../cmake/compiler_flag_sets/native_unittest_w_exceptions.cmake \
       -G "Unix Makefiles" \
       ..
 

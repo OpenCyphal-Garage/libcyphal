@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Unit tests of the pool allocator in the platform layer used with STL.
  */
@@ -14,7 +14,7 @@ namespace platform
 namespace memory
 {
 typedef ::testing::Types<
-    libuavcan::platform::memory::PoolAllocator<PoolAllocatorVectorTestRequirements::MinimumBlockCount,
+    libcyphal::platform::memory::PoolAllocator<PoolAllocatorVectorTestRequirements::MinimumBlockCount,
                                                PoolAllocatorVectorTestRequirements::MinimumBlockSize,
                                                PoolAllocatorVectorTestRequirements::AllocatorPtrType>>
     MyTypes;

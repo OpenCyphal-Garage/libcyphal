@@ -1,7 +1,7 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
- * Unit tests of the unaligned copy facilities in the libuavcan platform layer.
+ * Unit tests of the unaligned copy facilities in the libcyphal platform layer.
  */
 #include "lvs/lvs.hpp"
 

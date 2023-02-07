@@ -1,5 +1,5 @@
 #
-# Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Toolchain for using gcc on what-ever-platform-this-is (aka "native").
 #

@@ -25,11 +25,10 @@ set -o pipefail
 # |
 # |   [build_type]-[(optional)build_type qualifier]-[build|test|report|upload].sh
 # |
-# | Of course, libuavcan is a header-only distribution so
+# | Of course, libcyphal is a header-only distribution so
 # | CI is used to verify and test rather than package and
 # | deploy (i.e. There's really no 'I' going on).
 # +----------------------------------------------------------+
 buildkite-agent artifact download "test/build_native_gcc/docs/html.gz" .
 tar -xvf test/build_native_gcc/docs/html.gz
-gh-pages --dotfiles --message "Doc upload for build ${BUILDKITE_BUILD_NUMBER}" --user "uavcan1.0 <uavcan1.0@uavcan.org>" --dist docs/html
-
+gh-pages --dotfiles --message "Doc upload for build ${BUILDKITE_BUILD_NUMBER}" --user "opencyphal1.0 <opencyphal1.0@opencyphal.org>" --dist docs/html

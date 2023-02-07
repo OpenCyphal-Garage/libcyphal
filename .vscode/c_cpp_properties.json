@@ -4,13 +4,13 @@
             "name": "Mac",
             "intelliSenseMode": "clang-x64",
             "includePath": [
-                "${workspaceFolder}/libuavcan/include",
-                "${workspaceFolder}/libuavcan_validation_suite/include"
+                "${workspaceFolder}/libcyphal/include",
+                "${workspaceFolder}/libcyphal_validation_suite/include"
             ],
             "browse": {
                 "path": [
-                    "${workspaceFolder}/libuavcan/include",
-                    "${workspaceFolder}/libuavcan_validation_suite/include"
+                    "${workspaceFolder}/libcyphal/include",
+                    "${workspaceFolder}/libcyphal_validation_suite/include"
                 ],
                 "limitSymbolsToIncludedHeaders": false
             },
@@ -27,13 +27,13 @@
             "name": "Linux",
             "intelliSenseMode": "gcc-x64",
             "includePath": [
-                "${workspaceFolder}/libuavcan/include",
-                "${workspaceFolder}/libuavcan_validation_suite/include"
+                "${workspaceFolder}/libcyphal/include",
+                "${workspaceFolder}/libcyphal_validation_suite/include"
             ],
             "browse": {
                 "path": [
-                    "${workspaceFolder}/libuavcan/include",
-                    "${workspaceFolder}/libuavcan_validation_suite/include"
+                    "${workspaceFolder}/libcyphal/include",
+                    "${workspaceFolder}/libcyphal_validation_suite/include"
                 ],
                 "limitSymbolsToIncludedHeaders": false
             },

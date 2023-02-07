@@ -1,9 +1,9 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 
-#ifndef LIBUAVCAN_EXAMPLE_SOCKETCANINTERFACE_HPP_INCLUDED
-#define LIBUAVCAN_EXAMPLE_SOCKETCANINTERFACE_HPP_INCLUDED
+#ifndef LIBCYPHAL_EXAMPLE_SOCKETCANINTERFACE_HPP_INCLUDED
+#define LIBCYPHAL_EXAMPLE_SOCKETCANINTERFACE_HPP_INCLUDED
 
 #include <memory>
 #include <type_traits>
@@ -13,18 +13,18 @@
 
 #include <sys/socket.h>
 
-#include "libuavcan/libuavcan.hpp"
-#include "libuavcan/media/interfaces.hpp"
-#include "libuavcan/media/can.hpp"
+#include "libcyphal/libcyphal.hpp"
+#include "libcyphal/media/interfaces.hpp"
+#include "libcyphal/media/can.hpp"
 
-namespace libuavcan
+namespace libcyphal
 {
 /**
  * @defgroup examples Examples
  *
  * @{
  * @file
- * @namespace example   Namespace containing example applications of libuavcan.
+ * @namespace example   Namespace containing example applications of libcyphal.
  */
 namespace example
 {
@@ -53,7 +53,7 @@ public:
     static constexpr std::size_t TxFramesLen = 4;
     static constexpr std::size_t RxFramesLen = 4;
     static constexpr std::size_t ControlSize = sizeof(cmsghdr) + sizeof(::timeval);
-    using FrameType      = libuavcan::media::CAN::Frame<libuavcan::media::CAN::TypeFD::MaxFrameSizeBytes>;
+    using FrameType      = libcyphal::media::CAN::Frame<libcyphal::media::CAN::TypeFD::MaxFrameSizeBytes>;
     using ControlStorage = std::aligned_storage<ControlSize>::type;
     using SocketCANFrame = ::canfd_frame;
 
@@ -97,7 +97,7 @@ public:
 
     /**
      * Return the index for this interface. This is a zero based non-sparse range used
-     * by methods on the libuavcan::media::InterfaceGroup interface.
+     * by methods on the libcyphal::media::InterfaceGroup interface.
      *
      * Note that this is <em>not</em> related to the posix socket interface index.
      *
@@ -106,20 +106,20 @@ public:
     std::uint_fast8_t getInterfaceIndex() const;
 
     /**
-     * See libuavcan::media::InterfaceGroup::write for documentation.
+     * See libcyphal::media::InterfaceGroup::write for documentation.
      */
-    libuavcan::Result write(const FrameType (&frame)[TxFramesLen],
+    libcyphal::Result write(const FrameType (&frame)[TxFramesLen],
                             std::size_t  frames_len,
                             std::size_t& out_frames_written);
 
     /**
-     * See libuavcan::media::InterfaceGroup::read for documentation.
+     * See libcyphal::media::InterfaceGroup::read for documentation.
      */
-    libuavcan::Result read(FrameType (&out_frames)[RxFramesLen], std::size_t& out_frames_read);
+    libcyphal::Result read(FrameType (&out_frames)[RxFramesLen], std::size_t& out_frames_read);
 };
 
 }  // namespace example
 /** @} */  // end of examples group
-}  // namespace libuavcan
+}  // namespace libcyphal
 
-#endif  // LIBUAVCAN_EXAMPLE_SOCKETCANINTERFACE_HPP_INCLUDED
+#endif  // LIBCYPHAL_EXAMPLE_SOCKETCANINTERFACE_HPP_INCLUDED

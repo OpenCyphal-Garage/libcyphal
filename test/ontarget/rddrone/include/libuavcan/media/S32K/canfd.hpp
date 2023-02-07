@@ -7,21 +7,21 @@
 
 /**
  * @file
- * Header driver file for the media layer of Libuavcan v1 targeting
+ * Header driver file for the media layer of Libcyphal v1 targeting
  * the NXP S32K14 family of automotive grade MCU's, running
  * CAN-FD at 4Mbit/s data phase and 1Mbit/s in nominal phase.
  *
  * @par Pre-processing macros that affect driver compilation:
- * @li @c LIBUAVCAN_S32K_RX_FIFO_LENGTH The number of messages per-interface that can be buffered
+ * @li @c LIBCYPHAL_S32K_RX_FIFO_LENGTH The number of messages per-interface that can be buffered
  *     from the receive ISR before the mesage is read on the main thread. This memory will be allocated
  *     in .bss by most linkers.
- * @li @c LIBUAVCAN_S32K_NO_TIME If defined as 1 then the driver will not provide correct receive timestamps
+ * @li @c LIBCYPHAL_S32K_NO_TIME If defined as 1 then the driver will not provide correct receive timestamps
  *     and the select method will return @code Result::NotImplemented. This allows a firmware to skip
- *     implementing the @c libuavcan_media_s32k_get_monotonic_time_nanos_isr_safe method.
+ *     implementing the @c libcyphal_media_s32k_get_monotonic_time_nanos_isr_safe method.
  * @li @c MCU_S32K14X This driver can be compiled for the MCU_S32K142, MCU_S32K146, MCU_S32K148
- * @li @c LIBUAVCAN_S32K_RDDRONE_BOARD_USED If defined as 1 then PORTE pins 10 and 11 will be controlled
+ * @li @c LIBCYPHAL_S32K_RDDRONE_BOARD_USED If defined as 1 then PORTE pins 10 and 11 will be controlled
  *     internally by the driver to enable the transceiver of the rddrone_uavcan node board.
- * @li @c LIBUAVCAN_S32K_WDREFRESH_WHILE_WAITING_FOR_FREEZE_MODE If defined as 1 then the driver will refresh
+ * @li @c LIBCYPHAL_S32K_WDREFRESH_WHILE_WAITING_FOR_FREEZE_MODE If defined as 1 then the driver will refresh
  *      the watchdog peripheral while waiting for the peripheral to enter freeze mode. Do not enable this if
  *      you use the window feature of the watchdog and this is not required if your watchdog timeout is >
  *      about 800 nominal CAN bit times. Freeze mode must be entered when starting an interface group.
@@ -30,12 +30,12 @@
 #ifndef CANFD_HPP_INCLUDED
 #define CANFD_HPP_INCLUDED
 
-#include "libuavcan/media/can.hpp"
-#include "libuavcan/media/interfaces.hpp"
+#include "libcyphal/media/can.hpp"
+#include "libcyphal/media/interfaces.hpp"
 
-#if !defined(LIBUAVCAN_S32K_NO_TIME) || !(LIBUAVCAN_S32K_NO_TIME)
+#if !defined(LIBCYPHAL_S32K_NO_TIME) || !(LIBCYPHAL_S32K_NO_TIME)
 /**
- * To use all the features of the S32K libuavcan media layer you must implement this method in your firmware. It
+ * To use all the features of the S32K libcyphal media layer you must implement this method in your firmware. It
  * is used by interface groups and interfaces for all timekeeping including RX timestamping. It is defined as a C
  * method to allow sharing with other drivers written in C.
  *
@@ -65,11 +65,11 @@
  * since the current value of its counters cannot be reliably read outside of an ISR.
  *
  */
-extern "C" uint64_t libuavcan_media_s32k_get_monotonic_time_micros_isr_safe();
+extern "C" uint64_t libcyphal_media_s32k_get_monotonic_time_micros_isr_safe();
 
 #endif
 
-namespace libuavcan
+namespace libcyphal
 {
 namespace media
 {
@@ -82,9 +82,9 @@ namespace S32K
 {
 /**
  * @class
- * Implementation of the methods from libuavcan's media layer abstracct class InterfaceGroup,
+ * Implementation of the methods from libcyphal's media layer abstracct class InterfaceGroup,
  * with the template arguments listed below; for further details of this interface class,
- * refer to the template declaration in libuavcan/media/interface.hpp
+ * refer to the template declaration in libcyphal/media/interface.hpp
  *
  * FrameT      = Frame with MTUBytesParam = MaxFrameSizeBytes (64 bytes for CAN-FD) and
  *                    FlagBitsCompareMask = 0x00 (default)
@@ -96,7 +96,7 @@ class InterfaceGroup : public media::InterfaceGroup<media::CAN::Frame<media::CAN
 protected:
     /**
      * You can't instantiate or delete this object directly. Obtain references from
-     * libuavcan::media::S32K::InterfaceGroup::startInterfaceGroup.
+     * libcyphal::media::S32K::InterfaceGroup::startInterfaceGroup.
      */
     InterfaceGroup(){};
     virtual ~InterfaceGroup() = default;
@@ -122,7 +122,7 @@ public:
      * Fill out the current statistics for the group.
      * @param  interface_index  The index of the interface in the group to retrieve statistics for.
      * @param  out_statistics   A data-structure of statistics collected by each interface.
-     * @return libuavcan::Result::Success if the statistics data structure was updated with valid
+     * @return libcyphal::Result::Success if the statistics data structure was updated with valid
      *         data.
      */
     Result get_statistics(std::uint_fast8_t interface_index, Statistics& out_statistics) const;
@@ -130,9 +130,9 @@ public:
 
 /**
  * @class
- * Implementation of the methods from libuavcan's media layer abstracct class InterfaceManager,
+ * Implementation of the methods from libcyphal's media layer abstracct class InterfaceManager,
  * with the template arguments listed below; for further details of this interface class,
- * refer to the template declaration in libuavcan/media/interface.hpp
+ * refer to the template declaration in libcyphal/media/interface.hpp
  *
  * InterfaceGroupT    = S32K_InterfaceGroup  (previously declared class in the file)
  * InterfaceGroupPtrT = S32K_InterfaceGroup* (raw pointer)
@@ -147,10 +147,10 @@ public:
      * @param [in]   filter_config_length  The length of the @p filter_config argument.
      * @param [out]  out_group             A pointer to set to the started group. This will be nullptr if the start
      * method fails.
-     * @return libuavcan::Result::Success     if the group was successfully started and a valid pointer was returned.
-     * @return libuavcan::Result::Failure     if the initialization fails at some point.
+     * @return libcyphal::Result::Success     if the group was successfully started and a valid pointer was returned.
+     * @return libcyphal::Result::Failure     if the initialization fails at some point.
      *         The caller should assume that @p out_group is an invalid pointer if any failure is returned.
-     * @return libuavcan::Result::BadArgument if filter_config_length is out of bound.
+     * @return libcyphal::Result::BadArgument if filter_config_length is out of bound.
      */
     virtual Result startInterfaceGroup(const typename InterfaceGroupType::FrameType::Filter* filter_config,
                                        std::size_t                                           filter_config_length,
@@ -162,12 +162,12 @@ public:
      * resets the LPIT timer used for time-stamping, does not deconfigure the core and asynch clock sources.
     ¨* configured from startInterfaceGroup nor the pins.
      * @param [out]  inout_group Pointer that will be set to null
-     * @return libuavcan::Result::Success. If the used peripherals were deinitialized properly.
+     * @return libcyphal::Result::Success. If the used peripherals were deinitialized properly.
      */
     virtual Result stopInterfaceGroup(InterfaceGroupPtrType& inout_group) override;
 
     /** @fn
-     * Return the number of filters that the current UAVCAN node can support.
+     * Return the number of filters that the current Cyphal node can support.
      * @return The maximum number of frame filters available for filter groups managed by this object,
      *         i.e. the number of combinations of ID and mask that each FlexCAN instance supports
      */
@@ -176,6 +176,6 @@ public:
 
 }  // END namespace S32K
 }  // END namespace media
-}  // END namespace libuavcan
+}  // END namespace libcyphal
 
 #endif  // CANFD_HPP_INCLUDED

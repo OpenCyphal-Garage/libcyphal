@@ -1,12 +1,7 @@
 #
 # Find nnvg and setup python environment to generate C++ from DSDL.
+# Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
-
-# +---------------------------------------------------------------------------+
-# | CONSTANTS
-# +---------------------------------------------------------------------------+
-set(NNVG_EXTENSION .hpp)
-set(NNVG_MINIMUM_VERSION 0.1)
 
 # +---------------------------------------------------------------------------+
 # | BUILD FUNCTIONS
@@ -15,56 +10,109 @@ set(NNVG_MINIMUM_VERSION 0.1)
 # :function: create_dsdl_target
 # Creates a target that will generate source code from dsdl definitions.
 #
-# The source is generated to files with ${NNVG_EXTENSION} as the extension.
+# Extra command line arguments can be passed to nnvg by setting the string variable NNVG_FLAGS.
 #
 # :param str ARG_TARGET_NAME:               The name to give the target.
+# :param str ARG_OUTPUT_LANGUAGE            The language to generate for this target.
+# :param str ARG_OUTPUT_LANGUAGE_STD        The language standard use.
 # :param Path ARG_OUTPUT_FOLDER:            The directory to generate all source under.
-# :param Path ARG_TEMPLATES_DIR:            A directory containing the templates to use to generate the source.
 # :param Path ARG_DSDL_ROOT_DIR:            A directory containing the root namespace dsdl.
 # :param bool ARG_ENABLE_CLANG_FORMAT:      If ON then clang-format will be run on each generated file.
+# :param bool ARG_ENABLE_SER_ASSERT:        Generates code with serialization asserts enabled
+# :param bool ARG_DISABLE_SER_FP:           Generates code with floating point support removed from
+#                                           serialization logic.
+# :param bool ARG_ENABLE_OVR_VAR_ARRAY:     Generates code with variable array capacity override enabled
+# :param bool ARG_ENABLE_EXPERIMENTAL:      If true then nnvg is invoked with support for experimental
+#                                           languages.
+# :param str ARG_SER_ENDIANNESS:            One of 'any', 'big', or 'little' to pass as the value of the
+#                                           nnvg `--target-endianness` argument. Set to an empty string
+#                                           to omit this argument.
+# :param str ARG_GENERATE_SUPPORT:          value for the nnvg --generate-support argument. See
+#                                           nnvg --help for documentation
 # :param ...:                               A list of paths to use when looking up dependent DSDL types.
-# :returns: Sets a variable "ARG_TARGET_NAME"-OUTPUT in the parent scope to the list of files the target 
+# :return: Sets a variable "ARG_TARGET_NAME"-OUTPUT in the parent scope to the list of files the target
 #           will generate. For example, if ARG_TARGET_NAME == 'foo-bar' then after calling this function
 #           ${foo-bar-OUTPUT} will be set to the list of output files.
 #
-function (create_dsdl_target ARG_TARGET_NAME ARG_OUTPUT_FOLDER ARG_TEMPLATES_DIR ARG_DSDL_ROOT_DIR ARG_ENABLE_CLANG_FORMAT)
+function (create_dsdl_target ARG_TARGET_NAME
+                             ARG_OUTPUT_LANGUAGE
+                             ARG_OUTPUT_LANGUAGE_STD
+                             ARG_OUTPUT_FOLDER
+                             ARG_DSDL_ROOT_DIR
+                             ARG_ENABLE_CLANG_FORMAT
+                             ARG_ENABLE_SER_ASSERT
+                             ARG_DISABLE_SER_FP
+                             ARG_ENABLE_OVR_VAR_ARRAY
+                             ARG_ENABLE_EXPERIMENTAL
+                             ARG_SER_ENDIANNESS
+                             ARG_GENERATE_SUPPORT)
 
-    set(LOOKUP_DIR_CMD_ARGS "")
+    separate_arguments(NNVG_CMD_ARGS UNIX_COMMAND "${NNVG_FLAGS}")
 
-    if (${ARGC} GREATER 6)
-        foreach(ARG_N RANGE 6 ${ARGC}-1)
-            list(APPEND LOOKUP_DIR_CMD_ARGS " -I ${ARGV${ARG_N}}")
+    if (${ARGC} GREATER 12)
+        MATH(EXPR ARG_N_LAST "${ARGC}-1")
+        foreach(ARG_N RANGE 12 ${ARG_N_LAST})
+            list(APPEND NNVG_CMD_ARGS "-I")
+            list(APPEND NNVG_CMD_ARGS "${ARGV${ARG_N}}")
         endforeach(ARG_N)
     endif()
 
-    execute_process(COMMAND ${PYTHON} ${NNVG} 
-                                        --list-outputs
-                                        --output-extension ${NNVG_EXTENSION}
-                                        -O ${ARG_OUTPUT_FOLDER}
-                                        ${LOOKUP_DIR_CMD_ARGS}
-                                        ${ARG_DSDL_ROOT_DIR}
+    list(APPEND NNVG_CMD_ARGS --target-language)
+    list(APPEND NNVG_CMD_ARGS ${ARG_OUTPUT_LANGUAGE})
+    list(APPEND NNVG_CMD_ARGS  -O)
+    list(APPEND NNVG_CMD_ARGS ${ARG_OUTPUT_FOLDER})
+    list(APPEND NNVG_CMD_ARGS ${ARG_DSDL_ROOT_DIR})
+
+    if (NOT "${ARG_SER_ENDIANNESS}" STREQUAL "")
+        list(APPEND NNVG_CMD_ARGS "--target-endianness")
+        list(APPEND NNVG_CMD_ARGS ${ARG_SER_ENDIANNESS})
+        message(STATUS "nnvg:Setting --target-endianness to ${ARG_SER_ENDIANNESS}")
+    endif()
+
+    if (NOT "${ARG_OUTPUT_LANGUAGE_STD}" STREQUAL "")
+        list(APPEND NNVG_CMD_ARGS "-std")
+        list(APPEND NNVG_CMD_ARGS ${ARG_OUTPUT_LANGUAGE_STD})
+        message(STATUS "nnvg:Setting -std to ${ARG_OUTPUT_LANGUAGE_STD}")
+    endif()
+
+    if (ARG_ENABLE_SER_ASSERT)
+        list(APPEND NNVG_CMD_ARGS "--enable-serialization-asserts")
+        message(STATUS "nnvg:Enabling seralization asserts in generated code.")
+    endif()
+
+    if (ARG_DISABLE_SER_FP)
+        list(APPEND NNVG_CMD_ARGS "--omit-float-serialization-support")
+        message(STATUS "nnvg:Disabling floating point seralization routines in generated support code.")
+    endif()
+
+    if (ARG_ENABLE_OVR_VAR_ARRAY)
+        list(APPEND NNVG_CMD_ARGS "--enable-override-variable-array-capacity")
+        message(STATUS "nnvg:Enabling variable array capacity override option in generated code.")
+    endif()
+
+    if (ARG_ENABLE_EXPERIMENTAL)
+        list(APPEND NNVG_CMD_ARGS "--experimental-languages")
+        message(STATUS "nnvg:Enabling support for experimental languages.")
+    endif()
+
+    execute_process(COMMAND ${NNVG} --generate-support=${ARG_GENERATE_SUPPORT} --list-outputs ${NNVG_CMD_ARGS}
                     OUTPUT_VARIABLE OUTPUT_FILES
                     RESULT_VARIABLE LIST_OUTPUTS_RESULT)
 
     if(NOT LIST_OUTPUTS_RESULT EQUAL 0)
-        message(FATAL_ERROR "Failed to retrieve a list of headers nnvg would "
+        message(FATAL_ERROR "nnvg:Failed to retrieve a list of headers nnvg would "
                             "generate for the ${ARG_TARGET_NAME} target (${LIST_OUTPUTS_RESULT})"
-                            " (${PYTHON} ${NNVG})")
+                            " (${NNVG})")
     endif()
 
-    execute_process(COMMAND ${PYTHON} ${NNVG} 
-                                        --list-inputs
-                                        -O ${ARG_OUTPUT_FOLDER}
-                                        --templates ${ARG_TEMPLATES_DIR}
-                                        ${LOOKUP_DIR_CMD_ARGS}
-                                        ${ARG_DSDL_ROOT_DIR}
+    execute_process(COMMAND ${NNVG} --generate-support=${ARG_GENERATE_SUPPORT} --list-inputs ${NNVG_CMD_ARGS}
                     OUTPUT_VARIABLE INPUT_FILES
                     RESULT_VARIABLE LIST_INPUTS_RESULT)
 
     if(NOT LIST_INPUTS_RESULT EQUAL 0)
-        message(FATAL_ERROR "Failed to resolve inputs using nnvg for the ${ARG_TARGET_NAME} "
+        message(FATAL_ERROR "nnvg:Failed to resolve inputs using nnvg for the ${ARG_TARGET_NAME} "
                             "target (${LIST_INPUTS_RESULT})"
-                            " (${PYTHON} ${NNVG})")
+                            " (${NNVG})")
     endif()
 
     if(ARG_ENABLE_CLANG_FORMAT AND CLANG_FORMAT)
@@ -74,18 +122,12 @@ function (create_dsdl_target ARG_TARGET_NAME ARG_OUTPUT_FOLDER ARG_TEMPLATES_DIR
     endif()
 
     add_custom_command(OUTPUT ${OUTPUT_FILES}
-                       COMMAND ${PYTHON} ${NNVG} 
-                                           --templates ${ARG_TEMPLATES_DIR}
-                                           --output-extension ${NNVG_EXTENSION}
-                                           -O ${ARG_OUTPUT_FOLDER}
-                                           ${LOOKUP_DIR_CMD_ARGS}
-                                           ${CLANG_FORMAT_ARGS}
-                                           ${ARG_DSDL_ROOT_DIR}
+                       COMMAND ${NNVG} --generate-support=${ARG_GENERATE_SUPPORT} ${CLANG_FORMAT_ARGS} ${NNVG_CMD_ARGS}
                        DEPENDS ${INPUT_FILES}
                        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                        COMMENT "Running nnvg")
 
-    add_custom_target(${ARG_TARGET_NAME}-gen 
+    add_custom_target(${ARG_TARGET_NAME}-gen
                       DEPENDS ${OUTPUT_FILES})
 
     add_library(${ARG_TARGET_NAME} INTERFACE)
@@ -94,16 +136,31 @@ function (create_dsdl_target ARG_TARGET_NAME ARG_OUTPUT_FOLDER ARG_TEMPLATES_DIR
 
     target_include_directories(${ARG_TARGET_NAME} INTERFACE ${ARG_OUTPUT_FOLDER})
 
+    if (ARG_ENABLE_SER_ASSERT)
+        if(${ARG_TARGET_NAME} STREQUAL "unity")
+            target_compile_options(${ARG_TARGET_NAME} INTERFACE
+                "-DNUNAVUT_ASSERT=TEST_ASSERT"
+            )
+        elseif(${ARG_TARGET_NAME} STREQUAL "gtest")
+            target_compile_options(${ARG_TARGET_NAME} INTERFACE
+                "-DNUNAVUT_ASSERT=ASSERT_TRUE"
+            )
+        else()
+            target_compile_options(${ARG_TARGET_NAME} INTERFACE
+                "-DNUNAVUT_ASSERT=assert"
+            )
+        endif()
+    endif()
+
     set(${ARG_TARGET_NAME}-OUTPUT ${OUTPUT_FILES} PARENT_SCOPE)
 
 endfunction(create_dsdl_target)
-
 
 # +---------------------------------------------------------------------------+
 # | CONFIGURE: PYTHON ENVIRONMENT
 # +---------------------------------------------------------------------------+
 
-if(NOT VIRTUALENV)
+if(NOT VIRTUALENV_FOUND)
 
     message(STATUS "virtualenv was not found. You must have nunavut and its"
                    " dependencies available in the global python environment.")
@@ -112,10 +169,13 @@ if(NOT VIRTUALENV)
 
 else()
 
-    find_program(NNVG nnvg HINTS ${VIRTUALENV_PYTHON_BIN})
+    find_program(NNVG nnvg
+                 PATHS ${VIRTUALENV_PYTHON_BIN}
+                 NO_DEFAULT_PATH
+    )
 
     if (NOT NNVG)
-        message(WARNING "nnvg program was not found. The build will probably fail. (${NNVG})")
+        message(WARNING "nnvg:nnvg program was not found. The build will probably fail. (${NNVG})")
     endif()
 endif()
 
@@ -123,22 +183,19 @@ endif()
 # | CONFIGURE: VALIDATE NNVG
 # +---------------------------------------------------------------------------+
 if (NNVG)
-    execute_process(COMMAND ${PYTHON} ${NNVG} --version
+    execute_process(COMMAND ${NNVG} --version
                     OUTPUT_VARIABLE NNVG_VERSION
                     RESULT_VARIABLE NNVG_VERSION_RESULT)
 
     if(NNVG_VERSION_RESULT EQUAL 0)
-        message(STATUS "${PYTHON} ${NNVG} --version: ${NNVG_VERSION}")
+        string(STRIP ${NNVG_VERSION} NNVG_VERSION)
+        message(STATUS "nnvg:${NNVG} --version: ${NNVG_VERSION}")
     endif()
 endif()
 
 include(FindPackageHandleStandardArgs)
- 
-find_package_handle_standard_args(nnvg
-    REQUIRED_VARS NNVG_VERSION
-)
 
-if(NNVG_VERSION VERSION_LESS ${NNVG_MINIMUM_VERSION})
-    message(FATAL_ERROR "nnvg version ${NNVG_MINIMUM_VERSION} or greater required. ${NNVG_VERSION} found."
-                        " you must update your version of nnvg to build libuavcan.")
-endif()
+find_package_handle_standard_args(nnvg
+    REQUIRED_VARS NNVG
+    VERSION_VAR NNVG_VERSION
+)

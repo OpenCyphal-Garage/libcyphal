@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Unit tests of the pool allocator in the platform layer.
  */
@@ -13,9 +13,9 @@ namespace platform
 {
 namespace memory
 {
-typedef ::testing::Types<libuavcan::platform::memory::PoolAllocator<1, 1>,
-                         libuavcan::platform::memory::PoolAllocator<1, 8, std::uint64_t>,
-                         libuavcan::platform::memory::PoolAllocator<8, std::numeric_limits<std::uint8_t>::max(), char>>
+typedef ::testing::Types<libcyphal::platform::memory::PoolAllocator<1, 1>,
+                         libcyphal::platform::memory::PoolAllocator<1, 8, std::uint64_t>,
+                         libcyphal::platform::memory::PoolAllocator<8, std::numeric_limits<std::uint8_t>::max(), char>>
     MyTypes;
 
 // The trailing comma is required. See https://github.com/google/googletest/issues/1419
