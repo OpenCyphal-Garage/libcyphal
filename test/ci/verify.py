@@ -441,7 +441,7 @@ class CMakeConfigure(CMakeAction):
 
         flagset_file = flag_set_dir / flag_set_filename
 
-        if hasattr(args, "project_root"):
+        if hasattr(args, "project_root") and args.project_root is not None:
             cmake_configure_args.append("-DLIBCYPHAL_PROJECT_ROOT={}".format(args.project_root))
 
         cmake_configure_args.append("-DLIBCYPHAL_FLAG_SET={}".format(str(flagset_file)))
