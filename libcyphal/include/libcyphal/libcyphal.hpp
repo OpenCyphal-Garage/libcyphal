@@ -1,15 +1,15 @@
 /*
  * Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 /**
  * @file
  * This header should be included by the user application.
  */
-#ifndef LIBUAVCAN_HPP_INCLUDED
-#define LIBUAVCAN_HPP_INCLUDED
+#ifndef LIBCYPHAL_HPP_INCLUDED
+#define LIBCYPHAL_HPP_INCLUDED
 
-#include "libuavcan/build_config.hpp"
+#include "libcyphal/build_config.hpp"
 
 #include <cstdint>
 #include <cinttypes>
@@ -18,14 +18,14 @@
 #include <cstddef>
 
 /**
- * @namespace libuavcan
+ * @namespace libcyphal
  * The top-level namespace which contains all types, definitions, and nested
- * namespaces for libuavcan.
+ * namespaces for libcyphal.
  */
-namespace libuavcan
+namespace libcyphal
 {
 /**
- * Common return type for functions that report a result. Since libuavcan does not
+ * Common return type for functions that report a result. Since libcyphal does not
  * require C++ exceptions this return type is used to signal failures within a function.
  * Negative values and zero are errors. 1 is a nominal result and values > 1 are also considered
  * nominal results.
@@ -34,7 +34,7 @@ enum struct Result : std::int_fast8_t
 {
 
     /**
-     * Values greater than 0 are success values for libuavcan results.
+     * Values greater than 0 are success values for libcyphal results.
      */
     Success = 1,
 
@@ -131,6 +131,6 @@ constexpr bool isFailure(const Result& result)
     return !result;
 }
 
-}  // namespace libuavcan
+}  // namespace libcyphal
 
-#endif  // LIBUAVCAN_HPP_INCLUDED
+#endif  // LIBCYPHAL_HPP_INCLUDED

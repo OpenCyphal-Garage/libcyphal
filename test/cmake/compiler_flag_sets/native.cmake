@@ -1,6 +1,6 @@
 
 #
-# Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # C, CXX, LD, and AS flags for building native examples and other typical
 # code.

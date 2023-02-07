@@ -1,16 +1,16 @@
 /*
  * Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
-#ifndef LIBUAVCAN_PLATFORM_MEMORY_HPP_INCLUDED
-#define LIBUAVCAN_PLATFORM_MEMORY_HPP_INCLUDED
+#ifndef LIBCYPHAL_PLATFORM_MEMORY_HPP_INCLUDED
+#define LIBCYPHAL_PLATFORM_MEMORY_HPP_INCLUDED
 
 #include <atomic>
 #include <unordered_map>
-#include "libuavcan/libuavcan.hpp"
-#include "libuavcan/introspection.hpp"
+#include "libcyphal/libcyphal.hpp"
+#include "libcyphal/introspection.hpp"
 
-namespace libuavcan
+namespace libcyphal
 {
 namespace platform
 {
@@ -20,7 +20,7 @@ namespace memory
  * Classic implementation of a pool allocator (Meyers).
  *
  * This instance is designed to be a process-wide singleton and is not designed for direct access
- * by applications or libuavcan. To use this memory pool it is recommended that one of the allocators
+ * by applications or libcyphal. To use this memory pool it is recommended that one of the allocators
  * defined in this header is used.
  *
  * This implementation relies on STL atomics and thread-safe static compiler support to be thread-safe.
@@ -39,7 +39,7 @@ namespace memory
  *                          deallocation.
  */
 template <std::size_t NumBlocksParam, std::uint8_t BlockSizeParam>
-class LIBUAVCAN_EXPORT StaticMemoryPool final
+class LIBCYPHAL_EXPORT StaticMemoryPool final
 {
     /**
      * A cute little trick is used by Pavel here where the data
@@ -147,7 +147,7 @@ private:
                 previous = free_list_.load();
                 if (previous == nullptr)
                 {
-#if LIBUAVCAN_ENABLE_EXCEPTIONS
+#if LIBCYPHAL_ENABLE_EXCEPTIONS
                     std::bad_alloc exception;
                     throw exception;
 #endif
@@ -158,7 +158,7 @@ private:
         }
         else
         {
-#if LIBUAVCAN_ENABLE_EXCEPTIONS
+#if LIBCYPHAL_ENABLE_EXCEPTIONS
             std::bad_alloc exception;
             throw exception;
 #endif
@@ -200,7 +200,7 @@ template <std::size_t  NumBlocksParam,
           std::uint8_t BlockSizeParam,
           typename T              = std::uint8_t,
           typename MemoryPoolType = StaticMemoryPool<NumBlocksParam, BlockSizeParam>>
-class LIBUAVCAN_EXPORT PoolAllocator
+class LIBCYPHAL_EXPORT PoolAllocator
 {
     MemoryPoolType& pool_;
 
@@ -400,6 +400,6 @@ inline std::size_t copyBitsAlignedToUnaligned(const std::uint8_t* const src,
 
 }  // namespace memory
 }  // namespace platform
-}  // namespace libuavcan
+}  // namespace libcyphal
 
-#endif  // LIBUAVCAN_PLATFORM_MEMORY_HPP_INCLUDED
+#endif  // LIBCYPHAL_PLATFORM_MEMORY_HPP_INCLUDED

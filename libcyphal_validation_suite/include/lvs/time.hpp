@@ -1,9 +1,9 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 /** @file
- * Implement this test for any libuavcan::duration or libuavcan::time objects
- * you create that support the base concepts defined in libuavcan/time.hpp.
+ * Implement this test for any libcyphal::duration or libcyphal::time objects
+ * you create that support the base concepts defined in libcyphal/time.hpp.
  *
  * <h3>Example:</H3>
  * @code
@@ -12,38 +12,38 @@
  *
  * namespace lvs
  * {
- * typedef ::testing::Types<libuavcan::duration::Monotonic,
- *                          libuavcan::time::Monotonic,
+ * typedef ::testing::Types<libcyphal::duration::Monotonic,
+ *                          libcyphal::time::Monotonic,
  *                          mynamespace::MyDurationType,
  *                          mynamespace::MyTimeType> MyDurationAndTimeTypes;
  *
  * // The trailing comma is required. See https://github.com/google/googletest/issues/1419
  * INSTANTIATE_TYPED_TEST_SUITE_P(Time, DurationOrTimeTest, MyDurationAndTimeTypes, );
  *
- * typedef ::testing::Types<libuavcan::duration::Monotonic, mynamespace::MyDurationType> MyDurationTypes;
+ * typedef ::testing::Types<libcyphal::duration::Monotonic, mynamespace::MyDurationType> MyDurationTypes;
  *
  * INSTANTIATE_TYPED_TEST_SUITE_P(Time, DurationTest, MyDurationTypes, );
  *
- * typedef ::testing::Types<libuavcan::time::Monotonic, mynamespace::MyTimeType> MyTimeTypes;
+ * typedef ::testing::Types<libcyphal::time::Monotonic, mynamespace::MyTimeType> MyTimeTypes;
  *
  * INSTANTIATE_TYPED_TEST_SUITE_P(Time, TimeTest, MyTimeTypes, );
  *
  * }  // namespace lvs
  * @endcode
  */
-#ifndef LIBUAVCAN_LVS_TIME_HPP_INCLUDED
-#define LIBUAVCAN_LVS_TIME_HPP_INCLUDED
+#ifndef LIBCYPHAL_LVS_TIME_HPP_INCLUDED
+#define LIBCYPHAL_LVS_TIME_HPP_INCLUDED
 
 #include "gtest/gtest.h"
 
 #include "lvs/lvs.hpp"
-#include "libuavcan/time.hpp"
+#include "libcyphal/time.hpp"
 
 namespace lvs
 {
 /**
- * Test fixture for testing realizations of the libuavcan::duration::Base or
- * libuavcan::time::Base class. These are tests when the two bases share the same
+ * Test fixture for testing realizations of the libcyphal::duration::Base or
+ * libcyphal::time::Base class. These are tests when the two bases share the same
  * concepts. For tests where their concepts differ see DurationTest or TimeTest.
  * See https://github.com/google/googletest/blob/master/googletest/docs/advanced.md for
  * more information about typed gtests.
@@ -161,7 +161,7 @@ REGISTER_TYPED_TEST_SUITE_P(DurationOrTimeTest,  //
                             SaturatedSubtract);
 
 /**
- * Test fixture for testing realizations of the libuavcan::duration::Base template.
+ * Test fixture for testing realizations of the libcyphal::duration::Base template.
  * See https://github.com/google/googletest/blob/master/googletest/docs/advanced.md for
  * more information about typed gtests.
  *
@@ -272,7 +272,7 @@ REGISTER_TYPED_TEST_SUITE_P(DurationTest,  //
                             DefaultOperations);
 
 /**
- * Test fixture for testing realizations of the libuavcan::time::Base template.
+ * Test fixture for testing realizations of the libcyphal::time::Base template.
  * See https://github.com/google/googletest/blob/master/googletest/docs/advanced.md for
  * more information about typed gtests.
  *
@@ -351,4 +351,4 @@ REGISTER_TYPED_TEST_SUITE_P(TimeTest,  //
                             DefaultOperations);
 }  // end namespace lvs
 
-#endif  // LIBUAVCAN_LVS_TIME_HPP_INCLUDED
+#endif  // LIBCYPHAL_LVS_TIME_HPP_INCLUDED

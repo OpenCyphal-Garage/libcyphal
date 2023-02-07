@@ -6,7 +6,7 @@
  */
 
 /*
- * Source driver file for the media layer of Libuavcan v1 targeting
+ * Source driver file for the media layer of Libcyphal v1 targeting
  * the NXP S32K14 family of automotive grade MCU's running
  * CAN-FD at 4Mbit/s data phase and 1Mbit/s in nominal phase.
  */
@@ -15,8 +15,8 @@
  * Macro for additional configuration needed when using a TJA1044 transceiver, which is used
  * in NXP's UCANS32K146 board, set to 0 when using EVB's or other boards.
  */
-#ifndef LIBUAVCAN_S32K_RDDRONE_BOARD_USED
-#    define LIBUAVCAN_S32K_RDDRONE_BOARD_USED 1
+#ifndef LIBCYPHAL_S32K_RDDRONE_BOARD_USED
+#    define LIBCYPHAL_S32K_RDDRONE_BOARD_USED 1
 #endif
 
 #if defined(__GNUC__)
@@ -25,12 +25,12 @@
 #endif
 
 /* S32K driver header file */
-#include "libuavcan/media/S32K/canfd.hpp"
+#include "libcyphal/media/S32K/canfd.hpp"
 
 #include <type_traits>
 
-/* libuavcan core header file for static pool allocator */
-#include "libuavcan/platform/memory.hpp"
+/* libcyphal core header file for static pool allocator */
+#include "libcyphal/platform/memory.hpp"
 
 /* CMSIS Core for __REV macro use */
 #include "s32_core_cm4.h"
@@ -58,8 +58,8 @@
 #    error "No NXP S32K compatible MCU header file included"
 #endif
 
-#if !defined LIBUAVCAN_S32K_RX_FIFO_LENGTH
-#    define LIBUAVCAN_S32K_RX_FIFO_LENGTH 4
+#if !defined LIBCYPHAL_S32K_RX_FIFO_LENGTH
+#    define LIBCYPHAL_S32K_RX_FIFO_LENGTH 4
 #endif
 
 // TODO: error handling and statistics.
@@ -73,7 +73,7 @@
 // | PRIVATE IMPLEMENTATION AND STATIC STORAGE
 // +--------------------------------------------------------------------------+
 
-namespace libuavcan
+namespace libcyphal
 {
 namespace media
 {
@@ -421,10 +421,10 @@ public:
             const MessageBuffer& next_buffer = fifo_buffer_.front();
 
             const std::uint_fast8_t payload_len =
-                InterfaceGroup::FrameType::dlcToLength(libuavcan::media::CAN::FrameDLC(next_buffer.byte0.fields.dlc));
+                InterfaceGroup::FrameType::dlcToLength(libcyphal::media::CAN::FrameDLC(next_buffer.byte0.fields.dlc));
             for (std::uint_fast8_t b = 0, w = 0; b < payload_len; b += 4, ++w)
             {
-                // TODO: when libuavcan issue #309 is fixed use REV_BYTES_32(from, to)
+                // TODO: when libcyphal issue #309 is fixed use REV_BYTES_32(from, to)
                 // to accelerate this copy.
                 std::uint32_t be_word = next_buffer.data.words[w];
                 out_frame.data[b + 3] = (be_word & 0xFF000000U) >> 24U;
@@ -513,8 +513,8 @@ private:
             {
                 return;
             }
-#if defined(LIBUAVCAN_S32K_WDREFRESH_WHILE_WAITING_FOR_FREEZE_MODE) && \
-    (LIBUAVCAN_S32K_WDREFRESH_WHILE_WAITING_FOR_FREEZE_MODE)
+#if defined(LIBCYPHAL_S32K_WDREFRESH_WHILE_WAITING_FOR_FREEZE_MODE) && \
+    (LIBCYPHAL_S32K_WDREFRESH_WHILE_WAITING_FOR_FREEZE_MODE)
             if (WDOG->CS & WDOG_CS_EN_MASK)
             {
                 DISABLE_INTERRUPTS();
@@ -568,14 +568,14 @@ private:
      */
     time::Monotonic resolveTimestamp(std::uint64_t frame_timestamp_ticks)
     {
-#if defined(LIBUAVCAN_S32K_NO_TIME) && (LIBUAVCAN_S32K_NO_TIME)
+#if defined(LIBCYPHAL_S32K_NO_TIME) && (LIBCYPHAL_S32K_NO_TIME)
         return time::Monotonic::fromMicrosecond(0);
 #else
         /* Harvest the peripheral's current timestamp, this is the 16-bit overflowing source clock */
         const std::uint64_t flexCAN_timestamp_ticks = fc_->TIMER;
 
         /* Get an non-overflowing 64-bit timestamp, this is the target clock source */
-        const std::uint64_t target_source_micros = libuavcan_media_s32k_get_monotonic_time_micros_isr_safe();
+        const std::uint64_t target_source_micros = libcyphal_media_s32k_get_monotonic_time_micros_isr_safe();
 
         /* Compute the delta of time that occurred in the source clock */
         const std::uint64_t source_delta_ticks = flexCAN_timestamp_ticks > frame_timestamp_ticks
@@ -597,11 +597,11 @@ private:
      *
      * @param [in]     frame            The individual frame being transmitted.
      * @param [inout]  inout_tx_buffer  An available message buffer to utilize.
-     * @return libuavcan::Result:Success after a successful transmission request.
+     * @return libcyphal::Result:Success after a successful transmission request.
      */
     Result messageBufferTransmit(const InterfaceGroup::FrameType& frame, volatile MessageBuffer& inout_tx_buffer) const
     {
-        // TODO: revisit this when libuavcan issue #309 is fixed. In general this logic can probably be
+        // TODO: revisit this when libcyphal issue #309 is fixed. In general this logic can probably be
         //       more optimal.
         const std::uint_fast8_t data_len               = frame.getDataLength();
         const std::uint_fast8_t bytes_in_last_word     = (data_len % 4);
@@ -652,7 +652,7 @@ private:
         inout_tx_buffer.byte0.fields.ide = 1;
         inout_tx_buffer.byte0.fields.rtr = 0;
         inout_tx_buffer.byte0.fields.dlc =
-            static_cast<std::underlying_type<libuavcan::media::CAN::FrameDLC>::type>(frame.getDLC());
+            static_cast<std::underlying_type<libcyphal::media::CAN::FrameDLC>::type>(frame.getDLC());
         // Do this last so the hardware doesn't try to use this mailbox while we're writing to it.
         inout_tx_buffer.byte0.fields.mb_code = 12;
 
@@ -673,7 +673,7 @@ private:
     volatile InterfaceGroup::Statistics statistics_;
 
     /* Fifo buffer between ISR and the main thread. */
-    FifoBuffer<LIBUAVCAN_S32K_RX_FIFO_LENGTH> fifo_buffer_;
+    FifoBuffer<LIBCYPHAL_S32K_RX_FIFO_LENGTH> fifo_buffer_;
 };
 
 // +--------------------------------------------------------------------------+
@@ -682,7 +682,7 @@ private:
 
 /**
  * Concrete type held internally and returned to the system via
- * libuavcan::media::S32K::InterfaceManager::startInterfaceGroup
+ * libcyphal::media::S32K::InterfaceManager::startInterfaceGroup
  */
 template <std::size_t InterfaceCount>
 class S32KInterfaceGroupImpl : public InterfaceGroup
@@ -725,7 +725,7 @@ public:
         PORTA->PCR[13] |= PORT_PCR_MUX(3);               /* CAN1_TX at PORT A pin 13 */
 
         /* Set to LOW the standby (STB) pin in both transceivers of the UCANS32K146 node board */
-#    if defined(LIBUAVCAN_S32K_RDDRONE_BOARD_USED) && (LIBUAVCAN_S32K_RDDRONE_BOARD_USED)
+#    if defined(LIBCYPHAL_S32K_RDDRONE_BOARD_USED) && (LIBCYPHAL_S32K_RDDRONE_BOARD_USED)
         PORTE->PCR[11] |= PORT_PCR_MUX(1); /* MUX to GPIO */
         PTE->PDDR |= 1 << 11;              /* Set direction as output */
         PTE->PCOR |= 1 << 11;              /* Set the pin LOW */
@@ -816,7 +816,7 @@ public:
 
     virtual Result select(duration::Monotonic timeout, bool ignore_write_available) override
     {
-#if defined(LIBUAVCAN_S32K_NO_TIME) && (LIBUAVCAN_S32K_NO_TIME)
+#if defined(LIBCYPHAL_S32K_NO_TIME) && (LIBCYPHAL_S32K_NO_TIME)
         return Result::NotImplemented;
 #else
         /* Obtain timeout from object */
@@ -824,7 +824,7 @@ public:
             (timeout.toMicrosecond() < 0) ? 0u : static_cast<std::uint64_t>(timeout.toMicrosecond());
 
         /* Initialization of delta variable for comparison */
-        const std::uint64_t start_wait_micros = libuavcan_media_s32k_get_monotonic_time_micros_isr_safe();
+        const std::uint64_t start_wait_micros = libcyphal_media_s32k_get_monotonic_time_micros_isr_safe();
 
         /* Start of timed block */
         for (;;)
@@ -841,7 +841,7 @@ public:
 
             /* Get current value of delta */
             const std::uint64_t delta_micros =
-                libuavcan_media_s32k_get_monotonic_time_micros_isr_safe() - start_wait_micros;
+                libcyphal_media_s32k_get_monotonic_time_micros_isr_safe() - start_wait_micros;
             if (delta_micros > timeout_micros)
             {
                 break;
@@ -953,7 +953,7 @@ std::size_t InterfaceManager::getMaxFrameFilters() const
 
 }  // namespace S32K
 }  // namespace media
-}  // namespace libuavcan
+}  // namespace libcyphal
 
 extern "C"
 {
@@ -964,8 +964,8 @@ extern "C"
      */
     void CAN0_ORed_0_15_MB_IRQHandler()
     {
-        libuavcan::media::S32K::S32KInterfaceGroupImpl<TARGET_S32K_CANFD_COUNT>* singleton_group =
-            libuavcan::media::S32K::_group_singleton;
+        libcyphal::media::S32K::S32KInterfaceGroupImpl<TARGET_S32K_CANFD_COUNT>* singleton_group =
+            libcyphal::media::S32K::_group_singleton;
         if (singleton_group != nullptr)
         {
             singleton_group->isrHandler(0u);
@@ -976,8 +976,8 @@ extern "C"
     /* Interrupt for the 1st FlexCAN instance if available */
     void CAN1_ORed_0_15_MB_IRQHandler()
     {
-        libuavcan::media::S32K::S32KInterfaceGroupImpl<TARGET_S32K_CANFD_COUNT>* singleton_group =
-            libuavcan::media::S32K::_group_singleton;
+        libcyphal::media::S32K::S32KInterfaceGroupImpl<TARGET_S32K_CANFD_COUNT>* singleton_group =
+            libcyphal::media::S32K::_group_singleton;
         if (singleton_group != nullptr)
         {
             singleton_group->isrHandler(1u);
@@ -989,8 +989,8 @@ extern "C"
     /* Interrupt for the 2nd FlexCAN instance if available */
     void CAN2_ORed_0_15_MB_IRQHandler()
     {
-        libuavcan::media::S32K::S32KInterfaceGroupImpl<TARGET_S32K_CANFD_COUNT>* singleton_group =
-            libuavcan::media::S32K::_group_singleton;
+        libcyphal::media::S32K::S32KInterfaceGroupImpl<TARGET_S32K_CANFD_COUNT>* singleton_group =
+            libcyphal::media::S32K::_group_singleton;
         if (singleton_group != nullptr)
         {
             singleton_group->isrHandler(2u);

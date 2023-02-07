@@ -1,4 +1,4 @@
-/* test of libuavcan v1 media driver layer for the NXP S32K14x family
+/* test of libcyphal v1 media driver layer for the NXP S32K14x family
  * of aumototive-grade MCU's, running CANFD at 4Mbit/s in data phase
  * based on work by Abraham Rodriguez <abraham.rodriguez@nxp.com>
  *
@@ -7,7 +7,7 @@
  */
 
 /* Include media layer driver for NXP S32K MCU */
-#include "libuavcan/media/S32K/canfd.hpp"
+#include "libcyphal/media/S32K/canfd.hpp"
 #include "device_registers.h"
 #include "clocks_and_modes.h"
 #include "LPUART.h"
@@ -47,13 +47,13 @@ extern "C"
 
 namespace
 {
-#if !defined(LIBUAVCAN_TEST_NODE_ID)
+#if !defined(LIBCYPHAL_TEST_NODE_ID)
 /* ID for the current UAVCAN node */
 constexpr std::uint32_t NodeID = 1u;
 
 #else
 /* ID and for the current UAVCAN node */
-constexpr std::uint32_t NodeID = LIBUAVCAN_TEST_NODE_ID;
+constexpr std::uint32_t NodeID = LIBCYPHAL_TEST_NODE_ID;
 
 #endif
 
@@ -62,7 +62,7 @@ constexpr std::uint32_t NodeMessageShift = 4u;
 constexpr std::size_t   NodeFrameCount   = 1u; /* Frames transmitted each time */
 constexpr std::uint32_t TestMessageId    = NodeID | (NodeMask & (1 << NodeMessageShift));
 /* Size of the payload in bytes of the frame to be transmitted */
-constexpr std::uint16_t payload_length = libuavcan::media::S32K::InterfaceGroup::FrameType::MTUBytes;
+constexpr std::uint16_t payload_length = libcyphal::media::S32K::InterfaceGroup::FrameType::MTUBytes;
 // TODO: make the waitstates relative to the CPU speed and the data rate. We need enough to allow
 //       lower priority messages access to the bus.
 /* Number of CPU ticks to insert between a message transmissions. */
@@ -85,20 +85,20 @@ void greenLEDInit(void)
     PTD->PDDR |= 1 << 16;                            /* Port D16: Data direction = output  */
 }
 
-libuavcan::Result doTelephone(std::uint_fast8_t                       interface_index,
-                              libuavcan::media::S32K::InterfaceGroup& interface_group,
-                              libuavcan::media::S32K::InterfaceGroup::FrameType (
-                                  &inout_telephone_frames)[libuavcan::media::S32K::InterfaceGroup::TxFramesLen],
+libcyphal::Result doTelephone(std::uint_fast8_t                       interface_index,
+                              libcyphal::media::S32K::InterfaceGroup& interface_group,
+                              libcyphal::media::S32K::InterfaceGroup::FrameType (
+                                  &inout_telephone_frames)[libcyphal::media::S32K::InterfaceGroup::TxFramesLen],
                               unsigned int& tx_wait_states_remaining)
 {
     std::size_t frames_read    = 0;
     std::size_t frames_written = 0;
 
     /* Modify and transmit back */
-    for (std::size_t i = 0; i < libuavcan::media::S32K::InterfaceGroup::TxFramesLen; ++i)
+    for (std::size_t i = 0; i < libcyphal::media::S32K::InterfaceGroup::TxFramesLen; ++i)
     {
-        static_assert(libuavcan::media::S32K::InterfaceGroup::TxFramesLen ==
-                          libuavcan::media::S32K::InterfaceGroup::RxFramesLen,
+        static_assert(libcyphal::media::S32K::InterfaceGroup::TxFramesLen ==
+                          libcyphal::media::S32K::InterfaceGroup::RxFramesLen,
                       "We've made the assumption that the read and write frame buffers are the same length.");
 
         /* Changed frame's ID for returning it back */
@@ -106,7 +106,7 @@ libuavcan::Result doTelephone(std::uint_fast8_t                       interface_
 
         std::uint64_t last_two_words = 0;
 
-        // TODO: when libuavcan issue #309 is fixed rework this. For now this implementation avoids
+        // TODO: when libcyphal issue #309 is fixed rework this. For now this implementation avoids
         //       any potential unaligned operations at the cost of being really, really ugly.
         for (std::size_t x = 0; x < 8; ++x)
         {
@@ -120,14 +120,14 @@ libuavcan::Result doTelephone(std::uint_fast8_t                       interface_
     }
     if (tx_wait_states_remaining == 0)
     {
-        const libuavcan::Result write_status =
+        const libcyphal::Result write_status =
             interface_group.write(interface_index,
                                   inout_telephone_frames,
-                                  libuavcan::media::S32K::InterfaceGroup::TxFramesLen,
+                                  libcyphal::media::S32K::InterfaceGroup::TxFramesLen,
                                   frames_written);
-        if (libuavcan::isFailure(write_status))
+        if (libcyphal::isFailure(write_status))
         {
-            stats.tx_failures += libuavcan::media::S32K::InterfaceGroup::TxFramesLen;
+            stats.tx_failures += libcyphal::media::S32K::InterfaceGroup::TxFramesLen;
         }
         else
         {
@@ -139,13 +139,13 @@ libuavcan::Result doTelephone(std::uint_fast8_t                       interface_
         tx_wait_states_remaining -= 1;
     }
 
-    const libuavcan::Result read_status = interface_group.read(interface_index, inout_telephone_frames, frames_read);
-    if (libuavcan::isFailure(read_status))
+    const libcyphal::Result read_status = interface_group.read(interface_index, inout_telephone_frames, frames_read);
+    if (libcyphal::isFailure(read_status))
     {
         stats.rx_failures += 1;
     }
 
-    if (read_status != libuavcan::Result::SuccessNothing)
+    if (read_status != libcyphal::Result::SuccessNothing)
     {
         stats.rx_messages += frames_read;
         stats.cycle += 1;
@@ -159,8 +159,8 @@ libuavcan::Result doTelephone(std::uint_fast8_t                       interface_
 }
 
 /* Allocate the interface manager off of the stack. */
-typename std::aligned_storage<sizeof(libuavcan::media::S32K::InterfaceManager),
-                              alignof(libuavcan::media::S32K::InterfaceManager)>::type interface_manager_storage;
+typename std::aligned_storage<sizeof(libcyphal::media::S32K::InterfaceManager),
+                              alignof(libcyphal::media::S32K::InterfaceManager)>::type interface_manager_storage;
 
 }  // end anonymous namespace
 
@@ -185,8 +185,8 @@ int main()
     }
 
     /* Frame's Data Length Code in function of it's payload length in bytes */
-    libuavcan::media::CAN::FrameDLC test_message_dlc =
-        libuavcan::media::S32K::InterfaceGroup::FrameType::lengthToDlc(payload_length);
+    libcyphal::media::CAN::FrameDLC test_message_dlc =
+        libcyphal::media::S32K::InterfaceGroup::FrameType::lengthToDlc(payload_length);
 
     /* prototype for the 64-byte payload that will be exchanged between the nodes */
     static constexpr std::uint32_t test_payload[] = {0xDDCCBBAA,
@@ -209,28 +209,28 @@ int main()
     static_assert(sizeof(test_payload) == 16 * 4, "test_payload is supposed to be 64-bytes.");
 
     /* Instantiate factory object */
-    libuavcan::media::S32K::InterfaceManager* interface_manager =
-        new (&interface_manager_storage) libuavcan::media::S32K::InterfaceManager();
+    libcyphal::media::S32K::InterfaceManager* interface_manager =
+        new (&interface_manager_storage) libcyphal::media::S32K::InterfaceManager();
 
     /* Create pointer to Interface object */
-    libuavcan::media::S32K::InterfaceManager::InterfaceGroupPtrType interface_group = nullptr;
+    libcyphal::media::S32K::InterfaceManager::InterfaceGroupPtrType interface_group = nullptr;
 
     /* Create the message that will bounce between nodes. */
-    libuavcan::media::S32K::InterfaceGroup::FrameType
-        telephone_messages[libuavcan::media::S32K::InterfaceGroup::TxFramesLen] = {
-            libuavcan::media::S32K::InterfaceGroup::FrameType(TestMessageId,
+    libcyphal::media::S32K::InterfaceGroup::FrameType
+        telephone_messages[libcyphal::media::S32K::InterfaceGroup::TxFramesLen] = {
+            libcyphal::media::S32K::InterfaceGroup::FrameType(TestMessageId,
                                                               reinterpret_cast<const std::uint8_t*>(test_payload),
                                                               test_message_dlc)};
 
     /* Instantiate the filter object that the current node will apply to receiving frames */
-    libuavcan::media::S32K::InterfaceGroup::FrameType::Filter test_filter(TestMessageId, NodeMask);
+    libcyphal::media::S32K::InterfaceGroup::FrameType::Filter test_filter(TestMessageId, NodeMask);
 
     /* Initialize the node with the previously defined filtering using factory method */
-    libuavcan::Result status = interface_manager->startInterfaceGroup(&test_filter, 1, interface_group);
+    libcyphal::Result status = interface_manager->startInterfaceGroup(&test_filter, 1, interface_group);
 
     greenLEDInit();
 
-    if (libuavcan::isFailure(status))
+    if (libcyphal::isFailure(status))
     {
         LPUART1_transmit_string("Failed to start the interface group.");
         while (true)

@@ -5,7 +5,7 @@
         "Pavel",
         "UAVCAN",
         "gtests",
-        "libuavcan",
+        "libcyphal",
         "ovfl"
     ],
     "files.associations": {
@@ -79,7 +79,7 @@
         "set": "cpp",
         "string": "cpp"
     },
-    "C_Cpp.default.cppStandard": "c++11",
+    "C_Cpp.default.cppStandard": "c++14",
     "C_Cpp.default.cStandard": "c99",
     "C_Cpp.clang_format_fallbackStyle": "none",
     "C_Cpp.configurationWarnings": "Disabled",
@@ -90,14 +90,11 @@
     "C_Cpp.intelliSenseEngineFallback": "Disabled",
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "cmake.configureOnOpen": false,
-    "cmake.autoRestartBuild": true,
-    "cmake.buildDirectory": "${workspaceFolder}/test/build",
+    "cmake.buildDirectory": "${workspaceFolder}/test/build_vscode/${buildKit}",
     "cmake.sourceDirectory": "${workspaceFolder}/test",
     "cmake.buildBeforeRun": true,
     "cmake.copyCompileCommands": "${workspaceFolder}/.vscode/compile_commands.json",
-    "cmake.preferredGenerators":[
-        "Unix Makefiles"
-    ],
+    "cmake.generator": "Ninja",
     "editor.insertSpaces": true,
     "editor.minimap.maxColumn": 120,
     "editor.minimap.renderCharacters": false,

@@ -1,11 +1,11 @@
 #
-# Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Toolchain definition for gcc-arm-none-eabi embedded cross compiler.
 #
 # (With some thanks to https://github.com/vpetrigo)
 #
-cmake_minimum_required(VERSION 3.6.0)
+cmake_minimum_required(VERSION 3.16.0)
 
 set(CMAKE_SYSTEM_NAME Generic)
 SET(CMAKE_SYSTEM_PROCESSOR arm-eabi)

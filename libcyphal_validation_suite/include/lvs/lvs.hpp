@@ -1,21 +1,21 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 /** @file
- * Common header for all Libuavcan Validation Suite tests.
+ * Common header for all Libcyphal Validation Suite tests.
  */
-#ifndef LIBUAVCAN_LVS_HPP_INCLUDED
-#define LIBUAVCAN_LVS_HPP_INCLUDED
+#ifndef LIBCYPHAL_LVS_HPP_INCLUDED
+#define LIBCYPHAL_LVS_HPP_INCLUDED
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
-#include "libuavcan/libuavcan.hpp"
+#include "libcyphal/libcyphal.hpp"
 
 #include <ostream>
 
 /**
  * @namespace lvs
- * Namespace for all Libuavcan Validation Suite types and utilities.
+ * Namespace for all Libcyphal Validation Suite types and utilities.
  *
  * See the @ref LVSGuide for the LVS documentation.
  */
@@ -31,13 +31,13 @@ namespace lvs
 template <typename ObjectType>
 void PrintObjectAsBytes(const ObjectType& object, std::ostream& out)
 {
-    ::testing::internal2::PrintBytesInObjectTo(reinterpret_cast<const unsigned char*>(&object),
-                                               sizeof(ObjectType),
-                                               &out);
+    ::testing::internal::PrintBytesInObjectTo(reinterpret_cast<const unsigned char*>(&object),
+                                              sizeof(ObjectType),
+                                              &out);
 }
 }  // namespace lvs
 
-#if LIBUAVCAN_ENABLE_EXCEPTIONS
+#if LIBCYPHAL_ENABLE_EXCEPTIONS
 /**
  * If exceptions are enabled then expands to gtest `ASSERT_THROW(statement, exception_type)`.
  * If exceptions are not enabled then expands to gtest `ASSERT_EQ(statement, no_exception_value)`.
@@ -55,4 +55,4 @@ void PrintObjectAsBytes(const ObjectType& object, std::ostream& out)
 
 #endif
 
-#endif  // LIBUAVCAN_LVS_HPP_INCLUDED
+#endif  // LIBCYPHAL_LVS_HPP_INCLUDED

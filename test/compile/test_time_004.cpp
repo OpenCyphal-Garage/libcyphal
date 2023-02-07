@@ -1,12 +1,12 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
-#include "libuavcan/libuavcan.hpp"
-#include "libuavcan/time.hpp"
+#include "libcyphal/libcyphal.hpp"
+#include "libcyphal/time.hpp"
 
 namespace
 {
-class SignedTime : public libuavcan::time::Base<SignedTime, libuavcan::duration::Monotonic, int64_t>
+class SignedTime : public libcyphal::time::Base<SignedTime, libcyphal::duration::Monotonic, int64_t>
 {
 };
 }  // namespace

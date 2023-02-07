@@ -1,36 +1,36 @@
 /*
  * Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
- * Concepts and requirements for exchanging time values between libuavcan, media
+ * Concepts and requirements for exchanging time values between libcyphal, media
  * layer implementations, and applications.
  */
 /** @file
- * This header specifies the concepts used by libuavcan when handling time scalars and vectors.
+ * This header specifies the concepts used by libcyphal when handling time scalars and vectors.
  * Applications may optionally choose to extend these concepts for their own use but shall always
- * use them, as documented, when exchanging data with libuavcan.
+ * use them, as documented, when exchanging data with libcyphal.
  *
  * <h3>Signed Integer Assumptions</h3>
- * Please note that libuavcan makes some assumptions that signed integers are represented as
+ * Please note that libcyphal makes some assumptions that signed integers are represented as
  * twos compliment by a machine. You may experience undefined behaviour if your architecture
  * does not use twos compliment integers.
  */
 
-#ifndef LIBUAVCAN_TIME_HPP_INCLUDED
-#define LIBUAVCAN_TIME_HPP_INCLUDED
+#ifndef LIBCYPHAL_TIME_HPP_INCLUDED
+#define LIBCYPHAL_TIME_HPP_INCLUDED
 
-#include "libuavcan/libuavcan.hpp"
-#include "libuavcan/util/math.hpp"
+#include "libcyphal/libcyphal.hpp"
+#include "libcyphal/util/math.hpp"
 
-namespace libuavcan
+namespace libcyphal
 {
 /**
- * The default signed integer type used in libuavcan for signed microseconds (e.g. all duration types).
+ * The default signed integer type used in libcyphal for signed microseconds (e.g. all duration types).
  */
 using DefaultMicrosecondSignedType = std::int64_t;
 
 /**
- * The default unsigned integer type used in libuavcan for unsigned microseconds (e.g. all time types).
+ * The default unsigned integer type used in libcyphal for unsigned microseconds (e.g. all time types).
  */
 using DefaultMicrosecondUnsignedType = std::uint64_t;
 
@@ -53,7 +53,7 @@ namespace duration
  * @tparam USecT         The datatype returned when retrieving durations from
  *                       realizations of this base class. This type must be signed.
  */
-template <typename Type, typename USecT = libuavcan::DefaultMicrosecondSignedType>
+template <typename Type, typename USecT = libcyphal::DefaultMicrosecondSignedType>
 class Base
 {
     USecT usec_; /**< Internal storage of the duration value in microseconds. */
@@ -210,9 +210,9 @@ public:
 };
 
 /**
- * A monotonic duration used by libuavcan.
+ * A monotonic duration used by libcyphal.
  */
-class LIBUAVCAN_EXPORT Monotonic : public Base<Monotonic>
+class LIBCYPHAL_EXPORT Monotonic : public Base<Monotonic>
 {};
 
 }  // namespace duration
@@ -250,7 +250,7 @@ protected:
         // Note that this also, somewhat, enforces that the duration type supports the duration "concept".
         // It won't be until C++20 that this type can truly enforce this requirement. If you must re-implement
         // the concept then remember that Duration math is saturating. It's much safer to just derive
-        // your duration from libuavcan::time::Base.
+        // your duration from libcyphal::time::Base.
         static_assert(sizeof(USecT) == sizeof(typename DType::MicrosecondType),
                       "Microsecond Type must be the same size as the duration type.");
     }
@@ -351,12 +351,12 @@ public:
 
     Type operator+(const DType& r) const
     {
-        return fromMicrosecond(libuavcan::util::saturating_add(usec_, r.toMicrosecond()));
+        return fromMicrosecond(libcyphal::util::saturating_add(usec_, r.toMicrosecond()));
     }
 
     Type operator-(const DType& r) const
     {
-        return fromMicrosecond(libuavcan::util::saturating_sub(usec_, r.toMicrosecond()));
+        return fromMicrosecond(libcyphal::util::saturating_sub(usec_, r.toMicrosecond()));
     }
 
     Type& operator+=(const DType& r)
@@ -373,13 +373,13 @@ public:
 };
 
 /**
- * A monotonic time value used by libuavcan.
+ * A monotonic time value used by libcyphal.
  */
-class LIBUAVCAN_EXPORT Monotonic : public Base<Monotonic, duration::Monotonic>
+class LIBCYPHAL_EXPORT Monotonic : public Base<Monotonic, duration::Monotonic>
 {};
 
 }  // namespace time
 
-}  // namespace libuavcan
+}  // namespace libcyphal
 
-#endif  // LIBUAVCAN_TIME_HPP_INCLUDED
+#endif  // LIBCYPHAL_TIME_HPP_INCLUDED

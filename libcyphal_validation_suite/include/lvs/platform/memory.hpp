@@ -1,9 +1,9 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 /** @file
  * Implement this test to verify that your platform provides the required
- * memory management support to build and run libuavcan.
+ * memory management support to build and run libcyphal.
  *
  * <h3>Example:</H3>
  * @code
@@ -17,8 +17,8 @@
  * namespace memory
  * {
  *
- * typedef ::testing::Types<libuavcan::platform::memory::PoolAllocator<1, 1, char>,
- *                          libuavcan::platform::memory::PoolAllocator<72, std::numeric_limits<std::uint8_t,
+ * typedef ::testing::Types<libcyphal::platform::memory::PoolAllocator<1, 1, char>,
+ *                          libcyphal::platform::memory::PoolAllocator<72, std::numeric_limits<std::uint8_t,
  * int>::max()>> MyPoolAllocatorTypes;
  *
  * // The trailing comma is required. See https://github.com/google/googletest/issues/1419
@@ -29,8 +29,8 @@
  * }  // namespace lvs
  * @endcode
  */
-#ifndef LIBUAVCAN_LVS_PLATFORM_MEMORY_HPP_INCLUDED
-#define LIBUAVCAN_LVS_PLATFORM_MEMORY_HPP_INCLUDED
+#ifndef LIBCYPHAL_LVS_PLATFORM_MEMORY_HPP_INCLUDED
+#define LIBCYPHAL_LVS_PLATFORM_MEMORY_HPP_INCLUDED
 
 #include <array>
 #include <memory>
@@ -40,7 +40,7 @@
 #include "gtest/gtest.h"
 
 #include "lvs/lvs.hpp"
-#include "libuavcan/platform/memory.hpp"
+#include "libcyphal/platform/memory.hpp"
 
 namespace lvs
 {
@@ -308,4 +308,4 @@ REGISTER_TYPED_TEST_SUITE_P(PoolAllocatorUnorderedMapTest,  //
 }  // namespace platform
 }  // end namespace lvs
 
-#endif  // LIBUAVCAN_LVS_PLATFORM_MEMORY_HPP_INCLUDED
+#endif  // LIBCYPHAL_LVS_PLATFORM_MEMORY_HPP_INCLUDED

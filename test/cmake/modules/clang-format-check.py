@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # Copyright (C) 2018-2019  UAVCAN Development Team  <uavcan.org>
 # This software is distributed under the terms of the MIT License.
 #
@@ -81,7 +81,7 @@ def _make_parser() -> argparse.ArgumentParser:
 
     epilog = '''**Example Usage**::
 
-    %(prog)s path/to/libuavcan/libuavcan/**/*.hpp
+    %(prog)s path/to/libcyphal/libcyphal/**/*.hpp
 
 ----
 '''

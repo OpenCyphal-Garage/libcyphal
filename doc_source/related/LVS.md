@@ -1,4 +1,4 @@
-Libuavcan Validation Suite {#LVSGuide}
+Libcyphal Validation Suite {#LVSGuide}
 =======================================
 
 TODO

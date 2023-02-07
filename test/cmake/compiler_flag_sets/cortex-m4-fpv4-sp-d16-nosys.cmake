@@ -1,5 +1,5 @@
 #
-# Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # C, CXX, LD, and AS flags for native targets.
 #
@@ -63,7 +63,7 @@ list(APPEND C_FLAG_SET
 # Note that you must use gnu++11 to build googletest using gcc-arm-none-eabi. Not
 # exactly sure why but this seems a reasonable concession given that we only support
 # this one cross compiler for our on-target tests. Nothing about this should
-# limit use of libuavcan itself for applications using clang, IAR, ARM, or
+# limit use of libcyphal itself for applications using clang, IAR, ARM, or
 # any other c++11 compliant compiler. This is _only_ a googletest limitation.
 #
 list(APPEND CXX_FLAG_SET

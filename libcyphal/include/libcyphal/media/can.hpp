@@ -1,19 +1,19 @@
 /*
  * Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 /** @file */
 
-#ifndef LIBUAVCAN_TRANSPORT_MEDIA_CAN_HPP_INCLUDED
-#define LIBUAVCAN_TRANSPORT_MEDIA_CAN_HPP_INCLUDED
+#ifndef LIBCYPHAL_TRANSPORT_MEDIA_CAN_HPP_INCLUDED
+#define LIBCYPHAL_TRANSPORT_MEDIA_CAN_HPP_INCLUDED
 
 #include <array>
 
-#include "libuavcan/libuavcan.hpp"
-#include "libuavcan/introspection.hpp"
-#include "libuavcan/time.hpp"
+#include "libcyphal/libcyphal.hpp"
+#include "libcyphal/introspection.hpp"
+#include "libcyphal/time.hpp"
 
-namespace libuavcan
+namespace libcyphal
 {
 namespace media
 {
@@ -107,14 +107,14 @@ enum class FrameDLC : std::uint_fast8_t
 
 /**
  * A raw CAN frame, as passed to/from a CAN peripheral or subsystem. This is the datastructure used by
- * the media layer of libuavcan to buffer incoming data that is "interesting" before the transport
+ * the media layer of libcyphal to buffer incoming data that is "interesting" before the transport
  * layer parses it into the high-level types defined by DSDL. Interesting data is defined as CAN
  * frames that are compatible with the UAVCAN protocol. For CAN bus, this omits error frames,
  * remote frames, and any frame using 11-bit identifiers. Such uninteresting frames are not compatible
  * with UAVCAN and it is undefined behaviour to attempt to load such data into a Frame instance.
  *
  * For systems which consume unsupported CAN frames it is recommended that another data path is
- * established that does not involve libuavcan. For example, a "statistics" interface might
+ * established that does not involve libcyphal. For example, a "statistics" interface might
  * be supported by a driver on a system to handle bus error rate at an application level.
  *
  * @tparam  MTUBytesParam       The maximum number of bytes that can be stored in this frame.
@@ -126,7 +126,7 @@ enum class FrameDLC : std::uint_fast8_t
  *
  * <h4>Data Domains and Filtering</h4>
  *
- * Libuavcan will introduce two copies of data received on a CAN bus into and then across system
+ * Libcyphal will introduce two copies of data received on a CAN bus into and then across system
  * memory before this data becomes available to an application. Because of this the media layer
  * should be implemented as close to the incoming data as possible. For embedded systems it is ideal
  * if a Frame is the first location in system memory the received data occupies after being read
@@ -137,12 +137,12 @@ enum class FrameDLC : std::uint_fast8_t
  * @image latex latex/data_domains.eps
  *
  * As demonstrated by the above diagram, careful configuration of hardware filters and proper elision
- * of unsupported data will minimize the amount of CPU used by libuavcan to copy data through system
+ * of unsupported data will minimize the amount of CPU used by libcyphal to copy data through system
  * memory.
  *
  */
 template <std::uint16_t MTUBytesParam, std::uint8_t FlagBitsCompareMask = 0x00>
-struct LIBUAVCAN_EXPORT Frame
+struct LIBCYPHAL_EXPORT Frame
 {
     static_assert(MTUBytesParam <= TypeFD::MaxFrameSizeBytes,
                   "CAN::Frame cannot hold anything larger than an CAN FD frame.");
@@ -292,10 +292,10 @@ private:
 
 public:
     /**
-     * A monotonic timestamp. Libuavcan operates optimally when this value is a
+     * A monotonic timestamp. Libcyphal operates optimally when this value is a
      * hardware supplied timestamp recorded at the start-of-frame.
      */
-    libuavcan::time::Monotonic timestamp;
+    libcyphal::time::Monotonic timestamp;
 
     Frame()
         : id(0)
@@ -333,7 +333,7 @@ public:
     Frame(std::uint32_t                can_id,
           volatile const std::uint8_t* can_data,
           FrameDLC                     in_dlc,
-          libuavcan::time::Monotonic   can_timestamp)
+          libcyphal::time::Monotonic   can_timestamp)
         : id(can_id)
         , data{}
         , dlc_(in_dlc)
@@ -358,7 +358,7 @@ public:
      * @param in_dlc        The data length code for the can_data.
      */
     Frame(std::uint32_t can_id, const std::uint8_t* can_data, FrameDLC in_dlc)
-        : Frame(can_id, can_data, in_dlc, libuavcan::time::Monotonic::fromMicrosecond(0))
+        : Frame(can_id, can_data, in_dlc, libcyphal::time::Monotonic::fromMicrosecond(0))
     {}
 
     /**
@@ -395,11 +395,11 @@ public:
     }
 
     /**
-     * Logical inverse of @ref libuavcan::media::CAN::Frame::operator==(const
-     * libuavcan::media::CAN::Frame&) const
+     * Logical inverse of @ref libcyphal::media::CAN::Frame::operator==(const
+     * libcyphal::media::CAN::Frame&) const
      *
-     * @return true if @ref libuavcan::media::CAN::Frame::operator==(const
-     * libuavcan::media::CAN::Frame&) const returns false.
+     * @return true if @ref libcyphal::media::CAN::Frame::operator==(const
+     * libcyphal::media::CAN::Frame&) const returns false.
      */
     bool operator!=(const Frame& rhs) const
     {
@@ -491,6 +491,6 @@ public:
 
 }  // end namespace CAN
 }  // end namespace media
-}  // end namespace libuavcan
+}  // end namespace libcyphal
 
-#endif  // LIBUAVCAN_TRANSPORT_MEDIA_CAN_HPP_INCLUDED
+#endif  // LIBCYPHAL_TRANSPORT_MEDIA_CAN_HPP_INCLUDED

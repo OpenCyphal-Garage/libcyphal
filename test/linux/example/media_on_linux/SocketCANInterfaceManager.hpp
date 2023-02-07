@@ -1,18 +1,18 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 
-#ifndef LIBUAVCAN_EXAMPLE_SOCKETCANINTERFACEMANAGER_HPP_INCLUDED
-#define LIBUAVCAN_EXAMPLE_SOCKETCANINTERFACEMANAGER_HPP_INCLUDED
+#ifndef LIBCYPHAL_EXAMPLE_SOCKETCANINTERFACEMANAGER_HPP_INCLUDED
+#define LIBCYPHAL_EXAMPLE_SOCKETCANINTERFACEMANAGER_HPP_INCLUDED
 
 #include <string>
 #include <memory>
 #include <vector>
 
-#include "libuavcan/libuavcan.hpp"
+#include "libcyphal/libcyphal.hpp"
 #include "SocketCANInterfaceGroup.hpp"
 
-namespace libuavcan
+namespace libcyphal
 {
 /**
  * @defgroup examples Examples
@@ -29,7 +29,7 @@ namespace example
  * are never closed.
  */
 class SocketCANInterfaceManager final
-    : public libuavcan::media::InterfaceManager<SocketCANInterfaceGroup, std::shared_ptr<SocketCANInterfaceGroup>>
+    : public libcyphal::media::InterfaceManager<SocketCANInterfaceGroup, std::shared_ptr<SocketCANInterfaceGroup>>
 {
     const std::vector<std::string> required_interfaces_;
     bool                           enable_can_fd_;
@@ -64,11 +64,11 @@ public:
     // | InterfaceManager
     // +----------------------------------------------------------------------+
 
-    virtual libuavcan::Result startInterfaceGroup(const InterfaceGroupType::FrameType::Filter* filter_config,
+    virtual libcyphal::Result startInterfaceGroup(const InterfaceGroupType::FrameType::Filter* filter_config,
                                                   std::size_t                                  filter_config_length,
                                                   InterfaceGroupPtrType&                       out_group) override;
 
-    virtual libuavcan::Result stopInterfaceGroup(std::shared_ptr<SocketCANInterfaceGroup>& inout_group) override;
+    virtual libcyphal::Result stopInterfaceGroup(std::shared_ptr<SocketCANInterfaceGroup>& inout_group) override;
 
     virtual std::size_t getMaxFrameFilters() const override;
 
@@ -78,7 +78,7 @@ private:
      * Opens an interface for receiveing and transmitting.
      *
      * @param       interface_index         The index to assign to the interface. This is the index used in the
-     *                                      libuavcan::media::InterfaceGroup interface.
+     *                                      libcyphal::media::InterfaceGroup interface.
      * @param       interface_name          The name of the interface to open on the system. This is the primary
      *                                      identifier used by the example to open a socket.
      * @param       filter_config           An array of frame filtering parameters. The contents and behaviour of
@@ -86,9 +86,9 @@ private:
      * @param       filter_config_length    The number of filter configurations in the filter_config array.
      * @param[out]  out_interface           If successful, the pointer is populated with a new interface object. The
      *                                      caller owns this memory after the method exits.
-     * @return libuavcan::Result::Success if the interface was successfully opened and returned,
+     * @return libcyphal::Result::Success if the interface was successfully opened and returned,
      */
-    libuavcan::Result createInterface(std::uint_fast8_t                                          interface_index,
+    libcyphal::Result createInterface(std::uint_fast8_t                                          interface_index,
                                       const std::string&                                         interface_name,
                                       const typename SocketCANInterfaceGroup::FrameType::Filter* filter_config,
                                       std::size_t                                                filter_config_length,
@@ -96,6 +96,6 @@ private:
 };
 }  // namespace example
 /** @} */  // end of examples group
-}  // namespace libuavcan
+}  // namespace libcyphal
 
-#endif  // LIBUAVCAN_EXAMPLE_SOCKETCANINTERFACEMANAGER_HPP_INCLUDED
+#endif  // LIBCYPHAL_EXAMPLE_SOCKETCANINTERFACEMANAGER_HPP_INCLUDED

@@ -2,23 +2,23 @@
  * Helpers for doing mathy things that aren't provided by the standard library.
  *
  * Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 /** @file */
 
-#ifndef LIBUAVCAN_UTIL_MATH_HPP_INCLUDED
-#define LIBUAVCAN_UTIL_MATH_HPP_INCLUDED
+#ifndef LIBCYPHAL_UTIL_MATH_HPP_INCLUDED
+#define LIBCYPHAL_UTIL_MATH_HPP_INCLUDED
 
-#include "libuavcan/libuavcan.hpp"
+#include "libcyphal/libcyphal.hpp"
 #include <cstdlib>
 #include <cmath>
-#include "libuavcan/introspection.hpp"
+#include "libcyphal/introspection.hpp"
 
-namespace libuavcan
+namespace libcyphal
 {
 /**
  * @namespace util
- * Contains helper types and functions to make integrating libuavcan easier.
+ * Contains helper types and functions to make integrating libcyphal easier.
  */
 namespace util
 {
@@ -245,6 +245,6 @@ constexpr LhsType saturating_add(LhsType left, RhsType right)
 }
 
 }  // namespace util
-}  // namespace libuavcan
+}  // namespace libcyphal
 
-#endif  // LIBUAVCAN_UTIL_MATH_HPP_INCLUDED
+#endif  // LIBCYPHAL_UTIL_MATH_HPP_INCLUDED

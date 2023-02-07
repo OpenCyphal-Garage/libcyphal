@@ -150,7 +150,7 @@ void start_FTM0_counter (void)
 	/* Start FTM0 counter with clk source = external clock (SOSCDIV1_CLK)*/
 }
 
-uint64_t libuavcan_media_s32k_get_monotonic_time_micros_isr_safe()
+uint64_t libcyphal_media_s32k_get_monotonic_time_micros_isr_safe()
 {
 	// TODO: implement using four, chained channels of the FTM.
 	return 0;

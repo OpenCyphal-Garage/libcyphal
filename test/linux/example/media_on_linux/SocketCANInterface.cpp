@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 /**
  * @defgroup examples Examples
@@ -16,7 +16,7 @@
 
 #include "SocketCANInterface.hpp"
 
-namespace libuavcan
+namespace libcyphal
 {
 namespace example
 {
@@ -69,7 +69,7 @@ SocketCANInterface::SocketCANInterface(std::uint_fast8_t index, const std::strin
 
 SocketCANInterface::~SocketCANInterface()
 {
-    LIBUAVCAN_TRACE("SocketCANInterface", "closing socket.");
+    LIBCYPHAL_TRACE("SocketCANInterface", "closing socket.");
     ::close(socket_descriptor_);
 }
 
@@ -93,7 +93,7 @@ int SocketCANInterface::getSocketDescriptor() const
     return socket_descriptor_;
 }
 
-libuavcan::Result SocketCANInterface::write(const FrameType (&frames)[TxFramesLen],
+libcyphal::Result SocketCANInterface::write(const FrameType (&frames)[TxFramesLen],
                                             std::size_t  frames_len,
                                             std::size_t& out_frames_written)
 {
@@ -102,7 +102,7 @@ libuavcan::Result SocketCANInterface::write(const FrameType (&frames)[TxFramesLe
 
     if (frames_len == 0)
     {
-        return libuavcan::Result::BadArgument;
+        return libcyphal::Result::BadArgument;
     }
 
     for (size_t i = 0; i < frames_len; ++i)
@@ -113,7 +113,7 @@ libuavcan::Result SocketCANInterface::write(const FrameType (&frames)[TxFramesLe
         // All UAVCAN frames use the extended frame format.
         socketcan_frame.can_id = CAN_EFF_FLAG | (frame.id & FrameType::MaskExtID);
         set_message_length(socketcan_frame,
-                           static_cast<std::underlying_type<libuavcan::media::CAN::FrameDLC>::type>(frame.getDLC()));
+                           static_cast<std::underlying_type<libcyphal::media::CAN::FrameDLC>::type>(frame.getDLC()));
         std::copy(frame.data, frame.data + frame.getDataLength(), socketcan_frame.data);
     }
 
@@ -123,22 +123,22 @@ libuavcan::Result SocketCANInterface::write(const FrameType (&frames)[TxFramesLe
     {
         if (errno == ENOBUFS || errno == EAGAIN)  // Writing is not possible atm
         {
-            return libuavcan::Result::BufferFull;
+            return libcyphal::Result::BufferFull;
         }
-        return libuavcan::Result::Failure;
+        return libcyphal::Result::Failure;
     }
     out_frames_written = static_cast<std::size_t>(res);
     if (out_frames_written < frames_len)
     {
-        return libuavcan::Result::SuccessPartial;
+        return libcyphal::Result::SuccessPartial;
     }
     else
     {
-        return libuavcan::Result::Success;
+        return libcyphal::Result::Success;
     }
 }
 
-libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen], std::size_t& out_frames_read)
+libcyphal::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen], std::size_t& out_frames_read)
 {
     errno           = 0;
     out_frames_read = 0;
@@ -152,8 +152,8 @@ libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
 
     if (res <= 0)
     {
-        return (res < 0 && errno == EWOULDBLOCK) ? libuavcan::Result::SuccessNothing
-                                                 : libuavcan::Result::UnknownInternalError;
+        return (res < 0 && errno == EWOULDBLOCK) ? libcyphal::Result::SuccessNothing
+                                                 : libcyphal::Result::UnknownInternalError;
     }
 
     for (std::size_t i = 0; i < static_cast<std::size_t>(res) && i < RxFramesLen; ++i)
@@ -161,7 +161,7 @@ libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
         ::msghdr&                  message_header  = trx_msghdrs_[i].msg_hdr;
         const SocketCANFrame&      socketcan_frame = trx_socketcan_frames_[i];
         FrameType&                 out_frame       = out_frames[out_frames_read];
-        libuavcan::time::Monotonic timestamp;
+        libcyphal::time::Monotonic timestamp;
 
         for (::cmsghdr* cmsg = CMSG_FIRSTHDR(&message_header); cmsg; cmsg = CMSG_NXTHDR(&message_header, cmsg))
         {
@@ -171,7 +171,7 @@ libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
                 {
                     auto tv = ::timeval();
                     (void) std::memcpy(&tv, CMSG_DATA(cmsg), sizeof(tv));  // Copy to avoid alignment problems.
-                    timestamp = libuavcan::time::Monotonic::fromMicrosecond(
+                    timestamp = libcyphal::time::Monotonic::fromMicrosecond(
                         static_cast<std::uint64_t>(tv.tv_sec) * 1000000ULL + static_cast<std::uint64_t>(tv.tv_usec));
                 }
                 else if (cmsg->cmsg_type == SO_RXQ_OVFL && cmsg->cmsg_len >= 4)
@@ -180,7 +180,7 @@ libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
                 }
                 else
                 {
-                    LIBUAVCAN_TRACEF("SocketCANInterface",
+                    LIBCYPHAL_TRACEF("SocketCANInterface",
                                      "Unknown header found. type=%d, size=%zu",
                                      cmsg->cmsg_type,
                                      message_header.msg_controllen);
@@ -188,7 +188,7 @@ libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
             }
             else
             {
-                LIBUAVCAN_TRACEF("SocketCANInterface", "Unknown header level. level=%d", cmsg->cmsg_level);
+                LIBCYPHAL_TRACEF("SocketCANInterface", "Unknown header level. level=%d", cmsg->cmsg_level);
             }
         }
 
@@ -235,11 +235,11 @@ libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
         {
             out_frame = {socketcan_frame.can_id,
                          socketcan_frame.data,
-                         libuavcan::media::CAN::FrameDLC(get_message_length(socketcan_frame)),
+                         libcyphal::media::CAN::FrameDLC(get_message_length(socketcan_frame)),
                          timestamp};
             out_frames_read += 1;
             // FUTURE #255: provide frame traceing helpers.
-            LIBUAVCAN_TRACEF("SocketCANInterface",
+            LIBCYPHAL_TRACEF("SocketCANInterface",
                              "rx [%" PRIu32 ":%" PRIu64 "]",
                              out_frame.id,
                              timestamp.toMicrosecond());
@@ -250,10 +250,10 @@ libuavcan::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
         }
     }
     stats_.rx_total += static_cast<std::uint32_t>(out_frames_read);
-    return libuavcan::Result::Success;
+    return libcyphal::Result::Success;
 }
 
 }  // namespace example
-}  // namespace libuavcan
+}  // namespace libcyphal
 
 /** @} */  // end of examples group

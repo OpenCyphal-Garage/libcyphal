@@ -3,39 +3,32 @@
         "name": "native-gcc",
         "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/gcc-native.cmake",
         "cmakeSettings": {
-            "LIBUAVCAN_FLAG_SET": "../cmake/compiler_flag_sets/native_unittest.cmake"
+            "LIBCYPHAL_FLAG_SET": "../../cmake/compiler_flag_sets/native_unittest.cmake"
         }
     },
     {
         "name": "ontarget-s32k",
         "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/gcc-arm-none-eabi.cmake",
         "cmakeSettings": {
-            "LIBUAVCAN_FLAG_SET": "../cmake/compiler_flag_sets/cortex-m4-fpv4-sp-d16-nosys.cmake",
-            "LIBUAVCAN_TESTBUILD": "../ontarget/rddrone/tests.cmake",
+            "LIBCYPHAL_FLAG_SET": "../../cmake/compiler_flag_sets/cortex-m4-fpv4-sp-d16-nosys.cmake",
+            "LIBCYPHAL_TESTBUILD": "../../ontarget/rddrone/tests.cmake",
             "GTEST_USE_LOCAL_BUILD": "ON",
-            "LIBUAVCAN_SKIP_DOCS": "ON"
+            "LIBCYPHAL_SKIP_DOCS": "ON"
         }
     },
     {
         "name": "native-clang",
         "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/clang-native.cmake",
         "cmakeSettings": {
-            "LIBUAVCAN_FLAG_SET": "../cmake/compiler_flag_sets/native.cmake"
+            "LIBCYPHAL_FLAG_SET": "../../cmake/compiler_flag_sets/native.cmake"
         }
     },
     {
         "name": "linux",
         "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/gcc-native.cmake",
         "cmakeSettings": {
-            "LIBUAVCAN_TESTBUILD": "../linux/tests.cmake"
+            "LIBCYPHAL_FLAG_SET": "../../cmake/compiler_flag_sets/native.cmake",
+            "LIBCYPHAL_TESTBUILD": "../../linux/tests.cmake"
         }
     },
-    {
-        "name": "linux-vagrant",
-        "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/gcc-native.cmake",
-        "cmakeSettings": {
-            "LIBUAVCAN_TESTBUILD": "../linux/tests.cmake",
-            "LIBUAVCAN_EXT_FOLDER": "/home/vagrant/libuavcan_build_ext"
-        }
-    }
 ]

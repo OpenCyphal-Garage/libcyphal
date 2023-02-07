@@ -1,15 +1,15 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 /** @file
  * Include this test in a google test application to verify unaligned bit copy
  * for your platform.
  */
-#ifndef LIBUAVCAN_LVS_PLATFORM_MEMORY_COPY_HPP_INCLUDED
-#define LIBUAVCAN_LVS_PLATFORM_MEMORY_COPY_HPP_INCLUDED
+#ifndef LIBCYPHAL_LVS_PLATFORM_MEMORY_COPY_HPP_INCLUDED
+#define LIBCYPHAL_LVS_PLATFORM_MEMORY_COPY_HPP_INCLUDED
 
 #include "lvs/lvs.hpp"
-#include "libuavcan/platform/memory.hpp"
+#include "libcyphal/platform/memory.hpp"
 
 namespace lvs
 {
@@ -30,14 +30,14 @@ TEST(CopyBitsTest, InputsValidation)
     static_assert(dummy_length_bits > 16, "Test expects more than 2 bytes in the dummy dataset.");
 
     // null pointers
-    ASSERT_EQ(0U, libuavcan::platform::memory::copyBitsUnalignedToAligned(dummy_null, 0, dummy, dummy_length_bits));
-    ASSERT_EQ(0U, libuavcan::platform::memory::copyBitsAlignedToUnaligned(dummy_null, dummy, 0, dummy_length_bits));
-    ASSERT_EQ(0U, libuavcan::platform::memory::copyBitsUnalignedToAligned(dummy, 0, dummy_null, dummy_length_bits));
-    ASSERT_EQ(0U, libuavcan::platform::memory::copyBitsAlignedToUnaligned(dummy, dummy_null, 0, dummy_length_bits));
+    ASSERT_EQ(0U, libcyphal::platform::memory::copyBitsUnalignedToAligned(dummy_null, 0, dummy, dummy_length_bits));
+    ASSERT_EQ(0U, libcyphal::platform::memory::copyBitsAlignedToUnaligned(dummy_null, dummy, 0, dummy_length_bits));
+    ASSERT_EQ(0U, libcyphal::platform::memory::copyBitsUnalignedToAligned(dummy, 0, dummy_null, dummy_length_bits));
+    ASSERT_EQ(0U, libcyphal::platform::memory::copyBitsAlignedToUnaligned(dummy, dummy_null, 0, dummy_length_bits));
 
     // zero length arrays.
-    ASSERT_EQ(0U, libuavcan::platform::memory::copyBitsUnalignedToAligned(dummy, 0, dummy, 0));
-    ASSERT_EQ(0U, libuavcan::platform::memory::copyBitsAlignedToUnaligned(dummy, dummy, 0, 0));
+    ASSERT_EQ(0U, libcyphal::platform::memory::copyBitsUnalignedToAligned(dummy, 0, dummy, 0));
+    ASSERT_EQ(0U, libcyphal::platform::memory::copyBitsAlignedToUnaligned(dummy, dummy, 0, 0));
 }
 
 // +--------------------------------------------------------------------------+
@@ -51,9 +51,9 @@ TEST(CopyBitsTest, OneByteAlignedIntoOneAligned)
     const std::uint8_t    src[]        = {0x55};
     std::uint8_t          dst[]        = {0xFF};
     constexpr std::size_t bits_to_copy = sizeof(std::uint8_t) * 8;
-    ASSERT_EQ(bits_to_copy, libuavcan::platform::memory::copyBitsUnalignedToAligned(src, 0, dst, bits_to_copy));
+    ASSERT_EQ(bits_to_copy, libcyphal::platform::memory::copyBitsUnalignedToAligned(src, 0, dst, bits_to_copy));
     ASSERT_EQ(src[0], dst[0]);
-    ASSERT_EQ(bits_to_copy, libuavcan::platform::memory::copyBitsAlignedToUnaligned(src, dst, 0, bits_to_copy));
+    ASSERT_EQ(bits_to_copy, libcyphal::platform::memory::copyBitsAlignedToUnaligned(src, dst, 0, bits_to_copy));
     ASSERT_EQ(src[0], dst[0]);
 }
 
@@ -78,12 +78,12 @@ TEST(CopyBitsTest, OneByteAlignedIntoOneUnaligned)
     constexpr std::size_t dst_offset            = 1;
     std::size_t           expected_bits_written = bits_to_copy - dst_offset;
     ASSERT_EQ(expected_bits_written,
-              libuavcan::platform::memory::copyBitsAlignedToUnaligned(src, dst, dst_offset, bits_to_copy));
+              libcyphal::platform::memory::copyBitsAlignedToUnaligned(src, dst, dst_offset, bits_to_copy));
     ASSERT_EQ(0xAB, dst[0]);
 
     dst[0] = 0x00;
     ASSERT_EQ(expected_bits_written,
-              libuavcan::platform::memory::copyBitsAlignedToUnaligned(src, dst, dst_offset, bits_to_copy));
+              libcyphal::platform::memory::copyBitsAlignedToUnaligned(src, dst, dst_offset, bits_to_copy));
     ASSERT_EQ(0xAA, dst[0]);
 }
 
@@ -107,11 +107,11 @@ TEST(CopyBitsTest, OneByteUnalignedIntoOneAligned)
     constexpr std::size_t src_offset   = 1;
     constexpr std::size_t bits_to_copy = sizeof(std::uint8_t) * 8;
     ASSERT_EQ(bits_to_copy - src_offset,
-              libuavcan::platform::memory::copyBitsUnalignedToAligned(src, src_offset, dst, bits_to_copy - src_offset));
+              libcyphal::platform::memory::copyBitsUnalignedToAligned(src, src_offset, dst, bits_to_copy - src_offset));
     ASSERT_EQ(0xAA, dst[0]);
     dst[0] = 0x00;
     ASSERT_EQ(bits_to_copy - src_offset,
-              libuavcan::platform::memory::copyBitsUnalignedToAligned(src, src_offset, dst, bits_to_copy - src_offset));
+              libcyphal::platform::memory::copyBitsUnalignedToAligned(src, src_offset, dst, bits_to_copy - src_offset));
     ASSERT_EQ(0x2A, dst[0]);
 }
 
@@ -130,7 +130,7 @@ TEST(CopyBitsTest, TwoBitsUnalignedIntoAligned)
     const std::uint8_t    src[]      = {0xFF};
     std::uint8_t          dst[]      = {0x80};
     constexpr std::size_t src_offset = 6;
-    ASSERT_EQ(2U, libuavcan::platform::memory::copyBitsUnalignedToAligned(src, src_offset, dst, 2));
+    ASSERT_EQ(2U, libcyphal::platform::memory::copyBitsUnalignedToAligned(src, src_offset, dst, 2));
     ASSERT_EQ(0x83, dst[0]);
 }
 
@@ -149,7 +149,7 @@ TEST(CopyBitsTest, TwoBitsAlignedIntoUnaligned)
     const std::uint8_t    src[]      = {0xFF};
     std::uint8_t          dst[]      = {0x1};
     constexpr std::size_t dst_offset = 6;
-    ASSERT_EQ(2U, libuavcan::platform::memory::copyBitsAlignedToUnaligned(src, dst, dst_offset, 2));
+    ASSERT_EQ(2U, libcyphal::platform::memory::copyBitsAlignedToUnaligned(src, dst, dst_offset, 2));
     ASSERT_EQ(0xC1, dst[0]);
 }
 
@@ -168,9 +168,9 @@ TEST(CopyBitsTest, TwoByteAlignedIntoTwoAligned)
     std::uint8_t expected[] = {0x55, 0x55};
 
     const std::size_t length_bits = sizeof(std::uint8_t) * 16;
-    ASSERT_EQ(length_bits, libuavcan::platform::memory::copyBitsUnalignedToAligned(src, 0, dst0, length_bits));
+    ASSERT_EQ(length_bits, libcyphal::platform::memory::copyBitsUnalignedToAligned(src, 0, dst0, length_bits));
     ASSERT_THAT(dst0, ::testing::ElementsAreArray(expected));
-    ASSERT_EQ(length_bits, libuavcan::platform::memory::copyBitsAlignedToUnaligned(src, dst1, 0, length_bits));
+    ASSERT_EQ(length_bits, libcyphal::platform::memory::copyBitsAlignedToUnaligned(src, dst1, 0, length_bits));
     ASSERT_THAT(dst1, ::testing::ElementsAreArray(expected));
 }
 
@@ -193,14 +193,14 @@ TEST(CopyBitsTest, TwoByteUnalignedIntoTwoAligned)
     std::uint8_t expected[] = {0xAA, 0xAA};
 
     const std::size_t length_bits = sizeof(std::uint8_t) * 16;
-    ASSERT_EQ(length_bits - 1, libuavcan::platform::memory::copyBitsUnalignedToAligned(src, 1, dst, length_bits));
+    ASSERT_EQ(length_bits - 1, libcyphal::platform::memory::copyBitsUnalignedToAligned(src, 1, dst, length_bits));
     ASSERT_THAT(dst, ::testing::ElementsAreArray(expected));
 
     dst[0]      = 0;
     dst[1]      = 0;
     expected[0] = 0x2A;
     expected[1] = 0xAA;
-    ASSERT_EQ(length_bits - 1, libuavcan::platform::memory::copyBitsUnalignedToAligned(src, 1, dst, length_bits));
+    ASSERT_EQ(length_bits - 1, libcyphal::platform::memory::copyBitsUnalignedToAligned(src, 1, dst, length_bits));
     ASSERT_THAT(dst, ::testing::ElementsAreArray(expected));
 }
 
@@ -221,7 +221,7 @@ TEST(CopyBitsTest, TwoByteAlignedIntoTwoUnaligned)
     std::uint8_t expected[] = {0x55, 0x55};
 
     const std::size_t length_bits = sizeof(std::uint8_t) * 16;
-    ASSERT_EQ(length_bits - 1, libuavcan::platform::memory::copyBitsAlignedToUnaligned(src, dst, 1, length_bits));
+    ASSERT_EQ(length_bits - 1, libcyphal::platform::memory::copyBitsAlignedToUnaligned(src, dst, 1, length_bits));
     ASSERT_THAT(dst, ::testing::ElementsAreArray(expected));
 
     dst[0]      = 0;
@@ -229,7 +229,7 @@ TEST(CopyBitsTest, TwoByteAlignedIntoTwoUnaligned)
     expected[0] = 0x55;
     expected[1] = 0x54;
 
-    ASSERT_EQ(length_bits - 1, libuavcan::platform::memory::copyBitsAlignedToUnaligned(src, dst, 1, length_bits));
+    ASSERT_EQ(length_bits - 1, libcyphal::platform::memory::copyBitsAlignedToUnaligned(src, dst, 1, length_bits));
     ASSERT_THAT(dst, ::testing::ElementsAreArray(expected));
 }
 
@@ -251,7 +251,7 @@ TEST(CopyBitsTest, StringUnalignedIntoStringAligned)
         src[i] = static_cast<std::uint8_t>(expected[i] << 1);
     }
     const std::size_t length_bits = src_length * 8;
-    ASSERT_EQ(length_bits - 1, libuavcan::platform::memory::copyBitsUnalignedToAligned(src, 1, dst, length_bits));
+    ASSERT_EQ(length_bits - 1, libcyphal::platform::memory::copyBitsUnalignedToAligned(src, 1, dst, length_bits));
     ASSERT_THAT(dst, ::testing::ElementsAreArray(expected));
 }
 
@@ -276,7 +276,7 @@ TEST(CopyBitsTest, SrcOffsetIsGreaterThanEight)
     const std::size_t     length_bits     = src_length * 8;
     const std::size_t     src_offset_bits = 9U;
     ASSERT_EQ(length_bits - src_offset_bits,
-              libuavcan::platform::memory::copyBitsUnalignedToAligned(src, src_offset_bits, dst, length_bits));
+              libcyphal::platform::memory::copyBitsUnalignedToAligned(src, src_offset_bits, dst, length_bits));
     ASSERT_THAT(dst, ::testing::ElementsAreArray(expected));
 
     dst[0]      = 0;
@@ -284,7 +284,7 @@ TEST(CopyBitsTest, SrcOffsetIsGreaterThanEight)
     expected[0] = 0;
     expected[1] = 0x2A;
     ASSERT_EQ(length_bits - src_offset_bits,
-              libuavcan::platform::memory::copyBitsUnalignedToAligned(src, src_offset_bits, dst, length_bits));
+              libcyphal::platform::memory::copyBitsUnalignedToAligned(src, src_offset_bits, dst, length_bits));
     ASSERT_THAT(dst, ::testing::ElementsAreArray(expected));
 }
 
@@ -309,7 +309,7 @@ TEST(CopyBitsTest, DstOffsetIsGreaterThanEight)
     const std::size_t     length_bits     = src_length * 8;
     const std::size_t     dst_offset_bits = 9U;
     ASSERT_EQ(length_bits - dst_offset_bits,
-              libuavcan::platform::memory::copyBitsAlignedToUnaligned(src, dst, dst_offset_bits, length_bits));
+              libcyphal::platform::memory::copyBitsAlignedToUnaligned(src, dst, dst_offset_bits, length_bits));
     ASSERT_THAT(dst, ::testing::ElementsAreArray(expected));
 
     dst[0]      = 0;
@@ -317,7 +317,7 @@ TEST(CopyBitsTest, DstOffsetIsGreaterThanEight)
     expected[0] = 0;
     expected[1] = 0xAA;
     ASSERT_EQ(length_bits - dst_offset_bits,
-              libuavcan::platform::memory::copyBitsAlignedToUnaligned(src, dst, dst_offset_bits, length_bits));
+              libcyphal::platform::memory::copyBitsAlignedToUnaligned(src, dst, dst_offset_bits, length_bits));
     ASSERT_THAT(dst, ::testing::ElementsAreArray(expected));
 }
 
@@ -325,4 +325,4 @@ TEST(CopyBitsTest, DstOffsetIsGreaterThanEight)
 }  // namespace platform
 }  // end namespace lvs
 
-#endif  // LIBUAVCAN_LVS_PLATFORM_MEMORY_COPY_HPP_INCLUDED
+#endif  // LIBCYPHAL_LVS_PLATFORM_MEMORY_COPY_HPP_INCLUDED

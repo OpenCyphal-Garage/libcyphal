@@ -1,16 +1,16 @@
 {
     "buildType": {
         "default": "debug",
-        "description": "Variant for libuavcan build kits.",
+        "description": "Variant for libcyphal build kits.",
         "choices": {
             "debug": {
                 "short": "Debug",
-                "long": "Debug builds enable most of the introspection options by default (see libuavcan/introspection.hpp)",
+                "long": "Debug builds enable most of the introspection options by default (see libcyphal/introspection.hpp)",
                 "buildType": "Debug"
             },
             "release": {
                 "short": "Release",
-                "long": "Release build disables all introspection by default (see libuavcan/introspection.hpp).",
+                "long": "Release build disables all introspection by default (see libcyphal/introspection.hpp).",
                 "buildType": "Release"
             }
         }

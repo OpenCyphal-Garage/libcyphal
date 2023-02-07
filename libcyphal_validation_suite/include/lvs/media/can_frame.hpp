@@ -1,17 +1,17 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Parameterized unit test for the CAN Frame template.
  */
 /** @file
- * Implement this test for any libuavcan::media::CAN::Frame object you
+ * Implement this test for any libcyphal::media::CAN::Frame object you
  * implement in your media layer.
  *
  * <h3>Example:</H3>
  * @code
  * #include "gtest/gtest.h"
  *
- * #include "libuavcan/libuavcan.hpp"
+ * #include "libcyphal/libcyphal.hpp"
  * #include "lvs/transport/media/can_frame.hpp"
  *
  * namespace lvs
@@ -33,13 +33,13 @@
  * @endcode
  *
 */
-#ifndef LIBUAVCAN_LVS_TRANSPORT_MEDIA_CAN_FRAME_HPP_INCLUDED
-#define LIBUAVCAN_LVS_TRANSPORT_MEDIA_CAN_FRAME_HPP_INCLUDED
+#ifndef LIBCYPHAL_LVS_TRANSPORT_MEDIA_CAN_FRAME_HPP_INCLUDED
+#define LIBCYPHAL_LVS_TRANSPORT_MEDIA_CAN_FRAME_HPP_INCLUDED
 
 #include "gtest/gtest.h"
 
 #include "lvs/lvs.hpp"
-#include "libuavcan/media/can.hpp"
+#include "libcyphal/media/can.hpp"
 
 namespace lvs
 {
@@ -48,14 +48,14 @@ namespace media
 namespace CAN
 {
 
-using namespace libuavcan::media::CAN;
+using namespace libcyphal::media::CAN;
 
 // +==========================================================================+
 // | FrameTest
 // +==========================================================================+
 
 /**
- * Test fixture for testing realizations of the libuavcan::media::CAN::Frame template.
+ * Test fixture for testing realizations of the libcyphal::media::CAN::Frame template.
  * See https://github.com/google/googletest/blob/master/googletest/docs/advanced.md for
  * more information about typed gtests.
  *
@@ -143,9 +143,9 @@ TYPED_TEST_P(FrameTest, SetDataLength)
 TYPED_TEST_P(FrameTest, InitWithDataAndTimestamp)
 {
     const std::uint8_t* random_ptr = nullptr;
-    TypeParam          instance(1, random_ptr, FrameDLC::CodeForLength0, libuavcan::time::Monotonic::fromMicrosecond(32));
+    TypeParam          instance(1, random_ptr, FrameDLC::CodeForLength0, libcyphal::time::Monotonic::fromMicrosecond(32));
 
-    ASSERT_EQ(libuavcan::time::Monotonic::fromMicrosecond(32U), instance.timestamp);
+    ASSERT_EQ(libcyphal::time::Monotonic::fromMicrosecond(32U), instance.timestamp);
 }
 
 template <std::size_t I, std::size_t LEN, std::uint16_t MTUBytes>
@@ -299,4 +299,4 @@ REGISTER_TYPED_TEST_SUITE_P(FrameTest,  //
 }  // namespace media
 }  // end namespace lvs
 
-#endif  // LIBUAVCAN_LVS_TRANSPORT_MEDIA_CAN_FRAME_HPP_INCLUDED
+#endif  // LIBCYPHAL_LVS_TRANSPORT_MEDIA_CAN_FRAME_HPP_INCLUDED
