@@ -112,9 +112,9 @@ class LIBCYPHAL_EXPORT StaticMemoryPool final
     ~StaticMemoryPool() = default;
 
 public:
-    StaticMemoryPool(const StaticMemoryPool&)  = delete;
-    StaticMemoryPool(const StaticMemoryPool&&) = delete;
-    StaticMemoryPool& operator=(const StaticMemoryPool&) = delete;
+    StaticMemoryPool(const StaticMemoryPool&)             = delete;
+    StaticMemoryPool(const StaticMemoryPool&&)            = delete;
+    StaticMemoryPool& operator=(const StaticMemoryPool&)  = delete;
     StaticMemoryPool& operator=(const StaticMemoryPool&&) = delete;
 
 private:
@@ -207,22 +207,26 @@ class LIBCYPHAL_EXPORT PoolAllocator
 public:
     explicit PoolAllocator() noexcept
         : pool_(MemoryPoolType::getReference())
-    {}
+    {
+    }
 
     explicit PoolAllocator(const PoolAllocator& rhs) noexcept
         : pool_(rhs.pool_)
-    {}
+    {
+    }
 
     explicit PoolAllocator(const PoolAllocator&& rhs) noexcept
         : pool_(rhs.pool_)
-    {}
+    {
+    }
 
     ~PoolAllocator() = default;
 
     template <typename T1>
     PoolAllocator(const PoolAllocator<NumBlocksParam, BlockSizeParam, T1, MemoryPoolType>&) noexcept
         : pool_(MemoryPoolType::getReference())
-    {}
+    {
+    }
 
     static_assert(sizeof(typename std::conditional<std::is_same<void, T>::value, std::uint8_t, T>::type) <=
                       BlockSizeParam,

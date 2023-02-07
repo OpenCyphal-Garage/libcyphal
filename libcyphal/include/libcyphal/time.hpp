@@ -44,7 +44,7 @@ namespace duration
  * Protected base class for duration values. This provides a common implementation for
  * various duration datatypes and enforces two concepts:
  *
- * -# duration math is saturing – MAX_DURATION + 1 == MAX_DURATION
+ * -# duration math is saturating – MAX_DURATION + 1 == MAX_DURATION
  * -# durations are signed integers – By default 8 byte integers but USecT can be redefined by
  *    a specialization.
  *
@@ -74,7 +74,8 @@ protected:
 
     Base(const Base& rhs)
         : usec_(rhs.usec_)
-    {}
+    {
+    }
 
     /**
      * Move constructor takes value from rhs and
@@ -257,7 +258,8 @@ protected:
 
     Base(const Base& rhs)
         : usec_(rhs.usec_)
-    {}
+    {
+    }
 
     /**
      * Move constructor takes value from rhs and

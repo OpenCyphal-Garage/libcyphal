@@ -1,12 +1,11 @@
 {
-    "cSpell.words": [
-        "DLCs",
-        "Kirienko",
-        "Pavel",
-        "UAVCAN",
-        "gtests",
-        "libcyphal",
-        "ovfl"
+    "spellright.ignoreRegExps": [
+        "/DLCs/g",
+        "/Kirienko/g",
+        "/Pavel/g",
+        "/gtests/g",
+        "/(lib)?cyphal/g",
+        "/ovfl/g"
     ],
     "files.associations": {
         "array": "cpp",
@@ -79,35 +78,56 @@
         "set": "cpp",
         "string": "cpp"
     },
-    "C_Cpp.default.cppStandard": "c++14",
-    "C_Cpp.default.cStandard": "c99",
-    "C_Cpp.clang_format_fallbackStyle": "none",
-    "C_Cpp.configurationWarnings": "Disabled",
-    "C_Cpp.default.intelliSenseMode": "gcc-x64",
-    "C_Cpp.errorSquiggles": "Disabled",
-    "C_Cpp.formatting": "Disabled",
-    "C_Cpp.intelliSenseEngine": "Default",
-    "C_Cpp.intelliSenseEngineFallback": "Disabled",
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "cmake.configureOnOpen": false,
-    "cmake.buildDirectory": "${workspaceFolder}/test/build_vscode/${buildKit}",
+    "cmake.buildDirectory": "${workspaceFolder}/test/build_vscode/${buildKit}/${buildType}/build",
     "cmake.sourceDirectory": "${workspaceFolder}/test",
     "cmake.buildBeforeRun": true,
     "cmake.copyCompileCommands": "${workspaceFolder}/.vscode/compile_commands.json",
     "cmake.generator": "Ninja",
-    "editor.insertSpaces": true,
-    "editor.minimap.maxColumn": 120,
-    "editor.minimap.renderCharacters": false,
-    "editor.minimap.showSlider": "always",
-    "editor.smoothScrolling": true,
-    "editor.suggest.localityBonus": true,
-    "editor.tabSize": 4,
+    "cmake.configureArgs": [
+        "-DLIBCYPHAL_EXT_FOLDER=${workspaceFolder}/test/build_vscode/${buildKit}/${buildType}/ext"
+    ],
     "editor.wordWrapColumn": 120,
-    "explorer.openEditors.visible": 0,
+    "editor.rulers": [
+        120
+    ],
+    "files.eol": "\n",
     "files.insertFinalNewline": true,
+    "files.trimFinalNewlines": true,
     "files.trimTrailingWhitespace": true,
-    "search.showLineNumbers": true,
-    "window.title": "${dirty} ${activeEditorMedium}${separator}${rootName}",
-    "workbench.editor.highlightModifiedTabs": true,
-    "workbench.settings.enableNaturalLanguageSearch": false
+    "spellright.language": [
+        "en"
+    ],
+    "spellright.documentTypes": [
+        "markdown",
+        "latex",
+        "plaintext",
+        "cpp"
+    ],
+    "testMate.cpp.test.advancedExecutables": [
+        {
+            "pattern": "verification/build_vscode/**/suite/{test,Test,TEST}_*",
+            "cwd": "${workspaceFolder}"
+        }
+    ],
+    "testMate.cpp.debug.configTemplate": {
+        "type": "cppdbg",
+        "linux": {
+            "MIMode": "gdb"
+        },
+        "osx": {
+            "MIMode": "lldb",
+            "externalConsole": false
+        },
+        "windows": {
+            "type": "cppvsdbg"
+        },
+        "program": "${exec}",
+        "args": "${argsArray}",
+        "cwd": "${workspaceFolder}",
+        "env": "",
+        "environment": "",
+        "sourceFileMap": "${sourceFileMapObj}"
+    }
 }

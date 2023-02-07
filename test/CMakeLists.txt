@@ -33,18 +33,23 @@ include_directories(
     ${LIBCYPHAL_INCLUDE_LVS}
 )
 
-if(NOT LIBCYPHAL_FLAG_SET)
-    message(STATUS "LIBCYPHAL_FLAG_SET was not defined. Setting to \"native\" as a default")
-    set(LIBCYPHAL_FLAG_SET ${CMAKE_SOURCE_DIR}/cmake/compiler_flag_sets/native.cmake)
+if(NOT DEFINED LIBCYPHAL_FLAG_SET)
+    message(STATUS "LIBCYPHAL_FLAG_SET was not defined. Setting to \"native_full\" as a default")
+    set(LIBCYPHAL_FLAG_SET ${CMAKE_SOURCE_DIR}/cmake/compiler_flag_sets/native_full.cmake)
 else()
-    set(LIBCYPHAL_FLAG_SET ${CMAKE_BINARY_DIR}/${LIBCYPHAL_FLAG_SET})
+    set(LIBCYPHAL_FLAG_SET ${LIBCYPHAL_FLAG_SET})
 endif()
 
-if(NOT LIBCYPHAL_TESTBUILD)
-    message(STATUS "LIBCYPHAL_TESTBUILD was not defined. Setting to \"native\" as a default")
+if(NOT DEFINED LIBCYPHAL_TESTBUILD)
+    message(STATUS "LIBCYPHAL_TESTBUILD was not defined. Setting to \"native tests\" as a default")
     set(LIBCYPHAL_TESTBUILD ${CMAKE_SOURCE_DIR}/native/tests.cmake)
 else()
-    set(LIBCYPHAL_TESTBUILD ${CMAKE_BINARY_DIR}/${LIBCYPHAL_TESTBUILD})
+    set(LIBCYPHAL_TESTBUILD ${LIBCYPHAL_TESTBUILD})
+endif()
+
+if(NOT DEFINED LIBCYPHAL_ENABLE_COVERAGE)
+    message(STATUS "LIBCYPHAL_ENABLE_COVERAGE was not defined. Coverage will not be enabled.")
+    set(LIBCYPHAL_ENABLE_COVERAGE OFF)
 endif()
 
 # +---------------------------------------------------------------------------+

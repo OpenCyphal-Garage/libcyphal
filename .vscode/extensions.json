@@ -3,18 +3,15 @@
     // for the documentation about the extensions.json format
     "recommendations": [
         "dan-c-underwood.arm",
-        "github.vscode-pull-request-github",
         "marus25.cortex-debug",
         "ms-vscode.cpptools",
         "ms-azuretools.vscode-docker",
         "twxs.cmake",
         "uavcan.dsdl",
         "ms-vscode.cmake-tools",
-        "wholroyd.jinja",
         "zixuanwang.linkerscript",
-        "streetsidesoftware.code-spell-checker",
+        "ban.spellright",
         "xaver.clang-format",
-        "dannymidnight.vscode-buildkite",
         "vadimcn.vscode-lldb"
     ]
 }

@@ -25,8 +25,8 @@ __pycache__
 *.log
 
 # Build folders
-**/build
-**/build_*
+**/build/
+**/build_*/
 **/*_ext
 
 # Python

@@ -1,34 +1,54 @@
 [
     {
-        "name": "native-gcc",
+        "name": "native-minimal-gcc",
         "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/gcc-native.cmake",
         "cmakeSettings": {
-            "LIBCYPHAL_FLAG_SET": "../../cmake/compiler_flag_sets/native_unittest.cmake"
+            "LIBCYPHAL_FLAG_SET": "${workspaceFolder}/test/cmake/compiler_flag_sets/native-minimal.cmake",
+            "LIBCYPHAL_ENABLE_COVERAGE": "OFF"
+        }
+    },
+    {
+        "name": "native-minimal-clang",
+        "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/clang-native.cmake",
+        "cmakeSettings": {
+            "LIBCYPHAL_FLAG_SET": "${workspaceFolder}/test/cmake/compiler_flag_sets/native-minimal.cmake",
+            "LIBCYPHAL_ENABLE_COVERAGE": "OFF"
+        }
+    },
+    {
+        "name": "native-full-gcc",
+        "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/gcc-native.cmake",
+        "cmakeSettings": {
+            "LIBCYPHAL_FLAG_SET": "${workspaceFolder}/test/cmake/compiler_flag_sets/native-full.cmake",
+            "LIBCYPHAL_ENABLE_COVERAGE": "OFF"
+        }
+    },
+    {
+        "name": "native-full-clang",
+        "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/clang-native.cmake",
+        "cmakeSettings": {
+            "LIBCYPHAL_FLAG_SET": "${workspaceFolder}/test/cmake/compiler_flag_sets/native-full.cmake",
+            "LIBCYPHAL_ENABLE_COVERAGE": "OFF"
         }
     },
     {
         "name": "ontarget-s32k",
         "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/gcc-arm-none-eabi.cmake",
         "cmakeSettings": {
-            "LIBCYPHAL_FLAG_SET": "../../cmake/compiler_flag_sets/cortex-m4-fpv4-sp-d16-nosys.cmake",
-            "LIBCYPHAL_TESTBUILD": "../../ontarget/rddrone/tests.cmake",
+            "LIBCYPHAL_FLAG_SET": "${workspaceFolder}/test/cmake/compiler_flag_sets/cortex-m4-fpv4-sp-d16-nosys.cmake",
+            "LIBCYPHAL_TESTBUILD": "${workspaceFolder}/test/ontarget/rddrone/tests.cmake",
             "GTEST_USE_LOCAL_BUILD": "ON",
-            "LIBCYPHAL_SKIP_DOCS": "ON"
-        }
-    },
-    {
-        "name": "native-clang",
-        "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/clang-native.cmake",
-        "cmakeSettings": {
-            "LIBCYPHAL_FLAG_SET": "../../cmake/compiler_flag_sets/native.cmake"
+            "LIBCYPHAL_SKIP_DOCS": "ON",
+            "LIBCYPHAL_ENABLE_COVERAGE": "OFF"
         }
     },
     {
         "name": "linux",
         "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/gcc-native.cmake",
         "cmakeSettings": {
-            "LIBCYPHAL_FLAG_SET": "../../cmake/compiler_flag_sets/native.cmake",
-            "LIBCYPHAL_TESTBUILD": "../../linux/tests.cmake"
+            "LIBCYPHAL_FLAG_SET": "${workspaceFolder}/test/cmake/compiler_flag_sets/native-full.cmake",
+            "LIBCYPHAL_TESTBUILD": "${workspaceFolder}/test/linux/tests.cmake",
+            "LIBCYPHAL_ENABLE_COVERAGE": "OFF"
         }
-    },
+    }
 ]

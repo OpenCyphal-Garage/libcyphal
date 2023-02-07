@@ -269,17 +269,20 @@ struct LIBCYPHAL_EXPORT Frame
         Filter()
             : id(0)
             , mask(0)
-        {}
+        {
+        }
 
         Filter(std::uint32_t id, std::uint32_t mask)
             : id(id)
             , mask(mask)
-        {}
+        {
+        }
 
         Filter(const Filter& rhs)
             : id(rhs.id)
             , mask(rhs.mask)
-        {}
+        {
+        }
 
         bool operator==(const Filter& rhs) const
         {
@@ -302,7 +305,8 @@ public:
         , data{}
         , dlc_(FrameDLC::CodeForLength0)
         , timestamp()
-    {}
+    {
+    }
 
     /**
      * Copy constructor for frames.
@@ -359,7 +363,8 @@ public:
      */
     Frame(std::uint32_t can_id, const std::uint8_t* can_data, FrameDLC in_dlc)
         : Frame(can_id, can_data, in_dlc, libcyphal::time::Monotonic::fromMicrosecond(0))
-    {}
+    {
+    }
 
     /**
      * Get the Data Length Code set for this instance.
