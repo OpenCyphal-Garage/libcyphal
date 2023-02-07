@@ -9,29 +9,33 @@ on:
 jobs:
   language-verification-cpp-14:
     runs-on: ubuntu-latest
-    needs: test
     container: uavcan/c_cpp:ubuntu-20.04
     strategy:
       matrix:
         build_type: [Debug]
-        architecture: [native32, native64]
+        target: [native]
         compiler: [gcc, clang]
-        flag: [--none, --enable-ovr-var-array, --disable-asserts]
-        exclude:
-          - build_type: Debug
-            flag: --disable-asserts
-          - build_type: Release
-            flag: --disable-asserts
-
     steps:
-    - uses: actions/checkout@v3
-    - name: verify
-      run: |
-        test/ci/verify.py --override .github/verify_global.ini \
-                          --build-type ${{ matrix.build_type }} \
-                          --language-standard c++14 \
-                          --language cpp \
-                          --platform ${{ matrix.architecture }} \
-                          --toolchain-family ${{ matrix.compiler }} \
-                          --endianness ${{ matrix.endianness }} \
-                          ${{ matrix.flag }}
+      - uses: actions/checkout@v3
+      - run: test/ci/verify.py -v
+                          --target ${{matrix.target}}
+                          --build-type ${{ matrix.build_type }}
+                          --toolchain-family ${{ matrix.compiler }}
+                          configure
+                          --omit-style-check-from-all
+      - run: test/ci/verify.py -v
+                          --target ${{matrix.target}}
+                          --build-type ${{ matrix.build_type }}
+                          --toolchain-family ${{ matrix.compiler }}
+                          build
+      - run: test/ci/verify.py -v
+                          --target ${{matrix.target}}
+                          --build-type ${{ matrix.build_type }}
+                          --toolchain-family ${{ matrix.compiler }}
+                          compile-test
+      - run: test/ci/verify.py -v
+                          --target ${{matrix.target}}
+                          --build-type ${{ matrix.build_type }}
+                          --toolchain-family ${{ matrix.compiler }}
+                          test
+                          test_all

@@ -157,7 +157,7 @@ We provide docker-based toolchains. If you want to use this locally either to ve
 ```bash
 docker pull uavcan/c_cpp:ubuntu-20.04
 
-docker run --rm -v ${PWD}:/repo uavcan/c_cpp:ubuntu-20.04 /bin/sh -c ./test/ci/verify.py
+docker run --rm -v ${PWD}:/repo uavcan/c_cpp:ubuntu-20.04 /bin/sh -c "cd /repo && /repo/test/ci/verify.py -v configure"
 ```
 
 To launch into an interactive shell in the container do:

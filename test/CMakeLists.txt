@@ -52,6 +52,11 @@ if(NOT DEFINED LIBCYPHAL_ENABLE_COVERAGE)
     set(LIBCYPHAL_ENABLE_COVERAGE OFF)
 endif()
 
+if(NOT DEFINED LIBCYPHAL_STYLE_CHECK)
+    message(STATUS "LIBCYPHAL_STYLE_CHECK was not defined. Style will always be checked. Set to OFF to disable.")
+    set(LIBCYPHAL_STYLE_CHECK ON)
+endif()
+
 # +---------------------------------------------------------------------------+
 # | EXTERNAL DEPENDENCIES
 # +---------------------------------------------------------------------------+
@@ -134,7 +139,7 @@ apply_flag_set(${LIBCYPHAL_FLAG_SET})
 # +---------------------------------------------------------------------------+
 # | STYLE
 # +---------------------------------------------------------------------------+
-create_check_style_target(format-check ON "${LIBCYPHAL_INCLUDE}/**/*.hpp")
+create_check_style_target(format-check ${LIBCYPHAL_STYLE_CHECK} "${LIBCYPHAL_INCLUDE}/**/*.hpp")
 
 # +---------------------------------------------------------------------------+
 # | BUILD UNIT TESTS

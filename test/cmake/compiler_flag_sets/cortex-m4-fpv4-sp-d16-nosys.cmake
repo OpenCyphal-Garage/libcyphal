@@ -67,7 +67,7 @@ list(APPEND C_FLAG_SET
 # any other c++11 compliant compiler. This is _only_ a googletest limitation.
 #
 list(APPEND CXX_FLAG_SET
-                "-std=gnu++11"
+                "-std=gnu++14"
                 "-fno-rtti"
                 "-fno-exceptions"
                 "-fno-threadsafe-statics"
