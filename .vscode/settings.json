@@ -129,5 +129,9 @@
         "env": "",
         "environment": "",
         "sourceFileMap": "${sourceFileMapObj}"
-    }
+    },
+    "python.formatting.provider": "black",
+    "python.formatting.blackArgs": [
+        "--line-length=120"
+    ]
 }
