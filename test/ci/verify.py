@@ -83,15 +83,12 @@ def _make_parser() -> argparse.ArgumentParser:
     )
 
     build_args.add_argument(
-        "--version-only",
-        action="store_true",
+        "--project-root",
+        type=pathlib.Path,
         help=textwrap.dedent(
             """
-        Print out the version number (stored in src/nunavut/_version.py) only and exit. This number
-        will be the only output to stdout allowing build scripts to extract this string value for
-        use in the build environment. For example:
-
-            export NUNAVUT_FULL_VERSION=$(./_verify.py --version-only)
+        (cmake LIBCYPHAL_PROJECT_ROOT) Set the root directory used as the libcyphal repository. If omitted the root is
+        implied to be the current working directory.
 
     """[
                 1:
@@ -99,60 +96,14 @@ def _make_parser() -> argparse.ArgumentParser:
         ),
     )
 
-    build_args.add_argument(
-        "--major-minor-version-only",
-        action="store_true",
-        help=textwrap.dedent(
-            """
-        Print out the major and minor version number (stored in src/nunavut/_version.py) only and exit.
-        This number will be the only output to stdout allowing build scripts to extract this string
-        value for use in the build environment. For example:
-
-            export NUNAVUT_MAJOR_MINOR_VERSION=$(./_verify.py --major-minor-version-only)
-
-    """[
-                1:
-            ]
-        ),
-    )
-
-    build_args.add_argument("-l", "--language", default="c", help="Value for NUNAVUT_VERIFICATION_LANG (defaults to c)")
-
-    build_args.add_argument("-std", "--language-standard", default="", help="Language standard")
-
-    build_args.add_argument("--build-type", help="Value for CMAKE_BUILD_TYPE")
-
-    build_args.add_argument("--endianness", help="Value for NUNAVUT_VERIFICATION_TARGET_ENDIANNESS")
-
-    build_args.add_argument("--platform", help="Value for NUNAVUT_VERIFICATION_TARGET_PLATFORM")
-
-    build_args.add_argument(
-        "--disable-asserts", action="store_true", help="Set NUNAVUT_VERIFICATION_SER_ASSERT=OFF (default is ON)"
-    )
-
-    build_args.add_argument(
-        "--disable-fp", action="store_true", help="Set NUNAVUT_VERIFICATION_SER_FP_DISABLE=ON (default is OFF)"
-    )
-
-    build_args.add_argument(
-        "--enable-ovr-var-array",
-        action="store_true",
-        help="Set NUNAVUT_VERIFICATION_OVR_VAR_ARRAY_ENABLE=ON (default is OFF)",
-    )
-
-    build_args.add_argument(
-        "--toolchain-family",
-        choices=["gcc", "clang", "none"],
-        default="gcc",
-        help=textwrap.dedent(
-            """
-        Select the toolchain family to use. Use "none" to get the toolchain
-        from the environment (i.e. set CC and CXX environment variables).
-                        """[
-                1:
-            ]
-        ),
-    )
+    # TODO:
+    # LIBCYPHAL_ENABLE_EXCEPTIONS
+    # CMAKE_BUILD_TYPE
+    # LIBCYPHAL_INTROSPECTION_ENABLE_ASSERT
+    # LIBCYPHAL_INTROSPECTION_TRACE_ENABLE
+    # architecture
+    # compiler family
+    # language standard
 
     build_args.add_argument(
         "--none",
@@ -276,6 +227,9 @@ def _make_parser() -> argparse.ArgumentParser:
             ]
         ),
     )
+
+    # TODO
+    # nuke - delete all cmake and ext directories
 
     return parser
 
@@ -421,28 +375,8 @@ def _cmake_configure(args: argparse.Namespace, cmake_args: typing.List[str], cma
     cmake_configure_args = cmake_args.copy()
 
     cmake_configure_args.append("--log-level={}".format(cmake_logging_level))
-    cmake_configure_args.append("-DNUNAVUT_VERIFICATION_LANG={}".format(args.language))
-
-    if args.language_standard is not None:
-        cmake_configure_args.append("-DNUNAVUT_VERIFICATION_LANG_STANDARD={}".format(args.language_standard))
-
     if args.build_type is not None:
         cmake_configure_args.append("-DCMAKE_BUILD_TYPE={}".format(args.build_type))
-
-    if args.endianness is not None:
-        cmake_configure_args.append("-DNUNAVUT_VERIFICATION_TARGET_ENDIANNESS={}".format(args.endianness))
-
-    if args.platform is not None:
-        cmake_configure_args.append("-DNUNAVUT_VERIFICATION_TARGET_PLATFORM={}".format(args.platform))
-
-    if args.disable_asserts:
-        cmake_configure_args.append("-DNUNAVUT_VERIFICATION_SER_ASSERT:BOOL=OFF")
-
-    if args.disable_fp:
-        cmake_configure_args.append("-DNUNAVUT_VERIFICATION_SER_FP_DISABLE:BOOL=ON")
-
-    if args.enable_ovr_var_array:
-        cmake_configure_args.append("-DNUNAVUT_VERIFICATION_OVR_VAR_ARRAY_ENABLE:BOOL=ON")
 
     if args.verbose > 0:
         cmake_configure_args.append("-DCMAKE_VERBOSE_MAKEFILE:BOOL=ON")
@@ -540,7 +474,7 @@ def _create_build_dir_name(args: argparse.Namespace) -> str:
 
 
 @functools.lru_cache(maxsize=None)
-def _get_version_string() -> typing.Tuple[str, str, str]:
+def _get_nnvg_version_string() -> typing.Tuple[str, str, str]:
     with open("src/nunavut/_version.py", "r") as version_py:
         exec(version_py.read())
 
@@ -556,12 +490,12 @@ def main() -> int:
     args = _apply_overrides(_make_parser().parse_args())
 
     if args.version_only:
-        sys.stdout.write(".".join(_get_version_string()))
+        sys.stdout.write(".".join(_get_nnvg_version_string()))
         sys.stdout.flush()
         return 0
 
     if args.major_minor_version_only:
-        version = _get_version_string()
+        version = _get_nnvg_version_string()
         sys.stdout.write("{}.{}".format(version[0], version[1]))
         sys.stdout.flush()
         return 0
@@ -584,11 +518,11 @@ def main() -> int:
 
     {}
 
-    For Nunavut version {}
+    Using Nunavut version {}
     *****************************************************************
 
     """
-        ).format(os.path.basename(__file__), str(args), _get_version_string())
+        ).format(os.path.basename(__file__), str(args), _get_nnvg_version_string())
     )
 
     verification_dir = pathlib.Path.cwd() / pathlib.Path(args.verification_dir)
