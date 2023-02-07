@@ -48,11 +48,11 @@ extern "C"
 namespace
 {
 #if !defined(LIBCYPHAL_TEST_NODE_ID)
-/* ID for the current UAVCAN node */
+/* ID for the current Cyphal node */
 constexpr std::uint32_t NodeID = 1u;
 
 #else
-/* ID and for the current UAVCAN node */
+/* ID and for the current Cyphal node */
 constexpr std::uint32_t NodeID = LIBCYPHAL_TEST_NODE_ID;
 
 #endif

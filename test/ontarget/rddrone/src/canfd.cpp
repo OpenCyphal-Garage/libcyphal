@@ -557,7 +557,7 @@ private:
 
     /*
      * Helper function for resolving the timestamp of a received frame from FlexCAN'S 16-bit overflowing timer.
-     * Based on Pyuavcan's SourceTimeResolver class from which the terms source and target are used. Note: A maximum
+     * Based on Pycyphal's SourceTimeResolver class from which the terms source and target are used. Note: A maximum
      * of 820 microseconds is allowed for the reception ISR to reach this function starting from a successful frame
      * reception. The computation relies in that no more than a full period from the 16-bit timestamping timer
      * running at 80Mhz have passed, this could occur in deadlocks or priority inversion scenarios since 820 uSecs

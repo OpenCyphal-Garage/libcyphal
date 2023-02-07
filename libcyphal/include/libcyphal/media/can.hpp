@@ -19,7 +19,7 @@ namespace media
 {
 /**
  * @namespace CAN
- * Types for working with UAVCAN on a Controller Area Network.
+ * Types for working with Cyphal on a Controller Area Network.
  */
 namespace CAN
 {
@@ -71,7 +71,7 @@ constexpr static std::array<std::uint8_t, MaxFrameSizeBytes> PayloadLengthToFram
 }  // end namespace Type2_0
 
 /**
- * Bit pattern to fill padding bytes with. The UAVCAN specification mandates this value
+ * Bit pattern to fill padding bytes with. The Cyphal specification mandates this value
  * but the actual value of padding bytes must be ignored when receiving messages.
  *
  * When transmitting use this pattern to minimize the number of stuff bits added by the
@@ -109,9 +109,9 @@ enum class FrameDLC : std::uint_fast8_t
  * A raw CAN frame, as passed to/from a CAN peripheral or subsystem. This is the datastructure used by
  * the media layer of libcyphal to buffer incoming data that is "interesting" before the transport
  * layer parses it into the high-level types defined by DSDL. Interesting data is defined as CAN
- * frames that are compatible with the UAVCAN protocol. For CAN bus, this omits error frames,
+ * frames that are compatible with the Cyphal protocol. For CAN bus, this omits error frames,
  * remote frames, and any frame using 11-bit identifiers. Such uninteresting frames are not compatible
- * with UAVCAN and it is undefined behaviour to attempt to load such data into a Frame instance.
+ * with Cyphal and it is undefined behaviour to attempt to load such data into a Frame instance.
  *
  * For systems which consume unsupported CAN frames it is recommended that another data path is
  * established that does not involve libcyphal. For example, a "statistics" interface might
@@ -463,7 +463,7 @@ public:
 
     /**
      * Simple comparison of CAN identifiers. Since it is illegal to populate a Frame with any
-     * message type not supported by UAVCAN (e.g. error frames or frames with 11-bit identifiers)
+     * message type not supported by Cyphal (e.g. error frames or frames with 11-bit identifiers)
      * this method does a trivial comparison between two can identifiers.
      *
      * @param  rhs  A frame to compare with.

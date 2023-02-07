@@ -26,7 +26,7 @@ namespace libcyphal
 namespace media
 {
 /**
- * Non-blocking connection to a UAVCAN bus with isolated rx and tx queues. While libcyphal may share
+ * Non-blocking connection to a Cyphal bus with isolated rx and tx queues. While libcyphal may share
  * hardware peripherals with other components and/or processes for a given system a media layer interface
  * group object shall be the sole access to hardware connections to a bus for this library.
  *
@@ -126,7 +126,7 @@ public:
      *
      * Timestamps should be provided by the media driver, ideally by the hardware peripheral.
      *
-     * While the monotonic timestamp is required the UAVCAN protocol can tolerate imprecision since
+     * While the monotonic timestamp is required the Cyphal protocol can tolerate imprecision since
      * these timestamps are used only for protocol timing validation  (i.e. transfer timeouts and
      * inter-transfer intervals).
      *

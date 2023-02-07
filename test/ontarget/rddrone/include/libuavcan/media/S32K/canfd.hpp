@@ -167,7 +167,7 @@ public:
     virtual Result stopInterfaceGroup(InterfaceGroupPtrType& inout_group) override;
 
     /** @fn
-     * Return the number of filters that the current UAVCAN node can support.
+     * Return the number of filters that the current Cyphal node can support.
      * @return The maximum number of frame filters available for filter groups managed by this object,
      *         i.e. the number of combinations of ID and mask that each FlexCAN instance supports
      */

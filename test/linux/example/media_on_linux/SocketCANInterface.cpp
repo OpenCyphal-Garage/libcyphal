@@ -110,7 +110,7 @@ libcyphal::Result SocketCANInterface::write(const FrameType (&frames)[TxFramesLe
         const FrameType& frame           = frames[i];
         SocketCANFrame&  socketcan_frame = trx_socketcan_frames_[i];
 
-        // All UAVCAN frames use the extended frame format.
+        // All Cyphal frames use the extended frame format.
         socketcan_frame.can_id = CAN_EFF_FLAG | (frame.id & FrameType::MaskExtID);
         set_message_length(socketcan_frame,
                            static_cast<std::underlying_type<libcyphal::media::CAN::FrameDLC>::type>(frame.getDLC()));

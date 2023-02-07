@@ -31,5 +31,4 @@ set -o pipefail
 # +----------------------------------------------------------+
 buildkite-agent artifact download "test/build_native_gcc/docs/html.gz" .
 tar -xvf test/build_native_gcc/docs/html.gz
-gh-pages --dotfiles --message "Doc upload for build ${BUILDKITE_BUILD_NUMBER}" --user "uavcan1.0 <uavcan1.0@uavcan.org>" --dist docs/html
-
+gh-pages --dotfiles --message "Doc upload for build ${BUILDKITE_BUILD_NUMBER}" --user "opencyphal1.0 <opencyphal1.0@opencyphal.org>" --dist docs/html

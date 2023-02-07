@@ -2,25 +2,11 @@
 
 v1.0 is a complete rewrite of libcyphal with the following, fundamental changes from v0:
 
-1. libcyphal v1 is based on the [UAVCAN v1 specification](https://new.uavcan.org).
-2. libcyphal v1 requires C++11 or greater.
+1. libcyphal v1 is based on the [Cyphal v1 specification](https:/opencyphal.org).
+2. libcyphal v1 requires C++14 or greater.
 3. libcyphal v1 favors idiomatic C++ over defining its own utilities and helpers.
 4. libcyphal v1 is a header-only library.
 5. libcyphal v1 holds itself to a higher quality standard and is designed for integration into high-integrity, embedded applications.
-
-## About the Blue Sky effort
-
-You should never rewrite a codebase from scratch. It's a terrible idea. We're rewriting libcyphal from scratch. We're terrible developers.
-
-Sorry.
-
-The reason we opted for a complete rewrite is that so much is changing. Between the updates to the specification, the abandonment of C++98 support, switching to header-only, removing the drivers from the main repository, adding CAN FD support, etc, etc, etc; it was obvious that we'd be rewriting everything anyway. The good news is that v0 exists, is fully supported, and will be liberally copy-and-pasted from as this makes sense for v1. What we don't have is any git history tracing from v0 to v1 since this would be deceiving. Futhermore, the unit tests in uavcan v0 are a bit of a mess so we'll be writing them in a way that is more sustainable.
-
-If you are contributing to the initial v1 effort the place to start is v0.
-
-1. Find the next chunk of v0 functionality to port over to v1, copy-and-paste, rough-out the new tests, and start rewriting as headers-only.
-2. Replace all custom TMP and SFINAE constructs with their C++ equivalents, use the standard library appropriately, and continue to develop the tests as you redesign the code.
-3. Review all ["milestone constraints" for v1](https://github.com/UAVCAN/libcyphal/issues?q=is%3Aopen+is%3Aissue+label%3A%22milestone+constraint%22+label%3Av1) and make sure the v1 version of your refactored code doesn't violate any of these. Milestone constraints are issues for things found in v0 that we don't want v1 to have. Think of these issues as filters you must apply to all v0 code when it is ported to v1.
 
 ## Design goals
 
@@ -32,7 +18,7 @@ Libcyphal's design goals should be mutually compatible. There is no expectation 
 
 * **Header-only, no dependencies, idiomatic**
 
-    Libcyphal is provided as C++11 headers with no external dependencies. The headers do not impose styles or conventions on the user and make the maximum use of C++ templates to allow type flexibility when no specific type is optimal.
+    Libcyphal is provided as C++14 headers with no external dependencies. The headers do not impose styles or conventions on the user and make the maximum use of C++ templates to allow type flexibility when no specific type is optimal.
 
 * **Deterministic by default**
 
@@ -40,14 +26,14 @@ Libcyphal's design goals should be mutually compatible. There is no expectation 
 
 * **Portable**
 
-  * The library should not present any specific requirements to the underlying hardware or OS, and it must be coded in standard C++11 and be immediately forward compatible to at least C++20 while minimizing use of any deprecated constructs that may limit its compatibility with future versions of C++.
+  * The library should not present any specific requirements to the underlying hardware or OS, and it must be coded in standard C++14 and be immediately forward compatible to at least C++20 while minimizing use of any deprecated constructs that may limit its compatibility with future versions of C++.
   * The library should make conservative use of C++ with an eye towards compatibility with coding standards like [Autosar](https://www.autosar.org/fileadmin/user_upload/standards/adaptive/17-03/AUTOSAR_RS_CPP14Guidelines.pdf), HIC++, and the [ISOCpp Core Guidelines](http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines).
   * The library must build on as many different, standards-compliant, C++ compilers as is reasonable. At the time of this writing this includes gcc and clang.
   * The library must build for as many different architectures as is reasonable. At the time of this writing this includes arm, arm64, x86, and x86_64.
 
 * **Powerful and Flexible**
 
-    This library should enable the full power of UAVCAN scaling up in capability with the target platform but remaining functional for even deeply embedded targets. Furthermore, the code should enable the full power of a given system allowing for use in high-performance and/or hard-realtime systems.
+    This library should enable the full power of Cyphal scaling up in capability with the target platform but remaining functional for even deeply embedded targets. Furthermore, the code should enable the full power of a given system allowing for use in high-performance and/or hard-realtime systems.
 
 * **Clear/Fluent**
 
@@ -59,9 +45,8 @@ Libcyphal's design goals should be mutually compatible. There is no expectation 
 
 ## Documentation
 
-* [UAVCAN website](http://uavcan.org)
-* [UAVCAN forum](https://forum.uavcan.org)
-* [HIL testing](https://nanaimo.readthedocs.io/en/latest/docs/guide.html)
+* [OpenCyphal website](http://opencyphal.org)
+* [OpenCyphal forum](https://forum.opencyphal.org)
 
 ## Architecture
 
@@ -85,27 +70,27 @@ This layer must remain as minimal as possible ideally being implemented solely u
 
 #### Transport
 
-The OSI layer 4 implementation of UAVCAN per section 4 of the specification. Uses types and serialization support provided by [Nunavut](https://github.com/uavcan/nunavut). Note that this is where the "node" objects will be mapped to.
+The OSI layer 4 implementation of Cyphal per section 4 of the specification. Uses types and serialization support provided by [Nunavut](https://github.com/OpenCyphal/nunavut). Note that this is where the "node" objects will be mapped to.
 
 #### Application
 
-Implementation of section 5 "Application" of the UAVCAN specification.
+Implementation of section 5 "Application" of the Cyphal specification.
 
 
 ### Threading model
 
 The library should be single-threaded, not thread-aware.
-Hence the API will be not thread-safe, which is OK as most applications will likely be running all of the UAVCAN-related logic in one thread.
+Hence the API will be not thread-safe, which is OK as most applications will likely be running all of the Cyphal-related logic in one thread.
 
 The documentation should provide advices about how to integrate the library in a multithreaded environment.
 
 ### Endianess
 
-UAVCAN is little-endian on the wire. Because of this big-endian platforms may use more CPU than the same code on a little-endian platform.
+Cyphal is little-endian on the wire. Because of this big-endian platforms may use more CPU than the same code on a little-endian platform.
 
 ### Code generation
 
-All code generation is performed by [Nunavut](https://github.com/UAVCAN/nunavut).
+All code generation is performed by [Nunavut](https://github.com/OpenCyphal/nunavut).
 
 ### Folder Structure
 
@@ -128,8 +113,7 @@ All code generation is performed by [Nunavut](https://github.com/UAVCAN/nunavut)
 The following list of standardized* test environments will be used to validate the libcyphal implementation**:
 
 1. **Posix** - We will produce examples that can run on top of SocketCAN on a recent version of an Ubuntu-based distro. While we expect that these examples will be generally compatible with other common GNU/Linux distros or POSIX compliant operating systems (that also support SocketCAN) we will compile and test the examples using Ubuntu as part of our CI build.
-1. **Bare-metal on NXP rddrone_uavcan devkit** - We expect to produce examples and tests that run on an rddrone_uavcan adapter board.
-1. **Nuttx on Pixhawk** - We expect to produce examples and possibly tests that can run on top of the latest Pixhawk hardware and version of Nuttx used by the PX4 software stack. This is a lower-priority for the initial development for v1 but will become a focus once we have a fully functional stack.
+1. **Bare-metal on NXP S32K344** - The S32K344 provides a modern MCU with both Ethernet and CAN-FD support. While libcyphal should fit on smaller targets this is an ideal platform for developing and debugging.
 
 > \* Libcyphal is a header only library suitable for a wide range of processors and operating systems. The targets and test environments mentioned here are chosen only as standardized test fixtures and are not considered more "supported" or "optimal" than any other platform.
 
@@ -140,20 +124,20 @@ The following list of standardized* test environments will be used to validate t
 **Libcyphal source should be fluent. Comment everything in plain prose, build the docs with each change, read the docs to make sure your comments make sense.**
 
 Despite the fact that the library itself can be used on virtually any platform that has a standard-compliant
-C++11 compiler, the library development process assumes that the host OS is Linux or OSX.
+C++14 compiler, the library development process assumes that the host OS is Linux or OSX.
 
 ### Prerequisites
 
 We do provide toolchains-as-docker-containers (see next section) but if you want to support building and running the tests without docker you can install the following prerequisites on your development system:
 
-* C++11 capable compiler (e.g. GCC, Clang)
-* CMake 3.5+
+* C++14 capable compiler (e.g. GCC, Clang)
+* CMake 3.16+
 * clang-format
 * clang-tidy
 * python3
 * GNU make 4.1+
 
-> *note* The first time you run cmake .. you will need an internet connection. The cmake build will cache all external dependencies in a `build_ext` folder so subsequent builds can be performed offline.
+> *note* The first time you run cmake .. you will need an internet connection. The cmake build will cache all external dependencies in an `ext` folder for each build target and flavor. Subsequent builds can be performed offline.
 
 Building the debug version and running the unit tests:
 
@@ -171,27 +155,15 @@ make ARGS=-VV test
 We provide docker-based toolchains. If you want to use this locally either to verify that the CI build will succeed or just to avoid manually installing and maintaining the above dependencies then you can do:
 
 ```bash
-docker pull uavcan/c_cpp:ubuntu-18.04
+docker pull uavcan/c_cpp:ubuntu-20.04
 
-docker run --rm -v ${PWD}:/repo uavcan/c_cpp:ubuntu-18.04 /bin/sh -c ./test/ci/native-gcc-build-and-test.sh
-```
-
-For [docker-on-osx](https://docs.docker.com/docker-for-mac/osxfs-caching/) add `:delegated` to the end of your volume (-v) option:
-
-```bash
-docker run --rm -v ${PWD}:/repo:delegated uavcan/c_cpp:ubuntu-18.04 /bin/sh -c ./test/ci/native-gcc-build-and-test.sh
+docker run --rm -v ${PWD}:/repo uavcan/c_cpp:ubuntu-20.04 /bin/sh -c ./test/ci/verify.py
 ```
 
 To launch into an interactive shell in the container do:
 
 ```bash
-docker run --rm -it -v ${PWD}:/repo uavcan/c_cpp:ubuntu-18.04
-```
-
-or on osx:
-
-```bash
-docker run --rm -it -v ${PWD}:/repo:delegated uavcan/c_cpp:ubuntu-18.04
+docker run --rm -it -v ${PWD}:/repo uavcan/c_cpp:ubuntu-20.04
 ```
 
 ### Standards
@@ -202,50 +174,10 @@ Please adhere to [Autosar C++ guidelines](https://www.autosar.org/fileadmin/user
 
 Contributors, please follow the [Zubax C++ Coding Conventions](https://kb.zubax.com/x/84Ah) and always use `clang-format` when authoring or modifying files (the build scripts will enforce but not apply the rules in .clang-format).
 
-### Pull-Request Checklist
-
-Reviewers, please check the following items when reviewing a pull-request:
-
-> **NOTE:** This is just the start of this checklist. Expect it to grow and get refined as this project matures.
-
-1. **correctness**
-    * Is the code correct.
-2. **clarity**
-    * Is the code easily understood?
-    * It is overly complex?
-3. **test coverage**
-    * Were tests written to cover the changes?
-4. **test effectiveness and correctness**
-    * Are the tests good tests that provide some guarantee that the logic is, and will remain, correct?
-5. **documentation**
-    * Is the code properly documented?
-    * Are there changes needed to auxillary documentation that is missing?
-    * Are there good examples for how to use the code?
-6. **design**
-    * Is the code maintainable?
-    * Are the tests maintainable?
-    * Is the code in the right namespace/class/function?
-
-### VSCode
-
-To use visual studio code to debug ontarget tests for the rddrone_uavan you'll need the [cortex debug](https://marketplace.visualstudio.com/items?itemName=marus25.cortex-debug) plugin. Here's an example configuration using JLink:
-
-```yaml
- {
-    "cwd": "${workspaceRoot}",
-    "executable": "test/build/test_util_math.elf",
-    "name": "On-target unit test.",
-    "request": "launch",
-    "type": "cortex-debug",
-    "servertype": "jlink",
-    "device": "S32K146",
-    "svdFile": "test/ontarget/rddrone/S32K146.svd"
-},
-```
 
 ## CAN bus Physical Layer Notes
 
-This section is to help people new to working with physical CAN busses setup tools to verify and debug UAVCAN at the physical layer.
+This section is to help people new to working with physical CAN busses setup tools to verify and debug Cyphal at the physical layer.
 
 ### SocketCAN and CAN utils
 

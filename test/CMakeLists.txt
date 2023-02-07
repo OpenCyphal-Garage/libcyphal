@@ -34,8 +34,8 @@ include_directories(
 )
 
 if(NOT DEFINED LIBCYPHAL_FLAG_SET)
-    message(STATUS "LIBCYPHAL_FLAG_SET was not defined. Setting to \"native_full\" as a default")
-    set(LIBCYPHAL_FLAG_SET ${CMAKE_SOURCE_DIR}/cmake/compiler_flag_sets/native_full.cmake)
+    message(STATUS "LIBCYPHAL_FLAG_SET was not defined. Setting to \"native-full\" as a default")
+    set(LIBCYPHAL_FLAG_SET ${CMAKE_SOURCE_DIR}/cmake/compiler_flag_sets/native-full.cmake)
 else()
     set(LIBCYPHAL_FLAG_SET ${LIBCYPHAL_FLAG_SET})
 endif()

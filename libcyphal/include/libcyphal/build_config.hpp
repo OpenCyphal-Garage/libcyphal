@@ -13,7 +13,7 @@
 // +--------------------------------------------------------------------------+
 /** @defgroup macros_versioning Versioning macros.
  *
- * Macros specifying and controlling versions of the library, the UAVCAN
+ * Macros specifying and controlling versions of the library, the Cyphal
  * specification, compilers, standards, etc.
  *  @{
  */
@@ -22,9 +22,9 @@
 #define LIBCYPHAL_VERSION_MINOR 0 /**< libcyphal minor version definition. */
 
 /**
- * The UAVCAN specification version this version of libcyphal adheres to.
+ * The Cyphal specification version this version of libcyphal adheres to.
  */
-#define LIBCYPHAL_UAVCAN_SPECIFICATION_VERSION_MAJOR 1
+#define LIBCYPHAL_CYPHAL_SPECIFICATION_VERSION_MAJOR 1
 
 /**
  * libcyphal C++ version check - validate the version of the C++ standard used during compilation.
