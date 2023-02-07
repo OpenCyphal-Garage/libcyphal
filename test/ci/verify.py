@@ -215,7 +215,7 @@ class CMakeAction(abc.ABC):
     # +-----------------------------------------------------------------------+
 
     @abc.abstractmethod
-    def run(self, args: argparse.Namespace, verification_dir: pathlib.Path) -> int:
+    def run(self, args: argparse.Namespace) -> int:
         pass
 
     # +-----------------------------------------------------------------------+
@@ -252,8 +252,16 @@ class CMakeAction(abc.ABC):
 
         return name
 
-    def _create_cmake_path(self, args: argparse.Namespace, verification_dir: pathlib.Path) -> pathlib.Path:
-        return verification_dir / pathlib.Path(self._create_build_dir_name(args))
+    def _create_verification_dir_path(self, args: argparse.Namespace) -> pathlib.Path:
+        if args.project_root is not None and args.project_root != "":
+            project_root = pathlib.Path(args.project_root)
+        else:
+            project_root = pathlib.Path.cwd()
+
+        return project_root / pathlib.Path(args.verification_dir)
+
+    def _create_cmake_path(self, args: argparse.Namespace) -> pathlib.Path:
+        return self._create_verification_dir_path(args) / pathlib.Path(self._create_build_dir_name(args))
 
     def _cmake_run(
         self,
@@ -385,6 +393,20 @@ class CMakeConfigure(CMakeAction):
             ),
         )
 
+        parser.add_argument(
+            "--omit-style-check-from-all",
+            action="store_true",
+            help=textwrap.dedent(
+                """
+            (cmake LIBCYPHAL_STYLE_CHECK)
+            If specified then the style check rule will not be added to the "all" list
+            of build rules.
+        """[
+                    1:
+                ]
+            ),
+        )
+
         # TODO:
         # LIBCYPHAL_ENABLE_EXCEPTIONS
         # LIBCYPHAL_INTROSPECTION_ENABLE_ASSERT
@@ -394,12 +416,12 @@ class CMakeConfigure(CMakeAction):
     # +-----------------------------------------------------------------------+
     # | ACTION INTERFACE
     # +-----------------------------------------------------------------------+
-    def run(self, args: argparse.Namespace, verification_dir: pathlib.Path) -> int:
+    def run(self, args: argparse.Namespace) -> int:
         """
         Format and execute cmake configure command. This also include the cmake build directory (re)creation
         logic.
         """
-        cmake_dir = self._create_cmake_path(args, verification_dir)
+        cmake_dir = self._create_cmake_path(args)
 
         self._handle_build_dir(args, cmake_dir)
 
@@ -419,12 +441,18 @@ class CMakeConfigure(CMakeAction):
 
         flagset_file = flag_set_dir / flag_set_filename
 
+        if hasattr(args, "project_root"):
+            cmake_configure_args.append("-DLIBCYPHAL_PROJECT_ROOT={}".format(args.project_root))
+
         cmake_configure_args.append("-DLIBCYPHAL_FLAG_SET={}".format(str(flagset_file)))
 
         if args.no_coverage:
             cmake_configure_args.append("-DLIBCYPHAL_ENABLE_COVERAGE:BOOL=OFF")
         else:
             cmake_configure_args.append("-DLIBCYPHAL_ENABLE_COVERAGE:BOOL=ON")
+
+        if args.omit_style_check_from_all:
+            cmake_configure_args.append("-DLIBCYPHAL_STYLE_CHECK:BOOL=OFF")
 
         toolchain_dir = pathlib.Path("cmake") / pathlib.Path("toolchains")
         if args.target == "s32k1":
@@ -464,12 +492,12 @@ class CMakeBuild(CMakeAction):
     # +-----------------------------------------------------------------------+
     # | ACTION INTERFACE
     # +-----------------------------------------------------------------------+
-    def run(self, args: argparse.Namespace, verification_dir: pathlib.Path) -> int:
+    def run(self, args: argparse.Namespace) -> int:
         """
         Format and execute cmake build command. This method assumes that the cmake_dir is already properly
         configured.
         """
-        cmake_dir = self._create_cmake_path(args, verification_dir)
+        cmake_dir = self._create_cmake_path(args)
 
         cmake_build_args = self._create_cmake_args(args)
 
@@ -499,13 +527,13 @@ class CMakeTest(CMakeAction):
     # +-----------------------------------------------------------------------+
     # | ACTION INTERFACE
     # +-----------------------------------------------------------------------+
-    def run(self, args: argparse.Namespace, verification_dir: pathlib.Path) -> int:
+    def run(self, args: argparse.Namespace) -> int:
         """
         Format and execute cmake test command. This method assumes that the cmake_dir is already properly
         configured.
         """
 
-        cmake_dir = self._create_cmake_path(args, verification_dir)
+        cmake_dir = self._create_cmake_path(args)
 
         cmake_test_args = self._create_cmake_args(args)
 
@@ -514,6 +542,37 @@ class CMakeTest(CMakeAction):
         cmake_test_args.append(getattr(args, "test-target"))
 
         return self._cmake_run(cmake_test_args, cmake_dir, args.verbose, args.dry_run)
+
+
+# +---------------------------------------------------------------------------+
+
+
+class CMakeCompileTest(CMakeAction):
+    # +-----------------------------------------------------------------------+
+    # | VISIT ARGPARSE
+    # +-----------------------------------------------------------------------+
+    @classmethod
+    def visit_add_parser(self, sub_parsers: argparse._SubParsersAction) -> typing.Optional[argparse.ArgumentParser]:
+        return sub_parsers.add_parser("compile-test", help="Run compile-time tests.")
+
+    @classmethod
+    def visit_setargs(self, parser: argparse.ArgumentParser) -> None:
+        pass
+
+    # +-----------------------------------------------------------------------+
+    # | ACTION INTERFACE
+    # +-----------------------------------------------------------------------+
+    def run(self, args: argparse.Namespace) -> int:
+        """
+        Format and execute cmake test command. This method assumes that the cmake_dir is already properly
+        configured.
+        """
+
+        cmake_dir = self._create_cmake_path(args)
+
+        ctest_test_args = ["ctest", "-VV"]
+
+        return self._cmake_run(ctest_test_args, cmake_dir, args.verbose, args.dry_run)
 
 
 # +---------------------------------------------------------------------------+
@@ -534,11 +593,12 @@ class CMakeClean(CMakeAction):
     # +-----------------------------------------------------------------------+
     # | ACTION INTERFACE
     # +-----------------------------------------------------------------------+
-    def run(self, args: argparse.Namespace, verification_dir: pathlib.Path) -> int:
+    def run(self, args: argparse.Namespace) -> int:
         """
         Nuke all cmake stuff.
         """
 
+        verification_dir = self._create_verification_dir_path(args)
         managed_dirs = [
             dir
             for dir in verification_dir.glob("**/{}*".format(self._create_build_dir_prefix(args), recursive=True))
@@ -565,7 +625,7 @@ def _make_parser() -> argparse.ArgumentParser:
 
         **Example Usage**::
 
-            ./verify.py -l c
+            ./test/ci/verify.py configure
 
     """
     )
@@ -578,7 +638,7 @@ def _make_parser() -> argparse.ArgumentParser:
 
     commands = parser.add_subparsers(title="Commands", dest="command")
 
-    for action in [CMakeAction, CMakeConfigure, CMakeBuild, CMakeTest, CMakeClean]:
+    for action in [CMakeAction, CMakeConfigure, CMakeBuild, CMakeTest, CMakeCompileTest, CMakeClean]:
         command_parser = action.visit_add_parser(commands)
         if command_parser is None:
             action.visit_setargs(parser)
@@ -598,7 +658,8 @@ def main() -> int:
     """
     Main method to execute when this package/script is invoked as a command.
     """
-    args = _make_parser().parse_args()
+    parser = _make_parser()
+    args = parser.parse_args()
 
     logging_level = logging.WARN
 
@@ -623,10 +684,13 @@ def main() -> int:
     """
         ).format(os.path.basename(__file__), str(args))
     )
-    verification_dir = pathlib.Path.cwd() / pathlib.Path(args.verification_dir)
 
-    runner: CMakeAction = args._runner()
-    return runner.run(args, verification_dir)
+    if not hasattr(args, "_runner"):
+        parser.print_help()
+        return 0
+    else:
+        runner: CMakeAction = args._runner()
+        return runner.run(args)
 
 
 if __name__ == "__main__":
