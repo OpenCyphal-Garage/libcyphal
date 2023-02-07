@@ -17,22 +17,22 @@ jobs:
         compiler: [gcc, clang]
     steps:
       - uses: actions/checkout@v3
-      - run: test/ci/verify.py -v
+      - run: test/ci/verify.py -v \
                           --target ${{matrix.target}} \
                           --build-type ${{ matrix.build_type }} \
                           --toolchain-family ${{ matrix.compiler }} \
                           configure
-      - run: test/ci/verify.py -v
+      - run: test/ci/verify.py -v \
                           --target ${{matrix.target}} \
                           --build-type ${{ matrix.build_type }} \
                           --toolchain-family ${{ matrix.compiler }} \
                           build
-      - run: test/ci/verify.py -v
+      - run: test/ci/verify.py -v \
                           --target ${{matrix.target}} \
                           --build-type ${{ matrix.build_type }} \
                           --toolchain-family ${{ matrix.compiler }} \
                           compile-test
-      - run: test/ci/verify.py -v
+      - run: test/ci/verify.py -v \
                           --target ${{matrix.target}} \
                           --build-type ${{ matrix.build_type }} \
                           --toolchain-family ${{ matrix.compiler }} \
