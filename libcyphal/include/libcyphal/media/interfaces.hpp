@@ -12,7 +12,7 @@
 
 #include "libcyphal/libcyphal.hpp"
 #include "libcyphal/introspection.hpp"
-#include "libcyphal/time.hpp"
+#include "libcyphal/types/time.hpp"
 
 namespace libcyphal
 {

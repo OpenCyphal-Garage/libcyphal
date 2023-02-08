@@ -82,7 +82,7 @@ class CMakeAction(abc.ABC):
         build_args.add_argument(
             "--target",
             type=str,
-            choices=["native", "s32k1"],
+            choices=["native", "s32k3"],
             default="native",
             help=textwrap.dedent(
                 """
@@ -434,8 +434,8 @@ class CMakeConfigure(CMakeAction):
             cmake_configure_args.append("-DCMAKE_VERBOSE_MAKEFILE:BOOL=ON")
 
         flag_set_dir = pathlib.Path("cmake") / pathlib.Path("compiler_flag_sets")
-        if args.target == "s32k1":
-            flag_set_filename = pathlib.Path("cortex-m4-fpv4-sp-d16-nosys").with_suffix(".cmake")
+        if args.target == "s32k3":
+            flag_set_filename = pathlib.Path("arm-none-eabi-m7").with_suffix(".cmake")
         else:
             flag_set_filename = pathlib.Path("native").with_suffix(".cmake")
 
@@ -455,7 +455,7 @@ class CMakeConfigure(CMakeAction):
             cmake_configure_args.append("-DLIBCYPHAL_STYLE_CHECK:BOOL=OFF")
 
         toolchain_dir = pathlib.Path("cmake") / pathlib.Path("toolchains")
-        if args.target == "s32k1":
+        if args.target == "s32k3":
             compiler_triple = "arm-none-eabi"
         else:
             compiler_triple = "native"

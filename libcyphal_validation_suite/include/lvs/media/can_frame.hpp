@@ -143,9 +143,9 @@ TYPED_TEST_P(FrameTest, SetDataLength)
 TYPED_TEST_P(FrameTest, InitWithDataAndTimestamp)
 {
     const std::uint8_t* random_ptr = nullptr;
-    TypeParam          instance(1, random_ptr, FrameDLC::CodeForLength0, libcyphal::time::Monotonic::fromMicrosecond(32));
+    TypeParam          instance(1, random_ptr, FrameDLC::CodeForLength0, libcyphal::types::time::Monotonic::fromMicrosecond(32));
 
-    ASSERT_EQ(libcyphal::time::Monotonic::fromMicrosecond(32U), instance.timestamp);
+    ASSERT_EQ(libcyphal::types::time::Monotonic::fromMicrosecond(32U), instance.timestamp);
 }
 
 template <std::size_t I, std::size_t LEN, std::uint16_t MTUBytes>

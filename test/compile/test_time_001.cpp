@@ -2,11 +2,11 @@
  * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 #include "libcyphal/libcyphal.hpp"
-#include "libcyphal/time.hpp"
+#include "libcyphal/types/time.hpp"
 
 namespace
 {
-class TooBig : public libcyphal::duration::Base<TooBig>
+class TooBig : public libcyphal::types::duration::Base<TooBig>
 {
     uint8_t more_;
 };

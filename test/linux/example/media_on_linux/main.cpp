@@ -169,11 +169,11 @@ public:
         : test_frames_{{1,
                         nullptr,
                         libcyphal::media::CAN::FrameDLC::CodeForLength0,
-                        libcyphal::time::Monotonic::fromMicrosecond(0)},
+                        libcyphal::types::time::Monotonic::fromMicrosecond(0)},
                        {2,
                         nullptr,
                         libcyphal::media::CAN::FrameDLC::CodeForLength0,
-                        libcyphal::time::Monotonic::fromMicrosecond(1)}}
+                        libcyphal::types::time::Monotonic::fromMicrosecond(1)}}
         , test_filters_{{0, 0}}
         , test_frames_found_()
         , test_timeout_(test_timeout)
@@ -251,7 +251,7 @@ public:
 
             // Wait for a bit unless some data comes in. Either way, we'll want to loop around and check in on the
             // driver statistics so don't wait too long.
-            interface_group->select(libcyphal::duration::Monotonic::fromMicrosecond(100000U), true);
+            interface_group->select(libcyphal::types::duration::Monotonic::fromMicrosecond(100000U), true);
 
             auto now = std::chrono::steady_clock::now();
             if (now - last_period >= std::chrono::seconds(1))

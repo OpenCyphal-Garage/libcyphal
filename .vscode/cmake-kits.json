@@ -16,17 +16,6 @@
         }
     },
     {
-        "name": "ontarget-s32k1",
-        "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/gcc-arm-none-eabi.cmake",
-        "cmakeSettings": {
-            "LIBCYPHAL_FLAG_SET": "${workspaceFolder}/test/cmake/compiler_flag_sets/cortex-m4-fpv4-sp-d16-nosys.cmake",
-            "LIBCYPHAL_TESTBUILD": "${workspaceFolder}/test/ontarget/rddrone/tests.cmake",
-            "GTEST_USE_LOCAL_BUILD": "ON",
-            "LIBCYPHAL_SKIP_DOCS": "ON",
-            "LIBCYPHAL_ENABLE_COVERAGE": "OFF"
-        }
-    },
-    {
         "name": "linux-clang",
         "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/clang-native.cmake",
         "cmakeSettings": {

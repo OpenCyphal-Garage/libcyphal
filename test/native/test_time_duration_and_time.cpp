@@ -7,10 +7,12 @@
 #include "lvs/lvs.hpp"
 
 #include "libcyphal/libcyphal.hpp"
-#include "libcyphal/time.hpp"
+#include "libcyphal/types/time.hpp"
 #include "lvs/time.hpp"
 
 namespace libcyphal
+{
+namespace types
 {
 namespace duration
 {
@@ -38,11 +40,12 @@ std::ostream& operator<<(std::ostream& out, const Monotonic& timeval)
     return out;
 }
 }  // namespace time
+}  // namespace types
 }  // namespace libcyphal
 
 namespace lvs
 {
-typedef ::testing::Types<libcyphal::duration::Monotonic, libcyphal::time::Monotonic> MyDurationAndTimeTypes;
+typedef ::testing::Types<libcyphal::types::duration::Monotonic, libcyphal::types::time::Monotonic> MyDurationAndTimeTypes;
 
 // The trailing comma is required. See https://github.com/google/googletest/issues/1419
 INSTANTIATE_TYPED_TEST_SUITE_P(Time, DurationOrTimeTest, MyDurationAndTimeTypes, );

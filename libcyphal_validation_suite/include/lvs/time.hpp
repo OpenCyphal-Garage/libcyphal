@@ -2,8 +2,8 @@
  * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  */
 /** @file
- * Implement this test for any libcyphal::duration or libcyphal::time objects
- * you create that support the base concepts defined in libcyphal/time.hpp.
+ * Implement this test for any libcyphal::types::duration or libcyphal::types::time objects
+ * you create that support the base concepts defined in libcyphal/types/time.hpp.
  *
  * <h3>Example:</H3>
  * @code
@@ -12,19 +12,19 @@
  *
  * namespace lvs
  * {
- * typedef ::testing::Types<libcyphal::duration::Monotonic,
- *                          libcyphal::time::Monotonic,
+ * typedef ::testing::Types<libcyphal::types::duration::Monotonic,
+ *                          libcyphal::types::time::Monotonic,
  *                          mynamespace::MyDurationType,
  *                          mynamespace::MyTimeType> MyDurationAndTimeTypes;
  *
  * // The trailing comma is required. See https://github.com/google/googletest/issues/1419
  * INSTANTIATE_TYPED_TEST_SUITE_P(Time, DurationOrTimeTest, MyDurationAndTimeTypes, );
  *
- * typedef ::testing::Types<libcyphal::duration::Monotonic, mynamespace::MyDurationType> MyDurationTypes;
+ * typedef ::testing::Types<libcyphal::types::duration::Monotonic, mynamespace::MyDurationType> MyDurationTypes;
  *
  * INSTANTIATE_TYPED_TEST_SUITE_P(Time, DurationTest, MyDurationTypes, );
  *
- * typedef ::testing::Types<libcyphal::time::Monotonic, mynamespace::MyTimeType> MyTimeTypes;
+ * typedef ::testing::Types<libcyphal::types::time::Monotonic, mynamespace::MyTimeType> MyTimeTypes;
  *
  * INSTANTIATE_TYPED_TEST_SUITE_P(Time, TimeTest, MyTimeTypes, );
  *
@@ -37,13 +37,13 @@
 #include "gtest/gtest.h"
 
 #include "lvs/lvs.hpp"
-#include "libcyphal/time.hpp"
+#include "libcyphal/types/time.hpp"
 
 namespace lvs
 {
 /**
- * Test fixture for testing realizations of the libcyphal::duration::Base or
- * libcyphal::time::Base class. These are tests when the two bases share the same
+ * Test fixture for testing realizations of the libcyphal::types::duration::Base or
+ * libcyphal::types::time::Base class. These are tests when the two bases share the same
  * concepts. For tests where their concepts differ see DurationTest or TimeTest.
  * See https://github.com/google/googletest/blob/master/googletest/docs/advanced.md for
  * more information about typed gtests.
@@ -161,7 +161,7 @@ REGISTER_TYPED_TEST_SUITE_P(DurationOrTimeTest,  //
                             SaturatedSubtract);
 
 /**
- * Test fixture for testing realizations of the libcyphal::duration::Base template.
+ * Test fixture for testing realizations of the libcyphal::types::duration::Base template.
  * See https://github.com/google/googletest/blob/master/googletest/docs/advanced.md for
  * more information about typed gtests.
  *
@@ -272,7 +272,7 @@ REGISTER_TYPED_TEST_SUITE_P(DurationTest,  //
                             DefaultOperations);
 
 /**
- * Test fixture for testing realizations of the libcyphal::time::Base template.
+ * Test fixture for testing realizations of the libcyphal::types::time::Base template.
  * See https://github.com/google/googletest/blob/master/googletest/docs/advanced.md for
  * more information about typed gtests.
  *

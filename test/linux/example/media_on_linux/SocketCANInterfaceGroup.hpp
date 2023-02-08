@@ -78,7 +78,7 @@ public:
     virtual libcyphal::Result reconfigureFilters(const typename FrameType::Filter* filter_config,
                                                  std::size_t                       filter_config_length) override;
 
-    virtual libcyphal::Result select(libcyphal::duration::Monotonic timeout, bool ignore_write_available) override;
+    virtual libcyphal::Result select(libcyphal::types::duration::Monotonic timeout, bool ignore_write_available) override;
 };
 
 }  // namespace example

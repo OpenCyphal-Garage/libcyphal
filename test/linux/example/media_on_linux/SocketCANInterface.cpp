@@ -161,7 +161,7 @@ libcyphal::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
         ::msghdr&                  message_header  = trx_msghdrs_[i].msg_hdr;
         const SocketCANFrame&      socketcan_frame = trx_socketcan_frames_[i];
         FrameType&                 out_frame       = out_frames[out_frames_read];
-        libcyphal::time::Monotonic timestamp;
+        libcyphal::types::time::Monotonic timestamp;
 
         for (::cmsghdr* cmsg = CMSG_FIRSTHDR(&message_header); cmsg; cmsg = CMSG_NXTHDR(&message_header, cmsg))
         {
@@ -171,7 +171,7 @@ libcyphal::Result SocketCANInterface::read(FrameType (&out_frames)[RxFramesLen],
                 {
                     auto tv = ::timeval();
                     (void) std::memcpy(&tv, CMSG_DATA(cmsg), sizeof(tv));  // Copy to avoid alignment problems.
-                    timestamp = libcyphal::time::Monotonic::fromMicrosecond(
+                    timestamp = libcyphal::types::time::Monotonic::fromMicrosecond(
                         static_cast<std::uint64_t>(tv.tv_sec) * 1000000ULL + static_cast<std::uint64_t>(tv.tv_usec));
                 }
                 else if (cmsg->cmsg_type == SO_RXQ_OVFL && cmsg->cmsg_len >= 4)
