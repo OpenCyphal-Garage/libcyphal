@@ -31,14 +31,14 @@ namespace memory
  * @tparam  NumBlocksParam  The number of blocks to allocate in the pool. Unlike an arena allocator,
  *                          this allocator does not guarantee a continuous block of memory and each
  *                          memory block can located anywhere on the system. It is highly recommended
- *                          that all memory blocks have the same access permsissions and performance.
+ *                          that all memory blocks have the same access permissions and performance.
  * @tparam  BlockSizeParam  The size in bytes of each block. Note that all blocks will use this size
  *                          such that the amount of memory allocated for the pool will be at least
  *                          NumBlocksParam x BlockSizeParam bytes. Implementations may choose to
  *                          allocate additional memory per-block to detect buffer overrun and illegal
  *                          deallocation.
  */
-template <std::size_t NumBlocksParam, std::uint8_t BlockSizeParam>
+template <std::size_t NumBlocksParam, std::size_t BlockSizeParam>
 class LIBCYPHAL_EXPORT StaticMemoryPool final
 {
     /**
@@ -112,9 +112,9 @@ class LIBCYPHAL_EXPORT StaticMemoryPool final
     ~StaticMemoryPool() = default;
 
 public:
-    StaticMemoryPool(const StaticMemoryPool&)             = delete;
-    StaticMemoryPool(const StaticMemoryPool&&)            = delete;
-    StaticMemoryPool& operator=(const StaticMemoryPool&)  = delete;
+    StaticMemoryPool(const StaticMemoryPool&)  = delete;
+    StaticMemoryPool(const StaticMemoryPool&&) = delete;
+    StaticMemoryPool& operator=(const StaticMemoryPool&) = delete;
     StaticMemoryPool& operator=(const StaticMemoryPool&&) = delete;
 
 private:
@@ -122,7 +122,7 @@ private:
     // | ALLOCATORS
     // |    A list of allocators that can use this memory pool.
     // +------------------------------------------------------------------+
-    template <std::size_t, std::uint8_t, typename, typename>
+    template <std::size_t, std::size_t, typename, typename>
     friend class PoolAllocator;
 
     /**
@@ -197,7 +197,7 @@ private:
  *                              5. sizeof(T) shall be >= BlockSizeParam.
  */
 template <std::size_t  NumBlocksParam,
-          std::uint8_t BlockSizeParam,
+          std::size_t  BlockSizeParam,
           typename T              = std::uint8_t,
           typename MemoryPoolType = StaticMemoryPool<NumBlocksParam, BlockSizeParam>>
 class LIBCYPHAL_EXPORT PoolAllocator
@@ -207,26 +207,22 @@ class LIBCYPHAL_EXPORT PoolAllocator
 public:
     explicit PoolAllocator() noexcept
         : pool_(MemoryPoolType::getReference())
-    {
-    }
+    {}
 
     explicit PoolAllocator(const PoolAllocator& rhs) noexcept
         : pool_(rhs.pool_)
-    {
-    }
+    {}
 
     explicit PoolAllocator(const PoolAllocator&& rhs) noexcept
         : pool_(rhs.pool_)
-    {
-    }
+    {}
 
     ~PoolAllocator() = default;
 
     template <typename T1>
     PoolAllocator(const PoolAllocator<NumBlocksParam, BlockSizeParam, T1, MemoryPoolType>&) noexcept
         : pool_(MemoryPoolType::getReference())
-    {
-    }
+    {}
 
     static_assert(sizeof(typename std::conditional<std::is_same<void, T>::value, std::uint8_t, T>::type) <=
                       BlockSizeParam,

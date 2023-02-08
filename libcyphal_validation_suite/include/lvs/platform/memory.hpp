@@ -61,7 +61,8 @@ namespace memory
  */
 template <typename T>
 class PoolAllocatorTest : public ::testing::Test
-{};
+{
+};
 
 TYPED_TEST_SUITE_P(PoolAllocatorTest);
 
@@ -201,7 +202,8 @@ constexpr static const std::size_t MinimumBlockSize = 10;
  */
 template <typename T>
 class PoolAllocatorVectorTest : public ::testing::Test
-{};
+{
+};
 
 TYPED_TEST_SUITE_P(PoolAllocatorVectorTest);
 
@@ -271,7 +273,8 @@ using AllocatorPtrType = std::pair<const int, int>;
 /**
  * Required block size for the TypeParam to be valid for these tests.
  */
-constexpr static const std::size_t MinimumBlockSize = sizeof(AllocatorPtrType) + 64;
+constexpr static const std::size_t MinimumBlockSize =
+    sizeof(AllocatorPtrType) * alignof(AllocatorPtrType) * MinimumBlockCount;
 }  // namespace PoolAllocatorUnorderedMapTestRequirements
 
 /**
@@ -283,7 +286,8 @@ constexpr static const std::size_t MinimumBlockSize = sizeof(AllocatorPtrType) +
  */
 template <typename T>
 class PoolAllocatorUnorderedMapTest : public ::testing::Test
-{};
+{
+};
 
 TYPED_TEST_SUITE_P(PoolAllocatorUnorderedMapTest);
 
