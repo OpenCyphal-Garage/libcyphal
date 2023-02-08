@@ -46,5 +46,7 @@ namespace lvs
 typedef ::testing::Types<libcyphal::time::Monotonic> MyTimeTypes;
 
 INSTANTIATE_TYPED_TEST_SUITE_P(Time, TimeTest, MyTimeTypes, );
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DurationOrTimeTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DurationTest);
 
 }  // namespace lvs

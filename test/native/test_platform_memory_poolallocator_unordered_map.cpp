@@ -21,7 +21,8 @@ typedef ::testing::Types<
 
 // The trailing comma is required. See https://github.com/google/googletest/issues/1419
 INSTANTIATE_TYPED_TEST_SUITE_P(Generic, PoolAllocatorUnorderedMapTest, MyTypes, );
-
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(PoolAllocatorTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(PoolAllocatorVectorTest);
 }  // namespace memory
 }  // namespace platform
 }  // namespace lvs
