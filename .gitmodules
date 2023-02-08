@@ -1,0 +1,6 @@
+[submodule "submodules/libcanard"]
+	path = submodules/libcanard
+	url = https://github.com/OpenCyphal/libcanard.git
+[submodule "submodules/libudpard"]
+	path = submodules/libudpard
+	url = https://github.com/OpenCyphal-Garage/libudpard.git
