@@ -20,7 +20,8 @@ typedef ::testing::Types<libcyphal::platform::memory::PoolAllocator<1, 1>,
 
 // The trailing comma is required. See https://github.com/google/googletest/issues/1419
 INSTANTIATE_TYPED_TEST_SUITE_P(Generic, PoolAllocatorTest, MyTypes, );
-
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(PoolAllocatorUnorderedMapTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(PoolAllocatorVectorTest);
 }  // namespace memory
 }  // namespace platform
 }  // namespace lvs

@@ -82,6 +82,7 @@ set(ALL_TEST_COVERAGE "")
 
 foreach(NATIVE_TEST ${NATIVE_TESTS})
     get_filename_component(NATIVE_TEST_NAME ${NATIVE_TEST} NAME_WE)
+    message(STATUS "Defining googletest binary ${NATIVE_TEST_NAME} for source file ${NATIVE_TEST}")
     define_native_unit_test(${NATIVE_TEST_NAME} ${NATIVE_TEST} ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR})
     define_native_test_run(${NATIVE_TEST_NAME} ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR})
     define_native_test_run_with_lcov(${NATIVE_TEST_NAME} ${LIBCYPHAL_NATIVE_TEST_BINARY_DIR})

@@ -46,5 +46,7 @@ typedef ::testing::Types<libcyphal::duration::Monotonic, libcyphal::time::Monoto
 
 // The trailing comma is required. See https://github.com/google/googletest/issues/1419
 INSTANTIATE_TYPED_TEST_SUITE_P(Time, DurationOrTimeTest, MyDurationAndTimeTypes, );
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DurationTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(TimeTest);
 
 }  // namespace lvs
