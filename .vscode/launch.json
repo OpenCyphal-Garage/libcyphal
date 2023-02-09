@@ -21,26 +21,6 @@
             ]
         },
         {
-            "type": "cortex-debug",
-            "cwd": "${workspaceRoot}",
-            "executable": "${workspaceRoot}/test/build/test_telephone_a.elf",
-            "name": "Debug test_telephone a",
-            "request": "launch",
-            "servertype": "jlink",
-            "device": "S32K146",
-            "svdFile": "${workspaceRoot}/test/ontarget/rddrone/S32K146.svd"
-        },
-        {
-            "type": "cortex-debug",
-            "cwd": "${workspaceRoot}",
-            "executable": "${workspaceRoot}/test/build/test_telephone_b.elf",
-            "name": "Debug test_telephone b",
-            "request": "launch",
-            "servertype": "jlink",
-            "device": "S32K146",
-            "svdFile": "${workspaceRoot}/test/ontarget/rddrone/S32K146.svd"
-        },
-        {
             "type": "lldb",
             "name": "(lldb) Launch",
             "request": "launch",

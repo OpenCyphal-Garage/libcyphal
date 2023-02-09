@@ -8,6 +8,14 @@
         }
     },
     {
+        "name": "native-gcc-w-cov",
+        "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/gcc-native.cmake",
+        "cmakeSettings": {
+            "LIBCYPHAL_FLAG_SET": "${workspaceFolder}/test/cmake/compiler_flag_sets/native.cmake",
+            "LIBCYPHAL_ENABLE_COVERAGE": "ON"
+        }
+    },
+    {
         "name": "native-clang",
         "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/clang-native.cmake",
         "cmakeSettings": {
@@ -16,14 +24,11 @@
         }
     },
     {
-        "name": "ontarget-s32k1",
-        "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/gcc-arm-none-eabi.cmake",
+        "name": "native-clang-w-cov",
+        "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/clang-native.cmake",
         "cmakeSettings": {
-            "LIBCYPHAL_FLAG_SET": "${workspaceFolder}/test/cmake/compiler_flag_sets/cortex-m4-fpv4-sp-d16-nosys.cmake",
-            "LIBCYPHAL_TESTBUILD": "${workspaceFolder}/test/ontarget/rddrone/tests.cmake",
-            "GTEST_USE_LOCAL_BUILD": "ON",
-            "LIBCYPHAL_SKIP_DOCS": "ON",
-            "LIBCYPHAL_ENABLE_COVERAGE": "OFF"
+            "LIBCYPHAL_FLAG_SET": "${workspaceFolder}/test/cmake/compiler_flag_sets/native.cmake",
+            "LIBCYPHAL_ENABLE_COVERAGE": "ON"
         }
     },
     {

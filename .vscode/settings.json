@@ -89,6 +89,7 @@
     },
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "cmake.configureOnOpen": false,
+    "cmake.configureOnEdit": false,
     "cmake.buildDirectory": "${workspaceFolder}/test/build_vscode/${buildKit}/${buildType}/build",
     "cmake.sourceDirectory": "${workspaceFolder}/test",
     "cmake.buildBeforeRun": true,

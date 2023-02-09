@@ -57,13 +57,28 @@ if(NOT DEFINED LIBCYPHAL_STYLE_CHECK)
     set(LIBCYPHAL_STYLE_CHECK ON)
 endif()
 
+if(DEFINED LIBCYPHAL_CMAKE_MODULE_PATH)
+    message(STATUS "LIBCYPHAL_CMAKE_MODULE_PATH was set to ${LIBCYPHAL_CMAKE_MODULE_PATH}. Will use this to override CMAKE_MODULE_PATH.")
+    set(CMAKE_MODULE_PATH ${LIBCYPHAL_CMAKE_MODULE_PATH})
+else()
+    #
+    # Tell cmake where to find our custom scripts.
+    #
+    set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
+    message(STATUS "CMAKE_MODULE_PATH set to ${CMAKE_MODULE_PATH}")
+endif()
+
+# +---------------------------------------------------------------------------+
+# | FLAG SETS
+# +---------------------------------------------------------------------------+
+#
+# Load all our compile flag sets into the appropriate places.
+#
+apply_flag_set(${LIBCYPHAL_FLAG_SET})
+
 # +---------------------------------------------------------------------------+
 # | EXTERNAL DEPENDENCIES
 # +---------------------------------------------------------------------------+
-#
-# Tell cmake where to find our custom scripts.
-#
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 
 #
 # We prefer to install python dependencies for the build in an virtualenv.
@@ -127,14 +142,6 @@ create_dsdl_target(dsdl-regulated
 
 
 add_dependencies(dsdl-regulated dsdl-support)
-
-# +---------------------------------------------------------------------------+
-# | FLAG SETS
-# +---------------------------------------------------------------------------+
-#
-# Load all our compile flag sets into the appropriate places.
-#
-apply_flag_set(${LIBCYPHAL_FLAG_SET})
 
 # +---------------------------------------------------------------------------+
 # | STYLE

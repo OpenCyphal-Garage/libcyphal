@@ -11,7 +11,7 @@
 
 #include "libcyphal/libcyphal.hpp"
 #include "libcyphal/introspection.hpp"
-#include "libcyphal/time.hpp"
+#include "libcyphal/types/time.hpp"
 
 namespace libcyphal
 {
@@ -298,7 +298,7 @@ public:
      * A monotonic timestamp. Libcyphal operates optimally when this value is a
      * hardware supplied timestamp recorded at the start-of-frame.
      */
-    libcyphal::time::Monotonic timestamp;
+    libcyphal::types::time::Monotonic timestamp;
 
     Frame()
         : id(0)
@@ -337,7 +337,7 @@ public:
     Frame(std::uint32_t                can_id,
           volatile const std::uint8_t* can_data,
           FrameDLC                     in_dlc,
-          libcyphal::time::Monotonic   can_timestamp)
+          libcyphal::types::time::Monotonic   can_timestamp)
         : id(can_id)
         , data{}
         , dlc_(in_dlc)
@@ -362,7 +362,7 @@ public:
      * @param in_dlc        The data length code for the can_data.
      */
     Frame(std::uint32_t can_id, const std::uint8_t* can_data, FrameDLC in_dlc)
-        : Frame(can_id, can_data, in_dlc, libcyphal::time::Monotonic::fromMicrosecond(0))
+        : Frame(can_id, can_data, in_dlc, libcyphal::types::time::Monotonic::fromMicrosecond(0))
     {
     }
 

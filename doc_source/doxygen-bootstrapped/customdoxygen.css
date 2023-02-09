@@ -2,6 +2,12 @@ h1, .h1, h2, .h2, h3, .h3{
     font-weight: 200 !important;
 }
 
+/* We don't want this silly checkbox. */
+div.sm.sm-dox {
+    visibility: hidden;
+    height: 0px;
+}
+
 .sm-dox a span.sub-arrow {
     position: absolute;
     top: 50%;

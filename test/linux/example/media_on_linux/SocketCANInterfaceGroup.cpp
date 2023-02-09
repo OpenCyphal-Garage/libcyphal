@@ -107,7 +107,7 @@ libcyphal::Result SocketCANInterfaceGroup::reconfigureFilters(const typename Fra
     return libcyphal::Result::Success;
 }
 
-libcyphal::Result SocketCANInterfaceGroup::select(libcyphal::duration::Monotonic timeout, bool ignore_write_available)
+libcyphal::Result SocketCANInterfaceGroup::select(libcyphal::types::duration::Monotonic timeout, bool ignore_write_available)
 {
     short int         events         = POLLIN | POLLPRI;
     const std::size_t interfaces_len = interfaces_.size();
@@ -128,7 +128,7 @@ libcyphal::Result SocketCANInterfaceGroup::select(libcyphal::duration::Monotonic
 
     ::timespec timeout_spec = {timeout.toMicrosecond() / 1000000U, 0};
     timeout_spec.tv_nsec =
-        (timeout - libcyphal::duration::Monotonic::fromMicrosecond(timeout_spec.tv_sec * 1000000U)).toMicrosecond();
+        (timeout - libcyphal::types::duration::Monotonic::fromMicrosecond(timeout_spec.tv_sec * 1000000U)).toMicrosecond();
 
     const int result = ::ppoll(pollfds, interfaces_len, &timeout_spec, nullptr);
 
