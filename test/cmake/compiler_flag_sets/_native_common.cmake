@@ -4,10 +4,9 @@
 # C, CXX, LD, and AS flags for native targets.
 #
 
-#
-# Debug flags for C and C++
-#
 set(C_FLAG_SET )
+set(EXE_LINKER_FLAG_SET )
+set(DEFINITIONS_SET )
 
 #
 # Diagnostics for C and C++
@@ -19,7 +18,6 @@ list(APPEND C_FLAG_SET
                 "-Werror"
                 "-Wfloat-equal"
                 "-Wconversion"
-                "-Wabi"
                 "-Wunused-parameter"
                 "-Wunused-variable"
                 "-Wunused-value"
@@ -35,10 +33,13 @@ list(APPEND C_FLAG_SET
 if (LIBCYPHAL_ENABLE_COVERAGE)
 message(STATUS "Coverage is enabled. Instrumenting the code.")
 list(APPEND C_FLAG_SET
-                "-fprofile-arcs"
-                "-ftest-coverage"
                 "--coverage"
+                "$<$<COMPILE_LANG_AND_ID:CXX,AppleClang,Clang>:-fprofile-instr-generate>"
+                "$<$<COMPILE_LANG_AND_ID:CXX,AppleClang,Clang>:-fcoverage-mapping>"
 )
+
+list(APPEND EXE_LINKER_FLAG_SET "--coverage")
+
 endif()
 
 set(CXX_FLAG_SET ${C_FLAG_SET})
@@ -62,6 +63,3 @@ list(APPEND CXX_FLAG_SET
                 "-Wnon-virtual-dtor"
                 "-Woverloaded-virtual"
 )
-
-set(EXE_LINKER_FLAG_SET )
-set(DEFINITIONS_SET )

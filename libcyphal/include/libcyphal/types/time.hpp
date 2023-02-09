@@ -373,6 +373,8 @@ class LIBCYPHAL_EXPORT Monotonic : public Base<Monotonic, duration::Monotonic> {
 class Timer {
 public:
     virtual Monotonic getTimeInUs() const = 0;
+protected:
+    ~Timer() = default;
 };
 
 }  // namespace time
