@@ -32,6 +32,15 @@ list(APPEND C_FLAG_SET
                 "-Wno-error=array-bounds"
 )
 
+if (LIBCYPHAL_ENABLE_COVERAGE)
+message(STATUS "Coverage is enabled. Instrumenting the code.")
+list(APPEND C_FLAG_SET
+                "-fprofile-arcs"
+                "-ftest-coverage"
+                "--coverage"
+)
+endif()
+
 set(CXX_FLAG_SET ${C_FLAG_SET})
 set(ASM_FLAG_SET ${C_FLAG_SET})
 
@@ -56,12 +65,3 @@ list(APPEND CXX_FLAG_SET
 
 set(EXE_LINKER_FLAG_SET )
 set(DEFINITIONS_SET )
-
-if (LIBCYPHAL_ENABLE_COVERAGE)
-message(STATUS "Coverage is enabled. Instrumenting the code.")
-list(APPEND C_FLAG_SET
-                "-fprofile-arcs"
-                "-ftest-coverage"
-                "--coverage"
-)
-endif()
