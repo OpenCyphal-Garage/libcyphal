@@ -1,0 +1,97 @@
+#
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT
+#
+
+cmake_minimum_required(VERSION 3.22.0)
+
+# +---------------------------------------------------------------------------+
+# | PROJECT
+# +---------------------------------------------------------------------------+
+
+include(cmake/CMakeCommon.cmake REQUIRED)
+
+project(libcyphal
+        VERSION ${LIBCYPHAL_VERSION}
+        LANGUAGES CXX C
+        HOMEPAGE_URL https://github.com/OpenCyphal/libcyphal
+)
+
+# +---------------------------------------------------------------------------+
+# | SUBPROJECTS
+# +---------------------------------------------------------------------------+
+add_subdirectory(test/unittest)
+add_subdirectory(docs)
+add_subdirectory(demonstration/linux)
+
+# +---------------------------------------------------------------------------+
+# | DEFAULT BUILD SUPPORT
+# +---------------------------------------------------------------------------+
+add_custom_target(
+    docs
+    DEPENDS
+        generate_libcyphal_docs
+)
+
+add_custom_target(
+    build
+    DEPENDS
+        build_unittests
+        build_examples
+        libcyphal_demo_posix
+)
+
+if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+    add_custom_target(
+        unittest
+        DEPENDS
+            run_unittests
+            gcovr_html_report_for_unittest
+            run_examples
+            gcovr_html_report_for_examples
+    )
+else()
+    add_custom_target(
+        unittest
+        DEPENDS
+            run_unittests
+            run_examples
+    )
+endif()
+
+add_custom_target(
+    release
+    DEPENDS
+        build
+        unittest
+        docs
+)
+
+message(STATUS "-------------------------------------------------------------------\n\
+| ${CMAKE_PROJECT_NAME}
+-- -------------------------------------------------------------------\n\
+    LIBCYPHAL_ROOT:                         ${LIBCYPHAL_ROOT}\n\
+    LIBCYPHAL_INCLUDE:                      ${LIBCYPHAL_INCLUDE}\n\
+    LIBCYPHAL_VERSION:                      ${LIBCYPHAL_VERSION}\n\
+    LIBCYPHAL_INTROSPECTION_TRACE_ENABLE:   ${LIBCYPHAL_INTROSPECTION_TRACE_ENABLE}\n\
+    LIBCYPHAL_INTROSPECTION_ENABLE_ASSERT:  ${LIBCYPHAL_INTROSPECTION_ENABLE_ASSERT}\n\
+    CETLVAST_FLAG_SET:                      ${CETLVAST_FLAG_SET}\n\
+    CETLVAST_CPP_STANDARD:                  ${CETLVAST_CPP_STANDARD}\n\
+    CMAKE_PROJECT_NAME:                     ${CMAKE_PROJECT_NAME}\n\
+    CMAKE_SOURCE_DIR:                       ${CMAKE_SOURCE_DIR}\n\
+    CMAKE_CURRENT_SOURCE_DIR:               ${CMAKE_CURRENT_SOURCE_DIR}\n\
+    CMAKE_BINARY_DIR:                       ${CMAKE_BINARY_DIR}\n\
+    CMAKE_CURRENT_BINARY_DIR:               ${CMAKE_CURRENT_BINARY_DIR}\n\
+    CMAKE_MODULE_PATH:                      ${CMAKE_MODULE_PATH}\n\
+    CMAKE_MESSAGE_LOG_LEVEL:                ${CMAKE_MESSAGE_LOG_LEVEL}\n\
+    CMAKE_INSTALL_PREFIX:                   ${CMAKE_INSTALL_PREFIX}\n\
+    CMAKE_BUILD_TYPE:                       ${CMAKE_BUILD_TYPE}\n\
+    CMAKE_TOOLCHAIN_FILE:                   ${CMAKE_TOOLCHAIN_FILE}\n\
+\n\
+CETL
+    CETL_ENABLE_DEBUG_ASSERT:               ${CETL_ENABLE_DEBUG_ASSERT}\n\
+\n\
+Standard Library\n\
+    LIBCXX_ENABLE_ASSERTIONS:               ${LIBCXX_ENABLE_ASSERTIONS}\n\
+ -- ------------------------------------------------------------------\n\
+")

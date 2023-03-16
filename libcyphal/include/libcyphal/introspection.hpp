@@ -1,14 +1,10 @@
-/*
- * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- */
-/**
- * @file
- * Optional utilites to provide introspection into libcyphal
- * objects and to provide metrics for library performance.
- * Facilities defined in this header can be compiled out of
- * production code and should be used for debugging or targeted
- * testing activities.
- */
+/// @copyright Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+/// @file
+/// Optional utilites to provide introspection into libcyphal
+/// objects and to provide metrics for library performance.
+/// Facilities defined in this header can be compiled out of
+/// production code and should be used for debugging or targeted
+/// testing activities.
 
 #ifndef LIBCYPHAL_INTROSPECTION_HPP_INCLUDED
 #define LIBCYPHAL_INTROSPECTION_HPP_INCLUDED
@@ -19,13 +15,10 @@
 #    define LIBCYPHAL_INTROSPECTION_TRACE_ENABLE 0
 #endif
 
-/**
- * Enable runtime asserts within libcyphal.
- *
- * Obviously, this is not a reccommended thing to turn on in production code but
- * these asserts are used for some library tests and may help diagnose bugs if
- * enabled in a special build of your software.
- */
+/// Enable runtime asserts within libcyphal.
+/// Obviously, this is not a reccommended thing to turn on in production code but
+/// these asserts are used for some library tests and may help diagnose bugs if
+/// enabled in a special build of your software.
 #ifndef LIBCYPHAL_INTROSPECTION_ENABLE_ASSERT
 #    define LIBCYPHAL_INTROSPECTION_ENABLE_ASSERT 0
 #endif

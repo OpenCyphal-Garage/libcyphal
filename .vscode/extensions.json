@@ -2,16 +2,13 @@
     // See http://go.microsoft.com/fwlink/?LinkId=827846
     // for the documentation about the extensions.json format
     "recommendations": [
-        "dan-c-underwood.arm",
-        "marus25.cortex-debug",
-        "ms-vscode.cpptools",
-        "ms-azuretools.vscode-docker",
-        "twxs.cmake",
-        "uavcan.dsdl",
-        "ms-vscode.cmake-tools",
-        "zixuanwang.linkerscript",
-        "ban.spellright",
+        "ms-vscode.cpptools-extension-pack",
+        "streetsidesoftware.code-spell-checker",
         "xaver.clang-format",
-        "vadimcn.vscode-lldb"
+        "vadimcn.vscode-lldb",
+        "matepek.vscode-catch2-test-adapter",
+        "ms-vscode.live-server",
+        "bierner.markdown-preview-github-styles",
+        "bierner.markdown-emoji"
     ]
 }

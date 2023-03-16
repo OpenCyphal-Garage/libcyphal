@@ -1,9 +1,0 @@
-# Note that the cmake build will consume this for you if you have virtualenv
-# installed. If not you'll need to manually setup the correct python3 environment
-# and install these requirements.
-
-# libcyphal has a single python dependency although nunavut itself will
-# have one or more dependencies including (but not necessarily limited to)
-# pydsdl
-
-nunavut

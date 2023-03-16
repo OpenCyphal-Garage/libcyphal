@@ -1,17 +1,16 @@
-/*
- * Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
- * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- */
-/** @file
- * Contains types and C++ interfaces required to fully implement hardware interface
- * support for the media layer. See the @ref MediaDevGuide for more details.
- */
+/// @copyright Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
+/// @copyright Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+/// @file
+/// Contains types and C++ interfaces required to fully implement hardware interface
+/// support for the media layer. See the @ref MediaDevGuide for more details.
+/// @todo Integrate this file into libcyphal as needed
+/// @note This file is not currently being used but is in the process of being merged
 
-#ifndef LIBCYPHAL_TRANSPORT_MEDIA_INTERFACES_HPP_INCLUDED
-#define LIBCYPHAL_TRANSPORT_MEDIA_INTERFACES_HPP_INCLUDED
+#ifndef LIBCYPHAL_TRANSPORT_MEDIA_INTERFACES_HPP_UNUSED
+#define LIBCYPHAL_TRANSPORT_MEDIA_INTERFACES_HPP_UNUSED
 
-#include "libcyphal/libcyphal.hpp"
 #include "libcyphal/introspection.hpp"
+#include "libcyphal/libcyphal.hpp"
 #include "libcyphal/types/time.hpp"
 
 namespace libcyphal
@@ -26,7 +25,7 @@ namespace libcyphal
 namespace media
 {
 /**
- * Non-blocking connection to a Cyphal bus with isolated rx and tx queues. While libcyphal may share
+ * Non-blocking connection to a CAN bus with isolated rx and tx queues. While libcyphal may share
  * hardware peripherals with other components and/or processes for a given system a media layer interface
  * group object shall be the sole access to hardware connections to a bus for this library.
  *
@@ -248,4 +247,4 @@ public:
 }  // namespace media
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_TRANSPORT_MEDIA_INTERFACES_HPP_INCLUDED
+#endif  // LIBCYPHAL_TRANSPORT_MEDIA_INTERFACES_HPP_UNUSED

@@ -1,8 +1,8 @@
-// Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
-// Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
-
-// Concepts and requirements for exchanging time values between libcyphal, media
-// layer implementations, and applications.
+/// @copyright Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
+/// @copyright Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+/// @file
+/// Concepts and requirements for exchanging time values between libcyphal, media
+/// layer implementations, and applications.
 
 // This header specifies the concepts used by libcyphal when handling time scalars and vectors.
 // Applications may optionally choose to extend these concepts for their own use but shall always
@@ -10,56 +10,47 @@
 
 // <h3>Signed Integer Assumptions</h3>
 // Please note that libcyphal makes some assumptions that signed integers are represented as
-// twos compliment by a machine. You may experience undefined behavior if your architecture
+// twos compliment by a machine. You may experience undefined behaviour if your architecture
 // does not use twos compliment integers.
 
-#ifndef LIBCYPHAL_TYPES_TIME_HPP
-#define LIBCYPHAL_TYPES_TIME_HPP
+#ifndef LIBCYPHAL_TYPES_TIME_HPP_INCLUDED
+#define LIBCYPHAL_TYPES_TIME_HPP_INCLUDED
 
 #include <cstdint>
+#include <limits>
 #include "libcyphal/libcyphal.hpp"
 #include "libcyphal/util/math.hpp"
 
-namespace libcyphal {
-namespace types {
-/**
- * The default signed integer type used in libcyphal for signed microseconds (e.g. all duration types).
- */
+namespace libcyphal
+{
+/// The default signed integer type used in libcyphal for signed microseconds (e.g. all duration types).
 using DefaultMicrosecondSignedType = std::int64_t;
 
-/**
- * The default unsigned integer type used in libcyphal for unsigned microseconds (e.g. all time types).
- */
+/// The default unsigned integer type used in libcyphal for unsigned microseconds (e.g. all time types).
 using DefaultMicrosecondUnsignedType = std::uint64_t;
 
-/**
- * @namespace duration1`
- * Contains concepts and types that implement these concepts for time vector values.
- */
+/// @namespace duration
+/// Contains concepts and types that implement these concepts for time vector values.
 namespace duration
 {
-/**
- * Protected base class for duration values. This provides a common implementation for
- * various duration datatypes and enforces two concepts:
- *
- * -# duration math is saturating – MAX_DURATION + 1 == MAX_DURATION
- * -# durations are signed integers – By default 8 byte integers but USecT can be redefined by
- *    a specialization.
- *
- * @tparam Type          The type of the derived class. This must be an empty type.
- *                       All storage will be provided by this base class.
- * @tparam USecT         The datatype returned when retrieving durations from
- *                       realizations of this base class. This type must be signed.
- */
-template <typename Type, typename USecT = libcyphal::types::DefaultMicrosecondSignedType>
+/// Protected base class for duration values. This provides a common implementation for
+/// various duration datatypes and enforces two concepts:
+///
+/// -# duration math is saturing – MAX_DURATION + 1 == MAX_DURATION
+/// -# durations are signed integers – By default 8 byte integers but USecT can be redefined by
+///    a specialization.
+///
+/// @tparam Type          The type of the derived class. This must be an empty type.
+///                       All storage will be provided by this base class.
+/// @tparam USecT         The datatype returned when retrieving durations from
+///                       realizations of this base class. This type must be signed.
+template <typename Type, typename USecT = DefaultMicrosecondSignedType>
 class Base
 {
-    USecT usec_; /**< Internal storage of the duration value in microseconds. */
+    USecT usec_;  ///<! Internal storage of the duration value in microseconds.
 
 protected:
-    /**
-     * Non-virtual destructor.
-     */
+    /// Non-virtual destructor.
     ~Base() = default;
 
     Base()
@@ -72,12 +63,10 @@ protected:
 
     Base(const Base& rhs)
         : usec_(rhs.usec_)
-    {}
+    {
+    }
 
-    /**
-     * Move constructor takes value from rhs and
-     * resets rhs to 0.
-     */
+    /// Move constructor takes value from rhs and resets rhs to 0.
     Base(Base&& rhs)
         : usec_(rhs.usec_)
     {
@@ -85,27 +74,19 @@ protected:
     }
 
 public:
-    /**
-     * The underlying datatype for microsecond values. This must be signed for duration types.
-     */
+    /// The underlying datatype for microsecond values. This must be signed for duration types.
     using MicrosecondType = USecT;
 
-    /**
-     * The specialized type of this base duration type.
-     */
+    /// The specialized type of this base duration type.
     using DurationType = Type;
 
-    /**
-     * Get the largest possible number of microseconds this type can store.
-     */
+    /// Get the largest possible number of microseconds this type can store.
     static Type getMaximum()
     {
         return fromMicrosecond(std::numeric_limits<USecT>::max());
     }
 
-    /**
-     * Construct an instance of Type from a microsecond value.
-     */
+    /// Construct an instance of Type from a microsecond value.
     static Type fromMicrosecond(USecT us)
     {
         Type d;
@@ -113,17 +94,13 @@ public:
         return d;
     }
 
-    /**
-     * Obtain the underlying microsecond value without conversion.
-     */
+    /// Obtain the underlying microsecond value without conversion.
     USecT toMicrosecond() const
     {
         return usec_;
     }
 
-    /**
-     * Get the absolute value of the duration as a duration type.
-     */
+    /// Get the absolute value of the duration as a duration type.
     Type getAbs() const
     {
         return Type::fromMicrosecond(std::abs(usec_));
@@ -207,33 +184,31 @@ public:
     }
 };
 
-// A monotonic duration used by libcyphal.
-class LIBCYPHAL_EXPORT Monotonic : public Base<Monotonic> {};
+/// A monotonic duration used by libcyphal.
+class LIBCYPHAL_EXPORT Monotonic : public Base<Monotonic>
+{};
 
 }  // namespace duration
 
-/**
- * @namespace time
- * Contains concepts and types that implement these concepts for time scalar values.
- */
+/// @namespace time
+/// Contains concepts and types that implement these concepts for time scalar values.
 namespace time
 {
-/**
- * Protected base class for time values.
- *
- * @tparam Type          The type of the derived class. This must be an empty type.
- *                       All storage will be provided by this base class.
- * @tparam DType         The type of duration used for this time type. Time is concrete and duration
- *                       is relative.
- * @tparam USecT         The datatype returned when retrieving time from
- *                       realizations of this base class. This type must be unsigned.
- */
+/// Protected base class for time values.
+///
+/// @tparam Type          The type of the derived class. This must be an empty type.
+///                       All storage will be provided by this base class.
+/// @tparam DType         The type of duration used for this time type. Time is concrete and duration
+///                       is relative.
+/// @tparam USecT         The datatype returned when retrieving time from
+///                       realizations of this base class. This type must be unsigned.
 template <typename Type, typename DType, typename USecT = DefaultMicrosecondUnsignedType>
 class Base
 {
     USecT usec_;
 
-protected:
+    // protected:
+public:  // TODO
     ~Base() {}
 
     Base()
@@ -252,40 +227,30 @@ protected:
 
     Base(const Base& rhs)
         : usec_(rhs.usec_)
-    {}
+    {
+    }
 
-    /**
-     * Move constructor takes value from rhs and
-     * resets rhs to 0.
-     */
+    /// Move constructor takes value from rhs and resets rhs to 0.
     Base(Base&& rhs)
         : usec_(rhs.usec_)
     {
         rhs.usec_ = 0;
     }
 
-public:
-    /**
-     * The underlying datatype for microsecond values. This must be unsigned for time types.
-     */
+    // public:
+    /// The underlying datatype for microsecond values. This must be unsigned for time types.
     using MicrosecondType = USecT;
 
-    /**
-     * The specialized type of this base time type.
-     */
+    /// The specialized type of this base time type.
     using DurationType = DType;
 
-    /**
-     * Get the largest possible number of microseconds this type can store.
-     */
+    /// Get the largest possible number of microseconds this type can store.
     static Type getMaximum()
     {
         return fromMicrosecond(std::numeric_limits<USecT>::max());
     }
 
-    /**
-     * Construct an instance of Type from a microsecond value.
-     */
+    /// Construct an instance of Type from a microsecond value.
     static Type fromMicrosecond(USecT us)
     {
         Type t;
@@ -293,9 +258,7 @@ public:
         return t;
     }
 
-    /**
-     * Obtain the underlying microsecond value without conversion.
-     */
+    /// Obtain the underlying microsecond value without conversion.
     USecT toMicrosecond() const
     {
         return usec_;
@@ -367,18 +330,23 @@ public:
     }
 };
 
-// A monotonic time value used by libcyphal.
-class LIBCYPHAL_EXPORT Monotonic : public Base<Monotonic, duration::Monotonic> {};
+/// A monotonic time value used by libcyphal.
+class LIBCYPHAL_EXPORT Monotonic : public Base<Monotonic, duration::Monotonic>
+{};
 
-class Timer {
+class Timer
+{
 public:
     virtual Monotonic getTimeInUs() const = 0;
+
 protected:
     ~Timer() = default;
 };
 
+constexpr std::uint32_t Kilo = 1000;
+constexpr std::uint32_t Mega = (Kilo * Kilo);
+
 }  // namespace time
-}  // namespace types
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_TYPES_TIME_HPP
+#endif  // LIBCYPHAL_TYPES_TIME_HPP_INCLUDED
