@@ -1,17 +1,72 @@
 {
     "buildType": {
         "default": "debug",
-        "description": "Variant for libcyphal build kits.",
+        "description": "Variant for libCyphal test build kits.",
         "choices": {
             "debug": {
                 "short": "Debug",
-                "long": "Debug builds enable most of the introspection options by default (see libcyphal/introspection.hpp)",
-                "buildType": "Debug"
+                "long": "Debug builds, no optimizations.",
+                "buildType": "Debug",
+                "settings": {
+                    "CETL_ENABLE_DEBUG_ASSERT": true,
+                    "LIBCXX_ENABLE_ASSERTIONS": true,
+                    "LIBCYPHAL_INTROSPECTION_TRACE_ENABLE": true
+                }
+            },
+            "coverage": {
+                "short": "Coverage",
+                "long": "Coverage builds, no optimizations.",
+                "buildType": "Coverage"
             },
             "release": {
                 "short": "Release",
-                "long": "Release build disables all introspection by default (see libcyphal/introspection.hpp).",
+                "long": "Release builds, some optimizations",
                 "buildType": "Release"
+            }
+        }
+    },
+    "cppstd":{
+        "default": "14",
+        "choices": {
+            "14": {
+                "short": "--std=c++14",
+                "long": "Compile and link using the C++14 standard.",
+                "settings": {
+                    "CETLVAST_CPP_STANDARD": "14"
+                }
+            },
+            "17": {
+                "short": "--std=c++17",
+                "long": "Compile and link using the C++17 standard.",
+                "settings": {
+                    "CETLVAST_CPP_STANDARD": "17"
+                }
+            },
+            "20": {
+                "short": "--std=c++20",
+                "long": "Compile and link using the C++20 standard.",
+                "settings": {
+                    "CETLVAST_CPP_STANDARD": "20"
+                }
+            }
+        }
+    },
+    "exceptions":{
+        "default": "enabled",
+        "choices": {
+            "enabled": {
+                "short": "exceptions",
+                "long": "Compile with standard C++ exception handling.",
+                "settings": {
+                    "CETLVAST_DISABLE_CPP_EXCEPTIONS": false
+                }
+            },
+            "disabled": {
+                "short": "no-exceptions",
+                "long": "Disable C++ exceptions where the compiler supports this.",
+                "settings": {
+                    "CETLVAST_DISABLE_CPP_EXCEPTIONS": true
+                }
             }
         }
     }

@@ -1,0 +1,36 @@
+name: "libcyphal_test"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  verification:
+    runs-on: ubuntu-latest
+    container: ghcr.io/opencyphal/toolshed:ts22.4.3
+    strategy:
+      matrix:
+        toolchain: [gcc, clang]
+    steps:
+    - uses: actions/checkout@v3
+    - name: configure
+      run: >
+        mkdir build && cd build && cmake
+        -DCMAKE_BUILD_TYPE=Debug
+        -toolchainFile .devcontainer/cmake/toolchains/${{ matrix.toolchain }}-native.cmake
+        ..
+    - name: build
+      run: >
+        cd build && cmake
+        --build .
+        --target release
+    - name: upload-artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-${{ matrix.toolchain }}
+        path: |
+          build/compile_commands.json
+        if-no-files-found: error
+

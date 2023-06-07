@@ -1,18 +1,17 @@
-/*
- * Helpers for doing mathy things that aren't provided by the standard library.
- *
- * Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
- * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- */
-/** @file */
+/// @copyright Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
+/// @copyright Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+/// @file
+/// Helpers for doing mathy things that aren't provided by the standard library.
 
 #ifndef LIBCYPHAL_UTIL_MATH_HPP_INCLUDED
 #define LIBCYPHAL_UTIL_MATH_HPP_INCLUDED
 
-#include "libcyphal/libcyphal.hpp"
-#include <cstdlib>
 #include <cmath>
+#include <cstdlib>
+#include <limits>
+#include <type_traits>
 #include "libcyphal/introspection.hpp"
+#include "libcyphal/libcyphal.hpp"
 
 namespace libcyphal
 {

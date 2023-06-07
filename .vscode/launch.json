@@ -1,32 +1,17 @@
 {
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        {
-            "name": "(gdb) Launch",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/test/build/tests/linux/example/media_on_linux",
-            "args": ["--device", "vcan0"],
-            "stopAtEntry": true,
-            "cwd": "${workspaceFolder}/test/build",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": false
-                }
-            ]
-        },
-        {
-            "type": "lldb",
-            "name": "(lldb) Launch",
-            "request": "launch",
-            "program": "${workspaceFolder}/test/build/tests/test_util_math",
-            "args": ["--gtest_filter=SaturatedMathTest/* MixedTypeMathParams<unsigned, signed>.SaturatingSubMaxMax"],
-            "cwd": "${workspaceFolder}"
-        }
+    {
+        "type": "lldb",
+        "request": "launch",
+        "name": "Launch",
+        "program": "${workspaceFolder}/build/demonstration/linux/libcyphal_demo_posix",
+        "args": [],
+        "cwd": "${workspaceFolder}",
+        "initCommands": ["settings set target.process.thread.step-avoid-regexp \"\""]
+    }
     ]
 }

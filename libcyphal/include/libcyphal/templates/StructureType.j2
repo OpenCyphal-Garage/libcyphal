@@ -1,0 +1,17 @@
+{% extends "Header.j2" %}
+{% block object %}
+
+struct {{ T.short_name }}
+{
+{%- for constant in T.constants %}
+    static constexpr {{ constant.data_type | c.type_from_primitive }} {{ constant.name }} = {{ constant.value.native_value.numerator }} / {{ constant.value.native_value.denominator }};
+{%- endfor %}
+{% for field in T.fields -%}
+{% if field.data_type is primitive %}
+    {{ field.data_type | c.type_from_primitive }} {{ field.name }};
+{%- endif %}
+{%- endfor %}
+
+};
+
+{% endblock %}

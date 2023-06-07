@@ -1,26 +1,24 @@
 {
-    "name": "linux development environment",
-    "dockerFile": "native.Dockerfile",
+    "name": "linux development environment for libcyphal",
+    "image": "ghcr.io/opencyphal/toolshed:ts22.4.3",
     "customizations": {
         "vscode": {
             "extensions": [
-                "ms-vscode.cpptools",
-                "twxs.cmake",
-                "uavcan.dsdl",
-                "ms-vscode.cmake-tools",
-                "zixuanwang.linkerscript",
-                "ban.spellright",
-                "xaver.clang-format"
+                "ms-vscode.cpptools-extension-pack",
+                "streetsidesoftware.code-spell-checker",
+                "xaver.clang-format",
+                "vadimcn.vscode-lldb",
+                "matepek.vscode-catch2-test-adapter",
+                "ms-vscode.live-server",
+                "bierner.markdown-preview-github-styles",
+                "bierner.markdown-emoji"
             ]
         }
     },
-
     "workspaceFolder": "/repo",
     "workspaceMount": "source=${localWorkspaceFolder},target=/repo,type=bind,consistency=delegated",
     "mounts": [
-        "source=root-vscode-server,target=/root/.vscode-server/extensions,type=volume",
-        "source=cmake,target=/repo/test/build_vscode,type=volume"
-    ],
-    "forwardPorts": [9382],
-    "postCreateCommand": "git submodule update --init --recursive"
+        "source=profile-libcyphal,target=/root,type=volume",
+        "target=/root/.vscode-server,type=volume"
+    ]
 }

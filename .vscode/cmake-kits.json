@@ -1,52 +1,18 @@
 [
     {
-        "name": "native-gcc",
-        "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/gcc-native.cmake",
+        "name": "toolshed-gcc",
+        "description": "Compile and run tests using the toolshed's default gcc toolchain.",
+        "toolchainFile": "${workspaceFolder}/.devcontainer/cmake/toolchains/gcc-native.cmake",
         "cmakeSettings": {
-            "LIBCYPHAL_FLAG_SET": "${workspaceFolder}/test/cmake/compiler_flag_sets/native.cmake",
-            "LIBCYPHAL_ENABLE_COVERAGE": "OFF"
+            "CETLVAST_FLAG_SET": "${workspaceFolder}/cmake/compiler_flag_sets/default.cmake"
         }
     },
     {
-        "name": "native-gcc-w-cov",
-        "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/gcc-native.cmake",
+        "name": "toolshed-clang",
+        "description": "Compile and run tests using the toolshed's default clang toolchain.",
+        "toolchainFile": "${workspaceFolder}/.devcontainer/cmake/toolchains/clang-native.cmake",
         "cmakeSettings": {
-            "LIBCYPHAL_FLAG_SET": "${workspaceFolder}/test/cmake/compiler_flag_sets/native.cmake",
-            "LIBCYPHAL_ENABLE_COVERAGE": "ON"
-        }
-    },
-    {
-        "name": "native-clang",
-        "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/clang-native.cmake",
-        "cmakeSettings": {
-            "LIBCYPHAL_FLAG_SET": "${workspaceFolder}/test/cmake/compiler_flag_sets/native.cmake",
-            "LIBCYPHAL_ENABLE_COVERAGE": "OFF"
-        }
-    },
-    {
-        "name": "native-clang-w-cov",
-        "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/clang-native.cmake",
-        "cmakeSettings": {
-            "LIBCYPHAL_FLAG_SET": "${workspaceFolder}/test/cmake/compiler_flag_sets/native.cmake",
-            "LIBCYPHAL_ENABLE_COVERAGE": "ON"
-        }
-    },
-    {
-        "name": "linux-clang",
-        "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/clang-native.cmake",
-        "cmakeSettings": {
-            "LIBCYPHAL_FLAG_SET": "${workspaceFolder}/test/cmake/compiler_flag_sets/native.cmake",
-            "LIBCYPHAL_TESTBUILD": "${workspaceFolder}/test/linux/tests.cmake",
-            "LIBCYPHAL_ENABLE_COVERAGE": "OFF"
-        }
-    },
-    {
-        "name": "linux-gcc",
-        "toolchainFile": "${workspaceFolder}/test/cmake/toolchains/gcc-native.cmake",
-        "cmakeSettings": {
-            "LIBCYPHAL_FLAG_SET": "${workspaceFolder}/test/cmake/compiler_flag_sets/native.cmake",
-            "LIBCYPHAL_TESTBUILD": "${workspaceFolder}/test/linux/tests.cmake",
-            "LIBCYPHAL_ENABLE_COVERAGE": "OFF"
+            "CETLVAST_FLAG_SET": "${workspaceFolder}/cmake/compiler_flag_sets/default.cmake"
         }
     }
 ]

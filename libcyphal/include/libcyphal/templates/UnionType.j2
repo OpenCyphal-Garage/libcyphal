@@ -1,0 +1,14 @@
+{% extends "Header.j2" %}
+{% block object %}
+
+class {{ T.short_name }}
+{
+{% for attribute in T.attributes %}
+  // {{ attribute }}
+{% endfor %}
+{% for field in T.fields %}
+  // {{ field }}
+{% endfor %}
+};
+
+{% endblock %}

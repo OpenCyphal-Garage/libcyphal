@@ -1,24 +1,18 @@
 # Libcyphal v1.0 contributor guidelines
 
-v1.0 is a complete rewrite of libcyphal with the following, fundamental changes from v0:
-
-1. libcyphal v1 is based on the [Cyphal v1 specification](https:/opencyphal.org).
-2. libcyphal v1 requires C++14 or greater.
-3. libcyphal v1 favors idiomatic C++ over defining its own utilities and helpers.
-4. libcyphal v1 is a header-only library.
-5. libcyphal v1 holds itself to a higher quality standard and is designed for integration into high-integrity, embedded applications.
-
 ## Design goals
 
-Libcyphal's design goals should be mutually compatible. There is no expectation that any significant compromises are needed to achieve all goals given that the architecture should support making trade-offs at compile-time based on a user's build settings.
+As much as is reasonable, libcyphal mirrors [pycyphal](https://pycyphal.readthedocs.io/en/stable/pages/architecture.html) in the design of its APIs but its runtime is quite different. Specifically, where pycyphal makes excellent use of coroutines libcyphal does not require any specific execution model. Software utilizing coroutines, threads, super-loops, and even parallel execution models should all find libcyphal equally useful. This is achieved by an extreme lack of opinion on the matter by the implementation. For example, threading primitives are not used intrinsically but concurrency concerns are considered and documented. Coroutines are not required but providing flexibility in how and when functions are executed is built-in to the design. Finally, demonstrations ~~are~~ *will be* provided for some of these execution models to prove and illustrate this design tenet.
+
+More abstractly, libcyphal's design goals should be mutually compatible. There is no expectation that any significant compromises are needed to achieve all goals given that the architecture should support making trade-offs at compile-time based on a user's build settings.
 
 * **Full-Featured**
 
     This library provides a complete implementation of the specification including some of the application-level functions defined in section 5.3 of the specification.
 
-* **Header-only, no dependencies, idiomatic**
+* **Header-only, minimal dependencies, idiomatic**
 
-    Libcyphal is provided as C++14 headers with no external dependencies. The headers do not impose styles or conventions on the user and make the maximum use of C++ templates to allow type flexibility when no specific type is optimal.
+    Libcyphal is provided as C++14 headers with external dependencies limited to sister, OpenCyphal projects like CETL, nunavut, libcanard, and libudpard. Any generic types or utilities are taken from the C++ standard library or CETL and every effort is made to minimize the need to use libcyphal itself outside of the messaging layers of a dependant program.
 
 * **Deterministic by default**
 
@@ -26,10 +20,15 @@ Libcyphal's design goals should be mutually compatible. There is no expectation 
 
 * **Portable**
 
-  * The library should not present any specific requirements to the underlying hardware or OS, and it must be coded in standard C++14 and be immediately forward compatible to at least C++20 while minimizing use of any deprecated constructs that may limit its compatibility with future versions of C++.
+  * The library should not present any specific requirements to the underlying hardware or OS, it must be coded in standard C++14, and must be immediately forward compatible to at least C++20 while minimizing use of any deprecated constructs that may limit its compatibility with future versions of C++.
   * The library should make conservative use of C++ with an eye towards compatibility with coding standards like [Autosar](https://www.autosar.org/fileadmin/user_upload/standards/adaptive/17-03/AUTOSAR_RS_CPP14Guidelines.pdf), HIC++, and the [ISOCpp Core Guidelines](http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines).
-  * The library must build on as many different, standards-compliant, C++ compilers as is reasonable. At the time of this writing this includes gcc and clang.
-  * The library must build for as many different architectures as is reasonable. At the time of this writing this includes arm, arm64, x86, and x86_64.
+
+    > :orange_book: **NOTE**
+    >
+    > The use of templates is a contentious one in the field of high-criticality C++ as it is difficult to demonstrate appropriate test coverage of meta-code for a given target system. A possible compromise shall be explored where LLVM is extended to provide a template instantiation phase, somewhat like a code generator, that would yield concrete C++ source derived from the use of libcyphal and C++ standard library templates and the input to object file compilation. This future research may be part of libcyphal or may be provided by the CETL project which libcyphal utilizes.
+
+  * The library must build on as many different, standards-compliant, C++ compilers as is reasonable. At the time of this writing this includes gcc, clang, and MSVC.
+  * The library must build for as many different architectures as is reasonable. At the time of this writing this includes arm, arm64, x86, x86_64, and risc V.
 
 * **Powerful and Flexible**
 
@@ -43,128 +42,129 @@ Libcyphal's design goals should be mutually compatible. There is no expectation 
 
     The library should allow sequential adoption of its four layers: platform, media, transport, and application such that users can implement and test each layer in that sequence. The headers should allow compilers to elide the maximum amount of unused code such that the actual cost of the library in ROM is smaller when using fewer application features.
 
+    The transport layer of libcyphal is implemented by "the 'ards"; libcanard for CAN, libudpard for UDP, libserard for serial, etc. Ards are C implementations that provide the smallest possible amount of code needed to create a Cyphal end system. Libcyphal builds on top of these to provide the code needed to support most, if not all, of the features defined by the Cyphal specification. Because of this, and in keeping with the modular design tenet, any user that has a functional 'ard should be able to utilize it along with their existing media layer (the layer below the 'ard's transport layer) underneath libcyphal presentation layer objects.
+
 ## Documentation
 
 * [OpenCyphal website](http://opencyphal.org)
 * [OpenCyphal forum](https://forum.opencyphal.org)
 
-## Architecture
+# Developer Environment
 
-### High Level
+## Folder Structure
 
-The architecture of v1 is composed of three primary layers and one portability layer:
+```
++ build*/                   <-- reserved (and git-ignored) for build output.
+|
++ cmake/                    <-- cmake build system stuff common to all sub-directories.
+|
++ demonstration/            <-- fully functional applications to demonstrate use of
+|                               libcyphal on various target systems.
+|
++ docs/                     <-- doxygen and example code source
+|   + CMakeLists.txt        <-- doxygen and example code build
+|   + examples/             <-- Example code to include in doxygen (also built to verify
+|                               its validity)
+|
++ external/                 <-- external project mount-point. Sub-folders are not
+|                               included in git history.
+|
++ libcyphal/
+|   + CMakeLists.txt        <-- builds a cmake module to support inclusion as an
+|                               ExternalProject. Also supports building various
+|                               release formats.
+|   + include/              <-- where the magic happens!
+|   + validation/           <-- parametrized googletest tests for building a
+|                               platform-specific validation suite for libcyphal.
+|
+| test/
+|   + unittest/             <-- googletest unit tests of libcyphal code.
+|   + compile/              <-- compile-time tests of libcyphal code.
+|
++ .github/                  <-- github actions CI
++ .devcontainer/            <-- vscode/github developer container integration
+|                               (OpenCyphal toolshed image)
++ .vscode/                  <-- common vscode development settings
+```
 
-![libcyphal v1 block diagram](doc_source/images/html/block_diagram.png)
 
-#### Util(ity)
+### Demonstrations
 
-Because of the design goal to provide "idiomatic C++," utilities used throughout the library should be minimal and non-trivial (i.e. avoid syntactic sugar). This layer shall contain purely logical constructs and *shall not* contain any abstract objects or anything requiring porting to a given platform. Ideally utilities are used only by libcyphal internals allowing users to write their own syntactic sugar using idioms natural to their codebase.
+This is a list that will move to an external project and road-map at some point. We capture it here and now to help guide the design of the project when anticipating possible use cases by end-systems. While most of this list is speculative, `linux-posix` will be the first demonstration developed and will be completed along with the first release of libcyphal.
 
-#### Platform
+```
++ demonstration/            <-- Platform-specific demonstration software. In the future
+|   |                           this will be external and will stay in the garage. We'll
+|   |                           keep it here for now to accelerate development.
+|   |
+|   + linux-posix/          <-- Demonstrates using libcyphal in a single, multi-threaded
+|   |                           linux application.
+|   |   + CMakeLists.txt
+|   |   + validation/       <-- reification of libcyphal/validation for linux
+|   |
+|   + linux-coroutine/      <-- Demonstrates using libcyphal with C++20 coroutines.
+|   |   + CMakeLists.txt
+|   |
+|   + linux-amp/            <-- Demonstrates using libcyphal on a multi-core system using
+|   |                           openAMP to coordinate work between cores.
+|   |   + CMakeLists.txt
+|   |
+|   + mac/                  <-- Love to have this. not sure what the priority is though.
+|   |   + CMakeLists.txt
+|   |   + validation/       <-- reification of libcyphal/validation for mac
+|   |
+|   + windows/              <-- contributions welcome!
+|   |   + CMakeLists.txt
+|   |   + validation/       <-- reification of libcyphal/validation for windows
+|   |
+|   + freeRTOS/             <-- at some point this is important given how many MCUs it
+|   |                           unlocks.
+|   |   + CMakeLists.txt
+|   |
+|   + [on-metal]/           <-- TDB bare-metal firmware demonstration to show that
+|   |                           libcyphal works on a resource-constrained target without
+|   |                           preemption.
+|   |   + CMakeLists.txt
+|   |   + validation/       <-- reification of libcyphal/validation for [TBD]
+|   |
+|   + [other]/ contributions welcome!
+|       + CMakeLists.txt
+|       + validation/       <-- reification of libcyphal/validation for [other]
+|
 
-This layer must remain as minimal as possible ideally being implemented solely using C++ standard library functionality. This layer contains the objects and types used by all other layers when accessing system resources like memory, threads, or filesystems. Additionally this layer provides abstractions where architectural optimizations may be available for some conceivable target platform. For example, were the library to use memory in a way that could be optimized using SIMD instructions this layer would provide an abstraction such that SIMD optimizations could be enabled for an operation while providing a fallback where the optimization is not provided or is not available.
+```
 
-#### Media
+ ## CETL
 
-*(In V0 this was known as the "driver" layer)* The media layer provides an abstraction on top of networking peripherals. It is distinct from the platform layer since this is a networking protocol that should make minimal, direct use of the underlying platform.
+[CETL](https://github.com/OpenCyphal/CETL) is a primary dependency of libcyphal along with the "args" (e.g. libudpard, libcanard, etc) but CETL is both a runtime and build time dependency. At build time, libcyphal uses the CETLVaSt (CETL Verification Suite) cmake modules and CETL's verify.py cli to build its own verification suites and to integrate with CI services in a similar manner to CETL.
 
-#### Transport
+## ![visual-studio code](.vscode/vscode-alt.svg#gh-dark-mode-only) ![visual-studio code](.vscode/vscode.svg#gh-light-mode-only)
+We support the vscode IDE using
+[cmake](https://github.com/microsoft/vscode-cmake-tools/blob/main/docs/README.md) and
+[development containers](https://containers.dev/). Simply clone libcyphal, open the
+repo in vscode and do "reopen in container" to automatically pull and relaunch
+vscode in the provided devcontainer.
 
-The OSI layer 4 implementation of Cyphal per section 4 of the specification. Uses types and serialization support provided by [Nunavut](https://github.com/OpenCyphal/nunavut). Note that this is where the "node" objects will be mapped to.
+## Command-Line Workflow
 
-#### Application
+If you don't want to use vscode you can pull our [Toolshed devcontainer](https://github.com/OpenCyphal/docker_toolchains/pkgs/container/toolshed)
+and manually run it.
 
-Implementation of section 5 "Application" of the Cyphal specification.
-
-
-### Threading model
-
-The library should be single-threaded, not thread-aware.
-Hence the API will be not thread-safe, which is OK as most applications will likely be running all of the Cyphal-related logic in one thread.
-
-The documentation should provide advices about how to integrate the library in a multithreaded environment.
-
-### Endianess
-
-Cyphal is little-endian on the wire. Because of this big-endian platforms may use more CPU than the same code on a little-endian platform.
-
-### Code generation
-
-All code generation is performed by [Nunavut](https://github.com/OpenCyphal/nunavut).
-
-### Folder Structure
-
-**/libcyphal/include** - Contains the entire header-only libcyphal library.
-
-**/libcyphal_validation_suite** – Test utilities provided to consumers of the library. These are public test fixtures and should be documented, maintained, and designed with the same care given to the rest of the library.
-
-**/test/cmake** - A CMake meta-build system used to verify libcyphal. This is *not* a generalized build system provided for the library. *Libcyphal does not come with a build-system* as it is header-only and has minimal opinions about how it should be built.
-
-**/test/native** - Unit-tests that validate the libcyphal library. These tests compile and execute using the build host's native environment. They also do not require any communication interfaces, virtual or otherwise, from the operating system and have no timing constraints.
-
-**/test/ontarget** - Tests cross-compiled for specific hardware* and run on a set of dedicated test devices. These tests may have strict timing constraints and may require specific physical or virtual busses and other test apparatuses be present. Each on-target test will fully document its requirements to enable anyone with access to the appropriate hardware to reproduce the tests. Furthermore, these tests must be inherently automateable having clear pass/fail criteria reducible to a boolean condition.
-
-**/test/compile** – Tests that run in the compiler. Most of these will be tests that pass if they fail to compile. For example, some tests will purposefully define template parameters that will cause static_asserts to fail. Tests that pass if they do compile are less interesting here since such happy paths are normally covered by unit-tests.
-
-**/test/linux** - Tests that run on SocketCAN/Linux. These are provided partially as examples and partially to prove the library functions on a real platform.
-
-### Test Environments
-
-The following list of standardized* test environments will be used to validate the libcyphal implementation**:
-
-1. **Posix** - We will produce examples that can run on top of SocketCAN on a recent version of an Ubuntu-based distro. While we expect that these examples will be generally compatible with other common GNU/Linux distros or POSIX compliant operating systems (that also support SocketCAN) we will compile and test the examples using Ubuntu as part of our CI build.
-1. **Bare-metal on NXP S32K344** - The S32K344 provides a modern MCU with both Ethernet and CAN-FD support. While libcyphal should fit on smaller targets this is an ideal platform for developing and debugging.
-
-> \* Libcyphal is a header only library suitable for a wide range of processors and operating systems. The targets and test environments mentioned here are chosen only as standardized test fixtures and are not considered more "supported" or "optimal" than any other platform.
-
-## Library development
-
-**Libcyphal development should be test-driven. Write the tests first.**
-
-**Libcyphal source should be fluent. Comment everything in plain prose, build the docs with each change, read the docs to make sure your comments make sense.**
-
-Despite the fact that the library itself can be used on virtually any platform that has a standard-compliant
-C++14 compiler, the library development process assumes that the host OS is Linux or OSX.
-
-### Prerequisites
-
-We do provide toolchains-as-docker-containers (see next section) but if you want to support building and running the tests without docker you can install the following prerequisites on your development system:
-
-* C++14 capable compiler (e.g. GCC, Clang)
-* CMake 3.16+
-* clang-format
-* clang-tidy
-* python3
-* GNU make 4.1+
-
-> *note* The first time you run cmake .. you will need an internet connection. The cmake build will cache all external dependencies in an `ext` folder for each build target and flavor. Subsequent builds can be performed offline.
-
-Building the debug version and running the unit tests:
-
-```bash
-cd test
+### TLDR
+```
+docker pull ghcr.io/opencyphal/toolshed:ts22.4.3
+git clone {this repo}
+cd {this repo}
+docker run --rm -it -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.3
 mkdir build
 cd build
 cmake ..
-make -j8
-make ARGS=-VV test
+cmake --build .
 ```
 
-### Toolchains
-
-We provide docker-based toolchains. If you want to use this locally either to verify that the CI build will succeed or just to avoid manually installing and maintaining the above dependencies then you can do:
-
-```bash
-docker pull uavcan/c_cpp:ubuntu-20.04
-
-docker run --rm -v ${PWD}:/repo uavcan/c_cpp:ubuntu-20.04 /bin/sh -c "cd /repo && /repo/test/ci/verify.py -v configure"
-```
-
-To launch into an interactive shell in the container do:
-
-```bash
-docker run --rm -it -v ${PWD}:/repo uavcan/c_cpp:ubuntu-20.04
-```
+> :orange_book: **NOTE**
+>
+> While cmake isn't required to use libcyphal it will be supported as a first-class way to consume the library including full support for `cmake --install` and for using the libcyphal repository as a cmake external project.
 
 ### Standards
 
@@ -173,6 +173,30 @@ Please adhere to [Autosar C++ guidelines](https://www.autosar.org/fileadmin/user
 ### Style
 
 Contributors, please follow the [Zubax C++ Coding Conventions](https://kb.zubax.com/x/84Ah) and always use `clang-format` when authoring or modifying files (the build scripts will enforce but not apply the rules in .clang-format).
+
+### Pull-Request Checklist
+
+Reviewers, please check the following items when reviewing a pull-request:
+
+> **NOTE:** This is just the start of this checklist. Expect it to grow and get refined as this project matures.
+
+1. **correctness**
+    * Is the code correct.
+2. **clarity**
+    * Is the code easily understood?
+    * It is overly complex?
+3. **test coverage**
+    * Were tests written to cover the changes?
+4. **test effectiveness and correctness**
+    * Are the tests good tests that provide some guarantee that the logic is, and will remain, correct?
+5. **documentation**
+    * Is the code properly documented?
+    * Are there changes needed to auxillary documentation that is missing?
+    * Are there good examples for how to use the code?
+6. **design**
+    * Is the code maintainable?
+    * Are the tests maintainable?
+    * Is the code in the right namespace/class/function?
 
 
 ## CAN bus Physical Layer Notes
