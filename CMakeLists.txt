@@ -67,6 +67,15 @@ add_custom_target(
         docs
 )
 
+# Don't normalize deviance: if CMAKE_TOOLCHAIN_FILE is not set then provide
+# an initalized default to display in the status thus avoiding a warning about
+# using an uninitialized variable.
+if (NOT CMAKE_TOOLCHAIN_FILE)
+    set(LOCAL_CMAKE_TOOLCHAIN_FILE "(not set)")
+else()
+    set(LOCAL_CMAKE_TOOLCHAIN_FILE ${CMAKE_TOOLCHAIN_FILE})
+endif()
+
 message(STATUS "-------------------------------------------------------------------\n\
 | ${CMAKE_PROJECT_NAME}
 -- -------------------------------------------------------------------\n\
@@ -86,7 +95,7 @@ message(STATUS "----------------------------------------------------------------
     CMAKE_MESSAGE_LOG_LEVEL:                ${CMAKE_MESSAGE_LOG_LEVEL}\n\
     CMAKE_INSTALL_PREFIX:                   ${CMAKE_INSTALL_PREFIX}\n\
     CMAKE_BUILD_TYPE:                       ${CMAKE_BUILD_TYPE}\n\
-    CMAKE_TOOLCHAIN_FILE:                   ${CMAKE_TOOLCHAIN_FILE}\n\
+    CMAKE_TOOLCHAIN_FILE:                   ${LOCAL_CMAKE_TOOLCHAIN_FILE}\n\
 \n\
 CETL
     CETL_ENABLE_DEBUG_ASSERT:               ${CETL_ENABLE_DEBUG_ASSERT}\n\
