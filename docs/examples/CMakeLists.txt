@@ -88,7 +88,7 @@ foreach(NATIVE_EXAMPLE ${NATIVE_EXAMPLES})
     if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
         define_gcovr_tracefile_target(
             TARGET ${LOCAL_TEST_TARGET}
-            ROOT_DIRECTORY ${CETL_ROOT}
+            ROOT_DIRECTORY ${LIBCYPHAL_ROOT}
             TARGET_EXECUTION_DEPENDS ${LOCAL_TEST_REPORT}
             OBJECT_LIBRARY ${LOCAL_TEST_LIB}
             EXCLUDE_TEST_FRAMEWORKS
@@ -115,7 +115,3 @@ add_custom_target(
 set_directory_properties(PROPERTIES
     IN_BUILD_TESTS "${ALL_EXAMPLE_RUNS}"
 )
-
-if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    enable_html_report()
-endif()

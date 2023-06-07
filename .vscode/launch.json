@@ -4,14 +4,17 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-    {
-        "type": "lldb",
-        "request": "launch",
-        "name": "Launch",
-        "program": "${workspaceFolder}/build/demonstration/linux/libcyphal_demo_posix",
-        "args": [],
-        "cwd": "${workspaceFolder}",
-        "initCommands": ["settings set target.process.thread.step-avoid-regexp \"\""]
-    }
+        {
+            "type": "lldb",
+            "request": "launch",
+            "program": "${command:cmake.launchTargetPath}",
+            "name": "Launch",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "initCommands": ["settings set target.process.thread.step-avoid-regexp \"\""],
+            "env": {
+                "PATH": "$PATH:${command:cmake.launchTargetDirectory}",
+            },
+        }
     ]
 }

@@ -47,7 +47,8 @@
         "udpard",
         "snippit",
         "DFETCHCONTENT_FULLY_DISCONNECTED",
-        "bitspan"
+        "bitspan",
+        "uavcan"
     ],
     "cmake.configureArgs": [
         "--warn-uninitialized"
