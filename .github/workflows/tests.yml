@@ -12,25 +12,67 @@ jobs:
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
     strategy:
       matrix:
+        flavor: [Release, Debug]
         toolchain: [gcc, clang]
     steps:
     - uses: actions/checkout@v3
-    - name: configure
+    - name: Cache ext modules
+      id: libcyphal-ext
+      uses: actions/cache@v3
+      env:
+        cache-name: libcyphal-ext-cache
+      with:
+        path: external
+        key: ${{ runner.os }}-${{ hashFiles('cmake/modules/*.cmake') }}
+    - name: release
       run: >
-        mkdir build && cd build && cmake
-        -DCMAKE_BUILD_TYPE=Debug
-        -toolchainFile .devcontainer/cmake/toolchains/${{ matrix.toolchain }}-native.cmake
-        ..
-    - name: build
+        ./build-tools/bin/verify.py
+        --verbose
+        --asserts
+        --online
+        --cpp-standard 14
+        --test-suite-dir .
+        --ext-dir external
+        --build-flavor {{ matrix.flavor }}
+        --toolchain {{ matrix.toolchain }}
+        build-unittest
+  docs:
+    runs-on: ubuntu-latest
+    container: ghcr.io/opencyphal/toolshed:ts22.4.3
+    steps:
+    - uses: actions/checkout@v3
+    - name: Cache ext modules
+      id: libcyphal-ext
+      uses: actions/cache@v3
+      env:
+        cache-name: libcyphal-ext-cache
+      with:
+        path: external
+        key: ${{ runner.os }}-${{ hashFiles('cmake/modules/*.cmake') }}
+    - name: doc-gen
       run: >
-        cd build && cmake
-        --build .
-        --target release
-    - name: upload-artifacts
+        ./build-tools/bin/verify.py
+        --verbose
+        --asserts
+        --online
+        --cpp-standard 14
+        --test-suite-dir .
+        --ext-dir external
+        --build-flavor Debug
+        build-docs
+    - name: Setup Pages
+      if: ${{ github.event_name != 'pull_request' }}
+      uses: actions/configure-pages@v3
+    - name: Upload docs
+      if: ${{ github.event_name != 'pull_request' }}
+      uses: actions/upload-pages-artifact@v1
+      with:
+        path: "build/docs/html/"
+    - name: upload-pr-docs
+      if: ${{ github.event_name == 'pull_request' }}
       uses: actions/upload-artifact@v3
       with:
-        name: build-${{ matrix.toolchain }}
-        path: |
-          build/compile_commands.json
+        name: pr-docs
+        path: "build/docs/html/"
         if-no-files-found: error
 

@@ -46,7 +46,8 @@
         "canfd",
         "udpard",
         "snippit",
-        "DFETCHCONTENT_FULLY_DISCONNECTED"
+        "DFETCHCONTENT_FULLY_DISCONNECTED",
+        "bitspan"
     ],
     "cmake.configureArgs": [
         "--warn-uninitialized"
