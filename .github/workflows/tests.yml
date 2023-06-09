@@ -21,7 +21,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         if: ${{ github.event_name != 'act' }}
-      - name: release
+      - name: get_nunavut
+        # TODO: setup a venv, cache, and distribute to the other jobs.
+        run: >
+          pip install nunavut
+      - name: configure
         run: >
           ./build-tools/bin/verify.py
           --verbose
