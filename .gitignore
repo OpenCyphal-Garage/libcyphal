@@ -1,6 +1,5 @@
 
 clang-format-diff-warnings
 build
-build_*
 external/**/*
 .DS_Store
