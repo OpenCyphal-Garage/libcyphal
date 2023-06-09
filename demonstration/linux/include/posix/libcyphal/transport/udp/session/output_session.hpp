@@ -47,6 +47,7 @@ public:
         {
             int result = close(socket_fd_);
             assert(result != ip::v4::SocketFunctionError);
+            (void)result;
             socket_fd_ = ip::v4::ClosedSocket;
         }
     }
