@@ -9,7 +9,9 @@ on:
 jobs:
   verification:
     runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts22.4.3
+    container:
+      image: ghcr.io/opencyphal/toolshed:ts22.4.3
+      options: --forcePull=false
     strategy:
       matrix:
         flavor: [Release, Debug]
@@ -31,8 +33,8 @@ jobs:
         --asserts
         --online
         --cpp-standard 14
-        --build-flavor {{ matrix.flavor }}
-        --toolchain {{ matrix.toolchain }}
+        --build-flavor ${{ matrix.flavor }}
+        --toolchain ${{ matrix.toolchain }}
         release
   docs:
     runs-on: ubuntu-latest
@@ -57,15 +59,15 @@ jobs:
         --build-flavor Debug
         build-docs
     - name: Setup Pages
-      if: ${{ github.event_name != 'pull_request' }}
+      if: ${{ github.event_name != 'pull_request' && !github.event.act }}
       uses: actions/configure-pages@v3
     - name: Upload docs
-      if: ${{ github.event_name != 'pull_request' }}
+      if: ${{ github.event_name != 'pull_request' && !github.event.act }}
       uses: actions/upload-pages-artifact@v1
       with:
         path: "build/docs/html/"
     - name: upload-pr-docs
-      if: ${{ github.event_name == 'pull_request' }}
+      if: ${{ github.event_name == 'pull_request' && !github.event.act }}
       uses: actions/upload-artifact@v3
       with:
         name: pr-docs
