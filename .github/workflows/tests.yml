@@ -31,11 +31,9 @@ jobs:
         --asserts
         --online
         --cpp-standard 14
-        --test-suite-dir .
-        --ext-dir external
         --build-flavor {{ matrix.flavor }}
         --toolchain {{ matrix.toolchain }}
-        build-unittest
+        release
   docs:
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
@@ -56,8 +54,6 @@ jobs:
         --asserts
         --online
         --cpp-standard 14
-        --test-suite-dir .
-        --ext-dir external
         --build-flavor Debug
         build-docs
     - name: Setup Pages
