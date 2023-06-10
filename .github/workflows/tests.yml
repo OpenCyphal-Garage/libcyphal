@@ -6,31 +6,115 @@ on:
   pull_request:
     branches: [ "main" ]
 
+# To test use https://github.com/nektos/act and specify the event as "act"
+# For example:
+#
+#           act act -j verifiation --bind --reuse
+#
+# That command will run the verification job locally and bind the current directory
+# into the container (You'll probably need to delete any existing build directory
+# before running act).
 jobs:
+  warmup:
+    runs-on: ubuntu-latest
+    container: ghcr.io/opencyphal/toolshed:ts22.4.3
+    steps:
+      - uses: actions/checkout@v3
+        if: ${{ github.event_name != 'act' }}
+      - name: Cache ext modules
+        if: ${{ github.event_name != 'act' }}
+        id: libcyphal-ext
+        uses: actions/cache@v3
+        env:
+          cache-name: libcyphal-ext-cache
+        with:
+          path: external
+          key: ${{ runner.os }}-${{ hashFiles('cmake/modules/*.cmake') }}
+      - name: get nunavut
+        # TODO: setup a venv, cache, and distribute to the other jobs.
+        run: >
+          pip install nunavut
+      - name: configure
+        run: >
+          ./build-tools/bin/verify.py
+          --verbose
+          --asserts
+          --online
+          --cpp-standard 14
+          --build-flavor Debug
+          clean-configure
   verification:
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
+    needs: [warmup]
     strategy:
       matrix:
+        flavor: [Release, Debug]
         toolchain: [gcc, clang]
     steps:
     - uses: actions/checkout@v3
-    - name: configure
+      if: ${{ github.event_name != 'act' }}
+    - name: Cache ext modules
+      if: ${{ github.event_name != 'act' }}
+      id: libcyphal-ext
+      uses: actions/cache@v3
+      env:
+        cache-name: libcyphal-ext-cache
+      with:
+        path: external
+        key: ${{ runner.os }}-${{ hashFiles('cmake/modules/*.cmake') }}
+    - name: get nunavut
       run: >
-        mkdir build && cd build && cmake
-        -DCMAKE_BUILD_TYPE=Debug
-        -toolchainFile .devcontainer/cmake/toolchains/${{ matrix.toolchain }}-native.cmake
-        ..
-    - name: build
+        pip install nunavut
+    - name: release
       run: >
-        cd build && cmake
-        --build .
-        --target release
-    - name: upload-artifacts
+        ./build-tools/bin/verify.py
+        --verbose
+        --asserts
+        --cpp-standard 14
+        --build-flavor ${{ matrix.flavor }}
+        --toolchain ${{ matrix.toolchain }}
+        clean-release
+  docs:
+    runs-on: ubuntu-latest
+    container: ghcr.io/opencyphal/toolshed:ts22.4.3
+    needs: [warmup]
+    steps:
+    - uses: actions/checkout@v3
+      if: ${{ github.event_name != 'act' }}
+    - name: Cache ext modules
+      if: ${{ github.event_name != 'act' }}
+      id: libcyphal-ext
+      uses: actions/cache@v3
+      env:
+        cache-name: libcyphal-ext-cache
+      with:
+        path: external
+        key: ${{ runner.os }}-${{ hashFiles('cmake/modules/*.cmake') }}
+    - name: get nunavut
+      run: >
+        pip install nunavut
+    - name: doc-gen
+      run: >
+        ./build-tools/bin/verify.py
+        --verbose
+        --asserts
+        --cpp-standard 14
+        --build-flavor Debug
+        build-docs
+    - name: Setup Pages
+      if: ${{ github.event_name != 'pull_request' && github.event_name != 'act' }}
+      uses: actions/configure-pages@v3
+    - name: Upload docs
+      if: ${{ github.event_name != 'pull_request' && github.event_name != 'act' }}
+      uses: actions/upload-pages-artifact@v1
+      with:
+        path: "build/docs/html/"
+    - name: upload-pr-docs
+      if: ${{ github.event_name == 'pull_request' && github.event_name != 'act' }}
       uses: actions/upload-artifact@v3
       with:
-        name: build-${{ matrix.toolchain }}
-        path: |
-          build/compile_commands.json
+        name: pr-docs
+        path: "build/docs/html/"
         if-no-files-found: error
 

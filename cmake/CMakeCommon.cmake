@@ -61,7 +61,7 @@ set(CMAKE_CXX_STANDARD ${CETLVAST_CPP_STANDARD})
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-if (CETL_ENABLE_DEBUG_ASSERT)
+if (CETL_ENABLE_DEBUG_ASSERT AND NOT LIBCYPHAL_INTROSPECTION_ENABLE_ASSERT)
     message(STATUS "CETL_ENABLE_DEBUG_ASSERT was defined so we're enabling libcyphal introspection.")
     set(LIBCYPHAL_INTROSPECTION_ENABLE_ASSERT 1)
 endif()
@@ -84,27 +84,16 @@ else()
     set(LIBCXX_ENABLE_ASSERTIONS 0)
 endif()
 
+cmake_path(APPEND LIBCYPHAL_ROOT "cmake" "modules" OUTPUT_VARIABLE LIBCYPHAL_CMAKE_MODULE_PATH)
+if(NOT LIBCYPHAL_CMAKE_MODULE_PATH IN_LIST CMAKE_MODULE_PATH)
+    list(APPEND CMAKE_MODULE_PATH ${LIBCYPHAL_CMAKE_MODULE_PATH})
+endif()
 
 # +---------------------------------------------------------------------------+
-# | CETL :: BOOTSTRAP
-# +---------------------------------------------------------------------------+
-include(FetchContent)
-set(cetl_GIT_REPOSITORY "https://github.com/OpenCyphal/cetl.git")
-set(cetl_GIT_TAG "8ba2a719ffcd6175b41fb8c10cbf94b787e6bd2a")
-
-FetchContent_Declare(
-    cetl
-    GIT_REPOSITORY  ${cetl_GIT_REPOSITORY}
-    GIT_TAG         ${cetl_GIT_TAG}
-)
-
-FetchContent_MakeAvailable(cetl)
-
-# +---------------------------------------------------------------------------+
-# | CETLVAST
+# | CETL and CETLVAST
 # +---------------------------------------------------------------------------+
 # Libcyphal borrows cmake modules from cetl/cetlvast. This section makes sure
-# to setup a few globals that suite needs to have right.
+# to setup a few globals that suite needs to have right before including it.
 
 cmake_path(APPEND LIBCYPHAL_ROOT "external" OUTPUT_VARIABLE CETLVAST_EXTERNAL_ROOT)
 
@@ -113,15 +102,6 @@ if (CETL_ENABLE_DEBUG_ASSERT)
 else()
     set(CETL_ENABLE_DEBUG_ASSERT 0)
 endif()
-
-
-# +---------------------------------------------------------------------------+
-# | MODULES
-# +---------------------------------------------------------------------------+
-list(APPEND CMAKE_MODULE_PATH "${LIBCYPHAL_ROOT}/cmake/modules")
-
-# Use use CETL types in libcyphal as well as the cmake modules it defines.
-list(APPEND CMAKE_MODULE_PATH "${LIBCYPHAL_ROOT}/external/cetl/cetlvast/cmake/modules")
 
 find_package(cetl REQUIRED)
 

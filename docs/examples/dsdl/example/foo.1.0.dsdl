@@ -1,0 +1,5 @@
+uavcan.time.SynchronizedTimestamp.1.0 timestamp
+int32[<48] some_other_crap
+
+# reserve twice as much as we need.
+@extent _offset_.max * 2

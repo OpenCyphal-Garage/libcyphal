@@ -46,14 +46,14 @@
         "canfd",
         "udpard",
         "snippit",
-        "DFETCHCONTENT_FULLY_DISCONNECTED"
+        "DFETCHCONTENT_FULLY_DISCONNECTED",
+        "bitspan"
     ],
     "cmake.configureArgs": [
         "--warn-uninitialized"
     ],
     "cmake.configureSettings": {
-        "FETCHCONTENT_UPDATES_DISCONNECTED": true,
-        "FETCHCONTENT_FULLY_DISCONNECTED": false,
+        "FETCHCONTENT_FULLY_DISCONNECTED": true,
         "LIBCYPHAL_VERSION": "0.0.0",
         "CMAKE_MESSAGE_LOG_LEVEL": "STATUS"
     },

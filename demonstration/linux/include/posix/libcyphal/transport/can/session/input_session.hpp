@@ -53,6 +53,7 @@ public:
         {
             int result = close(socket_fd_);
             assert(result != SocketFunctionError);
+            (void)result;
             socket_fd_ = ClosedSocket;
         }
     }

@@ -51,6 +51,7 @@ public:
             {
                 int result = close(data.socket_fd);
                 assert(result != ip::v4::SocketFunctionError);
+                (void)result;
                 data.socket_fd = ip::v4::ClosedSocket;
             }
         }
