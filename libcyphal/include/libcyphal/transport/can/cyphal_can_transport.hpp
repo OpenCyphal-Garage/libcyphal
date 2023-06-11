@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <limits>
 #include <type_traits>
+#include <array>
 #include <canard.h>
 #include "libcyphal/transport.hpp"
 #include "libcyphal/media/can/filter.hpp"
@@ -19,9 +20,11 @@
 #include "libcyphal/transport/can/interface.hpp"
 #include "libcyphal/transport/can/transport.hpp"
 #include "libcyphal/types/heap.hpp"
-#include "libcyphal/types/list.hpp"
 #include "libcyphal/types/status.hpp"
 #include "libcyphal/types/time.hpp"
+
+#include "cetl/variable_length_array.hpp"
+#include "cetl/pf17/memory_resource.hpp"
 
 namespace libcyphal
 {
@@ -515,8 +518,9 @@ public:
 
 private:
     /// A publication record is the metadata associated with the latest transfer for a node and port ID pair
-    template <size_t N>
-    using PublicationRecordsList = List<CanardTransferMetadata, N>;
+    using PublicationRecordsList =
+        cetl::VariableLengthArray<CanardTransferMetadata,
+                                  cetl::pf17::pmr::polymorphic_allocator<CanardTransferMetadata>>;
 
     static constexpr std::size_t MTUSize = CANARD_MTU_CAN_FD;
     // This is the number of frames that can be held in the TX FIFO at once
@@ -578,8 +582,12 @@ private:
     /// Publication records, split between multi-cast, request, and response transfer types to increase search
     /// efficiency. Each entry caches the transfer metadata for the next transfer of its respective type to be
     /// published.
-    PublicationRecordsList<MaxNumberOfBroadcasts>
-        publication_records_{};  //!< Records of all publications from this transport
+    std::array<CanardTransferMetadata, MaxNumberOfBroadcasts>
+        publication_record_storage_{};  //!< Records of all publications from this transport
+
+    cetl::pf17::pmr::deviant::basic_monotonic_buffer_resource resource_{publication_record_storage_.data(),
+                                                                        publication_record_storage_.size()};
+    PublicationRecordsList                                    publication_records_{&resource_};
 
     // The following are cached during 'ProcessIncomingFrames()' and not used for transmit operations
     BusIndex  current_rx_bus_index_{Primary};  //!< The current receiving bus index
@@ -644,22 +652,22 @@ private:
     /// @param[in] priority priority of message
     /// @param[in] transfer_type transfer type (service or message)
     /// @param[in] port Canard PortID (subjectid/serviceid)
-    /// @todo Remove template and replace with non-templated version
-    template <std::size_t N>
-    Status createPublicationRecord(PublicationRecordsList<N>& out_records,
-                                   CanardPriority             priority,
-                                   CanardTransferKind         transfer_type,
-                                   CanardPortID               port) noexcept
+    Status createPublicationRecord(PublicationRecordsList& out_records,
+                                   CanardPriority          priority,
+                                   CanardTransferKind      transfer_type,
+                                   CanardPortID            port) noexcept
     {
         // Emplace publication record at back of list
         // Do not need to check the success of emplacement as we know we have enough room per the guard above
         // Publication records have an anonymous node ID and unset transfer ID fields upon initialization
-        if (out_records.emplace_back(priority,           // Transfer priority, passed from on high
-                                     transfer_type,      // 'UdpardTransferKindMessage/Request/Response'
-                                     port,               // Subject or service ID
-                                     AnonymousNodeID,    // Starts off as anonymous (indicates record is inactive)
-                                     InitialTransferID)  // Starts at 0
-        )
+        const std::size_t size_before = out_records.size();
+        out_records.emplace_back(
+            CanardTransferMetadata{priority,             // Transfer priority, passed from on high
+                                   transfer_type,        // 'UdpardTransferKindMessage/Request/Response'
+                                   port,                 // Subject or service ID
+                                   AnonymousNodeID,      // Starts off as anonymous (indicates record is inactive)
+                                   InitialTransferID});  // Starts at 0
+        if (out_records.size() == size_before + 1)
         {
             return ResultCode::Success;
         }
@@ -677,11 +685,9 @@ private:
     /// @param[in] records publication record list
     /// @param[in] port Canard PortID (subjectid/serviceid)
     /// @param[in] node NodeID
-    /// @todo Remove template and replace with non-templated version
-    template <std::size_t N>
-    CanardTransferMetadata* getPublicationRecord(PublicationRecordsList<N>& records,
-                                                 PortID                     port,
-                                                 CanardNodeID               node) noexcept
+    CanardTransferMetadata* getPublicationRecord(PublicationRecordsList& records,
+                                                 PortID                  port,
+                                                 CanardNodeID            node) noexcept
     {
         // Iterate through publication records
         // Active publication records ('remote_node_id' field is set) are listed before inactive ones ('remote_node_id'

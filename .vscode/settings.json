@@ -154,4 +154,5 @@
         "__string": "cpp"
     },
     "python.analysis.typeCheckingMode": "basic",
+    "sonarlint.pathToCompileCommands": "${workspaceFolder}/build/compile_commands.json",
 }
