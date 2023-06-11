@@ -19,7 +19,6 @@
 #include "libcyphal/transport/metadata.hpp"
 #include "libcyphal/transport/can/interface.hpp"
 #include "libcyphal/transport/can/transport.hpp"
-#include "libcyphal/types/heap.hpp"
 #include "libcyphal/types/status.hpp"
 #include "libcyphal/types/time.hpp"
 
@@ -101,14 +100,14 @@ public:
     /// @param[in] primary_bus Pointer to primary CAN driver interface
     /// @param[in] backup_bus Pointer to backup CAN driver interface
     /// @param[in] timer ABSP timer interface
-    /// @param[in] heap span of bytes that comprise the 01heap arena
-    CyphalCANTransport(TransportID          transport_index,
-                       Interface&           primary_bus,
-                       Interface*           backup_bus,
-                       const time::Timer&   timer,
-                       Heap&                heap,
-                       CanardMemoryAllocate allocator,
-                       CanardMemoryFree     releaser)
+    /// @param[in] resource the memory resource for the transport.
+    CyphalCANTransport(TransportID                       transport_index,
+                       Interface&                        primary_bus,
+                       Interface*                        backup_bus,
+                       const time::Timer&                timer,
+                       cetl::pf17::pmr::memory_resource* resource,
+                       CanardMemoryAllocate              allocator,
+                       CanardMemoryFree                  releaser)
         : transport_id_{transport_index}
         , cleanup_initiated_{false}
         , fn_canard_mem_allocate_{allocator}
@@ -116,12 +115,12 @@ public:
         , timer_{timer}
         , primary_bus_{primary_bus}
         , backup_bus_{backup_bus}
-        , consolidated_filter_{AcceptAllFilter}
-        , heap_{heap}
+        , consolidated_filter_{std::numeric_limits<std::uint32_t>::max(), 0}
+        , resource_{resource}
         , canard_{canardInit(allocator, releaser)}
         , canard_tx_fifo_{canardTxInit(TXFIFOSize, MTUSize)}
     {
-        canard_.user_reference = heap_.getInstance();
+        canard_.user_reference = resource_;
     }
 
     CyphalCANTransport(const CyphalCANTransport&)            = delete;
@@ -201,11 +200,6 @@ public:
     /// @return Status of proper initialization
     Status initialize() override
     {
-        ///<! both buses are nullptr
-        if ((heap_.getHeapSize() == 0) || (nullptr == heap_.getInstance()))
-        {
-            return Status(ResultCode::Invalid, CauseCode::Parameter);
-        }
         if ((nullptr == fn_canard_mem_allocate_) || (nullptr == fn_canard_mem_free_))
         {
             return Status(ResultCode::Invalid, CauseCode::Parameter);
@@ -526,7 +520,6 @@ private:
     // This is the number of frames that can be held in the TX FIFO at once
     static constexpr std::size_t                      TXFIFOSize = LIBCYPHAL_TRANSPORT_MAX_FIFO_QUEUE_SIZE;
     static constexpr time::Monotonic::MicrosecondType DefaultSubscriptionTimeoutUS{60'000'000ULL};
-    static constexpr CanardFilter                     AcceptAllFilter{std::numeric_limits<std::uint32_t>::max(), 0};
 
     // Redundant bus enumerations
     enum BusIndex : std::uint8_t
@@ -563,13 +556,13 @@ private:
     bool                 cleanup_initiated_;
     CanardMemoryAllocate fn_canard_mem_allocate_;
     CanardMemoryFree     fn_canard_mem_free_;
-    const time::Timer&   timer_;                //!< For timing transfers
-    Interface&           primary_bus_;          //!< Primary CAN bus
-    Interface*           backup_bus_;           //!< Backup CAN bus for fully redundant transports
-    CanardFilter         consolidated_filter_;  //!< Current acceptance filter applied to primary and backup buses
-    Heap&                heap_;    //!< Pointer to 01heap instance, allocated within owned memory space during init
-    CanardInstance       canard_;  //!< Canard handler instance
-    CanardTxQueue        canard_tx_fifo_;  //!< Primary CAN bus TX frame queue
+    const time::Timer&   timer_;                  //!< For timing transfers
+    Interface&           primary_bus_;            //!< Primary CAN bus
+    Interface*           backup_bus_;             //!< Backup CAN bus for fully redundant transports
+    CanardFilter         consolidated_filter_;    //!< Current acceptance filter applied to primary and backup buses
+    cetl::pf17::pmr::memory_resource* resource_;  //!< Pointer to the memory resource for this transport.
+    CanardInstance                    canard_;    //!< Canard handler instance
+    CanardTxQueue                     canard_tx_fifo_;  //!< Primary CAN bus TX frame queue
 
     /// Subscription records, initialized and used by Canard but managed by this class
     /// Each represents an instance of one of three types of subscription:
@@ -585,9 +578,9 @@ private:
     std::array<CanardTransferMetadata, MaxNumberOfBroadcasts>
         publication_record_storage_{};  //!< Records of all publications from this transport
 
-    cetl::pf17::pmr::deviant::basic_monotonic_buffer_resource resource_{publication_record_storage_.data(),
-                                                                        publication_record_storage_.size()};
-    PublicationRecordsList                                    publication_records_{&resource_};
+    cetl::pf17::pmr::deviant::basic_monotonic_buffer_resource
+        publication_records_resource_{publication_record_storage_.data(), publication_record_storage_.size()};
+    PublicationRecordsList publication_records_{&publication_records_resource_};
 
     // The following are cached during 'ProcessIncomingFrames()' and not used for transmit operations
     BusIndex  current_rx_bus_index_{Primary};  //!< The current receiving bus index

@@ -28,10 +28,14 @@ public:
     /// @param[in] can_interface CAN Interface name to use
     /// @param[in] node_id The desired NodeID of the Transport
     /// @param[in] listener Listener object providing custom triggers by the user
-    Subscriber(const char* can_interface, const NodeID node_id, transport::Listener& listener)
-        : Base(can_interface, node_id)
+    Subscriber(const char*                       can_interface,
+               const NodeID                      node_id,
+               transport::Listener&              listener,
+               cetl::pf17::pmr::memory_resource* resource)
+        : Base(can_interface, node_id, resource)
         , listener_{listener}
-    {}
+    {
+    }
 
     /// Destructor
     ~Subscriber() = default;

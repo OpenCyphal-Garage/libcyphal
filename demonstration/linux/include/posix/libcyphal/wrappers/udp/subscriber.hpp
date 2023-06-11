@@ -30,10 +30,14 @@ public:
     /// @param[in] ip_address Local IP Address
     /// @param[in] node_id The desired NodeID of the Transport
     /// @param[in] listener Listener object providing custom triggers by the user
-    Subscriber(const transport::ip::v4::Address ip_address, const NodeID node_id, transport::Listener& listener)
-        : Base(ip_address, node_id)
+    Subscriber(const transport::ip::v4::Address  ip_address,
+               const NodeID                      node_id,
+               transport::Listener&              listener,
+               cetl::pf17::pmr::memory_resource* resource)
+        : Base(ip_address, node_id, resource)
         , listener_{listener}
-    {}
+    {
+    }
 
     /// Destructor
     ~Subscriber() = default;

@@ -18,7 +18,6 @@
 #include "libcyphal/transport/ip/v4/address.hpp"
 #include "libcyphal/transport/udp/interface.hpp"
 #include "libcyphal/transport/udp/transport.hpp"
-#include "libcyphal/types/heap.hpp"
 #include "libcyphal/types/status.hpp"
 #include "libcyphal/types/time.hpp"
 
@@ -61,29 +60,28 @@ public:
     /// @param[in] backup_interface optional. Can be null
     /// @param[in] node_id The Node ID for the UDP interface
     /// @param[in] timer An OS specific, or generic implementation of timer
-    /// @param[in] heap The user defined heap to pair with allocator/releaser
-    /// @param[in] allocator function that allocates memory off the given heap
-    /// @param[in] releaser function that release memory off the given heap
-    CyphalUDPTransport(Interface&           primary_interface,
-                       Interface*           backup_interface,
-                       NodeID               node_id,
-                       const time::Timer&   timer,
-                       Heap&                heap,
-                       UdpardMemoryAllocate allocator,
-                       UdpardMemoryFree     releaser)
+    /// @param[in] message_buffer   Buffer memory. Don't ask. This is sorta hacky.
+    /// @param[in] allocator function that allocates memory off the given memory resource
+    /// @param[in] releaser function that release memory off the given memory resource
+    CyphalUDPTransport(Interface&                        primary_interface,
+                       Interface*                        backup_interface,
+                       NodeID                            node_id,
+                       const time::Timer&                timer,
+                       cetl::pf17::pmr::memory_resource* message_buffer,
+                       UdpardMemoryAllocate              allocator,
+                       UdpardMemoryFree                  releaser)
         : primary_bus_{primary_interface}
         , backup_bus_{backup_interface}
         , timer_{timer}
-        , heap_{heap}
+        , resource_{message_buffer}
         , fn_udpard_mem_allocate_{allocator}
         , fn_udpard_mem_free_{releaser}
         , udpard_{udpardInit(allocator, releaser)}
         , udpard_tx_fifo_{udpardTxInit(TxFIFOSize, MTUSize)}
     {
         udpard_.node_id = node_id;
-        // Udpard instance holds the reference to its 01heap instance in the 'user_reference' field
         //   See 'CyphalUDPTransport::UdpardMemAllocate()' or 'CyphalUDPTransport::UdpardMemFree()' for usage
-        udpard_.user_reference = heap_.getInstance();
+        udpard_.user_reference = resource_;
     }
 
     /// CyphalUDPTransport constructor with anonymous NodeID
@@ -93,20 +91,20 @@ public:
     /// @param[in] primary_interface the UDP Transport interface (UdpTransport) defined by the user
     /// @param[in] backup_interface optional. Can be null
     /// @param[in] timer An OS specific, or generic implementation of timer
-    /// @param[in] heap The user defined heap to pair with allocator/releaser
-    /// @param[in] allocator function that allocates memory off the given heap
-    /// @param[in] releaser function that release memory off the given heap
-    CyphalUDPTransport(Interface&           primary_interface,
-                       Interface*           backup_interface,
-                       const time::Timer&   timer,
-                       Heap&                heap,
-                       UdpardMemoryAllocate allocator,
-                       UdpardMemoryFree     releaser)
+    /// @param[in] message_buffer It's a thing.
+    /// @param[in] allocator function that allocates memory off the given memory resource
+    /// @param[in] releaser function that release memory off the given memory resource
+    CyphalUDPTransport(Interface&                        primary_interface,
+                       Interface*                        backup_interface,
+                       const time::Timer&                timer,
+                       cetl::pf17::pmr::memory_resource* message_buffer,
+                       UdpardMemoryAllocate              allocator,
+                       UdpardMemoryFree                  releaser)
         : CyphalUDPTransport(primary_interface,
                              backup_interface,
                              NodeID(static_cast<std::uint16_t>(AnonymousNodeID)),
                              timer,
-                             heap,
+                             message_buffer,
                              allocator,
                              releaser)
     {
@@ -192,10 +190,6 @@ public:
     Status initialize() override
     {
         ///<! both buses are nullptr
-        if ((heap_.getHeapSize() == 0) || (nullptr == heap_.getInstance()))
-        {
-            return Status(ResultCode::Invalid, CauseCode::Parameter);
-        }
         if ((nullptr == fn_udpard_mem_allocate_) || (nullptr == fn_udpard_mem_free_))
         {
             return Status(ResultCode::Invalid, CauseCode::Parameter);
@@ -496,13 +490,13 @@ private:
     std::size_t          current_sub_index_{0};
 
     // The following are cached during 'ProcessIncomingFrames()' and not used for transmit operations
-    Listener*            current_listener_{nullptr};  // The current listener to received frames
-    Heap&                heap_;  // Pointer to heap instance, allocated within owned memory space during init
-    UdpardMemoryAllocate fn_udpard_mem_allocate_;
-    UdpardMemoryFree     fn_udpard_mem_free_;
-    UdpardInstance       udpard_;                         // Udpard handler instance
-    UdpardTxQueue        udpard_tx_fifo_;                 // Primary UDP bus TX frame queue
-    bool                 is_registration_closed_{false};  // Indicates if registration has been closed.
+    Listener*                         current_listener_{nullptr};  // The current listener to received frames
+    cetl::pf17::pmr::memory_resource* resource_;                   // memory resource for buffering messages.
+    UdpardMemoryAllocate              fn_udpard_mem_allocate_;
+    UdpardMemoryFree                  fn_udpard_mem_free_;
+    UdpardInstance                    udpard_;                         // Udpard handler instance
+    UdpardTxQueue                     udpard_tx_fifo_;                 // Primary UDP bus TX frame queue
+    bool                              is_registration_closed_{false};  // Indicates if registration has been closed.
 
     /// A publication record is the metadata associated with the latest transfer for a node and port ID pair
     using PublicationRecordsList =
@@ -515,9 +509,9 @@ private:
     std::array<UdpardTransferMetadata, MaxNumberOfBroadcasts>
         publication_record_storage_{};  //!< Records of all publications from this transport
 
-    cetl::pf17::pmr::deviant::basic_monotonic_buffer_resource resource_{publication_record_storage_.data(),
-                                                                        publication_record_storage_.size()};
-    PublicationRecordsList                                    publication_records_{&resource_};
+    cetl::pf17::pmr::deviant::basic_monotonic_buffer_resource
+        publication_records_resource_{publication_record_storage_.data(), publication_record_storage_.size()};
+    PublicationRecordsList publication_records_{&publication_records_resource_};
 
     /// @brief Converts udpard Metadata type to libcyphal metadata type
     /// @param[in] metadata the udpard metadata type to convert
