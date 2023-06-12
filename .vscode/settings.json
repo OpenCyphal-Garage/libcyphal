@@ -47,7 +47,8 @@
         "udpard",
         "snippit",
         "DFETCHCONTENT_FULLY_DISCONNECTED",
-        "bitspan"
+        "bitspan",
+        "uavcan"
     ],
     "cmake.configureArgs": [
         "--warn-uninitialized"
@@ -153,4 +154,5 @@
         "__string": "cpp"
     },
     "python.analysis.typeCheckingMode": "basic",
+    "sonarlint.pathToCompileCommands": "${workspaceFolder}/build/compile_commands.json",
 }

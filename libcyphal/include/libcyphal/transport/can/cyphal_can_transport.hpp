@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <limits>
 #include <type_traits>
+#include <array>
 #include <canard.h>
 #include "libcyphal/transport.hpp"
 #include "libcyphal/media/can/filter.hpp"
@@ -18,10 +19,11 @@
 #include "libcyphal/transport/metadata.hpp"
 #include "libcyphal/transport/can/interface.hpp"
 #include "libcyphal/transport/can/transport.hpp"
-#include "libcyphal/types/heap.hpp"
-#include "libcyphal/types/list.hpp"
 #include "libcyphal/types/status.hpp"
 #include "libcyphal/types/time.hpp"
+
+#include "cetl/variable_length_array.hpp"
+#include "cetl/pf17/memory_resource.hpp"
 
 namespace libcyphal
 {
@@ -98,14 +100,14 @@ public:
     /// @param[in] primary_bus Pointer to primary CAN driver interface
     /// @param[in] backup_bus Pointer to backup CAN driver interface
     /// @param[in] timer ABSP timer interface
-    /// @param[in] heap span of bytes that comprise the 01heap arena
-    CyphalCANTransport(TransportID          transport_index,
-                       Interface&           primary_bus,
-                       Interface*           backup_bus,
-                       const time::Timer&   timer,
-                       Heap&                heap,
-                       CanardMemoryAllocate allocator,
-                       CanardMemoryFree     releaser)
+    /// @param[in] resource the memory resource for the transport.
+    CyphalCANTransport(TransportID                       transport_index,
+                       Interface&                        primary_bus,
+                       Interface*                        backup_bus,
+                       const time::Timer&                timer,
+                       cetl::pf17::pmr::memory_resource* resource,
+                       CanardMemoryAllocate              allocator,
+                       CanardMemoryFree                  releaser)
         : transport_id_{transport_index}
         , cleanup_initiated_{false}
         , fn_canard_mem_allocate_{allocator}
@@ -113,12 +115,12 @@ public:
         , timer_{timer}
         , primary_bus_{primary_bus}
         , backup_bus_{backup_bus}
-        , consolidated_filter_{AcceptAllFilter}
-        , heap_{heap}
+        , consolidated_filter_{std::numeric_limits<std::uint32_t>::max(), 0}
+        , resource_{resource}
         , canard_{canardInit(allocator, releaser)}
         , canard_tx_fifo_{canardTxInit(TXFIFOSize, MTUSize)}
     {
-        canard_.user_reference = heap_.getInstance();
+        canard_.user_reference = resource_;
     }
 
     CyphalCANTransport(const CyphalCANTransport&)            = delete;
@@ -198,11 +200,6 @@ public:
     /// @return Status of proper initialization
     Status initialize() override
     {
-        ///<! both buses are nullptr
-        if ((heap_.getHeapSize() == 0) || (nullptr == heap_.getInstance()))
-        {
-            return Status(ResultCode::Invalid, CauseCode::Parameter);
-        }
         if ((nullptr == fn_canard_mem_allocate_) || (nullptr == fn_canard_mem_free_))
         {
             return Status(ResultCode::Invalid, CauseCode::Parameter);
@@ -515,14 +512,14 @@ public:
 
 private:
     /// A publication record is the metadata associated with the latest transfer for a node and port ID pair
-    template <size_t N>
-    using PublicationRecordsList = List<CanardTransferMetadata, N>;
+    using PublicationRecordsList =
+        cetl::VariableLengthArray<CanardTransferMetadata,
+                                  cetl::pf17::pmr::polymorphic_allocator<CanardTransferMetadata>>;
 
     static constexpr std::size_t MTUSize = CANARD_MTU_CAN_FD;
     // This is the number of frames that can be held in the TX FIFO at once
     static constexpr std::size_t                      TXFIFOSize = LIBCYPHAL_TRANSPORT_MAX_FIFO_QUEUE_SIZE;
     static constexpr time::Monotonic::MicrosecondType DefaultSubscriptionTimeoutUS{60'000'000ULL};
-    static constexpr CanardFilter                     AcceptAllFilter{std::numeric_limits<std::uint32_t>::max(), 0};
 
     // Redundant bus enumerations
     enum BusIndex : std::uint8_t
@@ -559,13 +556,13 @@ private:
     bool                 cleanup_initiated_;
     CanardMemoryAllocate fn_canard_mem_allocate_;
     CanardMemoryFree     fn_canard_mem_free_;
-    const time::Timer&   timer_;                //!< For timing transfers
-    Interface&           primary_bus_;          //!< Primary CAN bus
-    Interface*           backup_bus_;           //!< Backup CAN bus for fully redundant transports
-    CanardFilter         consolidated_filter_;  //!< Current acceptance filter applied to primary and backup buses
-    Heap&                heap_;    //!< Pointer to 01heap instance, allocated within owned memory space during init
-    CanardInstance       canard_;  //!< Canard handler instance
-    CanardTxQueue        canard_tx_fifo_;  //!< Primary CAN bus TX frame queue
+    const time::Timer&   timer_;                  //!< For timing transfers
+    Interface&           primary_bus_;            //!< Primary CAN bus
+    Interface*           backup_bus_;             //!< Backup CAN bus for fully redundant transports
+    CanardFilter         consolidated_filter_;    //!< Current acceptance filter applied to primary and backup buses
+    cetl::pf17::pmr::memory_resource* resource_;  //!< Pointer to the memory resource for this transport.
+    CanardInstance                    canard_;    //!< Canard handler instance
+    CanardTxQueue                     canard_tx_fifo_;  //!< Primary CAN bus TX frame queue
 
     /// Subscription records, initialized and used by Canard but managed by this class
     /// Each represents an instance of one of three types of subscription:
@@ -578,8 +575,12 @@ private:
     /// Publication records, split between multi-cast, request, and response transfer types to increase search
     /// efficiency. Each entry caches the transfer metadata for the next transfer of its respective type to be
     /// published.
-    PublicationRecordsList<MaxNumberOfBroadcasts>
-        publication_records_{};  //!< Records of all publications from this transport
+    std::array<CanardTransferMetadata, MaxNumberOfBroadcasts>
+        publication_record_storage_{};  //!< Records of all publications from this transport
+
+    cetl::pf17::pmr::deviant::basic_monotonic_buffer_resource
+        publication_records_resource_{publication_record_storage_.data(), publication_record_storage_.size()};
+    PublicationRecordsList publication_records_{&publication_records_resource_};
 
     // The following are cached during 'ProcessIncomingFrames()' and not used for transmit operations
     BusIndex  current_rx_bus_index_{Primary};  //!< The current receiving bus index
@@ -644,22 +645,22 @@ private:
     /// @param[in] priority priority of message
     /// @param[in] transfer_type transfer type (service or message)
     /// @param[in] port Canard PortID (subjectid/serviceid)
-    /// @todo Remove template and replace with non-templated version
-    template <std::size_t N>
-    Status createPublicationRecord(PublicationRecordsList<N>& out_records,
-                                   CanardPriority             priority,
-                                   CanardTransferKind         transfer_type,
-                                   CanardPortID               port) noexcept
+    Status createPublicationRecord(PublicationRecordsList& out_records,
+                                   CanardPriority          priority,
+                                   CanardTransferKind      transfer_type,
+                                   CanardPortID            port) noexcept
     {
         // Emplace publication record at back of list
         // Do not need to check the success of emplacement as we know we have enough room per the guard above
         // Publication records have an anonymous node ID and unset transfer ID fields upon initialization
-        if (out_records.emplace_back(priority,           // Transfer priority, passed from on high
-                                     transfer_type,      // 'UdpardTransferKindMessage/Request/Response'
-                                     port,               // Subject or service ID
-                                     AnonymousNodeID,    // Starts off as anonymous (indicates record is inactive)
-                                     InitialTransferID)  // Starts at 0
-        )
+        const std::size_t size_before = out_records.size();
+        out_records.emplace_back(
+            CanardTransferMetadata{priority,             // Transfer priority, passed from on high
+                                   transfer_type,        // 'UdpardTransferKindMessage/Request/Response'
+                                   port,                 // Subject or service ID
+                                   AnonymousNodeID,      // Starts off as anonymous (indicates record is inactive)
+                                   InitialTransferID});  // Starts at 0
+        if (out_records.size() == size_before + 1)
         {
             return ResultCode::Success;
         }
@@ -677,11 +678,9 @@ private:
     /// @param[in] records publication record list
     /// @param[in] port Canard PortID (subjectid/serviceid)
     /// @param[in] node NodeID
-    /// @todo Remove template and replace with non-templated version
-    template <std::size_t N>
-    CanardTransferMetadata* getPublicationRecord(PublicationRecordsList<N>& records,
-                                                 PortID                     port,
-                                                 CanardNodeID               node) noexcept
+    CanardTransferMetadata* getPublicationRecord(PublicationRecordsList& records,
+                                                 PortID                  port,
+                                                 CanardNodeID            node) noexcept
     {
         // Iterate through publication records
         // Active publication records ('remote_node_id' field is set) are listed before inactive ones ('remote_node_id'

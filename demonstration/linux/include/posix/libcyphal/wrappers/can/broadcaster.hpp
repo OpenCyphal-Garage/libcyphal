@@ -27,9 +27,10 @@ public:
     /// @brief Constructor for CANBroadcaster which is a wrapper around the tasks needed to send messages
     /// @param[in] can_interface CAN Interface to use
     /// @param[in] node_id The desired NodeID of the Transport
-    Broadcaster(const char* can_interface, const NodeID node_id) noexcept
-        : Base(can_interface, node_id)
-    {}
+    Broadcaster(const char* can_interface, const NodeID node_id, cetl::pf17::pmr::memory_resource* resource) noexcept
+        : Base(can_interface, node_id, resource)
+    {
+    }
 
     /// Destructor
     ~Broadcaster() = default;

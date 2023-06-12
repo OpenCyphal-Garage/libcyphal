@@ -25,9 +25,12 @@ public:
     /// @brief Constructor for UDPBroadcaster which is a wrapper around the tasks needed to send messages
     /// @param[in] ip_address Local IP Address
     /// @param[in] node_id The desired NodeID of the Transport
-    Broadcaster(const transport::ip::v4::Address ip_address, const NodeID node_id) noexcept
-        : Base(ip_address, node_id)
-    {}
+    Broadcaster(const transport::ip::v4::Address  ip_address,
+                const NodeID                      node_id,
+                cetl::pf17::pmr::memory_resource* resource) noexcept
+        : Base(ip_address, node_id, resource)
+    {
+    }
 
     /// Destructor
     ~Broadcaster() = default;

@@ -46,7 +46,7 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
     if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
         define_gcovr_tracefile_target(
             TARGET ${LOCAL_TEST_TARGET}
-            ROOT_DIRECTORY ${CETL_ROOT}
+            ROOT_DIRECTORY ${LIBCYPHAL_ROOT}
             TARGET_EXECUTION_DEPENDS ${LOCAL_TEST_REPORT}
             OBJECT_LIBRARY ${LOCAL_TEST_LIB}
             EXCLUDE_TEST_FRAMEWORKS
@@ -55,6 +55,13 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
         )
     endif()
 endforeach()
+
+if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+    enable_coverage_report(COVERAGE_REPORT_FORMATS html sonarqube
+                           ROOT_DIRECTORY ${LIBCYPHAL_ROOT}
+                           OUT_REPORT_INDICIES LOCAL_COVERAGE_REPORT_INDICIES
+    )
+endif()
 
 add_custom_target(
      build_unittests
@@ -71,7 +78,3 @@ add_custom_target(
 set_directory_properties(PROPERTIES
     IN_BUILD_TESTS "${ALL_TESTS_RUN}"
 )
-
-if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    enable_html_report()
-endif()

@@ -11,7 +11,7 @@ include("../../cmake/CMakeCommon.cmake" REQUIRED)
 
 include(ProjectLibrary)
 find_package(cyphal REQUIRED)
-find_package(o1heap REQUIRED)
+find_package(cetl REQUIRED)
 
 set(TARGET_INSTALL_DIR "include")
 
@@ -21,15 +21,11 @@ set(TARGET_INSTALL_DIR "include")
 
 add_project_library(
     NAME cyphal_posix
-    SOURCES
-        src/storage_can.cpp
-        src/storage_udp.cpp
     HEADER_PATH
         include/
     LIBRARIES
-        o1heap
+        cetl
         cyphal
-    STATIC
 )
 
 add_executable(

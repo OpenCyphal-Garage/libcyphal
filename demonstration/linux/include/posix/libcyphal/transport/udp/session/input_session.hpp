@@ -7,6 +7,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <array>
 #include <libcyphal/transport/id_types.hpp>
 #include <libcyphal/transport/ip/v4/types.hpp>
 #include <libcyphal/transport/udp/cyphal_udp_transport.hpp>
@@ -17,6 +18,9 @@
 #include <libcyphal/types/status.hpp>
 #include "posix/libcyphal/transport/ip/v4/connection.hpp"
 #include "posix/libcyphal/transport/ip/v4/properties.hpp"
+
+#include "cetl/variable_length_array.hpp"
+#include "cetl/pf17/memory_resource.hpp"
 
 namespace libcyphal
 {
@@ -40,7 +44,11 @@ public:
     PosixMessageSubscriber(const NodeID node_id, const ip::v4::Address local_address) noexcept
         : node_id_{node_id}
         , local_address_{local_address}
-    {}
+        , storage_{}
+        , resource_{storage_.data(), storage_.size()}
+        , data_{cetl::pf17::pmr::polymorphic_allocator<Specifier>{&resource_}}
+    {
+    }
 
     /// @brief Destructor that cleans up posix socket connections
     ~PosixMessageSubscriber()
@@ -51,7 +59,7 @@ public:
             {
                 int result = close(data.socket_fd);
                 assert(result != ip::v4::SocketFunctionError);
-                (void)result;
+                (void) result;
                 data.socket_fd = ip::v4::ClosedSocket;
             }
         }
@@ -62,19 +70,24 @@ public:
     PosixMessageSubscriber(const PosixMessageSubscriber& other) noexcept
         : node_id_{other.node_id_}
         , local_address_{other.local_address_}
-        , data_{List<Specifier, MaxNumberOfSubscriptionRecords>(other.data_)}
-    {}
+        , storage_{}
+        , resource_{storage_.data(), storage_.size()}
+        , data_{other.data_, &resource_}
+    {
+    }
 
     /// @brief Move Constructor
     /// @param[in] other PosixMessageSubscriber to move from
     PosixMessageSubscriber(PosixMessageSubscriber&& other) noexcept
         : node_id_{other.node_id_}
         , local_address_{other.local_address_}
-        , data_{List<Specifier, MaxNumberOfSubscriptionRecords>(other.data_)}
+        , storage_{}
+        , resource_{storage_.data(), storage_.size()}
+        , data_{other.data_, &resource_}
     {
         for (std::uint16_t i = 0; i < other.data_.size(); i++)
         {
-            other.data_.dismiss_back();
+            other.data_.pop_back();
         }
     }
 
@@ -86,7 +99,7 @@ public:
         {
             node_id_       = other.node_id_;
             local_address_ = other.local_address_;
-            data_ = List<Specifier, MaxNumberOfSubscriptionRecords>(other.data_);
+            data_          = other.data_;
         }
         return *this;
     }
@@ -99,10 +112,10 @@ public:
         {
             node_id_       = other.node_id_;
             local_address_ = other.local_address_;
-            data_ = List<Specifier, MaxNumberOfSubscriptionRecords>(other.data_);
+            data_          = std::move(other.data_);
             for (std::uint16_t i = 0; i < other.data_.size(); i++)
             {
-                other.data_.dismiss_back();
+                other.data_.pop_back();
             }
         }
         return *this;
@@ -145,7 +158,7 @@ public:
     /// @param[in] receiver Transport receiver that makes calls to libudpard
     Status receive(Interface::Receiver& receiver) noexcept override
     {
-        std::size_t message_size = media::udp::MaximumMTUBytes;
+        std::size_t       message_size = media::udp::MaximumMTUBytes;
         media::udp::Frame frame{};
 
         // This loop iterates over the sockets for all the port IDs we have subscribed to.
@@ -169,9 +182,11 @@ public:
     }
 
 private:
-    NodeID node_id_{UDPARD_NODE_ID_UNSET};
-    ip::v4::Address local_address_{};
-    List<Specifier, MaxNumberOfSubscriptionRecords> data_;
+    NodeID                                                    node_id_{UDPARD_NODE_ID_UNSET};
+    ip::v4::Address                                           local_address_{};
+    std::array<Specifier, MaxNumberOfSubscriptionRecords>     storage_;
+    cetl::pf17::pmr::deviant::basic_monotonic_buffer_resource resource_;
+    cetl::VariableLengthArray<Specifier, cetl::pf17::pmr::polymorphic_allocator<Specifier>> data_;
 };
 
 }  // namespace session
