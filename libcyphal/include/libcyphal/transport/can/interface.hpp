@@ -41,7 +41,7 @@ public:
     /// @brief Transmits a Cyphal Frame
     /// @param[in] metadata Frame metadata.
     /// @param[in] frame Frame containing payload data etc.
-    virtual Status transmit(const TxMetadata metadata, const media::can::extended::Frame& frame) = 0;
+    virtual Status transmit(const TxMetadata& metadata, const media::can::extended::Frame& frame) = 0;
 
     // Called by clients in order to processes incoming Frames
     /// @param[in] receiver Bus interface for starting the process to receive packets from UDP

@@ -26,6 +26,9 @@ namespace wrappers
 namespace can
 {
 
+/// Warning: The Libcyphal API is undergoing a redesign and this class will be going
+/// away soon: https://jira.adninfra.net/browse/OVPG-3288
+
 /// Base class for Transport Nodes that wraps common setups for sending/receiving messages
 class Base
 {
@@ -47,17 +50,15 @@ public:
                                                       resource,
                                                       &canardMemAllocate,
                                                       &canardMemFree)}
-        , output_session_{transport::can::session::PosixMessagePublisher(node_id, can_interface)}
-        , input_session_{transport::can::session::PosixMessageSubscriber(node_id, can_interface)}
-    {
-    }
+        , output_session_{transport::can::session::PosixOutputSession(node_id, can_interface)}
+        , input_session_{transport::can::session::PosixInputSession(node_id, can_interface)}
+    {}
 
     /// @brief Base class constructor for Transport Node wrapper for sending/receiving messages
     /// @param[in] node_id The desired NodeID of the Transport
     Base(const NodeID node_id, cetl::pf17::pmr::memory_resource* resource) noexcept
         : Base("", node_id, resource)
-    {
-    }
+    {}
 
     /// @brief Common initialization steps for setting up common Node initialization steps
     virtual Status initialize()
@@ -80,8 +81,8 @@ protected:
     }
 
 private:
-    transport::can::session::PosixMessagePublisher  output_session_;
-    transport::can::session::PosixMessageSubscriber input_session_;
+    transport::can::session::PosixOutputSession output_session_;
+    transport::can::session::PosixInputSession  input_session_;
 };
 
 }  // namespace can

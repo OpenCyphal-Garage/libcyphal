@@ -29,6 +29,9 @@ namespace wrappers
 namespace udp
 {
 
+/// Warning: The Libcyphal API is undergoing a redesign and this class will be going
+/// away soon: https://jira.adninfra.net/browse/OVPG-3288
+
 /// Base class for Transport Nodes that wraps common setups for sending/receiving messages
 class Base
 {
@@ -56,10 +59,9 @@ public:
                                                       resource_,
                                                       &udpardMemAllocate,
                                                       &udpardMemFree)}
-        , output_session_{transport::udp::session::PosixMessagePublisher(node_id, ip_address)}
-        , input_session_{transport::udp::session::PosixMessageSubscriber(node_id, ip_address)}
-    {
-    }
+        , output_session_{transport::udp::session::PosixOutputSession(node_id, ip_address)}
+        , input_session_{transport::udp::session::PosixInputSession(node_id, ip_address)}
+    {}
 
     /// @brief Common initialization steps for setting up common Node initialization steps
     virtual Status initialize()
@@ -78,8 +80,8 @@ protected:
     }
 
 private:
-    transport::udp::session::PosixMessagePublisher  output_session_;
-    transport::udp::session::PosixMessageSubscriber input_session_;
+    transport::udp::session::PosixOutputSession output_session_;
+    transport::udp::session::PosixInputSession  input_session_;
 };
 
 }  // namespace udp

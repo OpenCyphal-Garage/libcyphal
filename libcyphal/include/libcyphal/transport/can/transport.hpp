@@ -11,8 +11,8 @@
 #include <cstring>
 #include "libcyphal/media/can/frame.hpp"
 #include "libcyphal/transport/can/interface.hpp"
-#include "libcyphal/transport/can/session/message_publisher.hpp"
-#include "libcyphal/transport/can/session/message_subscriber.hpp"
+#include "libcyphal/transport/can/session/output_session.hpp"
+#include "libcyphal/transport/can/session/input_session.hpp"
 #include "libcyphal/transport/can/types.hpp"
 #include "libcyphal/transport/message.hpp"
 
@@ -27,7 +27,7 @@ namespace can
 class CANTransport final : public Interface
 {
 public:
-    CANTransport(session::MessageSubscriber& input_session, session::MessagePublisher& output_session) noexcept
+    CANTransport(session::InputSession& input_session, session::OutputSession& output_session) noexcept
         : input_session_{input_session}
         , output_session_{output_session}
     {
@@ -51,7 +51,7 @@ public:
     /// @brief Transmits a CAN Extended Frame
     /// @param[in] metadata CAN Extended Frame metadata
     /// @param[in] frame CAN Extended Frame containing payload, size, and id info
-    Status transmit(const TxMetadata metadata, const media::can::extended::Frame& frame) noexcept override
+    Status transmit(const TxMetadata& metadata, const media::can::extended::Frame& frame) noexcept override
     {
         /// @todo Support non-broadcast transmit (service calls)
         return output_session_.broadcast(metadata.port_id, frame);
@@ -83,8 +83,8 @@ public:
     }
 
 private:
-    session::MessageSubscriber& input_session_;
-    session::MessagePublisher&  output_session_;
+    session::InputSession& input_session_;
+    session::OutputSession&  output_session_;
 };
 
 }  // namespace can

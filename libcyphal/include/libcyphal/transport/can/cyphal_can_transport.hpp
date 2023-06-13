@@ -145,7 +145,7 @@ public:
     /// @todo Remove this and replace with common *ard metadata types
     TransferKind canardToLibcyphalTransferKind(CanardTransferKind kind)
     {
-        return static_cast<TransferKind>((kind));
+        return static_cast<TransferKind>(kind);
     }
 
     /// @todo Remove this and replace with common *ard metadata types
@@ -265,7 +265,7 @@ public:
     /// @retval Success - Message transmitted
     /// @retval Invalid - No record found for response or trying to broadcast anonymously
     /// @retval Failure - Could not transmit the message.
-    Status transmit(TxMetadata tx_metadata, const Message& msg) override
+    Status transmit(const TxMetadata& tx_metadata, const Message& msg)
     {
         if (tx_metadata.remote_node_id > std::numeric_limits<CanardNodeID>::max())
         {
@@ -375,7 +375,7 @@ public:
     /// @param[in] listener Object that provides callbacks to the application layer to trigger from the transport
     /// @note The implement will invoke the listener with the appropriately typed Frames.
     ///     1. The user defines a Listener by implementing the Listener APIs. For example, if the user wants custom
-    ///        behavior after receiving a broadcast message, onReceiveBroadcast could perhaps deserialize and print
+    ///        behavior after receiving a broadcast message, onReceive could perhaps deserialize and print
     ///        the message as an example
     ///     2. The user defines CAN Interfaces by implementing libcyphal::transport::can::transport.hpp. This is
     ///        considered the primary/secondary "buses".
@@ -383,7 +383,7 @@ public:
     ///     4. CyphaCANTransport triggers a CAN Interface call to the primary/secondary bus and calls
     ///        processIncomignFrames
     ///     5. This calls whatever OS level APIs are available to receive CAN packets
-    ///     6. After the message is received and canard is notified, the listener's onReceiveBroadcast API is called
+    ///     6. After the message is received and canard is notified, the listener's onReceive API is called
     /// @note The lifecycle of the Listener is maintained by the application/application layer and not this class
     /// @note Multiple calls to this API are needed for large payloads until the EOT flag in the header is set
     /// indicating
@@ -416,7 +416,7 @@ public:
         }
         else
         {
-            bus_status.backup = Status(ResultCode::NotAvailable, CauseCode::Resource);
+            bus_status.backup = Status(ResultCode::NotConfigured, CauseCode::Resource);
         }
 
         // Clear current listener to make it available for the next call to this method

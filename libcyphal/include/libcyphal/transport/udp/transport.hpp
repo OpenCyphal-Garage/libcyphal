@@ -10,8 +10,8 @@
 #include <cstdint>
 #include "libcyphal/media/udp/frame.hpp"
 #include "libcyphal/transport/udp/interface.hpp"
-#include "libcyphal/transport/udp/session/message_publisher.hpp"
-#include "libcyphal/transport/udp/session/message_subscriber.hpp"
+#include "libcyphal/transport/udp/session/output_session.hpp"
+#include "libcyphal/transport/udp/session/input_session.hpp"
 #include "libcyphal/types/status.hpp"
 
 namespace libcyphal
@@ -25,7 +25,7 @@ namespace udp
 class UDPTransport final : public Interface
 {
 public:
-    UDPTransport(session::MessageSubscriber& input_session, session::MessagePublisher& output_session)
+    UDPTransport(session::InputSession& input_session, session::OutputSession& output_session)
         : input_session_{input_session}
         , output_session_{output_session}
     {
@@ -48,18 +48,36 @@ public:
 
     /// @brief Sets up receiver on a given subject ID for subscriber
     /// @param[in] subject_id Subject ID to setup
-    Status setupReceiver(const PortID subject_id)
+    Status setupMessageReceiver(const PortID subject_id)
     {
-        return input_session_.setupReceiver(subject_id);
+        return input_session_.setupMessageReceiver(subject_id);
     }
 
-    /// @brief Transmits an UDP Frame via Broadcast
+    /// @brief Sets up receiver for a Client or Server
+    /// @param[in] node_id The local Node ID of the client or server
+    Status setupServiceReceiver(const NodeID node_id)
+    {
+        return input_session_.setupServiceReceiver(node_id);
+    }
+
+    /// @brief Transmits an UDP Frame
     /// @param[in] metadata UDP Frame metadata
     /// @param[in] frame UDP Frame containing payload, size, and header info
-    Status transmit(const TxMetadata metadata, const media::udp::Frame& frame) override
+    Status transmit(const TxMetadata& metadata, const media::udp::Frame& frame) override
     {
-        /// @todo Support non-broadcast transmit (service calls)
-        return output_session_.broadcast(metadata.port_id, frame);
+        if (metadata.kind == TransferKind::TransferKindMessage) 
+        {
+            return output_session_.broadcast(metadata.port_id, frame);
+        }
+        else if ((metadata.kind == TransferKind::TransferKindRequest) || (metadata.kind == TransferKind::TransferKindResponse))
+        {
+            return output_session_.sendServiceTransfer(metadata.remote_node_id, frame);
+        }
+        else
+        {
+            // Unsupported Transfer Kind
+            return ResultCode::BadArgument;
+        }
     }
 
     /// @brief Called by clients in order to processes incoming UDP Frames
@@ -70,8 +88,8 @@ public:
     }
 
 private:
-    session::MessageSubscriber& input_session_;
-    session::MessagePublisher&  output_session_;
+    session::InputSession& input_session_;
+    session::OutputSession&  output_session_;
 };
 
 }  // namespace udp

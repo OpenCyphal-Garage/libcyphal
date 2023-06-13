@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <libcyphal/transport/id_types.hpp>
-#include <libcyphal/transport/can/session/message_publisher.hpp>
+#include "libcyphal/transport/can/session/output_session.hpp"
 #include <libcyphal/transport/can/types.hpp>
 #include <libcyphal/types/status.hpp>
 #include "posix/libcyphal/transport/can/connection.hpp"
@@ -24,7 +24,7 @@ namespace session
 
 /// @brief Used to store session information for CAN broadcasts
 /// @todo Make this usable for service requests also
-class PosixMessagePublisher : public MessagePublisher
+class PosixOutputSession : public OutputSession
 {
 public:
     /// @note based on IFNAMSIZ for posix systems
@@ -33,14 +33,14 @@ public:
     /// @brief Constructor
     /// @param[in] node_id Node id of local host
     /// @param[in] can_interface CAN Interface name
-    PosixMessagePublisher(const NodeID node_id, const char* can_interface) noexcept
+    PosixOutputSession(const NodeID node_id, const char* can_interface) noexcept
         : node_id_{node_id}
     {
         strncpy(can_interface_, can_interface, MaximumInterfaceNameLength);
     }
 
     /// @brief Destructor that cleans up posix socket connections
-    virtual ~PosixMessagePublisher()
+    virtual ~PosixOutputSession()
     {
         if (socket_fd_ != ClosedSocket)
         {
@@ -52,8 +52,8 @@ public:
     }
 
     /// @brief Copy Constructor
-    /// @param[in] other PosixMessagePublisher to copy from
-    PosixMessagePublisher(const PosixMessagePublisher& other) noexcept
+    /// @param[in] other PosixOutputSession to copy from
+    PosixOutputSession(const PosixOutputSession& other) noexcept
         : node_id_{other.node_id_}
         , socket_fd_{other.socket_fd_}
     {
@@ -61,8 +61,8 @@ public:
     }
 
     /// @brief Move Constructor
-    /// @param[in] other PosixMessagePublisher to move from
-    PosixMessagePublisher(PosixMessagePublisher&& other) noexcept
+    /// @param[in] other PosixOutputSession to move from
+    PosixOutputSession(PosixOutputSession&& other) noexcept
         : node_id_{other.node_id_}
         , socket_fd_{other.socket_fd_}
     {
@@ -71,8 +71,8 @@ public:
     }
 
     /// @brief Copy Assignment
-    /// @param[in] other PosixMessagePublisher to copy from
-    PosixMessagePublisher& operator=(const PosixMessagePublisher& other) noexcept
+    /// @param[in] other PosixOutputSession to copy from
+    PosixOutputSession& operator=(const PosixOutputSession& other) noexcept
     {
         if (this != &other)
         {
@@ -84,8 +84,8 @@ public:
     }
 
     /// @brief Move Assignment
-    /// @param[in] other PosixMessagePublisher to move from
-    PosixMessagePublisher& operator=(PosixMessagePublisher&& other) noexcept
+    /// @param[in] other PosixOutputSession to move from
+    PosixOutputSession& operator=(PosixOutputSession&& other) noexcept
     {
         if (this != &other)
         {

@@ -65,7 +65,7 @@ inline Status setJoinMulticastGroup(const Socket        linux_socket,
 /// @return status of setting property
 inline Status setReuseAddress(const Socket linux_socket) noexcept
 {
-    u_int yes = 1;
+    const std::uint32_t yes = 1;
     return setProperty(linux_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 }
 

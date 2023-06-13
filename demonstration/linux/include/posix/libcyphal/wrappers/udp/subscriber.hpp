@@ -24,8 +24,6 @@ namespace udp
 class Subscriber final : public Base
 {
 public:
-    transport::Listener& listener_;
-
     /// @brief Constructor for UDPSubscriber which is a wrapper around the tasks needed to receive messages
     /// @param[in] ip_address Local IP Address
     /// @param[in] node_id The desired NodeID of the Transport
@@ -40,7 +38,7 @@ public:
     }
 
     /// Destructor
-    ~Subscriber() = default;
+    virtual ~Subscriber() = default;
 
     /// @brief Initializes everything needed to receive frames
     Status initialize() override
@@ -59,7 +57,7 @@ public:
     Status registerSubjectId(const PortID subject_id) noexcept
     {
         Status result{};
-        result = interface_.setupReceiver(subject_id);
+        result = interface_.setupMessageReceiver(subject_id);
         if (result.isFailure())
         {
             return result;
@@ -72,6 +70,10 @@ public:
     {
         return udp_->processIncomingTransfers(listener_);
     }
+
+private:
+    transport::Listener& listener_;
+
 };
 
 }  // namespace udp

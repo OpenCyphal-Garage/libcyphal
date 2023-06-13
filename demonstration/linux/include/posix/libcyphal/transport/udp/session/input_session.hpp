@@ -1,6 +1,6 @@
 /// @copyright Copyright Amazon.com Inc. and its affiliates. All Rights Reserved.
 /// @file
-/// Input session handler for subscriber session
+/// Input session handler for message and service receiver sessions
 
 #ifndef POSIX_LIBCYPHAL_TRANSPORT_UDP_INPUT_SESSION_HPP_INCLUDED
 #define POSIX_LIBCYPHAL_TRANSPORT_UDP_INPUT_SESSION_HPP_INCLUDED
@@ -13,7 +13,7 @@
 #include <libcyphal/transport/udp/cyphal_udp_transport.hpp>
 #include <libcyphal/transport/udp/interface.hpp>
 #include <libcyphal/transport/udp/transport.hpp>
-#include <libcyphal/transport/udp/session/message_subscriber.hpp>
+#include <libcyphal/transport/udp/session/input_session.hpp>
 #include <libcyphal/transport/udp/session/specifier.hpp>
 #include <libcyphal/types/status.hpp>
 #include "posix/libcyphal/transport/ip/v4/connection.hpp"
@@ -33,15 +33,15 @@ namespace session
 
 /// @brief Used to store session information for UDP subscriptions
 /// @todo Make this usable for service requests also
-class PosixMessageSubscriber final : public MessageSubscriber
+class PosixInputSession final : public InputSession
 {
 public:
-    PosixMessageSubscriber() = delete;
+    PosixInputSession() = delete;
 
     /// @brief Constructor
     /// @param[in] node_id Node id of local host
     /// @param[in] local_address Local ip address
-    PosixMessageSubscriber(const NodeID node_id, const ip::v4::Address local_address) noexcept
+    PosixInputSession(const NodeID node_id, const ip::v4::Address local_address) noexcept
         : node_id_{node_id}
         , local_address_{local_address}
         , storage_{}
@@ -51,7 +51,7 @@ public:
     }
 
     /// @brief Destructor that cleans up posix socket connections
-    ~PosixMessageSubscriber()
+    virtual ~PosixInputSession()
     {
         for (Specifier& data : data_)
         {
@@ -66,8 +66,8 @@ public:
     }
 
     /// @brief Copy Constructor
-    /// @param[in] other PosixMessageSubscriber to copy from
-    PosixMessageSubscriber(const PosixMessageSubscriber& other) noexcept
+    /// @param[in] other PosixInputSession to copy from
+    PosixInputSession(const PosixInputSession& other) noexcept
         : node_id_{other.node_id_}
         , local_address_{other.local_address_}
         , storage_{}
@@ -77,8 +77,8 @@ public:
     }
 
     /// @brief Move Constructor
-    /// @param[in] other PosixMessageSubscriber to move from
-    PosixMessageSubscriber(PosixMessageSubscriber&& other) noexcept
+    /// @param[in] other PosixInputSession to move from
+    PosixInputSession(PosixInputSession&& other) noexcept
         : node_id_{other.node_id_}
         , local_address_{other.local_address_}
         , storage_{}
@@ -92,8 +92,8 @@ public:
     }
 
     /// @brief Copy Assignment
-    /// @param[in] other PosixMessageSubscriber to copy from
-    PosixMessageSubscriber& operator=(const PosixMessageSubscriber& other) noexcept
+    /// @param[in] other PosixInputSession to copy from
+    PosixInputSession& operator=(const PosixInputSession& other) noexcept
     {
         if (this != &other)
         {
@@ -105,8 +105,8 @@ public:
     }
 
     /// @brief Move Assignment
-    /// @param[in] other PosixMessageSubscriber to move from
-    PosixMessageSubscriber& operator=(PosixMessageSubscriber&& other) noexcept
+    /// @param[in] other PosixInputSession to move from
+    PosixInputSession& operator=(PosixInputSession&& other) noexcept
     {
         if (this != &other)
         {
@@ -127,14 +127,15 @@ public:
         return ResultCode::Success;
     }
 
-    /// @brief Sets up everything needed to receive messages on a given subject id
+    /// @brief Sets up everything needed to receive messages on a given subject ID
     /// @note Creates a new Posix Socket per Subject ID with a unique IP Address
     /// @param[in] subject_id The subject id to listen on
-    Status setupReceiver(const PortID subject_id) noexcept override
+    Status setupMessageReceiver(const PortID subject_id) noexcept override
     {
         Status    result{};
         Specifier data{};
-        data.target_address = ip::v4::getBroadcastAddressFromSubjectId(subject_id);
+        // TODO OVPG-3432 Update this function to use the IP address calculated by libudpard instead of recalculating it here
+        data.target_address = ip::v4::getMulticastAddressFromSubjectId(subject_id);
         data.node_id        = node_id_;
         data.socket_port    = ip::v4::BroadcastPort;
         data.port_id        = subject_id;
@@ -144,6 +145,39 @@ public:
             return ResultCode::Failure;
         }
         data_.emplace_back(data);
+
+        result = ip::v4::bindToSocket(data.socket_fd, data.target_address, data.socket_port);
+        if (result.isFailure())
+        {
+            return result;
+        }
+
+        return ip::v4::setJoinMulticastGroup(data.socket_fd,
+                                             data.target_address.asInteger(),
+                                             local_address_.asInteger());
+    }
+
+    /// @brief Sets up everything needed to receive a request or response on the local Node
+    /// @note Creates a new Posix Socket per local Node ID with a unique IP Address
+    Status setupServiceReceiver(NodeID node_id) noexcept override
+    {
+        Status    result{};
+        Specifier data{};
+
+        if (node_id != node_id_) {
+            return ResultCode::BadArgument;
+        }
+        // TODO OVPG-3432 Update this function to use the IP address calculated by libudpard instead of recalculating it here
+        data.target_address = ip::v4::getMulticastAddressFromServiceNodeId(node_id_);
+        data.node_id        = node_id_;
+        data.socket_port    = ip::v4::BroadcastPort;
+        data.socket_fd      = ip::v4::createSocket();
+        if (data.socket_fd == ip::v4::ClosedSocket)
+        {
+            return ResultCode::Failure;
+        }
+        data_.emplace_back(data);
+
         result = ip::v4::bindToSocket(data.socket_fd, data.target_address, data.socket_port);
         if (result.isFailure())
         {
@@ -154,7 +188,7 @@ public:
                                              local_address_.asInteger());
     }
 
-    /// @brief Receives all messages for subscribed subject ids
+    /// @brief Receives all transfers for all registered Port IDs
     /// @param[in] receiver Transport receiver that makes calls to libudpard
     Status receive(Interface::Receiver& receiver) noexcept override
     {

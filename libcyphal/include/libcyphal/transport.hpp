@@ -40,7 +40,7 @@ protected:
     /// @retval Success - Message transmitted
     /// @retval Invalid - No record found for response or trying to broadcast anonymously
     /// @retval Failure - Could not transmit the message.
-    virtual Status transmit(transport::TxMetadata tx_metadata, const Message& msg) = 0;
+    virtual Status transmit(const transport::TxMetadata& tx_metadata, const Message& msg) = 0;
 
     /// @brief Called by clients in order to processes incoming UDP Frames
     /// @note The implementation will invoke the listener with the appropriately typed Frames

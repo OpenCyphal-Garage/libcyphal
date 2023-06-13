@@ -10,8 +10,8 @@
 #include <libcyphal/transport/id_types.hpp>
 #include <libcyphal/transport/metadata.hpp>
 #include <libcyphal/types/status.hpp>
+#include <libcyphal/types/span.hpp>
 #include "posix/libcyphal/wrappers/can/base.hpp"
-#include "cetl/pf20/span.hpp"
 
 namespace libcyphal
 {
@@ -19,6 +19,9 @@ namespace wrappers
 {
 namespace can
 {
+
+/// Warning: The Libcyphal API is undergoing a redesign and these wrapper classes will be going
+/// away soon: https://jira.adninfra.net/browse/OVPG-3288
 
 /// @brief CANBroadcaster is a wrapper around the tasks needed to send messages
 class Broadcaster final : public Base
@@ -58,7 +61,7 @@ public:
     /// @param[in] buffer_size size of the message
     Status broadcast(const PortID subject_id, const std::uint8_t* buffer, std::size_t buffer_size)
     {
-        cetl::pf20::span<const std::uint8_t> span_message{buffer, buffer_size};
+        Span<const std::uint8_t> span_message{buffer, buffer_size};
         return can_->broadcast(subject_id, span_message);
     }
 };

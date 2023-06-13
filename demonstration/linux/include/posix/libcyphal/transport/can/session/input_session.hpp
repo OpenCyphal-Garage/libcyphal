@@ -10,8 +10,7 @@
 #include <libcyphal/media/can/frame.hpp>
 #include <libcyphal/transport/id_types.hpp>
 #include <libcyphal/transport/can/cyphal_can_transport.hpp>
-#include <libcyphal/transport/can/session/message_publisher.hpp>
-#include <libcyphal/transport/can/session/message_subscriber.hpp>
+#include "libcyphal/transport/can/session/input_session.hpp"
 #include <libcyphal/transport/can/interface.hpp>
 #include <libcyphal/transport/can/transport.hpp>
 #include <libcyphal/transport/can/types.hpp>
@@ -29,25 +28,25 @@ namespace session
 
 /// @brief Used to store session information for CAN subscriptions
 /// @todo Make this usable for service requests also
-class PosixMessageSubscriber : public MessageSubscriber
+class PosixInputSession : public InputSession
 {
 public:
     /// @note based on IFNAMSIZ for posix systems
     static constexpr std::size_t MaximumInterfaceNameLength = 16;
 
-    PosixMessageSubscriber() = delete;
+    PosixInputSession() = delete;
 
     /// @brief Constructor
     /// @param[in] node_id Node id of local host
     /// @param[in] can_interface Can interface name (example: can0)
-    PosixMessageSubscriber(const NodeID node_id, const char* can_interface) noexcept
+    PosixInputSession(const NodeID node_id, const char* can_interface) noexcept
         : node_id_{node_id}
     {
         strncpy(can_interface_, can_interface, MaximumInterfaceNameLength);
     }
 
     /// @brief Destructor that cleans up posix socket connections
-    virtual ~PosixMessageSubscriber()
+    virtual ~PosixInputSession()
     {
         if (socket_fd_ != ClosedSocket)
         {
@@ -59,8 +58,8 @@ public:
     }
 
     /// @brief Copy Constructor
-    /// @param[in] other PosixMessageSubscriber to copy from
-    PosixMessageSubscriber(const PosixMessageSubscriber& other) noexcept
+    /// @param[in] other PosixInputSession to copy from
+    PosixInputSession(const PosixInputSession& other) noexcept
         : node_id_{other.node_id_}
     {
         socket_fd_ = other.socket_fd_;
@@ -68,8 +67,8 @@ public:
     }
 
     /// @brief Move Constructor
-    /// @param[in] other PosixMessageSubscriber to move from
-    PosixMessageSubscriber(PosixMessageSubscriber&& other) noexcept
+    /// @param[in] other PosixInputSession to move from
+    PosixInputSession(PosixInputSession&& other) noexcept
         : node_id_{other.node_id_}
     {
         socket_fd_ = other.socket_fd_;
@@ -78,8 +77,8 @@ public:
     }
 
     /// @brief Copy Assignment
-    /// @param[in] other PosixMessageSubscriber to copy from
-    PosixMessageSubscriber& operator=(const PosixMessageSubscriber& other) noexcept
+    /// @param[in] other PosixInputSession to copy from
+    PosixInputSession& operator=(const PosixInputSession& other) noexcept
     {
         if (this != &other)
         {
@@ -91,8 +90,8 @@ public:
     }
 
     /// @brief Move Assignment
-    /// @param[in] other PosixMessageSubscriber to move from
-    PosixMessageSubscriber& operator=(PosixMessageSubscriber&& other) noexcept
+    /// @param[in] other PosixInputSession to move from
+    PosixInputSession& operator=(PosixInputSession&& other) noexcept
     {
         if (this != &other)
         {

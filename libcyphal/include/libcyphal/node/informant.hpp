@@ -8,9 +8,8 @@
 #include <cstdint>
 #include <limits>
 #include "libcyphal/types/common.hpp"
+#include "libcyphal/types/span.hpp"
 #include "libcyphal/types/status.hpp"
-
-#include "cetl/pf20/span.hpp"
 
 namespace libcyphal
 {
@@ -32,8 +31,8 @@ public:
     constexpr static std::size_t MaxNameLength = 50;
     constexpr static std::size_t MaxCOALength  = 222;
 
-    using Name = cetl::pf20::span<const char>;
-    using COA  = cetl::pf20::span<const std::uint8_t>;
+    using Name = Span<const char>;
+    using COA  = Span<const std::uint8_t>;
 
     /// @brief Used by the Node to set the Hardware Version.
     /// @return Version The major and minor build number

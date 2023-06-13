@@ -17,7 +17,7 @@ namespace transport
 namespace udp
 {
 
-/// Holds data that's relevant for Message Subscriber sessions
+/// Holds data that's relevant for Input sessions
 struct Specifier
 {
     PortID          port_id{UINT16_MAX};

@@ -15,6 +15,7 @@
 #    include <fcntl.h>
 #    include <linux/can.h>
 #    include <linux/can/raw.h>
+#    include <errno.h>
 #    include <net/if.h>
 #    include <poll.h>
 #    include <sys/ioctl.h>
@@ -208,6 +209,10 @@ static Status push(Socket                                 socket_fd,
                    const media::can::extended::Frame&     frame,
                    const time::Monotonic::MicrosecondType timeout_usec)
 {
+    if (frame.data_ == nullptr)
+    {
+        return ResultCode::BadArgument;
+    }
     const Status poll_result = pollSocket(socket_fd, POLLOUT, timeout_usec);
     if (poll_result.isSuccess())
     {
@@ -269,8 +274,14 @@ static Status pop(Socket                                 socket_fd,
         const ssize_t read_size = recvmsg(socket_fd, &msg, MSG_DONTWAIT);
         if (read_size < 0)
         {
-            // TODO: OVPG-3371 Return a more specific return code if there are no incoming transfers
-            return ResultCode::Failure;
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+            {
+                return Status(ResultCode::NotAvailable, CauseCode::Resource);
+            }
+            else
+            {
+                return Status(ResultCode::Failure, CauseCode::Resource);
+            }
         }
         if ((static_cast<std::size_t>(read_size) != CAN_MTU) && (static_cast<std::size_t>(read_size) != CANFD_MTU))
         {
