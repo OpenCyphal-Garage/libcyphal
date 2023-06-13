@@ -38,7 +38,7 @@ public:
     }
 
     /// Destructor
-    virtual ~Subscriber() = default;
+    ~Subscriber() = default;
 
     /// @brief Initializes everything needed to receive frames
     Status initialize() override

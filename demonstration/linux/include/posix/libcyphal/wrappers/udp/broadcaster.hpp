@@ -36,7 +36,7 @@ public:
     }
 
     /// Destructor
-    virtual ~Broadcaster() = default;
+    ~Broadcaster() = default;
 
     /// @brief Initializes everything needed to send frames
     Status initialize() override
@@ -63,7 +63,7 @@ public:
     /// @param[in] buffer_size size of the message
     Status broadcast(const PortID subject_id, const std::uint8_t* buffer, const std::size_t buffer_size)
     {
-        Span<const std::uint8_t> span_message{buffer, buffer_size};
+        cetl::pf20::span<const std::uint8_t> span_message{buffer, buffer_size};
         return udp_->broadcast(subject_id, span_message);
     }
 };

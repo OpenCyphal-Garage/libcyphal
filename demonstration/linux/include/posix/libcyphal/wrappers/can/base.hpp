@@ -52,13 +52,15 @@ public:
                                                       &canardMemFree)}
         , output_session_{transport::can::session::PosixOutputSession(node_id, can_interface)}
         , input_session_{transport::can::session::PosixInputSession(node_id, can_interface)}
-    {}
+    {
+    }
 
     /// @brief Base class constructor for Transport Node wrapper for sending/receiving messages
     /// @param[in] node_id The desired NodeID of the Transport
     Base(const NodeID node_id, cetl::pf17::pmr::memory_resource* resource) noexcept
         : Base("", node_id, resource)
-    {}
+    {
+    }
 
     /// @brief Common initialization steps for setting up common Node initialization steps
     virtual Status initialize()

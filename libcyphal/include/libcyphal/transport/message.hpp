@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include "libcyphal/build_config.hpp"
-#include "libcyphal/types/span.hpp"
+#include "cetl/pf20/span.hpp"
 
 namespace libcyphal
 {
@@ -19,7 +19,7 @@ constexpr std::size_t MaxMessageSize{LIBCYPHAL_TRANSPORT_MAX_MESSAGE_SIZE_BYTES}
 /// Post-serialized Message Container.
 /// Serialized messages can't have their members be reliably accessed as they may not align on CPU type
 /// boundaries or be in offsets which are readable without causing memory access faults.
-using Message = Span<const std::uint8_t>;
+using Message = cetl::pf20::span<const std::uint8_t>;
 
 }  // namespace libcyphal
 

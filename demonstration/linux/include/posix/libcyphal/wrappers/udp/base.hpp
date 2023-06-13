@@ -61,7 +61,8 @@ public:
                                                       &udpardMemFree)}
         , output_session_{transport::udp::session::PosixOutputSession(node_id, ip_address)}
         , input_session_{transport::udp::session::PosixInputSession(node_id, ip_address)}
-    {}
+    {
+    }
 
     /// @brief Common initialization steps for setting up common Node initialization steps
     virtual Status initialize()

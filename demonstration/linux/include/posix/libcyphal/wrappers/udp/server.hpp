@@ -98,7 +98,7 @@ public:
     /// @param[in] buffer_size The size of the transfer
     Status sendResponse(PortID service_id, NodeID remote_node_id, const std::uint8_t* buffer, const std::size_t buffer_size)
     {
-        Span<const std::uint8_t> span_transfer{buffer, buffer_size};
+        cetl::pf20::span<const std::uint8_t> span_transfer{buffer, buffer_size};
         return udp_->sendResponse(service_id, remote_node_id, span_transfer);
     }
 
