@@ -26,6 +26,8 @@ define_property(TARGET
     FULL_DOCS "Private to the nnvg package. Do not use."
 )
 
+# TODO: cached inputs and outputs target properties. Cache these per target defined
+#       to improve performance (i.e. only run nnvg --list once per target).
 # +---------------------------------------------------------------------------+
 # | FUNCTIONS :: PRIVATE
 # +---------------------------------------------------------------------------+

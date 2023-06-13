@@ -41,14 +41,18 @@ if(NOT public_regulated_data_types_POPULATED)
     endif()
 
     set_property(GLOBAL PROPERTY public_regulated_data_types_POPULATED true)
-
+    set_property(GLOBAL PROPERTY public_regulated_data_types_SOURCE_DIR ${LOCAL_public_regulated_data_types_SOURCE_DIR})
+else()
+    get_property(public_regulated_data_types_SOURCE_DIR GLOBAL PROPERTY public_regulated_data_types_SOURCE_DIR)
 endif()
 # +--------------------------------------------------------------------------------------------------------------------+
 
-cmake_path(APPEND public_regulated_data_types_SOURCE_DIR "uavcan" OUTPUT_VARIABLE LOCAL_PRDT_SOURCE_DIR)
+cmake_path(APPEND public_regulated_data_types_SOURCE_DIR "uavcan" "node" "7509.Heartbeat.1.0.dsdl" OUTPUT_VARIABLE LOCAL_PRDT_SOURCE_DIR)
 
 if (EXISTS ${LOCAL_PRDT_SOURCE_DIR})
-    set(public_regulated_data_types_FOUND TRUE)
+set(public_regulated_data_types_FOUND TRUE)
+else()
+set(public_regulated_data_types_FOUND FALSE)
 endif()
 
 include(FindPackageHandleStandardArgs)

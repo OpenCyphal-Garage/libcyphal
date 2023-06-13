@@ -1,7 +1,13 @@
-/// @copyright Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
-/// @copyright Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 /// @file
 /// Helpers for doing mathy things that aren't provided by the standard library.
+/// TODO: move this to CETL
+///
+/// @copyright
+/// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
+/// Copyright Amazon.com Inc. or its affiliates.
+/// SPDX-License-Identifier: MIT
+///
+// cSpell: words mathy
 
 #ifndef LIBCYPHAL_UTIL_MATH_HPP_INCLUDED
 #define LIBCYPHAL_UTIL_MATH_HPP_INCLUDED
@@ -15,25 +21,24 @@
 
 namespace libcyphal
 {
-/**
- * @namespace util
- * Contains helper types and functions to make integrating libcyphal easier.
- */
+///
+/// @namespace util
+/// Contains helper types and functions to make integrating libcyphal easier.
+///
 namespace util
 {
 // +--------------------------------------------------------------------------+
-// | GENERIC SATURING MATH
+// | GENERIC SATURATING MATH
 // +--------------------------------------------------------------------------+
 
-/*
- * Saturated addition where the RHS is assumed to be a positive value.
- *
- * This is part of the generic, promotionless, saturation math provided by this header. Ideally this would
- * be omitted for most platforms where saturation operations were available.
- */
-template <
-    class SignedType,
-    typename std::enable_if<std::is_integral<SignedType>::value && std::is_signed<SignedType>::value, int>::type = 0>
+///
+/// Saturated addition where the RHS is assumed to be a positive value.
+///
+/// This is part of the generic, promotion-less, saturation math provided by this header. Ideally this would
+/// be omitted for most platforms where saturation operations were available.
+///
+template <class SignedType,
+          typename std::enable_if_t<std::is_integral<SignedType>::value && std::is_signed<SignedType>::value, int> = 0>
 constexpr SignedType _saturating_add_d(SignedType left, SignedType right)
 {
     return (left >= 0 && right > (std::numeric_limits<SignedType>::max() - left))
@@ -41,15 +46,14 @@ constexpr SignedType _saturating_add_d(SignedType left, SignedType right)
                : static_cast<SignedType>(left + right);
 }
 
-/*
- * Saturated subtraction where the RHS is assumed to be a positive value.
- *
- * This is part of the generic, promotionless, saturation math provided by this header. Ideally this would
- * be omitted for most platforms where saturation operations were available.
- */
-template <
-    class SignedType,
-    typename std::enable_if<std::is_integral<SignedType>::value && std::is_signed<SignedType>::value, int>::type = 0>
+///
+/// Saturated subtraction where the RHS is assumed to be a positive value.
+///
+/// This is part of the generic, promotion-less, saturation math provided by this header. Ideally this would
+/// be omitted for most platforms where saturation operations were available.
+///
+template <class SignedType,
+          typename std::enable_if_t<std::is_integral<SignedType>::value && std::is_signed<SignedType>::value, int> = 0>
 constexpr SignedType _saturating_sub_d(SignedType left, SignedType right)
 {
     return (left <= 0 && right >= std::abs(std::numeric_limits<SignedType>::min() - left))
@@ -57,25 +61,24 @@ constexpr SignedType _saturating_sub_d(SignedType left, SignedType right)
                : static_cast<SignedType>(left - right);
 }
 
-/**
- * Generic implementation of a saturating add operation that does not require integer promotion (i.e. will work with
- * int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that use
- * hardware support for saturation arithmetic.
- *
- * @tparam SignedType The signed integer type of both operands.
- * @tparam 0 For SFINAE
- * @param left The left operand.
- * @param right The right operand.
- * @return SignedType The result which will saturate to {@code std::numeric_limits<SignedType>::min()} or {@code
- * std::numeric_limits<SignedType>::max()}
- */
-template <
-    class SignedType,
-    typename std::enable_if<std::is_integral<SignedType>::value && std::is_signed<SignedType>::value, int>::type = 0>
+///
+/// Generic implementation of a saturating add operation that does not require integer promotion (i.e. will work with
+/// int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that use
+/// hardware support for saturation arithmetic.
+///
+/// @tparam SignedType The signed integer type of both operands.
+/// @tparam 0 For SFINAE
+/// @param left The left operand.
+/// @param right The right operand.
+/// @return SignedType The result which will saturate to {@code std::numeric_limits<SignedType>::min()} or {@code
+/// std::numeric_limits<SignedType>::max()}
+///
+template <class SignedType,
+          typename std::enable_if_t<std::is_integral<SignedType>::value && std::is_signed<SignedType>::value, int> = 0>
 SignedType saturating_add(SignedType left, SignedType right)
 {
     SignedType result;
-    if (right >= 0)  // make sure this is actually substraction
+    if (right >= 0)  // make sure this is actually subtraction
     {
         result = _saturating_add_d<SignedType>(left, right);
     }
@@ -102,25 +105,24 @@ SignedType saturating_add(SignedType left, SignedType right)
     return result;
 }
 
-/**
- * Generic implementation of a saturating subtract operation that does not require integer promotion (i.e. will work
- * with int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that use
- * hardware support for saturation arithmetic.
- *
- * @tparam SignedType The signed integer type of both operands.
- * @tparam 0 For SFINAE
- * @param left The left operand.
- * @param right The right operand.
- * @return SignedType The result which will saturate to {@code std::numeric_limits<SignedType>::min()} or {@code
- * std::numeric_limits<SignedType>::max()}
- */
-template <
-    class SignedType,
-    typename std::enable_if<std::is_integral<SignedType>::value && std::is_signed<SignedType>::value, int>::type = 0>
+///
+/// Generic implementation of a saturating subtract operation that does not require integer promotion (i.e. will work
+/// with int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that
+/// use hardware support for saturation arithmetic.
+///
+/// @tparam SignedType The signed integer type of both operands.
+/// @tparam 0 For SFINAE
+/// @param left The left operand.
+/// @param right The right operand.
+/// @return SignedType The result which will saturate to {@code std::numeric_limits<SignedType>::min()} or {@code
+/// std::numeric_limits<SignedType>::max()}
+///
+template <class SignedType,
+          typename std::enable_if_t<std::is_integral<SignedType>::value && std::is_signed<SignedType>::value, int> = 0>
 SignedType saturating_sub(SignedType left, SignedType right)
 {
     SignedType result;
-    if (right >= 0)  // make sure this is actually substraction
+    if (right >= 0)  // make sure this is actually subtraction
     {
         result = _saturating_sub_d<SignedType>(left, right);
     }
@@ -145,21 +147,21 @@ SignedType saturating_sub(SignedType left, SignedType right)
     return result;
 }
 
-/**
- * Generic implementation of a saturating add operation that does not require integer promotion (i.e. will work with
- * int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that use
- * hardware support for saturation arithmetic.
- *
- * @tparam UnsignedType The unsigned integer type of both operands.
- * @tparam 0 For SFINAE
- * @param left The left operand.
- * @param right The right operand.
- * @return UnsignedType The result which will saturate to {@code std::numeric_limits<UnsignedType>::min()} or {@code
- * std::numeric_limits<UnsignedType>::max()}
- */
-template <class UnsignedType,
-          typename std::enable_if<std::is_integral<UnsignedType>::value && !std::is_signed<UnsignedType>::value,
-                                  int>::type = 0>
+///
+/// Generic implementation of a saturating add operation that does not require integer promotion (i.e. will work with
+/// int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that use
+/// hardware support for saturation arithmetic.
+///
+/// @tparam UnsignedType The unsigned integer type of both operands.
+/// @tparam 0 For SFINAE
+/// @param left The left operand.
+/// @param right The right operand.
+/// @return UnsignedType The result which will saturate to {@code std::numeric_limits<UnsignedType>::min()} or {@code
+/// std::numeric_limits<UnsignedType>::max()}
+///
+template <
+    class UnsignedType,
+    typename std::enable_if_t<std::is_integral<UnsignedType>::value && !std::is_signed<UnsignedType>::value, int> = 0>
 constexpr UnsignedType saturating_add(UnsignedType left, UnsignedType right)
 {
     // Be careful here. Some ways of writing this logic will run afoul of
@@ -171,18 +173,18 @@ constexpr UnsignedType saturating_add(UnsignedType left, UnsignedType right)
                : static_cast<UnsignedType>(left + right);
 }
 
-/**
- * Generic implementation of a saturating subtraction operation that does not require integer promotion (i.e. will work
- * with int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that use
- * hardware support for saturation arithmetic.
- *
- * @tparam UnsignedType The unsigned integer type of both operands.
- * @tparam 0 For SFINAE
- * @param left The left operand.
- * @param right The right operand.
- * @return UnsignedType The result which will saturate to {@code std::numeric_limits<UnsignedType>::min()} or {@code
- * std::numeric_limits<UnsignedType>::max()}
- */
+///
+/// Generic implementation of a saturating subtraction operation that does not require integer promotion (i.e. will work
+/// with int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that
+/// use hardware support for saturation arithmetic.
+///
+/// @tparam UnsignedType The unsigned integer type of both operands.
+/// @tparam 0 For SFINAE
+/// @param left The left operand.
+/// @param right The right operand.
+/// @return UnsignedType The result which will saturate to {@code std::numeric_limits<UnsignedType>::min()} or {@code
+/// std::numeric_limits<UnsignedType>::max()}
+///
 template <class UnsignedType,
           typename std::enable_if<std::is_integral<UnsignedType>::value && !std::is_signed<UnsignedType>::value,
                                   int>::type = 0>
@@ -191,52 +193,52 @@ constexpr UnsignedType saturating_sub(UnsignedType left, UnsignedType right)
     return (right > left) ? std::numeric_limits<UnsignedType>::min() : static_cast<UnsignedType>(left - right);
 }
 
-/**
- * Generic implementation of a saturating subtraction operation that does not require integer promotion (i.e. will work
- * with int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that use
- * hardware support for saturation arithmetic.
- *
- * This version allows a saturated subtraction of a signed integer from an unsigned.
- *
- * @tparam LHS_TYPE The unsigned integer type of the left-hand-side operand.
- * @tparam RHS_TYPE The signed integer type of the right-hand-side operand.
- * @tparam 0 For SFINAE
- * @param left The signed left operand.
- * @param right The unsigned right operand.
- * @return LHS_TYPE The result which will saturate to {@code std::numeric_limits<LHS_TYPE>::min()} or {@code
- * std::numeric_limits<LHS_TYPE>::max()}
- */
+///
+/// Generic implementation of a saturating subtraction operation that does not require integer promotion (i.e. will work
+/// with int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that
+/// use hardware support for saturation arithmetic.
+///
+/// This version allows a saturated subtraction of a signed integer from an unsigned.
+///
+/// @tparam LHS_TYPE The unsigned integer type of the left-hand-side operand.
+/// @tparam RHS_TYPE The signed integer type of the right-hand-side operand.
+/// @tparam 0 For SFINAE
+/// @param left The signed left operand.
+/// @param right The unsigned right operand.
+/// @return LHS_TYPE The result which will saturate to {@code std::numeric_limits<LHS_TYPE>::min()} or {@code
+/// std::numeric_limits<LHS_TYPE>::max()}
+///
 template <class LhsType,
           class RhsType,
-          typename std::enable_if<std::is_integral<LhsType>::value && !std::is_signed<LhsType>::value &&
-                                      std::is_integral<RhsType>::value && std::is_signed<RhsType>::value,
-                                  int>::type = 0>
+          typename std::enable_if_t<std::is_integral<LhsType>::value && !std::is_signed<LhsType>::value &&
+                                        std::is_integral<RhsType>::value && std::is_signed<RhsType>::value,
+                                    int> = 0>
 constexpr LhsType saturating_sub(LhsType left, RhsType right)
 {
     return (right >= 0) ? saturating_sub<LhsType>(left, static_cast<LhsType>(right))
                         : saturating_add<LhsType>(left, static_cast<LhsType>(right));
 }
 
-/**
- * Generic implementation of a saturating subtraction operation that does not require integer promotion (i.e. will work
- * with int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that use
- * hardware support for saturation arithmetic.
- *
- * This version allows a saturated addition of a signed integer with an unsigned.
- *
- * @tparam LHS_TYPE The unsigned integer type of the left-hand-side operand.
- * @tparam RHS_TYPE The signed integer type of the right-hand-side operand.
- * @tparam 0 For SFINAE
- * @param left The signed left operand.
- * @param right The unsigned right operand.
- * @return LHS_TYPE The result which will saturate to {@code std::numeric_limits<LHS_TYPE>::min()} or {@code
- * std::numeric_limits<LHS_TYPE>::max()}
- */
+///
+/// Generic implementation of a saturating subtraction operation that does not require integer promotion (i.e. will work
+/// with int64_t without needing a 128-bit type). This is very branchy code so we should provide implementations that
+/// use hardware support for saturation arithmetic.
+///
+/// This version allows a saturated addition of a signed integer with an unsigned.
+///
+/// @tparam LHS_TYPE The unsigned integer type of the left-hand-side operand.
+/// @tparam RHS_TYPE The signed integer type of the right-hand-side operand.
+/// @tparam 0 For SFINAE
+/// @param left The signed left operand.
+/// @param right The unsigned right operand.
+/// @return LHS_TYPE The result which will saturate to {@code std::numeric_limits<LHS_TYPE>::min()} or {@code
+/// std::numeric_limits<LHS_TYPE>::max()}
+///
 template <class LhsType,
           class RhsType,
-          typename std::enable_if<std::is_integral<LhsType>::value && !std::is_signed<LhsType>::value &&
-                                      std::is_integral<RhsType>::value && std::is_signed<RhsType>::value,
-                                  int>::type = 0>
+          typename std::enable_if_t<std::is_integral<LhsType>::value && !std::is_signed<LhsType>::value &&
+                                        std::is_integral<RhsType>::value && std::is_signed<RhsType>::value,
+                                    int> = 0>
 constexpr LhsType saturating_add(LhsType left, RhsType right)
 {
     return (right >= 0) ? saturating_add<LhsType>(left, static_cast<LhsType>(right))

@@ -38,28 +38,28 @@ else()
 endif()
 
 define_nuanvut_support_target(
-    TARGET dsdl_support
+    TARGET examples_dsdl_support
     ${NNVG_ASSERT_ARGS}
     ${NNVG_VERBOSE_ARGS}
 )
 
 add_dsdl_cpp_codegen(
-    TARGET dsdl_public_types
+    TARGET examples_dsdl_public_types
     DSDL_ROOT_DIR ${public_regulated_data_types_SOURCE_DIR}/uavcan
     ${NNVG_ASSERT_ARGS}
     ${NNVG_VERBOSE_ARGS}
     DSDL_DEPENDENCIES
-        dsdl_support
+        examples_dsdl_support
 )
 
 add_dsdl_cpp_codegen(
-    TARGET dsdl_example_types
+    TARGET examples_dsdl_custom_types
     DSDL_ROOT_DIR dsdl/example
     ${NNVG_ASSERT_ARGS}
     ${NNVG_VERBOSE_ARGS}
     DSDL_DEPENDENCIES
-        dsdl_support
-        dsdl_public_types
+        examples_dsdl_support
+        examples_dsdl_public_types
 )
 
 # +---------------------------------------------------------------------------+
@@ -79,7 +79,7 @@ set(ALL_EXAMPLE_RUNS "")
 foreach(NATIVE_EXAMPLE ${NATIVE_EXAMPLES})
     define_native_gtest_unittest_targets(
         TEST_SOURCE ${NATIVE_EXAMPLE}
-        EXTRA_TEST_LIBS cyphal cetl dsdl_example_types
+        EXTRA_TEST_LIBS cyphal cetl examples_dsdl_custom_types
         LINK_TO_MAIN
         OUT_TEST_LIB_VARIABLE LOCAL_TEST_LIB
         OUT_TEST_EXE_VARIABLE LOCAL_TEST_TARGET

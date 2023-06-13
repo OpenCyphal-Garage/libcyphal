@@ -18,7 +18,7 @@ endif()
 #   We generate individual test binaires so we can record which test generated
 #   what coverage. We also allow test authors to generate coverage reports for
 #   just one test allowing for faster iteration.
-file(GLOB NATIVE_TESTS
+file(GLOB_RECURSE NATIVE_TESTS
     LIST_DIRECTORIES false
     CONFIGURE_DEPENDS
     RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
@@ -39,6 +39,8 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
         OUT_TEST_EXE_VARIABLE LOCAL_TEST_TARGET
         OUT_TEST_REPORT_VARIABLE LOCAL_TEST_REPORT
     )
+
+    target_include_directories(${LOCAL_TEST_LIB} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
     list(APPEND ALL_TESTS_BUILD ${LOCAL_TEST_TARGET})
     list(APPEND ALL_TESTS_RUN ${LOCAL_TEST_REPORT})

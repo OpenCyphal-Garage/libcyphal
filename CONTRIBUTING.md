@@ -90,15 +90,21 @@ More abstractly, libcyphal's design goals should be mutually compatible. There i
 
 ### Demonstrations
 
-This is a list that will move to an external project and road-map at some point. We capture it here and now to help guide the design of the project when anticipating possible use cases by end-systems. While most of this list is speculative, `linux-posix` will be the first demonstration developed and will be completed along with the first release of libcyphal.
+This is a list that will move to an external project and road-map at some point. We capture it here and now to help guide the design of the project when anticipating possible use cases by end-systems. While most of this list is speculative, `posix` will be the first demonstration developed and will be completed along with the first release of libcyphal.
 
 ```
 + demonstration/            <-- Platform-specific demonstration software. In the future
 |   |                           this will be external and will stay in the garage. We'll
 |   |                           keep it here for now to accelerate development.
 |   |
-|   + linux-posix/          <-- Demonstrates using libcyphal in a single, multi-threaded
-|   |                           linux application.
+|   + posix/                <-- Demonstrates using libcyphal with UDP in a single
+|   |                           application that runs on either Linux or Mac.
+|   |                           This will be the "hello world" demonstration.
+|   |   + CMakeLists.txt
+|   |
+|   + linux/                <-- Demonstrates using all transports on linux with threads.
+|   |                           This will become the most complete and largest of the
+|   |                           demonstrations we maintain.
 |   |   + CMakeLists.txt
 |   |   + validation/       <-- reification of libcyphal/validation for linux
 |   |
@@ -108,10 +114,6 @@ This is a list that will move to an external project and road-map at some point.
 |   + linux-amp/            <-- Demonstrates using libcyphal on a multi-core system using
 |   |                           openAMP to coordinate work between cores.
 |   |   + CMakeLists.txt
-|   |
-|   + mac/                  <-- Love to have this. not sure what the priority is though.
-|   |   + CMakeLists.txt
-|   |   + validation/       <-- reification of libcyphal/validation for mac
 |   |
 |   + windows/              <-- contributions welcome!
 |   |   + CMakeLists.txt

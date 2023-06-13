@@ -22,9 +22,7 @@ project(libcyphal
 # +---------------------------------------------------------------------------+
 add_subdirectory(test/unittest)
 add_subdirectory(docs)
-if (${CMAKE_CXX_PLATFORM_ID} STREQUAL "Linux")
-    add_subdirectory(demonstration/linux)
-endif()
+add_subdirectory(demonstration/posix)
 
 # +---------------------------------------------------------------------------+
 # | DEFAULT BUILD SUPPORT
@@ -42,12 +40,10 @@ add_custom_target(
         build_examples
 )
 
-if (${CMAKE_CXX_PLATFORM_ID} STREQUAL "Linux")
-    add_dependencies(
-        build
-        libcyphal_demo_posix
-    )
-endif()
+add_dependencies(
+    build
+    libcyphal_demo_posix
+)
 
 if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
     add_custom_target(
