@@ -34,22 +34,24 @@ namespace udp
 /// Sets the maximum number of possible transfers that an instance of CyphalUDPransport can manage
 /// @todo Determine a proper static size for maximum number of broadcasts/subscriptions
 static constexpr std::size_t MaxNumberOfBroadcasts{
-    LIBCYPHAL_TRANSPORT_MAX_BROADCASTS};  ///<! Max number of broadcast message types
+    LIBCYPHAL_TRANSPORT_MAX_BROADCASTS};  ///<! Max number of broadcast message types: publish
 static constexpr std::size_t MaxNumberOfSubscriptions{
-    LIBCYPHAL_TRANSPORT_MAX_SUBSCRIPTIONS};  ///<! Max number of broadcast subscriptions
+    LIBCYPHAL_TRANSPORT_MAX_SUBSCRIPTIONS};  ///<! Max number of broadcast subscriptions: receive
 static constexpr std::size_t MaxNumberOfResponses{
-    LIBCYPHAL_TRANSPORT_MAX_RESPONSES};  ///!< Max number of response transfer types
+    LIBCYPHAL_TRANSPORT_MAX_RESPONSES};  ///!< Max number of response message types: handle
 static constexpr std::size_t MaxNumberOfRequests{
-    LIBCYPHAL_TRANSPORT_MAX_REQUESTS};  ///!< Max number of request transfer types
+    LIBCYPHAL_TRANSPORT_MAX_REQUESTS};  ///!< Max number of request message types: handle
 
 static constexpr UdpardNodeID     AnonymousNodeID{UDPARD_NODE_ID_UNSET};
 static constexpr UdpardTransferID InitialTransferID{0};  ///<! Transfer IDs for new transactions start at 0
 /// Maximum number of subscription records that an instance can manage, cannot be 0
-static constexpr std::size_t MaxNumberOfSubscriptionRecords{MaxNumberOfSubscriptions + MaxNumberOfResponses + MaxNumberOfRequests};
+static constexpr std::size_t MaxNumberOfSubscriptionRecords{MaxNumberOfSubscriptions + MaxNumberOfResponses +
+                                                            MaxNumberOfRequests};
 static_assert(MaxNumberOfSubscriptionRecords, "MaxNumberOfSubscriptions, Responses, or Requests must be nonzero");
 
 /// Maximum number of publication records that an instance can manage, cannot be 0
-static constexpr std::size_t MaxNumberOfPublicationRecords{MaxNumberOfBroadcasts + MaxNumberOfResponses + MaxNumberOfRequests};
+static constexpr std::size_t MaxNumberOfPublicationRecords{MaxNumberOfBroadcasts + MaxNumberOfResponses +
+                                                           MaxNumberOfRequests};
 static_assert(MaxNumberOfPublicationRecords, "MaxNumberOfBroadcasts, Responses, or Requests must be nonzero");
 
 /// Cyphal transport layer implementation for UDP
@@ -214,18 +216,18 @@ public:
             return Status(ResultCode::Invalid, CauseCode::Parameter);
         }
 
-        // Broadcast message records do not utilize the remote node ID field in the publication records list, leave it unset
+        // Broadcast message records do not utilize the remote node ID field in the publication records list, leave it
+        // unset
         UdpardNodeID remote_node_id = AnonymousNodeID;
         if (tx_metadata.kind == TransferKindRequest || tx_metadata.kind == TransferKindResponse)
         {
             remote_node_id = tx_metadata.remote_node_id;
         }
 
-        UdpardTransferMetadata* const record = getPublicationRecord(
-                publication_records_,
-                libcyphalToUdpardTransferKind(tx_metadata.kind),
-                tx_metadata.port_id,
-                remote_node_id);
+        UdpardTransferMetadata* const record = getPublicationRecord(publication_records_,
+                                                                    libcyphalToUdpardTransferKind(tx_metadata.kind),
+                                                                    tx_metadata.port_id,
+                                                                    remote_node_id);
 
         if (record == nullptr)
         {
@@ -248,7 +250,8 @@ public:
         }
 
         Status publication_status = publishTransfer(*record, payload);
-        if (publication_status.isFailure()) {
+        if (publication_status.isFailure())
+        {
             return publication_status;
         }
 
@@ -335,7 +338,7 @@ public:
                                                    subscription);
 
         // If `accept_status` is 1, a new transfer is available for processing.
-        // If it is 0, a transfer may still be in progress or the frame was discarded 
+        // If it is 0, a transfer may still be in progress or the frame was discarded
         // by Udpard. It is not a failure or success.
         // If it is negative, an error occurred while accepting the new frame
         if (accept_status == 1)
@@ -352,11 +355,8 @@ public:
                 // Incoming transfer is a service request
                 // Update response record metadata associated with this request
                 UdpardNodeID            node_id = received.metadata.remote_node_id;
-                UdpardTransferMetadata* record  = getPublicationRecord(
-                    publication_records_,
-                    UdpardTransferKindResponse,
-                    port_id,
-                    node_id);
+                UdpardTransferMetadata* record =
+                    getPublicationRecord(publication_records_, UdpardTransferKindResponse, port_id, node_id);
 
                 if (record != nullptr)
                 {
@@ -365,7 +365,7 @@ public:
                     // Save off the transfer ID of the request in the response publication record because we need
                     // to publish the response using the same transfer ID that was in the request, as required
                     // by the Cyphal specification
-                    record->transfer_id    = received.metadata.transfer_id;
+                    record->transfer_id = received.metadata.transfer_id;
 
                     // Activates record if this is the first accepted request and is otherwise just writing the same
                     // value to its 'remote_node_id' field
@@ -414,12 +414,12 @@ public:
 
         BusStatus bus_status;
         current_rx_bus_index_ = Primary;
-        bus_status.primary        = primary_bus_.processIncomingFrames(*this);
+        bus_status.primary    = primary_bus_.processIncomingFrames(*this);
 
         if (backup_bus_ != nullptr)
         {
             current_rx_bus_index_ = Backup;
-            bus_status.backup         = backup_bus_->processIncomingFrames(*this);
+            bus_status.backup     = backup_bus_->processIncomingFrames(*this);
         }
         else
         {
@@ -452,11 +452,11 @@ public:
     Status registerPublication(PortID port_id, TransferKind transfer_kind) noexcept override
     {
         // Create a publication record to hold the metadata associated with this individual port ID
-        return createPublicationRecord(
-                publication_records_,
-                UdpardPriorityNominal,  // FIXME Eventually priorities should be assigned per node and port ID pair
-                libcyphalToUdpardTransferKind(transfer_kind),
-                port_id);
+        return createPublicationRecord(publication_records_,
+                                       UdpardPriorityNominal,  // FIXME Eventually priorities should be assigned per
+                                                               // node and port ID pair
+                                       libcyphalToUdpardTransferKind(transfer_kind),
+                                       port_id);
     }
 
     /// @brief Registers interest in a specific port ID from this transport.
@@ -509,10 +509,10 @@ private:
 
     bool cleanup_initiated{false};
 
-    Interface&         primary_bus_; //!< Primary CAN bus. Reference type because primary bus is required.
-    Interface*         backup_bus_;  //!< Backup CAN bus for fully redundant transports. Pointer type
-                                     //!< because backup bus is optional.
-    const time::Timer& timer_;       //!< For timing transfers
+    Interface& primary_bus_;    //!< Primary CAN bus. Reference type because primary bus is required.
+    Interface* backup_bus_;     //!< Backup CAN bus for fully redundant transports. Pointer type
+                                //!< because backup bus is optional.
+    const time::Timer& timer_;  //!< For timing transfers
 
     // Subscription records, initialized and used by Udpard but managed by this class
     // Each represents an instance of one of three types of subscription:
@@ -662,8 +662,7 @@ private:
         // this is the first inactive record with a matching port ID, return it
         for (UdpardTransferMetadata& record : records)
         {
-            if ((record.port_id == port) &&
-                (record.transfer_kind == transfer_type) &&
+            if ((record.port_id == port) && (record.transfer_kind == transfer_type) &&
                 ((record.remote_node_id == node) || (record.remote_node_id == AnonymousNodeID)))
             {
                 return &record;

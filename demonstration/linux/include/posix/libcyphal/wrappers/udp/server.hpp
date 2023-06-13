@@ -29,10 +29,14 @@ public:
     /// @brief Constructor for UDP Server which is a wrapper around the tasks needed to send messages
     /// @param[in] ip_address Local IP Address
     /// @param[in] node_id The desired NodeID of the Transport
-    Server(const transport::ip::v4::Address ip_address, const NodeID node_id, transport::Listener& listener) noexcept
-        : Base(ip_address, node_id)
+    Server(const transport::ip::v4::Address  ip_address,
+           const NodeID                      node_id,
+           transport::Listener&              listener,
+           cetl::pf17::pmr::memory_resource* resource) noexcept
+        : Base(ip_address, node_id, resource)
         , listener_{listener}
-    {}
+    {
+    }
 
     virtual ~Server()           = default;
     Server(Server&)             = delete;
@@ -59,7 +63,7 @@ public:
         // Only need to setup the receiver once because even if a Node is
         // is a server for multiple service IDs, it will receive all requests
         // on the same multicast address. For example, if the server Node ID
-        // is 44 and it has registered for service IDs 409 and 410, it will 
+        // is 44 and it has registered for service IDs 409 and 410, it will
         // receive requests for both of these services on the same multicast
         // address: 239.1.0.44
         result = interface_.setupServiceReceiver(node_id_);
@@ -96,7 +100,10 @@ public:
     /// @param[in] remote_node_id The Node ID to whom the response will be sent
     /// @param[in] buffer The transfer payload
     /// @param[in] buffer_size The size of the transfer
-    Status sendResponse(PortID service_id, NodeID remote_node_id, const std::uint8_t* buffer, const std::size_t buffer_size)
+    Status sendResponse(PortID              service_id,
+                        NodeID              remote_node_id,
+                        const std::uint8_t* buffer,
+                        const std::size_t   buffer_size)
     {
         cetl::pf20::span<const std::uint8_t> span_transfer{buffer, buffer_size};
         return udp_->sendResponse(service_id, remote_node_id, span_transfer);
@@ -110,7 +117,6 @@ public:
 
 private:
     transport::Listener& listener_;
-
 };
 
 }  // namespace udp

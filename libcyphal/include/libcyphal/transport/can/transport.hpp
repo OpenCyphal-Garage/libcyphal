@@ -83,8 +83,8 @@ public:
     }
 
 private:
-    session::InputSession& input_session_;
-    session::OutputSession&  output_session_;
+    session::InputSession&  input_session_;
+    session::OutputSession& output_session_;
 };
 
 }  // namespace can

@@ -265,7 +265,7 @@ public:
     /// @retval Success - Message transmitted
     /// @retval Invalid - No record found for response or trying to broadcast anonymously
     /// @retval Failure - Could not transmit the message.
-    Status transmit(const TxMetadata& tx_metadata, const Message& msg)
+    Status transmit(const TxMetadata& tx_metadata, const Message& msg) override
     {
         if (tx_metadata.remote_node_id > std::numeric_limits<CanardNodeID>::max())
         {

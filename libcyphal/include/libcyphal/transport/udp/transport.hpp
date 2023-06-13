@@ -65,11 +65,12 @@ public:
     /// @param[in] frame UDP Frame containing payload, size, and header info
     Status transmit(const TxMetadata& metadata, const media::udp::Frame& frame) override
     {
-        if (metadata.kind == TransferKind::TransferKindMessage) 
+        if (metadata.kind == TransferKind::TransferKindMessage)
         {
             return output_session_.broadcast(metadata.port_id, frame);
         }
-        else if ((metadata.kind == TransferKind::TransferKindRequest) || (metadata.kind == TransferKind::TransferKindResponse))
+        else if ((metadata.kind == TransferKind::TransferKindRequest) ||
+                 (metadata.kind == TransferKind::TransferKindResponse))
         {
             return output_session_.sendServiceTransfer(metadata.remote_node_id, frame);
         }
@@ -88,8 +89,8 @@ public:
     }
 
 private:
-    session::InputSession& input_session_;
-    session::OutputSession&  output_session_;
+    session::InputSession&  input_session_;
+    session::OutputSession& output_session_;
 };
 
 }  // namespace udp

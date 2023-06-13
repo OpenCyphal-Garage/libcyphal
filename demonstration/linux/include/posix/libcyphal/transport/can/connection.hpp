@@ -209,10 +209,6 @@ static Status push(Socket                                 socket_fd,
                    const media::can::extended::Frame&     frame,
                    const time::Monotonic::MicrosecondType timeout_usec)
 {
-    if (frame.data_ == nullptr)
-    {
-        return ResultCode::BadArgument;
-    }
     const Status poll_result = pollSocket(socket_fd, POLLOUT, timeout_usec);
     if (poll_result.isSuccess())
     {
