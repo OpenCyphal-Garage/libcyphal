@@ -32,6 +32,8 @@ static_assert(UDPARD_CYPHAL_HEADER_VERSION == 1,
 
 constexpr NodeID AnonymousNodeID = UDPARD_NODE_ID_UNSET;
 
+constexpr std::size_t DefaultMTU = 1408;  // TODO use UDPARD_MTU_DEFAULT
+
 constexpr ResultCode fromUdpardResult(std::int32_t result)
 {
     if (result >= 0)
