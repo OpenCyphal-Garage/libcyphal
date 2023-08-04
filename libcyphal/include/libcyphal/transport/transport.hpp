@@ -76,7 +76,7 @@ public:
     /// See ProtocolParameters.
     ///
     /// @return ProtocolParameters object if the transport is initialized, otherwise ResultCode::UninitializedError.
-    virtual ProtocolParameters protocolParameters() const noexcept = 0;
+    virtual ProtocolParameters getProtocolParameters() const noexcept = 0;
 
     /// The node-ID is set once during initialization of the transport,
     /// either explicitly (e.g., CAN) or by deriving the node-ID value from the configuration
@@ -88,7 +88,7 @@ public:
     /// plug-and-play node-ID allocation (for example, a CAN transport may disable automatic retransmission).
     ///
     /// @return Optional integer representing the local node-ID.
-    virtual janky::optional<NodeID> localNodeId() const = 0;
+    virtual janky::optional<NodeID> getLocalNodeId() const = 0;
 
     /// Closes all active sessions, underlying media instances, and other resources related to this transport instance.
     ///

@@ -289,8 +289,7 @@ struct MutableStatus final
     }
 };
 
-using NodeID                     = std::uint16_t;
-constexpr NodeID anonymousNodeID = std::numeric_limits<NodeID>::max();
+using NodeID                     = std::uint16_t;  ///< Anonymity is represented by an empty optional<NodeID>.
 using PortID                     = std::uint16_t;
 using TransferID                 = std::uint64_t;
 

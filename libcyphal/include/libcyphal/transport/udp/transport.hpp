@@ -41,7 +41,8 @@ struct TransportMemoryResources
     cetl::pf17::pmr::memory_resource* input_session_memory;
     cetl::pf17::pmr::memory_resource* output_session_memory;
     cetl::pf17::pmr::memory_resource* tx_queue_memory;
-    // TODO: update 'ards so this can be two separate memory resources.
+    // TODO [Scott]: update 'ards so this can be two separate memory resources.
+    //      [Pavel]: This is done in the main2 branch, see struct UdpardRxMemoryResources.
     cetl::pf17::pmr::memory_resource* rx_payload_buffer_and_session_memory;
 };
 
@@ -100,8 +101,8 @@ public:
         , input_registry_allocator_{memory_resources.input_session_memory}
         , output_registry_allocator_{memory_resources.output_session_memory}
         , closed_{false}
-        , tx_context_{local_node_id.value_or(anonymousNodeID), memory_resources.tx_queue_memory}
-        , rx_context_{local_node_id.value_or(anonymousNodeID), memory_resources.rx_payload_buffer_and_session_memory}
+        , tx_context_{local_node_id.value_or(AnonymousNodeID), memory_resources.tx_queue_memory}
+        , rx_context_{local_node_id.value_or(AnonymousNodeID), memory_resources.rx_payload_buffer_and_session_memory}
         , interfaces_{}
         , input_registry_{input_registry_allocator_}
         , output_registry_{output_registry_allocator_}
@@ -155,12 +156,12 @@ public:
         return ResultCode::Success;
     }
 
-    ProtocolParameters protocolParameters() const noexcept override
+    ProtocolParameters getProtocolParameters() const noexcept override
     {
         return ProtocolParameters{std::numeric_limits<TransferID>::max(), MaxNodeIdValue, mtu_bytes_};
     }
 
-    janky::optional<NodeID> localNodeId() const override
+    janky::optional<NodeID> getLocalNodeId() const override
     {
         return local_node_id_;
     }

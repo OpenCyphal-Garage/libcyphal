@@ -161,7 +161,7 @@ public:
         UdpardTransferMetadata metadata{toUdpardPriority(priority),
                                         toUdpTransferKind(specifier_),
                                         specifier_.getDataSpecifier().getId(),
-                                        specifier_.getRemoteNodeId().value_or(anonymousNodeID),
+                                        specifier_.getRemoteNodeId().value_or(AnonymousNodeID),
                                         0};
         for (RedundantNetworkTxInterface& interface : interfaces_)
         {

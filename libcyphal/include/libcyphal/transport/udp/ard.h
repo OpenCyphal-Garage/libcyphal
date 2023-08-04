@@ -30,6 +30,8 @@ static_assert(UDPARD_CYPHAL_HEADER_VERSION == 1,
               "We expected udpard.h to be UDPARD_CYPHAL_HEADER_VERSION==1. Please update this header to handle other "
               "versions and then change this static assert.");
 
+constexpr NodeID AnonymousNodeID = UDPARD_NODE_ID_UNSET;
+
 constexpr ResultCode fromUdpardResult(std::int32_t result)
 {
     if (result >= 0)
