@@ -1,5 +1,5 @@
 /// @file
-/// Cyphal Transport Interface implementation used to communicate over a UDP bus
+/// Cyphal Transport Interface implementation used to communicate over a UDP/IP network.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
