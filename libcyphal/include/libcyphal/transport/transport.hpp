@@ -28,7 +28,7 @@ namespace transport
 /// This is not a hard guarantee, however.
 /// For example, a redundant transport aggregator may return a different set of parameters after
 /// the set of aggregated transports is changed (i.e., a transport is added or removed).
-struct ProtocolParameters
+struct ProtocolParameters final
 {
     /// The cardinality of the set of distinct transfer-ID values; i.e., the overflow period.
     /// All high-overhead transports (UDP, Serial, etc.) use a sufficiently large value that will never overflow
@@ -36,11 +36,11 @@ struct ProtocolParameters
     /// The background and motivation are explained at
     /// https://forum.opencyphal.org/t/alternative-transport-protocols/324.
     /// Example: 32 for CAN, (2**64) for UDP.
-    std::size_t transfer_id_modulo;
+    std::uint64_t transfer_id_modulo;
 
     /// How many nodes can the transport accommodate in a given network.
-    /// Example: 128 for CAN, 65534 for UDP.
-    std::size_t max_nodes;
+    /// Example: 128 for CAN, 65535 for UDP (0xFFFF is reserved).
+    std::uint32_t max_nodes;
 
     /// The largest maximum number of payload bytes in a single-frame transfer for the group of network interfaces
     /// used by the transport. This number can change on systems where the value is configurable.
@@ -76,7 +76,7 @@ public:
     /// See ProtocolParameters.
     ///
     /// @return ProtocolParameters object if the transport is initialized, otherwise ResultCode::UninitializedError.
-    virtual ProtocolParameters protocolParameters() const noexcept = 0;
+    virtual ProtocolParameters getProtocolParameters() const noexcept = 0;
 
     /// The node-ID is set once during initialization of the transport,
     /// either explicitly (e.g., CAN) or by deriving the node-ID value from the configuration
@@ -88,7 +88,7 @@ public:
     /// plug-and-play node-ID allocation (for example, a CAN transport may disable automatic retransmission).
     ///
     /// @return Optional integer representing the local node-ID.
-    virtual janky::optional<NodeID> localNodeId() const = 0;
+    virtual janky::optional<NodeID> getLocalNodeId() const = 0;
 
     /// Closes all active sessions, underlying media instances, and other resources related to this transport instance.
     ///

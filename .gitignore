@@ -1,5 +1,9 @@
-
+cmake-build*/
 clang-format-diff-warnings
 build
 external/**/*
 .DS_Store
+
+.idea/
+!/.idea/dictionaries
+!/.idea/dictionaries/*

@@ -1,5 +1,5 @@
 /// @file
-/// Cyphal Transport Interface implementation used to communicate over a UDP bus
+/// Cyphal Transport Interface implementation used to communicate over a UDP/IP network.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -41,7 +41,8 @@ struct TransportMemoryResources
     cetl::pf17::pmr::memory_resource* input_session_memory;
     cetl::pf17::pmr::memory_resource* output_session_memory;
     cetl::pf17::pmr::memory_resource* tx_queue_memory;
-    // TODO: update 'ards so this can be two separate memory resources.
+    // TODO [Scott]: update 'ards so this can be two separate memory resources.
+    //      [Pavel]: This is done in the main2 branch, see struct UdpardRxMemoryResources.
     cetl::pf17::pmr::memory_resource* rx_payload_buffer_and_session_memory;
 };
 
@@ -49,16 +50,6 @@ struct TransportMemoryResources
 class Transport final : public ITransport, public IRunnable
 {
 public:
-    ///
-    /// The minimum is based on the IPv6 specification, which guarantees that the path MTU is at least 1280 bytes large.
-    /// This value is also acceptable for virtually all IPv4 local or real-time networks.
-    /// Lower MTU values shall not be used because they may lead to multi-frame transfer fragmentation where this is
-    /// not expected by the designer, possibly violating the real-time constraints.
-    ///
-    /// A conventional Ethernet jumbo frame can carry up to 9 KiB (9216 bytes).
-    /// These are the application-level MTU values, so we take overheads into account.
-    static constexpr std::uint32_t ValidMTURange[2] = {1200, 9000};
-
     /// @brief  Per [Table 4.5] of the Cyphal specification.
     static constexpr std::size_t MaxNodeIdValue = 65534;
 
@@ -93,15 +84,15 @@ public:
     Transport(network::IContext&         network_context,
               janky::optional<NodeID>    local_node_id,
               TransportMemoryResources&& memory_resources,
-              std::uint32_t              mtu_bytes = ValidMTURange[0])
+              std::uint32_t              mtu_bytes = DefaultMTU)
         : network_context_{network_context}
         , local_node_id_(local_node_id)
         , mtu_bytes_{mtu_bytes}
         , input_registry_allocator_{memory_resources.input_session_memory}
         , output_registry_allocator_{memory_resources.output_session_memory}
         , closed_{false}
-        , tx_context_{local_node_id.value_or(anonymousNodeID), memory_resources.tx_queue_memory}
-        , rx_context_{local_node_id.value_or(anonymousNodeID), memory_resources.rx_payload_buffer_and_session_memory}
+        , tx_context_{local_node_id.value_or(AnonymousNodeID), memory_resources.tx_queue_memory}
+        , rx_context_{local_node_id.value_or(AnonymousNodeID), memory_resources.rx_payload_buffer_and_session_memory}
         , interfaces_{}
         , input_registry_{input_registry_allocator_}
         , output_registry_{output_registry_allocator_}
@@ -112,7 +103,7 @@ public:
         (void) std::move(memory_resources);
     }
 
-    ~Transport() noexcept                  = default;
+    ~Transport() noexcept final            = default;
     Transport(const Transport&)            = delete;
     Transport(Transport&&)                 = delete;
     Transport& operator=(const Transport&) = delete;
@@ -155,12 +146,12 @@ public:
         return ResultCode::Success;
     }
 
-    ProtocolParameters protocolParameters() const noexcept override
+    ProtocolParameters getProtocolParameters() const noexcept override
     {
         return ProtocolParameters{std::numeric_limits<TransferID>::max(), MaxNodeIdValue, mtu_bytes_};
     }
 
-    janky::optional<NodeID> localNodeId() const override
+    janky::optional<NodeID> getLocalNodeId() const override
     {
         return local_node_id_;
     }
@@ -271,7 +262,7 @@ public:
                 return Status{ip_socket_perhaps.error(), 0x55};
             }
             network::SocketPointer<network::ip::Socket>&& ip_socket = std::move(ip_socket_perhaps.value());
-            const Status                                  r = ip_socket->connect(multicast_address, network::ip::udp::CyphalPort);
+            const Status r = ip_socket->connect(multicast_address, network::ip::udp::CyphalPort);
             if (r != ResultCode::Success)
             {
                 return Status{r.result, 0x56};

@@ -28,7 +28,6 @@ BraceWrapping:
     AfterStruct: true
     AfterClass: true
     AfterControlStatement: true
-    AfterEnum: true
     AfterFunction: true
     AfterUnion: true
     AfterNamespace: true
@@ -50,6 +49,7 @@ DisableFormat:   false
 FixNamespaceComments: true
 ForEachMacros:   [ foreach, Q_FOREACH, BOOST_FOREACH ]
 IncludeBlocks: Preserve
+InsertNewlineAtEOF: true
 IndentCaseLabels: false
 IndentPPDirectives: AfterHash
 IndentWidth:     4
