@@ -75,11 +75,33 @@ inline PosixSocketAddress createSocketAddress(const Address address, const Port 
 }
 
 /// @brief Generates the Broadcast IP Address given a subject id
+/// @details Example: Given subject ID 123, the resulting multicast address would be 239.0.0.123
 /// @param[in] subject_id Subject ID to get address from
 /// @return IPv4Address object
-inline Address getBroadcastAddressFromSubjectId(PortID subject_id) noexcept
+inline Address getMulticastAddressFromSubjectId(PortID subject_id) noexcept
 {
-    return Address(BroadcastOctet, 0u, ((subject_id & 0x7F00) >> 8), static_cast<Octet>(subject_id & 0xFF));
+    /// The SNM (Service, Not Message) bit determines whether the address represents a Message (=0) or Service (=1)
+    const Octet service_not_message_bit = 0x0;
+    return Address(
+        MulticastOctet,
+        service_not_message_bit,
+        static_cast<Octet>((subject_id & ThirdOctetMessageMask) >> 8),
+        static_cast<Octet>(subject_id & FinalOctetMask));
+}
+
+/// @brief Generates the Multicast IP Address for a given Service Node ID
+/// @details Example: Given Service Node ID 123, the resulting multicast address would be 239.1.0.123
+/// @param[in] service_node_id Service Node ID to use in the multicast address calculation
+/// @return IPv4Address object
+inline Address getMulticastAddressFromServiceNodeId(NodeID service_node_id) noexcept
+{
+    /// The SNM (Service, Not Message) bit determines whether the address represents a Message (=0) or Service (=1)
+    const Octet service_not_message_bit = 0x1;
+    return Address(
+        MulticastOctet,
+        service_not_message_bit,
+        static_cast<Octet>((service_node_id & ThirdOctetServiceMask) >> 8),
+        static_cast<Octet>(service_node_id & FinalOctetMask));
 }
 
 }  // namespace v4

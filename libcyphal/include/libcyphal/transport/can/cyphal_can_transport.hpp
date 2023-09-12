@@ -8,7 +8,6 @@
 #include <cstdint>
 #include <limits>
 #include <type_traits>
-#include <array>
 #include <canard.h>
 #include "libcyphal/transport.hpp"
 #include "libcyphal/media/can/filter.hpp"
@@ -17,13 +16,11 @@
 #include "libcyphal/transport/id_types.hpp"
 #include "libcyphal/transport/listener.hpp"
 #include "libcyphal/transport/metadata.hpp"
-#include "libcyphal/transport/can/interface.hpp"
-#include "libcyphal/transport/can/transport.hpp"
+#include "libcyphal/transport/can/can_interface.hpp"
+#include "libcyphal/types/heap.hpp"
+#include "libcyphal/types/list.hpp"
 #include "libcyphal/types/status.hpp"
 #include "libcyphal/types/time.hpp"
-
-#include "cetl/variable_length_array.hpp"
-#include "cetl/pf17/memory_resource.hpp"
 
 namespace libcyphal
 {
@@ -72,7 +69,7 @@ static constexpr std::uint32_t FrameServiceBit =
 }  // namespace canard
 
 /// Cyphal transport layer implementation for CAN
-class CyphalCANTransport final : public Transport, public Interface::Receiver
+class CyphalCANTransport final : public Transport, public NetworkInterface::Receiver
 {
 public:
     // Cyphal over CAN always encodes transfers in to extended frames
@@ -88,7 +85,7 @@ public:
     static constexpr std::size_t MaxNumberOfResponses =
         LIBCYPHAL_TRANSPORT_MAX_RESPONSES;  //!< Maximum number of response message types that an instance can handle
     static constexpr std::size_t MaxNumberOfRequests =
-        LIBCYPHAL_TRANSPORT_MAX_REQUESTS;  //!< Maximum number of request message types that an instance can handle
+        LIBCYPHAL_TRANSPORT_MAX_REQUESTS;   //!< Maximum number of request message types that an instance can handle
 
     // Maximum number of subscription records that an instance can manage, cannot be 0
     static constexpr std::size_t MaxNumberOfSubscriptionRecords =
@@ -96,31 +93,30 @@ public:
     static_assert(MaxNumberOfSubscriptionRecords, "kMaxNumberOfSubscriptions, Responses, or Requests must be nonzero");
 
     /// Constructor
-    /// @param[in] transport_index The index associated with this transport
     /// @param[in] primary_bus Pointer to primary CAN driver interface
     /// @param[in] backup_bus Pointer to backup CAN driver interface
     /// @param[in] timer ABSP timer interface
-    /// @param[in] resource the memory resource for the transport.
-    CyphalCANTransport(TransportID                       transport_index,
-                       Interface&                        primary_bus,
-                       Interface*                        backup_bus,
-                       const time::Timer&                timer,
-                       cetl::pf17::pmr::memory_resource* resource,
-                       CanardMemoryAllocate              allocator,
-                       CanardMemoryFree                  releaser)
-        : transport_id_{transport_index}
-        , cleanup_initiated_{false}
+    /// @param[in] heap Span of bytes that comprise the 01heap arena
+    CyphalCANTransport(NetworkInterface&    primary_bus,
+                       NetworkInterface*    backup_bus,
+                       NodeID               node_id,
+                       const time::Timer&   timer,
+                       Heap&                heap,
+                       CanardMemoryAllocate allocator,
+                       CanardMemoryFree     releaser)
+        : cleanup_initiated_{false}
         , fn_canard_mem_allocate_{allocator}
         , fn_canard_mem_free_{releaser}
         , timer_{timer}
         , primary_bus_{primary_bus}
         , backup_bus_{backup_bus}
-        , consolidated_filter_{std::numeric_limits<std::uint32_t>::max(), 0}
-        , resource_{resource}
+        , consolidated_filter_{AcceptAllFilter}
+        , heap_{heap}
         , canard_{canardInit(allocator, releaser)}
         , canard_tx_fifo_{canardTxInit(TXFIFOSize, MTUSize)}
     {
-        canard_.user_reference = resource_;
+        canard_.node_id = static_cast<CanardNodeID>(node_id);
+        canard_.user_reference = heap_.getInstance();
     }
 
     CyphalCANTransport(const CyphalCANTransport&)            = delete;
@@ -145,7 +141,7 @@ public:
     /// @todo Remove this and replace with common *ard metadata types
     TransferKind canardToLibcyphalTransferKind(CanardTransferKind kind)
     {
-        return static_cast<TransferKind>((kind));
+        return static_cast<TransferKind>(kind);
     }
 
     /// @todo Remove this and replace with common *ard metadata types
@@ -196,15 +192,54 @@ public:
         canard_.node_id = static_cast<CanardNodeID>(node_id);
     }
 
+    Status initializeNetworkInterface()
+    {
+        Status result{};
+        result = primary_bus_.initializeOutput();
+        if (result.isFailure())
+        {
+            return result;
+        }
+
+        result = primary_bus_.initializeInput();
+        if (result.isFailure())
+        {
+            return result;
+        }
+
+        if (backup_bus_ != nullptr)
+        {
+            result = backup_bus_->initializeOutput();
+            if (result.isFailure())
+            {
+                return result;
+            }
+
+            result = backup_bus_->initializeInput();
+            if (result.isFailure())
+            {
+                return result;
+            }
+        }
+
+        return result;
+    }
+
     /// @brief Initializes and verifies all input variables
     /// @return Status of proper initialization
     Status initialize() override
     {
+        ///<! both buses are nullptr
+        if ((heap_.getHeapSize() == 0) || (nullptr == heap_.getInstance()))
+        {
+            return Status(ResultCode::Invalid, CauseCode::Parameter);
+        }
         if ((nullptr == fn_canard_mem_allocate_) || (nullptr == fn_canard_mem_free_))
         {
             return Status(ResultCode::Invalid, CauseCode::Parameter);
         }
-        return ResultCode::Success;
+
+        return initializeNetworkInterface();
     }
 
     /// @brief retrieves port ID given a CAN frame
@@ -212,12 +247,6 @@ public:
     PortID getPortId(const CanardFrame& frame) noexcept
     {
         return (frame.extended_can_id >> canard::FrameIDSubjectIdPosition) & canard::FrameIDSubjectIdMask;
-    }
-
-    /// @brief Retrieves Transport ID
-    TransportID getTransportID() noexcept
-    {
-        return transport_id_;
     }
 
     /// @brief Retrieves Transfer kind based on CAN Frame
@@ -249,7 +278,7 @@ public:
     /// @retval Success - Message transmitted
     /// @retval Invalid - No record found for response or trying to broadcast anonymously
     /// @retval Failure - Could not transmit the message.
-    Status broadcast(PortID subject_id, const Message& msg)
+    Status broadcast(PortID subject_id, const Message& msg) override
     {
         TxMetadata metadata{};
         metadata.port_id        = subject_id;
@@ -259,13 +288,47 @@ public:
         return transmit(metadata, msg);
     }
 
+    /// @brief Transmit a serialized request with the specified service ID
+    /// @param[in] service_id The service ID of the request
+    /// @param[in] remote_node_id The Node ID to whom the request will be sent
+    /// @param[in] request The read only reference to the payload information
+    /// @retval Success - Request transmitted
+    /// @retval Invalid - No record found for request or trying to publish anonymously
+    /// @retval Failure - Could not transmit the request.
+    Status sendRequest(PortID service_id, NodeID remote_node_id, const Message& request) override
+    {
+        TxMetadata metadata{};
+        metadata.port_id        = service_id;
+        metadata.kind           = TransferKindRequest;
+        metadata.priority       = PriorityNominal;
+        metadata.remote_node_id = remote_node_id;
+        return transmit(metadata, request);
+    }
+
+    /// @brief Transmit a serialized response with the specified service ID
+    /// @param[in] service_id The service ID of the response
+    /// @param[in] remote_node_id The Node ID to whom the response will be sent
+    /// @param[in] response The read only reference to the payload information.
+    /// @retval Success - Response transmitted
+    /// @retval Invalid - No record found for response or trying to publish anonymously
+    /// @retval Failure - Could not transmit the response.
+    Status sendResponse(PortID service_id, NodeID remote_node_id, const Message& response) override
+    {
+        TxMetadata metadata{};
+        metadata.port_id        = service_id;
+        metadata.kind           = TransferKindResponse;
+        metadata.priority       = PriorityNominal;
+        metadata.remote_node_id = remote_node_id;
+        return transmit(metadata, response);
+    }
+
     /// @brief Allows a transport to transmit a serialized broadcast
     /// @param[in] tx_metadata the metadata of the message
     /// @param[in] msg The read only reference to the message information.
     /// @retval Success - Message transmitted
     /// @retval Invalid - No record found for response or trying to broadcast anonymously
     /// @retval Failure - Could not transmit the message.
-    Status transmit(TxMetadata tx_metadata, const Message& msg) override
+    Status transmit(const TxMetadata& tx_metadata, const Message& msg)
     {
         if (tx_metadata.remote_node_id > std::numeric_limits<CanardNodeID>::max())
         {
@@ -312,10 +375,10 @@ public:
         return publication_status;
     }
 
-    /// @brief Called by the Interface when an CAN Frame is available
+    /// @brief Called by the Network Interface when a CAN Frame is available
     /// @note Implements libcyphal::transport::Receiver::onReceive
     /// @param[in] frame The CAN frame
-    void onReceive(const media::can::extended::Frame& frame) override
+    void onReceiveFrame(const media::can::extended::Frame& frame) override
     {
         // Copy frame over to Canard compatible struct
         CanardFrame canard_frame{frame.id_.getID(), frame.dlc_.toLength(), frame.data_};
@@ -375,22 +438,22 @@ public:
     /// @param[in] listener Object that provides callbacks to the application layer to trigger from the transport
     /// @note The implement will invoke the listener with the appropriately typed Frames.
     ///     1. The user defines a Listener by implementing the Listener APIs. For example, if the user wants custom
-    ///        behavior after receiving a broadcast message, onReceiveBroadcast could perhaps deserialize and print
+    ///        behavior after receiving a broadcast message, onReceive could perhaps deserialize and print
     ///        the message as an example
-    ///     2. The user defines CAN Interfaces by implementing libcyphal::transport::can::transport.hpp. This is
+    ///     2. The user defines CAN Interfaces by implementing libcyphal::transport::can::can_interface.hpp. This is
     ///        considered the primary/secondary "buses".
     ///     3. The user application or libcyphal Application layer calls processIncomingTransfers(<Listener>)
-    ///     4. CyphaCANTransport triggers a CAN Interface call to the primary/secondary bus and calls
+    ///     4. CyphaCANTransport triggers a CAN Network Interface call to the primary/secondary bus and calls
     ///        processIncomignFrames
     ///     5. This calls whatever OS level APIs are available to receive CAN packets
-    ///     6. After the message is received and canard is notified, the listener's onReceiveBroadcast API is called
+    ///     6. After the message is received and canard is notified, the listener's onReceive API is called
     /// @note The lifecycle of the Listener is maintained by the application/application layer and not this class
     /// @note Multiple calls to this API are needed for large payloads until the EOT flag in the header is set
     /// indicating
     ///       the transfer is complete and thus sending the buffer back to the user. Use caution as very large payloads
     ///       can take a while before downloading the full buffer. It is up to the user whether to block (for example
     ///       looping back to back waiting for the buffer) or download frame by frame per loop cycle.
-    /// @returns The state of the Interface after processing inputs.
+    /// @returns The state of the Network Interface after processing inputs.
     /// @retval result_e::SUCCESS
     /// @retval Other values indicate underlying failures from the Driver.
     Status processIncomingTransfers(Listener& listener) override
@@ -416,7 +479,7 @@ public:
         }
         else
         {
-            bus_status.backup = Status(ResultCode::NotAvailable, CauseCode::Resource);
+            bus_status.backup = Status(ResultCode::NotConfigured, CauseCode::Resource);
         }
 
         // Clear current listener to make it available for the next call to this method
@@ -496,11 +559,11 @@ public:
         can_filter.raw.setID(UsesExtendedFrames, consolidated_filter_.extended_can_id);
         can_filter.mask = consolidated_filter_.extended_mask;
 
-        bus_status.primary = (dynamic_cast<CANTransport&>(primary_bus_)).configure(&can_filter, 1);
+        bus_status.primary = (dynamic_cast<CANInterface&>(primary_bus_)).configure(&can_filter, 1);
 
         if (backup_bus_ != nullptr)
         {
-            bus_status.backup = (dynamic_cast<CANTransport*>(backup_bus_))->configure(&can_filter, 1);
+            bus_status.backup = (dynamic_cast<CANInterface*>(backup_bus_))->configure(&can_filter, 1);
         }
 
         is_registration_closed_ = true;
@@ -512,14 +575,14 @@ public:
 
 private:
     /// A publication record is the metadata associated with the latest transfer for a node and port ID pair
-    using PublicationRecordsList =
-        cetl::VariableLengthArray<CanardTransferMetadata,
-                                  cetl::pf17::pmr::polymorphic_allocator<CanardTransferMetadata>>;
+    template <size_t N>
+    using PublicationRecordsList = List<CanardTransferMetadata, N>;
 
     static constexpr std::size_t MTUSize = CANARD_MTU_CAN_FD;
     // This is the number of frames that can be held in the TX FIFO at once
     static constexpr std::size_t                      TXFIFOSize = LIBCYPHAL_TRANSPORT_MAX_FIFO_QUEUE_SIZE;
     static constexpr time::Monotonic::MicrosecondType DefaultSubscriptionTimeoutUS{60'000'000ULL};
+    static constexpr CanardFilter                     AcceptAllFilter{std::numeric_limits<std::uint32_t>::max(), 0};
 
     // Redundant bus enumerations
     enum BusIndex : std::uint8_t
@@ -552,17 +615,19 @@ private:
         };
     };
 
-    TransportID          transport_id_;
     bool                 cleanup_initiated_;
     CanardMemoryAllocate fn_canard_mem_allocate_;
     CanardMemoryFree     fn_canard_mem_free_;
-    const time::Timer&   timer_;                  //!< For timing transfers
-    Interface&           primary_bus_;            //!< Primary CAN bus
-    Interface*           backup_bus_;             //!< Backup CAN bus for fully redundant transports
-    CanardFilter         consolidated_filter_;    //!< Current acceptance filter applied to primary and backup buses
-    cetl::pf17::pmr::memory_resource* resource_;  //!< Pointer to the memory resource for this transport.
-    CanardInstance                    canard_;    //!< Canard handler instance
-    CanardTxQueue                     canard_tx_fifo_;  //!< Primary CAN bus TX frame queue
+
+    const time::Timer& timer_;          //!< For timing transfers
+    NetworkInterface&  primary_bus_;    //!< Primary CAN bus. Reference type because primary bus is required.
+    NetworkInterface*  backup_bus_;     //!< Backup CAN bus for fully redundant transports. Pointer type
+                                        //!< because backup bus is optional.
+    CanardFilter consolidated_filter_;  //!< Current acceptance filter applied to primary and backup buses
+    Heap&        heap_;                 //!< Reference to 01heap instance, allocated within owned memory
+                                        //!< space during init
+    CanardInstance canard_;             //!< Canard handler instance
+    CanardTxQueue  canard_tx_fifo_;     //!< Primary CAN bus TX frame queue
 
     /// Subscription records, initialized and used by Canard but managed by this class
     /// Each represents an instance of one of three types of subscription:
@@ -575,12 +640,8 @@ private:
     /// Publication records, split between multi-cast, request, and response transfer types to increase search
     /// efficiency. Each entry caches the transfer metadata for the next transfer of its respective type to be
     /// published.
-    std::array<CanardTransferMetadata, MaxNumberOfBroadcasts>
-        publication_record_storage_{};  //!< Records of all publications from this transport
-
-    cetl::pf17::pmr::deviant::basic_monotonic_buffer_resource
-        publication_records_resource_{publication_record_storage_.data(), publication_record_storage_.size()};
-    PublicationRecordsList publication_records_{&publication_records_resource_};
+    PublicationRecordsList<MaxNumberOfBroadcasts>
+        publication_records_{};  //!< Records of all publications from this transport
 
     // The following are cached during 'ProcessIncomingFrames()' and not used for transmit operations
     BusIndex  current_rx_bus_index_{Primary};  //!< The current receiving bus index
@@ -645,22 +706,22 @@ private:
     /// @param[in] priority priority of message
     /// @param[in] transfer_type transfer type (service or message)
     /// @param[in] port Canard PortID (subjectid/serviceid)
-    Status createPublicationRecord(PublicationRecordsList& out_records,
-                                   CanardPriority          priority,
-                                   CanardTransferKind      transfer_type,
-                                   CanardPortID            port) noexcept
+    /// @todo Remove template and replace with non-templated version
+    template <std::size_t N>
+    Status createPublicationRecord(PublicationRecordsList<N>& out_records,
+                                   CanardPriority             priority,
+                                   CanardTransferKind         transfer_type,
+                                   CanardPortID               port) noexcept
     {
         // Emplace publication record at back of list
         // Do not need to check the success of emplacement as we know we have enough room per the guard above
         // Publication records have an anonymous node ID and unset transfer ID fields upon initialization
-        const std::size_t size_before = out_records.size();
-        out_records.emplace_back(
-            CanardTransferMetadata{priority,             // Transfer priority, passed from on high
-                                   transfer_type,        // 'UdpardTransferKindMessage/Request/Response'
-                                   port,                 // Subject or service ID
-                                   AnonymousNodeID,      // Starts off as anonymous (indicates record is inactive)
-                                   InitialTransferID});  // Starts at 0
-        if (out_records.size() == size_before + 1)
+        if (out_records.emplace_back(priority,           // Transfer priority, passed from on high
+                                     transfer_type,      // 'UdpardTransferKindMessage/Request/Response'
+                                     port,               // Subject or service ID
+                                     AnonymousNodeID,    // Starts off as anonymous (indicates record is inactive)
+                                     InitialTransferID)  // Starts at 0
+        )
         {
             return ResultCode::Success;
         }
@@ -678,9 +739,11 @@ private:
     /// @param[in] records publication record list
     /// @param[in] port Canard PortID (subjectid/serviceid)
     /// @param[in] node NodeID
-    CanardTransferMetadata* getPublicationRecord(PublicationRecordsList& records,
-                                                 PortID                  port,
-                                                 CanardNodeID            node) noexcept
+    /// @todo Remove template and replace with non-templated version
+    template <std::size_t N>
+    CanardTransferMetadata* getPublicationRecord(PublicationRecordsList<N>& records,
+                                                 PortID                     port,
+                                                 CanardNodeID               node) noexcept
     {
         // Iterate through publication records
         // Active publication records ('remote_node_id' field is set) are listed before inactive ones ('remote_node_id'
@@ -728,11 +791,11 @@ private:
                 // If a driver has failed while in this loop then the transfer will likely be incomplete on that bus.
                 // Give up publishing to that bus for this transfer and try again with the next.
                 // This also guards against invalid interface pointers
-                bus_status.primary = primary_bus_.transmit(tx_metadata, libcyphal_frame);
+                bus_status.primary = primary_bus_.transmitFrame(tx_metadata, libcyphal_frame);
 
                 if (backup_bus_ && bus_status.backup.isSuccess())
                 {
-                    bus_status.backup = backup_bus_->transmit(tx_metadata, libcyphal_frame);
+                    bus_status.backup = backup_bus_->transmitFrame(tx_metadata, libcyphal_frame);
                 }
 
                 // Pop current item, deallocate, then grab next one

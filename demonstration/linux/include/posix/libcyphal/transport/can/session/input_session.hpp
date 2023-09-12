@@ -10,10 +10,8 @@
 #include <libcyphal/media/can/frame.hpp>
 #include <libcyphal/transport/id_types.hpp>
 #include <libcyphal/transport/can/cyphal_can_transport.hpp>
-#include <libcyphal/transport/can/session/message_publisher.hpp>
-#include <libcyphal/transport/can/session/message_subscriber.hpp>
-#include <libcyphal/transport/can/interface.hpp>
-#include <libcyphal/transport/can/transport.hpp>
+#include "libcyphal/transport/can/session/input_session.hpp"
+#include <libcyphal/transport/can/can_interface.hpp>
 #include <libcyphal/transport/can/types.hpp>
 #include <libcyphal/types/status.hpp>
 #include "posix/libcyphal/transport/can/connection.hpp"
@@ -29,38 +27,37 @@ namespace session
 
 /// @brief Used to store session information for CAN subscriptions
 /// @todo Make this usable for service requests also
-class PosixMessageSubscriber : public MessageSubscriber
+class PosixInputSession : public InputSession
 {
 public:
     /// @note based on IFNAMSIZ for posix systems
     static constexpr std::size_t MaximumInterfaceNameLength = 16;
 
-    PosixMessageSubscriber() = delete;
+    PosixInputSession() = delete;
 
     /// @brief Constructor
     /// @param[in] node_id Node id of local host
     /// @param[in] can_interface Can interface name (example: can0)
-    PosixMessageSubscriber(const NodeID node_id, const char* can_interface) noexcept
+    PosixInputSession(const NodeID node_id, const char* can_interface) noexcept
         : node_id_{node_id}
     {
         strncpy(can_interface_, can_interface, MaximumInterfaceNameLength);
     }
 
     /// @brief Destructor that cleans up posix socket connections
-    virtual ~PosixMessageSubscriber()
+    virtual ~PosixInputSession()
     {
         if (socket_fd_ != ClosedSocket)
         {
             int result = close(socket_fd_);
             assert(result != SocketFunctionError);
-            (void)result;
             socket_fd_ = ClosedSocket;
         }
     }
 
     /// @brief Copy Constructor
-    /// @param[in] other PosixMessageSubscriber to copy from
-    PosixMessageSubscriber(const PosixMessageSubscriber& other) noexcept
+    /// @param[in] other PosixInputSession to copy from
+    PosixInputSession(const PosixInputSession& other) noexcept
         : node_id_{other.node_id_}
     {
         socket_fd_ = other.socket_fd_;
@@ -68,8 +65,8 @@ public:
     }
 
     /// @brief Move Constructor
-    /// @param[in] other PosixMessageSubscriber to move from
-    PosixMessageSubscriber(PosixMessageSubscriber&& other) noexcept
+    /// @param[in] other PosixInputSession to move from
+    PosixInputSession(PosixInputSession&& other) noexcept
         : node_id_{other.node_id_}
     {
         socket_fd_ = other.socket_fd_;
@@ -78,8 +75,8 @@ public:
     }
 
     /// @brief Copy Assignment
-    /// @param[in] other PosixMessageSubscriber to copy from
-    PosixMessageSubscriber& operator=(const PosixMessageSubscriber& other) noexcept
+    /// @param[in] other PosixInputSession to copy from
+    PosixInputSession& operator=(const PosixInputSession& other) noexcept
     {
         if (this != &other)
         {
@@ -91,8 +88,8 @@ public:
     }
 
     /// @brief Move Assignment
-    /// @param[in] other PosixMessageSubscriber to move from
-    PosixMessageSubscriber& operator=(PosixMessageSubscriber&& other) noexcept
+    /// @param[in] other PosixInputSession to move from
+    PosixInputSession& operator=(PosixInputSession&& other) noexcept
     {
         if (this != &other)
         {
@@ -114,16 +111,16 @@ public:
         return initializeSocket(socket_fd_, can_interface_);
     }
 
-    /// @brief Receives all messages for subscribed subject ids
+    /// @brief Receives a frame for all registered Port IDs
     /// @param[in] receiver Transport receiver that makes calls to libcanard
-    Status receive(Interface::Receiver& receiver) override
+    Status receiveFrames(NetworkInterface::Receiver& receiver) override
     {
         Status result{};
         media::can::extended::Frame frame{};
-        result = receiveMessage(socket_fd_, frame);
+        result = receiveFrame(socket_fd_, frame);
         if (result.isSuccess())
         {
-            receiver.onReceive(frame);
+            receiver.onReceiveFrame(frame);
         }
         return result;
     }

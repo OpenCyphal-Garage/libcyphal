@@ -56,7 +56,6 @@ public:
         , dlc_{dlc}
         , data_{}
     {
-        (void) data;
         if /* constexpr */ (MaxDataPayload == standard::MaxDataPayload)
         {
             dlc_.clampToStandard();

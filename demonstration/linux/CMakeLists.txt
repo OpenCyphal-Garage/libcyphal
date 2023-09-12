@@ -3,17 +3,20 @@
 # SPDX-License-Identifier: MIT
 #
 
-cmake_minimum_required(VERSION 3.22.0)
+cmake_minimum_required(VERSION 3.16.3)
 
 project(libcyphal_posix CXX)
 
-include("../../cmake/CMakeCommon.cmake" REQUIRED)
-
-include(ProjectLibrary)
-find_package(cyphal REQUIRED)
-find_package(cetl REQUIRED)
+include("../../CMakeCommon.cmake" REQUIRED)
 
 set(TARGET_INSTALL_DIR "include")
+
+add_definitions(-DLIBCYPHAL_TRANSPORT_MAX_FIFO_QUEUE_SIZE=358)
+add_definitions(-DLIBCYPHAL_TRANSPORT_MAX_BROADCASTS=50)
+add_definitions(-DLIBCYPHAL_TRANSPORT_MAX_SUBSCRIPTIONS=50)
+add_definitions(-DLIBCYPHAL_TRANSPORT_MAX_MESSAGE_SIZE_BYTES=501200)
+# Max Heap size is currently set to Max Message Size * 2
+add_definitions(-DLIBCYPHAL_TRANSPORT_MAX_HEAP_SIZE=1002400)
 
 # +---------------------------------------------------------------------------+
 # | cyphal_posix library
@@ -21,23 +24,33 @@ set(TARGET_INSTALL_DIR "include")
 
 add_project_library(
     NAME cyphal_posix
+    SOURCES
+        src/storage_can.cpp
+        src/storage_udp.cpp
     HEADER_PATH
         include/
     LIBRARIES
-        cetl
+        o1heap
         cyphal
+    STATIC
 )
 
 add_executable(
     libcyphal_demo_posix
     src/main.cpp
 )
+target_link_libraries(libcyphal_demo_posix cyphal_posix cyphal)
 
-set(LOCAL_MAP_FILE "${CMAKE_CURRENT_BINARY_DIR}/libcyphal_demo_posix.map")
+add_executable(
+    libcyphal_demo_posix_node_42
+    src/example_node_42.cpp
+)
+target_link_libraries(libcyphal_demo_posix_node_42 cyphal_posix cyphal)
 
-target_link_options(libcyphal_demo_posix PUBLIC LINKER:-Map=${LOCAL_MAP_FILE})
-set_target_properties(libcyphal_demo_posix PROPERTIES
-                      ADDITIONAL_CLEAN_FILES ${LOCAL_MAP_FILE})
-target_link_libraries(libcyphal_demo_posix cyphal_posix)
+add_executable(
+    libcyphal_demo_posix_node_43
+    src/example_node_43.cpp
+)
+target_link_libraries(libcyphal_demo_posix_node_43 cyphal_posix cyphal)
 
 # +---------------------------------------------------------------------------+

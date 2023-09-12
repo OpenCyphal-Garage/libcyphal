@@ -1,0 +1,162 @@
+name: "CETLVaSt"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+jobs:
+  verification:
+    runs-on: ubuntu-latest
+    container: ghcr.io/opencyphal/toolshed:ts22.4.3
+    strategy:
+      matrix:
+        std: [base, intermediate, target]
+        toolchain: [gcc, clang]
+        suite: [unittest, compile]
+    steps:
+    - uses: actions/checkout@v3
+    - name: setup environment common
+      run: >
+        echo "CETLVAST_EXT_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls extdir none)" >> $GITHUB_ENV;
+        echo "CETLVAST_SUITE_UNITTEST_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls builddir unittest)" >> $GITHUB_ENV;
+        echo "CETLVAST_SUITE_BUILD_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls builddir none)" >> $GITHUB_ENV;
+        echo "CETLVAST_COVERAGE_REPORT_FORMAT=sonarqube" >> $GITHUB_ENV
+
+    - name: Cache ext modules
+      id: cetlvast-ext
+      uses: actions/cache@v3
+      env:
+        cache-name: cetlvast-ext-cache
+      with:
+        path: ${{ env.CETLVAST_EXT_PATH }}
+        key: gtest_b796f7d44681514f58a683a3a71ff17c94edb0c1
+    - name: run tests
+      run: >
+        ./cetlvast/verify.py -cd ./cetlvast
+        --force-ninja
+        --coverage ${{ env.CETLVAST_COVERAGE_REPORT_FORMAT }}
+        --build-flavor Debug
+        --asserts
+        --generate-test-report testExecutions.xml
+        --cpp-standard ${{ matrix.std }}
+        --toolchain ${{ matrix.toolchain }}
+        ${{ matrix.suite }}
+    - name: upload-artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.suite }}-${{ matrix.std }}-${{ matrix.toolchain }}
+        path: |
+          ${{ env.CETLVAST_SUITE_BUILD_PATH }}/compile_commands.json
+          ${{ env.CETLVAST_SUITE_BUILD_PATH }}/cetlvast/suites/${{ matrix.suite }}
+        if-no-files-found: error
+  docs:
+    runs-on: ubuntu-latest
+    container: ghcr.io/opencyphal/toolshed:ts22.4.3
+    steps:
+    - uses: actions/checkout@v3
+    - name: setup environment
+      run: >
+        echo "CETLVAST_SUITE_DOCS_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls builddir docs)" >> $GITHUB_ENV;
+        echo "CETLVAST_EXT_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls extdir none)" >> $GITHUB_ENV
+    - name: Cache ext modules
+      id: cetlvast-ext
+      uses: actions/cache@v3
+      env:
+        cache-name: cetlvast-ext-cache
+      with:
+        path: ${{ env.CETLVAST_EXT_PATH }}
+        key: gtest_b796f7d44681514f58a683a3a71ff17c94edb0c1
+    - name: Check Style
+      run: |
+        ./cetlvast/verify.py -cd ./cetlvast lint
+    - name: verify
+      run: ./cetlvast/verify.py -cd ./cetlvast docs
+    - name: Setup Pages
+      uses: actions/configure-pages@v3
+    - name: Upload docs
+      if: ${{ github.event_name != 'pull_request' }}
+      uses: actions/upload-pages-artifact@v1
+      with:
+        path: "${{ env.CETLVAST_SUITE_DOCS_PATH }}/html/"
+
+  sonarqube:
+    needs:
+    - verification
+    - docs
+    runs-on: ubuntu-latest
+    container: ghcr.io/opencyphal/toolshed:ts22.4.3
+    steps:
+    - uses: actions/checkout@v3
+      with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis by sonarqube.
+    - name: Install sonar-scanner
+      uses: SonarSource/sonarcloud-github-c-cpp@v1
+    - name: setup environment
+      run: >
+        echo "CETLVAST_EXT_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls extdir none)" >> $GITHUB_ENV;
+        echo "CETLVAST_SUITE_BUILD_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls builddir none)" >> $GITHUB_ENV;
+        echo "CETLVAST_COVERAGE_REPORT=$(./cetlvast/verify.py -cd ./cetlvast -ls covri --coverage sonarqube unittest)" >> $GITHUB_ENV;
+        echo "CETLVAST_TEST_REPORT=$(./cetlvast/verify.py -cd ./cetlvast -ls tests -gtr testExecutions.xml unittest)" >> $GITHUB_ENV;
+        echo "CETLVAST_CPP_BASE=c++$(./cetlvast/verify.py -cd ./cetlvast -ls cppstd --cpp-standard base docs)" >> $GITHUB_ENV
+
+    - name: Cache ext modules
+      id: cetlvast-ext
+      uses: actions/cache@v3
+      env:
+        cache-name: cetlvast-ext-cache
+      with:
+        path: ${{ env.CETLVAST_EXT_PATH }}
+        key: gtest_b796f7d44681514f58a683a3a71ff17c94edb0c1
+
+    - uses: actions/download-artifact@v3
+      with:
+        name: unittest-base-clang
+        path: ${{ env.CETLVAST_SUITE_BUILD_PATH }}
+
+    - name: Run sonar-scanner
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      run: >
+          sonar-scanner
+          --define sonar.organization=opencyphal
+          --define sonar.projectKey=OpenCyphal_CETL
+          --define sonar.projectName=CETLVaSt
+          --define sonar.projectVersion=1.0
+          --define sonar.sources=include,cetlvast/suites/unittest
+          --define sonar.sourceEncoding=UTF-8
+          --define sonar.host.url=https://sonarcloud.io
+          --define sonar.cfamily.ignoreHeaderComments=false
+          --define sonar.coverage.exclusions="cetlvast/suites/unittest/**/*"
+          --define sonar.cpd.exclusions="cetlvast/suites/unittest/**/*"
+          --define sonar.cfamily.compile-commands=${{ env.CETLVAST_SUITE_BUILD_PATH }}/compile_commands.json
+          --define sonar.cfamily.reportingCppStandardOverride=${{ env.CETLVAST_CPP_BASE }}
+          --define sonar.coverageReportPaths=${{ env.CETLVAST_COVERAGE_REPORT }}
+          --define sonar.testExecutionReportPaths=${{ env.CETLVAST_TEST_REPORT }}
+
+  deploy-docs:
+    if: ${{ (github.event_name == 'release' && !github.event.release.prerelease) || github.event_name == 'workflow_dispatch' }}
+    needs:
+      - sonarqube
+    # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
+    permissions:
+      contents: read
+      pages: write      # to deploy to Pages
+      id-token: write   # to verify the deployment originates from an appropriate source
+
+    # Deploy to the github-pages environment
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    # Specify runner + deployment step
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v1

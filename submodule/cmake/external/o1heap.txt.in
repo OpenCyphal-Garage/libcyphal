@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.5.1)
+
+project(o1heap-download NONE)
+
+include(ExternalProject)
+ExternalProject_Add(o1heap
+  GIT_REPOSITORY    https://github.com/pavel-kirienko/o1heap.git
+  GIT_TAG           aa3c253923db36eee7d73a4a5e30884a5fe7a6eb
+  SOURCE_DIR        "${EXTERNAL_PROJECT_DIRECTORY}/o1heap"
+  BINARY_DIR        ""
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND     ""
+  INSTALL_COMMAND   ""
+  TEST_COMMAND      ""
+)

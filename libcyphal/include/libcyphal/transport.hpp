@@ -9,6 +9,7 @@
 #include "libcyphal/transport/id_types.hpp"
 #include "libcyphal/transport/listener.hpp"
 #include "libcyphal/transport/message.hpp"
+#include "libcyphal/transport/metadata.hpp"
 #include "libcyphal/types/status.hpp"
 
 namespace libcyphal
@@ -21,9 +22,7 @@ using TransportID = uint8_t;
 /// Each transport is assumed to handle all traffic on a specific network segment.
 class Transport
 {
-protected:
-    ~Transport() = default;
-
+public:
     /// @brief Initializes and verifies all input variables.
     /// @note Must be run before using Transport
     /// @return Status of whether Transport is ready to use or not
@@ -34,13 +33,31 @@ protected:
     /// @return Status of successful cleanup
     virtual Status cleanup() = 0;
 
-    /// @brief Allows a transport to transmit a serialized broadcast
-    /// @param[in] tx_metadata the metadata of the message
-    /// @param[in] msg The read only reference to the message information.
+    /// @brief Transmit a serialized message with the subject ID
+    /// @param[in] subject_id The subject ID of the message
+    /// @param[in] message The read only reference to the payload information.
     /// @retval Success - Message transmitted
-    /// @retval Invalid - No record found for response or trying to broadcast anonymously
+    /// @retval Invalid - No record found or trying to broadcast anonymously
     /// @retval Failure - Could not transmit the message.
-    virtual Status transmit(transport::TxMetadata tx_metadata, const Message& msg) = 0;
+    virtual Status broadcast(PortID subject_id, const Message& message) = 0;
+
+    /// @brief Transmit a serialized request with the specified service ID
+    /// @param[in] service_id The service ID of the request
+    /// @param[in] remote_node_id The Node ID to whom the request will be sent
+    /// @param[in] request The read only reference to the payload information
+    /// @retval Success - Request transmitted
+    /// @retval Invalid - No record found for request or trying to publish anonymously
+    /// @retval Failure - Could not transmit the request.
+    virtual Status sendRequest(PortID service_id, NodeID remote_node_id, const Message& request) = 0;
+
+    /// @brief Transmit a serialized response with the specified service ID
+    /// @param[in] service_id The service ID of the response
+    /// @param[in] remote_node_id The Node ID to whom the response will be sent
+    /// @param[in] response The read only reference to the payload information.
+    /// @retval Success - Response transmitted
+    /// @retval Invalid - No record found for response or trying to publish anonymously
+    /// @retval Failure - Could not transmit the response.
+    virtual Status sendResponse(PortID service_id, NodeID remote_node_id, const Message& response) = 0;
 
     /// @brief Called by clients in order to processes incoming UDP Frames
     /// @note The implementation will invoke the listener with the appropriately typed Frames
@@ -68,17 +85,9 @@ protected:
     /// @brief Disallow any further subscriptions to be added
     /// @return Whether or not closing the registraiton was successful
     virtual Status closeRegistration() noexcept = 0;
-};
-
-/// Used by clients to find the appropriate transports for a given Node ID.
-class TransportFinder
-{
-public:
-    ///  Finds the transport associated with a particular route
-    virtual Transport* GetTransport(NodeID node_id) = 0;
 
 protected:
-    ~TransportFinder() = default;
+    ~Transport() = default;
 };
 
 }  // namespace libcyphal

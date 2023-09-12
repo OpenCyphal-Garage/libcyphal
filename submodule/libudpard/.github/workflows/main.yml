@@ -1,0 +1,74 @@
+name: Main Workflow
+on: [push, pull_request]
+env:
+  LLVM_VERSION: 13
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    container: ghcr.io/opencyphal/toolshed:ts20.4.1
+    strategy:
+      matrix:
+        toolchain: ['clang', 'gcc']
+        include:
+          - toolchain: gcc
+            c-compiler: gcc
+            cxx-compiler: g++
+          - toolchain: clang
+            c-compiler: clang
+            cxx-compiler: clang++
+    steps:
+      - uses: actions/checkout@v3
+      - run: >
+          cmake
+          -B ${{ github.workspace }}/build
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_COMPILER=${{ matrix.c-compiler }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.cxx-compiler }}
+          tests
+      - name: make
+        run: |
+          cd ${{ github.workspace }}/build
+          make VERBOSE=1
+          make test
+      - uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: ${{github.job}}
+          path: ${{github.workspace}}/**/*
+          retention-days: 2
+
+  optimizations:
+    runs-on: ubuntu-latest
+    container: ghcr.io/opencyphal/toolshed:ts20.4.1
+    strategy:
+      matrix:
+        toolchain: ['clang', 'gcc']
+        build_type: [Release, MinSizeRel]
+        include:
+          - toolchain: gcc
+            c-compiler: gcc
+            cxx-compiler: g++
+          - toolchain: clang
+            c-compiler: clang
+            cxx-compiler: clang++
+    steps:
+      - uses: actions/checkout@v3
+      - run: >
+          cmake
+          -B ${{ github.workspace }}/build
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -DCMAKE_C_COMPILER=${{ matrix.c-compiler }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.cxx-compiler }}
+          -DNO_STATIC_ANALYSIS=1
+          tests
+      - name: make
+        run: |
+          cd ${{ github.workspace }}/build
+          make VERBOSE=1
+          make test
+      - uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: ${{github.job}}
+          path: ${{github.workspace}}/**/*
+          retention-days: 2

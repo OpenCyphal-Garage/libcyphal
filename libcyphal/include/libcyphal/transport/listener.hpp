@@ -15,17 +15,17 @@ namespace transport
 
 /// @brief Implemented by classes which listen to transports for incoming message types
 /// @note This class can be used by a user and passed into the CyphalUDPTransport.processIncomingTransfers(...) to have
-///       custom behavior defined by the user on a broadcast message, or service request.
+///       custom behavior defined by the user on a broadcast message, service request, or service response.
 class Listener
 {
 public:
-    /// Allows a listener to receive a serialized broadcast
-    /// @param[in] rx_metadata the metadata for a message on receive
-    /// @param[in] msg The reference to the message to fill in.
-    virtual void onReceive(const RxMetadata& rx_metadata, const Message& msg) = 0;
+    /// Allows a listener to receive a serialized payload
+    /// @param[in] rx_metadata The Cyphal metadata for the payload
+    /// @param[in] message The reference to the payload buffer to populate
+    virtual void onReceive(const RxMetadata& rx_metadata, const Message& payload) = 0;
 
 protected:
-    ~Listener() = default;
+    virtual ~Listener() = default;
 };
 
 }  // namespace transport

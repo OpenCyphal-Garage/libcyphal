@@ -9,6 +9,7 @@
 #    include <cassert>
 #    include <arpa/inet.h>
 #    include <sys/socket.h>
+#    include <errno.h>
 #    include <udpard.h>
 #    include <unistd.h>
 #    include <cstdint>
@@ -78,11 +79,11 @@ inline Status sendBroadcast(Socket              socket_fd,
                             const std::uint8_t* payload,
                             const std::size_t   payload_size)
 {
-    Address broadcast_address{(((BroadcastOctet & 0xFFU) << 24) | ((0x00U & 0xFFU) << 16) | (0x7FFF & subject_id))};
-    PosixSocketAddress remote_addr = createSocketAddress(broadcast_address, BroadcastPort);
+    // TODO OVPG-3432 Update this function to use the IP address calculated by libudpard instead of recalculating it here
+    Address destination_multicast_address = getMulticastAddressFromSubjectId(subject_id);
+    PosixSocketAddress remote_addr = createSocketAddress(destination_multicast_address, BroadcastPort);
     if (connect(socket_fd, reinterpret_cast<struct sockaddr*>( &remote_addr ), sizeof(remote_addr)) == SocketFunctionError)
     {
-        cleanupSocket(socket_fd);
         return ResultCode::Failure;
     }
 
@@ -94,17 +95,46 @@ inline Status sendBroadcast(Socket              socket_fd,
     return ResultCode::Success;
 }
 
-/// @brief Checks for a message and receives if available
+/// @brief Sends a request or response over UDP
+/// @param[in] socket_fd Socket File Descriptor to use for publishing
+/// @param[in] remote_node_id The destination Node ID to send the request or response to
+/// @param[in] payload Payload buffer to send
+/// @param[in] payload_size Size of buffer
+/// @return Status of sending the service transfer
+inline Status sendServiceTransfer(
+    Socket              socket_fd,
+    NodeID              remote_node_id,
+    const std::uint8_t* payload,
+    const std::size_t   payload_size)
+{
+    // TODO OVPG-3432 Update this function to use the IP address calculated by libudpard instead of recalculating it here
+    Address destination_multicast_address = getMulticastAddressFromServiceNodeId(remote_node_id);
+    PosixSocketAddress remote_addr = createSocketAddress(destination_multicast_address, BroadcastPort);
+    if (connect(socket_fd, reinterpret_cast<struct sockaddr*>(&remote_addr), sizeof(remote_addr)) == SocketFunctionError)
+    {
+        return ResultCode::Failure;
+    }
+
+    if (send(socket_fd, payload, payload_size, 0) == SocketFunctionError)
+    {
+        return ResultCode::Failure;
+    }
+
+    return ResultCode::Success;
+}
+
+/// @brief Checks for a frame and receives if available
 /// @param[in] socket_fd Socket FD
-/// @param[in] address IP Address to listen to when receiving message
-/// @param[in] socket_port IP Port to listen to when receiving message
-/// @param[in,out] buffer_length use as max message payload size, then set as received payload size
-/// @param[out] buffer Buffer to store the serialized received message
+/// @param[in] address IP Address to listen to when receiving frame
+/// @param[in] socket_port IP Port to listen to when receiving frame
+/// @param[in,out] out_frame Reference to a frame that will be populated by recvfrom
+///                          and then passed back to the Libcyphal receiver interface
+///                          and then to libudpard
 /// @return Status of receiving message
-inline Status receiveMessage(Socket         socket_fd,
-                             Address        address,
-                             Port           socket_port,
-                             media::udp::Frame& out_frame)
+inline Status receiveFrame(Socket         socket_fd,
+                           Address        address,
+                           Port           socket_port,
+                           media::udp::Frame& out_frame)
 {
     PosixSocketAddress socket_address = createSocketAddress(address, socket_port);
     socklen_t socket_size = sizeof(socket_address);
@@ -120,8 +150,14 @@ inline Status receiveMessage(Socket         socket_fd,
 
     if (bytes_read == SocketFunctionError)
     {
-        // TODO: OVPG-3371 Return a more specific return code if there are no incoming transfers
-        return ResultCode::Failure;
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+        {
+            return Status(ResultCode::NotAvailable, CauseCode::Resource);
+        }
+        else
+        {
+            return Status(ResultCode::Failure, CauseCode::Resource);
+        }
     }
     else
     {

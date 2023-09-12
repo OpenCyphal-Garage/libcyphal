@@ -70,18 +70,23 @@ enum class ResultCode : EnumType
     /// Resource not available
     NotAvailable = -11,
 
+    /// Resource being accessed is not configured for use.
+    /// This implies a configuration does exist that would make the access valid.
+    NotConfigured = -12,
+
     /// Invalid state/parameters
-    Invalid = -12,
+    Invalid = -13,
 
     /// Failed to Bind to socket
-    FailedToBindToSocket = -13,
+    FailedToBindToSocket = -14,
 
     /// Receiver failed to join multicast group
-    FailedToJoinMulticastGroup = -14,
+    FailedToJoinMulticastGroup = -15,
 
     /// The operation experienced an internal inconsistency or an unexpected
     /// result from a lower layer.
-    UnknownInternalError = -15
+    UnknownInternalError = -16,
+
 };
 
 /// @brief holds the result code

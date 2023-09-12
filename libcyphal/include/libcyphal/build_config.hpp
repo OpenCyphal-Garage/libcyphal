@@ -73,7 +73,7 @@
 
 /// Max size of a message
 #ifndef LIBCYPHAL_TRANSPORT_MAX_MESSAGE_SIZE_BYTES
-#    define LIBCYPHAL_TRANSPORT_MAX_MESSAGE_SIZE_BYTES 2000000u
+#    define LIBCYPHAL_TRANSPORT_MAX_MESSAGE_SIZE_BYTES 1024u
 #endif
 
 /// Max number of broadcasts

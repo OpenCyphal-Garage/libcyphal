@@ -18,24 +18,21 @@ namespace wrappers
 namespace can
 {
 
+/// Warning: The Libcyphal API is undergoing a redesign and these wrapper classes will be going
+/// away soon: https://jira.adninfra.net/browse/OVPG-3288
+
 /// @brief CANSubscriber is a wrapper around the tasks needed to send messages
 class Subscriber final : public Base
 {
 public:
-    transport::Listener& listener_;
-
     /// @brief Constructor for CANSubscriber which is a wrapper around the tasks needed to send messages
     /// @param[in] can_interface CAN Interface name to use
     /// @param[in] node_id The desired NodeID of the Transport
     /// @param[in] listener Listener object providing custom triggers by the user
-    Subscriber(const char*                       can_interface,
-               const NodeID                      node_id,
-               transport::Listener&              listener,
-               cetl::pf17::pmr::memory_resource* resource)
-        : Base(can_interface, node_id, resource)
+    Subscriber(const char* can_interface, const NodeID node_id, transport::Listener& listener)
+        : Base(can_interface, node_id)
         , listener_{listener}
-    {
-    }
+    {}
 
     /// Destructor
     ~Subscriber() = default;
@@ -43,12 +40,6 @@ public:
     /// @brief Initializes everything needed to send frames
     Status initialize() override
     {
-        Status result{};
-        result = interface_.initializeInput();
-        if (result.isFailure())
-        {
-            return result;
-        }
         return Base::initialize();
     }
 
@@ -64,6 +55,10 @@ public:
     {
         return can_->processIncomingTransfers(listener_);
     }
+
+private:
+    transport::Listener& listener_;
+
 };
 
 }  // namespace can

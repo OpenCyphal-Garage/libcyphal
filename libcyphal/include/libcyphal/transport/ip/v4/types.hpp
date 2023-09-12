@@ -18,14 +18,17 @@ namespace ip
 namespace v4
 {
 
-using Port                                 = std::uint16_t;
-using Socket                               = std::int16_t;
-constexpr Octet        BroadcastOctet      = 0xEF;  // "239" - 0b0111 per spec
-constexpr UdpardNodeID NodeIDUnset         = UDPARD_NODE_ID_UNSET;
-constexpr Port         BroadcastPort       = 9382U;  // hardcoded until udpated Cyphal spec
-constexpr Port         EphemeralPort       = 0;
-constexpr Socket       ClosedSocket        = -1;
-constexpr std::int16_t SocketFunctionError = -1;
+using Port                                   = std::uint16_t;
+using Socket                                 = std::int16_t;
+constexpr uint32_t     MulticastOctet        = 0xEF;  // "239" - 0b0111 per spec
+constexpr uint32_t     ThirdOctetMessageMask = 0x7F00;
+constexpr uint32_t     ThirdOctetServiceMask = 0xFF00;
+constexpr uint32_t     FinalOctetMask        = 0xFF;
+constexpr UdpardNodeID NodeIDUnset           = UDPARD_NODE_ID_UNSET;
+constexpr Port         BroadcastPort         = 9382U;  // hardcoded until udpated Cyphal spec
+constexpr Port         EphemeralPort         = 0;
+constexpr Socket       ClosedSocket          = -1;
+constexpr std::int16_t SocketFunctionError   = -1;
 
 }  // namespace v4
 }  // namespace ip

@@ -13,3 +13,9 @@ Portable reference implementation of the [Cyphal protocol stack](https://opencyp
 
 Cyphal is a lightweight protocol designed for reliable communication in aerospace and robotic applications over robust vehicular networks.
 
+## To Build
+mkdir -p build
+cd build
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 ..
+make
+make install

@@ -1,0 +1,21 @@
+{
+    "name": "linux development environment",
+    "image": "ghcr.io/opencyphal/toolshed:ts22.4.3",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools",
+                "twxs.cmake",
+                "ms-vscode.cmake-tools",
+                "ban.spellright",
+                "xaver.clang-format"
+            ]
+        }
+    },
+    "workspaceFolder": "/repo",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/repo,type=bind,consistency=delegated",
+    "mounts": [
+        "source=profile,target=/root,type=volume",
+        "target=/root/.vscode-server,type=volume"
+    ]
+}

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 #
 
-cmake_minimum_required(VERSION 3.22.0)
+cmake_minimum_required(VERSION 3.16.3)
 
 project(libcyphal_test_unittest CXX)
 
@@ -13,6 +13,26 @@ if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
 find_package(gcovr REQUIRED)
 endif()
 
+# +---------------------------------------------------------------------------+
+# Once we have more linters then we should break them out into a separate
+# CMakeLists and move these two targets there.
+
+find_package(clangformat)
+
+if (clangformat_FOUND)
+
+enable_clang_format_check_for_directory(
+    DIRECTORY ${LIBCYPHAL_ROOT}/libcyphal
+    GLOB_PATTERN "**/*.hpp"
+    ADD_TO_ALL
+)
+
+enable_clang_format_in_place_for_directory(
+    DIRECTORY ${LIBCYPHAL_ROOT}/libcyphal
+    GLOB_PATTERN "**/*.hpp"
+)
+
+endif()
 
 # +---------------------------------------------------------------------------+
 #   We generate individual test binaires so we can record which test generated
@@ -31,10 +51,7 @@ set(ALL_TESTS_RUN "")
 foreach(NATIVE_TEST ${NATIVE_TESTS})
     define_native_gtest_unittest_targets(
         TEST_SOURCE ${NATIVE_TEST}
-        EXTRA_TEST_LIBS
-            cetl
-            cyphal
-        LINK_TO_MAIN
+        EXTRA_TEST_LIBS cyphal
         OUT_TEST_LIB_VARIABLE LOCAL_TEST_LIB
         OUT_TEST_EXE_VARIABLE LOCAL_TEST_TARGET
         OUT_TEST_REPORT_VARIABLE LOCAL_TEST_REPORT
@@ -46,22 +63,13 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
     if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
         define_gcovr_tracefile_target(
             TARGET ${LOCAL_TEST_TARGET}
-            ROOT_DIRECTORY ${LIBCYPHAL_ROOT}
             TARGET_EXECUTION_DEPENDS ${LOCAL_TEST_REPORT}
-            OBJECT_LIBRARY ${LOCAL_TEST_LIB}
             EXCLUDE_TEST_FRAMEWORKS
             EXCLUDE_TARGET
-            ENABLE_INSTRUMENTATION
+            OUT_TRACEFILE_VARIABLE LOCAL_TEST_TRACEFILE
         )
     endif()
 endforeach()
-
-if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    enable_coverage_report(COVERAGE_REPORT_FORMATS html sonarqube
-                           ROOT_DIRECTORY ${LIBCYPHAL_ROOT}
-                           OUT_REPORT_INDICIES LOCAL_COVERAGE_REPORT_INDICIES
-    )
-endif()
 
 add_custom_target(
      build_unittests
@@ -78,3 +86,7 @@ add_custom_target(
 set_directory_properties(PROPERTIES
     IN_BUILD_TESTS "${ALL_TESTS_RUN}"
 )
+
+if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+    enable_html_report()
+endif()

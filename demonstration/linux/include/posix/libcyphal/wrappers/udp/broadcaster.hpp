@@ -18,32 +18,26 @@ namespace wrappers
 namespace udp
 {
 
-/// @brief UDPSubscriber is a wrapper around the tasks needed to send messages
+/// Warning: The Libcyphal API is undergoing a redesign and these wrapper classes will be going
+/// away soon: https://jira.adninfra.net/browse/OVPG-3288
+
+/// @brief UDP Broadcaster is a wrapper around the tasks needed to send messages
 class Broadcaster final : public Base
 {
 public:
-    /// @brief Constructor for UDPBroadcaster which is a wrapper around the tasks needed to send messages
+    /// @brief Constructor for UDP Broadcaster which is a wrapper around the tasks needed to send messages
     /// @param[in] ip_address Local IP Address
     /// @param[in] node_id The desired NodeID of the Transport
-    Broadcaster(const transport::ip::v4::Address  ip_address,
-                const NodeID                      node_id,
-                cetl::pf17::pmr::memory_resource* resource) noexcept
-        : Base(ip_address, node_id, resource)
-    {
-    }
+    Broadcaster(const transport::ip::v4::Address ip_address, const NodeID node_id) noexcept
+        : Base(ip_address, node_id)
+    {}
 
     /// Destructor
-    ~Broadcaster() = default;
+    virtual ~Broadcaster() = default;
 
     /// @brief Initializes everything needed to send frames
     Status initialize() override
     {
-        Status result{};
-        result = interface_.initializeOutput();
-        if (result.isFailure())
-        {
-            return result;
-        }
         return Base::initialize();
     }
 
@@ -60,7 +54,7 @@ public:
     /// @param[in] buffer_size size of the message
     Status broadcast(const PortID subject_id, const std::uint8_t* buffer, const std::size_t buffer_size)
     {
-        cetl::pf20::span<const std::uint8_t> span_message{buffer, buffer_size};
+        Span<const std::uint8_t> span_message{buffer, buffer_size};
         return udp_->broadcast(subject_id, span_message);
     }
 };

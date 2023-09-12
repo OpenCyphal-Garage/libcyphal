@@ -1,5 +1,7 @@
 # Libcyphal v1.0 contributor guidelines
 
+
+
 ## Design goals
 
 As much as is reasonable, libcyphal mirrors [pycyphal](https://pycyphal.readthedocs.io/en/stable/pages/architecture.html) in the design of its APIs but its runtime is quite different. Specifically, where pycyphal makes excellent use of coroutines libcyphal does not require any specific execution model. Software utilizing coroutines, threads, super-loops, and even parallel execution models should all find libcyphal equally useful. This is achieved by an extreme lack of opinion on the matter by the implementation. For example, threading primitives are not used intrinsically but concurrency concerns are considered and documented. Coroutines are not required but providing flexibility in how and when functions are executed is built-in to the design. Finally, demonstrations ~~are~~ *will be* provided for some of these execution models to prove and illustrate this design tenet.
@@ -87,7 +89,6 @@ More abstractly, libcyphal's design goals should be mutually compatible. There i
 + .vscode/                  <-- common vscode development settings
 ```
 
-
 ### Demonstrations
 
 This is a list that will move to an external project and road-map at some point. We capture it here and now to help guide the design of the project when anticipating possible use cases by end-systems. While most of this list is speculative, `linux-posix` will be the first demonstration developed and will be completed along with the first release of libcyphal.
@@ -133,10 +134,25 @@ This is a list that will move to an external project and road-map at some point.
 |
 
 ```
+## Cmake Variables
 
- ## CETL
+ * **`LIBCYPHAL_ROOT`** - The absolute path to the root of the libcyphal project. This is different then `CMAKE_SOURCE_DIR` when invoking a CMakeLists.txt file in a subdirectory of libcyphal.
+ * **`LIBCYPHAL_FLAG_SET`** - The absolute path to the cmake defining a set of compiler flags for the build. These are located under `{CMAKE_SOURCE_DIR}/cmake/compiler_flag_sets`.
+ * **`LIBCYPHAL_INCLUDE`** - Convenience path that is just `${LIBCYPHAL_ROOT}/libcyphal/include` but formed using [`cmake_path`](https://cmake.org/cmake/help/latest/command/cmake_path.html).
+ * **`LIBCYPHAL_VERSION`** - [Semantic versioning](https://semver.org/) number for the libcyphal build. Set to `0.0.0` where the version cannot be determined.
+ * **`LIBCYPHAL_KIT_NAME`** - The name of a build-kit in effect. This is currently only set by `.vscode/cmake-kits.json` and is for logging purposes only.
+ * **`LIBCYPHAL_TEST_CPP_STANDARD`** - One of `14`, `17`, or `20` to allow switching the C++ standard in use for a given build regardless of the `LIBCYPHAL_FLAG_SET` in use.
+ * **`LIBCYPHAL_TEST_DISABLE_CPP_EXCEPTIONS`** - If `on`, and if the toolchain supports it, the build will ask the compiler to disable all C++ exception support.
+    > :orange_book: **NOTE**
+    >
+    > There is no switch for RTTI because libcyphal does not utilize RTTI for any configuration. When exceptions are enabled libcyphal may use them to integrate with applications that expect them but, internally, libcyphal objects are fully functional without exceptions.
 
-[CETL](https://github.com/OpenCyphal/CETL) is a primary dependency of libcyphal along with the "args" (e.g. libudpard, libcanard, etc) but CETL is both a runtime and build time dependency. At build time, libcyphal uses the CETLVaSt (CETL Verification Suite) cmake modules and CETL's verify.py cli to build its own verification suites and to integrate with CI services in a similar manner to CETL.
+ * **`LIBCYPHAL_INTROSPECTION_TRACE_ENABLE`** - When `on` macros in the `libcyphal/introspection.hpp` header are enabled to produce output to standard out.
+* **`CMAKE_BUILD_TYPE`** - Three types are supported: "Release", "Debug", and "Coverage.
+
+ ## Defines
+ * **`LIBCYPHAL_INTROSPECTION_ENABLE_ASSERT`** -Enables runtime assertions within libcyphal headers that should be enabled in unittests.
+ * **`CETL_ENABLE_DEBUG_ASSERT`** - Inherited from [CETL](https://github.com/OpenCyphal/CETL), defining this enables runtime assertions within the CETL library that should be enabled in unittests.
 
 ## ![visual-studio code](.vscode/vscode-alt.svg#gh-dark-mode-only) ![visual-studio code](.vscode/vscode.svg#gh-light-mode-only)
 We support the vscode IDE using

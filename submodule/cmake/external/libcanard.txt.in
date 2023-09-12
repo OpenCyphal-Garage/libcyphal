@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.5.1)
+
+project(libcanard-download NONE)
+
+include(ExternalProject)
+ExternalProject_Add(libcanard
+  GIT_REPOSITORY    https://github.com/OpenCyphal/libcanard.git
+  GIT_TAG           69ed329db4ae31d9c85dbe052434f60e552cecbe
+  SOURCE_DIR        "${EXTERNAL_PROJECT_DIRECTORY}/libcanard"
+  BINARY_DIR        ""
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND     ""
+  INSTALL_COMMAND   ""
+  TEST_COMMAND      ""
+)

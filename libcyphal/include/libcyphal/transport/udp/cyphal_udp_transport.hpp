@@ -6,8 +6,6 @@
 #define LIBCYPHAL_TRANSPORT_UDP_CYPHAL_UDP_TRANSPORT_HPP_INCLUDED
 
 #include <cstdint>
-#include <cstring>
-#include <array>
 #include <udpard.h>
 #include "libcyphal/build_config.hpp"
 #include "libcyphal/media/udp/frame.hpp"
@@ -16,13 +14,11 @@
 #include "libcyphal/transport/message.hpp"
 #include "libcyphal/transport/metadata.hpp"
 #include "libcyphal/transport/ip/v4/address.hpp"
-#include "libcyphal/transport/udp/interface.hpp"
-#include "libcyphal/transport/udp/transport.hpp"
+#include "libcyphal/transport/udp/udp_interface.hpp"
+#include "libcyphal/types/heap.hpp"
+#include "libcyphal/types/list.hpp"
 #include "libcyphal/types/status.hpp"
 #include "libcyphal/types/time.hpp"
-
-#include "cetl/variable_length_array.hpp"
-#include "cetl/pf17/memory_resource.hpp"
 
 namespace libcyphal
 {
@@ -34,13 +30,13 @@ namespace udp
 /// Sets the maximum number of possible transfers that an instance of CyphalUDPransport can manage
 /// @todo Determine a proper static size for maximum number of broadcasts/subscriptions
 static constexpr std::size_t MaxNumberOfBroadcasts{
-    LIBCYPHAL_TRANSPORT_MAX_BROADCASTS};  ///<! Max number of broadcast message types: publish
+    LIBCYPHAL_TRANSPORT_MAX_BROADCASTS};     ///<! Max number of broadcast message types
 static constexpr std::size_t MaxNumberOfSubscriptions{
-    LIBCYPHAL_TRANSPORT_MAX_SUBSCRIPTIONS};  ///<! Max number of broadcast subscriptions: receive
+    LIBCYPHAL_TRANSPORT_MAX_SUBSCRIPTIONS};  ///<! Max number of broadcast subscriptions
 static constexpr std::size_t MaxNumberOfResponses{
-    LIBCYPHAL_TRANSPORT_MAX_RESPONSES};  ///!< Max number of response message types: handle
+    LIBCYPHAL_TRANSPORT_MAX_RESPONSES};      ///!< Max number of response transfer types
 static constexpr std::size_t MaxNumberOfRequests{
-    LIBCYPHAL_TRANSPORT_MAX_REQUESTS};  ///!< Max number of request message types: handle
+    LIBCYPHAL_TRANSPORT_MAX_REQUESTS};       ///!< Max number of request transfer types
 
 static constexpr UdpardNodeID     AnonymousNodeID{UDPARD_NODE_ID_UNSET};
 static constexpr UdpardTransferID InitialTransferID{0};  ///<! Transfer IDs for new transactions start at 0
@@ -49,8 +45,13 @@ static constexpr std::size_t MaxNumberOfSubscriptionRecords{MaxNumberOfSubscript
                                                             MaxNumberOfRequests};
 static_assert(MaxNumberOfSubscriptionRecords, "MaxNumberOfSubscriptions, Responses, or Requests must be nonzero");
 
+/// Maximum number of publication records that an instance can manage, cannot be 0
+static constexpr std::size_t MaxNumberOfPublicationRecords{MaxNumberOfBroadcasts + MaxNumberOfResponses +
+                                                           MaxNumberOfRequests};
+static_assert(MaxNumberOfPublicationRecords, "MaxNumberOfBroadcasts, Responses, or Requests must be nonzero");
+
 /// Cyphal transport layer implementation for UDP
-class CyphalUDPTransport final : public Transport, public Interface::Receiver
+class CyphalUDPTransport final : public Transport, public NetworkInterface::Receiver
 {
 public:
     /// CyphalUDPTransport constructor
@@ -60,28 +61,29 @@ public:
     /// @param[in] backup_interface optional. Can be null
     /// @param[in] node_id The Node ID for the UDP interface
     /// @param[in] timer An OS specific, or generic implementation of timer
-    /// @param[in] message_buffer   Buffer memory. Don't ask. This is sorta hacky.
-    /// @param[in] allocator function that allocates memory off the given memory resource
-    /// @param[in] releaser function that release memory off the given memory resource
-    CyphalUDPTransport(Interface&                        primary_interface,
-                       Interface*                        backup_interface,
-                       NodeID                            node_id,
-                       const time::Timer&                timer,
-                       cetl::pf17::pmr::memory_resource* message_buffer,
-                       UdpardMemoryAllocate              allocator,
-                       UdpardMemoryFree                  releaser)
+    /// @param[in] heap The user defined heap to pair with allocator/releaser
+    /// @param[in] allocator function that allocates memory off the given heap
+    /// @param[in] releaser function that release memory off the given heap
+    CyphalUDPTransport(NetworkInterface&    primary_interface,
+                       NetworkInterface*    backup_interface,
+                       NodeID               node_id,
+                       const time::Timer&   timer,
+                       Heap&                heap,
+                       UdpardMemoryAllocate allocator,
+                       UdpardMemoryFree     releaser)
         : primary_bus_{primary_interface}
         , backup_bus_{backup_interface}
         , timer_{timer}
-        , resource_{message_buffer}
+        , heap_{heap}
         , fn_udpard_mem_allocate_{allocator}
         , fn_udpard_mem_free_{releaser}
         , udpard_{udpardInit(allocator, releaser)}
         , udpard_tx_fifo_{udpardTxInit(TxFIFOSize, MTUSize)}
     {
         udpard_.node_id = node_id;
+        // Udpard instance holds the reference to its 01heap instance in the 'user_reference' field
         //   See 'CyphalUDPTransport::UdpardMemAllocate()' or 'CyphalUDPTransport::UdpardMemFree()' for usage
-        udpard_.user_reference = resource_;
+        udpard_.user_reference = heap_.getInstance();
     }
 
     /// CyphalUDPTransport constructor with anonymous NodeID
@@ -91,20 +93,20 @@ public:
     /// @param[in] primary_interface the UDP Transport interface (UdpTransport) defined by the user
     /// @param[in] backup_interface optional. Can be null
     /// @param[in] timer An OS specific, or generic implementation of timer
-    /// @param[in] message_buffer It's a thing.
-    /// @param[in] allocator function that allocates memory off the given memory resource
-    /// @param[in] releaser function that release memory off the given memory resource
-    CyphalUDPTransport(Interface&                        primary_interface,
-                       Interface*                        backup_interface,
-                       const time::Timer&                timer,
-                       cetl::pf17::pmr::memory_resource* message_buffer,
-                       UdpardMemoryAllocate              allocator,
-                       UdpardMemoryFree                  releaser)
+    /// @param[in] heap The user defined heap to pair with allocator/releaser
+    /// @param[in] allocator function that allocates memory off the given heap
+    /// @param[in] releaser function that release memory off the given heap
+    CyphalUDPTransport(NetworkInterface&    primary_interface,
+                       NetworkInterface*    backup_interface,
+                       const time::Timer&   timer,
+                       Heap&                heap,
+                       UdpardMemoryAllocate allocator,
+                       UdpardMemoryFree     releaser)
         : CyphalUDPTransport(primary_interface,
                              backup_interface,
                              NodeID(static_cast<std::uint16_t>(AnonymousNodeID)),
                              timer,
-                             message_buffer,
+                             heap,
                              allocator,
                              releaser)
     {
@@ -122,7 +124,7 @@ public:
     Status cleanup() override
     {
         Status ret{Status()};
-        if (!cleanup_initiated)
+        if (!cleanup_initiated_)
         {
             // Unsubscribe from all subscription records
             for (std::size_t i = 0; i < MaxNumberOfSubscriptionRecords; i++)
@@ -153,7 +155,7 @@ public:
                 }
             }
 
-            // Pop all messages from the TX queue and deallocate
+            // Pop all transfers from the TX queue and deallocate
             const UdpardTxQueueItem* curr_tx_item = udpardTxPeek(&udpard_tx_fifo_);
             while (curr_tx_item != nullptr)
             {
@@ -161,7 +163,7 @@ public:
 
                 curr_tx_item = udpardTxPeek(&udpard_tx_fifo_);
             }
-            cleanup_initiated = true;
+            cleanup_initiated_ = true;
         }
         return ret;
     }
@@ -185,93 +187,234 @@ public:
         udpard_.node_id = node_id;
     }
 
+    Status initializeNetworkInterface()
+    {
+        Status result{};
+        result = primary_bus_.initializeOutput();
+        if (result.isFailure())
+        {
+            return result;
+        }
+
+        result = primary_bus_.initializeInput();
+        if (result.isFailure())
+        {
+            return result;
+        }
+
+        if (backup_bus_ != nullptr)
+        {
+            result = backup_bus_->initializeOutput();
+            if (result.isFailure())
+            {
+                return result;
+            }
+
+            result = backup_bus_->initializeInput();
+            if (result.isFailure())
+            {
+                return result;
+            }
+        }
+
+        return result;
+    }
+
     /// @brief Initializes and verifies all input variables
     /// @return Status of proper initialization
     Status initialize() override
     {
-        ///<! both buses are nullptr
+        if ((heap_.getHeapSize() == 0) || (nullptr == heap_.getInstance()))
+        {
+            return Status(ResultCode::Invalid, CauseCode::Parameter);
+        }
         if ((nullptr == fn_udpard_mem_allocate_) || (nullptr == fn_udpard_mem_free_))
         {
             return Status(ResultCode::Invalid, CauseCode::Parameter);
         }
-        return ResultCode::Success;
+
+        return initializeNetworkInterface();
     }
 
-    /// @brief Allows a transport to transmit a serialized broadcast
-    /// @param[in] tx_metadata the metadata of the message
-    /// @param[in] msg The read only reference to the message information.
-    /// @retval Success - Message transmitted
-    /// @retval Invalid - No record found for response or trying to broadcast anonymously
-    /// @retval Failure - Could not transmit the message.
-    Status transmit(TxMetadata tx_metadata, const Message& msg) override
+    /// @brief Initializes Message Receiver for a specified Subject ID
+    /// @note  Every message is received on a different multicast address,
+    ///        so this function will need to be called once for every
+    ///        subject ID the user wants to subscribe to
+    /// @return Status of initialization
+    Status initializeMessageReceiver(PortID subject_id)
     {
-        // Cannot broadcast messages when NodeID is not set (anonymous node)
+        Status overall_status{ResultCode::Failure};
+        Status primary_bus_status{ResultCode::Failure};
+        Status backup_bus_status{ResultCode::Failure};
+
+        // Calculates the destination multicast address for the subject ID
+        // and configures the local address to join the multicast group
+        primary_bus_status = primary_bus_.setupMessageReceiver(subject_id);
+        if (backup_bus_ != nullptr)
+        {
+            backup_bus_status = backup_bus_->setupMessageReceiver(subject_id);
+        }
+
+        if (primary_bus_status.isSuccess() || backup_bus_status.isSuccess())
+        {
+            overall_status = ResultCode::Success;
+        }
+        else
+        {
+            overall_status = primary_bus_status;
+        }
+
+        return overall_status;
+    }
+
+    /// @brief Initializes the Service Receiver for receiving requests and responses
+    /// @note  All requests and responses will be received on the same multicast address,
+    ///        address, so only need to setup the service receiver once
+    /// @return Status of initialization
+    Status initializeServiceReceiver(NodeID node_id)
+    {
+        Status overall_status{ResultCode::Failure};
+        Status primary_bus_status{ResultCode::Failure};
+        Status backup_bus_status{ResultCode::Failure};
+
+        // Calculates the destination multicast address using the local Node ID
+        // and configures the local address to join the multicast group
+        primary_bus_status = primary_bus_.setupServiceReceiver(node_id);
+        if (backup_bus_ != nullptr)
+        {
+            backup_bus_status = backup_bus_->setupServiceReceiver(node_id);
+        }
+
+        if (primary_bus_status.isSuccess() || backup_bus_status.isSuccess())
+        {
+            overall_status = ResultCode::Success;
+        }
+        else
+        {
+            overall_status = primary_bus_status;
+        }
+
+        return overall_status;
+    }
+
+    /// @brief Allows a transport to transmit a serialized payload
+    /// @param[in] tx_metadata The metadata of the payload
+    /// @param[in] payload The read only reference to the payload information
+    /// @retval Success - Payload transmitted
+    /// @retval Invalid - No publication record found or trying to publish anonymously
+    /// @retval Failure - Could not transmit the payload.
+    Status transmit(const TxMetadata& tx_metadata, const Message& payload)
+    {
+        // Cannot publish when NodeID is not set (anonymous node)
         if (udpard_.node_id == AnonymousNodeID)
         {
             return Status(ResultCode::Invalid, CauseCode::Parameter);
         }
 
-        // Get message publication record (transfer metadata) for this subject ID
-        //   Broadcast message records do not utilize the node ID field, leave it unset
-        UdpardTransferMetadata* const record =
-            getPublicationRecord(publication_records_, tx_metadata.port_id, AnonymousNodeID);
+        // Broadcast message records do not utilize the remote node ID field in the publication records list, leave it
+        // unset
+        UdpardNodeID remote_node_id = AnonymousNodeID;
+        if (tx_metadata.kind == TransferKindRequest || tx_metadata.kind == TransferKindResponse)
+        {
+            remote_node_id = tx_metadata.remote_node_id;
+        }
+
+        UdpardTransferMetadata* const record = getPublicationRecord(publication_records_,
+                                                                    libcyphalToUdpardTransferKind(tx_metadata.kind),
+                                                                    tx_metadata.port_id,
+                                                                    remote_node_id);
+
         if (record == nullptr)
         {
-            // Should not be here, a lack of records for this response means that the transport was not informed of
-            //   this broadcast via 'PrepareToBroadcast()'
+            // Should not be here, a lack of records for this transfer means that the transport was not informed of
+            // this transfer via 'registerPublication()'
             return Status(ResultCode::NotInitialized, CauseCode::Session);
         }
 
-        if (tx_metadata.kind == TransferKindResponse)
+        if ((tx_metadata.kind == TransferKindResponse) && (record->remote_node_id == AnonymousNodeID))
         {
-            if (record->remote_node_id == AnonymousNodeID)
-            {
-                // An anonymous 'remote_node_id' field for this response record means that the transport was informed of
-                // this response, but the predicating request has not been received yet. Thus, the response record is
-                // still inactive and the transfer will likely be ignored by the other devices on the bus.
-                return Status(ResultCode::NotReady, CauseCode::Resource);
-            }
-        }
-        else
-        {
-            // Activate the record if it has not been already, otherwise is harmless reassignment of the same value
-            record->remote_node_id = AnonymousNodeID;
+            // An anonymous 'remote_node_id' field for this response record means that the transport was informed of
+            // this response, but the predicating request has not been received yet. Thus, the response record is
+            // still inactive and the transfer will likely be ignored by the other devices on the bus.
+            return Status(ResultCode::NotReady, CauseCode::Resource);
         }
 
-        Status publication_status = publishTransfer(*record, msg);
-        if (publication_status.isSuccess())
+        if (tx_metadata.kind == TransferKindRequest)
         {
-            static_assert(UDPARD_TRANSFER_ID_MAX != 0, "UDPARD_TRANSFER_ID_MAX is 0 when it should not be");
+            record->remote_node_id = tx_metadata.remote_node_id;
+        }
 
-            static_assert(std::is_integral<decltype(UDPARD_TRANSFER_ID_MAX)>::value,
-                          "UDPARD_TRANSFER_ID_MAX is not an integral type");
-            // Increment the transfer ID for the next broadcast. Ensure it stays within the accepted range
+        Status publication_status = publishTransfer(*record, payload);
+        if (publication_status.isFailure())
+        {
+            return publication_status;
+        }
+
+        // If the publication was a success, increment the transfer ID for the next broadcast or request.
+        // Ensure it stays within the accepted range. We do not increment the transfer ID for responses
+        // because it should match the transfer ID of the request.
+        if ((tx_metadata.kind == TransferKindMessage) || (tx_metadata.kind == TransferKindRequest))
+        {
             record->transfer_id = (record->transfer_id + 1) % UDPARD_TRANSFER_ID_MAX;
         }
 
         return publication_status;
     }
 
-    /// @brief Transmit a serialized message with the subjectID
-    /// @param[in] subject_id the subject id of the message
-    /// @param[in] msg The read only reference to the message information.
+    /// @brief Transmit a serialized message with the subject ID
+    /// @param[in] subject_id The subject ID of the message
+    /// @param[in] message The read only reference to the payload information.
     /// @retval Success - Message transmitted
-    /// @retval Invalid - No record found for response or trying to broadcast anonymously
+    /// @retval Invalid - No record found or trying to broadcast anonymously
     /// @retval Failure - Could not transmit the message.
-    Status broadcast(PortID subject_id, const Message& msg)
+    Status broadcast(PortID subject_id, const Message& message) override
     {
         TxMetadata metadata{};
         metadata.port_id        = subject_id;
         metadata.kind           = TransferKindMessage;
         metadata.priority       = PriorityNominal;
         metadata.remote_node_id = AnonymousNodeID;
-        return transmit(metadata, msg);
+        return transmit(metadata, message);
     }
 
-    /// @brief Called by the Interface when an UDP Frame is available
+    /// @brief Transmit a serialized request with the specified service ID
+    /// @param[in] service_id The service ID of the request
+    /// @param[in] remote_node_id The Node ID to whom the request will be sent
+    /// @param[in] request The read only reference to the payload information
+    /// @retval Success - Request transmitted
+    /// @retval Invalid - No record found for request or trying to publish anonymously
+    /// @retval Failure - Could not transmit the request.
+    Status sendRequest(PortID service_id, NodeID remote_node_id, const Message& request) override
+    {
+        TxMetadata metadata{};
+        metadata.port_id        = service_id;
+        metadata.kind           = TransferKindRequest;
+        metadata.priority       = PriorityNominal;
+        metadata.remote_node_id = remote_node_id;
+        return transmit(metadata, request);
+    }
+
+    /// @brief Transmit a serialized response with the specified service ID
+    /// @param[in] service_id The service ID of the response
+    /// @param[in] remote_node_id The Node ID to whom the response will be sent
+    /// @param[in] response The read only reference to the payload information.
+    /// @retval Success - Response transmitted
+    /// @retval Invalid - No record found for response or trying to publish anonymously
+    /// @retval Failure - Could not transmit the response.
+    Status sendResponse(PortID service_id, NodeID remote_node_id, const Message& response) override
+    {
+        TxMetadata metadata{};
+        metadata.port_id        = service_id;
+        metadata.kind           = TransferKindResponse;
+        metadata.priority       = PriorityNominal;
+        metadata.remote_node_id = remote_node_id;
+        return transmit(metadata, response);
+    }
+
+    /// @brief Called by the Network Interface when an UDP Frame is available
     /// @note Implements libcyphal::transport::Receiver::onReceive
     /// @param[in] frame the UDP frame
-    void onReceive(const media::udp::Frame& frame) noexcept override
+    void onReceiveFrame(const media::udp::Frame& frame) noexcept override
     {
         UdpardRxTransfer             received;                // Incoming transfer
         UdpardRxSubscription** const subscription = nullptr;  // Optional, unused reference to the subscription
@@ -290,82 +433,67 @@ public:
                                                    subscription);
 
         // If `accept_status` is 1, a new transfer is available for processing.
-        //   If it is 0, a transfer may still be in progress or the frame was discarded by Udpard. It is not a
-        //     failure or success.
-        //   If it is negative, an error occurred while accepting the new frame
-
-        // Check 'accept_status' manually to not confuse 0 for success like 'ToAbspStatus()' would
+        // If it is 0, a transfer may still be in progress or the frame was discarded
+        // by Udpard. It is not a failure or success.
+        // If it is negative, an error occurred while accepting the new frame
         if (accept_status == 1)
         {
             // Frame has been accepted, new transfer available
-            //   Store transfer payload in to serialized message
-            Message msg(static_cast<std::uint8_t*>(received.payload), received.payload_size);
+            // Store transfer payload into serialized buffertransfer_kin
+            Message payload(static_cast<std::uint8_t*>(received.payload), received.payload_size);
 
-            // Determine if message or request, then call the appropriate callback
+            // Determine if transfer is a message or request/response, then call the appropriate callback
             UdpardPortID port_id  = received.metadata.port_id;
             RxMetadata   metadata = udpardToLibcyphalRxMetadata(received.metadata);
-            if (received.metadata.transfer_kind == UdpardTransferKindMessage)
-            {
-                // Incoming transfer is a broadcast message.
-                //   'current_listener' has been cached during `ProcessIncomingTransfers()` which indirectly invoked
-                //   this routine, so we know it is pointing to a valid object.
-                current_listener_->onReceive(metadata, msg);
-            }
-            else if (received.metadata.transfer_kind == UdpardTransferKindRequest)
+            if (received.metadata.transfer_kind == UdpardTransferKindRequest)
             {
                 // Incoming transfer is a service request
-                //   Update response record (transfer metadata) associated with this request
+                // Update response record metadata associated with this request
                 UdpardNodeID            node_id = received.metadata.remote_node_id;
-                UdpardTransferMetadata* record  = getPublicationRecord(publication_records_, port_id, node_id);
+                UdpardTransferMetadata* record =
+                    getPublicationRecord(publication_records_, UdpardTransferKindResponse, port_id, node_id);
+
                 if (record != nullptr)
                 {
                     // Cache the request's transfer and node ID within the response record
-                    record->transfer_id    = received.metadata.transfer_id;
-                    record->remote_node_id = node_id;
-                    // ^ Activates record if this is the first accepted request and is otherwise just writing the same
-                    // value to its 'remote_node_id' field
 
-                    // 'current_listener' has been cached during `ProcessIncomingTransfers()` which indirectly invoked
-                    // this routine, so we know it is pointing to a valid object.
-                    current_listener_->onReceive(metadata, msg);
+                    // Save off the transfer ID of the request in the response publication record because we need
+                    // to publish the response using the same transfer ID that was in the request, as required
+                    // by the Cyphal specification
+                    record->transfer_id = received.metadata.transfer_id;
+
+                    // Activates record if this is the first accepted request and is otherwise just writing the same
+                    // value to its 'remote_node_id' field
+                    record->remote_node_id = node_id;
                 }
             }
-            else if (received.metadata.transfer_kind == UdpardTransferKindResponse)
-            {
-                // Incoming transfer is a service response.
-                //   'current_listener' has been cached during `ProcessIncomingTransfers()` which indirectly invoked
-                //   this routine, so we know it is pointing to a valid object.
-                // PortID service_id(port_id);
-                // NodeID node(received.metadata.remote_node_id);
-                // TODO AVF-334 uncomment when complete
-                // current_listener_->OnResponse(service_id, node, msg);
-            }
+
+            current_listener_->onReceive(metadata, payload);
 
             // Deallocate transfer payload, nullptr is handled gracefully
             fn_udpard_mem_free_(&udpard_, received.payload);
         }
     }
 
-    /// Called by clients in order to processes incoming UDP Frames
+    /// Called by users in order to processes incoming UDP Frames
     /// @param[in] listener Object that provides callbacks to the application layer to trigger from the transport
-    /// @note The implement will invoke the listener with the appropriately typed Frames.
+    /// @note The implementation will invoke the listener with the appropriately typed Frames.
     ///     1. The user defines a Listener by implementing the Listener APIs. For example, if the user wants custom
-    ///        behavior after receiving a broadcast message, onReceiveBroadcast could perhaps deserialize and print
+    ///        behavior after receiving a broadcast message, onReceive could perhaps deserialize and print
     ///        the message as an example
-    ///     2. The user defines UDP Interfaces by implementing libcyphal::transport::udp::transport.hpp. This is
+    ///     2. The user defines UDP Interfaces by implementing libcyphal::transport::udp::udp_interface.hpp. This is
     ///        considered the primary/secondary "buses".
     ///     3. The user application or libcyphal Application layer calls processIncomingTransfers(<Listener>)
-    ///     4. CyphaUDPTransport triggers a UDP Interface call to the primary/secondary bus and calls
-    ///        processIncomignFrames
+    ///     4. CyphaUDPTransport triggers a UDP Network Interface call to the primary/secondary bus and calls
+    ///        processIncomingFrames
     ///     5. This calls whatever OS level APIs are available to receive UDP packets
-    ///     6. After the message is received and udpard is notified, the listener's onReceiveBroadcast API is called
+    ///     6. After the transfer is received and udpard is notified, the listener's onReceive* API is called
     /// @note The lifecycle of the Listener is maintained by the application/application layer and not this class
     /// @note Multiple calls to this API are needed for large payloads until the EOT flag in the header is set
-    /// indicating
-    ///       the transfer is complete and thus sending the buffer back to the user. Use caution as very large payloads
-    ///       can take a while before downloading the full buffer. It is up to the user whether to block (for example
-    ///       looping back to back waiting for the buffer) or download frame by frame per loop cycle.
-    /// @returns The state of the Interface after processing inputs.
+    ///       indicating the transfer is complete and thus sending the buffer back to the user. Use caution as very
+    ///       large payloads can take a while before downloading the full buffer. It is up to the user whether to
+    ///       block (for example looping back to back waiting for the buffer) or download frame by frame per loop cycle.
+    /// @returns The state of the Network Interface after processing inputs.
     /// @retval result_e::SUCCESS
     /// @retval Other values indicate underlying failures from the Driver.
     Status processIncomingTransfers(Listener& listener) override
@@ -379,37 +507,37 @@ public:
         // Otherwise cache the provided listener reference and continue
         current_listener_ = &listener;
 
-        BusStatus status;
+        BusStatus bus_status;
         current_rx_bus_index_ = Primary;
-        status.primary        = primary_bus_.processIncomingFrames(*this);
+        bus_status.primary    = primary_bus_.processIncomingFrames(*this);
 
         if (backup_bus_ != nullptr)
         {
             current_rx_bus_index_ = Backup;
-            status.backup         = backup_bus_->processIncomingFrames(*this);
+            bus_status.backup     = backup_bus_->processIncomingFrames(*this);
         }
         else
         {
-            status.backup = Status(ResultCode::NotAvailable, CauseCode::Resource);
+            bus_status.backup = Status(ResultCode::NotConfigured, CauseCode::Resource);
         }
 
         // Clear current listener to make it available for the next call to this method
         current_listener_ = nullptr;
 
-        // Compare and return driver statuses
+        // Compare and return driver bus_statuses
         // If either bus successfully processed incoming frames, return the first success.
         // Otherwise, return why the primary bus failed to receive incoming frames.
-        if (status.primary.isSuccess())
+        if (bus_status.primary.isSuccess())
         {
-            return status.primary;
+            return bus_status.primary;
         }
 
-        if (status.backup.isSuccess())
+        if (bus_status.backup.isSuccess())
         {
-            return status.backup;
+            return bus_status.backup;
         }
 
-        return status.primary;
+        return bus_status.primary;
     }
 
     /// @brief Creates a publication record to hold the metadata associated with the transfer
@@ -418,16 +546,16 @@ public:
     /// @return Status of creating the record
     Status registerPublication(PortID port_id, TransferKind transfer_kind) noexcept override
     {
-        // Create a publication record to hold the metadata associated with this individual broadcast
+        // Create a publication record to hold the metadata associated with this individual port ID
         return createPublicationRecord(publication_records_,
                                        UdpardPriorityNominal,  // FIXME Eventually priorities should be assigned per
-                                                               // message node and port ID pair
+                                                               // node and port ID pair
                                        libcyphalToUdpardTransferKind(transfer_kind),
                                        port_id);
     }
 
-    /// @brief Registers interest in a specific subject ID from this transport.
-    /// This allows messages to be delivered to @ref Listener::Receive
+    /// @brief Registers interest in a specific port ID from this transport.
+    /// This allows transfers to be delivered to @ref Listener::Receive
     /// @param[in] port_id PortID of the transfer (subject id / service id)
     /// @param[in] transfer_kind Type of transfer (Message / service request/response)
     /// @return status of udpard subscribing
@@ -437,10 +565,24 @@ public:
         {
             return Status(ResultCode::NotAllowed, CauseCode::FiniteStateMachine);
         }
-        /// @todo FIXME need to support subscribing to service responses also
-        Status subscription_status = udpardSubscribe(port_id, libcyphalToUdpardTransferKind(transfer_kind));
 
-        return subscription_status;
+        Status status = udpardSubscribe(port_id, libcyphalToUdpardTransferKind(transfer_kind));
+        if (status.isFailure())
+        {
+            return status;
+        }
+
+        if (transfer_kind == TransferKindMessage)
+        {
+            return initializeMessageReceiver(port_id);
+        }
+        else if (transfer_kind == TransferKindRequest || transfer_kind == TransferKindResponse)
+        {
+            return initializeServiceReceiver(udpard_.node_id);
+        }
+
+        // Unknown Transfer Kind
+        return Status(ResultCode::BadArgument, CauseCode::Parameter);
     }
 
     /// @brief Disallow any further subscriptions to be added
@@ -475,11 +617,12 @@ private:
         Status backup;
     };
 
-    bool cleanup_initiated{false};
-    // TODO: OVPG-3372 Primary Bus and Backup Bus should be of the same type
-    Interface&         primary_bus_;
-    Interface*         backup_bus_;
-    const time::Timer& timer_;  // For timing transfers
+    bool cleanup_initiated_{false};
+
+    NetworkInterface& primary_bus_;  //!< Primary CAN bus. Reference type because primary bus is required.
+    NetworkInterface* backup_bus_;   //!< Backup CAN bus for fully redundant transports. Pointer type
+                                     //!< because backup bus is optional.
+    const time::Timer& timer_;       //!< For timing transfers
 
     // Subscription records, initialized and used by Udpard but managed by this class
     // Each represents an instance of one of three types of subscription:
@@ -490,28 +633,21 @@ private:
     std::size_t          current_sub_index_{0};
 
     // The following are cached during 'ProcessIncomingFrames()' and not used for transmit operations
-    Listener*                         current_listener_{nullptr};  // The current listener to received frames
-    cetl::pf17::pmr::memory_resource* resource_;                   // memory resource for buffering messages.
-    UdpardMemoryAllocate              fn_udpard_mem_allocate_;
-    UdpardMemoryFree                  fn_udpard_mem_free_;
-    UdpardInstance                    udpard_;                         // Udpard handler instance
-    UdpardTxQueue                     udpard_tx_fifo_;                 // Primary UDP bus TX frame queue
-    bool                              is_registration_closed_{false};  // Indicates if registration has been closed.
+    Listener*            current_listener_{nullptr};  // The current listener to received frames
+    Heap&                heap_;  // Pointer to heap instance, allocated within owned memory space during init
+    UdpardMemoryAllocate fn_udpard_mem_allocate_;
+    UdpardMemoryFree     fn_udpard_mem_free_;
+    UdpardInstance       udpard_;                         // Udpard handler instance
+    UdpardTxQueue        udpard_tx_fifo_;                 // Primary UDP bus TX frame queue
+    bool                 is_registration_closed_{false};  // Indicates if registration has been closed.
 
     /// A publication record is the metadata associated with the latest transfer for a node and port ID pair
-    using PublicationRecordsList =
-        cetl::VariableLengthArray<UdpardTransferMetadata,
-                                  cetl::pf17::pmr::polymorphic_allocator<UdpardTransferMetadata>>;
+    template <std::size_t Size>
+    using PublicationRecordsList = List<UdpardTransferMetadata, Size>;
 
-    /// Publication records, split between multi-cast, request, and response transfer types to increase search
-    /// efficiency. Each entry caches the transfer metadata for the next transfer of its respective type to be
-    /// published.
-    std::array<UdpardTransferMetadata, MaxNumberOfBroadcasts>
-        publication_record_storage_{};  //!< Records of all publications from this transport
-
-    cetl::pf17::pmr::deviant::basic_monotonic_buffer_resource
-        publication_records_resource_{publication_record_storage_.data(), publication_record_storage_.size()};
-    PublicationRecordsList publication_records_{&publication_records_resource_};
+    /// Publication records. Each entry caches the transfer metadata for the next transfer of its
+    /// respective type to be published.
+    PublicationRecordsList<MaxNumberOfPublicationRecords> publication_records_{};
 
     /// @brief Converts udpard Metadata type to libcyphal metadata type
     /// @param[in] metadata the udpard metadata type to convert
@@ -581,26 +717,25 @@ private:
 
     /// @brief Creates a publication record given a priority, type and subjectid/serviceid
     /// @tparam Count Sets the size of the publication record list
-    /// @param[out] out_records publication record list to write to
-    /// @param[in] priority priority of message
-    /// @param[in] transfer_type transfer type (service or message)
+    /// @param[out] out_records Publication record list to write to
+    /// @param[in] priority Priority of the transfer
+    /// @param[in] transfer_type Transfer type (service or message)
     /// @param[in] port UDPard PortID (subjectid/serviceid)
-    static Status createPublicationRecord(PublicationRecordsList& out_records,
-                                          UdpardPriority          priority,
-                                          UdpardTransferKind      transfer_type,
-                                          UdpardPortID            port) noexcept
+    template <std::size_t Count>
+    static Status createPublicationRecord(PublicationRecordsList<Count>& out_records,
+                                          UdpardPriority                 priority,
+                                          UdpardTransferKind             transfer_type,
+                                          UdpardPortID                   port) noexcept
     {
         // Emplace publication record at back of list
         // Do not need to check the success of emplacement as we know we have enough room per the guard above
         // Publication records have an anonymous node ID and unset transfer ID fields upon initialization
-        const std::size_t size_before = out_records.size();
-        out_records.emplace_back(
-            UdpardTransferMetadata{priority,             // Transfer priority, passed from on high
-                                   transfer_type,        // 'UdpardTransferKindMessage/Request/Response'
-                                   port,                 // Subject or service ID
-                                   AnonymousNodeID,      // Starts off as anonymous (indicates record is inactive)
-                                   InitialTransferID});  // Starts at 0
-        if (out_records.size() == size_before + 1)
+        if (out_records.emplace_back(priority,           // Transfer priority, passed from on high
+                                     transfer_type,      // 'UdpardTransferKindMessage/Request/Response'
+                                     port,               // Subject or service ID
+                                     AnonymousNodeID,    // Starts off as anonymous (indicates record is inactive)
+                                     InitialTransferID)  // Starts at 0
+        )
         {
             return ResultCode::Success;
         }
@@ -618,9 +753,11 @@ private:
     /// @param[in] records publication record list
     /// @param[in] port UDPard PortID (subjectid/serviceid)
     /// @param[in] node NodeID
-    static UdpardTransferMetadata* getPublicationRecord(PublicationRecordsList& records,
-                                                        UdpardPortID            port,
-                                                        UdpardNodeID            node) noexcept
+    template <std::size_t N>
+    static UdpardTransferMetadata* getPublicationRecord(PublicationRecordsList<N>& records,
+                                                        UdpardTransferKind         transfer_type,
+                                                        UdpardPortID               port,
+                                                        UdpardNodeID               node) noexcept
     {
         // Iterate through publication records
         // Active publication records ('remote_node_id' field is set) are listed before inactive ones ('remote_node_id'
@@ -629,7 +766,8 @@ private:
         // this is the first inactive record with a matching port ID, return it
         for (UdpardTransferMetadata& record : records)
         {
-            if ((record.port_id == port) && ((record.remote_node_id == node) || (record.remote_node_id == 0)))
+            if ((record.port_id == port) && (record.transfer_kind == transfer_type) &&
+                ((record.remote_node_id == node) || (record.remote_node_id == AnonymousNodeID)))
             {
                 return &record;
             }
@@ -639,15 +777,15 @@ private:
         return nullptr;
     }
 
-    /// @brief Publishes a serialized cyphal message to UDP
-    /// @param[in] metadata metadata for udpard transfer containing information like transferid, source nodeid, etc.
-    /// @param[out] out_message Message span to store data into
-    Status publishTransfer(const UdpardTransferMetadata& metadata, const Message& out_message)
+    /// @brief Publishes a serialized cyphal transfer to UDP
+    /// @param[in] metadata Metadata for udpard transfer containing information like transfer ID, source node ID, etc.
+    /// @param[out] out_transfer Payload span to store data into
+    Status publishTransfer(const UdpardTransferMetadata& metadata, const Message& out_transfer)
     {
-        // Push message to Udpard TX queue
+        // Push transfer to Udpard TX queue
         UdpardMicrosecond no_timeout = 0;  // Transfers are queued and published in-line here, no timeout necessary
         std::int32_t      push_status =
-            udpardTxPush(&udpard_tx_fifo_, &udpard_, no_timeout, &metadata, out_message.size(), out_message.data());
+            udpardTxPush(&udpard_tx_fifo_, &udpard_, no_timeout, &metadata, out_transfer.size(), out_transfer.data());
         Status publish_status = ardStatusToCyphalStatus(static_cast<ArdStatus>(push_status));
         if (publish_status.isSuccess())
         {
@@ -662,10 +800,10 @@ private:
                                       curr_tx_item->frame.payload_size);
 
                 TxMetadata tx_metadata{udpardToLibcyphalTxMetadata(metadata)};
-                bus_status.primary = primary_bus_.transmit(tx_metadata, udpard_frame);
+                bus_status.primary = primary_bus_.transmitFrame(tx_metadata, udpard_frame);
                 if (backup_bus_ && bus_status.backup.isSuccess())
                 {
-                    bus_status.backup = backup_bus_->transmit(tx_metadata, udpard_frame);
+                    bus_status.backup = backup_bus_->transmitFrame(tx_metadata, udpard_frame);
                 }
 
                 // Pop current item, deallocate, then grab next one

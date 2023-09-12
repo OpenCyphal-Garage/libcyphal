@@ -1,0 +1,45 @@
+# Dumb OS crap
+.DS_Store
+*.bak
+
+# Build outputs
+*.o
+*.d
+lib*.so
+lib*.so.*
+.dep
+__pycache__
+*.pyc
+.mypy*
+.pyenv
+.dockerup
+
+# Eclipse
+.metadata
+.settings
+.project
+.cproject
+.pydevproject
+.gdbinit
+
+# Log files
+*.log
+
+# Build folders
+**/build/
+**/build_*/
+**/*_ext
+
+# Python
+*.egg-info
+*.pyc
+.mypy_cache
+
+# We don't maintain a Vagrantfile as
+# part of our toolchain so don't check
+# it in if you are using one.
+.vagrant
+Vagrantfile
+
+# vscode
+.vscode/c_cpp_properties.json
