@@ -167,14 +167,14 @@ class ITransport {
     +makeResponseRxSession(params: ResponseRxSessionParams) cetl::expected#60;UniquePtr~IResponseRxSession~,Error#62;
     +makeResponseTxSession(params: ResponseTxSessionParams) cetl::expected#60;UniquePtr~IResponseTxSession~,Error#62;
 
-    +iterateMessageRxSessions() std::pair~MessageRxSessionIterator, MessageRxSessionIterator~;
-    +iterateMessageTxSessions() std::pair~MessageTxSessionIterator, MessageTxSessionIterator~;
+    +iterateMessageRxSessions() std::pair#60;MessageRxSessionIterator,MessageRxSessionIterator#62;
+    +iterateMessageTxSessions() std::pair#60;MessageTxSessionIterator,MessageTxSessionIterator#62;
 
-    +iterateRequestRxSessions() std::pair~RequestRxSessionIterator, RequestRxSessionIterator~;
-    +iterateRequestTxSessions() std::pair~RequestTxSessionIterator, RequestTxSessionIterator~;
+    +iterateRequestRxSessions() std::pair#60;RequestRxSessionIterator,RequestRxSessionIterator#62;
+    +iterateRequestTxSessions() std::pair#60;RequestTxSessionIterator,RequestTxSessionIterator#62;
 
-    +iterateResponseRxSessions() std::pair~ResponseRxSessionIterator, ResponseRxSessionIterator~;
-    +iterateResponseTxSessions() std::pair~ResponseTxSessionIterator, ResponseTxSessionIterator~;
+    +iterateResponseRxSessions() std::pair#60;ResponseRxSessionIterator,ResponseRxSessionIterator#62;
+    +iterateResponseTxSessions() std::pair#60;ResponseTxSessionIterator,ResponseTxSessionIterator#62;
 }
 IRunnable <|-- ITransport
 IMessageRxSession o-- ITransport
