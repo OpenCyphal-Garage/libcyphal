@@ -24,7 +24,9 @@ In certain minimal applications, the transport layer can be used directly, indep
 
 ## Transport layer
 
-```mermaid
+### Overview
+
+```mermaid height=203,auto
 classDiagram
 %% ERROR MODEL
 class Error {<<variant>>}
@@ -186,16 +188,37 @@ IResponseRxSession o-- ITransport
 IResponseTxSession o-- ITransport
 ```
 
-The call `IRunnable::run(IPollSet& ps)` provides the ability for a runnable item to specify a platform resource it is blocked on. This allows the external layers to suspend execution of the thread managing the current `IRunnable` after the last call to `run` until the underlying resource is ready to be handled.
+#### Execution flow and the runner interface
+
+The execution flow is modeled after this proposal: https://forum.opencyphal.org/t/design-review-execution-model-for-libcyphal/1918. The entire LibCyphal API is non-blocking except for the `IRunner` interface. Methods may schedule operations to be performed asynchronously, e.g., enqueue data to transmit. Scheduled operations are then executed in the background through periodic servicing via the `IRunnable` interface, which offers a single method `IRunnable::run(IPollSet& poll_set)`.
+
+Per the referenced proposal, basic baremetal systems may invoke `IRunnable::run` at a fixed (high) rate without IO blocking/multiplexing, while more sophisticated multi-process systems may perform blocking. Theoretically, multi-threaded systems may run one IRunnable per thread to minimize contention, albeit this will require additional locking inside the library; at the moment, this usage scenario is not supported.
+
+The `IPollSet` provides the ability for a runnable item to specify a platform resource it is blocked on. This allows the external layers to suspend execution of the thread managing the current `IRunnable` after the last call to `run` until the underlying resource is ready to be handled. The poll set is defined approximately as follows:
+
+```c++
+class IPollSet
+{
+public:
+    virtual void addIn(const std::uint32_t fd) = 0;   ///< Block until the fd is readable.
+    virtual void addOut(const std::uint32_t fd) = 0;  ///< Block until the fd is writeable.
+    virtual void addTime(const std::chrono::microseconds timeout) = 0;  ///< Block for this duration.
+    // rule of 5...
+};
+```
+
+#### Session factory methods
+
+yada yada
+
+#### `DynamicBuffer`
 
 Lizards operate on raw serialized binary blobs of data rather than high-level message representations. Transmission is performed by enqueueing serialized transfers into a private transmission queue managed by the lizard, which is easy to abstract from the application. Reception is a more complicated case because it requires a lizard to return memory to the application that is owned by the lizard, requiring the latter to free it after use in a lizard-specific manner; further and more importantly, such memory may or may not be fragmented in a gather-scatter buffer. To hide the specifics of such memory management from the application, a new abstraction is introduced, represented by the class named `DynamicBuffer`.
 
 The `DynamicBuffer` provides a uniform API for dealing with the Cyphal transfer payload returned by a lizard and also implements the movable/non-copyable RAII semantics for freeing the memory allocated for the buffer once the dynamic buffer instance is disposed of. The interface hides the gather-scatter nature of the buffer, providing a simplified linearized view. The definition of the class is approximately as follows:
 
-<small>
-
 ```c++
-/// The buffer is movable but not copyable, because copying the contents of a buffer is considered wasteful.
+/// The buffer is movable but not copyable because copying the contents of a buffer is considered wasteful.
 /// The buffer behaves as if it's empty if the underlying implementation is moved away.
 class DynamicBuffer final
 {
@@ -238,11 +261,7 @@ private:
 };
 ```
 
-</small>
-
 The lizard-specific implementation is stored (i.e., allocated) in the `ImplementationCell` class template, which is defined as follows:
-
-<small>
 
 ```c++
 /// The instance is always initialized with a valid value, but it may turn valueless if the value is moved.
@@ -267,19 +286,15 @@ private:
 };
 ```
 
-</small>
-
 The most important component here is `UniqueAny<Footprint>`, which is similar to `std::any` except for the following details:
 
-- The entirety of the contained object is stored within an arena inside `UniqueAny`. The size of the arena is specified as a non-type template parameter.
+- The entirety of the contained object is stored within an arena inside `UniqueAny`. The size of the arena is specified as a non-type template parameter. Compile-time checks are provided to ensure that the arena is large enough to contain the object.
 - The contained entity does not need to be copyable, but it has to be movable. `UniqueAny` relies on moving exclusively, unlike `std::any`, which employs copying. This allows efficient usage of this class for buffer memory management.
 - RTTI is not used; instead, it is the responsibility of the user to ensure that only viable type conversions are performed. This does not introduce risks of API misuse because the required checks are performed by the wrapping class `ImplementationCell` introduced above.
 
 An original implementation of `UniqueAny<>` is available at https://godbolt.org/z/79EhzboYP.
 
 As a side note, one can sometimes see a technique similar to the following used to substitute for the lack of RTTI:
-
-<small>
 
 ```c++
 template <typename T>
@@ -296,9 +311,7 @@ private:
 };
 ```
 
-</small>
-
-The idea is that the value of `TypeId<T>::get()` yields distinct results over T. This approach is used in the `std::any` implementation of glibcpp; however, AFAIK, this is not guaranteed to perform correctly per the C++ standard because it is possible that `TypeId<T>::get() != TypeId<K>::get()` when used from different translation units given `T` and `K` are identical.
+The idea is that  `TypeID<T>::get()` has distinct results over T. This approach is used in the `std::any` implementation of glibcpp; however, AFAIK, this is not guaranteed to perform correctly per the C++ standard because it is possible that `TypeId<T>::get() != TypeId<T>::get()` when used from different translation units.
 
 ### Cyphal/CAN
 
