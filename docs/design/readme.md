@@ -26,7 +26,7 @@ In certain minimal applications, the transport layer can be used directly, indep
 
 ### Overview
 
-```mermaid height=203,auto
+```mermaid height=207,auto
 classDiagram
 %% ERROR MODEL
 class Error {<<variant>>}
@@ -155,6 +155,15 @@ class ResponseTxSessionParams {
     +service_id: u16
 }
 
+class View~T~ {
+    +begin() T
+    +end() T
+    +cbegin() const T
+    +cend() const T
+    -begin
+    -end
+}
+
 %% TRANSPORT INTERFACE
 class ITransport {
     <<interface>>
@@ -170,14 +179,14 @@ class ITransport {
     +makeResponseRxSession(params: ResponseRxSessionParams) cetl::expected#60;UniquePtr~IResponseRxSession~,Error#62;
     +makeResponseTxSession(params: ResponseTxSessionParams) cetl::expected#60;UniquePtr~IResponseTxSession~,Error#62;
 
-    +iterateMessageRxSessions() std::pair#60;MessageRxSessionIterator,MessageRxSessionIterator#62;
-    +iterateMessageTxSessions() std::pair#60;MessageTxSessionIterator,MessageTxSessionIterator#62;
+    +viewMessageRxSessions() View~MessageRxSessionIterator~
+    +viewMessageTxSessions() View~MessageTxSessionIterator~
 
-    +iterateRequestRxSessions() std::pair#60;RequestRxSessionIterator,RequestRxSessionIterator#62;
-    +iterateRequestTxSessions() std::pair#60;RequestTxSessionIterator,RequestTxSessionIterator#62;
+    +viewRequestRxSessions() View~RequestRxSessionIterator~
+    +viewRequestTxSessions() View~RequestTxSessionIterator~
 
-    +iterateResponseRxSessions() std::pair#60;ResponseRxSessionIterator,ResponseRxSessionIterator#62;
-    +iterateResponseTxSessions() std::pair#60;ResponseTxSessionIterator,ResponseTxSessionIterator#62;
+    +viewResponseRxSessions() View~ResponseRxSessionIterator~
+    +viewResponseTxSessions() View~ResponseTxSessionIterator~
 }
 IRunnable <|-- ITransport
 IMessageRxSession o-- ITransport
@@ -190,11 +199,11 @@ IResponseTxSession o-- ITransport
 
 #### Execution flow and the runner interface
 
-The execution flow is modeled after this proposal: https://forum.opencyphal.org/t/design-review-execution-model-for-libcyphal/1918. The entire LibCyphal API is non-blocking except for the `IRunner` interface. Methods may schedule operations to be performed asynchronously, e.g., enqueue data to transmit. Scheduled operations are then executed in the background through periodic servicing via the `IRunnable` interface, which offers a single method `IRunnable::run(IPollSet& poll_set)`.
+The execution flow is modeled after this proposal: https://forum.opencyphal.org/t/design-review-execution-model-for-libcyphal/1918. The entire LibCyphal API is non-blocking. Some methods may schedule operations to be performed asynchronously, e.g., enqueue data to transmit; such scheduled operations are executed in the background through periodic servicing via the `IRunnable` interface, which provides method `IRunnable::run(IPollSet& poll_set)`.
 
-Per the referenced proposal, basic baremetal systems may invoke `IRunnable::run` at a fixed (high) rate without IO blocking/multiplexing, while more sophisticated multi-process systems may perform blocking. Theoretically, multi-threaded systems may run one IRunnable per thread to minimize contention, albeit this will require additional locking inside the library; at the moment, this usage scenario is not supported.
+Per the referenced proposal, basic baremetal systems may invoke `IRunnable::run` at a fixed (high) rate without IO blocking/multiplexing, while more sophisticated multi-process systems may minimize the polling rate by waiting for the relevant file descriptors to become ready; the set of the file descriptors of interest is communicated to the entity responsible for calling the `run` method via `IPollSet` described below. Theoretically, multi-threaded systems may run one `IRunnable` per thread to minimize contention and overhead, albeit this will require additional locking inside the library; at the moment, this usage scenario is not yet supported.
 
-The `IPollSet` provides the ability for a runnable item to specify a platform resource it is blocked on. This allows the external layers to suspend execution of the thread managing the current `IRunnable` after the last call to `run` until the underlying resource is ready to be handled. The poll set is defined approximately as follows:
+The `IPollSet` provides the ability for a runnable item to specify a platform resource it is blocked on. This allows the external layers to suspend execution of the thread managing the current `IRunnable` (or set thereof) after the last call to `run` until the underlying resource is ready to be handled. The poll set is defined approximately as follows:
 
 ```c++
 class IPollSet
@@ -207,9 +216,58 @@ public:
 };
 ```
 
+An alternative, more flexible definition that avoids assumptions about the type of the file descriptors at the expense of type safety is as follows (this is usable with non-POSIX-like IO mux APIs):
+
+```c++
+class IPollSet
+{
+public:
+    virtual void addIn(void* const resource) = 0;   ///< Block until the resource is readable.
+    virtual void addOut(void* const resource) = 0;  ///< Block until the resource is writeable.
+    virtual void addTime(const std::chrono::microseconds timeout) = 0;  ///< Block for this duration.
+    // rule of 5...
+};
+```
+
+The set of file descriptors and timeouts is reconstructed from scratch after every call to `run`. This approach has the advantage of being stateless and thus easy to model and verify, as there is no state that survives from one `run` to another. The disadvantages to be aware of are as follows:
+
+1. A newly introduced readable file descriptor will only appear in the poll set after the next `run`; this implies that once the application registered its interest in a particular data source (e.g., a subscription), it may not read data from it until next `run`. This can be addressed by forcing a certain maximum polling period.
+2. High-performance I/O multiplexing mechanisms that store the set of file descriptors in the kernel space (e.g., `epoll`, `kqueue`) are not well-suited for this design, as they would necessitate multiple system calls per `run` just to keep the list of FDs up to date. Traditional `poll` or `select` should be used instead.
+3. In multi-threaded environments, a file descriptor may be closed while an IO mux call is blocked on it. This case is usually managed predictably by known IO mux functions.
+
+The need to manage multiple `IRunner` instances in a single thread is expected to arise often, even in multi-threaded environments. For this, we introduce an aggregate that implements `IRunnable` itself (to enhance composability) and provides methods for registering and unregistering underlying `IRunnable` instances:
+
+```c++
+template <std::size_t Capacity>
+class RunnableSet final : public IRunnable
+{
+public:
+    /// Invokes run() on all members in an unspecified order.
+    void run(IPollSet& poll_set) override;
+    /// Returns true on success, false if the capacity is exhausted.
+    [[nodiscard]] bool add(IRunnable& inferior);
+    /// Returns true if such inferior was found and removed, false if not found.
+    [[nodiscard]] bool remove(IRunnable& inferior);
+};
+```
+
 #### Session factory methods
 
-yada yada
+Sessions are introduced in the Cyphal Specification as a key part of the transport layer model:
+
+![Cyphal transport layer model](cyphal-transport-layer-model.png)
+
+In LibCyphal, session objects represent data flows parameterized in a slightly unorthodox way:
+
+* Message-Rx and Tx sessions are parameterized with the subject-ID.
+* Request-Rx and Response-Tx sessions are parameterized with the service-ID.
+* Response-Rx and Request-Tx sessions are parameterized with the service-ID.
+
+The treatment of Request-Rx and Response-Tx sessions differs from the strict model proposed in the Specification to match the intended usage pattern of the library. Request-Rx and Response-Tx sessions are used by RPC servers, which are agnostic of the identity of the remote node issuing a request, and thus, an RPC server must be able to accept an incoming request from any remote node and send a response back to any node.
+
+The treatment of Response-Rx and Request-Tx sessions differs in a similar way but for a different reason. While an RPC client can be designed such that one instance is bound to a specific remote RPC server node (like it is done in PyCyphal), this design can potentially lead to high memory utilization in applications where mass querying of nodes is required.
+
+memory allocation for pinning, unique pointers for type erasure, views (mutation not allowed)
 
 #### `DynamicBuffer`
 
@@ -261,7 +319,7 @@ private:
 };
 ```
 
-The lizard-specific implementation is stored (i.e., allocated) in the `ImplementationCell` class template, which is defined as follows:
+The lizard-specific implementation is stored (i.e., allocated) in the `ImplementationCell` class template:
 
 ```c++
 /// The instance is always initialized with a valid value, but it may turn valueless if the value is moved.
@@ -303,7 +361,7 @@ struct TypeID final
 public:
     static void* get()
     {
-        static volatile TypeID obj;
+        static TypeID obj;
         return &obj;
     }
 private:
@@ -311,7 +369,7 @@ private:
 };
 ```
 
-The idea is that  `TypeID<T>::get()` has distinct results over T. This approach is used in the `std::any` implementation of glibcpp; however, AFAIK, this is not guaranteed to perform correctly per the C++ standard because it is possible that `TypeId<T>::get() != TypeId<T>::get()` when used from different translation units.
+The idea is that  `TypeID<T>::get()` has distinct results over T. This approach is used in the glibcpp implementation of `std::any`; however, AFAIK, this is not guaranteed to perform correctly per the C++ standard because it is possible that `TypeId<T>::get() != TypeId<T>::get()` when used from different translation units.
 
 ### Cyphal/CAN
 
