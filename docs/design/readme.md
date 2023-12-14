@@ -40,6 +40,7 @@ Error -- StateError
 Error -- AnonymousError
 Error -- ArgumentError
 Error -- MemoryError
+Error -- CapacityError
 Error -- PlatformError
 class PlatformError {
     +code: u32
@@ -420,13 +421,16 @@ Class `CANTransport` implements `ITransport` for Cyphal/CAN. It is constructed u
 
 ```c++
 /// The pmr and media references must outlive the transport. The call does not allocate memory.
+/// Passing more than one media enables homogeneous interface redundancy.
 /// To change the node-ID, a new transport has to be created.
 [[nodiscard]] inline
 std::expected<CANTransport, std::variant<ArgumentError>>
 makeCANTransport(std::pmr::memory_resource&         memory,
-                 IMedia&                            media,
+                 const std::span<IMedia&>           media,
                  const std::optional<std::uint16_t> local_node_id);
 ```
+
+The CAN transport supports homogeneous redundancy; it can be combined with heterogeneous redundancy with the help of `libcyphal::transport::redundant`.
 
 ### Cyphal/UDP
 
