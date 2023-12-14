@@ -98,7 +98,7 @@ class IMessageRxSession {
 ISession <|-- IMessageRxSession
 class IMessageTxSession {
     <<interface>>
-    +send(meta: TransferMetadata, payload_fragments: cetl::span<cetl::span<u8>>) cetl::optional~Error~
+    +send(meta: TransferMetadata, payload_fragments: cetl::span<cetl::span<byte>>) cetl::optional~Error~
     +getParams() MessageTxSessionParams
 }
 ISession <|-- IMessageTxSession
@@ -111,7 +111,7 @@ class IRequestRxSession {
 ISession <|-- IRequestRxSession
 class IRequestTxSession {
     <<interface>>
-    +send(meta: TransferMetadata, payload_fragments: cetl::span<cetl::span<u8>>) cetl::optional~Error~
+    +send(meta: TransferMetadata, payload_fragments: cetl::span<cetl::span<byte>>) cetl::optional~Error~
     +getParams() RequestTxSessionParams
 }
 ISession <|-- IRequestTxSession
@@ -124,7 +124,7 @@ class IResponseRxSession {
 ISession <|-- IResponseRxSession
 class IResponseTxSession {
     <<interface>>
-    +send(meta: ServiceTransferMetadata, payload_fragments: cetl::span<cetl::span<u8>>) cetl::optional~Error~
+    +send(meta: ServiceTransferMetadata, payload_fragments: cetl::span<cetl::span<byte>>) cetl::optional~Error~
     +getParams() ResponseTxSessionParams
 }
 ISession <|-- IResponseTxSession
@@ -384,6 +384,49 @@ private:
 The idea is that  `TypeID<T>::get()` has distinct results over T. This approach is used in the glibcpp implementation of `std::any`; however, AFAIK, this is not guaranteed to perform correctly per the C++ standard because it is possible that `TypeID<T>::get() != TypeID<T>::get()` when used from different translation units.
 
 ### Cyphal/CAN
+
+The Cyphal/CAN transport is underpinned by the following non-blocking media layer API that operates on extended CAN frames (either Classic CAN or CAN FD):
+
+```c++
+/// The IRunnable interface allows the higher layers to retrieve the IO descriptors for polling.
+class IMedia : public IRunnable
+{
+public:
+    /// This value is constant after initialization.
+    [[nodiscard]] virtual std::uint16_t getMTU() const noexcept = 0;
+
+    /// If there are fewer hardware filters available than requested, the configuration will be coalesced as described
+    /// in the Cyphal/CAN Specification. If there are zero filters requested, all incoming traffic will be rejected.
+    /// While reconfiguration is in progress, incoming frames may be lost and/or unwanted frames may be received.
+    /// The lifetime of the filter array may end upon return (no references retained).
+    /// Returns true on success, false in case of a low-level error (e.g., IO error).
+    struct Filter final { std::uint32_t id; std::uint32_t mask; };
+    [[nodiscard]] virtual bool setFilters(const std::span<const Filter> id_mask) noexcept = 0;
+
+    /// Schedule the frame for transmission asynchronously and return immediately.
+    /// Returns true if accepted or already timed out; false to try again later.
+    [[nodiscard]] virtual std::expected<bool, std::variant<ArgumentError>> push(const TimePoint                  deadline,
+                                                                                const std::uint32_t              can_id,
+                                                                                const std::span<const std::byte> payload) noexcept = 0;
+
+    /// Return the next frame from the reception queue unless empty; otherwise, return an empty option immediately.
+    /// The payload of the frame will be written into the span.
+    struct Rx final { TimePoint timestamp; std::uint32_t extended_can_id; std::size_t payload_size; };
+    [[nodiscard]] virtual std::optional<Rx> pop(const std::span<std::byte> payload_buffer) noexcept = 0;
+};
+```
+
+Class `CANTransport` implements `ITransport` for Cyphal/CAN. It is constructed using the following static factory that returns the non-copyable instance by value relying on RVO:
+
+```c++
+/// The pmr and media references must outlive the transport. The call does not allocate memory.
+/// To change the node-ID, a new transport has to be created.
+[[nodiscard]] inline
+std::expected<CANTransport, std::variant<ArgumentError>>
+makeCANTransport(std::pmr::memory_resource&         memory,
+                 IMedia&                            media,
+                 const std::optional<std::uint16_t> local_node_id);
+```
 
 ### Cyphal/UDP
 
