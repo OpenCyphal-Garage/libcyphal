@@ -428,6 +428,7 @@ static constexpr std::uint8_t MaxRedundancyFactor = 3;
 
 /// The pmr and media references must outlive the transport. The call does not allocate memory.
 /// Passing more than one media enables homogeneous interface redundancy.
+/// The transport is responsible for servicing the IRunnable of IMedia, the caller need not do that.
 /// To change the node-ID, a new transport has to be created.
 [[nodiscard]] inline
 std::expected<CANTransport, std::variant<ArgumentError>>
@@ -515,6 +516,7 @@ static constexpr std::uint8_t MaxRedundancyFactor = 3;
 
 /// The pmr and media references must outlive the transport. The call does not allocate memory.
 /// Passing more than one media enables homogeneous interface redundancy.
+/// The transport is responsible for servicing the IRunnable of IMedia, the caller need not do that.
 /// To change the node-ID, a new transport has to be created.
 [[nodiscard]] inline
 std::expected<UDPTransport, std::variant<ArgumentError>>
@@ -525,7 +527,29 @@ makeUDPTransport(std::pmr::memory_resource&         memory,
 
 ### Heterogeneous redundancy
 
-The redundant transport module can aggregate multiple underlying instances of `ITransport` to provide modular transport redundancy transparently for the application. This includes the ability to aggregate distinct transport types, such as UDP and serial.
+The redundant transport module can aggregate multiple underlying instances of `ITransport` to provide transfer-level redundancy (as opposed to frame-level redundancy; see the Specification for the background) transparently for the application. This includes the ability to aggregate distinct transport types, such as UDP and serial. The design closely follows [`pycyphal.transport.redundant.RedundantTransport`](https://pycyphal.readthedocs.io/en/stable/api/pycyphal.transport.redundant.html#pycyphal.transport.redundant.RedundantTransport).
+
+This implementation uses the term inferior to refer to a member of a redundant group:
+
+* Inferior transport is a transport that belongs to a redundant transport group.
+* Inferior session is a transport session that is owned by an inferior transport.
+
+A redundant transport session holds a set of inferior sessions, one from each inferior transport, all sharing the same session specifier (e.g., same subject-ID). The resulting relationship between inferior transports and inferior sessions can be conceptualized as a matrix where columns represent inferior transports and rows represent sessions:
+
+. | Transport 0 | Transport 1 | ... | Transport M
+----------|------|------|-----|------
+Session 0 | S0T0 | S0T1 | ... | S0Tm
+Session 1 | S1T0 | S1T1 | ... | S1Tm
+...       | ...  | ...  | ... | ...
+Session N | SnT0 | SnT1 | ... | SnTm
+
+Attachment/detachment of a transport is an addition/removal of a column; likewise, construction/retirement of a session is an addition/removal of a row. While the construction of a row or a column is in progress, the matrix resides in an inconsistent state. If any error occurs in the process, the matrix is rolled back to the previous consistent state, and the already-constructed sessions of the new vector are retired.
+
+Existing redundant sessions retain validity across any changes in the matrix configuration. Logic that relies on a redundant instance is completely shielded from any changes in the underlying transport configuration, meaning that the entire underlying transport structure may be swapped out with a completely different one without affecting the higher levels. A practical extreme case is where a redundant transport is constructed with zero inferior transports, its session instances are configured, and the inferior transports are added later. This is expected to be useful for long-running applications that have to retain the presentation-level structure across changes in the transport configuration done on-the-fly without stopping the application.
+
+The redundant transport replicates every outgoing transfer into all of the available redundant interfaces. Transmission operates at the rate of the best-performing inferior; transmission is assumed to be successful if at least one transport is able to complete it.
+
+Incoming transfers are deduplicated so that the local node receives at most one copy of each unique transfer received from the bus.
 
 ## Presentation layer
 
