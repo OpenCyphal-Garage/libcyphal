@@ -205,7 +205,7 @@ IResponseTxSession o-- ITransport
 
 #### Execution flow and the runner interface
 
-The execution flow is modeled after this proposal: https://forum.opencyphal.org/t/design-review-execution-model-for-libcyphal/1918. The entire LibCyphal API is non-blocking. Some methods may schedule operations to be performed asynchronously, e.g., enqueue data to transmit; such scheduled operations are executed in the background through periodic servicing via the `IRunnable` interface, which provides method `IRunnable::run(IPollSet& poll_set)`.
+The execution flow is modeled after this proposal: https://forum.opencyphal.org/t/design-review-execution-model-for-libcyphal/1918. The entire LibCyphal API is non-blocking. Some methods may schedule operations to be performed asynchronously, e.g., enqueue data to transmit; such scheduled operations are executed in the background through periodic servicing via the `IRunnable` interface, which provides method `IRunnable::run(const TimePoint now, IPollSet& poll_set)`.
 
 Per the referenced proposal, basic baremetal systems may invoke `IRunnable::run` at a fixed (high) rate without IO blocking/multiplexing, while more sophisticated multi-process systems may minimize the polling rate by waiting for the relevant file descriptors to become ready; the set of the file descriptors of interest is communicated to the entity responsible for calling the `run` method via `IPollSet` described below. Theoretically, multi-threaded systems may run one `IRunnable` per thread to minimize contention and overhead, albeit this will require additional locking inside the library; at the moment, this usage scenario is not yet supported.
 
@@ -215,9 +215,9 @@ The `IPollSet` provides the ability for a runnable item to specify a platform re
 class IPollSet
 {
 public:
-    virtual void addIn(const std::uint32_t fd) = 0;   ///< Block until the fd is readable.
-    virtual void addOut(const std::uint32_t fd) = 0;  ///< Block until the fd is writeable.
-    virtual void addTime(const TimePoint deadline) = 0;  ///< Block untli deadline.
+    virtual void input(const std::uint32_t fd) = 0;   ///< Block until the fd is readable.
+    virtual void output(const std::uint32_t fd) = 0;  ///< Block until the fd is writeable.
+    virtual void deadline(const TimePoint deadline) = 0;  ///< Block untli deadline.
     // rule of 5...
 };
 ```
@@ -228,9 +228,9 @@ An alternative, more flexible definition that avoids assumptions about the type 
 class IPollSet
 {
 public:
-    virtual void addIn(void* const resource) = 0;   ///< Block until the resource is readable.
-    virtual void addOut(void* const resource) = 0;  ///< Block until the resource is writeable.
-    virtual void addTime(const TimePoint deadline) = 0;  ///< Block untli deadline.
+    virtual void input(void* const resource) = 0;   ///< Block until the resource is readable.
+    virtual void output(void* const resource) = 0;  ///< Block until the resource is writeable.
+    virtual void deadline(const TimePoint deadline) = 0;  ///< Block untli deadline.
     // rule of 5...
 };
 ```
@@ -245,11 +245,11 @@ The need to manage multiple `IRunner` instances in a single thread is expected t
 
 ```c++
 template <std::size_t Capacity>
-class RunnableSet final : public IRunnable
+class AggregateRunnable final : public IRunnable
 {
 public:
-    /// Invokes run() on all members in an unspecified order.
-    void run(now: TimePoint, IPollSet& poll_set) override;
+    /// Invokes run() on all members in the order of their addition.
+    void run(const TimePoint now, IPollSet& poll_set) override;
     /// Returns true on success, false if the capacity is exhausted.
     [[nodiscard]] bool add(IRunnable& inferior);
     /// Returns true if such inferior was found and removed, false if not found.
@@ -381,7 +381,7 @@ private:
 };
 ```
 
-The idea is that  `TypeID<T>::get()` has distinct results over T. This approach is used in the glibcpp implementation of `std::any`; however, AFAIK, this is not guaranteed to perform correctly per the C++ standard because it is possible that `TypeId<T>::get() != TypeId<T>::get()` when used from different translation units.
+The idea is that  `TypeID<T>::get()` has distinct results over T. This approach is used in the glibcpp implementation of `std::any`; however, AFAIK, this is not guaranteed to perform correctly per the C++ standard because it is possible that `TypeID<T>::get() != TypeID<T>::get()` when used from different translation units.
 
 ### Cyphal/CAN
 
