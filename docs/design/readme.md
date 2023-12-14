@@ -236,6 +236,9 @@ public:
 };
 ```
 
+The reference to `IPollSet` passed via `run` is not guaranteed to retain validity after `run` is finished.
+Thus, implementations are **not allowed** to store the reference internally.
+
 The set of file descriptors and timeouts is reconstructed from scratch after every call to `run`. This approach has the advantage of being stateless and thus easy to model and verify, as there is no state that survives from one `run` to another. The disadvantages to be aware of are as follows:
 
 1. A newly introduced readable file descriptor will only appear in the poll set after the next `run`; this implies that once the application registered its interest in a particular data source (e.g., a subscription), it may not read data from it until next `run`. This can be addressed by forcing a certain maximum polling period.
@@ -420,6 +423,9 @@ public:
 Class `CANTransport` implements `ITransport` for Cyphal/CAN. It is constructed using the following static factory that returns the non-copyable instance by value relying on RVO:
 
 ```c++
+/// A CANTransport supports at most this many redundant media layer instances. The minimum is 1.
+static constexpr std::uint8_t MaxRedundancyFactor = 3;
+
 /// The pmr and media references must outlive the transport. The call does not allocate memory.
 /// Passing more than one media enables homogeneous interface redundancy.
 /// To change the node-ID, a new transport has to be created.
@@ -433,6 +439,89 @@ makeCANTransport(std::pmr::memory_resource&         memory,
 The CAN transport supports homogeneous redundancy; it can be combined with heterogeneous redundancy with the help of `libcyphal::transport::redundant`.
 
 ### Cyphal/UDP
+
+Just like Cyphal/CAN, Cyphal/UDP also supports inner homogeneous redundancy, and it can be combined with `libcyphal::transport::redundant` for heterogeneous redundancy. Unlike Cyphal/CAN, Cyphal/UDP needs dynamic instantiation of sockets depending on the requested Cyphal port configuration, so a socket factory interface is defined:
+
+```c++
+/// Most socket APIs (like Berkeley) will also require the local iface address to be specified.
+/// This is to be done by the implementation, outside of this interface.
+/// All sockets operate only on multicast data.
+/// The sockets produced by this interface shall not outlive it.
+class IMedia
+{
+public:
+    /// LibUDPard requires only one Tx socket per iface.
+    /// We could construct one statically and pass it over during transport initialization,
+    /// but that would be poorly compatible with listen-only nodes that are not interested in sending
+    /// any transfers, as they require no Tx sockets at all.
+    virtual [[nodiscard]]
+    std::expected<UniquePtr<ITxSocket>,
+                  std::variant<MemoryError, PlatformError>>
+    makeTxSocket() = 0;
+
+    /// Construct a new socket bound to the specified multicast group endpoint.
+    virtual [[nodiscard]]
+    std::expected<UniquePtr<IRxSocket>,
+                  std::variant<MemoryError, PlatformError, ArgumentError>>
+    makeRxSocket(const UDPIPEndpoint& multicast_endpoint) = 0;
+};
+```
+
+If `ITxSocket::send` returns false indicating that the socket is not ready to accept writes, the implementation would normally register this ocurrence internally and then register the socket's file descriptor for writing via `IPollSet::output` at the next `IRunnable::run`. This behavior ensures that write polling will only be performed if there are pending transmissions. One potential limitation to be aware of is that in the following call sequence, the pending transmission becomes delayed by one `run` cycle:
+
+- Initially, no pending transmission is registered (no data to send).
+- `run` is called, no pending transmission is registered so `output` is not called.
+- `send` is called and the socket is found to be not ready to accept writes. Output polling is needed.
+- The main loop is blocked on IO until the next `run` service cycle. However, the IO multiplexor is unaware of the fact that there is data waiting to be sent, which results in an unnecessary transmission delay.
+
+```c++
+/// The IRunnable interface allows the higher layers to retrieve the IO descriptors for polling.
+class ITxSocket : public IRunnable
+{
+public:
+    /// Returns true if the frame has been accepted successfully, false if the socket is not ready for writing.
+    virtual [[nodiscard]] std::expected<bool, std::variant<PlatformError, ArgumentError>>
+    send(const UDPIPEndpoint&             multicast_endpoint,
+         const std::uint8_t               dscp,
+         const std::span<const std::byte> payload) = 0;
+
+    /// This is the Cyphal-layer MTU, which is the maximum number of payload bytes per Cyphal frame.
+    /// To guarantee a single frame transfer, the maximum payload size shall be 4 bytes less to accommodate the CRC.
+    /// The MTU is set per Tx socket individually and it must remain constant after initialization.
+    virtual [[nodiscard]] std::size_t getMTU() const { return DefaultMTU; }
+
+    /// The default MTU is derived as:
+    ///     1500B Ethernet MTU (RFC 894) - 60B IPv4 max header - 8B UDP Header - 24B Cyphal header
+    static constexpr std::size_t DefaultMTU = 1408U;
+};
+```
+
+```c++
+/// The IRunnable interface allows the higher layers to retrieve the IO descriptors for polling.
+class IRxSocket : public IRunnable
+{
+public:
+    /// Returns the size of the payload received, or an empty option if the socket is not readable.
+    virtual [[nodiscard]] std::expected<std::optional<std::size_t>, std::variant<PlatformError, ArgumentError>>
+    receive(const std::span<std::byte> payload_buffer) = 0;
+};
+```
+
+Class `UDPTransport` implements `ITransport` for Cyphal/UDP. It is constructed using the following static factory that returns the non-copyable instance by value relying on RVO:
+
+```c++
+/// A UDPTransport supports at most this many redundant media layer instances. The minimum is 1.
+static constexpr std::uint8_t MaxRedundancyFactor = 3;
+
+/// The pmr and media references must outlive the transport. The call does not allocate memory.
+/// Passing more than one media enables homogeneous interface redundancy.
+/// To change the node-ID, a new transport has to be created.
+[[nodiscard]] inline
+std::expected<UDPTransport, std::variant<ArgumentError>>
+makeUDPTransport(std::pmr::memory_resource&         memory,
+                 const std::span<IMedia&>           media,
+                 const std::optional<std::uint16_t> local_node_id);
+```
 
 ### Heterogeneous redundancy
 
