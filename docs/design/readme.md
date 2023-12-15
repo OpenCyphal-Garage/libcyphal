@@ -99,7 +99,7 @@ class IMessageRxSession {
 ISession <|-- IMessageRxSession
 class IMessageTxSession {
     <<interface>>
-    +send(meta: TransferMetadata, payload_fragments: cetl::span<cetl::span<byte>>) cetl::optional~Error~
+    +send(meta: TransferMetadata, payload_fragments: cetl::span#60;cetl::span~byte~#62;) cetl::optional~Error~
     +getParams() MessageTxSessionParams
 }
 ISession <|-- IMessageTxSession
@@ -112,7 +112,7 @@ class IRequestRxSession {
 ISession <|-- IRequestRxSession
 class IRequestTxSession {
     <<interface>>
-    +send(meta: TransferMetadata, payload_fragments: cetl::span<cetl::span<byte>>) cetl::optional~Error~
+    +send(meta: TransferMetadata, payload_fragments: cetl::span#60;cetl::span~byte~#62;) cetl::optional~Error~
     +getParams() RequestTxSessionParams
 }
 ISession <|-- IRequestTxSession
@@ -125,7 +125,7 @@ class IResponseRxSession {
 ISession <|-- IResponseRxSession
 class IResponseTxSession {
     <<interface>>
-    +send(meta: ServiceTransferMetadata, payload_fragments: cetl::span<cetl::span<byte>>) cetl::optional~Error~
+    +send(meta: ServiceTransferMetadata, payload_fragments: cetl::span#60;cetl::span~byte~#62;) cetl::optional~Error~
     +getParams() ResponseTxSessionParams
 }
 ISession <|-- IResponseTxSession
@@ -280,6 +280,18 @@ The Response-Rx and Request-Tx sessions match the model proposed in the Specific
 While it is possible to return type-erased entities implementing a specific interface by value (as will be shown later), this approach cannot be used for sessions because lizards typically require entities used for the implementation of sessions to be pinned in memory. The session factory methods therefore return PMR-allocated objects via unique pointers. Transport implementations will necessarily have to be aware of the full set of sessions extant at any moment; for this, internally, sessions are kept arranged in containers such as linked lists or AVL trees (see [Cavl](https://github.com/pavel-kirienko/cavl)). Session destructors (invoked when the unique pointer is destroyed) are used to delist the destroyed element from the internal containers and perform other activities associated with the removal of a session, such as closing UDP sockets, etc.
 
 Session view methods such as `ITransport::viewMessageRxSessions` provide a view into the internal containers holding the active sessions via begin/end iterators. Conventionally, iterators are manipulated by value, and yet their behavior is highly transport-specific because they have to access the internal container of sessions, which calls for polymorphism. To address this, we define a polymorphic iterator interface and return iterators by value wrapped into `ImplementationCell<>` introduced below. It is assumed that the application will not attempt to mutate the set of sessions while iteration is in progress.
+
+#### Session data flow
+
+Tx sessions accept the data to be sent via the non-blocking `send` method. Said method converts the data into a sequence of transport frames (e.g., CAN frames or UDP datagrams) which are then either enqueued into the internal (prioritized) transmission queue or sent directly to the lower layers of the stack, depending on the design and/or configuration of the underlying lizard. See related notes here: <https://github.com/OpenCyphal/libudpard/blob/417d92cf9779e28c7b96bebba41665874cc13ad0/libudpard/udpard.h#L389-L397>.
+
+The lifetime of the payload passed to the `send` method is not required to continue beyond the return from the method, as the data will be physically copied.
+
+The `send` method can either accept the transfer for transmission in its entirety, or reject it entirely. The implementation shall not allow the set of transport frames generated for a given transfer to be enqueued partially.
+
+The transfer timestamp given to the `send` method signifies the transmission deadline for the transport frames originating from this transfer; transport frames whose transmission could not be completed prior to the expiration of their deadline will be dropped (dequeued without transmission) by the transport. Such occurrence should normally be recorded for diagnostic purposes via the appropriate statistical counters, but this feature is currently outside of the scope of this proposal.
+
+Rx sessions operate like sampling ports, storing one most recently received transfer internally as an instance of `DynamicBuffer` (see below). The buffer is passed over to the application upon the next call to `receive`. A sampling port is similar to a FIFO queue of depth 1 unit, so in the future this design can be trivially generalized to support variable-depth FIFO queues inside Rx session instances that are set to the depth of 1 unit by default. Shall the application fail to collect the received transfer(s) before the FIFO queue is full, the least recently received transfer is dropped and the new one is pushed at the opposite end of the queue. Such occurrence should normally be recorded for diagnostic purposes via the appropriate statistical counters, but this feature is currently outside of the scope of this proposal.
 
 #### `DynamicBuffer`
 
@@ -481,10 +493,12 @@ class ITxSocket : public IRunnable
 {
 public:
     /// Returns true if the frame has been accepted successfully, false if the socket is not ready for writing.
+    /// The payload may be fragmented to minimize data copying in the user space, allowing the implementation to
+    /// use vectorized I/O (iov).
     virtual [[nodiscard]] std::expected<bool, std::variant<PlatformError, ArgumentError>>
-    send(const UDPIPEndpoint&             multicast_endpoint,
-         const std::uint8_t               dscp,
-         const std::span<const std::byte> payload) = 0;
+    send(const UDPIPEndpoint&                              multicast_endpoint,
+         const std::uint8_t                                dscp,
+         const std::span<const std::span<const std::byte>> payload_fragments) = 0;
 
     /// This is the Cyphal-layer MTU, which is the maximum number of payload bytes per Cyphal frame.
     /// To guarantee a single frame transfer, the maximum payload size shall be 4 bytes less to accommodate the CRC.
