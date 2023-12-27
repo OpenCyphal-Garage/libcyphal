@@ -304,7 +304,7 @@ Examples of lizard-specific management of the returned memory can be found in
 The `DynamicBuffer` provides a uniform API for dealing with the Cyphal transfer payload returned by a lizard and also implements the movable/non-copyable RAII semantics for freeing the memory allocated for the buffer once the dynamic buffer instance is disposed of. The interface hides the gather-scatter nature of the buffer, providing a simplified linearized view. The definition of the class is approximately as follows:
 
 ```c++
-/// The buffer is movable but not copyable because copying the contents of a buffer is considered wasteful.
+/// The buffer is movable but not copyable, because copying the contents of a buffer is considered wasteful.
 /// The buffer behaves as if it's empty if the underlying implementation is moved away.
 class DynamicBuffer final
 {
@@ -318,12 +318,12 @@ public:
                                                void* const destination,
                                                const std::size_t length_bytes) const = 0;
         [[nodiscard]] virtual std::size_t size() const = 0;
-        Iface()                        = default;
-        Iface(const Iface&)            = delete;
-        Iface(Iface&&)                 = default;
+        Iface() = default;
+        Iface(const Iface&) = delete;
+        Iface(Iface&&) = default;
         Iface& operator=(const Iface&) = delete;
-        Iface& operator=(Iface&&)      = delete;
-        virtual ~Iface()               = default;
+        Iface& operator=(Iface&&) = delete;
+        virtual ~Iface() = default;
     };
 
     /// Accepts a Lizard-specific implementation of Iface and moves it into the internal storage.
@@ -343,7 +343,7 @@ public:
     [[nodiscard]] std::size_t size() const { return impl_ ? impl_->size() : 0; }
 
 private:
-    ImplementationCell<Iface, ImplementationFootprint> impl_;
+    ImplementationCell<Iface, UniqueAny<ImplementationFootprint>> impl_;
 };
 ```
 
@@ -351,24 +351,28 @@ The lizard-specific implementation is stored (i.e., allocated) in the `Implement
 
 ```c++
 /// The instance is always initialized with a valid value, but it may turn valueless if the value is moved.
-template <typename Iface, std::size_t Footprint>
+/// The Any type can be either std::any or a custom alternative.
+template <typename Iface, typename Any>
 class ImplementationCell final
 {
 public:
     template<typename Impl, typename = std::enable_if_t<std::is_base_of<Iface, Impl>::value>>
-    explicit ImplementationCell(Impl&& object) : storage_(std::forward<Impl>(object)) {}
+    explicit ImplementationCell(Impl&& object) :
+        storage_(std::forward<Impl>(object)),
+        fn_getter_mut_([](Any& sto) -> Iface* { return any_cast<Impl>(&sto); }),
+        fn_getter_const_([](const Any& sto) -> const Iface* { return any_cast<Impl>(&sto); })
+    {}
 
-    template <typename Impl, typename... Args>
-    std::enable_if_t<std::is_base_of<Iface, Impl>::value> emplace(Args&&... as)
-    { storage_.template emplace<Impl>(std::forward<Args>(as)...); }
-
-    [[nodiscard]]       Iface* operator->()       { return &storage_.template reinterpret<Iface>(); }
-    [[nodiscard]] const Iface* operator->() const { return &storage_.template reinterpret<Iface>(); }
+    /// Behavior undefined if the instance is valueless.
+    [[nodiscard]]       Iface* operator->()       { return fn_getter_mut_(storage_); }
+    [[nodiscard]] const Iface* operator->() const { return fn_getter_const_(storage_); }
 
     [[nodiscard]] operator bool() const { return storage_.has_value(); }
 
 private:
-    UniqueAny<Footprint> storage_;
+    Any storage_;
+    Iface* (*fn_getter_mut_)(Any&);
+    const Iface* (*fn_getter_const_)(const Any&);
 };
 ```
 
@@ -376,28 +380,23 @@ The most important component here is `UniqueAny<Footprint>`, which is similar to
 
 - The entirety of the contained object is stored within an arena inside `UniqueAny`. The size of the arena is specified as a non-type template parameter. Compile-time checks are provided to ensure that the arena is large enough to contain the object.
 - The contained entity does not need to be copyable, but it has to be movable. `UniqueAny` relies on moving exclusively, unlike `std::any`, which employs copying. This allows efficient usage of this class for buffer memory management.
-- RTTI is not used; instead, it is the responsibility of the user to ensure that only viable type conversions are performed. This does not introduce risks of API misuse because the required checks are performed by the wrapping class `ImplementationCell` introduced above.
-
-An original implementation of `UniqueAny<>` is available at https://godbolt.org/z/79EhzboYP.
-
-As a side note, one can sometimes see a technique similar to the following used to substitute for the lack of RTTI:
+- RTTI is not used; instead, a simplified substitute shown below is introduced.
 
 ```c++
-template <typename T>
-struct TypeID final
+/// A simplified substitute for RTTI that allows querying the identity of types.
+/// Returns an entity of an unspecified type for which operator== and operator!= are defined.
+/// Entities for the same type compare equal. Ordering is not defined.
+/// If RTTI is enabled, this solution can wrap typeid() directly.
+template <typename>
+auto getTypeID() noexcept
 {
-public:
-    static void* get()
-    {
-        static TypeID obj;
-        return &obj;
-    }
-private:
-    TypeID() = default;
-};
+    static const struct{} placeholder{};
+    return static_cast<const void*>(&placeholder);
+}
+using TypeID = decltype(getTypeID<void>());
 ```
 
-The idea is that  `TypeID<T>::get()` has distinct results over T. This approach is used in the glibcpp implementation of `std::any`; however, AFAIK, this is not guaranteed to perform correctly per the C++ standard because it is possible that `TypeID<T>::get() != TypeID<T>::get()` when used from different translation units.
+An original implementation of `UniqueAny<>` is available at https://godbolt.org/z/v5hsvYYa4.
 
 ### Cyphal/CAN
 
