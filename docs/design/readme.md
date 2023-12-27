@@ -210,31 +210,40 @@ The execution flow is modeled after this proposal: https://forum.opencyphal.org/
 
 Per the referenced proposal, basic baremetal systems may invoke `IRunnable::run` at a fixed (high) rate without IO blocking/multiplexing, while more sophisticated multi-process systems may minimize the polling rate by waiting for the relevant file descriptors to become ready; the set of the file descriptors of interest is communicated to the entity responsible for calling the `run` method via `IPollSet` described below. Theoretically, multi-threaded systems may run one `IRunnable` per thread to minimize contention and overhead, albeit this will require additional locking inside the library; at the moment, this usage scenario is not yet supported.
 
-The `IPollSet` provides the ability for a runnable item to specify a platform resource it is blocked on. This allows the external layers to suspend execution of the thread managing the current `IRunnable` (or set thereof) after the last call to `run` until the underlying resource is ready to be handled. The poll set is defined approximately as follows:
+The `IPollSet` provides the ability for a runnable item to specify a pollable platform resource it is blocked on; the platform resource is interfaced via `IPollable`. This allows the external layers to suspend execution of the thread managing the current `IRunnable` (or set thereof) after the last call to `run` until the underlying resource is ready to be handled. The poll set is defined approximately as follows:
 
 ```c++
+class IPollable
+{
+public:
+    struct Flags final
+    {
+        static constexpr std::uint8_t Input = 1;
+        static constexpr std::uint8_t Output = 2;
+        std::uint8_t value = 0;
+    };
+
+    /// The flags may change at runtime, so they have to be queried at each poll cycle.
+    [[nodiscard]] virtual Flags query() const = 0;
+
+    /// Invoked when the underlying resource becomes ready for I/O.
+    virtual void notify(const Flags flags) = 0;
+
+    /// Used to query the identity of the implementation.
+    /// This is used by Runner implementations to extract the specific underlying platform resource
+    /// (e.g., a file descriptor) from the instance with the help of strict_dynamic_cast<>().
+    virtual TypeID type() const noexcept = 0;
+};
+
 class IPollSet
 {
 public:
-    virtual void input(const std::uint32_t fd) = 0;   ///< Block until the fd is readable.
-    virtual void output(const std::uint32_t fd) = 0;  ///< Block until the fd is writeable.
-    virtual void deadline(const TimePoint deadline) = 0;  ///< Block untli deadline.
-    // rule of 5...
+    virtual void addPollable(const IPollable& pollable) = 0;   ///< Block until I/O is possible.
+    virtual void addDeadline(const TimePoint deadline) = 0;  ///< Block untli deadline.
 };
 ```
 
-An alternative, more flexible definition that avoids assumptions about the type of the file descriptors at the expense of type safety is as follows (this is usable with non-POSIX-like IO mux APIs):
-
-```c++
-class IPollSet
-{
-public:
-    virtual void input(void* const resource) = 0;   ///< Block until the resource is readable.
-    virtual void output(void* const resource) = 0;  ///< Block until the resource is writeable.
-    virtual void deadline(const TimePoint deadline) = 0;  ///< Block untli deadline.
-    // rule of 5...
-};
-```
+The design assumes that the I/O multiplexing is level-triggered rather than edge-triggered, as it improves portability, considering that most multiplexing I/O APIs are level-triggered.
 
 The reference to `IPollSet` passed via `run` is not guaranteed to retain validity after `run` is finished.
 Thus, implementations are **not allowed** to store the reference internally.
@@ -394,6 +403,21 @@ auto getTypeID() noexcept
     return static_cast<const void*>(&placeholder);
 }
 using TypeID = decltype(getTypeID<void>());
+```
+
+Coincidentally, this RTTI solution enables a reduced implementation of `dynamic_cast<>`:
+
+```c++
+/// Iface must implement a virtual type() -> TypeID that returns the identity of the implementation.
+template <typename Target, typename Iface, typename = std::enable_if_t<std::is_base_of<Iface, Target>::value>>
+[[nodiscard]] Target* strict_dynamic_cast(Iface* const operand) noexcept
+{
+    if ((operand != nullptr) && (operand->type() == getTypeID<std::decay_t<Target>>()))
+    {
+        return static_cast<Target*>(operand);
+    }
+    return nullptr;
+}
 ```
 
 An original implementation of `UniqueAny<>` is available at https://godbolt.org/z/v5hsvYYa4.
