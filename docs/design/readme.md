@@ -1,6 +1,6 @@
 # LibCyphal design overview
 
-LibCyphal is a high-level header-only wrapper over the existing Cyphal implementation libraries, such as LibCANard and LibUDPard (collectively referred to as lizards :lizard:), implemented in C++14 following high-integrity software development practices. It aims to be a full-featured implementation that comes with batteries included and is easy to integrate into any real-time application, from deeply embedded baremetal MCUs up to a conventional POSIX OS (such as GNU/Linux).
+LibCyphal is a high-level header-only wrapper over the existing Cyphal implementation libraries, such as LibCANard and LibUDPard (collectively referred to as lizards :lizard:), implemented in C++14 following high-integrity software development practices. It aims to be a full-featured implementation that comes with batteries included and is easy to integrate into any real-time application, from deeply embedded baremetal MCUs up to a conventional POSIX OS (such as GNU/Linux). However, targets with strict memory constraints (such as low-end MCUs with less than ~100k of RAM) are intentionally excluded from the list of intended applications; for those, one should pick a lizard and use it directly.
 
 The library consists of several modules listed below.
 
@@ -26,9 +26,196 @@ In certain minimal applications, the transport layer can be used directly, indep
 
 ### Design principles
 
-The design makes heavy use of type erasure to facilitate modularity and low coupling. This often requires the use of a heap, which is done via polymorphic memory resources without explicit dependency on the global new/delete heap. Non-heap polymorphism is implemented through `ImplementationCell<>` as described in section titled `DynamicBuffer` below.
+Exceptions are not leveraged by the library itself but it is designed to be exception-aware, allowing its integration into applications that do make use of exception handling.
 
-Dynamic typing is leveraged with care in certain platform-specific contexts to uphold encapsulation.
+Runtime type identification is not required but allowed as an optional feature to facilitate dynamic linking when used in a high-level operating system; more on this later.
+
+Usage of the heap is reduced to the bare minimum and is done strictly via polymorphic memory resources without any reliance on the global heap. Most allocations are done once during initialization; with the exceptions listed below, the library will not perform further allocations at runtime unless the application needs to change its port configuration (i.e., subscriptions/publications/RPC) dynamically at runtime, which is rarely seen in embedded real-time systems. The exceptions to the no-memory-allocation policy are as follows:
+
+- Transport-layer queues and memory reassembly buffers allocated at runtime by the lizards. The memory usage patterns and limits of the lizards are very well formalized in the documentation; further, certain lizards allow replacement of heap allocators with block pool allocators.
+
+Type erasure is used throughout to reduce coupling and uphold encapsulation. In some cases, heap allocation that is often associated with type erasure is avoided with the help of small-object-optimized containers that provide an internal arena to store the type-erased object within. More on this below.
+
+Unconventionally, dynamic typing is leveraged with care in certain platform-specific contexts to uphold encapsulation.
+
+### RTTI and dynamic linking considerations
+
+As will be seen later, certain design features are dependent on the ability to detect identical types at runtime; yet, the library must be usable without the RTTI capability of the C++ runtime. The following construct is used to provide a small subset of RTTI features that happens to be sufficient for the needs of the library:
+
+```c++
+/// A simplified substitute for RTTI that allows querying the identity of types.
+/// Returns an object of an unspecified type for which operator== and operator!= are defined.
+/// Objects for the same type compare equal. Ordering is not defined.
+template <typename>
+auto getTypeID() noexcept
+{
+    static const struct {} placeholder{};
+    return static_cast<const void*>(&placeholder);
+}
+using TypeID = decltype(getTypeID<void>());
+```
+
+Per the C++ standard, the address of a local variable with a `static` storage specifier defined in an `inline` function is guaranteed to be the same across all translation units:
+
+>C++98, 7.1.2.4: An `inline function` with external linkage shall have the same address in all translation units. A `static` local variable in an `extern inline` function always refers to the same object. A string literal in an `extern inline` function is the same object in different translation units.
+
+>Latest draft, 9.2.8.6: An `inline` function or variable with external or module linkage can be defined in multiple translation units (6.3), but is one entity with one address. A type or `static` variable defined in the body of such a function is therefore a single entity.
+
+These provisions guarantee that `getTypeID` will perform as intended within the scope of a given executable; however, one should not overlook the fact that dynamic linking renders this solution dysfunctional, as a dynamically linked shared object file may contain instantiations of `getTypeID` for a given type that duplicate those available in the host executable or another shared object. The following example demonstrates the problem:
+
+```c++
+// Compile the executable with: c++ main.c++ -std=c++14
+#include "typeid.hpp"  // this header contains getTypeID
+#include <dlfcn.h>
+#include <iostream>
+int main()
+{
+    std::cout << getTypeID<void>() << std::endl;
+    std::cout << getTypeID<long double>() << std::endl;
+    reinterpret_cast<void(*)()>(dlsym(dlopen("liblib.so", RTLD_LAZY), "execute"))();
+    return 0;
+}
+```
+
+```c++
+// Compile this file into a shared object as follows: c++ -shared -fPIC -o liblib.so lib.c++
+#include "typeid.hpp"  // this header contains getTypeID
+#include <iostream>
+extern "C" void execute()
+{
+    std::cout << getTypeID<float>() << std::endl;
+    std::cout << getTypeID<int>() << std::endl;
+    std::cout << getTypeID<long double>() << std::endl;
+    std::cout << getTypeID<void>() << std::endl;
+}
+```
+
+Execution yields the following output (with annotations on the right):
+
+```
+0x555a3f298004  <- void
+0x555a3f29801b  <- long double
+0x7f4b30a77001
+0x7f4b30a77002
+0x7f4b30a77003  <- long double
+0x7f4b30a77000  <- void
+```
+
+Forcing link-time linking of the shared object by adding `-L. -llib`, we observe a different result, where `getTypeID` operates correctly:
+
+```
+0x55c1ae4cd017  <- void
+0x55c1ae4cd016  <- long double
+0x7f8d211ef001
+0x7f8d211ef002
+0x55c1ae4cd016  <- long double
+0x55c1ae4cd017  <- void
+```
+
+Hence, one recognized limitation of this design is that the library *may* require RTTI support if it is to be used across dynamically-linked shared objects. In that case, `getTypeID` becomes a trivial wrapper over `typeid`:
+
+```c++
+#if defined(LIBCYPHAL_USE_RTTI) && LIBCYPHAL_USE_RTTI
+#include <typeinfo>
+template <typename T>
+const auto& getTypeID() noexcept
+{
+    return typeid(T);
+}
+#else
+// ... alternative implementation ...
+#endif
+```
+
+It is worth noting that the same (in essence) approach is used for runtime type identification in the implementation of `std::any` from glibc.
+
+### Safe dynamic type conversion without RTTI
+
+In the interest of minimizing the deviations from relevant high-integrity software design guidelines, the dependency on metaprogramming is reduced to the bare minimum. As will be seen later, this choice requires some form of runtime type identification and dynamic casting to support handling of DSDL objects. Without the full RTTI support one cannot rely on the built-in `dynamic_cast` conversion; this can be worked around with a simplified version presented below that makes use of `getTypeID`:
+
+```c++
+/// Types that require RTTI will implement this.
+class IRTTI
+{
+public:
+    /// Returns the concrete type of the object.
+    [[nodiscard]] virtual TypeID type() const noexcept = 0;
+    // rule of 5
+};
+
+/// Returns a converted pointer if the polymorphic type of the operand is Target and operand is not nullptr.
+/// Otherwise, returns nullptr. The type of the operand shall implement IRTTI.
+template <typename Target,
+          typename Iface,
+          typename = std::enable_if_t<std::is_base_of<Iface, Target>::value>,
+          typename = std::enable_if_t<std::is_base_of<IRTTI, Iface>::value>>
+[[nodiscard]] Target* strict_dynamic_cast(Iface* const operand) noexcept
+{
+    if ((operand != nullptr) && (operand->type() == getTypeID<std::decay_t<Target>>()))
+    {
+        return static_cast<Target*>(operand);
+    }
+    return nullptr;
+}
+```
+
+### Heapless Any
+
+LibCyphal will include a heapless reimplementation of `std::any` is needed to support type erasure without the need to perform heap allocation.
+
+This implementation of `any` stores the contained object inside a private memory arena instead of the heap; the size of the arena are specified as a type parameter. Compile-time checks are provided to ensure that the arena is large enough to contain the object.
+
+Further, to facilitate handling of expensive-to-copy or non-copyable objects, this implementation of `any`, unlike `std::any`, relies on moving instead of copying.
+
+Unlike `std::any`, this custom class does not make use of RTTI, relying on `getTypeID` introduced earlier instead.
+
+An original implementation is available at https://godbolt.org/z/v5hsvYYa4.
+
+This type enables dynamic typing with runtime type safety checking, which is used to facilitate certain design options introduced later.
+
+### Type erasure without heap
+
+Article [Inheritance Without Pointers](https://www.fluentcpp.com/2021/01/29/inheritance-without-pointers/) provides an interesting approach to implementing type erasure without heap based on `std::any`. LibCyphal makes use of its own heapless implementation of `any` to the same end. The resulting container type is defined as follows:
+
+```c++
+/// A generalized implementation of https://www.fluentcpp.com/2021/01/29/inheritance-without-pointers/
+/// that works with any any (sic!).
+/// The instance is always initialized with a valid value, but it may turn valueless if the value is moved.
+/// The Any type can be either std::any or a custom alternative.
+template <typename Iface, typename Any>
+class ImplementationCell final
+{
+public:
+    template<typename Impl, typename = std::enable_if_t<std::is_base_of<Iface, Impl>::value>>
+    explicit ImplementationCell(Impl&& object) :
+        storage_(std::forward<Impl>(object)),
+        fn_getter_mut_([](Any& sto) -> Iface* { return any_cast<Impl>(&sto); }),
+        fn_getter_const_([](const Any& sto) -> const Iface* { return any_cast<Impl>(&sto); })
+    {}
+
+    /// Behavior undefined if the instance is valueless.
+    [[nodiscard]]       Iface* operator->()       { return fn_getter_mut_(storage_); }
+    [[nodiscard]] const Iface* operator->() const { return fn_getter_const_(storage_); }
+
+    [[nodiscard]] operator bool() const { return storage_.has_value(); }
+
+private:
+    Any storage_;
+    Iface* (*fn_getter_mut_)(Any&);
+    const Iface* (*fn_getter_const_)(const Any&);
+};
+```
+
+### Type-erased lambdas
+
+Similar to `any`, LibCyphal will provide a custom heapless reimplementation of `std::function` that allocates the callable inside a private arena rather than the heap.
+
+```c++
+/// The footprint specifies the maximum size of the callable in bytes.
+/// An attempt to use a larger callable will result in a compile-time error.
+template <std::size_t Footprint, typename T, typename... Args>
+class Function final;
+```
 
 ## Transport layer
 
@@ -355,9 +542,9 @@ The treatment of Request-Rx and Response-Tx sessions differs from the strict mod
 
 The Response-Rx and Request-Tx sessions match the model proposed in the Specification; the higher-level RPC client API is built on the assumption that the user obtains an instance of the client per remote node-ID per service-ID.
 
-While it is possible to return type-erased entities implementing a specific interface by value (as will be shown later), this approach cannot be used for sessions because lizards typically require entities used for the implementation of sessions to be pinned in memory. The session factory methods therefore return PMR-allocated objects via unique pointers. Transport implementations will necessarily have to be aware of the full set of sessions extant at any moment; for this, internally, sessions are kept arranged in containers such as linked lists or AVL trees (see [Cavl](https://github.com/pavel-kirienko/cavl)). Session destructors (invoked when the unique pointer is destroyed) are used to delist the destroyed element from the internal containers and perform other activities associated with the removal of a session, such as closing UDP sockets, etc.
+While it is possible to return type-erased entities implementing a specific interface by value (as shown earlier), this approach cannot be used for sessions because lizards typically require entities used for the implementation of sessions to be pinned in memory. The session factory methods therefore return PMR-allocated objects via unique pointers. Transport implementations will necessarily have to be aware of the full set of sessions extant at any moment; for this, internally, sessions are kept arranged in containers such as linked lists or AVL trees (see [Cavl](https://github.com/pavel-kirienko/cavl)). Session destructors (invoked when the unique pointer is destroyed) are used to delist the destroyed element from the internal containers and perform other activities associated with the removal of a session, such as closing UDP sockets, etc.
 
-Session view methods such as `ITransport::viewMessageRxSessions` provide a view into the internal containers holding the active sessions via begin/end iterators. Conventionally, iterators are manipulated by value, and yet their behavior is highly transport-specific because they have to access the internal container of sessions, which calls for polymorphism. To address this, we define a polymorphic iterator interface and return iterators by value wrapped into `ImplementationCell<>` introduced below. It is assumed that the application will not attempt to mutate the set of sessions while iteration is in progress.
+Session view methods such as `ITransport::viewMessageRxSessions` provide a view into the internal containers holding the active sessions via begin/end iterators. Conventionally, iterators are manipulated by value, and yet their behavior is highly transport-specific because they have to access the internal container of sessions, which calls for polymorphism. To address this, we define a polymorphic iterator interface and return iterators by value wrapped into `ImplementationCell<>` introduced earlier. It is assumed that the application will not attempt to mutate the set of sessions while iteration is in progress.
 
 #### Session data flow
 
@@ -424,72 +611,6 @@ private:
     ImplementationCell<Iface, UniqueAny<ImplementationFootprint>> impl_;
 };
 ```
-
-The lizard-specific implementation is stored (i.e., allocated) in the `ImplementationCell` class template:
-
-```c++
-/// The instance is always initialized with a valid value, but it may turn valueless if the value is moved.
-/// The Any type can be either std::any or a custom alternative.
-template <typename Iface, typename Any>
-class ImplementationCell final
-{
-public:
-    template<typename Impl, typename = std::enable_if_t<std::is_base_of<Iface, Impl>::value>>
-    explicit ImplementationCell(Impl&& object) :
-        storage_(std::forward<Impl>(object)),
-        fn_getter_mut_([](Any& sto) -> Iface* { return any_cast<Impl>(&sto); }),
-        fn_getter_const_([](const Any& sto) -> const Iface* { return any_cast<Impl>(&sto); })
-    {}
-
-    /// Behavior undefined if the instance is valueless.
-    [[nodiscard]]       Iface* operator->()       { return fn_getter_mut_(storage_); }
-    [[nodiscard]] const Iface* operator->() const { return fn_getter_const_(storage_); }
-
-    [[nodiscard]] operator bool() const { return storage_.has_value(); }
-
-private:
-    Any storage_;
-    Iface* (*fn_getter_mut_)(Any&);
-    const Iface* (*fn_getter_const_)(const Any&);
-};
-```
-
-The most important component here is `UniqueAny<Footprint>`, which is similar to `std::any` except for the following details:
-
-- The entirety of the contained object is stored within an arena inside `UniqueAny`. The size of the arena is specified as a non-type template parameter. Compile-time checks are provided to ensure that the arena is large enough to contain the object.
-- The contained entity does not need to be copyable, but it has to be movable. `UniqueAny` relies on moving exclusively, unlike `std::any`, which employs copying. This allows efficient usage of this class for buffer memory management.
-- RTTI is not used; instead, a simplified substitute shown below is introduced.
-
-```c++
-/// A simplified substitute for RTTI that allows querying the identity of types.
-/// Returns an entity of an unspecified type for which operator== and operator!= are defined.
-/// Entities for the same type compare equal. Ordering is not defined.
-/// If RTTI is enabled, this solution can wrap typeid() directly.
-template <typename>
-auto getTypeID() noexcept
-{
-    static const struct{} placeholder{};
-    return static_cast<const void*>(&placeholder);
-}
-using TypeID = decltype(getTypeID<void>());
-```
-
-Coincidentally, this RTTI solution enables a reduced implementation of `dynamic_cast<>`:
-
-```c++
-/// Iface must implement a virtual type() -> TypeID that returns the identity of the implementation.
-template <typename Target, typename Iface, typename = std::enable_if_t<std::is_base_of<Iface, Target>::value>>
-[[nodiscard]] Target* strict_dynamic_cast(Iface* const operand) noexcept
-{
-    if ((operand != nullptr) && (operand->type() == getTypeID<std::decay_t<Target>>()))
-    {
-        return static_cast<Target*>(operand);
-    }
-    return nullptr;
-}
-```
-
-An original implementation of `UniqueAny<>` is available at https://godbolt.org/z/v5hsvYYa4.
 
 ### Cyphal/CAN
 
