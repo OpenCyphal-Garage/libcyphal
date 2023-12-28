@@ -28,6 +28,8 @@ In certain minimal applications, the transport layer can be used directly, indep
 
 The design makes heavy use of type erasure to facilitate modularity and low coupling. This often requires the use of a heap, which is done via polymorphic memory resources without explicit dependency on the global new/delete heap. Non-heap polymorphism is implemented through `ImplementationCell<>` as described in section titled `DynamicBuffer` below.
 
+Dynamic typing is leveraged with care in certain platform-specific contexts to uphold encapsulation.
+
 ## Transport layer
 
 ### Overview
@@ -55,7 +57,7 @@ class ProtocolParameters {
 %% RUNNABLE
 class IRunnable {
     <<interface>>
-    +run(now: TimePoint, poll_set: IPollSet&)
+    +run(now: TimePoint)
 }
 
 %% DYNAMIC BUFFER
@@ -206,11 +208,31 @@ IResponseTxSession o-- ITransport
 
 #### Execution flow and the runner interface
 
-The execution flow is modeled after this proposal: https://forum.opencyphal.org/t/design-review-execution-model-for-libcyphal/1918. The entire LibCyphal API is non-blocking. Some methods may schedule operations to be performed asynchronously, e.g., enqueue data to transmit; such scheduled operations are executed in the background through periodic servicing via the `IRunnable` interface, which provides method `IRunnable::run(const TimePoint now, IPollSet& poll_set)`.
+The execution flow is modeled after this proposal: https://forum.opencyphal.org/t/design-review-execution-model-for-libcyphal/1918. The entire LibCyphal API is non-blocking. Some methods may schedule operations to be performed asynchronously, e.g., enqueue data to transmit; such scheduled operations are executed in the background through periodic servicing via the `IRunnable` interface, which provides method `IRunnable::run`.
 
-Per the referenced proposal, basic baremetal systems may invoke `IRunnable::run` at a fixed (high) rate without IO blocking/multiplexing, while more sophisticated multi-process systems may minimize the polling rate by waiting for the relevant file descriptors to become ready; the set of the file descriptors of interest is communicated to the entity responsible for calling the `run` method via `IPollSet` described below. Theoretically, multi-threaded systems may run one `IRunnable` per thread to minimize contention and overhead, albeit this will require additional locking inside the library; at the moment, this usage scenario is not yet supported.
+Per the referenced proposal, basic baremetal systems may invoke `IRunnable::run` at a fixed (high) rate without IO blocking/multiplexing, while more sophisticated multi-process systems may minimize the polling rate by waiting for the relevant file descriptors to become ready; the set of the file descriptors of interest is communicated to the entity responsible for calling the `run` method using one of the methods described below. Theoretically, multi-threaded systems may run one `IRunnable` per thread to minimize contention and overhead, albeit this will require additional locking inside the library; at the moment, this usage scenario is not yet supported.
 
-The `IPollSet` provides the ability for a runnable item to specify a pollable platform resource it is blocked on; the platform resource is interfaced via `IPollable`. This allows the external layers to suspend execution of the thread managing the current `IRunnable` (or set thereof) after the last call to `run` until the underlying resource is ready to be handled. The poll set is defined approximately as follows:
+The proposed designs assume that the I/O multiplexing is level-triggered rather than edge-triggered, as it improves portability, considering that most multiplexing I/O APIs are level-triggered.
+
+The need to manage multiple `IRunner` instances in a single thread is expected to arise often, even in multi-threaded environments. For this, we introduce an aggregate that implements `IRunnable` itself (to enhance composability) and provides methods for registering and unregistering underlying `IRunnable` instances:
+
+```c++
+template <std::size_t Capacity>
+class AggregateRunnable final : public IRunnable
+{
+public:
+    /// Invokes run() on all members in an unspecified order.
+    void run(const TimePoint now, IPollSet& poll_set) override;
+    /// Returns true on success, false if the capacity is exhausted.
+    [[nodiscard]] bool add(IRunnable& inferior);
+    /// Returns true if such inferior was found and removed, false if not found.
+    [[nodiscard]] bool remove(IRunnable& inferior);
+};
+```
+
+##### First proposal: Stateless
+
+The `IPollSet` provides the ability for a runnable item to specify a pollable platform resource it is blocked on; the platform resource is interfaced via `IPollable`. This allows the external layers to suspend execution of the thread managing the current `IRunnable` (or set thereof) after the last call to `run` until the underlying resource is ready to be handled. An instance implementing `IPollSet` is constructed at the beginning of each polling cycle and destroyed at the end of it; the poll set is reconstructed from scratch at each cycle. A reference to the current poll set instance is passed to the runnable entities via `IRunnable::run(const TimePoint now, IPollSet& poll_set)`. The poll set is defined approximately as follows:
 
 ```c++
 class IPollable
@@ -243,32 +265,77 @@ public:
 };
 ```
 
-The design assumes that the I/O multiplexing is level-triggered rather than edge-triggered, as it improves portability, considering that most multiplexing I/O APIs are level-triggered.
-
 The reference to `IPollSet` passed via `run` is not guaranteed to retain validity after `run` is finished.
 Thus, implementations are **not allowed** to store the reference internally.
 
 The set of file descriptors and timeouts is reconstructed from scratch after every call to `run`. This approach has the advantage of being stateless and thus easy to model and verify, as there is no state that survives from one `run` to another. The disadvantages to be aware of are as follows:
 
 1. A newly introduced readable file descriptor will only appear in the poll set after the next `run`; this implies that once the application registered its interest in a particular data source (e.g., a subscription), it may not read data from it until next `run`. This can be addressed by forcing a certain maximum polling period.
-2. High-performance I/O multiplexing mechanisms that store the set of file descriptors in the kernel space (e.g., `epoll`, `kqueue`) are not well-suited for this design, as they would necessitate multiple system calls per `run` just to keep the list of FDs up to date. Traditional `poll` or `select` should be used instead.
+2. High-performance I/O multiplexing mechanisms that store the set of file descriptors in the kernel space (e.g., `epoll`, `kqueue`) are not well-suited for this design, as they would necessitate multiple system calls per `run` just to keep the list of FDs up to date. Traditional stateless APIs, such as `poll` or `select`, should be used instead.
 3. In multi-threaded environments, a file descriptor may be closed while an IO mux call is blocked on it. This case is usually managed predictably by known IO mux functions.
 
-The need to manage multiple `IRunner` instances in a single thread is expected to arise often, even in multi-threaded environments. For this, we introduce an aggregate that implements `IRunnable` itself (to enhance composability) and provides methods for registering and unregistering underlying `IRunnable` instances:
+##### Second proposal: Stateful
+
+This proposal differs from the first one in that it keeps the set of pollable entities outside of the poll loop, allowing efficient use of `epoll` and similar APIs that store the list of polled items in the kernel space (stateless multiplexing APIs are also usable with this method). This is done via `IMultiplexer`:
 
 ```c++
-template <std::size_t Capacity>
-class AggregateRunnable final : public IRunnable
+/// This amount of space should be enough to capture all relevant context.
+/// If not, a compile-time error will result.
+constexpr std::size_t PollableFootprint = sizeof(void*) * 8;
+constexpr std::size_t CallbackFootprint = sizeof(void*) * 8;
+
+/// Pollable contains a platform-specific I/O resource handle, such as a file descriptor.
+/// Media layer implementations use this container to share the resource with the implementation of
+/// the execution policies for I/O multiplexing.
+/// We use UniqueAny here because it is readily available; it doesn't actually need to be unique.
+using Pollable = UniqueAny<PollableFootprint>;
+/// The readiness callback is invoked when the I/O becomes readable or writeable.
+using ReadyCb = Function<void(), CallbackFootprint>;
+
+class IMultiplexer
 {
 public:
-    /// Invokes run() on all members in the order of their addition.
-    void run(const TimePoint now, IPollSet& poll_set) override;
-    /// Returns true on success, false if the capacity is exhausted.
-    [[nodiscard]] bool add(IRunnable& inferior);
-    /// Returns true if such inferior was found and removed, false if not found.
-    [[nodiscard]] bool remove(IRunnable& inferior);
+    /// The handle is returned by the add method when a new pollable is successfully added to the set.
+    /// The pollable will be removed automatically when the handle is destroyed.
+    /// Handles are obviously non-copyable.
+    class Handle final
+    {
+    public:
+        template <typename Cb> explicit Handle(const Cb& callback) noexcept : cb_(callback) {}
+        Handle(const Handle&)            = delete;
+        Handle(Handle&&)                 = default;
+        Handle& operator=(const Handle&) = delete;
+        Handle& operator=(Handle&&)      = default;
+        ~Handle() noexcept { cb_(); }
+    private:
+        Function<void() noexcept, CallbackFootprint> cb_;
+    };
+
+    /// Returns the remover callback to be invoked to remove the pollable from the set.
+    /// The remover callback shall be used at most once and it must not outlive its multiplexer.
+    /// The lifetime of the pollable reference may end upon return.
+    /// The readable/writeable callbacks define which operations are of interest;
+    /// callbacks for irrelevant operations shall be empty.
+    [[nodiscard]] virtual
+    std::expected<Handle, std::variant<ArgumentError, PlatformError>>
+    add(const Pollable&               pollable,
+        const std::optional<ReadyCb>& on_readable,
+        const std::optional<ReadyCb>& on_writable) noexcept = 0;
+
+    /// The next poll cycle will be executed by this deadline or earlier.
+    /// Once set, a deadline cannot be removed. All deadlines are cleared by the next poll cycle.
+    virtual void setDeadline(const TimePoint deadline) noexcept = 0;
 };
 ```
+
+The `Pollable` wrapper is intended to shield the library and its interfaces from the knowledge of the specific I/O handles used by the platform it is running on. Both the media layer implementations that obtain the handles from the platform (e.g., file descriptors) and the execution policy implementations are expected to be aware of the specific resource in use, and thus the execution policy can safely extract the correct type from the `Pollable` container. Runtime type checking is provided via `any_cast`.
+
+Being stateful, this solution requires the media layer implementations to add and remove descriptors only when necessary, rather than reconstructing the set from scratch at every iteration. The risk of resource leakage is mitigated with the help of the RAII-only handles returned by the `add` method.
+
+The disadvantages to be aware of are as follows:
+
+1. The construction API of certain low-level entities requires a slight extension because references to `IMultiplexer` need to be passed around.
+2. This approach is not compatible with the one-thread-per-runnable execution strategy because all entities that share a given `IMultiplexer` will necessarily have to share the same executor. It will still be possible to run one transport instance per thread, though.
 
 #### Session factory methods
 
@@ -468,6 +535,7 @@ static constexpr std::uint8_t MaxRedundancyFactor = 3;
 [[nodiscard]] inline
 std::expected<CANTransport, std::variant<ArgumentError>>
 makeCANTransport(std::pmr::memory_resource&         memory,
+                 IMultiplexer&                      mux,  // only if the second execution strategy proposal is chosen
                  const std::span<IMedia&>           media,
                  const std::optional<std::uint16_t> local_node_id);
 ```
@@ -503,12 +571,14 @@ public:
 };
 ```
 
-If `ITxSocket::send` returns false indicating that the socket is not ready to accept writes, the implementation would normally register this ocurrence internally and then register the socket's file descriptor for writing via `IPollSet::output` at the next `IRunnable::run`. This behavior ensures that write polling will only be performed if there are pending transmissions. One potential limitation to be aware of is that in the following call sequence, the pending transmission becomes delayed by one `run` cycle:
+If `ITxSocket::send` returns false indicating that the socket is not ready to accept writes, the implementation would normally register this ocurrence internally and then register the socket's file descriptor for writing via `IPollSet::output` at the next `IRunnable::run`, or via `IMultiplexer::add`, depending on which proposal is chosen. This behavior ensures that write polling will only be performed if there are pending transmissions. In the first case (the stateless case with `IPollSet`), one potential limitation to be aware of is that in the following call sequence, the pending transmission becomes delayed by one `run` cycle:
 
 - Initially, no pending transmission is registered (no data to send).
 - `run` is called, no pending transmission is registered so `output` is not called.
 - `send` is called and the socket is found to be not ready to accept writes. Output polling is needed.
 - The main loop is blocked on IO until the next `run` service cycle. However, the IO multiplexor is unaware of the fact that there is data waiting to be sent, which results in an unnecessary transmission delay.
+
+The second case (the stateful case) does not have such limitations as it allows the multiplexer to modify the poll set on the fly.
 
 ```c++
 /// The IRunnable interface allows the higher layers to retrieve the IO descriptors for polling.
@@ -526,7 +596,7 @@ public:
     /// This is the Cyphal-layer MTU, which is the maximum number of payload bytes per Cyphal frame.
     /// To guarantee a single frame transfer, the maximum payload size shall be 4 bytes less to accommodate the CRC.
     /// The MTU is set per Tx socket individually and it must remain constant after initialization.
-    virtual [[nodiscard]] std::size_t getMTU() const { return DefaultMTU; }
+    virtual [[nodiscard]] std::size_t getMTU() const noexcept { return DefaultMTU; }
 
     /// The default MTU is derived as:
     ///     1500B Ethernet MTU (RFC 894) - 60B IPv4 max header - 8B UDP Header - 24B Cyphal header
@@ -558,6 +628,7 @@ static constexpr std::uint8_t MaxRedundancyFactor = 3;
 [[nodiscard]] inline
 std::expected<UDPTransport, std::variant<ArgumentError>>
 makeUDPTransport(std::pmr::memory_resource&         memory,
+                 IMultiplexer&                      mux,  // only if the second execution strategy proposal is chosen
                  const std::span<IMedia&>           media,
                  const std::optional<std::uint16_t> local_node_id);
 ```
@@ -587,6 +658,13 @@ Existing redundant sessions retain validity across any changes in the matrix con
 The redundant transport replicates every outgoing transfer into all of the available redundant interfaces. Transmission operates at the rate of the best-performing inferior; transmission is assumed to be successful if at least one transport is able to complete it.
 
 Incoming transfers are deduplicated so that the local node receives at most one copy of each unique transfer received from the bus.
+
+The class implementing the redundant transport is called `RedundantTransport`. It does not require a separate factory method because its constructor can be made infallible:
+
+```c++
+/// Observe that the redundant transport does not require a multiplexer of its own.
+explicit RedundantTransport(std::pmr::memory_resource& memory);
+```
 
 ## Presentation layer
 
