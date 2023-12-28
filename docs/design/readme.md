@@ -332,6 +332,8 @@ The `Pollable` wrapper is intended to shield the library and its interfaces from
 
 Being stateful, this solution requires the media layer implementations to add and remove descriptors only when necessary, rather than reconstructing the set from scratch at every iteration. The risk of resource leakage is mitigated with the help of the RAII-only handles returned by the `add` method.
 
+The `Function` template used here is similar to `std::function` except that it stores the callable locally without the use of the heap; the memory footprint of the callable hence needs to be specified statically.
+
 The disadvantages to be aware of are as follows:
 
 1. The construction API of certain low-level entities requires a slight extension because references to `IMultiplexer` need to be passed around.
