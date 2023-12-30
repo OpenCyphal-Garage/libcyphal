@@ -980,7 +980,40 @@ One potential downside of the current proposal is that the publication call stac
 ### Subscriber
 
 ```c++
+class SubscriberBase
+{
+public:
+    struct Metadata final : public transport::TransferMetadata  // TODO Find a better place for this; there's some reuse potential
+    {
+        std::optional<std::uint16_t> publisher_node_id;
+    };
 
+protected:
+    /// This is invoked from SubscriberImpl when a new transfer for this subscription is received.
+    /// The concrete subscriber implements this by invoking the auto-generated deserialization function.
+    [[nodiscard]] virtual nunavut::support::SerializeResult accept(const Metadata& meta,
+                                                                   const std::span<const std::byte> data) noexcept = 0;
+
+private:
+    SharedPtr<SubscriberImpl> impl_;
+};
+
+template <typename Message>
+class Subscriber final : public SubscriberBase
+{
+public:
+    /// Non-blockingly checks if there's a pending message; returns it if so.
+    /// The message is consumed.
+    [[nodiscard]] std::optional<std::tuple<Message, Metadata>> pop() noexcept;
+
+    /// Like pop but the message is not consumed.
+    /// The message is returned by reference whose lifetime ends at the next pop or run.
+    [[nodiscard]] std::optional<std::tuple<const Message&, Metadata>> peek() const noexcept;
+
+private:
+    [[nodiscard]] nunavut::support::SerializeResult accept(const Metadata& meta,
+                                                           const std::span<const std::byte> data) noexcept override;
+};
 ```
 
 ### RPC-client
