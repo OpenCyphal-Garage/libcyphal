@@ -857,7 +857,7 @@ T* dsdl_cast(IComposite* const obj) noexcept
 
 The above is based on the ideas discussed here: <https://forum.opencyphal.org/t/api-proposal-for-libcyphal/1850/2?u=pavel.kirienko>.
 
-The core part of the presentation layer is a non-polymorphic non-generic controller class called `Presentation`. The class is equipped with factory methods for the four kinds of port objects: publishers, subscribers, RPC clients, and RPC servers. Said factory methods and the types they produce are *some of the very few template entities in the entire library*.
+The core part of the presentation layer is a non-polymorphic non-generic controller class called `Presentation`. The class is equipped with factory methods for the four kinds of port objects: publishers, subscribers, RPC clients, and RPC servers. Said factory methods and the types they produce are *some of the very few template entities in the entire library*. Objects produced by the factory methods are returned (moved) by value relying on NRVO; the alternative would be to use heap, but it is desirable and possible to minimize its usage.
 
 ```c++
 /// There may be an arbitrary number of publishers/subscribers/clients on a given port-ID (servers are special).
@@ -931,7 +931,10 @@ public:
     /// The transport frames constructed from this message will be sent to the wire before the expiration of the
     /// deadline or discarded.
     [[nodiscard]] std::expected<void, Error> publish(const TimePoint deadline,
-                                                     const std::span<const std::byte> data);
+                                                     const std::span<const std::byte> data)
+    {
+        return impl_->publish(deadline, prio_, data);
+    }
 
     // TODO: helper methods setTimeout()/getTimeout() may be added to support simpler publish overloads that
     // do not take the deadline but rather compute it automatically from the current time and the timeout.
@@ -954,15 +957,43 @@ public:
 
     // This is a trivial wrapper over the raw publish method that serializes the message first.
     // We need to know the message type to allocate the temporary serialization buffer on the stack.
-    [[nodiscard]] std::expected<void, Error> publish(const TimePoint deadline, const Message& msg);
+    [[nodiscard]] std::expected<void, Error> publish(const TimePoint deadline, const Message& msg)
+    {
+        std::array<std::byte, typename Message::_traits_::SerializationBufferSizeBytes> buf;
+        if (const auto res = serialize(msg, buf); !res)
+        {
+            return unexpected(res.error());
+        }
+        return publish(deadline, buf);
+    }
 };
 ```
 
+Contrary to the [original execution flow design proposal](https://forum.opencyphal.org/t/design-review-execution-model-for-libcyphal/1918), this design intentionally chooses to not queue the serialized message(s) inside the publisher instance until the next `run`, as that would carry the following disadvantages:
+
+- The serialization buffer will have to be kept off the stack as it has to outlive the stack frame of the `publish` method. This can be achieved either by allocating the buffer on the stack and then moving it to the `PublisherBase` instance for keeping until the next `run`, or by continuously storing a pre-allocated buffer as a field inside `Publisher<Message>`. The first approach requires dynamic memory which is undesirable, the second approach requires pre-allocating a potentially large buffer, which is wasteful.
+
+- Message publications will be delayed until the next `run` cycle.
+
+One potential downside of the current proposal is that the publication call stack may be quite deep, going all the way from the application into a lizard. This is especially important when redundant transports are used.
+
 ### Subscriber
+
+```c++
+
+```
 
 ### RPC-client
 
+```c++
+
+```
+
 ### RPC-server
+
+```c++
+
+```
 
 ## Application layer
 
