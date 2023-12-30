@@ -129,6 +129,8 @@ const auto& getTypeID() noexcept
 
 It is worth noting that the same (in essence) approach is used for runtime type identification in the implementation of `std::any` from glibc.
 
+It is desirable to move `getTypeID` into Cetl to simplify its reuse between different components, such as LibCyphal and Nunavut-generated types.
+
 ### Safe dynamic type conversion without RTTI
 
 In the interest of minimizing the deviations from relevant high-integrity software design guidelines, the dependency on metaprogramming is reduced to the bare minimum. As will be seen later, this choice requires some form of runtime type identification and dynamic casting to support handling of DSDL objects. Without the full RTTI support one cannot rely on the built-in `dynamic_cast` conversion; this can be worked around with a simplified version presented below that makes use of `getTypeID`:
@@ -157,6 +159,31 @@ template <typename Target,
     }
     return nullptr;
 }
+```
+
+### Error handling
+
+With the C++ exceptions being avoided on purpose, the library heavily utilizes algebraic types for error handling. A class similar to `std::expected` is expected to be available in Cetl for this purpose. Aside from that, `std::variant` or its Cetl alternative is used to hold one of the possible error states, where each state has a distinct type that is possibly parameterized with error-kind-specific information (such as `errno` value for platform-related errors, etc).
+
+This approach to error handling causes one particular task to occur often: the list of possible error states held in an `std::variant` often needs to be amended with additional states by functions located higher up the call stack. To address this, we introduce the following helper:
+
+```c++
+namespace detail
+{
+template <typename T, typename... Args>
+struct AppendType;
+template <typename... A, typename... B>
+struct AppendType<std::variant<A...>, B...>
+{
+    using Result = std::variant<A..., B...>;
+};
+// Further specializations for std::tuple<> etc may be added as needed.
+}  // namespace detail
+
+/// Usage:
+///     using NewVariant = AppendType<OldVariant, NewAlternative1, NewAlternative2>
+template <typename T, typename... Args>
+using AppendType = typename detail::AppendType<T, Args...>::Result;
 ```
 
 ### Heapless Any
@@ -216,6 +243,10 @@ Similar to `any`, LibCyphal will provide a custom heapless reimplementation of `
 template <std::size_t Footprint, typename T, typename... Args>
 class Function final;
 ```
+
+### PMR-enabled shared pointer
+
+Certain parts of the presentation layer, possibly along with other parts of the library, will share certain heap-allocated resources internally. While it is possible to implement reference counting ad-hoc, it is desirable to extract this concern into a separate entity, said entity being a PMR-aware shared pointer implementation. By "PMR-aware" we mean that the pointer takes a reference to `std::pmr::memory_resource` upon construction and uses that memory resource to allocate the reference counter instead of using the free store. Similarly, a `makeShared` factory is needed that takes a PMR reference in a similar fashion to allocate the reference counter in the same memory block with the shared object.
 
 ## Transport layer
 
@@ -322,8 +353,6 @@ ISession <|-- IResponseTxSession
 class MessageRxSessionParams {
     +subject_id: u16
     +extent_bytes: std::size_t
-    +transfer_id_timeout: Duration
-    +buffer_size: std::size_t
 }
 class MessageTxSessionParams {
     +subject_id: u16
@@ -332,8 +361,6 @@ class MessageTxSessionParams {
 class RequestRxSessionParams {
     +service_id: u16
     +extent_bytes: std::size_t
-    +transfer_id_timeout: Duration
-    +buffer_size: std::size_t
 }
 class RequestTxSessionParams {
     +service_id: u16
@@ -344,8 +371,6 @@ class ResponseRxSessionParams {
     +service_id: u16
     +server_node_id: u16
     +extent_bytes: std::size_t
-    +transfer_id_timeout: Duration
-    +buffer_size: std::size_t
 }
 class ResponseTxSessionParams {
     +service_id: u16
@@ -791,7 +816,153 @@ explicit RedundantTransport(std::pmr::memory_resource& memory);
 
 ## Presentation layer
 
-To be continued.
+### General principles
+
+The presentation layer is the first layer that deals with DSDL-generated types. A conventional design would heavily rely on metaprogramming here, providing generic classes parameterized with a DSDL type. This is not a viable choice for LibCyphal because minimization of template metaprogramming is one of its core design goals. Hence, the design proposed here intentionally avoids static polymorphism where reasonable, preferring runtime polymorphism instead. To this end, the Nunavut C++ generator needs to be modified to ship an interface called `IComposite` as part of its support library, which is to be implemented by generated types:
+
+```c++
+class IComposite
+{
+public:
+    [[nodiscard]] virtual SerializeResult _serialize_(nunavut::support::bitspan out_buffer) const = 0;
+    [[nodiscard]] virtual SerializeResult _deserialize_(nunavut::support::const_bitspan in_buffer) = 0;
+    [[nodiscard]] virtual std::string_view _name_() const noexcept = 0;
+
+    // This is only viable if both LibCyphal and Nunavut leverage the same getTypeID.
+    // That requires either moving getTypeID into the Nunavut support library, which means LibCyphal becomes
+    // unconditionally dependent on Nunavut; or modifying Nunavut C++ templates such that they use getTypeID
+    // defined in LibCyphal; or moving this into Cetl. This method is not strictly required because without it
+    // we can still rely on _name_ for DSDL type identification.
+    [[nodiscard]] virtual TypeID _type_() const noexcept = 0;
+
+    IComposite()                             = default;
+    IComposite(const IComposite&)            = default;
+    IComposite(IComposite&&)                 = default;
+    IComposite& operator=(const IComposite&) = default;
+    IComposite& operator=(IComposite&&)      = default;
+    virtual ~IComposite() noexcept           = default;
+};
+
+// This is only needed if the _type_() method is not available; otherwise, strict_dynamic_cast should be used.
+template <typename T>
+T* dsdl_cast(IComposite* const obj) noexcept
+{
+    if ((obj != nullptr) && (typename T::_traits_::name == obj->_name_()))
+    {
+        return static_cast<T*>(obj);
+    }
+    return nullptr;
+}
+```
+
+The above is based on the ideas discussed here: <https://forum.opencyphal.org/t/api-proposal-for-libcyphal/1850/2?u=pavel.kirienko>.
+
+The core part of the presentation layer is a non-polymorphic non-generic controller class called `Presentation`. The class is equipped with factory methods for the four kinds of port objects: publishers, subscribers, RPC clients, and RPC servers. Said factory methods and the types they produce are *some of the very few template entities in the entire library*.
+
+```c++
+/// There may be an arbitrary number of publishers/subscribers/clients on a given port-ID (servers are special).
+/// Internally, all ports on a given port-ID refer to the same object that is hidden from the user;
+/// said object is heap-allocated and is destroyed automatically when the last port object using its port-ID
+/// is destroyed. Certain port properties, such as the transfer-ID timeout, are shared across all ports under
+/// the same port-ID.
+///
+/// Server objects are different in that there is at most one per service-ID.
+class Presentation final
+{
+public:
+    explicit Presentation(std::pmr::memory_resource& memory, transport::ITransport& tr) noexcept;
+
+    // We could make Publisher a non-generic method, such that it operates on IComposite instead of Message.
+    // We choose not to do that because that would make the size of the serialization buffer unknown at compile time,
+    // necessitating the use of heap for message serialization.
+    // Between the use of heap and generics we choose the lesser evil.
+    //
+    // The hidden implementation object stores the transfer-ID counter. This means that destruction of the last publisher
+    // on a given subject-ID causes the transfer-ID state to be lost. If seen practical, it can be easily avoided by
+    // moving the transfer-ID counters into a separate PMR-aware dynamic container keyed by the port-ID, like
+    // std::unordered_map<std::uint16_t, std::uint64_t>.
+    template <typename Message>
+    [[nodiscard]] std::expected<Publisher<Message>, Error> makePublisher(const std::uint16_t subject_id);
+
+    // An additional template parameter may be added later specifying the depth of the FIFO queue.
+    // If the queue is full, oldest messages are dropped (newer messages take precedence).
+    // For now, the queue depth is 1, meaning that subscribers behave like sampling ports.
+    template <typename Message>
+    [[nodiscard]] std::expected<Subscriber<Message>, Error> makeSubscriber(const std::uint16_t subject_id);
+
+    // Notice that a client is bound to a specific remote node.
+    // To query multiple nodes one has to create multiple clients.
+    template <typename Service>
+    [[nodiscard]] std::expected<Client<Service>, Error> makeClient(const std::uint16_t service_id,
+                                                                                      const std::uint16_t server_node_id);
+
+    template <typename Service>
+    [[nodiscard]] std::expected<UniquePtr<Server<Service>>, Error> getServer(const std::uint16_t service_id);
+
+    [[nodiscard]] transport::ITransport& getTransport() noexcept;
+    [[nodiscard]] const transport::ITransport& getTransport() const noexcept;
+};
+
+/// The hidden per-port-unique implementation classes (not visible to the user, managed automatically).
+class PublisherImpl;
+class SubscriberImpl;
+class ClientImpl;
+```
+
+### Publisher
+
+```c++
+// One of the purposes of this class is to reduce the amount of generic code to the minimum.
+// Only those parts that are not message-type-invariant are implemented in the concrete derived class.
+// Items are movable but not copyable.
+class PublisherBase
+{
+public:
+    using Error = std::variant<AnonymousError, ArgumentError, MemoryError, CapacityError, PlatformError>;
+
+    [[nodiscard]] transport::IMessageTxSession& getSession() noexcept;
+    [[nodiscard]] const transport::IMessageTxSession& getSession() const noexcept;
+
+    /// The default priority is nominal.
+    void setPriority(const Priority prio) noexcept;
+    [[nodiscard]] Priority getPriority() noexcept;
+
+    /// Publish a pre-serialized message. For the overload that accepts the typed message object see the derived class.
+    /// The transport frames constructed from this message will be sent to the wire before the expiration of the
+    /// deadline or discarded.
+    [[nodiscard]] std::expected<void, Error> publish(const TimePoint deadline,
+                                                     const std::span<const std::byte> data);
+
+    // TODO: helper methods setTimeout()/getTimeout() may be added to support simpler publish overloads that
+    // do not take the deadline but rather compute it automatically from the current time and the timeout.
+
+    // TODO: rule of 5, movable, non-copyable
+
+private:
+    SharedPtr<PublisherImpl> impl_;
+    Priority prio_ = Priority::Nominal;
+};
+
+template <typename Message>
+class Publisher final : public PublisherBase
+{
+public:
+    /// The set of error states is extended with the Nunavut errors because this class manages serialization.
+    using Error = AppendType<PublisherBase::Error, nunavut::support::SerializeResult>;
+
+    using PublisherBase::publish;
+
+    // This is a trivial wrapper over the raw publish method that serializes the message first.
+    // We need to know the message type to allocate the temporary serialization buffer on the stack.
+    [[nodiscard]] std::expected<void, Error> publish(const TimePoint deadline, const Message& msg);
+};
+```
+
+### Subscriber
+
+### RPC-client
+
+### RPC-server
 
 ## Application layer
 
