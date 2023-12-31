@@ -879,7 +879,7 @@ public:
     //
     // The hidden implementation object stores the transfer-ID counter. This means that destruction of the last publisher
     // on a given subject-ID causes the transfer-ID state to be lost. If seen practical, it can be easily avoided by
-    // moving the transfer-ID counters into a separate PMR-aware dynamic container keyed by the port-ID, like
+    // moving the transfer-ID counters into a separate PMR-aware dynamic container (subject-ID -> transfer-ID), like
     // std::unordered_map<std::uint16_t, std::uint64_t>.
     template <typename Message>
     [[nodiscard]] std::expected<Publisher<Message>, Error> makePublisher(const std::uint16_t subject_id);
@@ -905,8 +905,8 @@ public:
 
 /// The hidden per-port-unique implementation classes (not visible to the user, managed automatically).
 class PublisherImpl;
-class SubscriberImpl;
-class ClientImpl;
+class SubscriberImpl : public IRunnable;
+class ClientImpl : public IRunnable;
 ```
 
 ### Publisher
@@ -939,7 +939,15 @@ public:
     // TODO: helper methods setTimeout()/getTimeout() may be added to support simpler publish overloads that
     // do not take the deadline but rather compute it automatically from the current time and the timeout.
 
-    // TODO: rule of 5, movable, non-copyable
+    // The type is movable and non-copyable.
+    PublisherBase(const PublisherBase&)            = delete;
+    PublisherBase(PublisherBase&&)                 = default;
+    PublisherBase& operator=(const PublisherBase&) = delete;
+    PublisherBase& operator=(PublisherBase&&)      = default;
+    virtual ~PublisherBase() noexcept              = default;
+
+protected:
+    explicit PublisherBase(const SharedPtr<PublisherImpl>& impl);
 
 private:
     SharedPtr<PublisherImpl> impl_;
@@ -977,27 +985,59 @@ Contrary to the [original execution flow design proposal](https://forum.opencyph
 
 One potential downside of the current proposal is that the publication call stack may be quite deep, going all the way from the application into a lizard. This is especially important when redundant transports are used.
 
+The proposal intentionally excludes statistical counters; such auxiliary features are to be retrofitted at a later stage.
+
 ### Subscriber
 
 ```c++
 class SubscriberBase
 {
+    friend class SubscriberImpl;  //< Friendship is needed to allow invocation of accept().
+
 public:
     struct Metadata final : public transport::TransferMetadata  // TODO Find a better place for this; there's some reuse potential
     {
         std::optional<std::uint16_t> publisher_node_id;
     };
 
+    [[nodiscard]] transport::IMessageRxSession& getSession() noexcept;
+    [[nodiscard]] const transport::IMessageRxSession& getSession() const noexcept;
+
+    /// The transfer-ID timeout is shared between all subscriber objects on this port.
+    [[nodiscard]] Duration getTransferIDTimeout() const noexcept { return impl_->getTransferIDTimeout(); }
+    void setTransferIDTimeout(const Duration dur) { impl->setTransferIDTimeout(dur); }
+
+    // TODO: Add statistical counters: number of transfers received, deserialization errors, queue overruns.
+
+    // The type is movable and non-copyable.
+    SubscriberBase(const SubscriberBase&)            = delete;
+    SubscriberBase(SubscriberBase&&)                 = default;
+    SubscriberBase& operator=(const SubscriberBase&) = delete;
+    SubscriberBase& operator=(SubscriberBase&&)      = default;
+    virtual ~SubscriberBase() noexcept               = default;
+
 protected:
-    /// This is invoked from SubscriberImpl when a new transfer for this subscription is received.
-    /// The concrete subscriber implements this by invoking the auto-generated deserialization function.
-    [[nodiscard]] virtual nunavut::support::SerializeResult accept(const Metadata& meta,
-                                                                   const std::span<const std::byte> data) noexcept = 0;
+    explicit SubscriberBase(const SharedPtr<PublisherImpl>& impl);
+
+    [[nodiscard]] virtual nunavut::support::SerializeResult doAccept(const Metadata& meta,
+                                                                     const std::span<const std::byte> data) noexcept = 0;
 
 private:
+    /// This is invoked from SubscriberImpl when a new transfer for this subscription is received.
+    /// The concrete subscriber implements this by invoking the auto-generated deserialization function.
+    [[nodiscard]] nunavut::support::SerializeResult accept(const Metadata& meta,
+                                                           const std::span<const std::byte> data) noexcept;
+
     SharedPtr<SubscriberImpl> impl_;
 };
 
+/// Another template parameter may be added later specifying the depth of the queue. For now it is always 1.
+/// Similarly, basic acceptance filtering may be added later, based on the following criteria:
+///     - Publisher node-ID or absence thereof (for anonymous transfers).
+///     - Message priority range.
+///     - An arbitrary user-specified predicate that is a function of the deserialized message.
+///     - Time since previous acceptane (rate limiting).
+/// Further, basic downsampling logic may be implemented.
 template <typename Message>
 class Subscriber final : public SubscriberBase
 {
@@ -1011,10 +1051,34 @@ public:
     [[nodiscard]] std::optional<std::tuple<const Message&, Metadata>> peek() const noexcept;
 
 private:
-    [[nodiscard]] nunavut::support::SerializeResult accept(const Metadata& meta,
-                                                           const std::span<const std::byte> data) noexcept override;
+    [[nodiscard]] nunavut::support::SerializeResult doAccept(const Metadata& meta,
+                                                             const std::span<const std::byte> data) noexcept override
+    {
+        Message msg;
+        if (const auto res = Message::deserialize(msg, data); !res)
+        {
+            return res;
+        }
+        msg_queue_.emplace(msg, meta);  // Overwrite the oldest message in case of queue overrun.
+        return {};
+    }
+
+    /// The one-message-deep FIFO queue. Its depth may be made adjustable in later revisions.
+    std::optional<std::tuple<Message, Metadata>> msg_queue_;
+
+    /// Callbacks may also be provided, but this is likely to be postponed until v1.1+.
+    /// They are to be invoked from doAccept.
+    std::optional<Function<sizeof(void*)*8, void(const Message&, const Metadata&)>> callback_;
 };
 ```
+
+The message RX session object is managed by `SubscriberImpl`, which also implements `IRunnable`. The `run` method polls the RX session and if there is a transfer available, it is consumed and then the `accept` method of each living `SubscriberBase` is invoked sequentially. Each `Subscriber` deserializes its own copy of the message and stores it for consumption by the application in the FIFO queue. The `SubscriberImpl` then destroys the `DynamicBuffer` containing the received transfer.
+
+It is easy to see that there is a certain redundancy involved, as each `Subscriber` performs deserialization independently of each other, resulting in duplicate work. This is avoidable but is somewhat convoluted, as the type of the message is not known to `SubscriberImpl`; one approach is to use the first instance of `Subscriber` to perform deserialization and then to deliver the deserialized message object to each of its siblings by value (unless we are comfortable using shared pointers here, which we are probably not). This may need to be revised in a later version; however, one should keep in mind that the work duplication only becomes a problem for large messages that are expensive to deserialize, and the application is arguably less likely to have more than one subscriber for such expensive messages.
+
+Another issue to be aware of on is the deep copying inherent to the C++ deserialization code generated by Nunavut. This creates potentially significant issues for large messages (imagery, point clouds, radar samples) that can be avoided with more careful buffer memory management. For example, the Python codegen implemented in Nunavut heavily leverages shared pointers and aliasing for this purpose (resorting to NumPy-aliased arrays for large blobs) instead of the slow byte-by-byte copying implemented for C++. This approach is difficult to recreate directly in LibCyphal because the presentation layer receives transfers in `DynamicBuffer`, which is fragmented as it receives the data from the underlying media layer as a sequence of byte spans pointing directly into the memory allocated for the network frames (like UDP datagrams). As the MTU is typically small, large data blobs where it's worth worrying about zero-copy deserialization will invariably end up being fragmented; hence, whatever solution is chosen for the zero-copy deserialization needs to be able to accept scattered buffers and present them to the application with a contiguous API. This leads to another problem: many (all known to me) APIs designed for imagery and point cloud manipulation expect the imagery data to be arranged in contiguous memory chunks, which suggests that at least one deep copy will be needed *somewhere* along the stack. The current revision does it in `Subscriber::doAccept` but there is no implication that this choice is optimal.
+
+The proposal intentionally excludes statistical counters; such auxiliary features are to be retrofitted at a later stage.
 
 ### RPC-client
 
