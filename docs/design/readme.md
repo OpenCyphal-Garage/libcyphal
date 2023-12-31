@@ -893,6 +893,12 @@ public:
 
     // Notice that a client is bound to a specific remote node.
     // To query multiple nodes one has to create multiple clients.
+    //
+    // The hidden implementation object stores the transfer-ID counter. This means that destruction of the last client
+    // on a given service-ID causes the transfer-ID state to be lost. If seen practical, it can be easily avoided by
+    // moving the transfer-ID counters into a separate PMR-aware dynamic container (service-ID -> transfer-ID), like
+    // std::unordered_map<std::uint16_t, std::uint64_t>. If not, the application can always ensure that the transfer-ID
+    // state is not lost by creating a dummy client instance whose only purpose is to keep the counter alive.
     template <typename Service>
     [[nodiscard]] std::expected<Client<Service>, Error> makeClient(const std::uint16_t service_id,
                                                                                       const std::uint16_t server_node_id);
@@ -961,7 +967,7 @@ class Publisher final : public PublisherBase
 {
 public:
     /// The set of error states is extended with the Nunavut errors because this class manages serialization.
-    using Error = AppendType<PublisherBase::Error, nunavut::support::SerializeResult>;
+    using Error = AppendType<PublisherBase::Error, nunavut::support::Error>;
 
     using PublisherBase::publish;
 
@@ -1087,17 +1093,35 @@ The proposal intentionally excludes statistical counters; such auxiliary feature
 ### RPC-client
 
 ```c++
+class PromisedResponseBase : public cavl::Node<PromisedResponseBase>
+{
+public:
+    /// Observes the transfer-ID of this pending request.
+    [[nodiscard]] TransferID getTransferID() const noexcept;
+
+    /// The time when the request was sent is stored to allow the user to detect when the response has timed out.
+    /// There is no concept of "response timeout" in this implementation; the user is supposed to check the elapsed
+    /// time manually.
+    [[nodiscard]] TimePoint getRequestTimestamp() const noexcept;
+
+protected:
+    [[nodiscard]] std::optional<std::tuple<DynamicBuffer, ServiceTransferMetadata>> getRaw() noexcept;
+};
+
+template <typename Service>
+class PromisedResponse final : public PromisedResponseBase
+{
+public:
+    /// Checks if the response has arrived.
+    /// The return value is either the received response (along with its metadata) or the time elapsed while waiting.
+    [[nodiscard]] std::variant<std::tuple<Service::Response, ServiceTransferMetadata>, Duration> get() noexcept;
+};
+
+struct TooManyPendingRequestsError final {};
+
 class ClientBase
 {
 public:
-    /// Sends the request and returns its transfer-ID.
-    /// The transfer-ID value can then be used to check if a response has arrived.
-    [[nodiscard]] std::expected<TransferID, Error> request(const std::span<const std::byte> req);
-
-    /// Check if a response with the specified transfer-ID has arrived.
-    [[nodiscard]] std::optional<std::tuple<DynamicBuffer, ServiceTransferMetadata>>
-    popResponse(const TransferID tid) noexcept;
-
     [[nodiscard]]       transport::IRequestTxSession& getRequestSession()       noexcept;
     [[nodiscard]] const transport::IRequestTxSession& getRequestSession() const noexcept;
 
@@ -1117,17 +1141,19 @@ template <typename Service>
 class Client final : public ClientBase
 {
 public:
-    /// Sends the request and returns its transfer-ID.
-    /// The transfer-ID value can then be used to check if a response has arrived.
-    [[nodiscard]] std::expected<TransferID, Error> request(const Service::Request& req);
+    using Error = std::variant<AnonymousError,
+                               MemoryError,
+                               CapacityError,
+                               PlatformError,
+                               TooManyPendingRequestsError,
+                               nunavut::support::Error>;
 
-    /// Check if a response with the specified transfer-ID has arrived.
-    [[nodiscard]] std::optional<std::tuple<Service::Response, ServiceTransferMetadata>>
-    popResponse(const TransferID tid) noexcept;
+    /// Sends the request and returns a promise that will be materialized when the response is successfully received.
+    [[nodiscard]] std::expected<PromisedResponse<Service>, Error> request(const Service::Request& req);
 };
 ```
 
-The hidden `ClientImpl` instance is created per pair of (service-ID, server node-ID), and it owns an instance of `IRequestTxSession` and `IResponseRxSession` for sending and receiving RPC requests and responses, respectively. Instances of `ClientImpl` can store up to a fixed number of pending requests; initially, the number may be set to 100 (the alternative is to use heap-allocated dynamic storage but this option is not considered appropriate). Calling `request` causes the impl to send the request; upon successful transmission, a new pending response entry is allocated. Calling `popResponse` causes a search for the matching response entry to be conducted; if found, the payload is deserialized, entry is removed, and the resulting response object is returned back to the user along with its metadata.
+The hidden `ClientImpl` instance is created per pair of (service-ID, server node-ID), and it owns an instance of `IRequestTxSession` and `IResponseRxSession` for sending and receiving RPC requests and responses, respectively. Instances of `ClientImpl` store an AVL tree of all instances of `PromisedResponseBase`; these types are made movable such that the tree is updated transparently to the user when its items are moved. Calling `request` causes the impl object to send the request; upon successful transmission, a new pending response entry is registered. The `IRunnable::run` interface polls the underlying Rx session for transfers; upon successful reception of a transfer, it locates the matching entry in the `PromisedResponseBase` tree, and if one is found, the transfer is moved there. Once a promise is materialized, it will be waiting for the user to check it.
 
 ### RPC-server
 
