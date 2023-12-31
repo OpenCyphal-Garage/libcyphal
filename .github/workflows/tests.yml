@@ -96,12 +96,12 @@ jobs:
         pip install nunavut
     - name: doc-gen
       run: >
-        ./build-tools/bin/verify.py
-        --verbose
-        --asserts
-        --cpp-standard 14
-        --build-flavor Debug
-        build-docs
+    # ./build-tools/bin/verify.py
+    # --verbose
+    # --asserts
+    # --cpp-standard 14
+    # --build-flavor Debug
+    # build-docs
     - name: Setup Pages
       if: ${{ github.event_name != 'pull_request' && github.event_name != 'act' }}
       uses: actions/configure-pages@v3

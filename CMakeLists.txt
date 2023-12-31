@@ -5,10 +5,6 @@
 
 cmake_minimum_required(VERSION 3.22.0)
 
-# +---------------------------------------------------------------------------+
-# | PROJECT
-# +---------------------------------------------------------------------------+
-
 include(cmake/CMakeCommon.cmake REQUIRED)
 
 project(libcyphal
@@ -17,18 +13,9 @@ project(libcyphal
         HOMEPAGE_URL https://github.com/OpenCyphal/libcyphal
 )
 
-# +---------------------------------------------------------------------------+
-# | SUBPROJECTS
-# +---------------------------------------------------------------------------+
 add_subdirectory(test/unittest)
 add_subdirectory(docs)
-if (${CMAKE_CXX_PLATFORM_ID} STREQUAL "Linux")
-    add_subdirectory(demonstration/linux)
-endif()
 
-# +---------------------------------------------------------------------------+
-# | DEFAULT BUILD SUPPORT
-# +---------------------------------------------------------------------------+
 add_custom_target(
     docs
     DEPENDS
@@ -41,13 +28,6 @@ add_custom_target(
         build_unittests
         build_examples
 )
-
-if (${CMAKE_CXX_PLATFORM_ID} STREQUAL "Linux")
-    add_dependencies(
-        build
-        libcyphal_demo_posix
-    )
-endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
     add_custom_target(
@@ -74,6 +54,12 @@ add_custom_target(
         unittest
         docs
 )
+
+if (${CMAKE_CXX_PLATFORM_ID} STREQUAL "Linux")
+    message(STATUS "TODO: add GNU/Linux demos")
+    #add_subdirectory(demonstration/linux)
+    #add_dependencies(build libcyphal_demo_posix)
+endif()
 
 # Don't normalize deviance: if CMAKE_TOOLCHAIN_FILE is not set then provide
 # an initalized default to display in the status thus avoiding a warning about
