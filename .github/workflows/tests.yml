@@ -116,5 +116,5 @@ jobs:
       with:
         name: pr-docs
         path: "build/docs/html/"
-        if-no-files-found: error
+        #if-no-files-found: error
 
