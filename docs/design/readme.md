@@ -2,6 +2,8 @@
 
 LibCyphal is a high-level header-only wrapper over the existing Cyphal implementation libraries, such as LibCANard and LibUDPard (collectively referred to as lizards :lizard:), implemented in C++14 following high-integrity software development practices. It aims to be a full-featured implementation that comes with batteries included and is easy to integrate into any real-time application, from deeply embedded baremetal MCUs up to a conventional POSIX OS (such as GNU/Linux). However, targets with strict memory constraints (such as low-end MCUs with less than ~100k of RAM) are intentionally excluded from the list of intended applications; for those, one should pick a lizard and use it directly.
 
+The design specification given in this document provides only a high-level, broad-strokes overview of the library's API and features. Minor inconsistencies and incompleteness are expected.
+
 The library consists of several modules listed below.
 
 **`libcyphal::transport`** abstracts the lizards via `ITransport` and provides glue logic between the lizards and the platform layer. At this layer, data is represented as serialized binary blobs rather than DSDL objects. There is a dedicated module per lizard, plus additional auxiliary modules:
@@ -1093,7 +1095,7 @@ The proposal intentionally excludes statistical counters; such auxiliary feature
 ### RPC-client
 
 ```c++
-class PromisedResponseBase : public cavl::Node<PromisedResponseBase>
+class ResponsePromiseBase : public cavl::Node<ResponsePromiseBase>
 {
 public:
     /// Observes the transfer-ID of this pending request.
@@ -1109,7 +1111,7 @@ protected:
 };
 
 template <typename Service>
-class PromisedResponse final : public PromisedResponseBase
+class ResponsePromise final : public ResponsePromiseBase
 {
 public:
     /// Checks if the response has arrived.
@@ -1149,28 +1151,58 @@ public:
                                nunavut::support::Error>;
 
     /// Sends the request and returns a promise that will be materialized when the response is successfully received.
-    [[nodiscard]] std::expected<PromisedResponse<Service>, Error> request(const Service::Request& req);
+    [[nodiscard]] std::expected<ResponsePromise<Service>, Error> request(const Service::Request& req);
 };
 ```
 
-The hidden `ClientImpl` instance is created per pair of (service-ID, server node-ID), and it owns an instance of `IRequestTxSession` and `IResponseRxSession` for sending and receiving RPC requests and responses, respectively. Instances of `ClientImpl` store an AVL tree of all instances of `PromisedResponseBase`; these types are made movable such that the tree is updated transparently to the user when its items are moved. Calling `request` causes the impl object to send the request; upon successful transmission, a new pending response entry is registered. The `IRunnable::run` interface polls the underlying Rx session for transfers; upon successful reception of a transfer, it locates the matching entry in the `PromisedResponseBase` tree, and if one is found, the transfer is moved there. Once a promise is materialized, it will be waiting for the user to check it.
+The hidden `ClientImpl` instance is created per pair of (service-ID, server node-ID), and it owns an instance of `IRequestTxSession` and `IResponseRxSession` for sending and receiving RPC requests and responses, respectively. Instances of `ClientImpl` store an AVL tree of all instances of `ResponsePromiseBase`; these types are made movable such that the tree is updated transparently to the user when its items are moved. Calling `request` causes the impl object to send the request; upon successful transmission, a new pending response entry is registered. The `IRunnable::run` interface polls the underlying Rx session for transfers; upon successful reception of a transfer, it locates the matching entry in the `ResponsePromiseBase` tree, and if one is found, the transfer is moved there. Once a promise is materialized, it will be waiting for the user to check it.
 
 ### RPC-server
 
 ```c++
-class ServerBase
+class ServerBase : public IRunnable
 {
 public:
+    [[nodiscard]]       transport::IRequestRxSession& getRequestSession()       noexcept;
+    [[nodiscard]] const transport::IRequestRxSession& getRequestSession() const noexcept;
+
+    [[nodiscard]]       transport::IResponseTxSession& getResponseSession()       noexcept;
+    [[nodiscard]] const transport::IResponseTxSession& getResponseSession() const noexcept;
+
+    /// The default is 2 seconds.
+    [[nodiscard]] Duration getTransferIDTimeout() const noexcept;
+    void setTransferIDTimeout(const Duration dur);
 };
 
 template <typename Service>
 class Server final : public ServerBase
 {
 public:
+    struct RequestContext final
+    {
+        using Continuation = Function<sizeof(void*) * 8, std::expected<void, Error>(const Service::Response&)>;
+
+        Service::Request request;
+        Metadata         meta;
+        Continuation     continuation;  ///< The continuation can be used at most once.
+    };
+
+    /// If there is a pending request waiting to be handled, returns its object along with its metadata and the response continuation.
+    /// The continuation is a closure that can be used to send the response later, if and when it is ready.
+    /// If the response does not need to be sent, the continuation object can be discarded.
+    /// The response continuation object can be used at most once. The ordering of response emission via the continuation objects
+    /// can be arbitrary and it does not need to match the request arrival ordering.
+    [[nodiscard]] std::optional<RequestContext> get();
+
+private:
+    // Optionally, we can provide an IoC-style API, where the callback is invoked from the `IRunnable::run` context.
+    // This method replaces get(). The handler is allowed to store the continuation for later use if the response cannot be
+    // constructed ad-hoc (e.g., requires a slow asynchronous operation).
+    std::optional<Function<sizeof(void*) * 8, void(const RequestContext&)>> callback_;
 };
 ```
 
-TODO this section is a work in progress.
+Server instances are unique per service-ID; as such, the interface differs slightly compared to the other ports. The `IRunnable` interface is used to periodically poll the server state. As soon as a new request is received and successfully deserialized, it is added to the FIFO queue. At the opportune time, the user obtains the next request to process by calling get(); once the request is processed, the user can send the response via the continuation object.
 
 ## Application layer
 
