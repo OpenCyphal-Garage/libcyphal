@@ -880,7 +880,8 @@ public:
     // The hidden implementation object stores the transfer-ID counter. This means that destruction of the last publisher
     // on a given subject-ID causes the transfer-ID state to be lost. If seen practical, it can be easily avoided by
     // moving the transfer-ID counters into a separate PMR-aware dynamic container (subject-ID -> transfer-ID), like
-    // std::unordered_map<std::uint16_t, std::uint64_t>.
+    // std::unordered_map<std::uint16_t, std::uint64_t>. If not, the application can always ensure that the transfer-ID
+    // state is not lost by creating a dummy publisher instance whose only purpose is to keep the counter alive.
     template <typename Message>
     [[nodiscard]] std::expected<Publisher<Message>, Error> makePublisher(const std::uint16_t subject_id);
 
@@ -896,6 +897,7 @@ public:
     [[nodiscard]] std::expected<Client<Service>, Error> makeClient(const std::uint16_t service_id,
                                                                                       const std::uint16_t server_node_id);
 
+    // If such server already exists, an error will be returned (error type TBD).
     template <typename Service>
     [[nodiscard]] std::expected<UniquePtr<Server<Service>>, Error> getServer(const std::uint16_t service_id);
 
@@ -1004,12 +1006,14 @@ public:
     [[nodiscard]] const transport::IMessageRxSession& getSession() const noexcept;
 
     /// The transfer-ID timeout is shared between all subscriber objects on this port.
+    /// The default is 2 seconds.
     [[nodiscard]] Duration getTransferIDTimeout() const noexcept { return impl_->getTransferIDTimeout(); }
     void setTransferIDTimeout(const Duration dur) { impl->setTransferIDTimeout(dur); }
 
     // TODO: Add statistical counters: number of transfers received, deserialization errors, queue overruns.
 
-    // The type is movable and non-copyable.
+    // The type is movable and non-copyable. Moving the instance causes the reference stored in SubscriberImpl to be updated.
+    // Alternatively, the type can be made non-movable to reduce complexity.
     SubscriberBase(const SubscriberBase&)            = delete;
     SubscriberBase(SubscriberBase&&)                 = default;
     SubscriberBase& operator=(const SubscriberBase&) = delete;
@@ -1083,14 +1087,60 @@ The proposal intentionally excludes statistical counters; such auxiliary feature
 ### RPC-client
 
 ```c++
+class ClientBase
+{
+public:
+    /// Sends the request and returns its transfer-ID.
+    /// The transfer-ID value can then be used to check if a response has arrived.
+    [[nodiscard]] std::expected<TransferID, Error> request(const std::span<const std::byte> req);
 
+    [[nodiscard]]       transport::IRequestTxSession& getRequestSession()       noexcept;
+    [[nodiscard]] const transport::IRequestTxSession& getRequestSession() const noexcept;
+
+    [[nodiscard]]       transport::IResponseRxSession& getResponseSession()       noexcept;
+    [[nodiscard]] const transport::IResponseRxSession& getResponseSession() const noexcept;
+
+    /// The transfer-ID timeout is shared between all client objects on this (port, server node-ID).
+    /// The default is 2 seconds.
+    [[nodiscard]] Duration getTransferIDTimeout() const noexcept { return impl_->getTransferIDTimeout(); }
+    void setTransferIDTimeout(const Duration dur) { impl_->setTransferIDTimeout(dur); }
+
+private:
+    SharedPtr<ClientImpl> impl_;
+};
+
+template <typename Service>
+class Client final : public ClientBase
+{
+public:
+    /// Sends the request and returns its transfer-ID.
+    /// The transfer-ID value can then be used to check if a response has arrived.
+    [[nodiscard]] std::expected<TransferID, Error> request(const Service::Request& req);
+
+    /// Check if a response with the specified transfer-ID has arrived.
+    [[nodiscard]] std::optional<std::tuple<Service::Response, ServiceTransferMetadata>>
+    popResponse(const TransferID tid) noexcept;
+};
 ```
+
+The hidden `ClientImpl` instance is created per pair of (service-ID, server node-ID), and it owns an instance of `IRequestTxSession` and `IResponseRxSession` for sending and receiving RPC requests and responses, respectively. Instances of `ClientImpl` can store up to a fixed number of pending requests; initially, the number may be set to 100 (the alternative is to use heap-allocated dynamic storage but this option is not considered appropriate). Calling `request` causes the impl to send the request; upon successful transmission, a new pending response entry is allocated. Calling `popResponse` causes a search for the matching response entry to be conducted; if found, the payload is deserialized, entry is removed, and the resulting response object is returned back to the user along with its metadata.
 
 ### RPC-server
 
 ```c++
+class ServerBase
+{
+public:
+};
 
+template <typename Service>
+class Server final : public ServerBase
+{
+public:
+};
 ```
+
+TODO this section is a work in progress.
 
 ## Application layer
 
