@@ -1094,6 +1094,10 @@ public:
     /// The transfer-ID value can then be used to check if a response has arrived.
     [[nodiscard]] std::expected<TransferID, Error> request(const std::span<const std::byte> req);
 
+    /// Check if a response with the specified transfer-ID has arrived.
+    [[nodiscard]] std::optional<std::tuple<DynamicBuffer, ServiceTransferMetadata>>
+    popResponse(const TransferID tid) noexcept;
+
     [[nodiscard]]       transport::IRequestTxSession& getRequestSession()       noexcept;
     [[nodiscard]] const transport::IRequestTxSession& getRequestSession() const noexcept;
 
