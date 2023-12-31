@@ -28,13 +28,13 @@ In certain minimal applications, the transport layer can be used directly, indep
 
 ### Design principles
 
-Exceptions are not leveraged by the library itself but it is designed to be exception-aware, allowing its integration into applications that do make use of exception handling.
+Exceptions are not leveraged by the library itself, but it is designed to be exception-aware, allowing its integration into applications that make use of exception handling.
 
 Runtime type identification is not required but allowed as an optional feature to facilitate dynamic linking when used in a high-level operating system; more on this later.
 
 Usage of the heap is reduced to the bare minimum and is done strictly via polymorphic memory resources without any reliance on the global heap. Most allocations are done once during initialization; with the exceptions listed below, the library will not perform further allocations at runtime unless the application needs to change its port configuration (i.e., subscriptions/publications/RPC) dynamically at runtime, which is rarely seen in embedded real-time systems. The exceptions to the no-memory-allocation policy are as follows:
 
-- Transport-layer queues and memory reassembly buffers allocated at runtime by the lizards. The memory usage patterns and limits of the lizards are very well formalized in the documentation; further, certain lizards allow replacement of heap allocators with block pool allocators.
+- Transport-layer queues and memory reassembly buffers allocated at runtime by the lizards. The memory usage patterns and limits of the lizards are very well formalized in the documentation; further, certain lizards allow the replacement of heap allocators with block pool allocators.
 
 Type erasure is used throughout to reduce coupling and uphold encapsulation. In some cases, heap allocation that is often associated with type erasure is avoided with the help of small-object-optimized containers that provide an internal arena to store the type-erased object within. More on this below.
 
@@ -42,7 +42,7 @@ Unconventionally, dynamic typing is leveraged with care in certain platform-spec
 
 ### RTTI and dynamic linking considerations
 
-As will be seen later, certain design features are dependent on the ability to detect identical types at runtime; yet, the library must be usable without the RTTI capability of the C++ runtime. The following construct is used to provide a small subset of RTTI features that happens to be sufficient for the needs of the library:
+As will be seen later, certain design features are dependent on the ability to detect identical types at runtime, yet the library must be usable without the RTTI capability of the C++ runtime. The following construct is used to provide a small subset of RTTI features that happens to be sufficient for the needs of the library:
 
 ```c++
 /// A simplified substitute for RTTI that allows querying the identity of types.
@@ -103,7 +103,7 @@ Execution yields the following output (with annotations on the right):
 0x7f4b30a77000  <- void
 ```
 
-Forcing link-time linking of the shared object by adding `-L. -llib`, we observe a different result, where `getTypeID` operates correctly:
+Forcing link-time linking of the shared object by adding `-L. -llib`, we observe a different result where `getTypeID` operates correctly:
 
 ```
 0x55c1ae4cd017  <- void
@@ -114,7 +114,7 @@ Forcing link-time linking of the shared object by adding `-L. -llib`, we observe
 0x55c1ae4cd017  <- void
 ```
 
-Hence, one recognized limitation of this design is that the library *may* require RTTI support if it is to be used across dynamically-linked shared objects. In that case, `getTypeID` becomes a trivial wrapper over `typeid`:
+Hence, one recognized limitation of this design is that the library *may* require RTTI support if it is to be used across dynamically linked shared objects. In that case, `getTypeID` becomes a trivial wrapper over `typeid`:
 
 ```c++
 #if defined(LIBCYPHAL_USE_RTTI) && LIBCYPHAL_USE_RTTI
@@ -135,7 +135,7 @@ It is desirable to move `getTypeID` into Cetl to simplify its reuse between diff
 
 ### Safe dynamic type conversion without RTTI
 
-In the interest of minimizing the deviations from relevant high-integrity software design guidelines, the dependency on metaprogramming is reduced to the bare minimum. As will be seen later, this choice requires some form of runtime type identification and dynamic casting to support handling of DSDL objects. Without the full RTTI support one cannot rely on the built-in `dynamic_cast` conversion; this can be worked around with a simplified version presented below that makes use of `getTypeID`:
+In the interest of minimizing the deviations from relevant high-integrity software design guidelines, the dependency on metaprogramming is reduced to the bare minimum. As will be seen later, this choice requires some form of runtime type identification and dynamic casting to support the handling of DSDL objects. Without the full RTTI support, one cannot rely on the built-in `dynamic_cast` conversion; this can be worked around with a simplified version presented below that makes use of `getTypeID`:
 
 ```c++
 /// Types that require RTTI will implement this.
@@ -147,7 +147,7 @@ public:
     // rule of 5
 };
 
-/// Returns a converted pointer if the polymorphic type of the operand is Target and operand is not nullptr.
+/// Returns a converted pointer if the type of the operand is Target and the operand is not nullptr.
 /// Otherwise, returns nullptr. The type of the operand shall implement IRTTI.
 template <typename Target,
           typename Iface,
@@ -167,7 +167,7 @@ template <typename Target,
 
 With the C++ exceptions being avoided on purpose, the library heavily utilizes algebraic types for error handling. A class similar to `std::expected` is expected to be available in Cetl for this purpose. Aside from that, `std::variant` or its Cetl alternative is used to hold one of the possible error states, where each state has a distinct type that is possibly parameterized with error-kind-specific information (such as `errno` value for platform-related errors, etc).
 
-This approach to error handling causes one particular task to occur often: the list of possible error states held in an `std::variant` often needs to be amended with additional states by functions located higher up the call stack. To address this, we introduce the following helper:
+This approach to error handling causes one particular task to occur often: the list of possible error states held in a `std::variant` often needs to be amended with additional states by functions located higher up the call stack. To address this, we introduce the following helper:
 
 ```c++
 namespace detail
@@ -190,9 +190,9 @@ using AppendType = typename detail::AppendType<T, Args...>::Result;
 
 ### Heapless Any
 
-LibCyphal will include a heapless reimplementation of `std::any` is needed to support type erasure without the need to perform heap allocation.
+LibCyphal will include a heapless reimplementation of `std::any` needed to support type erasure without needing heap allocation.
 
-This implementation of `any` stores the contained object inside a private memory arena instead of the heap; the size of the arena are specified as a type parameter. Compile-time checks are provided to ensure that the arena is large enough to contain the object.
+This implementation of `any` stores the contained object inside a private memory arena instead of the heap; the size of the arena is specified as a type parameter. Compile-time checks are provided to ensure that the arena is large enough to contain the object.
 
 Further, to facilitate handling of expensive-to-copy or non-copyable objects, this implementation of `any`, unlike `std::any`, relies on moving instead of copying.
 
@@ -202,13 +202,13 @@ An original implementation is available at https://godbolt.org/z/v5hsvYYa4.
 
 This type enables dynamic typing with runtime type safety checking, which is used to facilitate certain design options introduced later.
 
-### Type erasure without heap
+### Type erasure without a heap
 
 Article [Inheritance Without Pointers](https://www.fluentcpp.com/2021/01/29/inheritance-without-pointers/) provides an interesting approach to implementing type erasure without heap based on `std::any`. LibCyphal makes use of its own heapless implementation of `any` to the same end. The resulting container type is defined as follows:
 
 ```c++
 /// A generalized implementation of https://www.fluentcpp.com/2021/01/29/inheritance-without-pointers/
-/// that works with any any (sic!).
+/// that works with any any.
 /// The instance is always initialized with a valid value, but it may turn valueless if the value is moved.
 /// The Any type can be either std::any or a custom alternative.
 template <typename Iface, typename Any>
@@ -248,7 +248,7 @@ class Function final;
 
 ### PMR-enabled shared pointer
 
-Certain parts of the presentation layer, possibly along with other parts of the library, will share certain heap-allocated resources internally. While it is possible to implement reference counting ad-hoc, it is desirable to extract this concern into a separate entity, said entity being a PMR-aware shared pointer implementation. By "PMR-aware" we mean that the pointer takes a reference to `std::pmr::memory_resource` upon construction and uses that memory resource to allocate the reference counter instead of using the free store. Similarly, a `makeShared` factory is needed that takes a PMR reference in a similar fashion to allocate the reference counter in the same memory block with the shared object.
+Certain parts of the presentation layer, possibly along with other parts of the library, will share certain heap-allocated resources internally. While it is possible to implement reference counting ad-hoc, it is desirable to extract this concern into a separate entity, said entity being a PMR-aware shared pointer implementation. By "PMR-aware," we mean that the pointer takes a reference to `std::pmr::memory_resource` upon construction and uses that memory resource to allocate the reference counter instead of using the free store. Similarly, a `makeShared` factory is needed that takes a PMR reference in a similar fashion to allocate the reference counter in the same memory block with the shared object.
 
 ## Transport layer
 
@@ -542,11 +542,11 @@ public:
 };
 ```
 
-The `Pollable` wrapper is intended to shield the library and its interfaces from the knowledge of the specific I/O handles used by the platform it is running on. Both the media layer implementations that obtain the handles from the platform (e.g., file descriptors) and the execution policy implementations are expected to be aware of the specific resource in use, and thus the execution policy can safely extract the correct type from the `Pollable` container. Runtime type checking is provided via `any_cast`.
+The `Pollable` wrapper is intended to shield the library and its interfaces from the knowledge of the specific I/O handles used by the platform it is running on. Both the media layer implementations that obtain the handles from the platform (e.g., file descriptors) and the execution policy implementations are expected to be aware of the specific resource in use, and thus, the execution policy can safely extract the correct type from the `Pollable` container. Runtime type checking is provided via `any_cast`.
 
-Being stateful, this solution requires the media layer implementations to add and remove descriptors only when necessary, rather than reconstructing the set from scratch at every iteration. The risk of resource leakage is mitigated with the help of the RAII-only handles returned by the `add` method.
+Being stateful, this solution requires the media layer implementations to add and remove descriptors only when necessary rather than reconstructing the set from scratch at every iteration. The risk of resource leakage is mitigated with the help of the RAII-only handles returned by the `add` method.
 
-The `Function` template used here is similar to `std::function` except that it stores the callable locally without the use of the heap; the memory footprint of the callable hence needs to be specified statically.
+The `Function` template used here is similar to `std::function` except that it stores the callable locally without the use of the heap; hence, the memory footprint of the callable needs to be specified statically.
 
 The disadvantages to be aware of are as follows:
 
@@ -569,7 +569,7 @@ The treatment of Request-Rx and Response-Tx sessions differs from the strict mod
 
 The Response-Rx and Request-Tx sessions match the model proposed in the Specification; the higher-level RPC client API is built on the assumption that the user obtains an instance of the client per remote node-ID per service-ID.
 
-While it is possible to return type-erased entities implementing a specific interface by value (as shown earlier), this approach cannot be used for sessions because lizards typically require entities used for the implementation of sessions to be pinned in memory. The session factory methods therefore return PMR-allocated objects via unique pointers. Transport implementations will necessarily have to be aware of the full set of sessions extant at any moment; for this, internally, sessions are kept arranged in containers such as linked lists or AVL trees (see [Cavl](https://github.com/pavel-kirienko/cavl)). Session destructors (invoked when the unique pointer is destroyed) are used to delist the destroyed element from the internal containers and perform other activities associated with the removal of a session, such as closing UDP sockets, etc.
+While it is possible to return type-erased entities implementing a specific interface by value (as shown earlier), this approach cannot be used for sessions because lizards typically require entities used for the implementation of sessions to be pinned in memory. The session factory methods, therefore, return PMR-allocated objects via unique pointers. Transport implementations will necessarily have to be aware of the full set of sessions extant at any moment; for this, internally, sessions are kept arranged in containers such as linked lists or AVL trees (see [Cavl](https://github.com/pavel-kirienko/cavl)). Session destructors (invoked when the unique pointer is destroyed) are used to delist the destroyed element from the internal containers and perform other activities associated with the removal of a session, such as closing UDP sockets, etc.
 
 Session view methods such as `ITransport::viewMessageRxSessions` provide a view into the internal containers holding the active sessions via begin/end iterators. Conventionally, iterators are manipulated by value, and yet their behavior is highly transport-specific because they have to access the internal container of sessions, which calls for polymorphism. To address this, we define a polymorphic iterator interface and return iterators by value wrapped into `ImplementationCell<>` introduced earlier. It is assumed that the application will not attempt to mutate the set of sessions while iteration is in progress.
 
@@ -579,11 +579,11 @@ Tx sessions accept the data to be sent via the non-blocking `send` method. Said 
 
 The lifetime of the payload passed to the `send` method is not required to continue beyond the return from the method, as the data will be physically copied.
 
-The `send` method can either accept the transfer for transmission in its entirety, or reject it entirely. The implementation shall not allow the set of transport frames generated for a given transfer to be enqueued partially.
+The `send` method can either accept the transfer for transmission in its entirety or reject it entirely. The implementation shall not allow the set of transport frames generated for a given transfer to be enqueued partially.
 
-The transfer timestamp given to the `send` method signifies the transmission deadline for the transport frames originating from this transfer; transport frames whose transmission could not be completed prior to the expiration of their deadline will be dropped (dequeued without transmission) by the transport. Such occurrence should normally be recorded for diagnostic purposes via the appropriate statistical counters, but this feature is currently outside of the scope of this proposal.
+The transfer timestamp given to the `send` method signifies the transmission deadline for the transport frames originating from this transfer; transport frames whose transmission could not be completed prior to the expiration of their deadline will be dropped (dequeued without transmission) by the transport. Such occurrences should normally be recorded for diagnostic purposes via the appropriate statistical counters, but this feature is currently outside of the scope of this proposal.
 
-Rx sessions operate like sampling ports, storing one most recently received transfer internally as an instance of `DynamicBuffer` (see below). The buffer is passed over to the application upon the next call to `receive`. A sampling port is similar to a FIFO queue of depth 1 unit, so in the future this design can be trivially generalized to support variable-depth FIFO queues inside Rx session instances that are set to the depth of 1 unit by default. Shall the application fail to collect the received transfer(s) before the FIFO queue is full, the least recently received transfer is dropped and the new one is pushed at the opposite end of the queue. Such occurrence should normally be recorded for diagnostic purposes via the appropriate statistical counters, but this feature is currently outside of the scope of this proposal.
+Rx sessions operate like sampling ports, storing one most recently received transfer internally as an instance of `DynamicBuffer` (see below). The buffer is passed over to the application upon the next call to `receive`. A sampling port is similar to a FIFO queue of depth 1 unit, so in the future this design can be trivially generalized to support variable-depth FIFO queues inside Rx session instances that are set to the depth of 1 unit by default. Shall the application fail to collect the received transfer(s) before the FIFO queue is full, the least recently received transfer is dropped, and the new one is pushed to the opposite end of the queue. Such occurrences should normally be recorded for diagnostic purposes via the appropriate statistical counters, but this feature is currently outside of the scope of this proposal.
 
 #### `DynamicBuffer`
 
@@ -596,7 +596,7 @@ Examples of lizard-specific management of the returned memory can be found in
 The `DynamicBuffer` provides a uniform API for dealing with the Cyphal transfer payload returned by a lizard and also implements the movable/non-copyable RAII semantics for freeing the memory allocated for the buffer once the dynamic buffer instance is disposed of. The interface hides the gather-scatter nature of the buffer, providing a simplified linearized view. The definition of the class is approximately as follows:
 
 ```c++
-/// The buffer is movable but not copyable, because copying the contents of a buffer is considered wasteful.
+/// The buffer is movable but not copyable because copying the contents of a buffer is considered wasteful.
 /// The buffer behaves as if it's empty if the underlying implementation is moved away.
 class DynamicBuffer final
 {
@@ -652,7 +652,7 @@ public:
     [[nodiscard]] virtual std::uint16_t getMTU() const noexcept = 0;
 
     /// If there are fewer hardware filters available than requested, the configuration will be coalesced as described
-    /// in the Cyphal/CAN Specification. If there are zero filters requested, all incoming traffic will be rejected.
+    /// in the Cyphal/CAN Specification. If zero filters are requested, all incoming traffic will be rejected.
     /// While reconfiguration is in progress, incoming frames may be lost and/or unwanted frames may be received.
     /// The lifetime of the filter array may end upon return (no references retained).
     /// Returns true on success, false in case of a low-level error (e.g., IO error).
@@ -721,10 +721,10 @@ public:
 };
 ```
 
-If `ITxSocket::send` returns false indicating that the socket is not ready to accept writes, the implementation would normally register this ocurrence internally and then register the socket's file descriptor for writing via `IPollSet::output` at the next `IRunnable::run`, or via `IMultiplexer::add`, depending on which proposal is chosen. This behavior ensures that write polling will only be performed if there are pending transmissions. In the first case (the stateless case with `IPollSet`), one potential limitation to be aware of is that in the following call sequence, the pending transmission becomes delayed by one `run` cycle:
+If `ITxSocket::send` returns false, indicating that the socket is not ready to accept writes, the implementation would normally register this occurrence internally and then register the socket's file descriptor for writing via `IPollSet::output` at the next `IRunnable::run` or via `IMultiplexer::add,` depending on which proposal is chosen. This behavior ensures that write polling will only be performed if there are pending transmissions. In the first case (the stateless case with `IPollSet`), one potential limitation to be aware of is that in the following call sequence, the pending transmission becomes delayed by one `run` cycle:
 
 - Initially, no pending transmission is registered (no data to send).
-- `run` is called, no pending transmission is registered so `output` is not called.
+- `run` is called, but no pending transmission is registered, so `output` is not called.
 - `send` is called and the socket is found to be not ready to accept writes. Output polling is needed.
 - The main loop is blocked on IO until the next `run` service cycle. However, the IO multiplexor is unaware of the fact that there is data waiting to be sent, which results in an unnecessary transmission delay.
 
@@ -803,11 +803,11 @@ Session N | SnT0 | SnT1 | ... | SnTm
 
 Attachment/detachment of a transport is an addition/removal of a column; likewise, construction/retirement of a session is an addition/removal of a row. While the construction of a row or a column is in progress, the matrix resides in an inconsistent state. If any error occurs in the process, the matrix is rolled back to the previous consistent state, and the already-constructed sessions of the new vector are retired.
 
-Existing redundant sessions retain validity across any changes in the matrix configuration. Logic that relies on a redundant instance is completely shielded from any changes in the underlying transport configuration, meaning that the entire underlying transport structure may be swapped out with a completely different one without affecting the higher levels. A practical extreme case is where a redundant transport is constructed with zero inferior transports, its session instances are configured, and the inferior transports are added later. This is expected to be useful for long-running applications that have to retain the presentation-level structure across changes in the transport configuration done on-the-fly without stopping the application.
+Existing redundant sessions retain validity across any changes in the matrix configuration. The logic that relies on a redundant instance is completely shielded from any changes in the underlying transport configuration, meaning that the entire underlying transport structure may be swapped out with a completely different one without affecting the higher levels. A practical extreme case is where a redundant transport is constructed with zero inferior transports, its session instances are configured, and the inferior transports are added later. This is expected to be useful for long-running applications that have to retain the presentation-level structure across changes in the transport configuration done on the fly without stopping the application.
 
 The redundant transport replicates every outgoing transfer into all of the available redundant interfaces. Transmission operates at the rate of the best-performing inferior; transmission is assumed to be successful if at least one transport is able to complete it.
 
-Incoming transfers are deduplicated so that the local node receives at most one copy of each unique transfer received from the bus.
+Incoming transfers are deduplicated so that the local node receives, at most, one copy of each unique transfer received from the bus.
 
 The class implementing the redundant transport is called `RedundantTransport`. It does not require a separate factory method because its constructor can be made infallible:
 
@@ -820,7 +820,7 @@ explicit RedundantTransport(std::pmr::memory_resource& memory);
 
 ### General principles
 
-The presentation layer is the first layer that deals with DSDL-generated types. A conventional design would heavily rely on metaprogramming here, providing generic classes parameterized with a DSDL type. This is not a viable choice for LibCyphal because minimization of template metaprogramming is one of its core design goals. Hence, the design proposed here intentionally avoids static polymorphism where reasonable, preferring runtime polymorphism instead. To this end, the Nunavut C++ generator needs to be modified to ship an interface called `IComposite` as part of its support library, which is to be implemented by generated types:
+The presentation layer is the first layer that deals with DSDL-generated types. A conventional design would heavily rely on metaprogramming here, providing generic classes parameterized with a DSDL type. This is not a viable choice for LibCyphal because the minimization of template metaprogramming is one of its core design goals. Hence, the design proposed here intentionally avoids static polymorphism where reasonable, preferring runtime polymorphism instead. To this end, the Nunavut C++ generator needs to be modified to ship an interface called `IComposite` as part of its support library, which is to be implemented by generated types:
 
 ```c++
 class IComposite
@@ -879,8 +879,8 @@ public:
     // necessitating the use of heap for message serialization.
     // Between the use of heap and generics we choose the lesser evil.
     //
-    // The hidden implementation object stores the transfer-ID counter. This means that destruction of the last publisher
-    // on a given subject-ID causes the transfer-ID state to be lost. If seen practical, it can be easily avoided by
+    // The hidden implementation object stores the transfer-ID counter. This means that the destruction of the last publisher
+    // on a given subject-ID causes the transfer-ID state to be lost. If seen as practical, it can be easily avoided by
     // moving the transfer-ID counters into a separate PMR-aware dynamic container (subject-ID -> transfer-ID), like
     // std::unordered_map<std::uint16_t, std::uint64_t>. If not, the application can always ensure that the transfer-ID
     // state is not lost by creating a dummy publisher instance whose only purpose is to keep the counter alive.
@@ -888,7 +888,7 @@ public:
     [[nodiscard]] std::expected<Publisher<Message>, Error> makePublisher(const std::uint16_t subject_id);
 
     // An additional template parameter may be added later specifying the depth of the FIFO queue.
-    // If the queue is full, oldest messages are dropped (newer messages take precedence).
+    // If the queue is full, the oldest messages are dropped (newer messages take precedence).
     // For now, the queue depth is 1, meaning that subscribers behave like sampling ports.
     template <typename Message>
     [[nodiscard]] std::expected<Subscriber<Message>, Error> makeSubscriber(const std::uint16_t subject_id);
@@ -896,8 +896,8 @@ public:
     // Notice that a client is bound to a specific remote node.
     // To query multiple nodes one has to create multiple clients.
     //
-    // The hidden implementation object stores the transfer-ID counter. This means that destruction of the last client
-    // on a given service-ID causes the transfer-ID state to be lost. If seen practical, it can be easily avoided by
+    // The hidden implementation object stores the transfer-ID counter. This means that the destruction of the last client
+    // on a given service-ID causes the transfer-ID state to be lost. If seen as practical, it can be easily avoided by
     // moving the transfer-ID counters into a separate PMR-aware dynamic container (service-ID -> transfer-ID), like
     // std::unordered_map<std::uint16_t, std::uint64_t>. If not, the application can always ensure that the transfer-ID
     // state is not lost by creating a dummy client instance whose only purpose is to keep the counter alive.
@@ -905,7 +905,7 @@ public:
     [[nodiscard]] std::expected<Client<Service>, Error> makeClient(const std::uint16_t service_id,
                                                                                       const std::uint16_t server_node_id);
 
-    // If such server already exists, an error will be returned (error type TBD).
+    // If such a server already exists, an error will be returned (error type TBD).
     template <typename Service>
     [[nodiscard]] std::expected<UniquePtr<Server<Service>>, Error> getServer(const std::uint16_t service_id);
 
@@ -1048,7 +1048,7 @@ private:
 ///     - Publisher node-ID or absence thereof (for anonymous transfers).
 ///     - Message priority range.
 ///     - An arbitrary user-specified predicate that is a function of the deserialized message.
-///     - Time since previous acceptane (rate limiting).
+///     - Time since previous acceptance (rate limiting).
 /// Further, basic downsampling logic may be implemented.
 template <typename Message>
 class Subscriber final : public SubscriberBase
@@ -1084,7 +1084,7 @@ private:
 };
 ```
 
-The message RX session object is managed by `SubscriberImpl`, which also implements `IRunnable`. The `run` method polls the RX session and if there is a transfer available, it is consumed and then the `accept` method of each living `SubscriberBase` is invoked sequentially. Each `Subscriber` deserializes its own copy of the message and stores it for consumption by the application in the FIFO queue. The `SubscriberImpl` then destroys the `DynamicBuffer` containing the received transfer.
+The message RX session object is managed by `SubscriberImpl`, which also implements `IRunnable`. The `run` method polls the RX session, and if there is a transfer available, it is consumed, and then the `accept` method of each living `SubscriberBase` is invoked sequentially. Each `Subscriber` deserializes its own copy of the message and stores it for consumption by the application in the FIFO queue. The `SubscriberImpl` then destroys the `DynamicBuffer` containing the received transfer.
 
 It is easy to see that there is a certain redundancy involved, as each `Subscriber` performs deserialization independently of each other, resulting in duplicate work. This is avoidable but is somewhat convoluted, as the type of the message is not known to `SubscriberImpl`; one approach is to use the first instance of `Subscriber` to perform deserialization and then to deliver the deserialized message object to each of its siblings by value (unless we are comfortable using shared pointers here, which we are probably not). This may need to be revised in a later version; however, one should keep in mind that the work duplication only becomes a problem for large messages that are expensive to deserialize, and the application is arguably less likely to have more than one subscriber for such expensive messages.
 
