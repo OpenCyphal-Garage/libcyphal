@@ -1210,4 +1210,495 @@ Server instances are unique per service-ID; as such, the interface differs sligh
 
 ## Application layer
 
-To be continued.
+The application layer is the only part of LibCyphal that depends on DSDL-generated types. It is built on top of the presentation layer and contains at least the elements listed below. The application layer is less strict in its avoidance of template metaprogramming, assuming that applications where the use of templates is strongly unadvisable can choose to avoid the reliance on this module.
+
+The main part is the `Node` class that wraps all core components of a Cyphal node into a single entity, which includes at least the following essential components:
+
+- A heartbeat publisher.
+- A `uavcan.node.GetInfo` RPC-service implementation.
+- A registry, as described below.
+
+Aside from the essential components, the application module will contain a larger collection of standard implementations of some of the often-required parts of the Cyphal specification.
+
+### Registry
+
+The registry component consists of the interface and the default implementation. All registers are stored in-memory, with the option to load/store them to/from a key-value storage with a simple interface that can be mapped to some form of non-volatile storage (like LittleFS). Each register is represented by a single heap-allocated object; the allocation only takes place during initialization. The heap allocation is needed for type erasure; it can be replaced with `ImplementationCell<>` if desired.
+
+Some additional background is available here: <https://github.com/107-systems/107-Arduino-Cyphal/pull/204#issuecomment-1458663541>.
+
+```c++
+struct RegisterFlags final
+{
+    bool mutable_   = false;
+    bool persistent = false;
+};
+
+struct ValueWithMetadata final
+{
+    Value         value;
+    RegisterFlags flags;
+};
+
+enum class SetError : std::uint8_t
+{
+    Existence,   ///< Register does not exist.
+    Mutability,  ///< Register is immutable.
+    Coercion,    ///< Value cannot be coerced to the register type.
+    Semantics,   ///< Rejected by the register semantics (e.g. out of range, inappropriate value, bad state, etc).
+};
+
+/// This is the main, basic interface for the application to its registers.
+/// The registry is just a collection of named getters[/setters].
+class IRegistry
+{
+public:
+    IRegistry()                            = default;
+    virtual ~IRegistry()                   = default;
+    IRegistry(const IRegistry&)            = delete;
+    IRegistry(IRegistry&&)                 = delete;
+    IRegistry& operator=(const IRegistry&) = delete;
+    IRegistry& operator=(IRegistry&&)      = delete;
+
+    /// Reads the current value of the register. Empty if nonexistent.
+    /// The worst-case complexity is log(n), where n is the number of registers.
+    [[nodiscard]] virtual std::optional<ValueWithMetadata> get(const std::string_view nm) const = 0;
+
+    /// Assign the register with the specified value.
+    /// The worst-case complexity is log(n), where n is the number of registers.
+    [[nodiscard]] virtual std::optional<SetError> set(const std::string_view nm, const DSDLValue& val) = 0;
+};
+
+/// Extends the basic registry interface with additional methods that enable introspection.
+class IIntrospectableRegistry : public IRegistry
+{
+public:
+    /// Gets the name of the register at the specified index. Empty name if the index is out of range.
+    /// The ordering is arbitrary but stable as long as the register set is not modified.
+    /// The worst-case complexity may be up to linear of the number of registers.
+    /// Keep in mind that the register may cease to exist at any time (this is why the name is returned by value).
+    [[nodiscard]] virtual DSDLName index(const std::size_t index) const = 0;
+
+    /// The worst-case complexity may be up to linear of the number of registers.
+    [[nodiscard]] virtual std::size_t size() const = 0;
+};
+```
+
+The default implementation is as follows:
+
+```c++
+namespace detail
+{
+/// The registers are accessed by key, which is a name hash.
+/// A 64-bit hash yields a negligible collision probability even for a very large set of registers:
+///
+///     >>> n=10_000
+///     >>> d=Decimal(2**64)
+///     >>> 1 - ((d-1)/d) ** ((n*(n-1))//2)
+///     Decimal('2.7102343794533273E-12')
+class Key final
+{
+public:
+    explicit Key(const std::string_view name) : val_(hash(name)) {}
+    explicit Key(const Name& name) : val_(hash({reinterpret_cast<const char*>(name.name.data()), name.name.size()})) {}
+
+    /// Positive if this one is greater than the other.
+    [[nodiscard]] std::int8_t compare(const Key other) const noexcept
+    {
+        return static_cast<std::int8_t>((val_ == other.val_) ? 0 : ((val_ > other.val_) ? +1 : -1));
+    }
+
+private:
+    [[nodiscard]] static std::uint64_t hash(const std::string_view name) noexcept
+    {
+        return CRC64WE(name.begin(), name.end()).get();
+    }
+
+    std::uint64_t val_;
+};
+}  // namespace detail
+
+/// A register handle. Destroy the handle to remove the register.
+class Register : public cavl::Node<Register>
+{
+public:
+    explicit Register(cavl::Tree<Register>& tree, const detail::Key key) : tree_(tree), key_(key)
+    {
+        const auto* const res = tree_.search([this](const Register& x) { return x.key_.compare(key_); },  //
+                                             [this] { return this; });
+        assert(res == this);
+        (void) res;
+    }
+    virtual ~Register() { tree_.remove(this); }
+    Register(const Register&)            = delete;
+    Register(Register&&)                 = delete;
+    Register& operator=(const Register&) = delete;
+    Register& operator=(Register&&)      = delete;
+
+    [[nodiscard]] virtual ValueWithMetadata       get() const           = 0;
+    [[nodiscard]] virtual std::optional<SetError> set(const Value& val) = 0;
+    [[nodiscard]] virtual Name                    getName() const       = 0;
+
+private:
+    friend class Registry;
+
+    cavl::Tree<Register>& tree_;
+    const detail::Key     key_;
+};
+
+using RegisterPtr = detail::UniquePtr<Register>;
+
+/// Each register occupies one small fragment on the heap to facilitate type erasure.
+/// Worst-case access complexity is log(n) where n is the number of registers.
+class Registry final : public IIntrospectableRegistry
+{
+public:
+    Registry() = default;
+    ~Registry() override  // NOLINT(hicpp-use-equals-default,modernize-use-equals-default)
+    {
+        assert(tree_.empty());  // If it fails here, there are registers that have outlived the registry.
+    }
+    Registry(const Registry&)            = delete;
+    Registry(Registry&&)                 = delete;
+    Registry& operator=(const Registry&) = delete;
+    Registry& operator=(Registry&&)      = delete;
+
+    [[nodiscard]] std::optional<ValueWithMetadata> get(const std::string_view nm) const override
+    {
+        if (const auto* const reg = find(nm))
+        {
+            return reg->get();
+        }
+        return std::nullopt;
+    }
+
+    [[nodiscard]] std::optional<SetError> set(const std::string_view nm, const Value& val) override
+    {
+        if (auto* const reg = find(nm))
+        {
+            return reg->set(val);
+        }
+        return SetError::Existence;
+    }
+
+    [[nodiscard]] Name index(const std::size_t index) const override
+    {
+        if (const auto* const reg = tree_[index])
+        {
+            return reg->getName();
+        }
+        return {};
+    }
+
+    [[nodiscard]] std::size_t size() const override { return tree_.size(); }
+
+    /// Options used when creating a new register.
+    struct Options final
+    {
+        /// True if the register value is retained across application restarts.
+        bool persistent = false;
+    };
+
+    /// Create a new register with the specified getter and, optionally, setter.
+    /// This operation incurs one small heap allocation per register to facilitate type erasure (usually under 0.5 KiB);
+    /// the callables are moved to the heap.
+    ///
+    /// The name object is moved to the heap as well; if this is an std::string_view or some other reference,
+    /// then it has to outlive the register. If this cannot be ensured, use some type that owns the string;
+    /// e.g., dyshlo::sitl::String.
+    /// The name shall be convertible to std::string_view.
+    ///
+    /// The getter should simply return anything that can be converted to Value. It can be a primitive type as well.
+    ///
+    /// The setter accepts a Value which is guaranteed to have the same type and dimensionality as that returned by the
+    /// getter; the type and dimensionality consistency is enforced by the registry implementation.
+    /// The setter should return true if the value was accepted, false otherwise.
+    ///
+    /// Destroy the returned unique pointer to remove the register.
+    /// Returns nullptr if the register already exists or if there is not enough memory.
+    template <typename N, typename G, typename = std::enable_if_t<std::is_convertible_v<N, std::string_view>>>
+    [[nodiscard]] RegisterPtr route(N&& name, const Options& opt, G&& getter)
+    {
+        return add(std::forward<N>(name), opt, std::forward<G>(getter), std::monostate{});
+    }
+    template <typename N,
+              typename G,
+              typename S,
+              typename = std::enable_if_t<std::is_convertible_v<std::decay_t<N>, std::string_view>>,
+              typename = decltype(makeValue(std::declval<G>()())),
+              typename = decltype(std::declval<S>()(std::declval<Value>()))>
+    [[nodiscard]] RegisterPtr route(N&& name, const Options& opt, G&& getter, S&& setter)
+    {
+        return add(std::forward<N>(name), opt, std::forward<G>(getter), std::forward<S>(setter));
+    }
+
+    /// Convenience method for creating getters with default options.
+    template <typename N,
+              typename G,
+              typename = std::enable_if_t<std::is_convertible_v<std::decay_t<N>, std::string_view>>,
+              typename = decltype(makeValue(std::declval<G>()()))>
+    [[nodiscard]] RegisterPtr route(N&& name, G&& getter)
+    {
+        return add(std::forward<N>(name), Options{}, std::forward<G>(getter), std::monostate{});
+    }
+
+    /// A simple wrapper over route() that allows one to expose and mutate an arbitrary object as a mutable register.
+    /// For read-only registers consider using route() directly.
+    /// The object shall be convertible to/from register::Value.
+    /// The referenced value shall outlive the register.
+    /// Refer to route() for more details.
+    template <typename N,
+              typename T,
+              typename = std::enable_if_t<std::is_convertible_v<std::decay_t<N>, std::string_view>>>
+    [[nodiscard]] RegisterPtr expose(N&& name, const Options& opt, T& val)
+    {
+        return route(
+            std::forward<N>(name),
+            opt,
+            [&val]() -> const T& { return val; },
+            [&val](const Value& v)
+            {
+                val = registry::get<T>(v).value();  // Guaranteed to be coercible by the protocol.
+                return true;
+            });
+    }
+
+private:
+    template <typename N, typename G, typename S, bool IsMutable = !std::is_same_v<S, std::monostate>>
+    class Reg : public Register
+    {
+    public:
+        explicit Reg(cavl::Tree<Register>& tree, const N& name, const Options& opt, G&& getter, S&& setter) :
+            Register(tree, static_cast<detail::Key>(static_cast<std::string_view>(name))),
+            getter_(std::forward<G>(getter)),
+            setter_(std::forward<S>(setter)),
+            name_(name),
+            opt_(opt)
+        {
+        }
+        ~Reg() override            = default;
+        Reg(const Reg&)            = delete;
+        Reg(Reg&&)                 = delete;
+        Reg& operator=(const Reg&) = delete;
+        Reg& operator=(Reg&&)      = delete;
+
+        [[nodiscard]] ValueWithMetadata get() const override
+        {
+            ValueWithMetadata out;
+            registry::set(out.value, getter_());
+            out.flags.mutable_   = IsMutable;
+            out.flags.persistent = opt_.persistent;
+            return out;
+        }
+        [[nodiscard]] std::optional<SetError> set(const Value& val) override
+        {
+            if constexpr (IsMutable)
+            {
+                auto converted = get().value;
+                if (coerce(converted, val))
+                {
+                    if (setter_(converted))
+                    {
+                        return std::nullopt;
+                    }
+                    return SetError::Semantics;
+                }
+                return SetError::Coercion;
+            }
+            return SetError::Mutability;
+        }
+
+        [[nodiscard]] Name getName() const override { return makeName(static_cast<std::string_view>(name_)); }
+
+    private:
+        const G                       getter_;
+        [[no_unique_address]] const S setter_;  ///< Empty unless IsMutable.
+        const N                       name_;
+        const Options                 opt_;
+    };
+
+    template <typename N, typename G, typename S>
+    [[nodiscard]] RegisterPtr add(const N& name, const Options& opt, G&& getter, S&& setter)
+    {
+        if (find(static_cast<std::string_view>(name)) == nullptr)
+        {
+            return detail::makeUnique<Reg<N, G, S>>(tree_, name, opt, std::forward<G>(getter), std::forward<S>(setter));
+        }
+        return nullptr;  // Out of memory or name conflict.
+    }
+    // This overload is provided to convert the name to a string_view to allow invocation with string literals.
+    template <typename G, typename S>
+    [[nodiscard]] RegisterPtr add(const char* const name, const Options& opt, G&& getter, S&& setter)
+    {
+        return add(static_cast<std::string_view>(name), opt, std::forward<G>(getter), std::forward<S>(setter));
+    }
+
+    [[nodiscard]] Register* find(const std::string_view name)
+    {
+        return tree_.search([k = detail::Key(name)](const Register& x) { return x.key_.compare(k); });
+    }
+    [[nodiscard]] const Register* find(const std::string_view name) const
+    {
+        return tree_.search([k = detail::Key(name)](const Register& x) { return x.key_.compare(k); });
+    }
+
+    cavl::Tree<Register> tree_;
+};
+```
+
+The non-volatile storage is implemented with the help of a single key-value interface shown below. Implementations for some of the commonly occuring embedded storage systems, such as LittleFS or the standard file API, can be shipped with LibCyphal.
+
+```c++
+enum class Error : std::uint8_t
+{
+    Existence,  ///< Entry does not exist but should; or exists but shouldn't.
+    API,        ///< Bad API invocation (e.g., null pointer).
+    Capacity,   ///< No space left on the storage device.
+    IO,         ///< Device input/output error.
+    Internal,   ///< Internal failure in the filesystem (storage corruption or logic error).
+};
+
+/// Key-value storage provides a very simple API for storing and retrieving named blobs.
+/// The underlying storage implementation is required to be power-loss tolerant and to
+/// validate data integrity per key (e.g., using CRC and such).
+/// This interface is fully blocking and should only be used during initialization and shutdown,
+/// never during normal operation. Non-blocking adapters can be built on top of it.
+class IKeyValue
+{
+public:
+    IKeyValue()                                    = default;
+    IKeyValue(const IKeyValue&)                    = delete;
+    IKeyValue(IKeyValue&&)                         = delete;
+    auto operator=(const IKeyValue&) -> IKeyValue& = delete;
+    auto operator=(IKeyValue&&) -> IKeyValue&      = delete;
+    virtual ~IKeyValue()                           = default;
+
+    /// The return value is the number of bytes read into the buffer or the error.
+    [[nodiscard]] virtual auto get(const std::string_view key, const std::size_t size, void* const data) const
+        -> std::variant<Error, std::size_t> = 0;
+
+    /// Existing data, if any, is replaced entirely. New file and its parent directories created implicitly.
+    /// Either all or none of the data bytes are written.
+    [[nodiscard]] virtual auto put(const std::string_view key, const std::size_t size, const void* const data)
+        -> std::optional<Error> = 0;
+
+    /// Remove key. If the key does not exist, the existence error is returned.
+    [[nodiscard]] virtual auto drop(const std::string_view key) -> std::optional<Error> = 0;
+};
+```
+
+The load/store functions that make use of the registry interface and the key-value storage interface are defined as follows (this snippet makes use of the Nunavut C-generated DSDL types, which is not representative of the final design):
+
+```c++
+/// Scan all persistent registers in the registry and load their values from the storage if present.
+/// Each register is loaded from a separate file, the file name equals the name of the register (no extension).
+/// Stored registers that are not present in the registry will not be loaded.
+/// The serialization format is simply the Cyphal DSDL.
+/// In case of error, only part of the registers may be loaded and the registry will be left in an inconsistent state.
+[[nodiscard]] inline std::optional<platform::storage::Error> load(const platform::storage::IKeyValue& kv,
+                                                                  registry::IIntrospectableRegistry&  rgy)
+{
+    for (std::size_t index = 0; index < rgy.size(); index++)
+    {
+        // Find the next register in the registry.
+        const auto reg_name_storage = rgy.index(index);  // This is a little suboptimal but we don't care.
+        const auto reg_name         = registry::view(reg_name_storage);
+        if (reg_name.empty())
+        {
+            break;  // No more registers to load.
+        }
+        // If we get nothing, this means that the register has disappeared from the storage.
+        if (const auto reg_meta = rgy.get(reg_name); reg_meta && reg_meta.value().flags.persistent)
+        {
+            // We will attempt to restore the register even if it is not mutable,
+            // as it is not incompatible with the protocol.
+            std::array<std::uint8_t, uavcan_register_Value_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_> serialized{};
+            const auto kv_get_result = kv.get(reg_name, serialized.size(), serialized.data());
+            if (const auto* const err = std::get_if<platform::storage::Error>(&kv_get_result))
+            {
+                if (platform::storage::Error::Existence != *err)
+                {
+                    return *err;
+                }
+                // The register is simply not present in the storage, which is OK.
+            }
+            else
+            {
+                auto            size = std::get<std::size_t>(kv_get_result);
+                registry::Value value;
+                // Invalid data in the storage will be ignored.
+                if (uavcan_register_Value_1_0_deserialize_(&value, serialized.data(), &size) == 0)
+                {
+                    // Assign the value to the register.
+                    // Shall it fail, the error is likely to be corrected during the next save().
+                    (void) rgy.set(reg_name, value);
+                }
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+/// The register savior is the counterpart of load().
+/// Saves all persistent mutable registers from the registry to the storage.
+/// Registers that are not persistent OR not mutable will not be saved;
+/// the reason immutable registers are not saved is that they are assumed to be constant or runtime-computed,
+/// so there is no point wasting storage on them (which may be limited).
+/// Eventually this logic should be decoupled from the network register presentation facade by introducing more
+/// fine-grained register flags, such as "internally mutable" and "externally mutable".
+///
+/// Existing stored registers that are not found in the registry will not be altered.
+/// In case of failure, one failure handling strategy is to clear or reformat the entire storage and try again.
+///
+/// The removal predicate, if provided, allows the caller to specify which registers need to be removed from the
+/// storage instead of being saved. This is useful for implementing the "factory reset" feature.
+template <std::predicate<std::string_view> ResetPredicate>
+[[nodiscard]] std::optional<platform::storage::Error> save(platform::storage::IKeyValue&            kv,
+                                                           const registry::IIntrospectableRegistry& rgy,
+                                                           const ResetPredicate&                    reset_predicate)
+{
+    for (std::size_t index = 0; index < rgy.size(); index++)
+    {
+        const auto reg_name_storage = rgy.index(index);  // This is a little suboptimal but we don't care.
+        const auto reg_name         = registry::view(reg_name_storage);
+        if (reg_name.empty())
+        {
+            break;  // No more registers to load.
+        }
+        // Reset is handled before any other checks to enhance forward compatibility.
+        if (reset_predicate(reg_name))
+        {
+            if (const auto err = kv.drop(reg_name); err && (err != platform::storage::Error::Existence))
+            {
+                return err;
+            }
+        }
+        // If we get nothing, this means that the register has disappeared from the storage.
+        // We do not save immutable registers because they are assumed to be constant, so no need to waste storage.
+        else if (const auto reg_meta = rgy.get(reg_name);
+                 reg_meta && reg_meta.value().flags.persistent && reg_meta.value().flags.mutable_)
+        {
+            // Now we have the register and we know that it is persistent, so we can save it.
+            std::array<std::uint8_t, uavcan_register_Value_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_> serialized{};
+            auto size = serialized.size();
+            if (uavcan_register_Value_1_0_serialize_(&reg_meta.value().value, serialized.data(), &size) < 0)
+            {
+                std::unreachable();
+            }
+            if (const auto err = kv.put(reg_name, size, serialized.data()); err)
+            {
+                return err;
+            }
+        }
+        else
+        {
+            (void) 0;  // Nothing to do -- the register needs to be neither reset nor saved.
+        }
+    }
+    return std::nullopt;
+}
+[[nodiscard]] inline std::optional<platform::storage::Error> save(platform::storage::IKeyValue&            kv,
+                                                                  const registry::IIntrospectableRegistry& rgy)
+{
+    return save(kv, rgy, [](std::string_view) { return false; });
+}
+```
