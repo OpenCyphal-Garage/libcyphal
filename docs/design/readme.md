@@ -138,24 +138,28 @@ It is desirable to move `getTypeID` into Cetl to simplify its reuse between diff
 In the interest of minimizing the deviations from relevant high-integrity software design guidelines, the dependency on metaprogramming is reduced to the bare minimum. As will be seen later, this choice requires some form of runtime type identification and dynamic casting to support the handling of DSDL objects. Without the full RTTI support, one cannot rely on the built-in `dynamic_cast` conversion; this can be worked around with a simplified version presented below that makes use of `getTypeID`:
 
 ```c++
-/// Types that require RTTI will implement this.
-class IRTTI
-{
-public:
-    /// Returns the concrete type of the object.
-    [[nodiscard]] virtual TypeID type() const noexcept = 0;
-    // rule of 5
-};
-
 /// Returns a converted pointer if the type of the operand is Target and the operand is not nullptr.
-/// Otherwise, returns nullptr. The type of the operand shall implement IRTTI.
+/// Otherwise, returns nullptr. The type of the operand shall implement .type() const noexcept -> TypeID.
 template <typename Target,
           typename Iface,
-          typename = std::enable_if_t<std::is_base_of<Iface, Target>::value>,
-          typename = std::enable_if_t<std::is_base_of<IRTTI, Iface>::value>>
+          typename = std::enable_if_t<std::is_base_of<Iface, Target>::value>,  // This constraint is optional.
+          typename = std::enable_if_t<std::is_same_v<TypeID, decltype(std::declval<Iface>().type())>>>
 [[nodiscard]] Target* strict_dynamic_cast(Iface* const operand) noexcept
 {
     if ((operand != nullptr) && (operand->type() == getTypeID<std::decay_t<Target>>()))
+    {
+        return static_cast<Target*>(operand);
+    }
+    return nullptr;
+}
+/// Overload for DSDL-generated types where _type_() is used instead of type().
+template <typename Target,
+          typename Iface,
+          typename = std::enable_if_t<std::is_base_of<Iface, Target>::value>,  // This constraint is optional.
+          typename = std::enable_if_t<std::is_same_v<TypeID, decltype(std::declval<Iface>()._type_())>>>
+[[nodiscard]] Target* strict_dynamic_cast(Iface* const operand) noexcept
+{
+    if ((operand != nullptr) && (operand->_type_() == getTypeID<std::decay_t<Target>>()))
     {
         return static_cast<Target*>(operand);
     }
