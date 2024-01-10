@@ -248,7 +248,7 @@ The library makes use of `std::chrono` via the following adapter:
 /// The internal time representation is in microseconds, which is in line with the lizards that use uint64_t-typed
 /// microsecond counters throughout.
 ///
-/// The now() method is NOT implemnted by the library; the user code is expected to provide a suitable implementation
+/// The now() method is NOT implemented by the library; the user code is expected to provide a suitable implementation
 /// instead depending on the requirements of the application. A possible implementation on a POSIX-like platform is:
 ///
 ///     MonotonicClock::time_point MonotonicClock::now() noexcept
@@ -511,6 +511,8 @@ The set of file descriptors and timeouts is reconstructed from scratch after eve
 This proposal differs from the first one in that it keeps the set of pollable entities outside of the poll loop, allowing efficient use of `epoll` and similar APIs that store the list of polled items in the kernel space (stateless multiplexing APIs are also usable with this method). This is done via `IMultiplexer`:
 
 ```c++
+/// A multiplexer with an empty set of pollable entities will block until the deadline.
+/// If the pollable set is empty and there is no deadline set, the behavior is unspecified.
 class IMultiplexer
 {
 public:
@@ -537,8 +539,7 @@ public:
     /// The readable/writeable callbacks define which operations are of interest;
     /// callbacks for irrelevant operations shall be empty.
     ///
-    /// Returns the remover callback to be invoked to remove the pollable from the set.
-    /// The remover callback shall be used at most once and it must not outlive its multiplexer.
+    /// Returns a RAII handle that removes the pollable from the set when destroyed.
     /// The lifetime of the pollable reference may end upon return.
     [[nodiscard]] virtual
     cetl::expected<Handle, cetl::variant<ArgumentError, PlatformError>>
@@ -620,6 +621,8 @@ public:
                                                void* const destination,
                                                const std::size_t length_bytes) const = 0;
         [[nodiscard]] virtual std::size_t size() const = 0;
+
+    protected:
         Iface() = default;
         Iface(const Iface&) = delete;
         Iface(Iface&&) = default;
@@ -731,7 +734,7 @@ public:
 };
 ```
 
-If `ITxSocket::send` returns false, indicating that the socket is not ready to accept writes, the implementation would normally register this occurrence internally and then register the socket's file descriptor for writing via `IPollSet::output` at the next `IRunnable::run` or via `IMultiplexer::add,` depending on which proposal is chosen. This behavior ensures that write polling will only be performed if there are pending transmissions. In the first case (the stateless case with `IPollSet`), one potential limitation to be aware of is that in the following call sequence, the pending transmission becomes delayed by one `run` cycle:
+If `ITxSocket::send` returns false, indicating that the socket is not ready to accept writes, the implementation would normally register this occurrence internally and then register the socket's file descriptor for writing via `IPollSet::output` at the next `IRunnable::run` or via `IMultiplexer::add`, depending on which proposal is chosen. This behavior ensures that write polling will only be performed if there are pending transmissions. In the first case (the stateless case with `IPollSet`), one potential limitation to be aware of is that in the following call sequence, the pending transmission becomes delayed by one `run` cycle:
 
 - Initially, no pending transmission is registered (no data to send).
 - `run` is called, but no pending transmission is registered, so `output` is not called.
