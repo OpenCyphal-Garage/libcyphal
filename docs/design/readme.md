@@ -30,7 +30,7 @@ In certain minimal applications, the transport layer can be used directly, indep
 
 Exceptions are not leveraged by the library itself, but it is designed to be exception-aware, allowing its integration into applications that make use of exception handling.
 
-Runtime type identification is not required but allowed as an optional feature to facilitate dynamic linking when used in a high-level operating system; more on this later.
+Runtime type identification is not required; a substitute is provided through the CETL library. The objective is to eliminate the dependency on the opaque compiler-generated code and avoid unspecified-complexity operations at runtime.
 
 Usage of the heap is reduced to the bare minimum and is done strictly via polymorphic memory resources without any reliance on the global heap. Most allocations are done once during initialization; with the exceptions listed below, the library will not perform further allocations at runtime unless the application needs to change its port configuration (i.e., subscriptions/publications/RPC) dynamically at runtime, which is rarely seen in embedded real-time systems. The exceptions to the no-memory-allocation policy are as follows:
 
@@ -42,7 +42,11 @@ Unconventionally, dynamic typing is leveraged with care in certain platform-spec
 
 ### RTTI and dynamic linking considerations
 
-As will be seen later, certain design features are dependent on the ability to detect identical types at runtime, yet the library must be usable without the RTTI capability of the C++ runtime. The following construct is used to provide a small subset of RTTI features that happens to be sufficient for the needs of the library:
+As will be seen later, certain design features are dependent on the ability to detect identical types at runtime, yet the library must be usable without the RTTI capability of the C++ runtime.
+
+#### First proposal: Static address based type identification (REJECTED)
+
+The following construct is used to provide a small subset of RTTI features that happens to be sufficient for the needs of the library:
 
 ```c++
 /// A simplified substitute for RTTI that allows querying the identity of types.
@@ -133,26 +137,19 @@ It is worth noting that the same (in essence) approach is used for runtime type 
 
 It is desirable to move `getTypeID` into Cetl to simplify its reuse between different components, such as LibCyphal and Nunavut-generated types.
 
+#### Second proposal: UUID (ACCEPTED)
+
+Use manually-assigned UUID for type identification exposed via a dedicated virtual method as described here: <https://github.com/OpenCyphal/CETL/issues/51>. Said method will be referred to as `_type_()` in the rest of this document.
+
 ### Safe dynamic type conversion without RTTI
 
-In the interest of minimizing the deviations from relevant high-integrity software design guidelines, the dependency on metaprogramming is reduced to the bare minimum. As will be seen later, this choice requires some form of runtime type identification and dynamic casting to support the handling of DSDL objects. Without the full RTTI support, one cannot rely on the built-in `dynamic_cast` conversion; this can be worked around with a simplified version presented below that makes use of `getTypeID`:
+In the interest of minimizing the deviations from relevant high-integrity software design guidelines, the dependency on metaprogramming is reduced to the bare minimum. As will be seen later, this choice requires some form of runtime type identification and dynamic casting to support the handling of DSDL objects. Without the full RTTI support, one cannot rely on the built-in `dynamic_cast` conversion; this can be worked around with a simplified version presented below that makes use of the RTTI substitutes introduced earlier:
 
 ```c++
 /// Returns a converted pointer if the type of the operand is Target and the operand is not nullptr.
-/// Otherwise, returns nullptr. The type of the operand shall implement .type() const noexcept -> TypeID.
-template <typename Target,
-          typename Iface,
-          typename = std::enable_if_t<std::is_base_of<Iface, Target>::value>,  // This constraint is optional.
-          typename = std::enable_if_t<std::is_same_v<TypeID, decltype(std::declval<Iface>().type())>>>
-[[nodiscard]] Target* strict_dynamic_cast(Iface* const operand) noexcept
-{
-    if ((operand != nullptr) && (operand->type() == getTypeID<std::decay_t<Target>>()))
-    {
-        return static_cast<Target*>(operand);
-    }
-    return nullptr;
-}
-/// Overload for DSDL-generated types where _type_() is used instead of type().
+/// Otherwise, returns nullptr.
+/// The type of the operand shall implement ._type_() const noexcept -> TypeID.
+/// We use "_type_" instead of "type" to avoid name collisions with DSDL-generated types.
 template <typename Target,
           typename Iface,
           typename = std::enable_if_t<std::is_base_of<Iface, Target>::value>,  // This constraint is optional.
@@ -169,7 +166,7 @@ template <typename Target,
 
 ### Error handling
 
-With the C++ exceptions being avoided on purpose, the library heavily utilizes algebraic types for error handling. A class similar to `std::expected` is expected to be available in Cetl for this purpose. Aside from that, `std::variant` or its Cetl alternative is used to hold one of the possible error states, where each state has a distinct type that is possibly parameterized with error-kind-specific information (such as `errno` value for platform-related errors, etc).
+With the C++ exceptions being avoided on purpose, the library heavily utilizes algebraic types for error handling. A class similar to `std::expected` is expected to be available in CETL for this purpose. Aside from that, `std::variant` or its CETL alternative is used to hold one of the possible error states, where each state has a distinct type that is possibly parameterized with error-kind-specific information (such as `errno` value for platform-related errors, etc).
 
 This approach to error handling causes one particular task to occur often: the list of possible error states held in a `std::variant` often needs to be amended with additional states by functions located higher up the call stack. To address this, we introduce the following helper:
 
@@ -192,23 +189,19 @@ template <typename T, typename... Args>
 using AppendType = typename detail::AppendType<T, Args...>::Result;
 ```
 
-### Heapless Any
+### PMR-aware `cetl::any`
 
-LibCyphal will include a heapless reimplementation of `std::any` needed to support type erasure without needing heap allocation.
+LibCyphal will depend on a PMR-aware reimplementation of `std::any` provided by CETL, referred to as `cetl::any`. Optional small-object optimization may also be implemented to reduce the reliance on PMR-provided memory.
 
-This implementation of `any` stores the contained object inside a private memory arena instead of the heap; the size of the arena is specified as a type parameter. Compile-time checks are provided to ensure that the arena is large enough to contain the object.
+To facilitate handling of expensive-to-copy or non-copyable objects such as memory buffers, this implementation of `any` should rely on moving instead of copying where possible.
 
-Further, to facilitate handling of expensive-to-copy or non-copyable objects, this implementation of `any`, unlike `std::any`, relies on moving instead of copying.
-
-Unlike `std::any`, this custom class does not make use of RTTI, relying on `getTypeID` introduced earlier instead.
-
-An original implementation is available at https://godbolt.org/z/v5hsvYYa4.
+Unlike `std::any`, this custom class does not make use of RTTI, relying on the RTTI substitute introduced earlier instead.
 
 This type enables dynamic typing with runtime type safety checking, which is used to facilitate certain design options introduced later.
 
-### Type erasure without a heap
+### Type erasure without pointers
 
-Article [Inheritance Without Pointers](https://www.fluentcpp.com/2021/01/29/inheritance-without-pointers/) provides an interesting approach to implementing type erasure without heap based on `std::any`. LibCyphal makes use of its own heapless implementation of `any` to the same end. The resulting container type is defined as follows:
+Article [Inheritance Without Pointers](https://www.fluentcpp.com/2021/01/29/inheritance-without-pointers/) provides an interesting approach to implementing type erasure without heap based on `std::any`. LibCyphal makes use of `cetl::any` to the same end. The resulting container type is defined as follows:
 
 ```c++
 /// A generalized implementation of https://www.fluentcpp.com/2021/01/29/inheritance-without-pointers/
@@ -239,20 +232,41 @@ private:
 };
 ```
 
-### Type-erased lambdas
+### PMR-aware `cetl::function`
 
-Similar to `any`, LibCyphal will provide a custom heapless reimplementation of `std::function` that allocates the callable inside a private arena rather than the heap.
+Similar to `cetl::any`, LibCyphal will require a custom heapless `cetl::function` that allocates the callable inside either a private arena or a PMR-provided buffer rather than the default heap.
+
+### PMR-enabled `cetl::shared_ptr`
+
+Certain parts of the presentation layer, possibly along with other parts of the library, will share certain PMR-allocated resources internally. While it is possible to implement reference counting ad-hoc, it is desirable to extract this concern into a separate entity, said entity being a PMR-aware shared pointer implementation. By "PMR-aware," we mean that the pointer takes a reference to `std::pmr::memory_resource` upon construction and uses that memory resource to allocate the reference counter instead of using the free store. Similarly, a `cetl::make_shared` factory is needed that takes a PMR reference in a similar fashion to allocate the reference counter in the same memory block with the shared object.
+
+### Time primitives
+
+The library makes use of `std::chrono` via the following adapter:
 
 ```c++
-/// The footprint specifies the maximum size of the callable in bytes.
-/// An attempt to use a larger callable will result in a compile-time error.
-template <std::size_t Footprint, typename T, typename... Args>
-class Function final;
+/// The internal time representation is in microseconds, which is in line with the lizards that use uint64_t-typed
+/// microsecond counters throughout.
+///
+/// The now() method is NOT implemnted by the library; the user code is expected to provide a suitable implementation
+/// instead depending on the requirements of the application. A possible implementation on a POSIX-like platform is:
+///
+///     MonotonicClock::time_point MonotonicClock::now() noexcept
+///     { return std::chrono::time_point_cast<time_point>(std::chrono::steady_clock::now()); }
+struct MonotonicClock final
+{
+    using rep        = std::int64_t;
+    using period     = std::micro;
+    using duration   = std::chrono::duration<rep, period>;
+    using time_point = std::chrono::time_point<MonotonicClock>;
+
+    [[maybe_unused]] static constexpr bool is_steady = true;
+
+    [[nodiscard]] static time_point now() noexcept;
+};
+using TimePoint = MonotonicClock::time_point;
+using Duration  = MonotonicClock::duration;
 ```
-
-### PMR-enabled shared pointer
-
-Certain parts of the presentation layer, possibly along with other parts of the library, will share certain heap-allocated resources internally. While it is possible to implement reference counting ad-hoc, it is desirable to extract this concern into a separate entity, said entity being a PMR-aware shared pointer implementation. By "PMR-aware," we mean that the pointer takes a reference to `std::pmr::memory_resource` upon construction and uses that memory resource to allocate the reference counter instead of using the free store. Similarly, a `makeShared` factory is needed that takes a PMR reference in a similar fashion to allocate the reference counter in the same memory block with the shared object.
 
 ## Transport layer
 
@@ -448,7 +462,7 @@ public:
 };
 ```
 
-##### First proposal: Stateless
+##### First proposal: Stateless (REJECTED)
 
 The `IPollSet` provides the ability for a runnable item to specify a pollable platform resource it is blocked on; the platform resource is interfaced via `IPollable`. This allows the external layers to suspend execution of the thread managing the current `IRunnable` (or set thereof) after the last call to `run` until the underlying resource is ready to be handled. An instance implementing `IPollSet` is constructed at the beginning of each polling cycle and destroyed at the end of it; the poll set is reconstructed from scratch at each cycle. A reference to the current poll set instance is passed to the runnable entities via `IRunnable::run(const TimePoint now, IPollSet& poll_set)`. The poll set is defined approximately as follows:
 
@@ -492,24 +506,11 @@ The set of file descriptors and timeouts is reconstructed from scratch after eve
 2. High-performance I/O multiplexing mechanisms that store the set of file descriptors in the kernel space (e.g., `epoll`, `kqueue`) are not well-suited for this design, as they would necessitate multiple system calls per `run` just to keep the list of FDs up to date. Traditional stateless APIs, such as `poll` or `select`, should be used instead.
 3. In multi-threaded environments, a file descriptor may be closed while an IO mux call is blocked on it. This case is usually managed predictably by known IO mux functions.
 
-##### Second proposal: Stateful
+##### Second proposal: Stateful (ACCEPTED)
 
 This proposal differs from the first one in that it keeps the set of pollable entities outside of the poll loop, allowing efficient use of `epoll` and similar APIs that store the list of polled items in the kernel space (stateless multiplexing APIs are also usable with this method). This is done via `IMultiplexer`:
 
 ```c++
-/// This amount of space should be enough to capture all relevant context.
-/// If not, a compile-time error will result.
-constexpr std::size_t PollableFootprint = sizeof(void*) * 8;
-constexpr std::size_t CallbackFootprint = sizeof(void*) * 8;
-
-/// Pollable contains a platform-specific I/O resource handle, such as a file descriptor.
-/// Media layer implementations use this container to share the resource with the implementation of
-/// the execution policies for I/O multiplexing.
-/// We use UniqueAny here because it is readily available; it doesn't actually need to be unique.
-using Pollable = UniqueAny<PollableFootprint>;
-/// The readiness callback is invoked when the I/O becomes readable or writeable.
-using ReadyCb = Function<void(), CallbackFootprint>;
-
 class IMultiplexer
 {
 public:
@@ -526,19 +527,24 @@ public:
         Handle& operator=(Handle&&)      = default;
         ~Handle() noexcept { cb_(); }
     private:
-        Function<void() noexcept, CallbackFootprint> cb_;
+        cetl::function<void() noexcept> cb_;
     };
 
+    /// The pollable contains a platform-specific I/O resource handle, such as a file descriptor.
+    /// Media layer implementations use this container to share the resource with the implementation of
+    /// the execution policies for I/O multiplexing.
+    ///
+    /// The readable/writeable callbacks define which operations are of interest;
+    /// callbacks for irrelevant operations shall be empty.
+    ///
     /// Returns the remover callback to be invoked to remove the pollable from the set.
     /// The remover callback shall be used at most once and it must not outlive its multiplexer.
     /// The lifetime of the pollable reference may end upon return.
-    /// The readable/writeable callbacks define which operations are of interest;
-    /// callbacks for irrelevant operations shall be empty.
     [[nodiscard]] virtual
-    std::expected<Handle, std::variant<ArgumentError, PlatformError>>
-    add(const Pollable&               pollable,
-        const std::optional<ReadyCb>& on_readable,
-        const std::optional<ReadyCb>& on_writable) noexcept = 0;
+    cetl::expected<Handle, cetl::variant<ArgumentError, PlatformError>>
+    add(const cetl::any&                                      pollable,
+        const std::optional<cetl::function<void() noexcept>>& on_readable,
+        const std::optional<cetl::function<void() noexcept>>& on_writable) noexcept = 0;
 
     /// The next poll cycle will be executed by this deadline or earlier.
     /// Once set, a deadline cannot be removed. All deadlines are cleared by the next poll cycle.
@@ -546,11 +552,9 @@ public:
 };
 ```
 
-The `Pollable` wrapper is intended to shield the library and its interfaces from the knowledge of the specific I/O handles used by the platform it is running on. Both the media layer implementations that obtain the handles from the platform (e.g., file descriptors) and the execution policy implementations are expected to be aware of the specific resource in use, and thus, the execution policy can safely extract the correct type from the `Pollable` container. Runtime type checking is provided via `any_cast`.
+The pollable wrapped in `cetl::any` is intended to shield the library and its interfaces from the knowledge of the specific I/O handles used by the platform it is running on. Both the media layer implementations that obtain the handles from the platform (e.g., file descriptors) and the execution policy implementations are expected to be aware of the specific resource in use, and thus, the execution policy can safely extract the correct type from the `cetl::any` container.
 
 Being stateful, this solution requires the media layer implementations to add and remove descriptors only when necessary rather than reconstructing the set from scratch at every iteration. The risk of resource leakage is mitigated with the help of the RAII-only handles returned by the `add` method.
-
-The `Function` template used here is similar to `std::function` except that it stores the callable locally without the use of the heap; hence, the memory footprint of the callable needs to be specified statically.
 
 The disadvantages to be aware of are as follows:
 
@@ -576,6 +580,8 @@ The Response-Rx and Request-Tx sessions match the model proposed in the Specific
 While it is possible to return type-erased entities implementing a specific interface by value (as shown earlier), this approach cannot be used for sessions because lizards typically require entities used for the implementation of sessions to be pinned in memory. The session factory methods, therefore, return PMR-allocated objects via unique pointers. Transport implementations will necessarily have to be aware of the full set of sessions extant at any moment; for this, internally, sessions are kept arranged in containers such as linked lists or AVL trees (see [Cavl](https://github.com/pavel-kirienko/cavl)). Session destructors (invoked when the unique pointer is destroyed) are used to delist the destroyed element from the internal containers and perform other activities associated with the removal of a session, such as closing UDP sockets, etc.
 
 Session view methods such as `ITransport::viewMessageRxSessions` provide a view into the internal containers holding the active sessions via begin/end iterators. Conventionally, iterators are manipulated by value, and yet their behavior is highly transport-specific because they have to access the internal container of sessions, which calls for polymorphism. To address this, we define a polymorphic iterator interface and return iterators by value wrapped into `ImplementationCell<>` introduced earlier. It is assumed that the application will not attempt to mutate the set of sessions while iteration is in progress.
+
+In order to avoid unexpected runtime costs of object destruction, de-initialization of underlying resources is not performed at the time of destruction of transport sessions but postponed until the next `IRunnable::run` or even later, depending on the execution policy. An exception to this rule applies if there is pending deinitialization at the time of destruction of the transport instance itself; in this case, deinitialization will be forced to complete from the transport destructor context.
 
 #### Session data flow
 
@@ -648,11 +654,11 @@ private:
 The Cyphal/CAN transport is underpinned by the following non-blocking media layer API that operates on extended CAN frames (either Classic CAN or CAN FD):
 
 ```c++
-/// The IRunnable interface allows the higher layers to retrieve the IO descriptors for polling.
-class IMedia : public IRunnable
+class IMedia
 {
 public:
-    /// This value is constant after initialization.
+    /// This value may change arbitrarily at runtime. The transport implementation will query it before every
+    /// transmission on the port. This value has no effect on the reception pipeline as it can accept arbitrary MTU.
     [[nodiscard]] virtual std::uint16_t getMTU() const noexcept = 0;
 
     /// If there are fewer hardware filters available than requested, the configuration will be coalesced as described
@@ -735,8 +741,7 @@ If `ITxSocket::send` returns false, indicating that the socket is not ready to a
 The second case (the stateful case) does not have such limitations as it allows the multiplexer to modify the poll set on the fly.
 
 ```c++
-/// The IRunnable interface allows the higher layers to retrieve the IO descriptors for polling.
-class ITxSocket : public IRunnable
+class ITxSocket
 {
 public:
     /// Returns true if the frame has been accepted successfully, false if the socket is not ready for writing.
@@ -749,7 +754,8 @@ public:
 
     /// This is the Cyphal-layer MTU, which is the maximum number of payload bytes per Cyphal frame.
     /// To guarantee a single frame transfer, the maximum payload size shall be 4 bytes less to accommodate the CRC.
-    /// The MTU is set per Tx socket individually and it must remain constant after initialization.
+    /// The MTU is set per Tx socket individually and it may change at runtime arbitrarily; the transport
+    /// implementation will query the MTU before every transmission.
     virtual [[nodiscard]] std::size_t getMTU() const noexcept { return DefaultMTU; }
 
     /// The default MTU is derived as:
@@ -759,13 +765,16 @@ public:
 ```
 
 ```c++
-/// The IRunnable interface allows the higher layers to retrieve the IO descriptors for polling.
-class IRxSocket : public IRunnable
+class IRxSocket
 {
 public:
-    /// Returns the size of the payload received, or an empty option if the socket is not readable.
-    virtual [[nodiscard]] std::expected<std::optional<std::size_t>, std::variant<PlatformError, ArgumentError>>
-    receive(const std::span<std::byte> payload_buffer) = 0;
+    /// Payload is returned as a pointer to the heap. The buffer is allocated using the allocator given to the media
+    /// instance. We use heap allocation here because LibUDPard takes ownership of the payload and then transfers it
+    /// to the upper layers without copying via DynamicBuffer.
+    virtual [[nodiscard]]
+    std::expected<std::optional<std::tuple<std::size_t, cetl::unique_ptr<std::byte[]>>>,
+                  std::variant<PlatformError, ArgumentError, MemoryError>>
+    receive() = 0;
 };
 ```
 
@@ -827,20 +836,16 @@ explicit RedundantTransport(std::pmr::memory_resource& memory);
 The presentation layer is the first layer that deals with DSDL-generated types. A conventional design would heavily rely on metaprogramming here, providing generic classes parameterized with a DSDL type. This is not a viable choice for LibCyphal because the minimization of template metaprogramming is one of its core design goals. Hence, the design proposed here intentionally avoids static polymorphism where reasonable, preferring runtime polymorphism instead. To this end, the Nunavut C++ generator needs to be modified to ship an interface called `IComposite` as part of its support library, which is to be implemented by generated types:
 
 ```c++
-class IComposite
+/// The cetl::IPolymorphicType interface is supposed to provide the _type_() method, as described earlier
+/// (sic! underscores needed to avoid name conflicts), used for runtime type identification.
+class IComposite : public cetl::IPolymorphicType
 {
 public:
-    [[nodiscard]] virtual SerializeResult _serialize_(nunavut::support::bitspan out_buffer) const = 0;
-    [[nodiscard]] virtual SerializeResult _deserialize_(nunavut::support::const_bitspan in_buffer) = 0;
+    [[nodiscard]] virtual SerializeResult _serialize_(cetl::bitspan out_buffer) const = 0;
+    [[nodiscard]] virtual SerializeResult _deserialize_(cetl::const_bitspan in_buffer) = 0;
     [[nodiscard]] virtual std::string_view _name_() const noexcept = 0;
 
-    // This is only viable if both LibCyphal and Nunavut leverage the same getTypeID.
-    // That requires either moving getTypeID into the Nunavut support library, which means LibCyphal becomes
-    // unconditionally dependent on Nunavut; or modifying Nunavut C++ templates such that they use getTypeID
-    // defined in LibCyphal; or moving this into Cetl. This method is not strictly required because without it
-    // we can still rely on _name_ for DSDL type identification.
-    [[nodiscard]] virtual TypeID _type_() const noexcept = 0;
-
+protected:
     IComposite()                             = default;
     IComposite(const IComposite&)            = default;
     IComposite(IComposite&&)                 = default;
@@ -848,31 +853,19 @@ public:
     IComposite& operator=(IComposite&&)      = default;
     virtual ~IComposite() noexcept           = default;
 };
-
-// This is only needed if the _type_() method is not available; otherwise, strict_dynamic_cast should be used.
-template <typename T>
-T* dsdl_cast(IComposite* const obj) noexcept
-{
-    if ((obj != nullptr) && (typename T::_traits_::name == obj->_name_()))
-    {
-        return static_cast<T*>(obj);
-    }
-    return nullptr;
-}
 ```
 
 The above is based on the ideas discussed here: <https://forum.opencyphal.org/t/api-proposal-for-libcyphal/1850/2?u=pavel.kirienko>.
 
 The core part of the presentation layer is a non-polymorphic non-generic controller class called `Presentation`. The class is equipped with factory methods for the four kinds of port objects: publishers, subscribers, RPC clients, and RPC servers. Said factory methods and the types they produce are *some of the very few template entities in the entire library*. Objects produced by the factory methods are returned (moved) by value relying on NRVO; the alternative would be to use heap, but it is desirable and possible to minimize its usage.
 
+There may be an arbitrary number of publishers/subscribers/clients on a given port-ID (servers are special). Internally, all ports on a given port-ID refer to the same object that is hidden from the user; said object is heap-allocated and is destroyed automatically when the last port object using its port-ID is destroyed. Certain port properties, such as the transfer-ID timeout, are shared across all ports under the same port-ID.
+
+In order to avoid unexpected runtime costs of object destruction, de-initialization of transport sessions is not performed at the time of destruction of presentation-layer entities but postponed until the next `IRunnable::run` or even later, depending on the execution policy. An exception to this rule applies if there is pending deinitialization at the time of destruction of the presentation controller itself; in this case, deinitialization will be forced to complete from the presentation destructor context.
+
+Server objects are different in that there is at most one per service-ID.
+
 ```c++
-/// There may be an arbitrary number of publishers/subscribers/clients on a given port-ID (servers are special).
-/// Internally, all ports on a given port-ID refer to the same object that is hidden from the user;
-/// said object is heap-allocated and is destroyed automatically when the last port object using its port-ID
-/// is destroyed. Certain port properties, such as the transfer-ID timeout, are shared across all ports under
-/// the same port-ID.
-///
-/// Server objects are different in that there is at most one per service-ID.
 class Presentation final
 {
 public:
@@ -888,12 +881,21 @@ public:
     // moving the transfer-ID counters into a separate PMR-aware dynamic container (subject-ID -> transfer-ID), like
     // std::unordered_map<std::uint16_t, std::uint64_t>. If not, the application can always ensure that the transfer-ID
     // state is not lost by creating a dummy publisher instance whose only purpose is to keep the counter alive.
+    //
+    // If the message is void, a specialized publisher is constructed that operates on pre-serialized raw blobs.
+    // See the specialization for usage details.
     template <typename Message>
     [[nodiscard]] std::expected<Publisher<Message>, Error> makePublisher(const std::uint16_t subject_id);
 
     // An additional template parameter may be added later specifying the depth of the FIFO queue.
     // If the queue is full, the oldest messages are dropped (newer messages take precedence).
     // For now, the queue depth is 1, meaning that subscribers behave like sampling ports.
+    //
+    // If the message is of type cetl::VariableLengthArray<cetl::byte, Allocator>, where Allocator may be arbitrary,
+    // a specialized subscriber is constructed that does not deserialize messages but returns the serialzied
+    // representation as-is after copying it into a new instance of the specified array type.
+    // Note that we can't just deliver DynamicBuffer to the application because it is non-copyable.
+    // See the specialization for usage details.
     template <typename Message>
     [[nodiscard]] std::expected<Subscriber<Message>, Error> makeSubscriber(const std::uint16_t subject_id);
 
@@ -905,11 +907,18 @@ public:
     // moving the transfer-ID counters into a separate PMR-aware dynamic container (service-ID -> transfer-ID), like
     // std::unordered_map<std::uint16_t, std::uint64_t>. If not, the application can always ensure that the transfer-ID
     // state is not lost by creating a dummy client instance whose only purpose is to keep the counter alive.
+    //
+    // If the service is of type void, a specialized client is constructed that does not serialize requests nor
+    // deserializes responses, but accepts raw pre-serialized requests and returns responses contained in DynamicBuffer
+    // as received from the transport layer. See the specialization for usage details.
     template <typename Service>
     [[nodiscard]] std::expected<Client<Service>, Error> makeClient(const std::uint16_t service_id,
-                                                                                      const std::uint16_t server_node_id);
+                                                                   const std::uint16_t server_node_id);
 
     // If such a server already exists, an error will be returned (error type TBD).
+    //
+    // If the service is of type void, a specialized server is constructed that operates on pre-serialized raw blobs.
+    // See the specialization for usage details.
     template <typename Service>
     [[nodiscard]] std::expected<UniquePtr<Server<Service>>, Error> getServer(const std::uint16_t service_id);
 
@@ -941,15 +950,6 @@ public:
     void setPriority(const Priority prio) noexcept;
     [[nodiscard]] Priority getPriority() noexcept;
 
-    /// Publish a pre-serialized message. For the overload that accepts the typed message object see the derived class.
-    /// The transport frames constructed from this message will be sent to the wire before the expiration of the
-    /// deadline or discarded.
-    [[nodiscard]] std::expected<void, Error> publish(const TimePoint deadline,
-                                                     const std::span<const std::byte> data)
-    {
-        return impl_->publish(deadline, prio_, data);
-    }
-
     // TODO: helper methods setTimeout()/getTimeout() may be added to support simpler publish overloads that
     // do not take the deadline but rather compute it automatically from the current time and the timeout.
 
@@ -961,10 +961,19 @@ public:
     virtual ~PublisherBase() noexcept              = default;
 
 protected:
-    explicit PublisherBase(const SharedPtr<PublisherImpl>& impl);
+    explicit PublisherBase(const cetl::shared_ptr<PublisherImpl>& impl);
+
+    /// Publish a pre-serialized message. For the overload that accepts the typed message object see the derived class.
+    /// The transport frames constructed from this message will be sent to the wire before the expiration of the
+    /// deadline or discarded.
+    [[nodiscard]] std::expected<void, Error> publish(const TimePoint deadline,
+                                                     const std::span<const std::byte> data)
+    {
+        return impl_->publish(deadline, prio_, data);
+    }
 
 private:
-    SharedPtr<PublisherImpl> impl_;
+    cetl::shared_ptr<PublisherImpl> impl_;
     Priority prio_ = Priority::Nominal;
 };
 
@@ -974,8 +983,6 @@ class Publisher final : public PublisherBase
 public:
     /// The set of error states is extended with the Nunavut errors because this class manages serialization.
     using Error = AppendType<PublisherBase::Error, nunavut::support::Error>;
-
-    using PublisherBase::publish;
 
     // This is a trivial wrapper over the raw publish method that serializes the message first.
     // We need to know the message type to allocate the temporary serialization buffer on the stack.
@@ -988,6 +995,14 @@ public:
         }
         return publish(deadline, buf);
     }
+};
+
+/// The void specialization allows the user to publish pre-serialized messages.
+template <>
+class Publisher<void> final : public PublisherBase
+{
+public:
+    using PublisherBase::publish;
 };
 ```
 
@@ -1033,18 +1048,18 @@ public:
     virtual ~SubscriberBase() noexcept               = default;
 
 protected:
-    explicit SubscriberBase(const SharedPtr<PublisherImpl>& impl);
+    explicit SubscriberBase(const cetl::shared_ptr<SubscriberImpl>& impl);
 
     [[nodiscard]] virtual nunavut::support::SerializeResult doAccept(const Metadata& meta,
-                                                                     const std::span<const std::byte> data) noexcept = 0;
+                                                                     const DynamicBuffer& data) noexcept = 0;
 
 private:
     /// This is invoked from SubscriberImpl when a new transfer for this subscription is received.
     /// The concrete subscriber implements this by invoking the auto-generated deserialization function.
     [[nodiscard]] nunavut::support::SerializeResult accept(const Metadata& meta,
-                                                           const std::span<const std::byte> data) noexcept;
+                                                           const DynamicBuffer& data) noexcept;
 
-    SharedPtr<SubscriberImpl> impl_;
+    cetl::shared_ptr<SubscriberImpl> impl_;
 };
 
 /// Another template parameter may be added later specifying the depth of the queue. For now it is always 1.
@@ -1068,7 +1083,7 @@ public:
 
 private:
     [[nodiscard]] nunavut::support::SerializeResult doAccept(const Metadata& meta,
-                                                             const std::span<const std::byte> data) noexcept override
+                                                             const DynamicBuffer& data) noexcept override
     {
         Message msg;
         if (const auto res = Message::deserialize(msg, data); !res)
@@ -1084,7 +1099,43 @@ private:
 
     /// Callbacks may also be provided, but this is likely to be postponed until v1.1+.
     /// They are to be invoked from doAccept.
-    std::optional<Function<sizeof(void*)*8, void(const Message&, const Metadata&)>> callback_;
+    std::optional<cetl::function<void(const Message&, const Metadata&)>> callback_;
+};
+
+/// A non-deserializing raw-blob specialization.
+/// The user can limit the message capacity by choosing the VLAAllocator appropriately.
+/// Messages exceeting the capacity will be truncated.
+template <typename VLAAllocator>
+class Subscriber<cetl::VariableLengthArray<cetl::byte, VLAAllocator>> final : public SubscriberBase
+{
+public:
+    using Message = cetl::VariableLengthArray<cetl::byte, VLAAllocator>;
+
+    /// Non-blockingly checks if there's a pending message; returns it if so.
+    /// The message is consumed.
+    [[nodiscard]] std::optional<std::tuple<Message, Metadata>> pop() noexcept;
+
+    /// Like pop but the message is not consumed.
+    /// The message is returned by reference whose lifetime ends at the next pop or run.
+    [[nodiscard]] std::optional<std::tuple<const Message&, Metadata>> peek() const noexcept;
+
+private:
+    [[nodiscard]] nunavut::support::SerializeResult doAccept(const Metadata& meta,
+                                                             const DynamicBuffer& data) noexcept override
+    {
+        Message msg;
+        msg.resize(std::min(data.size(), msg.max_max_size()));  // Excess will be truncated per Cyphal spec.
+        std::copy_n(std::begin(data), msg.size(), std::begin(msg));
+        msg_queue_.emplace(msg, meta);  // Overwrite the oldest message in case of queue overrun.
+        return {};
+    }
+
+    /// The one-message-deep FIFO queue. Its depth may be made adjustable in later revisions.
+    std::optional<std::tuple<Message, Metadata>> msg_queue_;
+
+    /// Callbacks may also be provided, but this is likely to be postponed until v1.1+.
+    /// They are to be invoked from doAccept.
+    std::optional<cetl::function<void(const Message&, const Metadata&)>> callback_;
 };
 ```
 
@@ -1114,13 +1165,13 @@ protected:
     [[nodiscard]] std::optional<std::tuple<DynamicBuffer, ServiceTransferMetadata>> getRaw() noexcept;
 };
 
-template <typename Service>
+template <typename Response>
 class ResponsePromise final : public ResponsePromiseBase
 {
 public:
     /// Checks if the response has arrived.
     /// The return value is either the received response (along with its metadata) or the time elapsed while waiting.
-    [[nodiscard]] std::variant<std::tuple<Service::Response, ServiceTransferMetadata>, Duration> get() noexcept;
+    [[nodiscard]] std::variant<std::tuple<Response, ServiceTransferMetadata>, Duration> get() noexcept;
 };
 
 struct TooManyPendingRequestsError final {};
@@ -1140,7 +1191,7 @@ public:
     void setTransferIDTimeout(const Duration dur) { impl_->setTransferIDTimeout(dur); }
 
 private:
-    SharedPtr<ClientImpl> impl_;
+    cetl::shared_ptr<ClientImpl> impl_;
 };
 
 template <typename Service>
@@ -1155,7 +1206,23 @@ public:
                                nunavut::support::Error>;
 
     /// Sends the request and returns a promise that will be materialized when the response is successfully received.
-    [[nodiscard]] std::expected<ResponsePromise<Service>, Error> request(const Service::Request& req);
+    [[nodiscard]] std::expected<ResponsePromise<Service::Response>, Error> request(const Service::Request& req);
+};
+
+/// The non-typed specialization that accepts the request as a raw blob and returns the response as a raw DynamicBuffer.
+template <>
+class Client<void> final : public ClientBase
+{
+public:
+    using Error = std::variant<AnonymousError,
+                               MemoryError,
+                               CapacityError,
+                               PlatformError,
+                               TooManyPendingRequestsError>;
+
+    /// Sends the request and returns a promise that will be materialized when the response is successfully received.
+    [[nodiscard]] std::expected<ResponsePromise<DynamicBuffer>, Error> request(
+        const std::span<const std::span<const cetl::byte>> req);
 };
 ```
 
@@ -1184,7 +1251,7 @@ class Server final : public ServerBase
 public:
     struct RequestContext final
     {
-        using Continuation = Function<sizeof(void*) * 8, std::expected<void, Error>(const Service::Response&)>;
+        using Continuation = cetl::function<std::expected<void, Error>(const Service::Response&)>;
 
         Service::Request request;
         Metadata         meta;
@@ -1202,7 +1269,35 @@ private:
     // Optionally, we can provide an IoC-style API, where the callback is invoked from the `IRunnable::run` context.
     // This method replaces get(). The handler is allowed to store the continuation for later use if the response cannot be
     // constructed ad-hoc (e.g., requires a slow asynchronous operation).
-    std::optional<Function<sizeof(void*) * 8, void(const RequestContext&)>> callback_;
+    std::optional<cetl::function<void(const RequestContext&)>> callback_;
+};
+
+/// The non-typed specialization that presents incoming requests as a raw DynamicBuffer and accepts responses as raw blobs.
+template <>
+class Server<void> final : public ServerBase
+{
+public:
+    struct RequestContext final
+    {
+        using Continuation = cetl::function<std::expected<void, Error>(const std::span<const std::span<const cetl::byte>>)>;
+
+        DynamicBuffer    request;
+        Metadata         meta;
+        Continuation     continuation;  ///< The continuation can be used at most once.
+    };
+
+    /// If there is a pending request waiting to be handled, returns its object along with its metadata and the response continuation.
+    /// The continuation is a closure that can be used to send the response later, if and when it is ready.
+    /// If the response does not need to be sent, the continuation object can be discarded.
+    /// The response continuation object can be used at most once. The ordering of response emission via the continuation objects
+    /// can be arbitrary and it does not need to match the request arrival ordering.
+    [[nodiscard]] std::optional<RequestContext> get();
+
+private:
+    // Optionally, we can provide an IoC-style API, where the callback is invoked from the `IRunnable::run` context.
+    // This method replaces get(). The handler is allowed to store the continuation for later use if the response cannot be
+    // constructed ad-hoc (e.g., requires a slow asynchronous operation).
+    std::optional<cetl::function<void(const RequestContext&)>> callback_;
 };
 ```
 
