@@ -923,7 +923,7 @@ public:
     // If the service is of type void, a specialized server is constructed that operates on pre-serialized raw blobs.
     // See the specialization for usage details.
     template <typename Service>
-    [[nodiscard]] std::expected<UniquePtr<Server<Service>>, Error> getServer(const std::uint16_t service_id);
+    [[nodiscard]] std::expected<UniquePtr<Server<Service>>, Error> makeServer(const std::uint16_t service_id);
 
     [[nodiscard]] transport::ITransport& getTransport() noexcept;
     [[nodiscard]] const transport::ITransport& getTransport() const noexcept;
