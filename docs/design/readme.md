@@ -270,6 +270,24 @@ using Duration  = MonotonicClock::duration;
 
 ## Transport layer
 
+### Homogeneous and heterogeneous redundancy
+
+A redundant transport is called "homogeneously redundant" if all aggregated transports implement the same Cyphal transport layer protocol. For example, a redundant transport aggregating two Cyphal/CAN interfaces is homogeneously redundant. The opposite is referred to as heterogeneous redundancy.
+
+Some lizards may implement built-in support for homogeneous redundancy (e.g., LibCANard and LibUDPard both support this). This enables arbitrarily complex redundant transport configurations, such as the example shown below:
+
+```mermaid
+flowchart BT
+    c00("Cyphal/CAN\n#0") --> libcanard0("LibCANard #0")
+    c01("Cyphal/CAN\n#1") --> libcanard0
+
+    u00("Cyphal/UDP\n#0") --> libudpard0("LibUDPard #0")
+    u01("Cyphal/UDP\n#1") --> libudpard0
+
+    libudpard0 --> red0("LibCyphal\nRedundantTransport")
+    libcanard0 --> red0
+```
+
 ### Overview
 
 ```mermaid height=207,auto
@@ -493,7 +511,7 @@ class IPollSet
 {
 public:
     virtual void addPollable(const IPollable& pollable) = 0;   ///< Block until I/O is possible.
-    virtual void addDeadline(const TimePoint deadline) = 0;  ///< Block untli deadline.
+    virtual void addDeadline(const TimePoint deadline) = 0;  ///< Block until deadline.
 };
 ```
 
@@ -846,7 +864,8 @@ class IComposite : public cetl::IPolymorphicType
 public:
     [[nodiscard]] virtual SerializeResult _serialize_(cetl::bitspan out_buffer) const = 0;
     [[nodiscard]] virtual SerializeResult _deserialize_(cetl::const_bitspan in_buffer) = 0;
-    [[nodiscard]] virtual std::string_view _name_() const noexcept = 0;
+    [[nodiscard]] virtual std::string_view _getFullName_() const noexcept = 0;
+    [[nodiscard]] virtual std::string_view _getFullNameAndVersion_() const noexcept = 0;
 
 protected:
     IComposite()                             = default;
@@ -1172,14 +1191,27 @@ template <typename Response>
 class ResponsePromise final : public ResponsePromiseBase
 {
 public:
-    /// Checks if the response has arrived.
+    /// An empty option represents that the call has timed out.
+    using Callback = cetl::function<void(const std::optional<std::tuple<const Response&, const ServiceTransferMetadata&>>)>;
+
+    /// Checks if the response has arrived. Do not use this method if a callback is set.
     /// The return value is either the received response (along with its metadata) or the time elapsed while waiting.
     [[nodiscard]] std::variant<std::tuple<Response, ServiceTransferMetadata>, Duration> get() noexcept;
+
+    /// The user may opt to subscribe for a callback when the promise is materialized or the deadline is reached.
+    /// The callback is invoked from the IRunnable::run context servicing the underlying client instance.
+    /// In this case, get() should not be used.
+    /// If a callback is already set, it is silently overwritten.
+    void setCallback(const Callback& cb, const TimePoint deadline) { callback_ = cb; deadline_ = deadline; }
+
+private:
+    Callback callback_;
+    TimePoint deadline_;
 };
 
 struct TooManyPendingRequestsError final {};
 
-class ClientBase
+class ClientBase : public IRunnable
 {
 public:
     [[nodiscard]]       transport::IRequestTxSession& getRequestSession()       noexcept;
@@ -1359,11 +1391,11 @@ public:
 
     /// Reads the current value of the register. Empty if nonexistent.
     /// The worst-case complexity is log(n), where n is the number of registers.
-    [[nodiscard]] virtual std::optional<ValueWithMetadata> get(const std::string_view nm) const = 0;
+    [[nodiscard]] virtual std::optional<ValueWithMetadata> get(const std::string_view name) const = 0;
 
     /// Assign the register with the specified value.
     /// The worst-case complexity is log(n), where n is the number of registers.
-    [[nodiscard]] virtual std::optional<SetError> set(const std::string_view nm, const DSDLValue& val) = 0;
+    [[nodiscard]] virtual std::optional<SetError> set(const std::string_view name, const DSDLValue& val) = 0;
 };
 
 /// Extends the basic registry interface with additional methods that enable introspection.
@@ -1460,18 +1492,18 @@ public:
     Registry& operator=(const Registry&) = delete;
     Registry& operator=(Registry&&)      = delete;
 
-    [[nodiscard]] std::optional<ValueWithMetadata> get(const std::string_view nm) const override
+    [[nodiscard]] std::optional<ValueWithMetadata> get(const std::string_view name) const override
     {
-        if (const auto* const reg = find(nm))
+        if (const auto* const reg = find(name))
         {
             return reg->get();
         }
         return std::nullopt;
     }
 
-    [[nodiscard]] std::optional<SetError> set(const std::string_view nm, const Value& val) override
+    [[nodiscard]] std::optional<SetError> set(const std::string_view name, const Value& val) override
     {
-        if (auto* const reg = find(nm))
+        if (auto* const reg = find(name))
         {
             return reg->set(val);
         }
