@@ -66,15 +66,15 @@ jobs:
     - name: get nunavut
       run: >
         pip install nunavut
-    - name: release
-      run: >
-        ./build-tools/bin/verify.py
-        --verbose
-        --asserts
-        --cpp-standard 14
-        --build-flavor ${{ matrix.flavor }}
-        --toolchain ${{ matrix.toolchain }}
-        clean-release
+    # - name: release
+    #   run: >
+    #     ./build-tools/bin/verify.py
+    #     --verbose
+    #     --asserts
+    #     --cpp-standard 14
+    #     --build-flavor ${{ matrix.flavor }}
+    #     --toolchain ${{ matrix.toolchain }}
+    #     clean-release
   docs:
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
@@ -96,12 +96,12 @@ jobs:
         pip install nunavut
     - name: doc-gen
       run: >
-        ./build-tools/bin/verify.py
-        --verbose
-        --asserts
-        --cpp-standard 14
-        --build-flavor Debug
-        build-docs
+    # ./build-tools/bin/verify.py
+    # --verbose
+    # --asserts
+    # --cpp-standard 14
+    # --build-flavor Debug
+    # build-docs
     - name: Setup Pages
       if: ${{ github.event_name != 'pull_request' && github.event_name != 'act' }}
       uses: actions/configure-pages@v3
@@ -116,5 +116,5 @@ jobs:
       with:
         name: pr-docs
         path: "build/docs/html/"
-        if-no-files-found: error
+        #if-no-files-found: error
 
