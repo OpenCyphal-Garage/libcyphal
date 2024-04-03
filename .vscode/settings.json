@@ -151,7 +151,10 @@
         "span": "cpp",
         "__functional_base": "cpp",
         "__nullptr": "cpp",
-        "__string": "cpp"
+        "__string": "cpp",
+        "charconv": "cpp",
+        "complex": "cpp",
+        "execution": "cpp"
     },
     "python.analysis.typeCheckingMode": "basic",
     "sonarlint.pathToCompileCommands": "${workspaceFolder}/build/compile_commands.json",

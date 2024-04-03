@@ -10,7 +10,7 @@ include(cmake/CMakeCommon.cmake REQUIRED)
 project(libcyphal
         VERSION ${LIBCYPHAL_VERSION}
         LANGUAGES CXX C
-        HOMEPAGE_URL https://github.com/OpenCyphal/libcyphal
+        HOMEPAGE_URL https://github.com/OpenCyphal-Garage/libcyphal
 )
 
 add_subdirectory(test/unittest)

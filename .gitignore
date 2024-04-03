@@ -1,5 +1,15 @@
+# Dumb OS crap
+.DS_Store
+*.bak
 
 clang-format-diff-warnings
-build
 external/**/*
-.DS_Store
+
+# Build folders
+**/build/
+**/build_*/
+
+
+# JetBrains
+.idea/*
+cmake-build-*/

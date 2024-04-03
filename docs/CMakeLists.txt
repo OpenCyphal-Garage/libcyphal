@@ -129,7 +129,7 @@ endfunction(create_docs_target)
 file(GLOB_RECURSE DOXYGEN_INPUT_LIST
     LIST_DIRECTORIES false
     CONFIGURE_DEPENDS
-    ${LIBCYPHAL_ROOT}/libcyphal/include/**/*.hpp
+    ${LIBCYPHAL_ROOT}/include/libcyphal/**/*.hpp
 )
 
 get_property(LOCAL_EXAMPLES DIRECTORY "examples" PROPERTY IN_BUILD_TESTS)

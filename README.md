@@ -1,4 +1,4 @@
-![Cyphal](doc_source/images/html/opencyphal_logo.svg) Cyphal stack in C++
+![Cyphal](docs/images/html/opencyphal_logo.svg) Cyphal stack in C++
 ===================
 
 [![Build Status](https://badge.buildkite.com/af844974c06af6406e3b2192d98298b02b30f6ebebb5f8b16c.svg)](https://buildkite.com/uavcan/libcyphal-v1)

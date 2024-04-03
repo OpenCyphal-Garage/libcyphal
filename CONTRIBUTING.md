@@ -68,14 +68,8 @@ More abstractly, libcyphal's design goals should be mutually compatible. There i
 |
 + external/                 <-- external project mount-point. Sub-folders are not
 |                               included in git history.
-|
-+ libcyphal/
-|   + CMakeLists.txt        <-- builds a cmake module to support inclusion as an
-|                               ExternalProject. Also supports building various
-|                               release formats.
-|   + include/              <-- where the magic happens!
-|   + validation/           <-- parametrized googletest tests for building a
-|                               platform-specific validation suite for libcyphal.
++ include/
+|   + libcyphal/              <-- where the magic happens!
 |
 | test/
 |   + unittest/             <-- googletest unit tests of libcyphal code.
@@ -84,6 +78,7 @@ More abstractly, libcyphal's design goals should be mutually compatible. There i
 + .github/                  <-- github actions CI
 + .devcontainer/            <-- vscode/github developer container integration
 |                               (OpenCyphal toolshed image)
+|
 + .vscode/                  <-- common vscode development settings
 ```
 
@@ -136,7 +131,7 @@ This is a list that will move to an external project and road-map at some point.
 
  ## CETL
 
-[CETL](https://github.com/OpenCyphal/CETL) is a primary dependency of libcyphal along with the "args" (e.g. libudpard, libcanard, etc) but CETL is both a runtime and build time dependency. At build time, libcyphal uses the CETLVaSt (CETL Verification Suite) cmake modules and CETL's verify.py cli to build its own verification suites and to integrate with CI services in a similar manner to CETL.
+[CETL](https://github.com/OpenCyphal/CETL) is a primary dependency of libcyphal along with the "ards" (e.g. libudpard, libcanard, etc) but CETL is both a runtime and build time dependency. At build time, libcyphal uses the CETLVaSt (CETL Verification Suite) cmake modules and CETL's verify.py cli to build its own verification suites and to integrate with CI services in a similar manner to CETL.
 
 ## ![visual-studio code](.vscode/vscode-alt.svg#gh-dark-mode-only) ![visual-studio code](.vscode/vscode.svg#gh-light-mode-only)
 We support the vscode IDE using

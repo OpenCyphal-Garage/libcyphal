@@ -161,7 +161,7 @@ class QualifiedAction:
 def _make_parser() -> argparse.ArgumentParser:
 
     prolog =  textwrap.dedent(
-        """
+        r"""
                                           _           _
    ___  _ __   ___ _ __   ___ _   _ _ __ | |__   __ _| |
   / _ \| '_ \ / _ | '_ \ / __| | | | '_ \| '_ \ / _` | |
