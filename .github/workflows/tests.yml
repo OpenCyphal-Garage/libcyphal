@@ -27,12 +27,12 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         if: ${{ github.event_name != 'act' }}
       - name: Cache ext modules
         if: ${{ github.event_name != 'act' }}
         id: libcyphal-ext
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         env:
           cache-name: libcyphal-ext-cache
         with:
@@ -60,12 +60,12 @@ jobs:
         flavor: [Release, Debug]
         toolchain: [gcc, clang]
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       if: ${{ github.event_name != 'act' }}
     - name: Cache ext modules
       if: ${{ github.event_name != 'act' }}
       id: libcyphal-ext
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       env:
         cache-name: libcyphal-ext-cache
       with:
@@ -88,12 +88,12 @@ jobs:
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
     needs: [warmup]
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       if: ${{ github.event_name != 'act' }}
     - name: Cache ext modules
       if: ${{ github.event_name != 'act' }}
       id: libcyphal-ext
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       env:
         cache-name: libcyphal-ext-cache
       with:
@@ -112,15 +112,15 @@ jobs:
         build-docs
     - name: Setup Pages
       if: ${{ github.event_name != 'pull_request' && github.event_name != 'act' }}
-      uses: actions/configure-pages@v3
+      uses: actions/configure-pages@v5
     - name: Upload docs
       if: ${{ github.event_name != 'pull_request' && github.event_name != 'act' }}
-      uses: actions/upload-pages-artifact@v1
+      uses: actions/upload-pages-artifact@v3
       with:
         path: "build/docs/html/"
     - name: upload-pr-docs
       if: ${{ github.event_name == 'pull_request' && github.event_name != 'act' }}
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: pr-docs
         path: "build/docs/html/"
