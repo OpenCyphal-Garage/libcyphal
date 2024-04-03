@@ -20,7 +20,7 @@ namespace libcyphal
 
 /// @brief `NodeId` is a 16-bit unsigned integer that represents a node in a Cyphal network.
 ///
-/// Anonymity is represented by an empty `optional<NodeId>` (see `cetl::nullopt`).
+/// Anonymity is represented by an empty `cetl::optional<NodeId>` (see `cetl::nullopt`).
 ///
 using NodeId = std::uint16_t;
 
