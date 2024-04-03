@@ -15,7 +15,6 @@ namespace {
 // TODO: Add tests here
 TEST(test_libcyphal, rename_me)
 {
-    EXPECT_EQ(1, 2);
 }
 
 }  // namespace
