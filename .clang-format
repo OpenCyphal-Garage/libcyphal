@@ -49,7 +49,6 @@ DisableFormat:   false
 FixNamespaceComments: true
 ForEachMacros:   [ foreach, Q_FOREACH, BOOST_FOREACH ]
 IncludeBlocks: Preserve
-InsertNewlineAtEOF: true
 IndentCaseLabels: false
 IndentPPDirectives: AfterHash
 IndentWidth:     4
