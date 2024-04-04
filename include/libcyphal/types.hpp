@@ -58,7 +58,7 @@ using TimePoint = MonotonicClock::time_point;
 
 /// @brief Defines libcyphal time duration type.
 ///
-using Duration  = MonotonicClock::duration;
+using Duration = MonotonicClock::duration;
 
 }  // namespace libcyphal
 

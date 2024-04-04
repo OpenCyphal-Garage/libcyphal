@@ -50,7 +50,7 @@ struct ProtocolParams final
     ///
     std::size_t mtu_bytes;
 
-}; // ProtocolParams
+};  // ProtocolParams
 
 /// @brief Declares an abstract Cyphal transport interface.
 ///
