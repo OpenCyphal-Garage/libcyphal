@@ -17,6 +17,12 @@ on:
 # before running act).
 jobs:
   warmup:
+    if: >
+      contains(github.event.head_commit.message, '#verification') ||
+      contains(github.event.head_commit.message, '#docs') ||
+      contains(github.ref, '/main') ||
+      contains(github.ref, '/issue/') ||
+      (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
     steps:
