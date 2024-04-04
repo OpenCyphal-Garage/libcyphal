@@ -10,12 +10,12 @@ find_package(cetl REQUIRED)
 # +---------------------------------------------------------------------------+
 # | (lib)cyphal
 # +---------------------------------------------------------------------------+
-cmake_path(APPEND LIBCYPHAL_ROOT "libcyphal" "include" OUTPUT_VARIABLE LIBCYPHAL_INCLUDE)
+cmake_path(APPEND LIBCYPHAL_ROOT "include" OUTPUT_VARIABLE LIBCYPHAL_INCLUDE)
 
 add_project_library(
     NAME cyphal
     HEADER_PATH
-        ${LIBCYPHAL_INCLUDE}
+        ${LIBCYPHAL_INCLUDE}/
     LIBRARIES
         canard
         udpard
