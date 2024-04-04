@@ -1,18 +1,11 @@
 name: "libcyphal_test"
 
 on:
-  push:
-    branches:
-      - main
-      - 'issue/*'
-      # todo: temp - remove this later!
-      - 'sshirokov/CI_*'
+  push:  # Further filtering is done in the jobs.
   pull_request:
     branches:
       - main
       - 'issue/*'
-      # todo: temp - remove this later!
-      - 'sshirokov/CI_*'
 
 # To test use https://github.com/nektos/act and specify the event as "act"
 # For example:
@@ -52,6 +45,11 @@ jobs:
           --build-flavor Debug
           clean-configure
   verification:
+    if: >
+      contains(github.event.head_commit.message, '#verification') ||
+      contains(github.ref, '/main') ||
+      contains(github.ref, '/issue/') ||
+      (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
     needs: [warmup]
@@ -85,6 +83,11 @@ jobs:
         --toolchain ${{ matrix.toolchain }}
         clean-release
   docs:
+    if: >
+      contains(github.event.head_commit.message, '#docs') ||
+      contains(github.ref, '/main') ||
+      contains(github.ref, '/issue/') ||
+      (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
     needs: [warmup]
