@@ -9,7 +9,7 @@
 #ifndef LIBCYPHAL_RUNNABLE_HPP_INCLUDED
 #define LIBCYPHAL_RUNNABLE_HPP_INCLUDED
 
-#include "libcyphal/types.hpp"
+#include "types.hpp"
 
 namespace libcyphal
 {

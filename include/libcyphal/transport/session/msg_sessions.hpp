@@ -1,5 +1,5 @@
 /// @file
-/// Defines the Session interface for Transport Layer implementations.
+/// Defines the Message Session interfaces for Transport Layer implementations.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
