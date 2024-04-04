@@ -10,6 +10,7 @@
 #define LIBCYPHAL_TYPES_HPP_INCLUDED
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf17/attribute.hpp>
 
 #include <cstdint>
 #include <chrono>
