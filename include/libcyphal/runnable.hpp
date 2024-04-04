@@ -14,7 +14,7 @@ namespace libcyphal
 class IRunnable
 {
 public:
-    virtual void run(TimePoint now) = 0;
+    virtual void run(const TimePoint now) = 0;
 
 protected:
     virtual ~IRunnable() = default;
