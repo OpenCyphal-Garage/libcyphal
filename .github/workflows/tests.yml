@@ -58,6 +58,7 @@ jobs:
     strategy:
       matrix:
         flavor: [Release, Debug]
+        std: [14, 17, 20]
         toolchain: [gcc, clang]
     steps:
     - uses: actions/checkout@v4
@@ -79,7 +80,7 @@ jobs:
         ./build-tools/bin/verify.py
         --verbose
         --asserts
-        --cpp-standard 14
+        --cpp-standard ${{ matrix.std }}
         --build-flavor ${{ matrix.flavor }}
         --toolchain ${{ matrix.toolchain }}
         clean-release
