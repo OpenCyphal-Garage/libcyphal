@@ -9,7 +9,8 @@
 #ifndef LIBCYPHAL_TRANSPORT_TRANSPORT_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_TRANSPORT_HPP_INCLUDED
 
-#include "libcyphal/runnable.hpp"
+#include "session/msg_sessions.hpp"
+#include "session/svc_sessions.hpp"
 
 namespace libcyphal
 {
@@ -70,13 +71,13 @@ public:
     ///
     /// @return Optional integer representing the local node-ID.
     ///
-    virtual cetl::optional<NodeId> getLocalNodeId() const noexcept = 0;
+    CETL_NODISCARD virtual cetl::optional<NodeId> getLocalNodeId() const noexcept = 0;
 
     /// @brief Provides information about the properties of the transport protocol implemented by the instance.
     ///
     /// @return `ProtocolParameters` object if the transport is initialized, otherwise ResultCode::UninitializedError.
     ///
-    virtual ProtocolParams getProtocolParams() const noexcept = 0;
+    CETL_NODISCARD virtual ProtocolParams getProtocolParams() const noexcept = 0;
 
 };  // ITransport
 

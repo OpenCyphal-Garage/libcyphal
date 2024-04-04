@@ -25,6 +25,15 @@ namespace libcyphal
 ///
 using NodeId = std::uint16_t;
 
+/// @brief `PortId` is a 16-bit unsigned integer that represents a port (subject & service) in a Cyphal network.
+///
+using PortId = std::uint16_t;
+
+/// @brief `TransferId` is a 64-bit unsigned integer that represents a service transfer (request & response)
+/// in a Cyphal network.
+///
+using TransferId = std::uint64_t;
+
 /// @brief The internal time representation is in microseconds.
 ///
 /// This is in line with the lizards that use `uint64_t`-typed microsecond counters throughout.
