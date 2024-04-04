@@ -1,6 +1,3 @@
-/// @file
-/// Defines the Session interface for Transport Layer implementations.
-///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
 /// Copyright Amazon.com Inc. or its affiliates.
@@ -10,20 +7,25 @@
 #define LIBCYPHAL_TRANSPORT_SESSION_SESSION_HPP_INCLUDED
 
 #include "libcyphal/runnable.hpp"
+#include "libcyphal/transport/defines.hpp"
 
 namespace libcyphal
 {
 namespace transport
 {
-inline namespace session
+namespace session
 {
 
-/// @brief Declares an abstract Cyphal transport session interface.
-///
 class ISession : public IRunnable
 {
 public:
-};  // ISession
+};
+
+class IRxSession : public ISession
+{
+public:
+    virtual void setTransferIdTimeout(const Duration timeout) = 0;
+};
 
 }  // namespace session
 }  // namespace transport

@@ -1,6 +1,3 @@
-/// @file
-/// libcyphal common types.
-///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
 /// Copyright Amazon.com Inc. or its affiliates.
@@ -18,21 +15,6 @@
 
 namespace libcyphal
 {
-
-/// @brief `NodeId` is a 16-bit unsigned integer that represents a node in a Cyphal network.
-///
-/// Anonymity is represented by an empty `cetl::optional<NodeId>` (see `cetl::nullopt`).
-///
-using NodeId = std::uint16_t;
-
-/// @brief `PortId` is a 16-bit unsigned integer that represents a port (subject & service) in a Cyphal network.
-///
-using PortId = std::uint16_t;
-
-/// @brief `TransferId` is a 64-bit unsigned integer that represents a service transfer (request & response)
-/// in a Cyphal network.
-///
-using TransferId = std::uint64_t;
 
 /// @brief The internal time representation is in microseconds.
 ///
@@ -62,13 +44,8 @@ struct MonotonicClock final
 
 };  // MonotonicClock
 
-/// @brief Defines libcyphal time point type.
-///
 using TimePoint = MonotonicClock::time_point;
-
-/// @brief Defines libcyphal time duration type.
-///
-using Duration = MonotonicClock::duration;
+using Duration  = MonotonicClock::duration;
 
 }  // namespace libcyphal
 
