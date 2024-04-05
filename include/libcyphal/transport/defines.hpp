@@ -6,6 +6,8 @@
 #ifndef LIBCYPHAL_TRANSPORT_DEFINES_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_DEFINES_HPP_INCLUDED
 
+#include "dynamic_buffer.hpp"
+
 namespace libcyphal
 {
 namespace transport
@@ -68,9 +70,6 @@ struct ServiceTransferMetadata final : TransferMetadata
 // TODO: Maybe have `cetl::byte` polyfill for C++20
 using PayloadFragments = cetl::span<cetl::span<uint8_t>>;
 
-struct DynamicBuffer final
-{};
-
 struct MessageRxTransfer final
 {
     TransferMetadata       metadata;
@@ -80,7 +79,7 @@ struct MessageRxTransfer final
     MessageRxTransfer(TransferMetadata _metadata, cetl::optional<NodeId> _publisher_node_id, DynamicBuffer _payload)
         : metadata{_metadata}
         , publisher_node_id{_publisher_node_id}
-        , payload{_payload}
+        , payload{std::move(_payload)}
     {
     }
 };
@@ -92,7 +91,7 @@ struct ServiceRxTransfer final
 
     ServiceRxTransfer(ServiceTransferMetadata _metadata, DynamicBuffer _payload)
         : metadata{_metadata}
-        , payload{_payload}
+        , payload{std::move(_payload)}
     {
     }
 };

@@ -18,11 +18,11 @@ endif()
 #   We generate individual test binaires so we can record which test generated
 #   what coverage. We also allow test authors to generate coverage reports for
 #   just one test allowing for faster iteration.
-file(GLOB NATIVE_TESTS
+file(GLOB_RECURSE NATIVE_TESTS
     LIST_DIRECTORIES false
     CONFIGURE_DEPENDS
     RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-    test_*.cpp
+    test_*.cpp **/test_*.cpp
 )
 
 set(ALL_TESTS_BUILD "")
