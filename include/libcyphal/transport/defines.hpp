@@ -28,9 +28,9 @@ using TransferId = std::uint64_t;
 
 struct ProtocolParams final
 {
-    NodeId        max_nodes;
-    std::size_t   mtu_bytes;
     std::uint64_t transfer_id_modulo;
+    std::size_t   mtu_bytes;
+    NodeId        max_nodes;
 
 };  // ProtocolParams
 

@@ -8,6 +8,7 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf17/attribute.hpp>
+#include <cetl/pmr/memory.hpp>
 
 #include <cstdint>
 #include <chrono>
@@ -46,6 +47,13 @@ struct MonotonicClock final
 
 using TimePoint = MonotonicClock::time_point;
 using Duration  = MonotonicClock::duration;
+
+template <typename T>
+using UniquePtr = std::unique_ptr<T, cetl::pmr::MemoryResourceDeleter<cetl::pf17::pmr::memory_resource>>;
+
+// TODO: Maybe introduce `cetl::expected` at CETL repo.
+template <typename Success, typename Failure>
+using Expected = cetl::variant<Success, Failure>;
 
 }  // namespace libcyphal
 
