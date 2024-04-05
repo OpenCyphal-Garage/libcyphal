@@ -1,18 +1,11 @@
 name: "libcyphal_test"
 
 on:
-  push:
-    branches:
-      - main
-      - 'issue/*'
-      # todo: temp - remove this later!
-      - 'sshirokov/CI_*'
+  push:  # Further filtering is done in the jobs.
   pull_request:
     branches:
       - main
       - 'issue/*'
-      # todo: temp - remove this later!
-      - 'sshirokov/CI_*'
 
 # To test use https://github.com/nektos/act and specify the event as "act"
 # For example:
@@ -24,6 +17,12 @@ on:
 # before running act).
 jobs:
   warmup:
+    if: >
+      contains(github.event.head_commit.message, '#verification') ||
+      contains(github.event.head_commit.message, '#docs') ||
+      contains(github.ref, '/main') ||
+      contains(github.ref, '/issue/') ||
+      (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
     steps:
@@ -52,12 +51,18 @@ jobs:
           --build-flavor Debug
           clean-configure
   verification:
+    if: >
+      contains(github.event.head_commit.message, '#verification') ||
+      contains(github.ref, '/main') ||
+      contains(github.ref, '/issue/') ||
+      (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
     needs: [warmup]
     strategy:
       matrix:
         flavor: [Release, Debug]
+        std: [14, 17, 20]
         toolchain: [gcc, clang]
     steps:
     - uses: actions/checkout@v4
@@ -79,11 +84,16 @@ jobs:
         ./build-tools/bin/verify.py
         --verbose
         --asserts
-        --cpp-standard 14
+        --cpp-standard ${{ matrix.std }}
         --build-flavor ${{ matrix.flavor }}
         --toolchain ${{ matrix.toolchain }}
         clean-release
   docs:
+    if: >
+      contains(github.event.head_commit.message, '#docs') ||
+      contains(github.ref, '/main') ||
+      contains(github.ref, '/issue/') ||
+      (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
     needs: [warmup]
