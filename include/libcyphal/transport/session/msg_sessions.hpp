@@ -29,13 +29,16 @@ struct MessageTxParams final
 class IMessageRxSession : public IRxSession
 {
 public:
-    CETL_NODISCARD virtual MessageRxParams getParams() const noexcept = 0;
+    CETL_NODISCARD virtual MessageRxParams   getParams() const noexcept = 0;
+    CETL_NODISCARD virtual MessageRxTransfer receive()                  = 0;
 };
 
 class IMessageTxSession : public IRunnable
 {
 public:
-    CETL_NODISCARD virtual MessageTxParams getParams() const noexcept = 0;
+    CETL_NODISCARD virtual MessageTxParams          getParams() const noexcept                     = 0;
+    CETL_NODISCARD virtual Expected<void, AnyError> send(const TransferMetadata metadata,
+                                                         const PayloadFragments payload_fragments) = 0;
 };
 
 }  // namespace session

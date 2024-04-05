@@ -19,9 +19,9 @@ public:
     virtual void run(const TimePoint now) = 0;
 
 protected:
-    IRunnable() = default;
+    IRunnable()                 = default;
     IRunnable(const IRunnable&) = default;
-    IRunnable(IRunnable&&) = default;
+    IRunnable(IRunnable&&)      = default;
 
     IRunnable& operator=(const IRunnable&) = default;
     IRunnable& operator=(IRunnable&&)      = default;

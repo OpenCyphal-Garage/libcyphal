@@ -39,7 +39,13 @@ struct ResponseTxParams final
     PortId service_id;
 };
 
-class IRequestRxSession : public IRxSession
+class ISvcRxSession : public IRxSession
+{
+public:
+    CETL_NODISCARD virtual ServiceRxTransfer receive() = 0;
+};
+
+class IRequestRxSession : public ISvcRxSession
 {
 public:
     CETL_NODISCARD virtual RequestRxParams getParams() const noexcept = 0;
@@ -48,10 +54,12 @@ public:
 class IRequestTxSession : public ISession
 {
 public:
-    CETL_NODISCARD virtual RequestTxParams getParams() const noexcept = 0;
+    CETL_NODISCARD virtual RequestTxParams          getParams() const noexcept                     = 0;
+    CETL_NODISCARD virtual Expected<void, AnyError> send(const TransferMetadata metadata,
+                                                         const PayloadFragments payload_fragments) = 0;
 };
 
-class IResponseRxSession : public IRxSession
+class IResponseRxSession : public ISvcRxSession
 {
 public:
     CETL_NODISCARD virtual ResponseRxParams getParams() const noexcept = 0;
@@ -60,7 +68,9 @@ public:
 class IResponseTxSession : public ISession
 {
 public:
-    CETL_NODISCARD virtual ResponseTxParams getParams() const noexcept = 0;
+    CETL_NODISCARD virtual ResponseTxParams         getParams() const noexcept                     = 0;
+    CETL_NODISCARD virtual Expected<void, AnyError> send(const ServiceTransferMetadata metadata,
+                                                         const PayloadFragments        payload_fragments) = 0;
 };
 
 }  // namespace session
