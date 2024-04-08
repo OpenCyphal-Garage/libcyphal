@@ -18,6 +18,10 @@ using testing::StrictMock;
 namespace
 {
 
+// Just random id: 277C3545-564C-4617-993D-27B1043ECEBA
+using TestTypeIdType =
+    cetl::type_id_type<0x27, 0x7C, 0x35, 0x45, 0x56, 0x4C, 0x46, 0x17, 0x99, 0x3D, 0x27, 0xB1, 0x04, 0x3E, 0xCE, 0xBA>;
+
 class InterfaceMock : public DynamicBuffer::Interface
 {
 public:
@@ -27,7 +31,7 @@ public:
     MOCK_METHOD(std::size_t, size, (), (const override));
     MOCK_METHOD(std::size_t, copy, (const std::size_t, void* const, const std::size_t), (const override));
 };
-class InterfaceWrapper : public rtti_helper<type_id_type<0x01>, DynamicBuffer::Interface>
+class InterfaceWrapper : public rtti_helper<TestTypeIdType, DynamicBuffer::Interface>
 {
 public:
     explicit InterfaceWrapper(InterfaceMock* mock)
@@ -81,7 +85,7 @@ private:
 
 };  // InterfaceWrapper
 
-TEST(test_dynamic_buffer, move_ctor_assign__size)
+TEST(test_dynamic_buffer, move_ctor_assign_size)
 {
     StrictMock<InterfaceMock> interface_mock{};
     EXPECT_CALL(interface_mock, deinit()).Times(1);
@@ -101,9 +105,9 @@ TEST(test_dynamic_buffer, move_ctor_assign__size)
     }
 }
 
-TEST(test_dynamic_buffer, copy__reset)
+TEST(test_dynamic_buffer, copy_reset)
 {
-    std::array<uint8_t, 16> test_dst{};
+    std::array<std::uint8_t, 16> test_dst{};
 
     StrictMock<InterfaceMock> interface_mock{};
     EXPECT_CALL(interface_mock, deinit()).Times(1);

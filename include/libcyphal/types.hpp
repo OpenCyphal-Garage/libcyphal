@@ -18,19 +18,6 @@
 namespace libcyphal
 {
 
-enum class Priority
-{
-
-    Exceptional = 0,
-    Immediate   = 1,
-    Fast        = 2,
-    High        = 3,
-    Nominal     = 4,  ///< Nominal priority level should be the default.
-    Low         = 5,
-    Slow        = 6,
-    Optional    = 7,
-};
-
 /// @brief The internal time representation is in microseconds.
 ///
 /// This is in line with the lizards that use `uint64_t`-typed microsecond counters throughout.

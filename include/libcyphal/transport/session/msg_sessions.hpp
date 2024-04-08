@@ -29,16 +29,30 @@ struct MessageTxParams final
 class IMessageRxSession : public IRxSession
 {
 public:
-    CETL_NODISCARD virtual MessageRxParams   getParams() const noexcept = 0;
-    CETL_NODISCARD virtual MessageRxTransfer receive()                  = 0;
+    CETL_NODISCARD virtual MessageRxParams getParams() const noexcept = 0;
+
+    /// @brief Receives a message from the transport layer.
+    ///
+    /// Method is not blocking, and will return immediately if no message is available.
+    ///
+    /// @return A message transfer if available; otherwise an empty optional.
+    ///
+    CETL_NODISCARD virtual cetl::optional<MessageRxTransfer> receive() = 0;
 };
 
 class IMessageTxSession : public IRunnable
 {
 public:
-    CETL_NODISCARD virtual MessageTxParams          getParams() const noexcept                     = 0;
-    CETL_NODISCARD virtual Expected<void, AnyError> send(const TransferMetadata metadata,
-                                                         const PayloadFragments payload_fragments) = 0;
+    CETL_NODISCARD virtual MessageTxParams getParams() const noexcept = 0;
+
+    /// @brief Sends a message to the transport layer.
+    ///
+    /// @param metadata Additional metadata associated with the message.
+    /// @param payload_fragments Segments of the message payload.
+    /// @return `void` in case of success; otherwise an error.
+    ///
+    CETL_NODISCARD virtual Expected<void, AnyError> send(const TransferMetadata& metadata,
+                                                         const PayloadFragments  payload_fragments) = 0;
 };
 
 }  // namespace session
