@@ -86,6 +86,15 @@ public:
         interface_ = nullptr;
     }
 
+    /// @brief Gets the number of bytes stored in the buffer (possibly scattered, but this is hidden from the user).
+    ///
+    /// @return Returns zero if the buffer is moved away.
+    ///
+    CETL_NODISCARD std::size_t size() const
+    {
+        return interface_ ? interface_->size() : 0;
+    }
+
     /// @brief Copies a fragment of the specified size at the specified offset out of the buffer.
     ///
     /// The request is truncated to prevent out-of-range memory access.
@@ -97,14 +106,6 @@ public:
                                     const std::size_t length_bytes) const
     {
         return interface_ ? interface_->copy(offset_bytes, destination, length_bytes) : 0;
-    }
-
-    /// @brief Gets the number of bytes stored in the buffer (possibly scattered, but this is hidden from the user).
-    /// @return Returns zero if the buffer is moved away.
-    ///
-    CETL_NODISCARD std::size_t size() const
-    {
-        return interface_ ? interface_->size() : 0;
     }
 
 private:

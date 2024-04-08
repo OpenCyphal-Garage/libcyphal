@@ -81,13 +81,12 @@ private:
 
 };  // InterfaceWrapper
 
-TEST(test_dynamic_buffer, move_and_size)
+TEST(test_dynamic_buffer, move_ctor_assign__size)
 {
     StrictMock<InterfaceMock> interface_mock{};
-    EXPECT_CALL(interface_mock, moved()).Times(1 + 2 + 2);
     EXPECT_CALL(interface_mock, deinit()).Times(1);
+    EXPECT_CALL(interface_mock, moved()).Times(1 + 2 + 2);
     EXPECT_CALL(interface_mock, size()).Times(3).WillRepeatedly(Return(42));
-
     {
         DynamicBuffer src{InterfaceWrapper{&interface_mock}};  //< +1 move
         EXPECT_EQ(42, src.size());
@@ -99,6 +98,26 @@ TEST(test_dynamic_buffer, move_and_size)
         src = std::move(dst);  //< +2 moves
         EXPECT_EQ(42, src.size());
         EXPECT_EQ(0, dst.size());
+    }
+}
+
+TEST(test_dynamic_buffer, copy__reset)
+{
+    std::array<uint8_t, 16> test_dst{};
+
+    StrictMock<InterfaceMock> interface_mock{};
+    EXPECT_CALL(interface_mock, deinit()).Times(1);
+    EXPECT_CALL(interface_mock, moved()).Times(1);
+    EXPECT_CALL(interface_mock, copy(13, test_dst.data(), test_dst.size())).WillOnce(Return(7));
+    {
+        DynamicBuffer buffer{InterfaceWrapper{&interface_mock}};
+
+        auto copied_bytes = buffer.copy(13, test_dst.data(), test_dst.size());
+        EXPECT_EQ(7, copied_bytes);
+
+        buffer.reset();
+        copied_bytes = buffer.copy(13, test_dst.data(), test_dst.size());
+        EXPECT_EQ(0, copied_bytes);
     }
 }
 
