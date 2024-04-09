@@ -69,8 +69,8 @@ public:
 
     CETL_NODISCARD static inline Expected<CanTransport, FactoryError> make(
         cetl::pmr::memory_resource&,  // memory,
-        //    IMultiplexer&                      mux,  // only if the second execution strategy proposal is chosen
-        //    const cetl::span<IMedia>,
+        //    IMultiplexer&           // mux,
+        const std::array<IMedia*, 3>, // media, // TODO: replace with `cetl::span<IMedia*>`
         const cetl::optional<NodeId>  // local_node_id
     )
     {
