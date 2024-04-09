@@ -66,7 +66,8 @@ struct ServiceTransferMetadata final : TransferMetadata
 };
 
 // TODO: Maybe have `cetl::byte` polyfill for C++20
-using PayloadFragments = cetl::span<cetl::span<std::uint8_t>>;
+using PayloadFragment  = cetl::span<std::uint8_t>;
+using PayloadFragments = cetl::span<PayloadFragment>;
 
 struct MessageRxTransfer final
 {

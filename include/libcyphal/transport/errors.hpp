@@ -37,6 +37,10 @@ struct PlatformError
 ///
 using AnyError = cetl::variant<StateError, AnonymousError, ArgumentError, MemoryError, CapacityError, PlatformError>;
 
+/// @brief Defines any possible factory error at Cyphal transport layer.
+///
+using FactoryError = cetl::variant<ArgumentError>;
+
 }  // namespace transport
 }  // namespace libcyphal
 

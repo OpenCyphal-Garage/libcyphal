@@ -3,11 +3,11 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_TRANSPORT_SESSION_SESSION_HPP_INCLUDED
-#define LIBCYPHAL_TRANSPORT_SESSION_SESSION_HPP_INCLUDED
+#ifndef LIBCYPHAL_TRANSPORT_SESSION_HPP_INCLUDED
+#define LIBCYPHAL_TRANSPORT_SESSION_HPP_INCLUDED
 
 #include "libcyphal/runnable.hpp"
-#include "libcyphal/transport/defines.hpp"
+#include "defines.hpp"
 
 namespace libcyphal
 {
@@ -31,4 +31,4 @@ public:
 }  // namespace transport
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_TRANSPORT_SESSION_SESSION_HPP_INCLUDED
+#endif  // LIBCYPHAL_TRANSPORT_SESSION_HPP_INCLUDED

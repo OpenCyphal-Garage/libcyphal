@@ -3,8 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_TRANSPORT_SESSION_SVC_SESSION_HPP_INCLUDED
-#define LIBCYPHAL_TRANSPORT_SESSION_SVC_SESSION_HPP_INCLUDED
+#ifndef LIBCYPHAL_TRANSPORT_SVC_SESSION_HPP_INCLUDED
+#define LIBCYPHAL_TRANSPORT_SVC_SESSION_HPP_INCLUDED
 
 #include "session.hpp"
 
@@ -97,4 +97,4 @@ public:
 }  // namespace transport
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_TRANSPORT_SESSION_SVC_SESSION_HPP_INCLUDED
+#endif  // LIBCYPHAL_TRANSPORT_SVC_SESSION_HPP_INCLUDED

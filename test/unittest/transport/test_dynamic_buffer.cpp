@@ -7,6 +7,8 @@
 
 #include <gmock/gmock.h>
 
+namespace
+{
 using cetl::type_id_type;
 using cetl::rtti_helper;
 
@@ -14,9 +16,6 @@ using DynamicBuffer = libcyphal::transport::DynamicBuffer;
 
 using testing::Return;
 using testing::StrictMock;
-
-namespace
-{
 
 // Just random id: 277C3545-564C-4617-993D-27B1043ECEBA
 using TestTypeIdType =
