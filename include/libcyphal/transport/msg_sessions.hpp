@@ -49,9 +49,9 @@ public:
     ///
     /// @param metadata Additional metadata associated with the message.
     /// @param payload_fragments Segments of the message payload.
-    /// @return `void` in case of success; otherwise an error.
+    /// @return `nullopt` in case of success; otherwise a transport error.
     ///
-    CETL_NODISCARD virtual Expected<void, AnyError> send(const TransferMetadata& metadata,
+    CETL_NODISCARD virtual cetl::optional<AnyError> send(const TransferMetadata& metadata,
                                                          const PayloadFragments  payload_fragments) = 0;
 };
 

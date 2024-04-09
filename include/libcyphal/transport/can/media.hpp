@@ -64,12 +64,12 @@ public:
         const CanId           can_id,
         const PayloadFragment payload) noexcept = 0;
 
-    /// @brief Takes the next fragment (aka CAN frame) from the reception queue unless it's empty.
+    /// @brief Takes the next payload fragment (aka CAN frame) from the reception queue unless it's empty.
     ///
-    /// @param payload_buffer The payload of the frame will be written into the buffer (aka span).
+    /// @param payload_buffer The payload of the frame will be written into the mutable `payload_buffer` (aka span).
     /// @return Description of a received fragment if available; otherwise an empty optional is returned immediately.
     ///
-    CETL_NODISCARD virtual cetl::optional<RxFragment> pop(const PayloadFragment payload_buffer) noexcept = 0;
+    CETL_NODISCARD virtual cetl::optional<RxFragment> pop(const FragmentBuffer payload_buffer) noexcept = 0;
 
 protected:
     IMedia()                         = default;
