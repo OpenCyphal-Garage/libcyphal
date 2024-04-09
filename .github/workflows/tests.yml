@@ -61,9 +61,13 @@ jobs:
     needs: [warmup]
     strategy:
       matrix:
-        flavor: [Release, Debug]
+        build_flavor: [Release, Debug]
         std: [14, 17, 20]
         toolchain: [gcc, clang]
+        include:
+          - build_flavor: Coverage
+            std: 14
+            toolchain: gcc
     steps:
     - uses: actions/checkout@v4
       if: ${{ github.event_name != 'act' }}
@@ -79,15 +83,31 @@ jobs:
     - name: get nunavut
       run: >
         pip install nunavut
-    - name: release
+    - name: run tests
+      env:
+        GTEST_COLOR: yes
       run: >
         ./build-tools/bin/verify.py
         --verbose
         --asserts
         --cpp-standard ${{ matrix.std }}
-        --build-flavor ${{ matrix.flavor }}
+        --build-flavor ${{ matrix.build_flavor }}
         --toolchain ${{ matrix.toolchain }}
-        clean-release
+        test
+    - name: debug output
+      if: ${{ runner.debug == '1' }}
+      run: ls -lAhR build/
+    - name: upload-artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.build_flavor }}-${{ matrix.std }}-${{ matrix.toolchain }}
+        path: |
+          build/compile_commands.json
+          build/*/**/coverage.xml
+          build/*/**/*-sonarqube.xml
+          build/*/**/gcovr_html/*.*
+        if-no-files-found: error
+
   docs:
     if: >
       contains(github.event.head_commit.message, '#docs') ||

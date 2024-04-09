@@ -115,3 +115,9 @@ add_custom_target(
 set_directory_properties(PROPERTIES
     IN_BUILD_TESTS "${ALL_EXAMPLE_RUNS}"
 )
+
+if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+    enable_coverage_report(COVERAGE_REPORT_FORMATS sonarqube html
+                           ROOT_DIRECTORY ${LIBCYPHAL_ROOT}
+    )
+endif()

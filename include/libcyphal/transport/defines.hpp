@@ -6,6 +6,8 @@
 #ifndef LIBCYPHAL_TRANSPORT_DEFINES_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_DEFINES_HPP_INCLUDED
 
+#include "dynamic_buffer.hpp"
+
 namespace libcyphal
 {
 namespace transport
@@ -26,13 +28,57 @@ using PortId = std::uint16_t;
 ///
 using TransferId = std::uint64_t;
 
+enum class Priority
+{
+
+    Exceptional = 0,
+    Immediate   = 1,
+    Fast        = 2,
+    High        = 3,
+    Nominal     = 4,  ///< Nominal priority level should be the default.
+    Low         = 5,
+    Slow        = 6,
+    Optional    = 7,
+};
+
 struct ProtocolParams final
 {
-    NodeId        max_nodes;
-    std::size_t   mtu_bytes;
-    std::uint64_t transfer_id_modulo;
+    TransferId  transfer_id_modulo;
+    std::size_t mtu_bytes;
+    NodeId      max_nodes;
+};
 
-};  // ProtocolParams
+struct TransferMetadata
+{
+    TransferId transfer_id;
+    TimePoint  timestamp;
+    Priority   priority;
+};
+
+struct MessageTransferMetadata final : TransferMetadata
+{
+    cetl::optional<NodeId> publisher_node_id;
+};
+
+struct ServiceTransferMetadata final : TransferMetadata
+{
+    NodeId remote_node_id;
+};
+
+// TODO: Maybe have `cetl::byte` polyfill for C++20
+using PayloadFragments = cetl::span<cetl::span<std::uint8_t>>;
+
+struct MessageRxTransfer final
+{
+    MessageTransferMetadata metadata;
+    DynamicBuffer           payload;
+};
+
+struct ServiceRxTransfer final
+{
+    ServiceTransferMetadata metadata;
+    DynamicBuffer           payload;
+};
 
 }  // namespace transport
 }  // namespace libcyphal
