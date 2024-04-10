@@ -17,9 +17,30 @@ namespace transport
 namespace udp
 {
 
-class Transport final : public ITransport
+class IUdpTransport : public ITransport
+{};
+
+struct Factory final
 {
 public:
+    Factory() = delete;
+
+    CETL_NODISCARD static inline Expected<UniquePtr<IUdpTransport>, FactoryError> make(
+        cetl::pmr::memory_resource&  memory,
+        IMultiplexer&                mux,
+        const std::array<IMedia*, 3> media,  // TODO: replace with `cetl::span<IMedia*>`
+        const cetl::optional<NodeId> local_node_id);
+
+};  // Factory
+
+namespace detail
+{
+
+class TransportImpl final : public IUdpTransport
+{
+public:
+    // IUpdTransport
+
     // ITransport
 
     CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
@@ -66,19 +87,24 @@ public:
 
     void run(const TimePoint) override {}
 
-    // Factory
+};  // TransportImpl
 
-    CETL_NODISCARD static inline Expected<UniquePtr<Transport>, FactoryError> make(
-        cetl::pmr::memory_resource&,
-        IMultiplexer&,
-        const std::array<IMedia*, 3>,  // TODO: replace with `cetl::span<IMedia*>`
-        const cetl::optional<NodeId>)
-    {
-        return NotImplementedError{};
-    }
+}  // namespace detail
 
-};  // Transport
+CETL_NODISCARD Expected<UniquePtr<IUdpTransport>, FactoryError> Factory::make(
+    cetl::pmr::memory_resource&  memory,
+    IMultiplexer&                mux,
+    const std::array<IMedia*, 3> media,  // TODO: replace with `cetl::span<IMedia*>`
+    const cetl::optional<NodeId> local_node_id)
+{
+    // TODO: Use these!
+    (void) mux;
+    (void) media;
+    (void) memory;
+    (void) local_node_id;
 
+    return NotImplementedError{};
+}
 }  // namespace udp
 }  // namespace transport
 }  // namespace libcyphal

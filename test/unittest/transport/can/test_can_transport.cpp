@@ -19,16 +19,16 @@ using namespace libcyphal::transport::can;
 
 using testing::StrictMock;
 
-TEST(test_can_transport, CanTransport_make)
+TEST(test_can_transport, factory_make)
 {
     auto mr = cetl::pmr::new_delete_resource();
 
     StrictMock<MediaMock>       media_mock{};
     StrictMock<MultiplexerMock> multiplex_mock{};
 
-    auto maybe_transport = Transport::make(*mr, multiplex_mock, {}, static_cast<NodeId>(0));
+    auto maybe_transport = Factory::make(*mr, multiplex_mock, {&media_mock}, static_cast<NodeId>(0));
     {
-        auto transport = cetl::get<libcyphal::UniquePtr<Transport>>(std::move(maybe_transport));
+        auto transport = cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
         EXPECT_EQ(nullptr, cetl::get_if<FactoryError>(&maybe_transport));
 
         EXPECT_NE(nullptr, transport);

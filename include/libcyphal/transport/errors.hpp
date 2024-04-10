@@ -44,7 +44,7 @@ using AnyError = cetl::
 
 /// @brief Defines any possible factory error at Cyphal transport layer.
 ///
-using FactoryError = cetl::variant<ArgumentError, NotImplementedError>;
+using FactoryError = cetl::variant<ArgumentError, MemoryError, NotImplementedError>;
 
 }  // namespace transport
 }  // namespace libcyphal

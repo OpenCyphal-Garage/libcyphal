@@ -17,9 +17,30 @@ namespace transport
 namespace can
 {
 
-class Transport final : public ITransport
+class ICanTransport : public ITransport
+{};
+
+struct Factory final
 {
 public:
+    Factory() = delete;
+
+    CETL_NODISCARD static inline Expected<UniquePtr<ICanTransport>, FactoryError> make(
+        cetl::pmr::memory_resource&  memory,
+        IMultiplexer&                mux,
+        const std::array<IMedia*, 3> media,  // TODO: replace with `cetl::span<IMedia*>`
+        const cetl::optional<NodeId> local_node_id);
+
+};  // Factory
+
+namespace detail
+{
+
+class TransportImpl final : public ICanTransport
+{
+public:
+    // ICanTransport
+
     // ITransport
 
     CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
@@ -66,24 +87,27 @@ public:
 
     void run(const TimePoint) override {}
 
-    // Factory
+};  // TransportImpl
 
-    CETL_NODISCARD static inline Expected<UniquePtr<Transport>, FactoryError> make(
-        cetl::pmr::memory_resource&  memory,
-        IMultiplexer&                mux,
-        const std::array<IMedia*, 3> media,  // TODO: replace with `cetl::span<IMedia*>`
-        const cetl::optional<NodeId> local_node_id)
-    {
-        // TODO: Use these!
-        (void) mux;
-        (void) media;
-        (void) local_node_id;
+}  // namespace detail
 
-        cetl::pmr::polymorphic_allocator<Transport> allocator{&memory};
-        return cetl::pmr::Factory::make_unique(allocator);
-    }
+CETL_NODISCARD Expected<UniquePtr<ICanTransport>, FactoryError> Factory::make(
+    cetl::pmr::memory_resource&  memory,
+    IMultiplexer&                mux,
+    const std::array<IMedia*, 3> media,  // TODO: replace with `cetl::span<IMedia*>`
+    const cetl::optional<NodeId> local_node_id)
+{
+    // TODO: Use these!
+    (void) mux;
+    (void) media;
+    (void) local_node_id;
 
-};  // Transport
+    cetl::pmr::polymorphic_allocator<detail::TransportImpl> allocator{&memory};
+
+    auto transport = cetl::pmr::Factory::make_unique(allocator);
+
+    return UniquePtr<ICanTransport>{transport.release(), UniquePtr<ICanTransport>::deleter_type{allocator, 1}};
+}
 
 }  // namespace can
 }  // namespace transport
