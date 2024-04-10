@@ -14,7 +14,9 @@ namespace libcyphal
 class IRunnable
 {
 public:
+    IRunnable(IRunnable&&)                 = delete;
     IRunnable(const IRunnable&)            = delete;
+    IRunnable& operator=(IRunnable&&)      = delete;
     IRunnable& operator=(const IRunnable&) = delete;
 
     virtual ~IRunnable() = default;
@@ -22,9 +24,7 @@ public:
     virtual void run(const TimePoint now) = 0;
 
 protected:
-    IRunnable()                       = default;
-    IRunnable(IRunnable&&)            = default;
-    IRunnable& operator=(IRunnable&&) = default;
+    IRunnable() = default;
 };
 
 }  // namespace libcyphal

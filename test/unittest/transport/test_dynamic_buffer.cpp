@@ -3,7 +3,7 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "libcyphal/transport/dynamic_buffer.hpp"
+#include <libcyphal/transport/dynamic_buffer.hpp>
 
 #include <gmock/gmock.h>
 
@@ -27,8 +27,8 @@ public:
     MOCK_METHOD(void, moved, ());
     MOCK_METHOD(void, deinit, ());
 
-    MOCK_METHOD(std::size_t, size, (), (const override));
-    MOCK_METHOD(std::size_t, copy, (const std::size_t, void* const, const std::size_t), (const override));
+    MOCK_METHOD(std::size_t, size, (), (const, noexcept, override));
+    MOCK_METHOD(std::size_t, copy, (const std::size_t, void* const, const std::size_t), (const, override));
 };
 class InterfaceWrapper : public rtti_helper<TestTypeIdType, DynamicBuffer::Interface>
 {
@@ -57,7 +57,7 @@ public:
 
     // DynamicBuffer::Interface
 
-    CETL_NODISCARD std::size_t size() const override
+    CETL_NODISCARD std::size_t size() const noexcept override
     {
         return mock_ ? mock_->size() : 0;
     }

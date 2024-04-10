@@ -3,18 +3,18 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_TRANSPORT_UDP_UDP_TRANSPORT_HPP_INCLUDED
-#define LIBCYPHAL_TRANSPORT_UDP_UDP_TRANSPORT_HPP_INCLUDED
+#ifndef LIBCYPHAL_TRANSPORT_MULTIPLEXER_HPP_INCLUDED
+#define LIBCYPHAL_TRANSPORT_MULTIPLEXER_HPP_INCLUDED
 
 namespace libcyphal
 {
 namespace transport
 {
-namespace udp
-{
 
-}  // namespace udp
+class IMultiplexer
+{};
+
 }  // namespace transport
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_TRANSPORT_UDP_UDP_TRANSPORT_HPP_INCLUDED
+#endif  // LIBCYPHAL_TRANSPORT_MULTIPLEXER_HPP_INCLUDED

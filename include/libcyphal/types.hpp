@@ -50,7 +50,7 @@ using TimePoint = MonotonicClock::time_point;
 using Duration  = MonotonicClock::duration;
 
 template <typename T>
-using UniquePtr = std::unique_ptr<T, cetl::pmr::MemoryResourceDeleter<cetl::pf17::pmr::memory_resource>>;
+using UniquePtr = cetl::pmr::Factory::unique_ptr_t<cetl::pmr::polymorphic_allocator<T>>;
 
 // TODO: Maybe introduce `cetl::expected` at CETL repo.
 template <typename Success, typename Failure>

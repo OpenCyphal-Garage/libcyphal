@@ -12,8 +12,6 @@ namespace libcyphal
 {
 namespace transport
 {
-namespace session
-{
 
 struct RequestRxParams final
 {
@@ -93,7 +91,6 @@ public:
                                                          const PayloadFragments         payload_fragments) = 0;
 };
 
-}  // namespace session
 }  // namespace transport
 }  // namespace libcyphal
 

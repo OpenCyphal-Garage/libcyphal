@@ -13,8 +13,6 @@ namespace libcyphal
 {
 namespace transport
 {
-namespace session
-{
 
 class ISession : public IRunnable
 {
@@ -27,7 +25,6 @@ public:
     virtual void setTransferIdTimeout(const Duration timeout) = 0;
 };
 
-}  // namespace session
 }  // namespace transport
 }  // namespace libcyphal
 
