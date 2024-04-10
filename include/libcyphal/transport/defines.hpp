@@ -65,16 +65,8 @@ struct ServiceTransferMetadata final : TransferMetadata
     NodeId remote_node_id;
 };
 
-// TODO: Maybe have `cetl::byte` polyfill for C++20
-
-/// @brief Defines a mutable span of bytes that represents a buffer for payload fragment.
-using FragmentBuffer = cetl::span<std::uint8_t>;
-
-/// @brief Defines a span of bytes that represents an immutable fragment of payload.
-using PayloadFragment = cetl::span<const std::uint8_t>;
-
 /// @brief Defines a span of immutable fragments of payload.
-using PayloadFragments = cetl::span<const PayloadFragment>;
+using PayloadFragments = cetl::span<const cetl::span<const cetl::byte>>;
 
 struct MessageRxTransfer final
 {

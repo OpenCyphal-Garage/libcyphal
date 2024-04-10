@@ -55,32 +55,32 @@ public:
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
         const MessageRxParams&) override
     {
-        return ArgumentError{};
+        return NotImplementedError{};
     }
     CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(
         const MessageTxParams&) override
     {
-        return ArgumentError{};
+        return NotImplementedError{};
     }
     CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(
         const RequestRxParams&) override
     {
-        return ArgumentError{};
+        return NotImplementedError{};
     }
     CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(
         const RequestTxParams&) override
     {
-        return ArgumentError{};
+        return NotImplementedError{};
     }
     CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(
         const ResponseRxParams&) override
     {
-        return ArgumentError{};
+        return NotImplementedError{};
     }
     CETL_NODISCARD Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(
         const ResponseTxParams&) override
     {
-        return ArgumentError{};
+        return NotImplementedError{};
     }
 
     // IRunnable

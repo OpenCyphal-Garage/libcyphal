@@ -12,7 +12,20 @@ namespace transport
 {
 
 class IMultiplexer
-{};
+{
+public:
+    IMultiplexer(IMultiplexer&&)                 = delete;
+    IMultiplexer(const IMultiplexer&)            = delete;
+    IMultiplexer& operator=(IMultiplexer&&)      = delete;
+    IMultiplexer& operator=(const IMultiplexer&) = delete;
+
+    // TODO: Add methods here
+
+protected:
+    IMultiplexer()          = default;
+    virtual ~IMultiplexer() = default;
+
+};  // IMultiplexer
 
 }  // namespace transport
 }  // namespace libcyphal

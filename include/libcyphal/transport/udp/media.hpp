@@ -16,16 +16,16 @@ namespace udp
 class IMedia
 {
 public:
-    virtual ~IMedia() = default;
+    IMedia(IMedia&&)                 = delete;
+    IMedia(const IMedia&)            = delete;
+    IMedia& operator=(IMedia&&)      = delete;
+    IMedia& operator=(const IMedia&) = delete;
 
     // TODO: Add methods here
 
 protected:
-    IMedia()                         = default;
-    IMedia(IMedia&&)                 = default;
-    IMedia(const IMedia&)            = default;
-    IMedia& operator=(IMedia&&)      = default;
-    IMedia& operator=(const IMedia&) = default;
+    IMedia()          = default;
+    virtual ~IMedia() = default;
 
 };  // IMedia
 

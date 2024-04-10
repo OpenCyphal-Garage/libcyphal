@@ -22,11 +22,14 @@ class MediaMock : public IMedia
 public:
     MOCK_METHOD(std::size_t, getMtu, (), (const, noexcept, override));
     MOCK_METHOD(bool, setFilters, (const Filters filters), (noexcept, override));
-    MOCK_METHOD((Expected<bool, cetl::variant<ArgumentError>>),
+    MOCK_METHOD((Expected<bool, MediaError>),
                 push,
-                (const TimePoint deadline, const CanId can_id, const PayloadFragment payload),
+                (const TimePoint deadline, const CanId can_id, const cetl::span<const cetl::byte> payload),
                 (noexcept, override));
-    MOCK_METHOD(cetl::optional<RxFragment>, pop, (const FragmentBuffer payload_buffer), (noexcept, override));
+    MOCK_METHOD((Expected<cetl::optional<RxMetadata>, MediaError>),
+                pop,
+                (const cetl::span<cetl::byte> payload_buffer),
+                (noexcept, override));
 
 };  // MediaMock
 

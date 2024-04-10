@@ -26,7 +26,7 @@ struct Filter final
 };
 using Filters = cetl::span<const Filter>;
 
-struct RxFragment final
+struct RxMetadata final
 {
     TimePoint   timestamp;
     CanId       can_id;
@@ -36,7 +36,10 @@ struct RxFragment final
 class IMedia
 {
 public:
-    virtual ~IMedia() = default;
+    IMedia(IMedia&&)                 = delete;
+    IMedia(const IMedia&)            = delete;
+    IMedia& operator=(IMedia&&)      = delete;
+    IMedia& operator=(const IMedia&) = delete;
 
     /// @brief Get the maximum transmission unit (MTU) of the CAN bus.
     ///
@@ -51,6 +54,7 @@ public:
     /// in the Cyphal/CAN Specification. If zero filters are requested, all incoming traffic will be rejected.
     /// While reconfiguration is in progress, incoming frames may be lost and/or unwanted frames may be received.
     /// The lifetime of the filter array may end upon return (no references retained).
+    ///
     /// @return Returns `true` on success, `false` in case of a low-level error (e.g., IO error).
     ///
     CETL_NODISCARD virtual bool setFilters(const Filters filters) noexcept = 0;
@@ -59,24 +63,21 @@ public:
     ///
     /// @return Returns `true` if accepted or already timed out; `false` to try again later.
     ///
-    CETL_NODISCARD virtual Expected<bool, cetl::variant<ArgumentError>> push(
-        const TimePoint       deadline,
-        const CanId           can_id,
-        const PayloadFragment payload) noexcept = 0;
+    CETL_NODISCARD virtual Expected<bool, MediaError> push(const TimePoint                    deadline,
+                                                           const CanId                        can_id,
+                                                           const cetl::span<const cetl::byte> payload) noexcept = 0;
 
     /// @brief Takes the next payload fragment (aka CAN frame) from the reception queue unless it's empty.
     ///
     /// @param payload_buffer The payload of the frame will be written into the mutable `payload_buffer` (aka span).
     /// @return Description of a received fragment if available; otherwise an empty optional is returned immediately.
     ///
-    CETL_NODISCARD virtual cetl::optional<RxFragment> pop(const FragmentBuffer payload_buffer) noexcept = 0;
+    CETL_NODISCARD virtual Expected<cetl::optional<RxMetadata>, MediaError> pop(
+        const cetl::span<cetl::byte> payload_buffer) noexcept = 0;
 
 protected:
-    IMedia()                         = default;
-    IMedia(IMedia&&)                 = default;
-    IMedia(const IMedia&)            = default;
-    IMedia& operator=(IMedia&&)      = default;
-    IMedia& operator=(const IMedia&) = default;
+    IMedia()          = default;
+    virtual ~IMedia() = default;
 
 };  // IMedia
 
