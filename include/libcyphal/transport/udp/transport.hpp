@@ -78,7 +78,7 @@ public:
 
 }  // namespace detail
 
-CETL_NODISCARD Expected<UniquePtr<IUdpTransport>, FactoryError> makeTransport(
+CETL_NODISCARD inline Expected<UniquePtr<IUdpTransport>, FactoryError> makeTransport(
     cetl::pmr::memory_resource&  memory,
     IMultiplexer&                mux,
     const std::array<IMedia*, 3> media,  // TODO: replace with `cetl::span<IMedia*>`

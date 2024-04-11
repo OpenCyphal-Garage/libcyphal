@@ -10,6 +10,8 @@
 #include "libcyphal/transport/transport.hpp"
 #include "libcyphal/transport/multiplexer.hpp"
 
+#include <canard.h>
+
 namespace libcyphal
 {
 namespace transport
@@ -26,13 +28,24 @@ namespace detail
 class TransportImpl final : public ICanTransport
 {
 public:
+    TransportImpl(cetl::pmr::memory_resource& memory, const CanardNodeID canard_node_id)
+        : memory_{memory}
+    {
+        canard_instance_ = canardInit(canardMemoryAllocate, canardMemoryFree);
+
+        canard_instance_.user_reference = this;
+        canard_instance_.node_id        = canard_node_id;
+    }
+
+private:
     // ICanTransport
 
     // ITransport
 
     CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
     {
-        return cetl::nullopt;
+        return canard_instance_.node_id == CANARD_NODE_ID_UNSET ? cetl::nullopt
+                                                                : cetl::make_optional(canard_instance_.node_id);
     }
     CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept override
     {
@@ -74,11 +87,35 @@ public:
 
     void run(const TimePoint) override {}
 
+private:
+    cetl::pmr::memory_resource& memory_;
+    CanardInstance              canard_instance_;
+
+    CETL_NODISCARD static inline TransportImpl& getSelfFrom(const CanardInstance* const ins)
+    {
+        CETL_DEBUG_ASSERT(ins != nullptr, "Expected canard instance.");
+        CETL_DEBUG_ASSERT(ins->user_reference != nullptr, "Expected `this` transport as user reference.");
+
+        return *static_cast<TransportImpl*>(ins->user_reference);
+    }
+
+    CETL_NODISCARD static void* canardMemoryAllocate(CanardInstance* ins, size_t amount)
+    {
+        auto& self = getSelfFrom(ins);
+        return self.memory_.allocate(amount);
+    }
+
+    static void canardMemoryFree(CanardInstance* ins, void* pointer)
+    {
+        auto& self = getSelfFrom(ins);
+        self.memory_.deallocate(pointer, 1);
+    }
+
 };  // TransportImpl
 
 }  // namespace detail
 
-CETL_NODISCARD Expected<UniquePtr<ICanTransport>, FactoryError> makeTransport(
+CETL_NODISCARD inline Expected<UniquePtr<ICanTransport>, FactoryError> makeTransport(
     cetl::pmr::memory_resource&  memory,
     IMultiplexer&                mux,
     const std::array<IMedia*, 3> media,  // TODO: replace with `cetl::span<IMedia*>`
@@ -87,11 +124,16 @@ CETL_NODISCARD Expected<UniquePtr<ICanTransport>, FactoryError> makeTransport(
     // TODO: Use these!
     (void) mux;
     (void) media;
-    (void) local_node_id;
+
+    if (local_node_id.has_value() && local_node_id.value() > CANARD_NODE_ID_MAX)
+    {
+        return ArgumentError{};
+    }
+    const auto canard_node_id = static_cast<CanardNodeID>(local_node_id.value_or(CANARD_NODE_ID_UNSET));
 
     cetl::pmr::polymorphic_allocator<detail::TransportImpl> allocator{&memory};
 
-    auto transport = cetl::pmr::Factory::make_unique(allocator);
+    auto transport = cetl::pmr::Factory::make_unique(allocator, memory, canard_node_id);
 
     return UniquePtr<ICanTransport>{transport.release(), UniquePtr<ICanTransport>::deleter_type{allocator, 1}};
 }
