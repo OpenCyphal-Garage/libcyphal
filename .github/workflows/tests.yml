@@ -24,7 +24,7 @@ jobs:
       contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts22.4.3
+    container: ghcr.io/opencyphal/toolshed:ts22.4.7
     steps:
       - uses: actions/checkout@v4
         if: ${{ github.event_name != 'act' }}
@@ -57,7 +57,7 @@ jobs:
       contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts22.4.3
+    container: ghcr.io/opencyphal/toolshed:ts22.4.7
     needs: [warmup]
     strategy:
       matrix:
@@ -115,7 +115,7 @@ jobs:
       contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts22.4.3
+    container: ghcr.io/opencyphal/toolshed:ts22.4.7
     needs: [warmup]
     steps:
     - uses: actions/checkout@v4
