@@ -33,7 +33,7 @@ public:
         Interface(const Interface&)            = delete;
         Interface& operator=(const Interface&) = delete;
 
-        CETL_NODISCARD virtual std::size_t size() const                               = 0;
+        CETL_NODISCARD virtual std::size_t size() const noexcept                      = 0;
         CETL_NODISCARD virtual std::size_t copy(const std::size_t offset_bytes,
                                                 void* const       destination,
                                                 const std::size_t length_bytes) const = 0;
@@ -90,7 +90,7 @@ public:
     ///
     /// @return Returns zero if the buffer is moved away.
     ///
-    CETL_NODISCARD std::size_t size() const
+    CETL_NODISCARD std::size_t size() const noexcept
     {
         return interface_ ? interface_->size() : 0;
     }
