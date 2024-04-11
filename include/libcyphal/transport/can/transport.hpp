@@ -20,19 +20,6 @@ namespace can
 class ICanTransport : public ITransport
 {};
 
-struct Factory final
-{
-public:
-    Factory() = delete;
-
-    CETL_NODISCARD static inline Expected<UniquePtr<ICanTransport>, FactoryError> make(
-        cetl::pmr::memory_resource&  memory,
-        IMultiplexer&                mux,
-        const std::array<IMedia*, 3> media,  // TODO: replace with `cetl::span<IMedia*>`
-        const cetl::optional<NodeId> local_node_id);
-
-};  // Factory
-
 namespace detail
 {
 
@@ -91,7 +78,7 @@ public:
 
 }  // namespace detail
 
-CETL_NODISCARD Expected<UniquePtr<ICanTransport>, FactoryError> Factory::make(
+CETL_NODISCARD Expected<UniquePtr<ICanTransport>, FactoryError> makeTransport(
     cetl::pmr::memory_resource&  memory,
     IMultiplexer&                mux,
     const std::array<IMedia*, 3> media,  // TODO: replace with `cetl::span<IMedia*>`

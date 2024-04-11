@@ -26,7 +26,7 @@ TEST(test_can_transport, factory_make)
     StrictMock<MediaMock>       media_mock{};
     StrictMock<MultiplexerMock> multiplex_mock{};
 
-    auto maybe_transport = Factory::make(*mr, multiplex_mock, {&media_mock}, static_cast<NodeId>(0));
+    auto maybe_transport = makeTransport(*mr, multiplex_mock, {&media_mock}, static_cast<NodeId>(0));
     {
         auto transport = cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
         EXPECT_EQ(nullptr, cetl::get_if<FactoryError>(&maybe_transport));
