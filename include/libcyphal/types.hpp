@@ -10,6 +10,7 @@
 #include <cetl/pf17/attribute.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 #include <cetl/pmr/memory.hpp>
+#include <cetl/variable_length_array.hpp>
 
 #include <cstdint>
 #include <chrono>
@@ -55,6 +56,16 @@ using UniquePtr = cetl::pmr::Factory::unique_ptr_t<cetl::pmr::polymorphic_alloca
 // TODO: Maybe introduce `cetl::expected` at CETL repo.
 template <typename Success, typename Failure>
 using Expected = cetl::variant<Success, Failure>;
+
+namespace detail
+{
+template <typename T>
+using PmrAllocator = cetl::pmr::polymorphic_allocator<T>;
+
+template <typename T>
+using VarArray = cetl::VariableLengthArray<T, PmrAllocator<T>>;
+
+}  // namespace detail
 
 }  // namespace libcyphal
 
