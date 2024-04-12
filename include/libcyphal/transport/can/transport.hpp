@@ -30,9 +30,8 @@ class TransportImpl final : public ICanTransport
 public:
     TransportImpl(cetl::pmr::memory_resource& memory, const CanardNodeID canard_node_id)
         : memory_{memory}
+        , canard_instance_{canardInit(canardMemoryAllocate, canardMemoryFree)}
     {
-        canard_instance_ = canardInit(canardMemoryAllocate, canardMemoryFree);
-
         canard_instance_.user_reference = this;
         canard_instance_.node_id        = canard_node_id;
     }
@@ -43,8 +42,8 @@ public:
 
     CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
     {
-        return canard_instance_.node_id == CANARD_NODE_ID_UNSET ? cetl::nullopt
-                                                                : cetl::make_optional(canard_instance_.node_id);
+        return canard_instance_.node_id > CANARD_NODE_ID_MAX ? cetl::nullopt
+                                                             : cetl::make_optional(canard_instance_.node_id);
     }
     CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept override
     {
@@ -95,12 +94,14 @@ private:
     //
     struct CanardMemory
     {
-        std::size_t size;
-        alignas(std::max_align_t) cetl::byte data[1];
-    };
+        struct Layout
+        {
+            std::size_t size;
+            alignas(std::max_align_t) cetl::byte data[sizeof(std::max_align_t)];
+        };
 
-    cetl::pmr::memory_resource& memory_;
-    CanardInstance              canard_instance_;
+        static constexpr std::size_t DataOffset = sizeof(Layout) - sizeof(Layout::data);
+    };
 
     CETL_NODISCARD static inline TransportImpl& getSelfFrom(const CanardInstance* const ins)
     {
@@ -114,8 +115,8 @@ private:
     {
         auto& self = getSelfFrom(ins);
 
-        const auto memory_size   = offsetof(CanardMemory, data) + amount;
-        const auto canard_memory = static_cast<CanardMemory*>(self.memory_.allocate(memory_size));
+        const auto memory_size   = CanardMemory::DataOffset + amount;
+        const auto canard_memory = static_cast<CanardMemory::Layout*>(self.memory_.allocate(memory_size));
         if (canard_memory == nullptr)
         {
             return nullptr;
@@ -132,14 +133,16 @@ private:
             return;
         }
 
-        const auto uint_ptr        = reinterpret_cast<std::uintptr_t>(pointer);
-        const auto expected_offset = offsetof(CanardMemory, data);
-        CETL_DEBUG_ASSERT(uint_ptr > expected_offset, "Invalid too small pointer.");
-        const auto canard_memory = reinterpret_cast<CanardMemory*>(uint_ptr - expected_offset);
+        const auto uint_ptr = reinterpret_cast<std::uintptr_t>(pointer);
+        CETL_DEBUG_ASSERT(uint_ptr > CanardMemory::DataOffset, "Invalid too small pointer.");
+        const auto canard_memory = reinterpret_cast<CanardMemory::Layout*>(uint_ptr - CanardMemory::DataOffset);
 
         auto& self = getSelfFrom(ins);
         self.memory_.deallocate(canard_memory, canard_memory->size);
     }
+
+    cetl::pmr::memory_resource& memory_;
+    CanardInstance              canard_instance_;
 
 };  // TransportImpl
 
