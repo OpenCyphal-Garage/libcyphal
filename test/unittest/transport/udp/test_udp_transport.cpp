@@ -19,20 +19,19 @@ using namespace libcyphal::transport::udp;
 
 using testing::StrictMock;
 
-TEST(test_udp_transport, factory_make)
+TEST(test_udp_transport, makeTransport)
 {
     auto mr = cetl::pmr::new_delete_resource();
 
     StrictMock<MediaMock>       media_mock{};
     StrictMock<MultiplexerMock> multiplex_mock{};
 
-    auto maybe_transport = Factory::make(*mr, multiplex_mock, {&media_mock}, static_cast<NodeId>(0));
+    {
+        auto maybe_transport = makeTransport(*mr, multiplex_mock, {&media_mock}, {});
 
-    auto transport = cetl::get_if<UniquePtr<IUdpTransport>>(&maybe_transport);
-    EXPECT_EQ(nullptr, transport);
-    auto error = cetl::get_if<FactoryError>(&maybe_transport);
-    EXPECT_NE(nullptr, error);
-    EXPECT_NE(nullptr, cetl::get_if<NotImplementedError>(error));
+        EXPECT_FALSE(cetl::get_if<UniquePtr<IUdpTransport>>(&maybe_transport));
+        EXPECT_TRUE(cetl::get_if<NotImplementedError>(cetl::get_if<FactoryError>(&maybe_transport)));
+    }
 }
 
 }  // namespace
