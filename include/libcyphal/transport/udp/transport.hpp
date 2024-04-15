@@ -26,9 +26,9 @@ namespace detail
 class TransportImpl final : public IUdpTransport
 {
 public:
-    // IUpdTransport
+    // MARK: IUpdTransport
 
-    // ITransport
+    // MARK: ITransport
 
     CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
     {
@@ -70,7 +70,7 @@ public:
         return NotImplementedError{};
     }
 
-    // IRunnable
+    // MARK: IRunnable
 
     void run(const TimePoint) override {}
 
@@ -79,13 +79,13 @@ public:
 }  // namespace detail
 
 CETL_NODISCARD inline Expected<UniquePtr<IUdpTransport>, FactoryError> makeTransport(
-    cetl::pmr::memory_resource&  memory,
-    IMultiplexer&                mux,
-    const std::array<IMedia*, 3> media,  // TODO: replace with `cetl::span<IMedia*>`
-    const cetl::optional<NodeId> local_node_id)
+    cetl::pmr::memory_resource&                   memory,
+    IMultiplexer&                                 multiplexer,
+    const std::array<IMedia*, MaxMediaInterfaces> media,  // TODO: replace with `cetl::span<IMedia*>`
+    const cetl::optional<NodeId>                  local_node_id)
 {
     // TODO: Use these!
-    (void) mux;
+    (void) multiplexer;
     (void) media;
     (void) memory;
     (void) local_node_id;
