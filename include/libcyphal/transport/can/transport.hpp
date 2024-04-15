@@ -188,7 +188,8 @@ CETL_NODISCARD inline Expected<UniquePtr<ICanTransport>, FactoryError> makeTrans
     // - At least one media interface must be provided.
     // - If a local node ID is provided, it must be within the valid range.
     //
-    const auto media_count = std::count_if(media.cbegin(), media.cend(), [](auto m) { return m != nullptr; });
+    const auto media_count =
+        static_cast<std::size_t>(std::count_if(media.cbegin(), media.cend(), [](auto m) { return m != nullptr; }));
     if (media_count == 0)
     {
         return ArgumentError{};
@@ -199,7 +200,7 @@ CETL_NODISCARD inline Expected<UniquePtr<ICanTransport>, FactoryError> makeTrans
     }
 
     libcyphal::detail::VarArray<IMedia*> media_array{MaxMediaInterfaces, &memory};
-    media_array.reserve(static_cast<std::size_t>(media_count));
+    media_array.reserve(media_count);
     std::copy_if(media.cbegin(), media.cend(), std::back_inserter(media_array), [](auto m) { return m != nullptr; });
     CETL_DEBUG_ASSERT(!media_array.empty() && (media_array.size() == media_count), "");
 
