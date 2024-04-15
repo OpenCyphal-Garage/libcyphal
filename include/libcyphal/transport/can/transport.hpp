@@ -26,18 +26,12 @@ class ICanTransport : public ITransport
 
 namespace detail
 {
-template <typename T>
-using VarArray = libcyphal::detail::VarArray<T>;
-
-template <typename T>
-using PmrAllocator = libcyphal::detail::PmrAllocator<T>;
-
 class TransportImpl final : public ICanTransport
 {
 public:
-    TransportImpl(cetl::pmr::memory_resource& memory,
-                  VarArray<IMedia*>&&         media_array,
-                  const CanardNodeID          canard_node_id)
+    TransportImpl(cetl::pmr::memory_resource&            memory,
+                  libcyphal::detail::VarArray<IMedia*>&& media_array,
+                  const CanardNodeID                     canard_node_id)
         : memory_{memory}
         , media_array_{std::move(media_array)}
         , canard_instance_{canardInit(canardMemoryAllocate, canardMemoryFree)}
@@ -173,9 +167,9 @@ private:
 
     // MARK: Data members:
 
-    cetl::pmr::memory_resource& memory_;
-    const VarArray<IMedia*>     media_array_;
-    CanardInstance              canard_instance_;
+    cetl::pmr::memory_resource&                memory_;
+    const libcyphal::detail::VarArray<IMedia*> media_array_;
+    CanardInstance                             canard_instance_;
 
 };  // TransportImpl
 
@@ -204,13 +198,14 @@ CETL_NODISCARD inline Expected<UniquePtr<ICanTransport>, FactoryError> makeTrans
         return ArgumentError{};
     }
 
-    detail::VarArray<IMedia*> media_array{MaxMediaInterfaces, &memory};
+    libcyphal::detail::VarArray<IMedia*> media_array{MaxMediaInterfaces, &memory};
     media_array.reserve(static_cast<std::size_t>(media_count));
     std::copy_if(media.cbegin(), media.cend(), std::back_inserter(media_array), [](auto m) { return m != nullptr; });
+    CETL_DEBUG_ASSERT(!media_array.empty() && (media_array.size() == media_count), "");
 
     const auto canard_node_id = static_cast<CanardNodeID>(local_node_id.value_or(CANARD_NODE_ID_UNSET));
 
-    detail::PmrAllocator<detail::TransportImpl> allocator{&memory};
+    libcyphal::detail::PmrAllocator<detail::TransportImpl> allocator{&memory};
     auto transport = cetl::pmr::Factory::make_unique(allocator, memory, std::move(media_array), canard_node_id);
 
     return UniquePtr<ICanTransport>{transport.release(), UniquePtr<ICanTransport>::deleter_type{allocator, 1}};
