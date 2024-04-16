@@ -43,13 +43,16 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
     list(APPEND ALL_TESTS_BUILD ${LOCAL_TEST_TARGET})
     list(APPEND ALL_TESTS_RUN ${LOCAL_TEST_REPORT})
 
+    # We need to exclude the "external" directory from coverage reports.
+    cmake_path(APPEND LIBCYPHAL_ROOT "external" OUTPUT_VARIABLE LIBCYPHAL_EXTERNAL_PATH)
+    
     if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
         define_gcovr_tracefile_target(
             TARGET ${LOCAL_TEST_TARGET}
             ROOT_DIRECTORY ${LIBCYPHAL_ROOT}
             TARGET_EXECUTION_DEPENDS ${LOCAL_TEST_REPORT}
             OBJECT_LIBRARY ${LOCAL_TEST_LIB}
-            EXCLUDE_PATHS ${LIBCYPHAL_ROOT}external
+            EXCLUDE_PATHS ${LIBCYPHAL_EXTERNAL_PATH}
             EXCLUDE_TEST_FRAMEWORKS
             EXCLUDE_TARGET
             ENABLE_INSTRUMENTATION
