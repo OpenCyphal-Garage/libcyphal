@@ -144,4 +144,35 @@ TEST(test_can_transport, getProtocolParams)
     }
 }
 
+TEST(test_can_transport, makeMessageRxSession)
+{
+    auto mr = cetl::pmr::new_delete_resource();
+
+    StrictMock<MultiplexerMock> mux_mock{};
+    StrictMock<MediaMock>       media_mock{};
+
+    auto transport = cetl::get<UniquePtr<ICanTransport>>(makeTransport(*mr, mux_mock, {&media_mock}, {}));
+
+    auto maybe_rx_session = transport->makeMessageRxSession({42, 123});
+    EXPECT_FALSE(cetl::get_if<AnyError>(&maybe_rx_session));
+
+    auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_rx_session));
+    EXPECT_TRUE(session);
+    EXPECT_EQ(42, session->getParams().extent_bytes);
+    EXPECT_EQ(123, session->getParams().subject_id);
+}
+
+TEST(test_can_transport, makeMessageRxSession_invalid_subject_id)
+{
+    auto mr = cetl::pmr::new_delete_resource();
+
+    StrictMock<MultiplexerMock> mux_mock{};
+    StrictMock<MediaMock>       media_mock{};
+
+    auto transport = cetl::get<UniquePtr<ICanTransport>>(makeTransport(*mr, mux_mock, {&media_mock}, {}));
+
+    auto maybe_rx_session = transport->makeMessageRxSession({0, CANARD_SUBJECT_ID_MAX + 1});
+    EXPECT_TRUE(cetl::get_if<ArgumentError>(cetl::get_if<AnyError>(&maybe_rx_session)));
+}
+
 }  // namespace
