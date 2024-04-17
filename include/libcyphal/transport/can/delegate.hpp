@@ -19,10 +19,12 @@ namespace detail
 
 struct TransportDelegate
 {
-    // TODO: Set proper type id.
-    class CanardMemory final : public cetl::rtti_helper<cetl::type_id_type<0x0, 0x1>, DynamicBuffer::Interface>
+    // 1141F5C0-2E61-44BF-9F0E-FA1C518CD517
+    using CanardMemoryTypeIdType = cetl::
+        type_id_type<0x11, 0x41, 0xF5, 0xC0, 0x2E, 0x61, 0x44, 0xBF, 0x9F, 0x0E, 0xFA, 0x1C, 0x51, 0x8C, 0xD5, 0x17>;
+
+    struct CanardMemory final : public cetl::rtti_helper<CanardMemoryTypeIdType, DynamicBuffer::Interface>
     {
-    public:
         CanardMemory(TransportDelegate& delegate, void* buffer, const std::size_t payload_size)
             : delegate_{delegate}
             , buffer_{buffer}
