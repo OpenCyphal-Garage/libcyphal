@@ -90,8 +90,7 @@ public:
         // TODO: Use it!
         (void) multiplexer;
 
-        canard_instance().user_reference = this;
-        canard_instance().node_id        = canard_node_id;
+        canard_instance().node_id = canard_node_id;
     }
 
 private:

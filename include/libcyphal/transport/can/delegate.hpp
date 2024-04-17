@@ -63,12 +63,14 @@ struct TransportDelegate
                                         void* const       destination,
                                         const std::size_t length_bytes) const override
         {
-            (void) offset_bytes;
-            (void) destination;
-            (void) length_bytes;
+            if ((destination == nullptr) || (buffer_ == nullptr) || (payload_size_ <= offset_bytes))
+            {
+                return 0;
+            }
 
-            // TODO: Implement this method.
-            return 0;
+            const auto bytes_to_copy = std::min(length_bytes, payload_size_ - offset_bytes);
+            memcpy(destination, static_cast<cetl::byte*>(buffer_) + offset_bytes, bytes_to_copy);
+            return bytes_to_copy;
         }
 
     private:
@@ -84,6 +86,7 @@ struct TransportDelegate
         : memory_{memory}
         , canard_instance_(canardInit(canardMemoryAllocate, canardMemoryFree))
     {
+        canard_instance().user_reference = this;
     }
 
     CETL_NODISCARD inline CanardInstance& canard_instance() noexcept
