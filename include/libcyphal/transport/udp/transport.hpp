@@ -10,6 +10,8 @@
 #include "libcyphal/transport/transport.hpp"
 #include "libcyphal/transport/multiplexer.hpp"
 
+#include <udpard.h>
+
 namespace libcyphal
 {
 namespace transport
@@ -25,9 +27,30 @@ namespace detail
 
 class TransportImpl final : public IUdpTransport
 {
-public:
-    // MARK: IUpdTransport
+    // In use to disable public construction.
+    // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
+    struct Tag
+    {
+        explicit Tag()  = default;
+        using Interface = IUdpTransport;
+        using Concrete  = TransportImpl;
+    };
 
+public:
+    TransportImpl(Tag,
+                  cetl::pmr::memory_resource&            memory,
+                  IMultiplexer&                          multiplexer,
+                  libcyphal::detail::VarArray<IMedia*>&& media_array,
+                  const UdpardNodeID                     udpard_node_id)
+    {
+        // TODO: Use them!
+        (void) memory;
+        (void) multiplexer;
+        (void) media_array;
+        (void) udpard_node_id;
+    }
+
+private:
     // MARK: ITransport
 
     CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override

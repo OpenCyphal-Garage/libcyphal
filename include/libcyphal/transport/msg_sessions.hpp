@@ -36,7 +36,8 @@ public:
     /// @return A message transfer if available; otherwise an empty optional.
     ///
     CETL_NODISCARD virtual cetl::optional<MessageRxTransfer> receive() = 0;
-};
+
+};  // IMessageRxSession
 
 class IMessageTxSession : public IRunnable
 {
@@ -51,7 +52,7 @@ public:
     ///
     CETL_NODISCARD virtual cetl::optional<AnyError> send(const TransferMetadata& metadata,
                                                          const PayloadFragments  payload_fragments) = 0;
-};
+};  // IMessageTxSession
 
 }  // namespace transport
 }  // namespace libcyphal

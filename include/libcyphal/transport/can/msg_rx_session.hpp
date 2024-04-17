@@ -11,6 +11,8 @@
 
 #include <canard.h>
 
+#include <chrono>
+
 namespace libcyphal
 {
 namespace transport
@@ -19,7 +21,7 @@ namespace can
 {
 namespace detail
 {
-class MessageRxSession final : public IMessageRxSession
+class MessageRxSession final : public IMessageRxSession, private SessionDelegate
 {
     // In use to disable public construction.
     // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
@@ -35,7 +37,7 @@ public:
                                                                                 const MessageRxParams& params)
     {
         cetl::optional<AnyError> any_error{};
-        auto session = libcyphal::detail::makeUniquePtr<Tag>(delegate.memory_, Tag{}, delegate, params, any_error);
+        auto session = libcyphal::detail::makeUniquePtr<Tag>(delegate.memory(), Tag{}, delegate, params, any_error);
         if (any_error.has_value())
         {
             return any_error.value();
@@ -51,7 +53,7 @@ public:
         : delegate_{delegate}
         , params_{params}
     {
-        auto result = canardRxSubscribe(&delegate.canard_instance_,
+        auto result = canardRxSubscribe(&delegate.canard_instance(),
                                         CanardTransferKindMessage,
                                         params_.subject_id,
                                         params_.extent_bytes,
@@ -64,14 +66,15 @@ public:
         }
         CETL_DEBUG_ASSERT(result > 0, "New subscription supposed to be made.");
 
-        is_subscribed_ = true;
+        is_subscribed_               = true;
+        subscription_.user_reference = static_cast<SessionDelegate*>(this);
     }
 
     ~MessageRxSession() override
     {
         if (is_subscribed_)
         {
-            canardRxUnsubscribe(&delegate_.canard_instance_, CanardTransferKindMessage, params_.subject_id);
+            canardRxUnsubscribe(&delegate_.canard_instance(), CanardTransferKindMessage, params_.subject_id);
         }
     }
 
@@ -85,32 +88,50 @@ private:
 
     CETL_NODISCARD cetl::optional<MessageRxTransfer> receive() override
     {
-        return {};
+        return std::move(last_rx_transfer_);
     }
 
     // MARK: IRxSession
 
     void setTransferIdTimeout(const Duration timeout) override
     {
-        CETL_DEBUG_ASSERT(timeout.count() > 0, "Timeout should be positive.");
-        if (timeout.count() > 0)
+        const auto timeout_us = std::chrono::duration_cast<std::chrono::microseconds>(timeout);
+        if (timeout_us.count() > 0)
         {
             subscription_.transfer_id_timeout_usec = static_cast<CanardMicrosecond>(timeout.count());
         }
     }
 
-    // MARK: ISession
-
     // MARK: IRunnable
 
     void run(const TimePoint) override {}
 
-private:
+    // MARK: SessionDelegate
+
+    void acceptRxTransfer(const CanardRxTransfer& transfer) override
+    {
+        const auto priority{static_cast<Priority>(transfer.metadata.priority)};
+        const auto transfer_id{static_cast<TransferId>(transfer.metadata.transfer_id)};
+        const auto timestamp = TimePoint{std::chrono::microseconds{transfer.timestamp_usec}};
+
+        const auto publisher_node_id = transfer.metadata.remote_node_id > CANARD_NODE_ID_MAX
+                                           ? cetl::nullopt
+                                           : cetl::make_optional<NodeId>(transfer.metadata.remote_node_id);
+
+        const MessageTransferMetadata   meta{{transfer_id, timestamp, priority}, publisher_node_id};
+        TransportDelegate::CanardMemory canard_memory{delegate_, transfer.payload, transfer.payload_size};
+
+        last_rx_transfer_.emplace(MessageRxTransfer{meta, DynamicBuffer{std::move(canard_memory)}});
+    }
+
+    // MARK: Data members:
+
     TransportDelegate&    delegate_;
     const MessageRxParams params_;
 
-    bool                 is_subscribed_{false};
-    CanardRxSubscription subscription_{};
+    bool                              is_subscribed_{false};
+    CanardRxSubscription              subscription_{};
+    cetl::optional<MessageRxTransfer> last_rx_transfer_{};
 
 };  // MessageRxSession
 

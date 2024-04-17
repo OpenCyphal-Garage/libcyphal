@@ -15,6 +15,7 @@
 #include <canard.h>
 
 #include <algorithm>
+#include <chrono>
 
 namespace libcyphal
 {
@@ -83,25 +84,23 @@ public:
                   IMultiplexer&                          multiplexer,
                   libcyphal::detail::VarArray<IMedia*>&& media_array,
                   const CanardNodeID                     canard_node_id)
-        : TransportDelegate{memory, canardInit(canardMemoryAllocate, canardMemoryFree)}
+        : TransportDelegate{memory}
         , media_array_{std::move(media_array)}
     {
         // TODO: Use it!
         (void) multiplexer;
 
-        canard_instance_.user_reference = this;
-        canard_instance_.node_id        = canard_node_id;
+        canard_instance().user_reference = this;
+        canard_instance().node_id        = canard_node_id;
     }
 
 private:
-    // MARK: ICanTransport
-
     // MARK: ITransport
 
     CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
     {
-        return canard_instance_.node_id > CANARD_NODE_ID_MAX ? cetl::nullopt
-                                                             : cetl::make_optional(canard_instance_.node_id);
+        return canard_instance().node_id > CANARD_NODE_ID_MAX ? cetl::nullopt
+                                                              : cetl::make_optional(canard_instance().node_id);
     }
     CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept override
     {
@@ -167,7 +166,50 @@ private:
 
     // MARK: IRunnable
 
-    void run(const TimePoint) override {}
+    void run(const TimePoint) override
+    {
+        std::array<cetl::byte, CANARD_MTU_MAX> payload{};
+
+        for (std::size_t media_index = 0; media_index < media_array_.size(); media_index++)
+        {
+            CETL_DEBUG_ASSERT(media_array_[media_index] != nullptr, "Expected media interface.");
+            auto& media = *media_array_[media_index];
+
+            // TODO: Handle errors.
+            const auto pop_result = media.pop(payload);
+            if (const auto opt_rx_meta = cetl::get_if<cetl::optional<RxMetadata>>(&pop_result))
+            {
+                if (opt_rx_meta->has_value())
+                {
+                    auto& rx_meta = opt_rx_meta->value();
+
+                    const auto timestamp_us =
+                        std::chrono::duration_cast<std::chrono::microseconds>(rx_meta.timestamp.time_since_epoch());
+                    const CanardFrame canard_frame{rx_meta.can_id, rx_meta.payload_size, payload.cbegin()};
+
+                    CanardRxTransfer      out_transfer{};
+                    CanardRxSubscription* out_subscription{};
+
+                    // TODO: Handle errors.
+                    const auto result = canardRxAccept(&canard_instance(),
+                                                       static_cast<CanardMicrosecond>(timestamp_us.count()),
+                                                       &canard_frame,
+                                                       static_cast<uint8_t>(media_index),
+                                                       &out_transfer,
+                                                       &out_subscription);
+                    if (result > 0)
+                    {
+                        CETL_DEBUG_ASSERT(out_subscription != nullptr, "Expected subscription.");
+                        CETL_DEBUG_ASSERT(out_subscription->user_reference != nullptr, "Expected session delegate.");
+
+                        const auto delegate = static_cast<SessionDelegate*>(out_subscription->user_reference);
+                        delegate->acceptRxTransfer(out_transfer);
+                    }
+                }
+            }
+
+        }  // for each media
+    }
 
     // MARK: TransportDelegate
 
@@ -177,76 +219,6 @@ private:
     }
 
     // MARK: Privates:
-
-    // Until "canardMemFree must provide size" issue #216 is resolved,
-    // we need to store the size of the memory allocated.
-    // TODO: Remove this workaround when the issue is resolved.
-    // see https://github.com/OpenCyphal/libcanard/issues/216
-    //
-    struct CanardMemory
-    {
-        alignas(std::max_align_t) std::size_t size;
-    };
-
-    CETL_NODISCARD static inline TransportImpl& getSelfFrom(const CanardInstance* const ins)
-    {
-        CETL_DEBUG_ASSERT(ins != nullptr, "Expected canard instance.");
-        CETL_DEBUG_ASSERT(ins->user_reference != nullptr, "Expected `this` transport as user reference.");
-
-        return *static_cast<TransportImpl*>(ins->user_reference);
-    }
-
-    CETL_NODISCARD static void* canardMemoryAllocate(CanardInstance* ins, size_t amount)
-    {
-        auto& self = getSelfFrom(ins);
-
-        const auto memory_size   = sizeof(CanardMemory) + amount;
-        auto       canard_memory = static_cast<CanardMemory*>(self.memory_.allocate(memory_size));
-        if (canard_memory == nullptr)
-        {
-            return nullptr;
-        }
-
-        // Return the memory after the `CanardMemory` struct (containing its size).
-        // The size is used in `canardMemoryFree` to deallocate the memory.
-        //
-        canard_memory->size = memory_size;
-        return ++canard_memory;
-    }
-
-    static void canardMemoryFree(CanardInstance* ins, void* pointer)
-    {
-        if (pointer == nullptr)
-        {
-            return;
-        }
-
-        auto canard_memory = static_cast<CanardMemory*>(pointer);
-        --canard_memory;
-
-        auto& self = getSelfFrom(ins);
-        self.memory_.deallocate(canard_memory, canard_memory->size);
-    }
-
-    template <typename Action>
-    void forEachMedia(Action action)
-    {
-        for (const auto media : media_array_)
-        {
-            CETL_DEBUG_ASSERT(media != nullptr, "Expected media interface.");
-            action(std::ref(*media));
-        }
-    }
-
-    template <typename T, typename Reducer>
-    void reduceMediaInto(T&& init, Reducer reducer)
-    {
-        for (const auto media : media_array_)
-        {
-            CETL_DEBUG_ASSERT(media != nullptr, "Expected media interface.");
-            reducer(std::forward<T>(init), std::ref(*media));
-        }
-    }
 
     template <typename T, typename Reducer>
     CETL_NODISCARD T reduceMedia(const T init, Reducer reducer) const
@@ -269,7 +241,7 @@ private:
             return ArgumentError{};
         }
 
-        const auto hasSubscription = canardRxHasSubscription(&canard_instance_, transfer_kind, port_id);
+        const auto hasSubscription = canardRxHasSubscription(&canard_instance(), transfer_kind, port_id);
         if (hasSubscription < 0)
         {
             return anyErrorFromCanard(hasSubscription);

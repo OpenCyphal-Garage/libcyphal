@@ -57,6 +57,12 @@ struct TransferMetadata
 
 struct MessageTransferMetadata final : TransferMetadata
 {
+    MessageTransferMetadata(const TransferMetadata& transfer_metadata, cetl::optional<NodeId> _publisher_node_id)
+        : TransferMetadata{transfer_metadata}
+        , publisher_node_id{_publisher_node_id}
+    {
+    }
+
     cetl::optional<NodeId> publisher_node_id;
 };
 
