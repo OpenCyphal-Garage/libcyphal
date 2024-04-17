@@ -25,7 +25,7 @@ struct TransportDelegate
 
     struct CanardMemory final : public cetl::rtti_helper<CanardMemoryTypeIdType, DynamicBuffer::Interface>
     {
-        CanardMemory(TransportDelegate& delegate, void* buffer, const std::size_t payload_size)
+        CanardMemory(TransportDelegate& delegate, void* const buffer, const std::size_t payload_size)
             : delegate_{delegate}
             , buffer_{buffer}
             , payload_size_{payload_size}
@@ -39,7 +39,7 @@ struct TransportDelegate
             other.buffer_       = nullptr;
             other.payload_size_ = 0;
         }
-        CanardMemory(const CanardMemory& other) = delete;
+        CanardMemory(const CanardMemory&) = delete;
 
         ~CanardMemory() override
         {
@@ -115,7 +115,7 @@ struct TransportDelegate
         return {};
     }
 
-    void canardMemoryFree(void* pointer)
+    void canardMemoryFree(void* const pointer)
     {
         if (pointer == nullptr)
         {

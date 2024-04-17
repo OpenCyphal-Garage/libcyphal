@@ -53,12 +53,12 @@ public:
         : delegate_{delegate}
         , params_{params}
     {
-        auto result = canardRxSubscribe(&delegate.canard_instance(),
-                                        CanardTransferKindMessage,
-                                        params_.subject_id,
-                                        params_.extent_bytes,
-                                        CANARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC,
-                                        &subscription_);
+        const auto result = canardRxSubscribe(&delegate.canard_instance(),
+                                              CanardTransferKindMessage,
+                                              static_cast<CanardPortID>(params_.subject_id),
+                                              static_cast<size_t>(params_.extent_bytes),
+                                              CANARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC,
+                                              &subscription_);
         if (result < 0)
         {
             out_error = TransportDelegate::anyErrorFromCanard(result);
@@ -74,7 +74,9 @@ public:
     {
         if (is_subscribed_)
         {
-            canardRxUnsubscribe(&delegate_.canard_instance(), CanardTransferKindMessage, params_.subject_id);
+            canardRxUnsubscribe(&delegate_.canard_instance(),
+                                CanardTransferKindMessage,
+                                static_cast<CanardPortID>(params_.subject_id));
         }
     }
 
@@ -98,7 +100,7 @@ private:
         const auto timeout_us = std::chrono::duration_cast<std::chrono::microseconds>(timeout);
         if (timeout_us.count() > 0)
         {
-            subscription_.transfer_id_timeout_usec = static_cast<CanardMicrosecond>(timeout.count());
+            subscription_.transfer_id_timeout_usec = static_cast<CanardMicrosecond>(timeout_us.count());
         }
     }
 

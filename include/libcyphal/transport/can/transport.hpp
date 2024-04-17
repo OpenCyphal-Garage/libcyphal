@@ -99,8 +99,12 @@ private:
 
     CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
     {
-        return canard_instance().node_id > CANARD_NODE_ID_MAX ? cetl::nullopt
-                                                              : cetl::make_optional(canard_instance().node_id);
+        if (canard_instance().node_id > CANARD_NODE_ID_MAX)
+        {
+            return cetl::nullopt;
+        }
+
+        return cetl::make_optional(static_cast<NodeId>(canard_instance().node_id));
     }
     CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept override
     {
@@ -170,7 +174,7 @@ private:
     {
         std::array<cetl::byte, CANARD_MTU_MAX> payload{};
 
-        for (std::size_t media_index = 0; media_index < media_array_.size(); media_index++)
+        for (std::size_t media_index = 0; media_index < media_array_.size(); ++media_index)
         {
             CETL_DEBUG_ASSERT(media_array_[media_index] != nullptr, "Expected media interface.");
             auto& media = *media_array_[media_index];
@@ -181,7 +185,7 @@ private:
             {
                 if (opt_rx_meta->has_value())
                 {
-                    auto& rx_meta = opt_rx_meta->value();
+                    const auto& rx_meta = opt_rx_meta->value();
 
                     const auto timestamp_us =
                         std::chrono::duration_cast<std::chrono::microseconds>(rx_meta.timestamp.time_since_epoch());
