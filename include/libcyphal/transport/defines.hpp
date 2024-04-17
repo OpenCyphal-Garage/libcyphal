@@ -30,7 +30,6 @@ using TransferId = std::uint64_t;
 
 enum class Priority
 {
-
     Exceptional = 0,
     Immediate   = 1,
     Fast        = 2,

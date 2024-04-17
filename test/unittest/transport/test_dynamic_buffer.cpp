@@ -14,6 +14,7 @@ using cetl::rtti_helper;
 
 using DynamicBuffer = libcyphal::transport::DynamicBuffer;
 
+using testing::Eq;
 using testing::Return;
 using testing::StrictMock;
 
@@ -94,15 +95,15 @@ TEST(test_dynamic_buffer, move_ctor_assign_size)
     EXPECT_CALL(interface_mock, size()).Times(3).WillRepeatedly(Return(42));
     {
         DynamicBuffer src{InterfaceWrapper{&interface_mock}};  //< +1 move
-        EXPECT_EQ(42, src.size());
+        EXPECT_THAT(src.size(), Eq(42));
 
         DynamicBuffer dst{std::move(src)};  //< +2 moves b/c of `cetl::any` specifics (via swap with tmp)
-        EXPECT_EQ(0, src.size());
-        EXPECT_EQ(42, dst.size());
+        EXPECT_THAT(src.size(), Eq(0));
+        EXPECT_THAT(dst.size(), Eq(42));
 
         src = std::move(dst);  //< +2 moves
-        EXPECT_EQ(42, src.size());
-        EXPECT_EQ(0, dst.size());
+        EXPECT_THAT(src.size(), Eq(42));
+        EXPECT_THAT(dst.size(), Eq(0));
     }
 }
 
@@ -118,11 +119,11 @@ TEST(test_dynamic_buffer, copy_reset)
         DynamicBuffer buffer{InterfaceWrapper{&interface_mock}};
 
         auto copied_bytes = buffer.copy(13, test_dst.data(), test_dst.size());
-        EXPECT_EQ(7, copied_bytes);
+        EXPECT_THAT(copied_bytes, Eq(7));
 
         buffer.reset();
         copied_bytes = buffer.copy(13, test_dst.data(), test_dst.size());
-        EXPECT_EQ(0, copied_bytes);
+        EXPECT_THAT(copied_bytes, Eq(0));
     }
 }
 

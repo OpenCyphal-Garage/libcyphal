@@ -90,7 +90,9 @@ private:
 
     CETL_NODISCARD cetl::optional<MessageRxTransfer> receive() override
     {
-        return std::move(last_rx_transfer_);
+        cetl::optional<MessageRxTransfer> result{};
+        result.swap(last_rx_transfer_);
+        return result;
     }
 
     // MARK: IRxSession
