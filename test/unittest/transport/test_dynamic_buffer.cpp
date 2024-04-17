@@ -84,6 +84,8 @@ private:
 
 };  // InterfaceWrapper
 
+// MARK: Tests:
+
 TEST(test_dynamic_buffer, move_ctor_assign_size)
 {
     StrictMock<InterfaceMock> interface_mock{};
