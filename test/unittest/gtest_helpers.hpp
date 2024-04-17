@@ -17,14 +17,14 @@
 namespace libcyphal
 {
 
-void PrintTo(const Duration duration, std::ostream* os)
+inline void PrintTo(const Duration duration, std::ostream* os)
 {
     auto locale = os->imbue(std::locale("en_US"));
     *os << std::chrono::duration_cast<std::chrono::microseconds>(duration).count() << "_us";
     os->imbue(locale);
 }
 
-void PrintTo(const TimePoint time_point, std::ostream* os)
+inline void PrintTo(const TimePoint time_point, std::ostream* os)
 {
     PrintTo(time_point.time_since_epoch(), os);
 }
@@ -32,7 +32,7 @@ void PrintTo(const TimePoint time_point, std::ostream* os)
 namespace transport
 {
 
-void PrintTo(const Priority priority, std::ostream* os)
+inline void PrintTo(const Priority priority, std::ostream* os)
 {
     static constexpr std::array<const char*, 8> names{
         "Exceptional (0)",
