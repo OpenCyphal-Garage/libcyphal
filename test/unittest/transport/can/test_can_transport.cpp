@@ -7,6 +7,7 @@
 
 #include "media_mock.hpp"
 #include "../multiplexer_mock.hpp"
+#include "../../tracking_memory_resource.hpp"
 
 #include <limits>
 #include <gmock/gmock.h>
@@ -17,18 +18,28 @@ using namespace libcyphal;
 using namespace libcyphal::transport;
 using namespace libcyphal::transport::can;
 
+using testing::_;
 using testing::Eq;
 using testing::IsNull;
 using testing::NotNull;
 using testing::Optional;
 using testing::StrictMock;
+using testing::VariantWith;
 
 class TestCanTransport : public testing::Test
 {
 protected:
+    void TearDown() override
+    {
+        // TODO: Uncomment this when PMR deleter is fixed.
+        // EXPECT_EQ(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+    }
+
+    // MARK: Data members:
+
+    TrackingMemoryResource      mr_;
     StrictMock<MediaMock>       media_mock_{};
     StrictMock<MultiplexerMock> mux_mock_{};
-    cetl::pmr::memory_resource& mr_{*cetl::pmr::new_delete_resource()};
 };
 
 // MARK: Tests:
@@ -38,10 +49,9 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
     // Anonymous node
     {
         auto maybe_transport = makeTransport(mr_, mux_mock_, {&media_mock_}, {});
-        EXPECT_THAT(cetl::get_if<FactoryError>(&maybe_transport), IsNull());
+        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
 
         auto transport = cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
-        EXPECT_THAT(transport, NotNull());
         EXPECT_THAT(transport->getLocalNodeId(), Eq(cetl::nullopt));
     }
 
@@ -50,10 +60,9 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
         const auto node_id = cetl::make_optional(static_cast<NodeId>(42));
 
         auto maybe_transport = makeTransport(mr_, mux_mock_, {&media_mock_}, node_id);
-        EXPECT_THAT(cetl::get_if<FactoryError>(&maybe_transport), IsNull());
+        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
 
         auto transport = cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
-        EXPECT_THAT(transport, NotNull());
         EXPECT_THAT(transport->getLocalNodeId(), Optional(42));
     }
 
@@ -62,10 +71,7 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
         StrictMock<MediaMock> media_mock2;
 
         auto maybe_transport = makeTransport(mr_, mux_mock_, {&media_mock_, nullptr, &media_mock2}, {});
-        EXPECT_THAT(cetl::get_if<FactoryError>(&maybe_transport), IsNull());
-
-        auto transport = cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
-        EXPECT_THAT(transport, NotNull());
+        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
     }
 
     // All 3 maximum number of media interfaces
@@ -73,10 +79,7 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
         StrictMock<MediaMock> media_mock2{}, media_mock3{};
 
         auto maybe_transport = makeTransport(mr_, mux_mock_, {&media_mock_, &media_mock2, &media_mock3}, {});
-        EXPECT_THAT(cetl::get_if<FactoryError>(&maybe_transport), IsNull());
-
-        auto transport = cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
-        EXPECT_THAT(transport, NotNull());
+        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
     }
 }
 
@@ -87,7 +90,7 @@ TEST_F(TestCanTransport, makeTransport_with_invalid_arguments)
         const auto node_id = cetl::make_optional(static_cast<NodeId>(CANARD_NODE_ID_MAX));
 
         const auto maybe_transport = makeTransport(mr_, mux_mock_, {}, node_id);
-        EXPECT_THAT(cetl::get_if<ArgumentError>(cetl::get_if<FactoryError>(&maybe_transport)), NotNull());
+        EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<ArgumentError>(_)));
     }
 
     // try just a bit bigger than max canard id (aka 128)
@@ -95,7 +98,7 @@ TEST_F(TestCanTransport, makeTransport_with_invalid_arguments)
         const auto node_id = cetl::make_optional(static_cast<NodeId>(CANARD_NODE_ID_MAX + 1));
 
         const auto maybe_transport = makeTransport(mr_, mux_mock_, {&media_mock_}, node_id);
-        EXPECT_THAT(cetl::get_if<ArgumentError>(cetl::get_if<FactoryError>(&maybe_transport)), NotNull());
+        EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<ArgumentError>(_)));
     }
 
     // magic 255 number (aka CANARD_NODE_ID_UNSET) can't be used as well
@@ -103,7 +106,7 @@ TEST_F(TestCanTransport, makeTransport_with_invalid_arguments)
         const auto node_id = cetl::make_optional(static_cast<NodeId>(CANARD_NODE_ID_UNSET));
 
         const auto maybe_transport = makeTransport(mr_, mux_mock_, {&media_mock_}, node_id);
-        EXPECT_THAT(cetl::get_if<ArgumentError>(cetl::get_if<FactoryError>(&maybe_transport)), NotNull());
+        EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<ArgumentError>(_)));
     }
 
     // just in case try 0x100 (aka overflow)
@@ -112,7 +115,7 @@ TEST_F(TestCanTransport, makeTransport_with_invalid_arguments)
         const auto   node_id = cetl::make_optional(too_big);
 
         const auto maybe_transport = makeTransport(mr_, mux_mock_, {&media_mock_}, node_id);
-        EXPECT_THAT(cetl::get_if<ArgumentError>(cetl::get_if<FactoryError>(&maybe_transport)), NotNull());
+        EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<ArgumentError>(_)));
     }
 }
 
@@ -149,10 +152,9 @@ TEST_F(TestCanTransport, makeMessageRxSession)
     auto transport = cetl::get<UniquePtr<ICanTransport>>(makeTransport(mr_, mux_mock_, {&media_mock_}, {}));
 
     auto maybe_rx_session = transport->makeMessageRxSession({42, 123});
-    EXPECT_THAT(cetl::get_if<AnyError>(&maybe_rx_session), IsNull());
+    EXPECT_THAT(maybe_rx_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
 
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_rx_session));
-    EXPECT_THAT(session, NotNull());
     EXPECT_THAT(session->getParams().extent_bytes, Eq(42));
     EXPECT_THAT(session->getParams().subject_id, Eq(123));
 }
@@ -162,7 +164,7 @@ TEST_F(TestCanTransport, makeMessageRxSession_invalid_subject_id)
     auto transport = cetl::get<UniquePtr<ICanTransport>>(makeTransport(mr_, mux_mock_, {&media_mock_}, {}));
 
     auto maybe_rx_session = transport->makeMessageRxSession({0, CANARD_SUBJECT_ID_MAX + 1});
-    EXPECT_THAT(cetl::get_if<ArgumentError>(cetl::get_if<AnyError>(&maybe_rx_session)), NotNull());
+    EXPECT_THAT(maybe_rx_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
 }
 
 }  // namespace

@@ -7,6 +7,7 @@
 
 #include "media_mock.hpp"
 #include "../multiplexer_mock.hpp"
+#include "../../tracking_memory_resource.hpp"
 
 #include <gmock/gmock.h>
 
@@ -16,24 +17,34 @@ using namespace libcyphal;
 using namespace libcyphal::transport;
 using namespace libcyphal::transport::udp;
 
-using testing::IsNull;
-using testing::NotNull;
+using testing::_;
 using testing::StrictMock;
+using testing::VariantWith;
+
+class TestUpdTransport : public testing::Test
+{
+protected:
+    void TearDown() override
+    {
+        // TODO: Uncomment this when PMR deleter is fixed.
+        // EXPECT_EQ(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+    }
+
+    // MARK: Data members:
+
+    TrackingMemoryResource      mr_;
+    StrictMock<MediaMock>       media_mock_{};
+    StrictMock<MultiplexerMock> mux_mock_{};
+};
 
 // MARK: Tests:
 
-TEST(test_udp_transport, makeTransport)
+TEST_F(TestUpdTransport, makeTransport)
 {
-    auto mr = cetl::pmr::new_delete_resource();
-
-    StrictMock<MediaMock>       media_mock{};
-    StrictMock<MultiplexerMock> multiplex_mock{};
-
+    // Anonymous node
     {
-        auto maybe_transport = makeTransport(*mr, multiplex_mock, {&media_mock}, {});
-
-        EXPECT_THAT(cetl::get_if<UniquePtr<IUdpTransport>>(&maybe_transport), IsNull());
-        EXPECT_THAT(cetl::get_if<NotImplementedError>(cetl::get_if<FactoryError>(&maybe_transport)), NotNull());
+        auto maybe_transport = makeTransport(mr_, mux_mock_, {&media_mock_}, {});
+        EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<NotImplementedError>(_)));
     }
 }
 

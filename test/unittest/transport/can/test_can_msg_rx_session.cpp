@@ -24,6 +24,7 @@ using testing::IsNull;
 using testing::NotNull;
 using testing::Optional;
 using testing::StrictMock;
+using testing::VariantWith;
 
 using namespace std::chrono_literals;
 
@@ -38,8 +39,12 @@ protected:
 
     CETL_NODISCARD UniquePtr<ICanTransport> makeTransport()
     {
-        return cetl::get<UniquePtr<ICanTransport>>(can::makeTransport(mr_, mux_mock_, {&media_mock_}, {}));
+        auto maybe_transport = can::makeTransport(mr_, mux_mock_, {&media_mock_}, {});
+        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(_));
+        return cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
     }
+
+    // MARK: Data members:
 
     TrackingMemoryResource      mr_;
     StrictMock<MediaMock>       media_mock_{};
@@ -52,8 +57,9 @@ TEST_F(TestCanMsgRxSession, make_setTransferIdTimeout)
 {
     auto transport = makeTransport();
 
-    auto maybe_rx_session = transport->makeMessageRxSession({42, 123});
-    auto session          = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_rx_session));
+    auto maybe_session = transport->makeMessageRxSession({42, 123});
+    EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(_));
+    auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
     EXPECT_THAT(session, NotNull());
 
     EXPECT_THAT(session->getParams().extent_bytes, Eq(42));
@@ -68,6 +74,7 @@ TEST_F(TestCanMsgRxSession, run_receive)
     auto transport = makeTransport();
 
     auto maybe_session = transport->makeMessageRxSession({4, 0x23});
+    EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(_));
     auto session       = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
     EXPECT_THAT(session, NotNull());
 
@@ -87,7 +94,7 @@ TEST_F(TestCanMsgRxSession, run_receive)
         session->run(TimePoint{1s + 20ms});
 
         const auto maybe_rx_transfer = session->receive();
-        EXPECT_TRUE(maybe_rx_transfer.has_value());
+        EXPECT_THAT(maybe_rx_transfer, Optional(_));
         const auto& rx_transfer = maybe_rx_transfer.value();
 
         EXPECT_THAT(rx_transfer.metadata.timestamp, Eq(TimePoint{1s}));
@@ -114,7 +121,7 @@ TEST_F(TestCanMsgRxSession, run_receive)
         session->run(TimePoint{2s + 20ms});
 
         const auto maybe_rx_transfer = session->receive();
-        EXPECT_FALSE(maybe_rx_transfer.has_value());
+        EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
     }
 }
 

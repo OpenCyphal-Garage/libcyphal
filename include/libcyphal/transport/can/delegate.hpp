@@ -6,6 +6,11 @@
 #ifndef LIBCYPHAL_TRANSPORT_CAN_DELEGATE_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_CAN_DELEGATE_HPP_INCLUDED
 
+#include <libcyphal/transport/errors.hpp>
+#include <libcyphal/transport/dynamic_buffer.hpp>
+
+#include <cetl/rtti.hpp>
+
 #include <canard.h>
 
 namespace libcyphal
@@ -63,6 +68,9 @@ struct TransportDelegate
                                         void* const       destination,
                                         const std::size_t length_bytes) const override
         {
+            CETL_DEBUG_ASSERT((destination != nullptr) || (length_bytes == 0),
+                              "Destination could be null only with zero bytes ask.");
+
             if ((destination == nullptr) || (buffer_ == nullptr) || (payload_size_ <= offset_bytes))
             {
                 return 0;
@@ -106,11 +114,14 @@ struct TransportDelegate
 
     static cetl::optional<AnyError> anyErrorFromCanard(const int8_t result)
     {
-        if (result == CANARD_ERROR_INVALID_ARGUMENT)
+        // Canard error results are negative, so we need to negate them to get the error code.
+        const auto canard_error = static_cast<int8_t>(-result);
+
+        if (canard_error == CANARD_ERROR_INVALID_ARGUMENT)
         {
             return ArgumentError{};
         }
-        if (result == CANARD_ERROR_OUT_OF_MEMORY)
+        if (canard_error == CANARD_ERROR_OUT_OF_MEMORY)
         {
             return MemoryError{};
         }
