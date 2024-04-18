@@ -42,6 +42,10 @@ public:
         {
             return any_error.value();
         }
+        if (session == nullptr)
+        {
+            return MemoryError{};
+        }
 
         return session;
     }

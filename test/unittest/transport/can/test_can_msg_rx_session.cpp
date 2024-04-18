@@ -8,6 +8,7 @@
 #include "media_mock.hpp"
 #include "../multiplexer_mock.hpp"
 #include "../../gtest_helpers.hpp"
+#include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
 
 #include <gmock/gmock.h>
@@ -20,6 +21,7 @@ using namespace libcyphal::transport::can;
 
 using testing::_;
 using testing::Eq;
+using testing::Return;
 using testing::IsNull;
 using testing::NotNull;
 using testing::Optional;
@@ -37,10 +39,10 @@ protected:
         // EXPECT_EQ(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
-    CETL_NODISCARD UniquePtr<ICanTransport> makeTransport()
+    CETL_NODISCARD UniquePtr<ICanTransport> makeTransport(cetl::pmr::memory_resource& mr)
     {
-        auto maybe_transport = can::makeTransport(mr_, mux_mock_, {&media_mock_}, {});
-        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(_));
+        auto maybe_transport = can::makeTransport(mr, mux_mock_, {&media_mock_}, {});
+        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
         return cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
     }
 
@@ -55,7 +57,7 @@ protected:
 
 TEST_F(TestCanMsgRxSession, make_setTransferIdTimeout)
 {
-    auto transport = makeTransport();
+    auto transport = makeTransport(mr_);
 
     auto maybe_session = transport->makeMessageRxSession({42, 123});
     EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(_));
@@ -69,13 +71,27 @@ TEST_F(TestCanMsgRxSession, make_setTransferIdTimeout)
     session->setTransferIdTimeout(500ms);
 }
 
+TEST_F(TestCanMsgRxSession, make_no_memory)
+{
+    StrictMock<MemoryResourceMock> mr_mock{};
+    mr_mock.redirectExpectedCallsTo(mr_);
+
+    // Emulate that there is no memory available for the message session.
+    EXPECT_CALL(mr_mock, do_allocate(sizeof(can::detail::MessageRxSession), _)).WillOnce(Return(nullptr));
+
+    auto transport = makeTransport(mr_mock);
+
+    auto maybe_session = transport->makeMessageRxSession({64, 0x23});
+    EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
+}
+
 TEST_F(TestCanMsgRxSession, run_receive)
 {
-    auto transport = makeTransport();
+    auto transport = makeTransport(mr_);
 
     auto maybe_session = transport->makeMessageRxSession({4, 0x23});
     EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(_));
-    auto session       = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
+    auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
     EXPECT_THAT(session, NotNull());
 
     // 1-st iteration: one frame available @ 1s

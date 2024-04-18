@@ -7,6 +7,7 @@
 
 #include "media_mock.hpp"
 #include "../multiplexer_mock.hpp"
+#include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
 
 #include <limits>
@@ -20,6 +21,7 @@ using namespace libcyphal::transport::can;
 
 using testing::_;
 using testing::Eq;
+using testing::Return;
 using testing::IsNull;
 using testing::NotNull;
 using testing::Optional;
@@ -43,6 +45,18 @@ protected:
 };
 
 // MARK: Tests:
+
+TEST_F(TestCanTransport, makeTransport_no_memory)
+{
+    StrictMock<MemoryResourceMock> mr_mock{};
+    mr_mock.redirectExpectedCallsTo(mr_);
+
+    // Emulate that there is no memory available for the transport.
+    EXPECT_CALL(mr_mock, do_allocate(sizeof(can::detail::TransportImpl), _)).WillOnce(Return(nullptr));
+
+    auto maybe_transport = makeTransport(mr_mock, mux_mock_, {&media_mock_}, {});
+    EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<MemoryError>(_)));
+}
 
 TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
 {

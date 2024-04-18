@@ -5,6 +5,7 @@
 
 #include <libcyphal/transport/can/delegate.hpp>
 
+#include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
 
 #include <numeric>
@@ -146,21 +147,14 @@ TEST_F(TestCanDelegate, anyErrorFromCanard)
 
 TEST_F(TestCanDelegate, canardMemoryAllocate_no_memory)
 {
-    class NoMemoryResource final : public cetl::pmr::memory_resource
-    {
-    public:
-        MOCK_METHOD(void*, do_allocate, (std::size_t, std::size_t), (override));
-        MOCK_METHOD(void, do_deallocate, (void*, std::size_t, std::size_t), (override));
-        MOCK_METHOD(bool, do_is_equal, (const memory_resource&), (const, noexcept, override));
-        MOCK_METHOD(std::size_t, do_max_size, (), (const, noexcept, override));
-        MOCK_METHOD(void*, do_reallocate, (void*, std::size_t, std::size_t, std::size_t));
-    };
-    NoMemoryResource no_memory_resource;
+    StrictMock<MemoryResourceMock> mr_mock{};
 
-    detail::TransportDelegate delegate{no_memory_resource};
+    detail::TransportDelegate delegate{mr_mock};
     auto&                     canard_instance = delegate.canard_instance();
 
-    EXPECT_CALL(no_memory_resource, do_allocate(_, _)).WillOnce(Return(nullptr));
+    // Emulate that there is no memory at all.
+    EXPECT_CALL(mr_mock, do_allocate(_, _)).WillOnce(Return(nullptr));
+
     EXPECT_THAT(canard_instance.memory_allocate(&canard_instance, 1), IsNull());
 }
 

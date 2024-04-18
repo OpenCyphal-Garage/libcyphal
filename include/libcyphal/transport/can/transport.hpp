@@ -71,12 +71,18 @@ public:
 
         const auto canard_node_id = static_cast<CanardNodeID>(local_node_id.value_or(CANARD_NODE_ID_UNSET));
 
-        return libcyphal::detail::makeUniquePtr<Tag>(memory,
-                                                     Tag{},
-                                                     memory,
-                                                     multiplexer,
-                                                     std::move(media_array),
-                                                     canard_node_id);
+        auto transport = libcyphal::detail::makeUniquePtr<Tag>(memory,
+                                                               Tag{},
+                                                               memory,
+                                                               multiplexer,
+                                                               std::move(media_array),
+                                                               canard_node_id);
+        if (transport == nullptr)
+        {
+            return MemoryError{};
+        }
+
+        return transport;
     }
 
     TransportImpl(Tag,

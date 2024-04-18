@@ -77,7 +77,7 @@ jobs:
       run: >
         ./build-tools/bin/verify.py
         --verbose
-        --asserts
+        ${{ matrix.build_flavor != 'Coverage' && '--asserts' || '' }}
         --cpp-standard ${{ matrix.std }}
         --build-flavor ${{ matrix.build_flavor }}
         --toolchain ${{ matrix.toolchain }}
