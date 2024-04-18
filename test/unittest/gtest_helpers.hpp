@@ -42,7 +42,7 @@ inline void PrintTo(const Priority priority, std::ostream* os)
         "Nominal (4)",
         "Low (5)",
         "Slow (6)",
-        "Optional  (7)",
+        "Optional (7)",
     };
     *os << names[static_cast<std::size_t>(priority)];
 }
