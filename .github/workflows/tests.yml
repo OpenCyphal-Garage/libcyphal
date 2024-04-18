@@ -7,14 +7,6 @@ on:
       - main
       - 'issue/*'
 
-# To test use https://github.com/nektos/act and specify the event as "act"
-# For example:
-#
-#           act act -j verification --bind --reuse
-#
-# That command will run the verification job locally and bind the current directory
-# into the container (You'll probably need to delete any existing build directory
-# before running act).
 jobs:
   warmup:
     if: >
@@ -27,9 +19,7 @@ jobs:
     container: ghcr.io/opencyphal/toolshed:ts22.4.7
     steps:
       - uses: actions/checkout@v4
-        if: ${{ github.event_name != 'act' }}
       - name: Cache ext modules
-        if: ${{ github.event_name != 'act' }}
         id: libcyphal-ext
         uses: actions/cache@v4
         env:
@@ -70,9 +60,7 @@ jobs:
             toolchain: gcc
     steps:
     - uses: actions/checkout@v4
-      if: ${{ github.event_name != 'act' }}
     - name: Cache ext modules
-      if: ${{ github.event_name != 'act' }}
       id: libcyphal-ext
       uses: actions/cache@v4
       env:
@@ -119,9 +107,7 @@ jobs:
     needs: [warmup]
     steps:
     - uses: actions/checkout@v4
-      if: ${{ github.event_name != 'act' }}
     - name: Cache ext modules
-      if: ${{ github.event_name != 'act' }}
       id: libcyphal-ext
       uses: actions/cache@v4
       env:
@@ -141,15 +127,15 @@ jobs:
         --build-flavor Debug
         build-docs
     - name: Setup Pages
-      if: ${{ github.event_name != 'pull_request' && github.event_name != 'act' }}
+      if: ${{ github.event_name != 'pull_request' }}
       uses: actions/configure-pages@v5
     - name: Upload docs
-      if: ${{ github.event_name != 'pull_request' && github.event_name != 'act' }}
+      if: ${{ github.event_name != 'pull_request' }}
       uses: actions/upload-pages-artifact@v3
       with:
         path: "build/docs/html/"
     - name: upload-pr-docs
-      if: ${{ github.event_name == 'pull_request' && github.event_name != 'act' }}
+      if: ${{ github.event_name == 'pull_request' }}
       uses: actions/upload-artifact@v4
       with:
         name: pr-docs

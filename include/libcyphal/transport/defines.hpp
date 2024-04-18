@@ -30,7 +30,6 @@ using TransferId = std::uint64_t;
 
 enum class Priority
 {
-
     Exceptional = 0,
     Immediate   = 1,
     Fast        = 2,
@@ -57,6 +56,12 @@ struct TransferMetadata
 
 struct MessageTransferMetadata final : TransferMetadata
 {
+    MessageTransferMetadata(const TransferMetadata& transfer_metadata, cetl::optional<NodeId> _publisher_node_id)
+        : TransferMetadata{transfer_metadata}
+        , publisher_node_id{_publisher_node_id}
+    {
+    }
+
     cetl::optional<NodeId> publisher_node_id;
 };
 
@@ -79,6 +84,10 @@ struct ServiceRxTransfer final
     ServiceTransferMetadata metadata;
     DynamicBuffer           payload;
 };
+
+/// @brief Defines maximum number of media interfaces that can be used in a Cyphal transport.
+/// TODO: This is a temporary constant and will be replaced by `cetl::span::size()` (see `makeTransport`).
+constexpr std::size_t MaxMediaInterfaces = 3;
 
 }  // namespace transport
 }  // namespace libcyphal

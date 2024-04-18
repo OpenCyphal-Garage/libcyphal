@@ -13,6 +13,8 @@
 namespace
 {
 
+// MARK: Tests:
+
 // TODO: Add tests here
 TEST(test_libcyphal, rename_me) {}
 
