@@ -9,6 +9,7 @@
 #include "media.hpp"
 #include "delegate.hpp"
 #include "msg_rx_session.hpp"
+#include "msg_tx_session.hpp"
 #include "libcyphal/transport/transport.hpp"
 #include "libcyphal/transport/multiplexer.hpp"
 
@@ -45,15 +46,16 @@ public:
         cetl::pmr::memory_resource&                    memory,
         IMultiplexer&                                  multiplexer,
         const std::array<IMedia*, MaxMediaInterfaces>& media,
+        const std::size_t                              tx_capacity,
         const cetl::optional<NodeId>                   local_node_id)
     {
         // Verify input arguments:
-        // - At least one media interface must be provided.
+        // - At least one media interface must be provided, but no more than the maximum allowed (255).
         // - If a local node ID is provided, it must be within the valid range.
         //
         const auto media_count = static_cast<std::size_t>(
             std::count_if(media.cbegin(), media.cend(), [](auto media) { return media != nullptr; }));
-        if (media_count == 0)
+        if ((media_count == 0) || (media_count > std::numeric_limits<uint8_t>::max()))
         {
             return ArgumentError{};
         }
@@ -62,20 +64,15 @@ public:
             return ArgumentError{};
         }
 
-        libcyphal::detail::VarArray<IMedia*> media_array{MaxMediaInterfaces, &memory};
-        media_array.reserve(media_count);
-        std::copy_if(media.cbegin(), media.cend(), std::back_inserter(media_array), [](auto media) {
-            return media != nullptr;
-        });
-        CETL_DEBUG_ASSERT(!media_array.empty() && (media_array.size() == media_count), "");
-
         const auto canard_node_id = static_cast<CanardNodeID>(local_node_id.value_or(CANARD_NODE_ID_UNSET));
 
         auto transport = libcyphal::detail::makeUniquePtr<Tag>(memory,
                                                                Tag{},
                                                                memory,
                                                                multiplexer,
-                                                               std::move(media_array),
+                                                               media_count,
+                                                               media,
+                                                               tx_capacity,
                                                                canard_node_id);
         if (transport == nullptr)
         {
@@ -86,12 +83,14 @@ public:
     }
 
     TransportImpl(Tag,
-                  cetl::pmr::memory_resource&            memory,
-                  IMultiplexer&                          multiplexer,
-                  libcyphal::detail::VarArray<IMedia*>&& media_array,
-                  const CanardNodeID                     canard_node_id)
+                  cetl::pmr::memory_resource&                    memory,
+                  IMultiplexer&                                  multiplexer,
+                  const std::size_t                              media_count,
+                  const std::array<IMedia*, MaxMediaInterfaces>& media_interfaces,
+                  const std::size_t                              tx_capacity,
+                  const CanardNodeID                             canard_node_id)
         : TransportDelegate{memory}
-        , media_array_{std::move(media_array)}
+        , media_array_{make_media_array(memory, tx_capacity, media_count, media_interfaces)}
     {
         // TODO: Use it!
         (void) multiplexer;
@@ -132,9 +131,9 @@ private:
     }
 
     CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(
-        const MessageTxParams&) override
+        const MessageTxParams& params) override
     {
-        return NotImplementedError{};
+        return MessageTxSession::make(asDelegate(), params);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(
@@ -179,13 +178,10 @@ private:
     {
         std::array<cetl::byte, CANARD_MTU_MAX> payload{};
 
-        for (std::size_t media_index = 0; media_index < media_array_.size(); ++media_index)
+        for (const auto& media : media_array_)
         {
-            CETL_DEBUG_ASSERT(media_array_[media_index] != nullptr, "Expected media interface.");
-            auto& media = *media_array_[media_index];
-
             // TODO: Handle errors.
-            const auto pop_result = media.pop(payload);
+            const auto pop_result = media.interface.pop(payload);
             if (const auto opt_rx_meta = cetl::get_if<cetl::optional<RxMetadata>>(&pop_result))
             {
                 if (opt_rx_meta->has_value())
@@ -203,7 +199,7 @@ private:
                     const auto result = canardRxAccept(&canard_instance(),
                                                        static_cast<CanardMicrosecond>(timestamp_us.count()),
                                                        &canard_frame,
-                                                       static_cast<uint8_t>(media_index),
+                                                       media.index,
                                                        &out_transfer,
                                                        &out_subscription);
                     if (result > 0)
@@ -229,14 +225,32 @@ private:
 
     // MARK: Privates:
 
+    struct Media final
+    {
+        Media(const std::size_t _index, IMedia& _interface, const std::size_t tx_capacity)
+            : index{static_cast<uint8_t>(_index)}
+            , interface{_interface}
+            , canard_tx_queue{canardTxInit(tx_capacity, _interface.getMtu())}
+        {
+        }
+        Media(Media&&)                 = default;
+        Media(const Media&)            = delete;
+        Media& operator=(Media&&)      = delete;
+        Media& operator=(const Media&) = delete;
+
+        const uint8_t index;
+        IMedia&       interface;
+        CanardTxQueue canard_tx_queue;
+    };
+    using MediaArray = libcyphal::detail::VarArray<Media>;
+
     template <typename T, typename Reducer>
     CETL_NODISCARD T reduceMedia(const T init, Reducer reducer) const
     {
         T acc = init;
-        for (const auto media : media_array_)
+        for (const auto& media : media_array_)
         {
-            CETL_DEBUG_ASSERT(media != nullptr, "Expected media interface.");
-            acc = reducer(std::forward<T>(acc), std::ref(*media));
+            acc = reducer(std::forward<T>(acc), media.interface);
         }
         return acc;
     }
@@ -263,9 +277,30 @@ private:
         return {};
     }
 
+    static MediaArray make_media_array(cetl::pmr::memory_resource&                    memory,
+                                       const std::size_t                              tx_capacity,
+                                       const std::size_t                              media_count,
+                                       const std::array<IMedia*, MaxMediaInterfaces>& media_interfaces)
+    {
+        MediaArray media_array{media_count, &memory};
+        media_array.reserve(media_count);
+
+        std::size_t index = 0;
+        for (const auto media_interface : media_interfaces)
+        {
+            if (media_interface != nullptr)
+            {
+                auto& media = *media_interface;
+                media_array.emplace_back(index++, media, tx_capacity);
+            }
+        }
+
+        return media_array;
+    }
+
     // MARK: Data members:
 
-    const libcyphal::detail::VarArray<IMedia*> media_array_;
+    const MediaArray media_array_;
 
 };  // TransportImpl
 
@@ -275,9 +310,10 @@ CETL_NODISCARD inline Expected<UniquePtr<ICanTransport>, FactoryError> makeTrans
     cetl::pmr::memory_resource&                    memory,
     IMultiplexer&                                  multiplexer,
     const std::array<IMedia*, MaxMediaInterfaces>& media,  // TODO: replace with `cetl::span<IMedia*>`
+    const std::size_t                              tx_capacity,
     const cetl::optional<NodeId>                   local_node_id)
 {
-    return detail::TransportImpl::make(memory, multiplexer, media, local_node_id);
+    return detail::TransportImpl::make(memory, multiplexer, media, tx_capacity, local_node_id);
 }
 
 }  // namespace can

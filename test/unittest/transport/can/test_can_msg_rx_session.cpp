@@ -33,6 +33,11 @@ using namespace std::chrono_literals;
 class TestCanMsgRxSession : public testing::Test
 {
 protected:
+    void SetUp() override
+    {
+        EXPECT_CALL(media_mock_, getMtu()).WillRepeatedly(Return(CANARD_MTU_MAX));
+    }
+
     void TearDown() override
     {
         // TODO: Uncomment this when PMR deleter is fixed.
@@ -41,7 +46,7 @@ protected:
 
     CETL_NODISCARD UniquePtr<ICanTransport> makeTransport(cetl::pmr::memory_resource& mr)
     {
-        auto maybe_transport = can::makeTransport(mr, mux_mock_, {&media_mock_}, {});
+        auto maybe_transport = can::makeTransport(mr, mux_mock_, {&media_mock_}, 0, {});
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
         return cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
     }
