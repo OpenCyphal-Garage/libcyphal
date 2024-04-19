@@ -11,6 +11,8 @@
 
 #include <canard.h>
 
+#include <numeric>
+
 namespace libcyphal
 {
 namespace transport
@@ -60,9 +62,60 @@ private:
     CETL_NODISCARD cetl::optional<AnyError> send(const TransferMetadata& metadata,
                                                  const PayloadFragments  payload_fragments) override
     {
-        (void) delegate_;
-        (void) metadata;
-        (void) payload_fragments;
+        std::size_t       payload_size = 0;
+        const cetl::byte* payload      = nullptr;
+        cetl::byte*       buffer       = nullptr;
+
+        const auto predicate = [&payload_size, &payload](const cetl::span<const cetl::byte> frag) -> bool {
+            const auto frag_size = frag.size();
+            if (frag_size == 0)
+            {
+                return false;
+            }
+            payload = frag.data();
+            payload_size += frag_size;
+            return true;
+        };
+        const auto total_fragments = std::count_if(payload_fragments.begin(), payload_fragments.end(), predicate);
+
+        if (total_fragments > 1)
+        {
+            buffer = static_cast<cetl::byte*>(delegate_.memory().allocate(payload_size));
+            if (buffer == nullptr)
+            {
+                return MemoryError{};
+            }
+
+            size_t index = 0;
+            for (const auto& frag : payload_fragments)
+            {
+                std::memcpy(&buffer[index], frag.data(), frag.size());
+                index += frag.size();
+            }
+            payload = buffer;
+        }
+
+        // TransferMetadata
+        //        TransferId transfer_id;
+        //        TimePoint  timestamp;
+        //        Priority   priority;
+
+        //        int32_t canardTxPush(CanardTxQueue* const                que,
+        //                             CanardInstance* const               ins,
+        //                             const CanardMicrosecond             tx_deadline_usec,
+        //                             const CanardTransferMetadata* const metadata,
+        //                             const size_t                        payload_size,
+        //                             const void* const                   payload)
+        //
+        //        const auto result = canardTxPush(&delegate_.canard_instance(),
+        //                                         CanardTransferKindMessage,
+        //                                         static_cast<CanardPortID>(params_.subject_id),
+        //                                         static_cast<size_t>(metadata.extent_bytes),
+        //                                         &transfer_id,
+        //                                         &timestamp,
+        //                                         &priority,
+        //                                         payload_fragments.data(),
+        //                                         payload_fragments.size());
 
         return NotImplementedError{};
     }
