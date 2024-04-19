@@ -294,6 +294,7 @@ private:
                 media_array.emplace_back(index++, media, tx_capacity);
             }
         }
+        CETL_DEBUG_ASSERT(!media_array.empty() && (media_array.size() == media_count) && (index == media_count), "");
 
         return media_array;
     }

@@ -190,4 +190,15 @@ TEST_F(TestCanTransport, makeMessageRxSession_invalid_subject_id)
     EXPECT_THAT(maybe_rx_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
 }
 
+TEST_F(TestCanTransport, makeMessageTxSession)
+{
+    auto transport = cetl::get<UniquePtr<ICanTransport>>(makeTransport(mr_, mux_mock_, {&media_mock_}, 0, {}));
+
+    auto maybe_tx_session = transport->makeMessageTxSession({123});
+    EXPECT_THAT(maybe_tx_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
+
+    auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_tx_session));
+    EXPECT_THAT(session->getParams().subject_id, Eq(123));
+}
+
 }  // namespace
