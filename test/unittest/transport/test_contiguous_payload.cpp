@@ -111,7 +111,10 @@ TEST_F(TestContiguousPayload, ctor_no_alloc_for_single_non_empty_fragment)
     const std::array<byte, 0>                   data_empty0 = {};
     const std::array<byte, 3>                   data123     = {b(1), b(2), b(3)};
     const std::array<byte, 0>                   data_empty3 = {};
-    const std::array<cetl::span<const byte>, 4> fragments   = {data_empty0, data123, {nullptr, 0}, data_empty3};
+    const std::array<cetl::span<const byte>, 4> fragments   = {data_empty0,
+                                                               data123,
+                                                               {static_cast<const byte*>(nullptr), 0},
+                                                               data_empty3};
 
     const ContiguousPayload payload{mr_mock, fragments};
 
