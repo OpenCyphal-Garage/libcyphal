@@ -7,6 +7,7 @@
 #define LIBCYPHAL_TRANSPORT_DEFINES_HPP_INCLUDED
 
 #include "dynamic_buffer.hpp"
+#include "libcyphal/types.hpp"
 
 namespace libcyphal
 {

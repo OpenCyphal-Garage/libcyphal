@@ -16,10 +16,10 @@ namespace udp
 class IMedia
 {
 public:
-    IMedia(IMedia&&)                 = delete;
-    IMedia(const IMedia&)            = delete;
-    IMedia& operator=(IMedia&&)      = delete;
-    IMedia& operator=(const IMedia&) = delete;
+    IMedia(const IMedia&)                = delete;
+    IMedia(IMedia&&) noexcept            = delete;
+    IMedia& operator=(const IMedia&)     = delete;
+    IMedia& operator=(IMedia&&) noexcept = delete;
 
     // TODO: Add methods here
 

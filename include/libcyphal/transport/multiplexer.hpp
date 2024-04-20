@@ -14,10 +14,10 @@ namespace transport
 class IMultiplexer
 {
 public:
-    IMultiplexer(IMultiplexer&&)                 = delete;
-    IMultiplexer(const IMultiplexer&)            = delete;
-    IMultiplexer& operator=(IMultiplexer&&)      = delete;
-    IMultiplexer& operator=(const IMultiplexer&) = delete;
+    IMultiplexer(const IMultiplexer&)                = delete;
+    IMultiplexer(IMultiplexer&&) noexcept            = delete;
+    IMultiplexer& operator=(const IMultiplexer&)     = delete;
+    IMultiplexer& operator=(IMultiplexer&&) noexcept = delete;
 
     // TODO: Add methods here
 

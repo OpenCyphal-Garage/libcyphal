@@ -194,10 +194,10 @@ private:
 
 struct SessionDelegate
 {
-    SessionDelegate(SessionDelegate&&)                 = delete;
-    SessionDelegate(const SessionDelegate&)            = delete;
-    SessionDelegate& operator=(SessionDelegate&&)      = delete;
-    SessionDelegate& operator=(const SessionDelegate&) = delete;
+    SessionDelegate(const SessionDelegate&)                = delete;
+    SessionDelegate(SessionDelegate&&) noexcept            = delete;
+    SessionDelegate& operator=(const SessionDelegate&)     = delete;
+    SessionDelegate& operator=(SessionDelegate&&) noexcept = delete;
 
     virtual void acceptRxTransfer(const CanardRxTransfer& transfer) = 0;
 

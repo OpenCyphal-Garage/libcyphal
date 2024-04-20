@@ -8,6 +8,7 @@
 
 #include "delegate.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
+#include "libcyphal/transport/contiguous_payload.hpp"
 
 #include <canard.h>
 
@@ -62,37 +63,13 @@ private:
     CETL_NODISCARD cetl::optional<AnyError> send(const TransferMetadata& metadata,
                                                  const PayloadFragments  payload_fragments) override
     {
-        std::size_t       payload_size = 0;
-        const cetl::byte* payload      = nullptr;
-        cetl::byte*       buffer       = nullptr;
-
-        const auto predicate = [&payload_size, &payload](const cetl::span<const cetl::byte> frag) -> bool {
-            const auto frag_size = frag.size();
-            if (frag_size == 0)
-            {
-                return false;
-            }
-            payload = frag.data();
-            payload_size += frag_size;
-            return true;
-        };
-        const auto total_fragments = std::count_if(payload_fragments.begin(), payload_fragments.end(), predicate);
-
-        if (total_fragments > 1)
+        // libcanard currently does not support fragmented payloads (at `canardTxPush`).
+        // so we need to concatenate them when there are more than one non-empty fragment.
+        //
+        const transport::detail::ContiguousPayload contiguous_payload{delegate_.memory(), payload_fragments};
+        if ((contiguous_payload.data() == nullptr) && (contiguous_payload.size() > 0))
         {
-            buffer = static_cast<cetl::byte*>(delegate_.memory().allocate(payload_size));
-            if (buffer == nullptr)
-            {
-                return MemoryError{};
-            }
-
-            size_t index = 0;
-            for (const auto& frag : payload_fragments)
-            {
-                std::memcpy(&buffer[index], frag.data(), frag.size());
-                index += frag.size();
-            }
-            payload = buffer;
+            return MemoryError{};
         }
 
         // TransferMetadata
@@ -116,6 +93,8 @@ private:
         //                                         &priority,
         //                                         payload_fragments.data(),
         //                                         payload_fragments.size());
+
+        (void) metadata;
 
         return NotImplementedError{};
     }
