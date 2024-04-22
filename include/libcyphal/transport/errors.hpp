@@ -57,7 +57,7 @@ using FactoryError = cetl::variant<ArgumentError, MemoryError, NotImplementedErr
 
 /// @brief Defines any possible error at Cyphal media layer.
 ///
-using MediaError = cetl::variant<ArgumentError, PlatformError>;
+using MediaError = cetl::variant<ArgumentError, PlatformError, CapacityError>;
 
 }  // namespace transport
 }  // namespace libcyphal
