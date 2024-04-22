@@ -118,13 +118,14 @@ private:
 
     void acceptRxTransfer(const CanardRxTransfer& transfer) override
     {
-        const auto priority{static_cast<Priority>(transfer.metadata.priority)};
-        const auto transfer_id{static_cast<TransferId>(transfer.metadata.transfer_id)};
-        const auto timestamp = TimePoint{std::chrono::microseconds{transfer.timestamp_usec}};
+        const auto priority    = static_cast<Priority>(transfer.metadata.priority);
+        const auto transfer_id = static_cast<TransferId>(transfer.metadata.transfer_id);
+        const auto timestamp   = TimePoint{std::chrono::microseconds{transfer.timestamp_usec}};
 
-        const auto publisher_node_id = transfer.metadata.remote_node_id > CANARD_NODE_ID_MAX
-                                           ? cetl::nullopt
-                                           : cetl::make_optional<NodeId>(transfer.metadata.remote_node_id);
+        const cetl::optional<NodeId> publisher_node_id =
+            transfer.metadata.remote_node_id > CANARD_NODE_ID_MAX
+                ? cetl::nullopt
+                : cetl::make_optional<NodeId>(transfer.metadata.remote_node_id);
 
         const MessageTransferMetadata   meta{{transfer_id, timestamp, priority}, publisher_node_id};
         TransportDelegate::CanardMemory canard_memory{delegate_, transfer.payload, transfer.payload_size};

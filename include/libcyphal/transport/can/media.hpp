@@ -40,6 +40,7 @@ public:
     IMedia(IMedia&&) noexcept            = delete;
     IMedia& operator=(const IMedia&)     = delete;
     IMedia& operator=(IMedia&&) noexcept = delete;
+    virtual ~IMedia()                    = default;
 
     /// @brief Get the maximum transmission unit (MTU) of the CAN bus.
     ///
@@ -55,9 +56,9 @@ public:
     /// While reconfiguration is in progress, incoming frames may be lost and/or unwanted frames may be received.
     /// The lifetime of the filter array may end upon return (no references retained).
     ///
-    /// @return Returns `true` on success, `false` in case of a low-level error (e.g., IO error).
+    /// @return Returns `nullopt` on success; otherwise some `MediaError` in case of a low-level error.
     ///
-    CETL_NODISCARD virtual bool setFilters(const Filters filters) noexcept = 0;
+    CETL_NODISCARD virtual cetl::optional<MediaError> setFilters(const Filters filters) noexcept = 0;
 
     /// @brief Schedules the frame for transmission asynchronously and return immediately.
     ///
@@ -76,8 +77,7 @@ public:
         const cetl::span<cetl::byte> payload_buffer) noexcept = 0;
 
 protected:
-    IMedia()          = default;
-    virtual ~IMedia() = default;
+    IMedia() = default;
 
 };  // IMedia
 

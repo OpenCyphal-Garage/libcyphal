@@ -18,12 +18,12 @@ public:
     IMultiplexer(IMultiplexer&&) noexcept            = delete;
     IMultiplexer& operator=(const IMultiplexer&)     = delete;
     IMultiplexer& operator=(IMultiplexer&&) noexcept = delete;
+    virtual ~IMultiplexer()                          = default;
 
     // TODO: Add methods here
 
 protected:
-    IMultiplexer()          = default;
-    virtual ~IMultiplexer() = default;
+    IMultiplexer() = default;
 
 };  // IMultiplexer
 

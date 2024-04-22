@@ -22,14 +22,16 @@ namespace can
 namespace detail
 {
 
-struct TransportDelegate
+class TransportDelegate
 {
     // 1141F5C0-2E61-44BF-9F0E-FA1C518CD517
     using CanardMemoryTypeIdType = cetl::
         type_id_type<0x11, 0x41, 0xF5, 0xC0, 0x2E, 0x61, 0x44, 0xBF, 0x9F, 0x0E, 0xFA, 0x1C, 0x51, 0x8C, 0xD5, 0x17>;
 
-    struct CanardMemory final : public cetl::rtti_helper<CanardMemoryTypeIdType, DynamicBuffer::Interface>
+public:
+    class CanardMemory final : public cetl::rtti_helper<CanardMemoryTypeIdType, DynamicBuffer::Interface>
     {
+    public:
         CanardMemory(TransportDelegate& delegate, void* const buffer, const std::size_t payload_size)
             : delegate_{delegate}
             , buffer_{buffer}
@@ -165,8 +167,8 @@ private:
     {
         auto& self = getSelfFrom(ins);
 
-        const auto memory_size   = sizeof(CanardMemoryHeader) + amount;
-        auto       memory_header = static_cast<CanardMemoryHeader*>(self.memory_.allocate(memory_size));
+        const std::size_t memory_size   = sizeof(CanardMemoryHeader) + amount;
+        auto              memory_header = static_cast<CanardMemoryHeader*>(self.memory_.allocate(memory_size));
         if (memory_header == nullptr)
         {
             return nullptr;
@@ -192,8 +194,9 @@ private:
 
 };  // TransportDelegate
 
-struct SessionDelegate
+class SessionDelegate
 {
+public:
     SessionDelegate(const SessionDelegate&)                = delete;
     SessionDelegate(SessionDelegate&&) noexcept            = delete;
     SessionDelegate& operator=(const SessionDelegate&)     = delete;
@@ -202,8 +205,8 @@ struct SessionDelegate
     virtual void acceptRxTransfer(const CanardRxTransfer& transfer) = 0;
 
 protected:
-    SessionDelegate()          = default;
-    virtual ~SessionDelegate() = default;
+    SessionDelegate()  = default;
+    ~SessionDelegate() = default;
 
 };  // SessionDelegate
 

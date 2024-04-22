@@ -20,12 +20,12 @@ public:
     IMedia(IMedia&&) noexcept            = delete;
     IMedia& operator=(const IMedia&)     = delete;
     IMedia& operator=(IMedia&&) noexcept = delete;
+    virtual ~IMedia()                    = default;
 
     // TODO: Add methods here
 
 protected:
-    IMedia()          = default;
-    virtual ~IMedia() = default;
+    IMedia() = default;
 
 };  // IMedia
 
