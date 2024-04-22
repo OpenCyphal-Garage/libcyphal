@@ -51,8 +51,9 @@ public:
     }
     CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept override
     {
-        const auto min_mtu = reduceMediaInto(std::numeric_limits<std::size_t>::max(),
-                                             [](auto&& mtu, IMedia& media) { mtu = std::min(mtu, media.getMtu()); });
+        const auto min_mtu =
+            reduceMediaInto(std::numeric_limits<std::size_t>::max(),
+                            [](std::size_t&& mtu, IMedia& media) { mtu = std::min(mtu, media.getMtu()); });
         return ProtocolParams{1 << CANARD_TRANSFER_ID_BIT_LENGTH, min_mtu, CANARD_NODE_ID_MAX + 1};
     }
 
@@ -99,7 +100,7 @@ private:
     // TODO: Remove this workaround when the issue is resolved.
     // see https://github.com/OpenCyphal/libcanard/issues/216
     //
-    struct CanardMemory
+    struct CanardMemory final
     {
         alignas(std::max_align_t) std::size_t size;
     };
@@ -116,8 +117,8 @@ private:
     {
         auto& self = getSelfFrom(ins);
 
-        const auto memory_size   = sizeof(CanardMemory) + amount;
-        auto       canard_memory = static_cast<CanardMemory*>(self.memory_.allocate(memory_size));
+        const std::size_t memory_size   = sizeof(CanardMemory) + amount;
+        auto              canard_memory = static_cast<CanardMemory*>(self.memory_.allocate(memory_size));
         if (canard_memory == nullptr)
         {
             return nullptr;
@@ -144,20 +145,10 @@ private:
         self.memory_.deallocate(canard_memory, canard_memory->size);
     }
 
-    template <typename Action>
-    void forEachMedia(Action action)
-    {
-        for (const auto media : media_array_)
-        {
-            CETL_DEBUG_ASSERT(media != nullptr, "Expected media interface.");
-            action(std::ref(*media));
-        }
-    }
-
     template <typename T, typename Reducer>
     T reduceMediaInto(T&& init, Reducer reducer) const
     {
-        for (const auto media : media_array_)
+        for (IMedia* const media : media_array_)
         {
             CETL_DEBUG_ASSERT(media != nullptr, "Expected media interface.");
             reducer(std::forward<T>(init), std::ref(*media));
@@ -188,8 +179,8 @@ CETL_NODISCARD inline Expected<UniquePtr<ICanTransport>, FactoryError> makeTrans
     // - At least one media interface must be provided.
     // - If a local node ID is provided, it must be within the valid range.
     //
-    const auto media_count =
-        static_cast<std::size_t>(std::count_if(media.cbegin(), media.cend(), [](auto m) { return m != nullptr; }));
+    const auto media_count = static_cast<std::size_t>(
+        std::count_if(media.cbegin(), media.cend(), [](IMedia* const m) { return m != nullptr; }));
     if (media_count == 0)
     {
         return ArgumentError{};
@@ -201,7 +192,9 @@ CETL_NODISCARD inline Expected<UniquePtr<ICanTransport>, FactoryError> makeTrans
 
     libcyphal::detail::VarArray<IMedia*> media_array{MaxMediaInterfaces, &memory};
     media_array.reserve(media_count);
-    std::copy_if(media.cbegin(), media.cend(), std::back_inserter(media_array), [](auto m) { return m != nullptr; });
+    std::copy_if(media.cbegin(), media.cend(), std::back_inserter(media_array), [](IMedia* const m) {
+        return m != nullptr;
+    });
     CETL_DEBUG_ASSERT(!media_array.empty() && (media_array.size() == media_count), "");
 
     const auto canard_node_id = static_cast<CanardNodeID>(local_node_id.value_or(CANARD_NODE_ID_UNSET));

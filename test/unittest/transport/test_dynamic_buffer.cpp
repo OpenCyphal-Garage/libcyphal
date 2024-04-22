@@ -30,7 +30,7 @@ public:
     MOCK_METHOD(std::size_t, size, (), (const, noexcept, override));
     MOCK_METHOD(std::size_t, copy, (const std::size_t, void* const, const std::size_t), (const, override));
 };
-class InterfaceWrapper : public rtti_helper<TestTypeIdType, DynamicBuffer::Interface>
+class InterfaceWrapper final : public rtti_helper<TestTypeIdType, DynamicBuffer::Interface>
 {
 public:
     explicit InterfaceWrapper(InterfaceMock* mock)
