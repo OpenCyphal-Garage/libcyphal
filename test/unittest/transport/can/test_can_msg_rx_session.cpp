@@ -46,7 +46,9 @@ protected:
 
     CETL_NODISCARD UniquePtr<ICanTransport> makeTransport(cetl::pmr::memory_resource& mr)
     {
-        auto maybe_transport = can::makeTransport(mr, mux_mock_, {&media_mock_}, 0, {});
+        std::array<IMedia*, 1> media_array{&media_mock_};
+
+        auto maybe_transport = can::makeTransport(mr, mux_mock_, media_array, 0, {});
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
         return cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
     }

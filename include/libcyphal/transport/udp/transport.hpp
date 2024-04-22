@@ -102,10 +102,10 @@ private:
 }  // namespace detail
 
 CETL_NODISCARD inline Expected<UniquePtr<IUdpTransport>, FactoryError> makeTransport(
-    cetl::pmr::memory_resource&                   memory,
-    IMultiplexer&                                 multiplexer,
-    const std::array<IMedia*, MaxMediaInterfaces> media,  // TODO: replace with `cetl::span<IMedia*>`
-    const cetl::optional<NodeId>                  local_node_id)
+    cetl::pmr::memory_resource&  memory,
+    IMultiplexer&                multiplexer,
+    const cetl::span<IMedia*>    media,
+    const cetl::optional<NodeId> local_node_id)
 {
     // TODO: Use these!
     (void) multiplexer;

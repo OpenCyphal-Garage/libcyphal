@@ -88,10 +88,6 @@ struct ServiceRxTransfer final
     DynamicBuffer           payload;
 };
 
-/// @brief Defines maximum number of media interfaces that can be used in a Cyphal transport.
-/// TODO: This is a temporary constant and will be replaced by `cetl::span::size()` (see `makeTransport`).
-constexpr std::size_t MaxMediaInterfaces = 3;
-
 }  // namespace transport
 }  // namespace libcyphal
 

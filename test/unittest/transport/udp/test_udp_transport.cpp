@@ -43,7 +43,8 @@ TEST_F(TestUpdTransport, makeTransport)
 {
     // Anonymous node
     {
-        auto maybe_transport = makeTransport(mr_, mux_mock_, {&media_mock_}, {});
+        std::array<IMedia*, 1> media_array{&media_mock_};
+        auto                   maybe_transport = makeTransport(mr_, mux_mock_, media_array, {});
         EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<NotImplementedError>(_)));
     }
 }

@@ -43,18 +43,18 @@ class TransportImpl final : public ICanTransport, private TransportDelegate
 
 public:
     CETL_NODISCARD static Expected<UniquePtr<ICanTransport>, FactoryError> make(
-        cetl::pmr::memory_resource&                    memory,
-        IMultiplexer&                                  multiplexer,
-        const std::array<IMedia*, MaxMediaInterfaces>& media,
-        const std::size_t                              tx_capacity,
-        const cetl::optional<NodeId>                   local_node_id)
+        cetl::pmr::memory_resource&  memory,
+        IMultiplexer&                multiplexer,
+        const cetl::span<IMedia*>    media,
+        const std::size_t            tx_capacity,
+        const cetl::optional<NodeId> local_node_id)
     {
         // Verify input arguments:
         // - At least one media interface must be provided, but no more than the maximum allowed (255).
         // - If a local node ID is provided, it must be within the valid range.
         //
         const auto media_count = static_cast<std::size_t>(
-            std::count_if(media.cbegin(), media.cend(), [](IMedia* const media) { return media != nullptr; }));
+            std::count_if(media.begin(), media.end(), [](IMedia* const media) { return media != nullptr; }));
         if ((media_count == 0) || (media_count > std::numeric_limits<uint8_t>::max()))
         {
             return ArgumentError{};
@@ -83,12 +83,12 @@ public:
     }
 
     TransportImpl(Tag,
-                  cetl::pmr::memory_resource&                    memory,
-                  IMultiplexer&                                  multiplexer,
-                  const std::size_t                              media_count,
-                  const std::array<IMedia*, MaxMediaInterfaces>& media_interfaces,
-                  const std::size_t                              tx_capacity,
-                  const CanardNodeID                             canard_node_id)
+                  cetl::pmr::memory_resource& memory,
+                  IMultiplexer&               multiplexer,
+                  const std::size_t           media_count,
+                  const cetl::span<IMedia*>   media_interfaces,
+                  const std::size_t           tx_capacity,
+                  const CanardNodeID          canard_node_id)
         : TransportDelegate{memory}
         , media_array_{make_media_array(memory, tx_capacity, media_count, media_interfaces)}
     {
@@ -279,10 +279,10 @@ private:
         return {};
     }
 
-    static MediaArray make_media_array(cetl::pmr::memory_resource&                    memory,
-                                       const std::size_t                              tx_capacity,
-                                       const std::size_t                              media_count,
-                                       const std::array<IMedia*, MaxMediaInterfaces>& media_interfaces)
+    static MediaArray make_media_array(cetl::pmr::memory_resource& memory,
+                                       const std::size_t           tx_capacity,
+                                       const std::size_t           media_count,
+                                       const cetl::span<IMedia*>   media_interfaces)
     {
         MediaArray media_array{media_count, &memory};
         media_array.reserve(media_count);
@@ -310,11 +310,11 @@ private:
 }  // namespace detail
 
 CETL_NODISCARD inline Expected<UniquePtr<ICanTransport>, FactoryError> makeTransport(
-    cetl::pmr::memory_resource&                    memory,
-    IMultiplexer&                                  multiplexer,
-    const std::array<IMedia*, MaxMediaInterfaces>& media,  // TODO: replace with `cetl::span<IMedia*>`
-    const std::size_t                              tx_capacity,
-    const cetl::optional<NodeId>                   local_node_id)
+    cetl::pmr::memory_resource&  memory,
+    IMultiplexer&                multiplexer,
+    const cetl::span<IMedia*>    media,
+    const std::size_t            tx_capacity,
+    const cetl::optional<NodeId> local_node_id)
 {
     return detail::TransportImpl::make(memory, multiplexer, media, tx_capacity, local_node_id);
 }
