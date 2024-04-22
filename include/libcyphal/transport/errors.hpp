@@ -13,31 +13,31 @@ namespace libcyphal
 namespace transport
 {
 
-struct StateError
+struct StateError final
 {};
 
-struct AnonymousError
+struct AnonymousError final
 {};
 
-struct ArgumentError
+struct ArgumentError final
 {};
 
-struct MemoryError
+struct MemoryError final
 {};
 
-struct CapacityError
+struct CapacityError final
 {};
 
-struct PlatformError
+struct PlatformError final
 {
     std::uint32_t code;
 };
 
-struct SessionAlreadyExistsError
+struct SessionAlreadyExistsError final
 {};
 
 // TODO: Delete it when everything is implemented.
-struct NotImplementedError
+struct NotImplementedError final
 {};
 
 /// @brief Defines any possible error at Cyphal transport layer.

@@ -48,11 +48,12 @@ public:
         const cetl::optional<NodeId>                   local_node_id)
     {
         // Verify input arguments:
-        // - At least one media interface must be provided.
+        // - At least one valid media interface must be provided.
         // - If a local node ID is provided, it must be within the valid range.
         //
-        const auto media_count = static_cast<std::size_t>(
-            std::count_if(media.cbegin(), media.cend(), [](auto media) { return media != nullptr; }));
+        auto       valid_media_predicate = [](IMedia* const media) { return media != nullptr; };
+        const auto media_count =
+            static_cast<std::size_t>(std::count_if(media.cbegin(), media.cend(), valid_media_predicate));
         if (media_count == 0)
         {
             return ArgumentError{};
@@ -64,9 +65,7 @@ public:
 
         libcyphal::detail::VarArray<IMedia*> media_array{MaxMediaInterfaces, &memory};
         media_array.reserve(media_count);
-        std::copy_if(media.cbegin(), media.cend(), std::back_inserter(media_array), [](auto media) {
-            return media != nullptr;
-        });
+        std::copy_if(media.cbegin(), media.cend(), std::back_inserter(media_array), valid_media_predicate);
         CETL_DEBUG_ASSERT(!media_array.empty() && (media_array.size() == media_count), "");
 
         const auto canard_node_id = static_cast<CanardNodeID>(local_node_id.value_or(CANARD_NODE_ID_UNSET));
@@ -183,7 +182,7 @@ private:
         for (std::size_t media_index = 0; media_index < media_array_.size(); ++media_index)
         {
             CETL_DEBUG_ASSERT(media_array_[media_index] != nullptr, "Expected media interface.");
-            auto& media = *media_array_[media_index];
+            IMedia& media = *media_array_[media_index];
 
             // TODO: Handle errors.
             const auto pop_result = media.pop(payload);
