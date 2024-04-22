@@ -54,7 +54,7 @@ public:
         // - If a local node ID is provided, it must be within the valid range.
         //
         const auto media_count = static_cast<std::size_t>(
-            std::count_if(media.cbegin(), media.cend(), [](auto media) { return media != nullptr; }));
+            std::count_if(media.cbegin(), media.cend(), [](IMedia* const media) { return media != nullptr; }));
         if ((media_count == 0) || (media_count > std::numeric_limits<uint8_t>::max()))
         {
             return ArgumentError{};
@@ -179,7 +179,7 @@ private:
     {
         std::array<cetl::byte, CANARD_MTU_MAX> payload{};
 
-        for (const auto& media : media_array_)
+        for (const Media& media : media_array_)
         {
             // TODO: Handle errors.
             const auto pop_result = media.interface.pop(payload);
@@ -226,8 +226,9 @@ private:
 
     // MARK: Privates:
 
-    struct Media final
+    class Media final
     {
+    public:
         Media(const std::size_t _index, IMedia& _interface, const std::size_t tx_capacity)
             : index{static_cast<uint8_t>(_index)}
             , interface{_interface}
@@ -287,11 +288,11 @@ private:
         media_array.reserve(media_count);
 
         std::size_t index = 0;
-        for (const auto media_interface : media_interfaces)
+        for (IMedia* const media_interface : media_interfaces)
         {
             if (media_interface != nullptr)
             {
-                auto& media = *media_interface;
+                IMedia& media = *media_interface;
                 media_array.emplace_back(index++, media, tx_capacity);
             }
         }

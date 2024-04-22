@@ -30,11 +30,13 @@ public:
     ContiguousPayload(cetl::pmr::memory_resource& mr, const PayloadFragments payload_fragments)
         : mr_{mr}
     {
+        using Fragment = cetl::span<const cetl::byte>;
+
         // Count fragments skipping empty ones. Also keep tracking of the total payload size
         // and pointer to the last non-empty fragment (which will be in use for the optimization).
         //
         const auto total_non_empty_fragments =
-            std::count_if(payload_fragments.begin(), payload_fragments.end(), [this](auto frag) {
+            std::count_if(payload_fragments.begin(), payload_fragments.end(), [this](const Fragment frag) {
                 if (frag.empty())
                 {
                     return false;
@@ -48,10 +50,10 @@ public:
         {
             allocated_buffer_ = static_cast<cetl::byte*>(mr_.allocate(payload_size_));
             payload_          = allocated_buffer_;
-            if (const auto buffer = allocated_buffer_)
+            if (cetl::byte* const buffer = allocated_buffer_)
             {
                 std::size_t offset = 0;
-                for (const auto frag : payload_fragments)
+                for (const Fragment frag : payload_fragments)
                 {
                     std::memcpy(&buffer[offset], frag.data(), frag.size());
                     offset += frag.size();
