@@ -20,6 +20,9 @@ namespace can
 class MediaMock : public IMedia
 {
 public:
+    MediaMock() = default;
+    virtual ~MediaMock() = default;
+
     MOCK_METHOD(std::size_t, getMtu, (), (const, noexcept, override));
     MOCK_METHOD(cetl::optional<MediaError>, setFilters, (const Filters filters), (noexcept, override));
     MOCK_METHOD((Expected<bool, MediaError>),

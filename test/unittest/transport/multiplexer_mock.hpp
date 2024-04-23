@@ -16,7 +16,11 @@ namespace transport
 {
 
 class MultiplexerMock : public IMultiplexer
-{};
+{
+public:
+    MultiplexerMock() = default;
+    virtual ~MultiplexerMock() = default;
+};
 
 }  // namespace transport
 }  // namespace libcyphal

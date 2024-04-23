@@ -40,7 +40,6 @@ public:
     IMedia(const IMedia&)            = delete;
     IMedia& operator=(IMedia&&)      = delete;
     IMedia& operator=(const IMedia&) = delete;
-    virtual ~IMedia()                = default;
 
     /// @brief Get the maximum transmission unit (MTU) of the CAN bus.
     ///
@@ -77,7 +76,8 @@ public:
         const cetl::span<cetl::byte> payload_buffer) noexcept = 0;
 
 protected:
-    IMedia() = default;
+    IMedia()  = default;
+    ~IMedia() = default;
 
 };  // IMedia
 
