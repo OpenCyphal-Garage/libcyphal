@@ -23,6 +23,7 @@ using testing::_;
 using testing::Eq;
 using testing::Return;
 using testing::IsNull;
+using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
 using testing::StrictMock;
@@ -38,6 +39,7 @@ protected:
 
     void TearDown() override
     {
+        EXPECT_THAT(mr_.allocations, IsEmpty());
         // TODO: Uncomment this when PMR deleter is fixed.
         // EXPECT_EQ(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }

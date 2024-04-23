@@ -98,6 +98,14 @@ public:
         canard_instance().node_id = canard_node_id;
     }
 
+    ~TransportImpl() override
+    {
+        for (Media& media : media_array_)
+        {
+            flushCanardTxQueue(media.canard_tx_queue);
+        }
+    }
+
 private:
     // MARK: ITransport
 
@@ -197,12 +205,12 @@ private:
                     CanardRxSubscription* out_subscription{};
 
                     // TODO: Handle errors.
-                    const auto result = canardRxAccept(&canard_instance(),
-                                                       static_cast<CanardMicrosecond>(timestamp_us.count()),
-                                                       &canard_frame,
-                                                       media.index,
-                                                       &out_transfer,
-                                                       &out_subscription);
+                    const auto result = ::canardRxAccept(&canard_instance(),
+                                                         static_cast<CanardMicrosecond>(timestamp_us.count()),
+                                                         &canard_frame,
+                                                         media.index,
+                                                         &out_transfer,
+                                                         &out_subscription);
                     if (result > 0)
                     {
                         CETL_DEBUG_ASSERT(out_subscription != nullptr, "Expected subscription.");
@@ -224,6 +232,28 @@ private:
         return *this;
     }
 
+    CETL_NODISCARD cetl::optional<AnyError> sendTransfer(const CanardMicrosecond       timestamp,
+                                                         const CanardTransferMetadata& metadata,
+                                                         const void* const             payload,
+                                                         const std::size_t             payload_size) override
+    {
+        cetl::optional<AnyError> maybe_error{};
+
+        for (Media& media : media_array_)
+        {
+            media.canard_tx_queue.mtu_bytes = media.interface.getMtu();
+
+            const auto result =
+                ::canardTxPush(&media.canard_tx_queue, &canard_instance(), timestamp, &metadata, payload_size, payload);
+            if (result < 0)
+            {
+                maybe_error = TransportDelegate::anyErrorFromCanard(result);
+            }
+        }
+
+        return maybe_error;
+    }
+
     // MARK: Privates:
 
     class Media final
@@ -232,7 +262,7 @@ private:
         Media(const std::size_t _index, IMedia& _interface, const std::size_t tx_capacity)
             : index{static_cast<uint8_t>(_index)}
             , interface{_interface}
-            , canard_tx_queue{canardTxInit(tx_capacity, _interface.getMtu())}
+            , canard_tx_queue{::canardTxInit(tx_capacity, _interface.getMtu())}
         {
         }
         Media(const Media&)                = delete;
@@ -266,7 +296,7 @@ private:
             return ArgumentError{};
         }
 
-        const auto hasSubscription = canardRxHasSubscription(&canard_instance(), transfer_kind, port_id);
+        const auto hasSubscription = ::canardRxHasSubscription(&canard_instance(), transfer_kind, port_id);
         if (hasSubscription < 0)
         {
             return anyErrorFromCanard(hasSubscription);
@@ -301,9 +331,18 @@ private:
         return media_array;
     }
 
+    void flushCanardTxQueue(CanardTxQueue& canard_tx_queue)
+    {
+        while (const auto maybe_item = ::canardTxPeek(&canard_tx_queue))
+        {
+            auto item = ::canardTxPop(&canard_tx_queue, maybe_item);
+            canardMemoryFree(item);
+        }
+    }
+
     // MARK: Data members:
 
-    const MediaArray media_array_;
+    MediaArray media_array_;
 
 };  // TransportImpl
 

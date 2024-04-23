@@ -18,6 +18,7 @@ using namespace libcyphal::transport;
 using namespace libcyphal::transport::udp;
 
 using testing::_;
+using testing::IsEmpty;
 using testing::StrictMock;
 using testing::VariantWith;
 
@@ -26,6 +27,7 @@ class TestUpdTransport : public testing::Test
 protected:
     void TearDown() override
     {
+        EXPECT_THAT(mr_.allocations, IsEmpty());
         // TODO: Uncomment this when PMR deleter is fixed.
         // EXPECT_EQ(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }

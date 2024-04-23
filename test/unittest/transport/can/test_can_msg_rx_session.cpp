@@ -23,6 +23,7 @@ using testing::_;
 using testing::Eq;
 using testing::Return;
 using testing::IsNull;
+using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
 using testing::StrictMock;
@@ -40,6 +41,7 @@ protected:
 
     void TearDown() override
     {
+        EXPECT_THAT(mr_.allocations, IsEmpty());
         // TODO: Uncomment this when PMR deleter is fixed.
         // EXPECT_EQ(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
@@ -92,7 +94,7 @@ TEST_F(TestCanMsgRxSession, make_no_memory)
     EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
 }
 
-TEST_F(TestCanMsgRxSession, run_receive)
+TEST_F(TestCanMsgRxSession, run_and_receive)
 {
     auto transport = makeTransport(mr_);
 

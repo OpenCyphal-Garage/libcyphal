@@ -73,31 +73,20 @@ private:
             return MemoryError{};
         }
 
-        // TransferMetadata
-        //        TransferId transfer_id;
-        //        TimePoint  timestamp;
-        //        Priority   priority;
+        const auto timestamp_us =
+            std::chrono::duration_cast<std::chrono::microseconds>(metadata.timestamp.time_since_epoch());
 
-        //        int32_t canardTxPush(CanardTxQueue* const                que,
-        //                             CanardInstance* const               ins,
-        //                             const CanardMicrosecond             tx_deadline_usec,
-        //                             const CanardTransferMetadata* const metadata,
-        //                             const size_t                        payload_size,
-        //                             const void* const                   payload)
-        //
-        //        const auto result = canardTxPush(&delegate_.canard_instance(),
-        //                                         CanardTransferKindMessage,
-        //                                         static_cast<CanardPortID>(params_.subject_id),
-        //                                         static_cast<size_t>(metadata.extent_bytes),
-        //                                         &transfer_id,
-        //                                         &timestamp,
-        //                                         &priority,
-        //                                         payload_fragments.data(),
-        //                                         payload_fragments.size());
+        const auto canard_timestamp = static_cast<CanardMicrosecond>(timestamp_us.count());
+        const auto canard_metadata  = CanardTransferMetadata{static_cast<CanardPriority>(metadata.priority),
+                                                            CanardTransferKindMessage,
+                                                            static_cast<CanardPortID>(params_.subject_id),
+                                                            CANARD_NODE_ID_UNSET,
+                                                            static_cast<CanardTransferID>(metadata.transfer_id)};
 
-        (void) metadata;
-
-        return NotImplementedError{};
+        return delegate_.sendTransfer(canard_timestamp,
+                                      canard_metadata,
+                                      contiguous_payload.data(),
+                                      contiguous_payload.size());
     }
 
     // MARK: IRunnable

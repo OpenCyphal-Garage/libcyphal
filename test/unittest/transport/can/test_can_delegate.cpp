@@ -19,8 +19,9 @@ using namespace libcyphal::transport::can;
 using testing::_;
 using testing::Eq;
 using testing::Each;
-using testing::IsNull;
 using testing::Return;
+using testing::IsNull;
+using testing::IsEmpty;
 using testing::Optional;
 using testing::StrictMock;
 using testing::ElementsAre;
@@ -29,8 +30,26 @@ using testing::VariantWith;
 class TestCanDelegate : public testing::Test
 {
 protected:
+    class TransportDelegateImpl : public detail::TransportDelegate
+    {
+    public:
+        explicit TransportDelegateImpl(cetl::pmr::memory_resource& memory)
+            : detail::TransportDelegate{memory}
+        {
+        }
+        virtual ~TransportDelegateImpl() = default;
+
+        MOCK_METHOD((cetl::optional<AnyError>),
+                    sendTransfer,
+                    (const CanardMicrosecond       timestamp,
+                     const CanardTransferMetadata& metadata,
+                     const void* const             payload,
+                     const std::size_t             payload_size));
+    };
+
     void TearDown() override
     {
+        EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_EQ(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
@@ -45,8 +64,8 @@ TEST_F(TestCanDelegate, CanardMemory_copy)
 {
     using CanardMemory = detail::TransportDelegate::CanardMemory;
 
-    detail::TransportDelegate delegate{mr_};
-    auto&                     canard_instance = delegate.canard_instance();
+    TransportDelegateImpl delegate{mr_};
+    auto&                 canard_instance = delegate.canard_instance();
 
     const auto payload = static_cast<char*>(canard_instance.memory_allocate(&canard_instance, 8));
     std::iota(payload, payload + 8, '0');
@@ -103,8 +122,8 @@ TEST_F(TestCanDelegate, CanardMemory_copy_on_moved)
 {
     using CanardMemory = detail::TransportDelegate::CanardMemory;
 
-    detail::TransportDelegate delegate{mr_};
-    auto&                     canard_instance = delegate.canard_instance();
+    TransportDelegateImpl delegate{mr_};
+    auto&                 canard_instance = delegate.canard_instance();
 
     const std::size_t payload_size = 4;
     const auto        payload = static_cast<char*>(canard_instance.memory_allocate(&canard_instance, payload_size));
@@ -149,8 +168,8 @@ TEST_F(TestCanDelegate, canardMemoryAllocate_no_memory)
 {
     StrictMock<MemoryResourceMock> mr_mock{};
 
-    detail::TransportDelegate delegate{mr_mock};
-    auto&                     canard_instance = delegate.canard_instance();
+    TransportDelegateImpl delegate{mr_mock};
+    auto&                 canard_instance = delegate.canard_instance();
 
     // Emulate that there is no memory at all.
     EXPECT_CALL(mr_mock, do_allocate(_, _)).WillOnce(Return(nullptr));

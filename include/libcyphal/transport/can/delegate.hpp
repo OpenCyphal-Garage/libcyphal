@@ -94,7 +94,7 @@ public:
 
     explicit TransportDelegate(cetl::pmr::memory_resource& memory)
         : memory_{memory}
-        , canard_instance_(canardInit(canardMemoryAllocate, canardMemoryFree))
+        , canard_instance_(::canardInit(canardMemoryAllocate, canardMemoryFree))
     {
         canard_instance().user_reference = this;
     }
@@ -114,10 +114,10 @@ public:
         return memory_;
     }
 
-    static cetl::optional<AnyError> anyErrorFromCanard(const int8_t result)
+    static cetl::optional<AnyError> anyErrorFromCanard(const int32_t result)
     {
         // Canard error results are negative, so we need to negate them to get the error code.
-        const auto canard_error = static_cast<int8_t>(-result);
+        const auto canard_error = static_cast<int32_t>(-result);
 
         if (canard_error == CANARD_ERROR_INVALID_ARGUMENT)
         {
@@ -143,6 +143,14 @@ public:
 
         memory_.deallocate(memory_header, memory_header->size);
     }
+
+    CETL_NODISCARD virtual cetl::optional<AnyError> sendTransfer(const CanardMicrosecond       timestamp,
+                                                                 const CanardTransferMetadata& metadata,
+                                                                 const void* const             payload,
+                                                                 const std::size_t             payload_size) = 0;
+
+protected:
+    ~TransportDelegate() = default;
 
 private:
     // Until "canardMemFree must provide size" issue #216 is resolved,

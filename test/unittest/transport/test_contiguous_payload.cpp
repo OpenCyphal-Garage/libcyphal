@@ -19,6 +19,7 @@ using ContiguousPayload = libcyphal::transport::detail::ContiguousPayload;
 using testing::_;
 using testing::Eq;
 using testing::IsNull;
+using testing::IsEmpty;
 using testing::NotNull;
 using testing::Return;
 using testing::StrictMock;
@@ -29,6 +30,7 @@ class TestContiguousPayload : public testing::Test
 protected:
     void TearDown() override
     {
+        EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_EQ(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
