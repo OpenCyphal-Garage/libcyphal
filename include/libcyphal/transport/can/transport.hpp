@@ -121,8 +121,9 @@ private:
     CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept override
     {
         const auto min_mtu =
-            reduceMedia(std::numeric_limits<std::size_t>::max(),
-                        [](const std::size_t mtu, IMedia& media) { return std::min(mtu, media.getMtu()); });
+            reduceMedia(std::numeric_limits<std::size_t>::max(), [](const std::size_t mtu, const Media& media) {
+                return std::min(mtu, media.interface.getMtu());
+            });
 
         return ProtocolParams{1 << CANARD_TRANSFER_ID_BIT_LENGTH, min_mtu, CANARD_NODE_ID_MAX + 1};
     }
@@ -282,7 +283,7 @@ private:
         T acc = init;
         for (const Media& media : media_array_)
         {
-            acc = reducer(std::forward<T>(acc), media.interface);
+            acc = reducer(std::forward<T>(acc), media);
         }
         return acc;
     }
