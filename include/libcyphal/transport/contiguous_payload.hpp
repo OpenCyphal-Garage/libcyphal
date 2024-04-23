@@ -6,7 +6,7 @@
 #ifndef LIBCYPHAL_TRANSPORT_CONTIGUOUS_PAYLOAD_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_CONTIGUOUS_PAYLOAD_HPP_INCLUDED
 
-#include "defines.hpp"
+#include "types.hpp"
 #include "libcyphal/types.hpp"
 
 namespace libcyphal
