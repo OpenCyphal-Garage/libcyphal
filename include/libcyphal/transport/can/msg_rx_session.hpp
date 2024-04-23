@@ -130,7 +130,7 @@ private:
         const MessageTransferMetadata   meta{{transfer_id, timestamp, priority}, publisher_node_id};
         TransportDelegate::CanardMemory canard_memory{delegate_, transfer.payload, transfer.payload_size};
 
-        last_rx_transfer_.emplace(MessageRxTransfer{meta, DynamicBuffer{std::move(canard_memory)}});
+        last_rx_transfer_.emplace(MessageRxTransfer{meta, ScatteredBuffer{std::move(canard_memory)}});
     }
 
     // MARK: Data members:
