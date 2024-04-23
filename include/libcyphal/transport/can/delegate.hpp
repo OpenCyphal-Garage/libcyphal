@@ -144,7 +144,7 @@ public:
         memory_.deallocate(memory_header, memory_header->size);
     }
 
-    CETL_NODISCARD virtual cetl::optional<AnyError> sendTransfer(const CanardMicrosecond       timestamp,
+    CETL_NODISCARD virtual cetl::optional<AnyError> sendTransfer(const CanardMicrosecond       deadline,
                                                                  const CanardTransferMetadata& metadata,
                                                                  const void* const             payload,
                                                                  const std::size_t             payload_size) = 0;

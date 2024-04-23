@@ -233,7 +233,7 @@ private:
         return *this;
     }
 
-    CETL_NODISCARD cetl::optional<AnyError> sendTransfer(const CanardMicrosecond       timestamp,
+    CETL_NODISCARD cetl::optional<AnyError> sendTransfer(const CanardMicrosecond       deadline,
                                                          const CanardTransferMetadata& metadata,
                                                          const void* const             payload,
                                                          const std::size_t             payload_size) override
@@ -245,7 +245,7 @@ private:
             media.canard_tx_queue.mtu_bytes = media.interface.getMtu();
 
             const auto result =
-                ::canardTxPush(&media.canard_tx_queue, &canard_instance(), timestamp, &metadata, payload_size, payload);
+                ::canardTxPush(&media.canard_tx_queue, &canard_instance(), deadline, &metadata, payload_size, payload);
             if (result < 0)
             {
                 maybe_error = TransportDelegate::anyErrorFromCanard(result);

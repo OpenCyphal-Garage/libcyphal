@@ -53,6 +53,13 @@ public:
     }
 
 private:
+    // MARK: ITxSession
+
+    void setSendTimeout(const Duration timeout) override
+    {
+        send_timeout_ = timeout;
+    }
+
     // MARK: IMessageTxSession
 
     CETL_NODISCARD MessageTxParams getParams() const noexcept override
@@ -73,17 +80,16 @@ private:
             return MemoryError{};
         }
 
-        const auto timestamp_us =
-            std::chrono::duration_cast<std::chrono::microseconds>(metadata.timestamp.time_since_epoch());
+        const TimePoint deadline = metadata.timestamp + send_timeout_;
+        const auto deadline_us   = std::chrono::duration_cast<std::chrono::microseconds>(deadline.time_since_epoch());
 
-        const auto canard_timestamp = static_cast<CanardMicrosecond>(timestamp_us.count());
-        const auto canard_metadata  = CanardTransferMetadata{static_cast<CanardPriority>(metadata.priority),
+        const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.priority),
                                                             CanardTransferKindMessage,
                                                             static_cast<CanardPortID>(params_.subject_id),
                                                             CANARD_NODE_ID_UNSET,
                                                             static_cast<CanardTransferID>(metadata.transfer_id)};
 
-        return delegate_.sendTransfer(canard_timestamp,
+        return delegate_.sendTransfer(static_cast<CanardMicrosecond>(deadline_us.count()),
                                       canard_metadata,
                                       contiguous_payload.data(),
                                       contiguous_payload.size());
@@ -97,6 +103,7 @@ private:
 
     TransportDelegate&    delegate_;
     const MessageTxParams params_;
+    Duration              send_timeout_ = std::chrono::seconds{1};
 
 };  // MessageTxSession
 

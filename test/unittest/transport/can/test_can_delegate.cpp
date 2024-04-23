@@ -41,7 +41,7 @@ protected:
 
         MOCK_METHOD((cetl::optional<AnyError>),
                     sendTransfer,
-                    (const CanardMicrosecond       timestamp,
+                    (const CanardMicrosecond       deadline,
                      const CanardTransferMetadata& metadata,
                      const void* const             payload,
                      const std::size_t             payload_size));
