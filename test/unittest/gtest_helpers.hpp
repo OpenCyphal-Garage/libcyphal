@@ -10,7 +10,7 @@
 #define LIBCYPHAL_GTEST_HELPERS_HPP
 
 #include <libcyphal/types.hpp>
-#include <libcyphal/transport/defines.hpp>
+#include <libcyphal/transport/types.hpp>
 
 #include <ostream>
 
