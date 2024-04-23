@@ -23,6 +23,7 @@ namespace detail
 /// Automatically deallocates memory (if any) when the object is destroyed.
 ///
 /// Probably could be deleted when libcanard will start support fragmented payloads (at `canardTxPush`).
+/// See https://github.com/OpenCyphal/libcanard/issues/223
 ///
 class ContiguousPayload final
 {

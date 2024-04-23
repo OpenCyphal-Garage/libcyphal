@@ -65,6 +65,7 @@ private:
     {
         // libcanard currently does not support fragmented payloads (at `canardTxPush`).
         // so we need to concatenate them when there are more than one non-empty fragment.
+        // See https://github.com/OpenCyphal/libcanard/issues/223
         //
         const transport::detail::ContiguousPayload contiguous_payload{delegate_.memory(), payload_fragments};
         if ((contiguous_payload.data() == nullptr) && (contiguous_payload.size() > 0))
