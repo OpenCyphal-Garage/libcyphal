@@ -6,7 +6,7 @@
 #ifndef LIBCYPHAL_TRANSPORT_DEFINES_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_DEFINES_HPP_INCLUDED
 
-#include "dynamic_buffer.hpp"
+#include "scattered_buffer.hpp"
 #include "libcyphal/types.hpp"
 
 namespace libcyphal
@@ -79,13 +79,13 @@ using PayloadFragments = cetl::span<const cetl::span<const cetl::byte>>;
 struct MessageRxTransfer final
 {
     MessageTransferMetadata metadata;
-    DynamicBuffer           payload;
+    ScatteredBuffer         payload;
 };
 
 struct ServiceRxTransfer final
 {
     ServiceTransferMetadata metadata;
-    DynamicBuffer           payload;
+    ScatteredBuffer         payload;
 };
 
 }  // namespace transport

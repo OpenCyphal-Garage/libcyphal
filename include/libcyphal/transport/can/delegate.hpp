@@ -7,7 +7,7 @@
 #define LIBCYPHAL_TRANSPORT_CAN_DELEGATE_HPP_INCLUDED
 
 #include <libcyphal/transport/errors.hpp>
-#include <libcyphal/transport/dynamic_buffer.hpp>
+#include <libcyphal/transport/scattered_buffer.hpp>
 
 #include <cetl/rtti.hpp>
 
@@ -29,7 +29,7 @@ class TransportDelegate
         type_id_type<0x11, 0x41, 0xF5, 0xC0, 0x2E, 0x61, 0x44, 0xBF, 0x9F, 0x0E, 0xFA, 0x1C, 0x51, 0x8C, 0xD5, 0x17>;
 
 public:
-    class CanardMemory final : public cetl::rtti_helper<CanardMemoryTypeIdType, DynamicBuffer::Interface>
+    class CanardMemory final : public cetl::rtti_helper<CanardMemoryTypeIdType, ScatteredBuffer::Interface>
     {
     public:
         CanardMemory(TransportDelegate& delegate, void* const buffer, const std::size_t payload_size)
@@ -59,7 +59,7 @@ public:
         CanardMemory& operator=(const CanardMemory&)     = delete;
         CanardMemory& operator=(CanardMemory&&) noexcept = delete;
 
-        // MARK: DynamicBuffer::Interface
+        // MARK: ScatteredBuffer::Interface
 
         CETL_NODISCARD std::size_t size() const noexcept override
         {
