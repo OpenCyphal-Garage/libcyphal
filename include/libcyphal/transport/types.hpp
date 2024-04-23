@@ -3,8 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_TRANSPORT_DEFINES_HPP_INCLUDED
-#define LIBCYPHAL_TRANSPORT_DEFINES_HPP_INCLUDED
+#ifndef LIBCYPHAL_TRANSPORT_TYPES_HPP_INCLUDED
+#define LIBCYPHAL_TRANSPORT_TYPES_HPP_INCLUDED
 
 #include "scattered_buffer.hpp"
 
@@ -94,4 +94,4 @@ constexpr std::size_t MaxMediaInterfaces = 3;
 }  // namespace transport
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_TRANSPORT_DEFINES_HPP_INCLUDED
+#endif  // LIBCYPHAL_TRANSPORT_TYPES_HPP_INCLUDED
