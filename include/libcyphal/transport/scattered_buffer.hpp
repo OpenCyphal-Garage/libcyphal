@@ -3,8 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_TRANSPORT_DYNAMIC_BUFFER_HPP_INCLUDED
-#define LIBCYPHAL_TRANSPORT_DYNAMIC_BUFFER_HPP_INCLUDED
+#ifndef LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
+#define LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
 
 #include <cetl/any.hpp>
 
@@ -18,7 +18,7 @@ namespace transport
 /// The buffer is movable but not copyable because copying the contents of a buffer is considered wasteful.
 /// The buffer behaves as if it's empty if the underlying implementation is moved away.
 ///
-class DynamicBuffer final
+class ScatteredBuffer final
 {
     // 91C1B109-F90E-45BE-95CF-6ED02AC3FFAA
     using InterfaceTypeIdType = cetl::
@@ -45,9 +45,9 @@ public:
 
     };  // Interface
 
-    DynamicBuffer()                           = default;
-    DynamicBuffer(const DynamicBuffer& other) = delete;
-    DynamicBuffer(DynamicBuffer&& other) noexcept
+    ScatteredBuffer()                             = default;
+    ScatteredBuffer(const ScatteredBuffer& other) = delete;
+    ScatteredBuffer(ScatteredBuffer&& other) noexcept
     {
         storage_ = std::move(other.storage_);
 
@@ -58,19 +58,19 @@ public:
     /// @brief Accepts a Lizard-specific implementation of `Interface` and moves it into the internal storage.
     ///
     template <typename T, typename = std::enable_if_t<std::is_base_of<Interface, T>::value>>
-    explicit DynamicBuffer(T&& source) noexcept
+    explicit ScatteredBuffer(T&& source) noexcept
         : storage_(std::forward<T>(source))
         , interface_{cetl::any_cast<Interface>(&storage_)}
     {
     }
 
-    ~DynamicBuffer()
+    ~ScatteredBuffer()
     {
         reset();
     }
 
-    DynamicBuffer& operator=(const DynamicBuffer& other) = delete;
-    DynamicBuffer& operator=(DynamicBuffer&& other) noexcept
+    ScatteredBuffer& operator=(const ScatteredBuffer& other) = delete;
+    ScatteredBuffer& operator=(ScatteredBuffer&& other) noexcept
     {
         storage_ = std::move(other.storage_);
 
@@ -112,9 +112,9 @@ private:
     cetl::any<ImplementationFootprint, false, true> storage_;
     const Interface*                                interface_ = nullptr;
 
-};  // DynamicBuffer
+};  // ScatteredBuffer
 
 }  // namespace transport
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_TRANSPORT_DYNAMIC_BUFFER_HPP_INCLUDED
+#endif  // LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
