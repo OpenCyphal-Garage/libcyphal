@@ -20,6 +20,8 @@ namespace udp
 class MediaMock : public IMedia
 {
 public:
+    MediaMock() = default;
+    virtual ~MediaMock() = default;
 
 };  // MediaMock
 
