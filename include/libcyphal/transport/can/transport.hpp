@@ -184,46 +184,10 @@ private:
 
     // MARK: IRunnable
 
-    void run(const TimePoint) override
+    void run(const TimePoint now) override
     {
-        std::array<cetl::byte, CANARD_MTU_MAX> payload{};
-
-        for (const Media& media : media_array_)
-        {
-            // TODO: Handle errors.
-            const auto pop_result = media.interface.pop(payload);
-            if (const auto opt_rx_meta = cetl::get_if<cetl::optional<RxMetadata>>(&pop_result))
-            {
-                if (opt_rx_meta->has_value())
-                {
-                    const auto& rx_meta = opt_rx_meta->value();
-
-                    const auto timestamp_us =
-                        std::chrono::duration_cast<std::chrono::microseconds>(rx_meta.timestamp.time_since_epoch());
-                    const CanardFrame canard_frame{rx_meta.can_id, rx_meta.payload_size, payload.cbegin()};
-
-                    CanardRxTransfer      out_transfer{};
-                    CanardRxSubscription* out_subscription{};
-
-                    // TODO: Handle errors.
-                    const auto result = ::canardRxAccept(&canard_instance(),
-                                                         static_cast<CanardMicrosecond>(timestamp_us.count()),
-                                                         &canard_frame,
-                                                         media.index,
-                                                         &out_transfer,
-                                                         &out_subscription);
-                    if (result > 0)
-                    {
-                        CETL_DEBUG_ASSERT(out_subscription != nullptr, "Expected subscription.");
-                        CETL_DEBUG_ASSERT(out_subscription->user_reference != nullptr, "Expected session delegate.");
-
-                        const auto delegate = static_cast<SessionDelegate*>(out_subscription->user_reference);
-                        delegate->acceptRxTransfer(out_transfer);
-                    }
-                }
-            }
-
-        }  // for each media
+        runMediaTransmit(now);
+        runMediaReceive();
     }
 
     // MARK: TransportDelegate
@@ -238,6 +202,9 @@ private:
                                                          const void* const             payload,
                                                          const std::size_t             payload_size) override
     {
+        // TODO: Rework error handling strategy.
+        //       Currently, we return the last error encountered, but we should consider all errors somehow.
+        //
         cetl::optional<AnyError> maybe_error{};
 
         for (Media& media : media_array_)
@@ -337,8 +304,92 @@ private:
         while (const auto maybe_item = ::canardTxPeek(&canard_tx_queue))
         {
             auto item = ::canardTxPop(&canard_tx_queue, maybe_item);
-            canardMemoryFree(item);
+            freeCanardMemory(item);
         }
+    }
+
+    void runMediaReceive()
+    {
+        std::array<cetl::byte, CANARD_MTU_MAX> payload{};
+
+        for (const Media& media : media_array_)
+        {
+            // TODO: Handle errors.
+            const auto pop_result = media.interface.pop(payload);
+            if (const auto opt_rx_meta = cetl::get_if<cetl::optional<RxMetadata>>(&pop_result))
+            {
+                if (opt_rx_meta->has_value())
+                {
+                    const auto& rx_meta = opt_rx_meta->value();
+
+                    const auto timestamp_us =
+                        std::chrono::duration_cast<std::chrono::microseconds>(rx_meta.timestamp.time_since_epoch());
+                    const CanardFrame canard_frame{rx_meta.can_id, rx_meta.payload_size, payload.cbegin()};
+
+                    CanardRxTransfer      out_transfer{};
+                    CanardRxSubscription* out_subscription{};
+
+                    // TODO: Handle errors.
+                    const auto result = ::canardRxAccept(&canard_instance(),
+                                                         static_cast<CanardMicrosecond>(timestamp_us.count()),
+                                                         &canard_frame,
+                                                         media.index,
+                                                         &out_transfer,
+                                                         &out_subscription);
+                    if (result > 0)
+                    {
+                        CETL_DEBUG_ASSERT(out_subscription != nullptr, "Expected subscription.");
+                        CETL_DEBUG_ASSERT(out_subscription->user_reference != nullptr, "Expected session delegate.");
+
+                        const auto delegate = static_cast<SessionDelegate*>(out_subscription->user_reference);
+                        delegate->acceptRxTransfer(out_transfer);
+                    }
+                }
+            }
+
+        }  // for each media
+    }
+
+    void runMediaTransmit(const TimePoint now)
+    {
+        for (Media& media : media_array_)
+        {
+            while (const auto tx_item = ::canardTxPeek(&media.canard_tx_queue))
+            {
+                // We are dropping any TX item that has expired.
+                // Otherwise, we would send it to the media interface.
+                // We use strictly `<` (instead of `<=`) to give this frame a chance (one extra 1us) at media level.
+                //
+                const auto deadline = TimePoint{std::chrono::microseconds{tx_item->tx_deadline_usec}};
+                if (now < deadline)
+                {
+                    const cetl::span<const cetl::byte> payload{static_cast<const cetl::byte*>(tx_item->frame.payload),
+                                                               tx_item->frame.payload_size};
+                    const auto                         maybe_pushed =
+                        media.interface.push(deadline, static_cast<CanId>(tx_item->frame.extended_can_id), payload);
+                    if (const auto is_pushed = cetl::get_if<bool>(&maybe_pushed))
+                    {
+                        if (!*is_pushed)
+                        {
+                            // Media interface is busy, so we will try again with it later (on next `run`).
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        // In case of media error we are going to drop this frame
+                        // (b/c it looks like media can't handle this frame),
+                        // but we will continue to process other frames.
+
+                        // TODO: Add error reporting somehow.
+                    }
+                }
+
+                freeCanardMemory(::canardTxPop(&media.canard_tx_queue, tx_item));
+
+            }  // for each frame
+
+        }  // for each media
     }
 
     // MARK: Data members:

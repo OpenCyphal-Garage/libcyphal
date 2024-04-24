@@ -15,6 +15,8 @@
 
 namespace
 {
+using byte = cetl::byte;
+
 using namespace libcyphal;
 using namespace libcyphal::transport;
 using namespace libcyphal::transport::can;
@@ -53,6 +55,11 @@ protected:
         auto maybe_transport = can::makeTransport(mr, mux_mock_, media_array, 0, {});
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
         return cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
+    }
+
+    static constexpr byte b(std::uint8_t b)
+    {
+        return static_cast<byte>(b);
     }
 
     // MARK: Data members:
@@ -105,13 +112,13 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
 
     // 1-st iteration: one frame available @ 1s
     {
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([](const cetl::span<cetl::byte> payload) {
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce([](const cetl::span<byte> payload) {
             EXPECT_THAT(payload.size(), Eq(CANARD_MTU_MAX));
 
-            payload[0] = static_cast<cetl::byte>(42);
-            payload[1] = static_cast<cetl::byte>(147);
-            payload[2] = static_cast<cetl::byte>(0xED);
-            return RxMetadata{TimePoint{1s}, 0x0C002345, 3};
+            payload[0] = b(42);
+            payload[1] = b(147);
+            payload[2] = b(0xED);
+            return RxMetadata{TimePoint{1s}, 0x0C'00'23'45, 3};
         });
 
         transport->run(TimePoint{1s + 10ms});
@@ -136,7 +143,7 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
 
     // 2-nd iteration: no frames available
     {
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([](const cetl::span<cetl::byte> payload) {
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce([](const cetl::span<byte> payload) {
             EXPECT_THAT(payload.size(), Eq(CANARD_MTU_MAX));
             return cetl::nullopt;
         });

@@ -52,7 +52,7 @@ public:
         {
             if (buffer_ != nullptr)
             {
-                delegate_.canardMemoryFree(buffer_);
+                delegate_.freeCanardMemory(buffer_);
             }
         }
 
@@ -94,7 +94,7 @@ public:
 
     explicit TransportDelegate(cetl::pmr::memory_resource& memory)
         : memory_{memory}
-        , canard_instance_(::canardInit(canardMemoryAllocate, canardMemoryFree))
+        , canard_instance_(::canardInit(allocateMemoryForCanard, freeCanardMemory))
     {
         canard_instance().user_reference = this;
     }
@@ -131,7 +131,7 @@ public:
         return {};
     }
 
-    void canardMemoryFree(void* const pointer)
+    void freeCanardMemory(void* const pointer)
     {
         if (pointer == nullptr)
         {
@@ -171,7 +171,7 @@ private:
         return *static_cast<TransportDelegate*>(ins->user_reference);
     }
 
-    CETL_NODISCARD static void* canardMemoryAllocate(CanardInstance* ins, size_t amount)
+    CETL_NODISCARD static void* allocateMemoryForCanard(CanardInstance* ins, size_t amount)
     {
         auto& self = getSelfFrom(ins);
 
@@ -189,10 +189,10 @@ private:
         return ++memory_header;
     }
 
-    static void canardMemoryFree(CanardInstance* ins, void* pointer)
+    static void freeCanardMemory(CanardInstance* ins, void* pointer)
     {
         auto& self = getSelfFrom(ins);
-        self.canardMemoryFree(pointer);
+        self.freeCanardMemory(pointer);
     }
 
     // MARK: Data members:
