@@ -112,6 +112,26 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
     }
 }
 
+TEST_F(TestCanTransport, setLocalNodeId)
+{
+    std::array<IMedia*, 1> media_array{&media_mock_};
+    auto                   maybe_transport = makeTransport(mr_, mux_mock_, media_array, 0, {});
+    EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
+    auto transport = cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
+
+    EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX + 1), Optional(testing::A<ArgumentError>()));
+    EXPECT_THAT(transport->getLocalNodeId(), Eq(cetl::nullopt));
+
+    EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX), Eq(cetl::nullopt));
+    EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
+
+    EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX), Optional(testing::A<ArgumentError>()));
+    EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
+
+    EXPECT_THAT(transport->setLocalNodeId(0), Optional(testing::A<ArgumentError>()));
+    EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
+}
+
 TEST_F(TestCanTransport, makeTransport_with_invalid_arguments)
 {
     // No media

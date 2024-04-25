@@ -57,6 +57,19 @@ private:
     {
         return cetl::nullopt;
     }
+
+    CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept override
+    {
+        if (node_id > UDPARD_NODE_ID_MAX)
+        {
+            return ArgumentError{};
+        }
+
+        // TODO: Implement!
+
+        return ArgumentError{};
+    }
+
     CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept override
     {
         return ProtocolParams{};
