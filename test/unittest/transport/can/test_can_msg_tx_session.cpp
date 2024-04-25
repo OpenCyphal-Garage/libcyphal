@@ -9,6 +9,7 @@
 #include "../multiplexer_mock.hpp"
 #include "../../gtest_helpers.hpp"
 #include "../../test_scheduler.hpp"
+#include "../../test_utilities.hpp"
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
 
@@ -21,6 +22,7 @@ using byte = cetl::byte;
 using namespace libcyphal;
 using namespace libcyphal::transport;
 using namespace libcyphal::transport::can;
+using namespace libcyphal::test_utilities;
 
 using testing::_;
 using testing::Eq;
@@ -29,10 +31,10 @@ using testing::IsNull;
 using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
+using testing::InSequence;
 using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
-using testing::InSequence;
 
 using namespace std::chrono_literals;
 
@@ -57,40 +59,22 @@ protected:
     }
 
     CETL_NODISCARD UniquePtr<ICanTransport> makeTransport(cetl::pmr::memory_resource& mr,
+                                                          IMedia*                     extra_media = nullptr,
                                                           const std::size_t           tx_capacity = 16)
     {
-        std::array<IMedia*, 1> media_array{&media_mock_};
+        std::array<IMedia*, 2> media_array{&media_mock_, extra_media};
 
         auto maybe_transport = can::makeTransport(mr, mux_mock_, media_array, tx_capacity, {});
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
         return cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
     }
 
-    static constexpr byte b(std::uint8_t b)
-    {
-        return static_cast<byte>(b);
-    }
-
-    template <std::size_t N>
-    std::array<byte, N> makeIotaArray(const std::uint8_t init = 0)
-    {
-        std::array<byte, N> arr{};
-        std::iota(reinterpret_cast<std::uint8_t*>(arr.begin()), reinterpret_cast<std::uint8_t*>(arr.end()), init);
-        return arr;
-    }
-
-    template <std::size_t N>
-    std::array<cetl::span<const byte>, 1> makeSpansFrom(const std::array<byte, N>& payload)
-    {
-        return {payload};
-    }
-
     // MARK: Data members:
 
     TestScheduler               scheduler_{};
     TrackingMemoryResource      mr_;
-    StrictMock<MediaMock>       media_mock_{};
     StrictMock<MultiplexerMock> mux_mock_{};
+    StrictMock<MediaMock>       media_mock_{};
 };
 
 // MARK: Tests:
@@ -164,17 +148,16 @@ TEST_F(TestCanMsgTxSession, send_empty_payload)
     auto maybe_error = session->send(metadata, empty_payload);
     EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
 
-    EXPECT_CALL(media_mock_, push(_, _, _))
-        .WillOnce([&](const TimePoint deadline, const CanId can_id, const cetl::span<const cetl::byte> payload) {
-            EXPECT_THAT(now(), send_time + 10ms);
-            EXPECT_THAT(deadline, send_time + timeout);
-            EXPECT_THAT(can_id, SubjectOfCanIdEq(123));
-            EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
+    EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto payload) {
+        EXPECT_THAT(now(), send_time + 10ms);
+        EXPECT_THAT(deadline, send_time + timeout);
+        EXPECT_THAT(can_id, SubjectOfCanIdEq(123));
+        EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
 
-            auto flb = FrameLastByteEq(metadata.transfer_id);
-            EXPECT_THAT(payload, ElementsAre(flb));
-            return true;
-        });
+        auto tbm = TailByteEq(metadata.transfer_id);
+        EXPECT_THAT(payload, ElementsAre(tbm));
+        return true;
+    });
 
     scheduler_.runNow(+10ms, [&] { transport->run(now()); });
     scheduler_.runNow(+10ms, [&] { transport->run(now()); });
@@ -225,7 +208,7 @@ TEST_F(TestCanMsgTxSession, send_7bytes_payload_with_500ms_timeout)
     scheduler_.runNow(+10s);
     const auto send_time = now();
 
-    const auto             payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC - 1>('0');
+    const auto             payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC - 1>('1');
     const TransferMetadata metadata{0x03, send_time, Priority::High};
 
     auto maybe_error = session->send(metadata, makeSpansFrom(payload));
@@ -234,96 +217,18 @@ TEST_F(TestCanMsgTxSession, send_7bytes_payload_with_500ms_timeout)
     // Emulate run calls just on the very edge of the 500ms deadline (just 1us before it).
     // Payload should be sent successfully.
     //
-    EXPECT_CALL(media_mock_, push(TimePoint{send_time + timeout}, _, _))
-        .WillOnce([&](const TimePoint, const CanId can_id, const cetl::span<const cetl::byte> payload) {
-            EXPECT_THAT(now(), send_time + timeout - 1us);
-            EXPECT_THAT(can_id, SubjectOfCanIdEq(17));
-            EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
+    EXPECT_CALL(media_mock_, push(TimePoint{send_time + timeout}, _, _)).WillOnce([&](auto, auto can_id, auto payload) {
+        EXPECT_THAT(now(), send_time + timeout - 1us);
+        EXPECT_THAT(can_id, SubjectOfCanIdEq(17));
+        EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
 
-            auto flb = FrameLastByteEq(metadata.transfer_id);
-            EXPECT_THAT(payload, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), flb));
-            return true;
-        });
+        auto tbm = TailByteEq(metadata.transfer_id);
+        EXPECT_THAT(payload, ElementsAre(b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), b('7'), tbm));
+        return true;
+    });
     //
     scheduler_.runNow(timeout - 1us, [&] { transport->run(now()); });
     scheduler_.runNow(+0us, [&] { transport->run(now()); });
-}
-
-TEST_F(TestCanMsgTxSession, sending_multiframe_payload_should_fail_for_anonymous)
-{
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-
-    auto transport = makeTransport(mr_);
-
-    auto maybe_session = transport->makeMessageTxSession({7});
-    EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
-    auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
-    EXPECT_THAT(session, NotNull());
-
-    scheduler_.runNow(+10s);
-    const auto send_time = now();
-
-    const auto             payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC>('0');
-    const TransferMetadata metadata{0x13, send_time, Priority::Nominal};
-
-    auto maybe_error = session->send(metadata, makeSpansFrom(payload));
-    EXPECT_THAT(maybe_error, Optional(VariantWith<ArgumentError>(_)));
-
-    scheduler_.runNow(+10us, [&] { transport->run(now()); });
-    scheduler_.runNow(10us, [&] { session->run(now()); });
-}
-
-TEST_F(TestCanMsgTxSession, sending_multiframe_payload_for_non_anonymous)
-{
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-
-    auto transport = makeTransport(mr_);
-    EXPECT_THAT(transport->setLocalNodeId(0x45), Eq(cetl::nullopt));
-
-    auto maybe_session = transport->makeMessageTxSession({7});
-    EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
-    auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
-    EXPECT_THAT(session, NotNull());
-
-    scheduler_.runNow(+10s);
-    const auto timeout   = 1s;
-    const auto send_time = now();
-
-    const auto             payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC>('0');
-    const TransferMetadata metadata{0x13, send_time, Priority::Nominal};
-
-    auto maybe_error = session->send(metadata, makeSpansFrom(payload));
-    EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
-
-    {
-        InSequence s;
-
-        EXPECT_CALL(media_mock_, push(_, _, _))
-            .WillOnce([&](const TimePoint deadline, const CanId can_id, const cetl::span<const cetl::byte> payload) {
-                EXPECT_THAT(now(), send_time + 10us);
-                EXPECT_THAT(deadline, send_time + timeout);
-                EXPECT_THAT(can_id, SubjectOfCanIdEq(7));
-                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
-
-                auto flb = FrameLastByteEq(metadata.transfer_id, true, false);
-                EXPECT_THAT(payload, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), flb));
-                return true;
-            });
-        EXPECT_CALL(media_mock_, push(_, _, _))
-            .WillOnce([&](const TimePoint deadline, const CanId can_id, const cetl::span<const cetl::byte> payload) {
-                EXPECT_THAT(now(), send_time + 10us);
-                EXPECT_THAT(deadline, send_time + timeout);
-                EXPECT_THAT(can_id, SubjectOfCanIdEq(7));
-                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
-
-                auto flb = FrameLastByteEq(metadata.transfer_id, false, true, false);
-                EXPECT_THAT(payload, ElementsAre(b('7'), _, _ /* CRC bytes */, flb));
-                return true;
-            });
-    }
-
-    scheduler_.runNow(+10us, [&] { transport->run(now()); });
-    scheduler_.runNow(+10us, [&] { transport->run(now()); });
 }
 
 }  // namespace

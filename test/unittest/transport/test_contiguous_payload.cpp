@@ -5,6 +5,7 @@
 
 #include <libcyphal/transport/contiguous_payload.hpp>
 
+#include "../test_utilities.hpp"
 #include "../memory_resource_mock.hpp"
 #include "../tracking_memory_resource.hpp"
 
@@ -13,6 +14,8 @@
 
 namespace
 {
+using namespace libcyphal::test_utilities;
+
 using byte              = cetl::byte;
 using ContiguousPayload = libcyphal::transport::detail::ContiguousPayload;
 
@@ -31,11 +34,6 @@ protected:
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_EQ(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
-    }
-
-    static constexpr byte b(std::uint8_t b)
-    {
-        return static_cast<byte>(b);
     }
 
     // MARK: Data members:

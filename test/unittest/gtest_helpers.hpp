@@ -216,12 +216,48 @@ inline testing::Matcher<const CanId&> SubjectOfCanIdEq(PortId subject_id)
     return SubjectOfCanIdMatcher(subject_id);
 }
 
-class FrameLastByteMatcher
+class SourceNodeCanIdMatcher
 {
 public:
     using is_gtest_matcher = void;
 
-    explicit FrameLastByteMatcher(TransferId transfer_id, bool is_start, bool is_end, bool is_toggle)
+    explicit SourceNodeCanIdMatcher(NodeId node_id)
+        : node_id_{node_id}
+    {
+    }
+
+    bool MatchAndExplain(const CanId& can_id, std::ostream* os) const
+    {
+        const auto node_id = can_id & CANARD_NODE_ID_MAX;
+        if (os)
+        {
+            *os << "node_id=" << node_id;
+        }
+        return node_id == node_id_;
+    }
+    void DescribeTo(std::ostream* os) const
+    {
+        *os << "node_id==" << node_id_;
+    }
+    void DescribeNegationTo(std::ostream* os) const
+    {
+        *os << "node_id!=" << node_id_;
+    }
+
+private:
+    const NodeId node_id_;
+};
+inline testing::Matcher<const CanId&> SourceNodeOfCanIdEq(NodeId node_id)
+{
+    return SourceNodeCanIdMatcher(node_id);
+}
+
+class TailByteMatcher
+{
+public:
+    using is_gtest_matcher = void;
+
+    explicit TailByteMatcher(TransferId transfer_id, bool is_start, bool is_end, bool is_toggle)
         : transfer_id_{static_cast<std::uint8_t>(transfer_id & CANARD_TRANSFER_ID_MAX)}
         , is_start_{is_start}
         , is_end_{is_end}
@@ -268,12 +304,12 @@ private:
     const bool         is_end_;
     const bool         is_toggle_;
 };
-inline testing::Matcher<const cetl::byte&> FrameLastByteEq(TransferId transfer_id,
-                                                           bool       is_start  = true,
-                                                           bool       is_end    = true,
-                                                           bool       is_toggle = true)
+inline testing::Matcher<const cetl::byte&> TailByteEq(TransferId transfer_id,
+                                                      bool       is_start  = true,
+                                                      bool       is_end    = true,
+                                                      bool       is_toggle = true)
 {
-    return FrameLastByteMatcher(transfer_id, is_start, is_end, is_toggle);
+    return TailByteMatcher(transfer_id, is_start, is_end, is_toggle);
 }
 
 }  // namespace can

@@ -52,9 +52,7 @@ private:
 
     void do_deallocate(void* ptr, std::size_t size_bytes, std::size_t) override
     {
-        std::free(ptr);
-
-        auto prev_alloc = std::find_if(allocations.cbegin(), allocations.cend(), [&](const auto& alloc) {
+        auto prev_alloc = std::find_if(allocations.cbegin(), allocations.cend(), [ptr](const auto& alloc) {
             return alloc.pointer == ptr;
         });
         if (prev_alloc != allocations.cend())
@@ -62,6 +60,8 @@ private:
             allocations.erase(prev_alloc);
         }
         total_deallocated_bytes += size_bytes;
+
+        std::free(ptr);
     }
 
 #if (__cplusplus < CETL_CPP_STANDARD_17)

@@ -9,6 +9,7 @@
 #include "../multiplexer_mock.hpp"
 #include "../../gtest_helpers.hpp"
 #include "../../test_scheduler.hpp"
+#include "../../test_utilities.hpp"
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
 
@@ -21,6 +22,7 @@ using byte = cetl::byte;
 using namespace libcyphal;
 using namespace libcyphal::transport;
 using namespace libcyphal::transport::can;
+using namespace libcyphal::test_utilities;
 
 using testing::_;
 using testing::Eq;
@@ -61,11 +63,6 @@ protected:
         auto maybe_transport = can::makeTransport(mr, mux_mock_, media_array, 0, {});
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
         return cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
-    }
-
-    static constexpr byte b(std::uint8_t b)
-    {
-        return static_cast<byte>(b);
     }
 
     // MARK: Data members:
@@ -122,7 +119,7 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
         scheduler_.setNow(TimePoint{1s});
         const auto rx_timestamp = now();
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](const cetl::span<byte> payload) {
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce([=](auto payload) {
             EXPECT_THAT(payload.size(), CANARD_MTU_MAX);
 
             payload[0] = b(42);
@@ -154,7 +151,7 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
     {
         scheduler_.setNow(TimePoint{2s});
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([](const cetl::span<byte> payload) {
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce([](auto payload) {
             EXPECT_THAT(payload.size(), CANARD_MTU_MAX);
             return cetl::nullopt;
         });
