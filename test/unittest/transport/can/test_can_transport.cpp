@@ -163,20 +163,20 @@ TEST_F(TestCanTransport, getProtocolParams)
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(testing::Return(CANARD_MTU_CAN_CLASSIC));
 
     auto params = transport->getProtocolParams();
-    EXPECT_THAT(params.transfer_id_modulo, Eq(1 << CANARD_TRANSFER_ID_BIT_LENGTH));
-    EXPECT_THAT(params.max_nodes, Eq(CANARD_NODE_ID_MAX + 1));
-    EXPECT_THAT(params.mtu_bytes, Eq(CANARD_MTU_CAN_CLASSIC));
+    EXPECT_THAT(params.transfer_id_modulo, 1 << CANARD_TRANSFER_ID_BIT_LENGTH);
+    EXPECT_THAT(params.max_nodes, CANARD_NODE_ID_MAX + 1);
+    EXPECT_THAT(params.mtu_bytes, CANARD_MTU_CAN_CLASSIC);
 
     // Manipulate MTU values on fly
     {
         EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(testing::Return(CANARD_MTU_CAN_FD));
-        EXPECT_THAT(transport->getProtocolParams().mtu_bytes, Eq(CANARD_MTU_CAN_FD));
+        EXPECT_THAT(transport->getProtocolParams().mtu_bytes, CANARD_MTU_CAN_FD);
 
         EXPECT_CALL(media_mock_, getMtu()).WillRepeatedly(testing::Return(CANARD_MTU_CAN_CLASSIC));
-        EXPECT_THAT(transport->getProtocolParams().mtu_bytes, Eq(CANARD_MTU_CAN_CLASSIC));
+        EXPECT_THAT(transport->getProtocolParams().mtu_bytes, CANARD_MTU_CAN_CLASSIC);
 
         EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(testing::Return(CANARD_MTU_CAN_CLASSIC));
-        EXPECT_THAT(transport->getProtocolParams().mtu_bytes, Eq(CANARD_MTU_CAN_CLASSIC));
+        EXPECT_THAT(transport->getProtocolParams().mtu_bytes, CANARD_MTU_CAN_CLASSIC);
     }
 }
 
@@ -189,8 +189,8 @@ TEST_F(TestCanTransport, makeMessageRxSession)
     EXPECT_THAT(maybe_rx_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
 
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_rx_session));
-    EXPECT_THAT(session->getParams().extent_bytes, Eq(42));
-    EXPECT_THAT(session->getParams().subject_id, Eq(123));
+    EXPECT_THAT(session->getParams().extent_bytes, 42);
+    EXPECT_THAT(session->getParams().subject_id, 123);
 }
 
 TEST_F(TestCanTransport, makeMessageRxSession_invalid_subject_id)
@@ -211,7 +211,7 @@ TEST_F(TestCanTransport, makeMessageTxSession)
     EXPECT_THAT(maybe_tx_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
 
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_tx_session));
-    EXPECT_THAT(session->getParams().subject_id, Eq(123));
+    EXPECT_THAT(session->getParams().subject_id, 123);
 }
 
 }  // namespace

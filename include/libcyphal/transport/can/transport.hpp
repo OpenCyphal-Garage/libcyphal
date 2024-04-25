@@ -118,6 +118,22 @@ private:
 
         return cetl::make_optional(static_cast<NodeId>(canard_instance().node_id));
     }
+
+    CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept override
+    {
+        if (node_id > CANARD_NODE_ID_MAX)
+        {
+            return ArgumentError{};
+        }
+        if (canard_instance().node_id != CANARD_NODE_ID_UNSET)
+        {
+            return ArgumentError{};
+        }
+
+        canard_instance().node_id = static_cast<CanardNodeID>(node_id);
+        return cetl::nullopt;
+    }
+
     CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept override
     {
         const auto min_mtu =

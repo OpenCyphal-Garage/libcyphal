@@ -8,6 +8,7 @@
 #include "media_mock.hpp"
 #include "../multiplexer_mock.hpp"
 #include "../../gtest_helpers.hpp"
+#include "../../test_scheduler.hpp"
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
 
@@ -48,6 +49,11 @@ protected:
         // EXPECT_EQ(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
+    TimePoint now() const
+    {
+        return scheduler_.now();
+    }
+
     CETL_NODISCARD UniquePtr<ICanTransport> makeTransport(cetl::pmr::memory_resource& mr)
     {
         std::array<IMedia*, 1> media_array{&media_mock_};
@@ -64,6 +70,7 @@ protected:
 
     // MARK: Data members:
 
+    TestScheduler               scheduler_{};
     TrackingMemoryResource      mr_;
     StrictMock<MediaMock>       media_mock_{};
     StrictMock<MultiplexerMock> mux_mock_{};
@@ -80,8 +87,8 @@ TEST_F(TestCanMsgRxSession, make_setTransferIdTimeout)
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
     EXPECT_THAT(session, NotNull());
 
-    EXPECT_THAT(session->getParams().extent_bytes, Eq(42));
-    EXPECT_THAT(session->getParams().subject_id, Eq(123));
+    EXPECT_THAT(session->getParams().extent_bytes, 42);
+    EXPECT_THAT(session->getParams().subject_id, 123);
 
     session->setTransferIdTimeout(0s);
     session->setTransferIdTimeout(500ms);
@@ -112,45 +119,48 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
 
     // 1-st iteration: one frame available @ 1s
     {
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([](const cetl::span<byte> payload) {
-            EXPECT_THAT(payload.size(), Eq(CANARD_MTU_MAX));
+        scheduler_.setNow(TimePoint{1s});
+        const auto rx_timestamp = now();
+
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](const cetl::span<byte> payload) {
+            EXPECT_THAT(payload.size(), CANARD_MTU_MAX);
 
             payload[0] = b(42);
             payload[1] = b(147);
             payload[2] = b(0xED);
-            return RxMetadata{TimePoint{1s}, 0x0C'00'23'45, 3};
+            return RxMetadata{rx_timestamp, 0x0C'00'23'45, 3};
         });
 
-        transport->run(TimePoint{1s + 10ms});
-
-        session->run(TimePoint{1s + 20ms});
+        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+        scheduler_.runNow(+10ms, [&] { session->run(now()); });
 
         const auto maybe_rx_transfer = session->receive();
         EXPECT_THAT(maybe_rx_transfer, Optional(_));
         const auto& rx_transfer = maybe_rx_transfer.value();
 
-        EXPECT_THAT(rx_transfer.metadata.timestamp, Eq(TimePoint{1s}));
-        EXPECT_THAT(rx_transfer.metadata.transfer_id, Eq(0x0D));
-        EXPECT_THAT(rx_transfer.metadata.priority, Eq(Priority::High));
+        EXPECT_THAT(rx_transfer.metadata.timestamp, rx_timestamp);
+        EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x0D);
+        EXPECT_THAT(rx_transfer.metadata.priority, Priority::High);
         EXPECT_THAT(rx_transfer.metadata.publisher_node_id, Optional(0x45));
 
         std::array<std::uint8_t, 2> buffer{};
-        EXPECT_THAT(rx_transfer.payload.size(), Eq(2));
-        EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), Eq(2));
-        EXPECT_THAT(buffer[0], Eq(42));
-        EXPECT_THAT(buffer[1], Eq(147));
+        EXPECT_THAT(rx_transfer.payload.size(), 2);
+        EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), 2);
+        EXPECT_THAT(buffer[0], 42);
+        EXPECT_THAT(buffer[1], 147);
     }
 
     // 2-nd iteration: no frames available
     {
+        scheduler_.setNow(TimePoint{2s});
+
         EXPECT_CALL(media_mock_, pop(_)).WillOnce([](const cetl::span<byte> payload) {
-            EXPECT_THAT(payload.size(), Eq(CANARD_MTU_MAX));
+            EXPECT_THAT(payload.size(), CANARD_MTU_MAX);
             return cetl::nullopt;
         });
 
-        transport->run(TimePoint{2s + 10ms});
-
-        session->run(TimePoint{2s + 20ms});
+        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+        scheduler_.runNow(+10ms, [&] { session->run(now()); });
 
         const auto maybe_rx_transfer = session->receive();
         EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));

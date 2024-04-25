@@ -1,6 +1,3 @@
-/// @file
-/// libcyphal common header.
-///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
 /// Copyright Amazon.com Inc. or its affiliates.

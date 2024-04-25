@@ -17,7 +17,6 @@ using byte              = cetl::byte;
 using ContiguousPayload = libcyphal::transport::detail::ContiguousPayload;
 
 using testing::_;
-using testing::Eq;
 using testing::IsNull;
 using testing::IsEmpty;
 using testing::NotNull;
@@ -55,13 +54,13 @@ TEST_F(TestContiguousPayload, ctor_data_size)
 
         const ContiguousPayload payload{mr_, fragments};
 
-        EXPECT_THAT(payload.size(), Eq(3));
+        EXPECT_THAT(payload.size(), 3);
         EXPECT_THAT(payload.data(), NotNull());
         const std::vector<byte> v(payload.data(), payload.data() + payload.size());
         EXPECT_THAT(v, ElementsAre(b(1), b(2), b(3)));
     }
-    EXPECT_THAT(mr_.total_allocated_bytes, Eq(0));
-    EXPECT_THAT(mr_.total_deallocated_bytes, Eq(0));
+    EXPECT_THAT(mr_.total_allocated_bytes, 0);
+    EXPECT_THAT(mr_.total_deallocated_bytes, 0);
 
     // Double fragments
     {
@@ -71,13 +70,13 @@ TEST_F(TestContiguousPayload, ctor_data_size)
 
         const ContiguousPayload payload{mr_, fragments};
 
-        EXPECT_THAT(payload.size(), Eq(5));
+        EXPECT_THAT(payload.size(), 5);
         EXPECT_THAT(payload.data(), NotNull());
         const std::vector<byte> v(payload.data(), payload.data() + payload.size());
         EXPECT_THAT(v, ElementsAre(b(1), b(2), b(3), b(4), b(5)));
     }
-    EXPECT_THAT(mr_.total_allocated_bytes, Eq(5));
-    EXPECT_THAT(mr_.total_deallocated_bytes, Eq(5));
+    EXPECT_THAT(mr_.total_allocated_bytes, 5);
+    EXPECT_THAT(mr_.total_deallocated_bytes, 5);
 }
 
 TEST_F(TestContiguousPayload, ctor_empty_cases)
@@ -88,7 +87,7 @@ TEST_F(TestContiguousPayload, ctor_empty_cases)
 
         const ContiguousPayload payload{mr_, fragments};
 
-        EXPECT_THAT(payload.size(), Eq(0));
+        EXPECT_THAT(payload.size(), 0);
         EXPECT_THAT(payload.data(), IsNull());
     }
 
@@ -100,7 +99,7 @@ TEST_F(TestContiguousPayload, ctor_empty_cases)
 
         const ContiguousPayload payload{mr_, fragments};
 
-        EXPECT_THAT(payload.size(), Eq(0));
+        EXPECT_THAT(payload.size(), 0);
         EXPECT_THAT(payload.data(), IsNull());
     }
 }
@@ -120,8 +119,8 @@ TEST_F(TestContiguousPayload, ctor_no_alloc_for_single_non_empty_fragment)
 
     const ContiguousPayload payload{mr_mock, fragments};
 
-    EXPECT_THAT(payload.size(), Eq(3));
-    EXPECT_THAT(payload.data(), Eq(data123.data()));
+    EXPECT_THAT(payload.size(), 3);
+    EXPECT_THAT(payload.data(), data123.data());
     const std::vector<byte> v(payload.data(), payload.data() + payload.size());
     EXPECT_THAT(v, ElementsAre(b(1), b(2), b(3)));
 }
@@ -139,7 +138,7 @@ TEST_F(TestContiguousPayload, ctor_no_memory_error)
 
     const ContiguousPayload payload{mr_mock, fragments};
 
-    EXPECT_THAT(payload.size(), Eq(5));
+    EXPECT_THAT(payload.size(), 5);
     EXPECT_THAT(payload.data(), IsNull());
 }
 

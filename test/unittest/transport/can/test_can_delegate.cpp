@@ -72,14 +72,14 @@ TEST_F(TestCanDelegate, CanardMemory_copy)
 
     const std::size_t  payload_size = 4;
     const CanardMemory canard_memory{delegate, payload, payload_size};
-    EXPECT_THAT(canard_memory.size(), Eq(payload_size));
+    EXPECT_THAT(canard_memory.size(), payload_size);
 
     // Ask exactly as payload
     {
         const std::size_t          ask_size = payload_size;
         std::array<char, ask_size> buffer{};
 
-        EXPECT_THAT(canard_memory.copy(0, buffer.data(), ask_size), Eq(ask_size));
+        EXPECT_THAT(canard_memory.copy(0, buffer.data(), ask_size), ask_size);
         EXPECT_THAT(buffer, ElementsAre('0', '1', '2', '3'));
     }
 
@@ -88,7 +88,7 @@ TEST_F(TestCanDelegate, CanardMemory_copy)
         const std::size_t                  ask_size = payload_size + 2;
         std::array<std::uint8_t, ask_size> buffer{};
 
-        EXPECT_THAT(canard_memory.copy(0, buffer.data(), ask_size), Eq(payload_size));
+        EXPECT_THAT(canard_memory.copy(0, buffer.data(), ask_size), payload_size);
         EXPECT_THAT(buffer, ElementsAre('0', '1', '2', '3', '\0', '\0'));
     }
 
@@ -97,24 +97,24 @@ TEST_F(TestCanDelegate, CanardMemory_copy)
         const std::size_t                  ask_size = payload_size - 2;
         std::array<std::uint8_t, ask_size> buffer{};
 
-        EXPECT_THAT(canard_memory.copy(0, buffer.data(), ask_size), Eq(ask_size));
+        EXPECT_THAT(canard_memory.copy(0, buffer.data(), ask_size), ask_size);
         EXPECT_THAT(buffer, ElementsAre('0', '1'));
 
-        EXPECT_THAT(canard_memory.copy(3, buffer.data(), buffer.size()), Eq(1));
+        EXPECT_THAT(canard_memory.copy(3, buffer.data(), buffer.size()), 1);
         EXPECT_THAT(buffer, ElementsAre('3', '1'));
 
-        EXPECT_THAT(canard_memory.copy(2, buffer.data(), ask_size), Eq(ask_size));
+        EXPECT_THAT(canard_memory.copy(2, buffer.data(), ask_size), ask_size);
         EXPECT_THAT(buffer, ElementsAre('2', '3'));
 
-        EXPECT_THAT(canard_memory.copy(payload_size, buffer.data(), ask_size), Eq(0));
+        EXPECT_THAT(canard_memory.copy(payload_size, buffer.data(), ask_size), 0);
         EXPECT_THAT(buffer, ElementsAre('2', '3'));
 
         // Ask nothing
-        EXPECT_THAT(canard_memory.copy(0, buffer.data(), 0), Eq(0));
+        EXPECT_THAT(canard_memory.copy(0, buffer.data(), 0), 0);
         EXPECT_THAT(buffer, ElementsAre('2', '3'));
 
         // No output buffer
-        EXPECT_THAT(canard_memory.copy(0, nullptr, 0), Eq(0));
+        EXPECT_THAT(canard_memory.copy(0, nullptr, 0), 0);
     }
 }
 
@@ -130,23 +130,23 @@ TEST_F(TestCanDelegate, CanardMemory_copy_on_moved)
     std::iota(payload, payload + payload_size, '0');
 
     CanardMemory old_canard_memory{delegate, payload, payload_size};
-    EXPECT_THAT(old_canard_memory.size(), Eq(payload_size));
+    EXPECT_THAT(old_canard_memory.size(), payload_size);
 
     CanardMemory new_canard_memory{std::move(old_canard_memory)};
-    EXPECT_THAT(old_canard_memory.size(), Eq(0));
-    EXPECT_THAT(new_canard_memory.size(), Eq(payload_size));
+    EXPECT_THAT(old_canard_memory.size(), 0);
+    EXPECT_THAT(new_canard_memory.size(), payload_size);
 
     // Try old one
     {
         std::array<char, payload_size> buffer{};
-        EXPECT_THAT(old_canard_memory.copy(0, buffer.data(), buffer.size()), Eq(0));
+        EXPECT_THAT(old_canard_memory.copy(0, buffer.data(), buffer.size()), 0);
         EXPECT_THAT(buffer, Each('\0'));
     }
 
     // Try new one
     {
         std::array<char, payload_size> buffer{};
-        EXPECT_THAT(new_canard_memory.copy(0, buffer.data(), buffer.size()), Eq(payload_size));
+        EXPECT_THAT(new_canard_memory.copy(0, buffer.data(), buffer.size()), payload_size);
         EXPECT_THAT(buffer, ElementsAre('0', '1', '2', '3'));
     }
 }
