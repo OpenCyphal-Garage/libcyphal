@@ -28,7 +28,6 @@ BraceWrapping:
     AfterStruct: true
     AfterClass: true
     AfterControlStatement: true
-    AfterEnum: true
     AfterFunction: true
     AfterUnion: true
     AfterNamespace: true

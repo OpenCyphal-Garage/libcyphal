@@ -1,36 +1,25 @@
 name: "libcyphal_test"
 
 on:
-  push:
-    branches:
-      - main
-      - 'issue/*'
-      # todo: temp - remove this later!
-      - 'sshirokov/CI_*'
+  push:  # Further filtering is done in the jobs.
   pull_request:
     branches:
       - main
       - 'issue/*'
-      # todo: temp - remove this later!
-      - 'sshirokov/CI_*'
 
-# To test use https://github.com/nektos/act and specify the event as "act"
-# For example:
-#
-#           act act -j verification --bind --reuse
-#
-# That command will run the verification job locally and bind the current directory
-# into the container (You'll probably need to delete any existing build directory
-# before running act).
 jobs:
   warmup:
+    if: >
+      contains(github.event.head_commit.message, '#verification') ||
+      contains(github.event.head_commit.message, '#docs') ||
+      contains(github.ref, '/main') ||
+      contains(github.ref, '/issue/') ||
+      (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
     steps:
       - uses: actions/checkout@v4
-        if: ${{ github.event_name != 'act' }}
       - name: Cache ext modules
-        if: ${{ github.event_name != 'act' }}
         id: libcyphal-ext
         uses: actions/cache@v4
         env:
@@ -52,18 +41,26 @@ jobs:
           --build-flavor Debug
           clean-configure
   verification:
+    if: >
+      contains(github.event.head_commit.message, '#verification') ||
+      contains(github.ref, '/main') ||
+      contains(github.ref, '/issue/') ||
+      (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
     needs: [warmup]
     strategy:
       matrix:
-        flavor: [Release, Debug]
+        build_flavor: [Release, Debug]
+        std: [14, 17, 20]
         toolchain: [gcc, clang]
+        include:
+          - build_flavor: Coverage
+            std: 14
+            toolchain: gcc
     steps:
     - uses: actions/checkout@v4
-      if: ${{ github.event_name != 'act' }}
     - name: Cache ext modules
-      if: ${{ github.event_name != 'act' }}
       id: libcyphal-ext
       uses: actions/cache@v4
       env:
@@ -74,24 +71,43 @@ jobs:
     - name: get nunavut
       run: >
         pip install nunavut
-    - name: release
+    - name: run tests
+      env:
+        GTEST_COLOR: yes
       run: >
         ./build-tools/bin/verify.py
         --verbose
         --asserts
-        --cpp-standard 14
-        --build-flavor ${{ matrix.flavor }}
+        --cpp-standard ${{ matrix.std }}
+        --build-flavor ${{ matrix.build_flavor }}
         --toolchain ${{ matrix.toolchain }}
-        clean-release
+        test
+    - name: debug output
+      if: ${{ runner.debug == '1' }}
+      run: ls -lAhR build/
+    - name: upload-artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.build_flavor }}-${{ matrix.std }}-${{ matrix.toolchain }}
+        path: |
+          build/compile_commands.json
+          build/*/**/coverage.xml
+          build/*/**/*-sonarqube.xml
+          build/*/**/gcovr_html/*.*
+        if-no-files-found: error
+
   docs:
+    if: >
+      contains(github.event.head_commit.message, '#docs') ||
+      contains(github.ref, '/main') ||
+      contains(github.ref, '/issue/') ||
+      (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
     needs: [warmup]
     steps:
     - uses: actions/checkout@v4
-      if: ${{ github.event_name != 'act' }}
     - name: Cache ext modules
-      if: ${{ github.event_name != 'act' }}
       id: libcyphal-ext
       uses: actions/cache@v4
       env:
@@ -111,15 +127,15 @@ jobs:
         --build-flavor Debug
         build-docs
     - name: Setup Pages
-      if: ${{ github.event_name != 'pull_request' && github.event_name != 'act' }}
+      if: ${{ github.event_name != 'pull_request' }}
       uses: actions/configure-pages@v5
     - name: Upload docs
-      if: ${{ github.event_name != 'pull_request' && github.event_name != 'act' }}
+      if: ${{ github.event_name != 'pull_request' }}
       uses: actions/upload-pages-artifact@v3
       with:
         path: "build/docs/html/"
     - name: upload-pr-docs
-      if: ${{ github.event_name == 'pull_request' && github.event_name != 'act' }}
+      if: ${{ github.event_name == 'pull_request' }}
       uses: actions/upload-artifact@v4
       with:
         name: pr-docs

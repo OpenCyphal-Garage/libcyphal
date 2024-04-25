@@ -64,6 +64,7 @@ function (create_docs_target ARG_DOCS_DOXY_ROOT
     set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     set(DOXYGEN_CONFIG_FILE ${DOXYGEN_OUTPUT_DIRECTORY}/doxygen.config)
     set(DOXYGEN_EXAMPLE_PATH ${ARG_EXAMPLES_PATH})
+    set(DOXYGEN_STRIP_FROM_PATH ${ARG_DOCS_DOXY_ROOT}/../include/libcyphal)
 
     list(APPEND DOXYGEN_INPUT_LIST ${ARG_INPUT_LIST})
     list(JOIN DOXYGEN_INPUT_LIST "\\\n    " DOXYGEN_INPUT )
@@ -129,7 +130,7 @@ endfunction(create_docs_target)
 file(GLOB_RECURSE DOXYGEN_INPUT_LIST
     LIST_DIRECTORIES false
     CONFIGURE_DEPENDS
-    ${LIBCYPHAL_ROOT}/include/libcyphal/**/*.hpp
+    ${LIBCYPHAL_ROOT}/include/**/*.hpp
 )
 
 get_property(LOCAL_EXAMPLES DIRECTORY "examples" PROPERTY IN_BUILD_TESTS)

@@ -18,11 +18,11 @@ endif()
 #   We generate individual test binaires so we can record which test generated
 #   what coverage. We also allow test authors to generate coverage reports for
 #   just one test allowing for faster iteration.
-file(GLOB NATIVE_TESTS
+file(GLOB_RECURSE NATIVE_TESTS
     LIST_DIRECTORIES false
     CONFIGURE_DEPENDS
     RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-    test_*.cpp
+    test_*.cpp **/test_*.cpp
 )
 
 set(ALL_TESTS_BUILD "")
@@ -43,12 +43,16 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
     list(APPEND ALL_TESTS_BUILD ${LOCAL_TEST_TARGET})
     list(APPEND ALL_TESTS_RUN ${LOCAL_TEST_REPORT})
 
+    # We need to exclude the "external" directory from coverage reports.
+    cmake_path(APPEND LIBCYPHAL_ROOT "external" OUTPUT_VARIABLE LIBCYPHAL_EXTERNAL_PATH)
+    
     if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
         define_gcovr_tracefile_target(
             TARGET ${LOCAL_TEST_TARGET}
             ROOT_DIRECTORY ${LIBCYPHAL_ROOT}
             TARGET_EXECUTION_DEPENDS ${LOCAL_TEST_REPORT}
             OBJECT_LIBRARY ${LOCAL_TEST_LIB}
+            EXCLUDE_PATHS ${LIBCYPHAL_EXTERNAL_PATH}
             EXCLUDE_TEST_FRAMEWORKS
             EXCLUDE_TARGET
             ENABLE_INSTRUMENTATION
