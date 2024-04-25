@@ -40,6 +40,7 @@ public:
 
     protected:
         Interface()                                = default;
+        ~Interface() override                      = default;
         Interface(Interface&&) noexcept            = default;
         Interface& operator=(Interface&&) noexcept = default;
 

@@ -125,7 +125,7 @@ TEST_F(TestCanTransport, setLocalNodeId)
     EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX), Eq(cetl::nullopt));
     EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
 
-    EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX), Optional(testing::A<ArgumentError>()));
+    EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX), Eq(cetl::nullopt));
     EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
 
     EXPECT_THAT(transport->setLocalNodeId(0), Optional(testing::A<ArgumentError>()));

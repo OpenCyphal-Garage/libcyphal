@@ -125,12 +125,20 @@ private:
         {
             return ArgumentError{};
         }
-        if (canard_instance().node_id != CANARD_NODE_ID_UNSET)
+
+        // Allow setting the same node ID multiple times, but only once otherwise.
+        //
+        auto& ins = canard_instance();
+        if (ins.node_id == node_id)
+        {
+            return cetl::nullopt;
+        }
+        if (ins.node_id != CANARD_NODE_ID_UNSET)
         {
             return ArgumentError{};
         }
 
-        canard_instance().node_id = static_cast<CanardNodeID>(node_id);
+        ins.node_id = static_cast<CanardNodeID>(node_id);
         return cetl::nullopt;
     }
 
