@@ -142,9 +142,10 @@ TEST_F(TestCanMsgTxSession, send_empty_payload)
     const auto send_time = now();
     const auto timeout   = 1s;
 
+    const PayloadFragments empty_payload{};
     const TransferMetadata metadata{0x3AF52, send_time, Priority::Low};
 
-    auto maybe_error = session->send(metadata, {nullptr, 0});
+    auto maybe_error = session->send(metadata, empty_payload);
     EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
 
     EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto payload) {

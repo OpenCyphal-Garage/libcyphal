@@ -126,7 +126,7 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
             payload[0] = b(42);
             payload[1] = b(147);
             payload[2] = b(0xED);
-            return RxMetadata{rx_timestamp, 0x0C'00'23'45, 3};
+            return RxMetadata{rx_timestamp, 0x0C'60'23'45, 3};
         });
 
         scheduler_.runNow(+10ms, [&] { transport->run(now()); });
@@ -174,7 +174,7 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
             payload[0] = b(42);
             payload[1] = b(147);
             payload[2] = b(0xEE);
-            return RxMetadata{rx_timestamp, 0x01'00'23'13, 3};
+            return RxMetadata{rx_timestamp, 0x01'60'23'13, 3};
         });
 
         scheduler_.runNow(+10ms, [&] { transport->run(now()); });
