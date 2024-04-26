@@ -90,6 +90,16 @@ TEST_F(TestCanTransport, makeTransport_no_memory)
     EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<MemoryError>(_)));
 }
 
+TEST_F(TestCanTransport, makeTransport_too_many_media)
+{
+    // Canard use `std::uint8_t` as a media index, so 256+ media interfaces are not allowed.
+    std::array<IMedia*, std::numeric_limits<std::uint8_t>::max() + 1> media_array{};
+    std::fill(media_array.begin(), media_array.end(), &media_mock_);
+
+    auto maybe_transport = can::makeTransport(mr_, mux_mock_, media_array, 0, {});
+    EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<ArgumentError>(_)));
+}
+
 TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
 {
     // Anonymous node
@@ -241,6 +251,19 @@ TEST_F(TestCanTransport, makeMessageRxSession_invalid_subject_id)
     EXPECT_THAT(maybe_rx_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
 }
 
+TEST_F(TestCanTransport, makeMessageRxSession_invalid_resubscription)
+{
+    auto transport = makeTransport(mr_);
+
+    const PortId test_subject_id = 111;
+
+    auto maybe_rx_session1 = transport->makeMessageRxSession({0, test_subject_id});
+    EXPECT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+
+    auto maybe_rx_session2 = transport->makeMessageRxSession({0, test_subject_id});
+    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
+}
+
 TEST_F(TestCanTransport, makeMessageTxSession)
 {
     auto transport = makeTransport(mr_);
@@ -251,7 +274,6 @@ TEST_F(TestCanTransport, makeMessageTxSession)
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_tx_session));
     EXPECT_THAT(session->getParams().subject_id, 123);
 }
-
 
 TEST_F(TestCanTransport, sending_multiframe_payload_should_fail_for_anonymous)
 {

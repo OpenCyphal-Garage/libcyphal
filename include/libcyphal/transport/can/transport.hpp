@@ -291,10 +291,7 @@ private:
         }
 
         const auto hasSubscription = ::canardRxHasSubscription(&canard_instance(), transfer_kind, port_id);
-        if (hasSubscription < 0)
-        {
-            return anyErrorFromCanard(hasSubscription);
-        }
+        CETL_DEBUG_ASSERT(hasSubscription >= 0, "There is no way currently to get an error here.");
         if (hasSubscription > 0)
         {
             return AlreadyExistsError{};

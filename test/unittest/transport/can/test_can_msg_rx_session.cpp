@@ -32,6 +32,7 @@ using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
 using testing::StrictMock;
+using testing::ElementsAre;
 using testing::VariantWith;
 
 using namespace std::chrono_literals;
@@ -132,7 +133,7 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
         scheduler_.runNow(+10ms, [&] { session->run(now()); });
 
         const auto maybe_rx_transfer = session->receive();
-        EXPECT_THAT(maybe_rx_transfer, Optional(_));
+        ASSERT_THAT(maybe_rx_transfer, Optional(_));
         const auto& rx_transfer = maybe_rx_transfer.value();
 
         EXPECT_THAT(rx_transfer.metadata.timestamp, rx_timestamp);
@@ -143,8 +144,7 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
         std::array<std::uint8_t, 2> buffer{};
         EXPECT_THAT(rx_transfer.payload.size(), 2);
         EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), 2);
-        EXPECT_THAT(buffer[0], 42);
-        EXPECT_THAT(buffer[1], 147);
+        EXPECT_THAT(buffer, ElementsAre(42, 147));
     }
 
     // 2-nd iteration: no frames available
@@ -161,6 +161,38 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
 
         const auto maybe_rx_transfer = session->receive();
         EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
+    }
+
+    // 3-rd iteration: one anonymous frame available @ 3s
+    {
+        scheduler_.setNow(TimePoint{3s});
+        const auto rx_timestamp = now();
+
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce([=](auto payload) {
+            EXPECT_THAT(payload.size(), CANARD_MTU_MAX);
+
+            payload[0] = b(42);
+            payload[1] = b(147);
+            payload[2] = b(0xEE);
+            return RxMetadata{rx_timestamp, 0x01'00'23'13, 3};
+        });
+
+        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+        scheduler_.runNow(+10ms, [&] { session->run(now()); });
+
+        const auto maybe_rx_transfer = session->receive();
+        ASSERT_THAT(maybe_rx_transfer, Optional(_));
+        const auto& rx_transfer = maybe_rx_transfer.value();
+
+        EXPECT_THAT(rx_transfer.metadata.timestamp, rx_timestamp);
+        EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x0E);
+        EXPECT_THAT(rx_transfer.metadata.priority, Priority::Exceptional);
+        EXPECT_THAT(rx_transfer.metadata.publisher_node_id, Eq(cetl::nullopt));
+
+        std::array<std::uint8_t, 2> buffer{};
+        EXPECT_THAT(rx_transfer.payload.size(), 2);
+        EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), 2);
+        EXPECT_THAT(buffer, ElementsAre(42, 147));
     }
 }
 

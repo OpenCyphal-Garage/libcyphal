@@ -40,12 +40,7 @@ public:
     CETL_NODISCARD static Expected<UniquePtr<IMessageRxSession>, AnyError> make(TransportDelegate&     delegate,
                                                                                 const MessageRxParams& params)
     {
-        cetl::optional<AnyError> any_error{};
-        auto session = libcyphal::detail::makeUniquePtr<Tag>(delegate.memory(), Tag{}, delegate, params, any_error);
-        if (any_error.has_value())
-        {
-            return any_error.value();
-        }
+        auto session = libcyphal::detail::makeUniquePtr<Tag>(delegate.memory(), Tag{}, delegate, params);
         if (session == nullptr)
         {
             return MemoryError{};
@@ -54,10 +49,7 @@ public:
         return session;
     }
 
-    MessageRxSession(Tag,
-                     TransportDelegate&        delegate,
-                     const MessageRxParams&    params,
-                     cetl::optional<AnyError>& out_error)
+    MessageRxSession(Tag, TransportDelegate& delegate, const MessageRxParams& params)
         : delegate_{delegate}
         , params_{params}
     {
@@ -67,25 +59,18 @@ public:
                                                 static_cast<std::size_t>(params_.extent_bytes),
                                                 CANARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC,
                                                 &subscription_);
-        if (result < 0)
-        {
-            out_error = TransportDelegate::anyErrorFromCanard(result);
-            return;
-        }
+        (void) result;
+        CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "New subscription supposed to be made.");
 
-        is_subscribed_               = true;
         subscription_.user_reference = static_cast<SessionDelegate*>(this);
     }
 
     ~MessageRxSession() final
     {
-        if (is_subscribed_)
-        {
-            ::canardRxUnsubscribe(&delegate_.canard_instance(),
-                                  CanardTransferKindMessage,
-                                  static_cast<CanardPortID>(params_.subject_id));
-        }
+        ::canardRxUnsubscribe(&delegate_.canard_instance(),
+                              CanardTransferKindMessage,
+                              static_cast<CanardPortID>(params_.subject_id));
     }
 
 private:
@@ -145,7 +130,6 @@ private:
     TransportDelegate&    delegate_;
     const MessageRxParams params_;
 
-    bool                              is_subscribed_{false};
     CanardRxSubscription              subscription_{};
     cetl::optional<MessageRxTransfer> last_rx_transfer_{};
 
