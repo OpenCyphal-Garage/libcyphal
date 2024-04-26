@@ -142,10 +142,9 @@ TEST_F(TestCanMsgTxSession, send_empty_payload)
     const auto send_time = now();
     const auto timeout   = 1s;
 
-    const PayloadFragments empty_payload{};
     const TransferMetadata metadata{0x3AF52, send_time, Priority::Low};
 
-    auto maybe_error = session->send(metadata, empty_payload);
+    auto maybe_error = session->send(metadata, {nullptr, 0});
     EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
 
     EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto payload) {
@@ -229,6 +228,36 @@ TEST_F(TestCanMsgTxSession, send_7bytes_payload_with_500ms_timeout)
     //
     scheduler_.runNow(timeout - 1us, [&] { transport->run(now()); });
     scheduler_.runNow(+0us, [&] { transport->run(now()); });
+}
+
+TEST_F(TestCanMsgTxSession, send_when_no_memory_for_contiguous_payload)
+{
+    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+
+    StrictMock<MemoryResourceMock> mr_mock{};
+    mr_mock.redirectExpectedCallsTo(mr_);
+
+    auto transport = makeTransport(mr_mock);
+
+    // Emulate that there is no memory available for the expected contiguous payload.
+    const auto payload1 = makeIotaArray<1>('0');
+    const auto payload2 = makeIotaArray<2>('1');
+    EXPECT_CALL(mr_mock, do_allocate(sizeof(payload1) + sizeof(payload2), _)).WillOnce(Return(nullptr));
+
+    auto maybe_session = transport->makeMessageTxSession({17});
+    EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
+    auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
+    EXPECT_THAT(session, NotNull());
+
+    scheduler_.runNow(+10s);
+    const auto send_time = now();
+
+    const TransferMetadata metadata{0x03, send_time, Priority::Optional};
+
+    auto maybe_error = session->send(metadata, makeSpansFrom(payload1, payload2));
+    EXPECT_THAT(maybe_error, Optional(VariantWith<MemoryError>(_)));
+
+    scheduler_.runNow(+10ms, [&] { transport->run(scheduler_.now()); });
 }
 
 }  // namespace

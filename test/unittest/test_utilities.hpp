@@ -34,7 +34,14 @@ std::array<cetl::span<const cetl::byte>, 1> makeSpansFrom(const std::array<cetl:
     return {payload};
 }
 
-} // namespace test_utilities
-} // namespace libcyphal
+template <std::size_t N1, std::size_t N2>
+std::array<cetl::span<const cetl::byte>, 2> makeSpansFrom(const std::array<cetl::byte, N1>& payload1,
+                                                          const std::array<cetl::byte, N2>& payload2)
+{
+    return {payload1, payload2};
+}
+
+}  // namespace test_utilities
+}  // namespace libcyphal
 
 #endif  // LIBCYPHAL_TEST_UTILITIES_HPP
