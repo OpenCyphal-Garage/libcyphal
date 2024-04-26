@@ -259,6 +259,7 @@ private:
             , canard_tx_queue{::canardTxInit(tx_capacity, _interface.getMtu())}
         {
         }
+        ~Media()                           = default;
         Media(const Media&)                = delete;
         Media(Media&&) noexcept            = default;
         Media& operator=(const Media&)     = delete;
