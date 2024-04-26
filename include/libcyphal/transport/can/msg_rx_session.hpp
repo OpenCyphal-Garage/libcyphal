@@ -60,7 +60,7 @@ public:
         const auto result = ::canardRxSubscribe(&delegate.canard_instance(),
                                                 CanardTransferKindMessage,
                                                 static_cast<CanardPortID>(params_.subject_id),
-                                                static_cast<size_t>(params_.extent_bytes),
+                                                static_cast<std::size_t>(params_.extent_bytes),
                                                 CANARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC,
                                                 &subscription_);
         if (result < 0)

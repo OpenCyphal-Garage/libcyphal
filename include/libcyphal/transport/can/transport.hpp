@@ -55,7 +55,7 @@ public:
         //
         const auto media_count = static_cast<std::size_t>(
             std::count_if(media.begin(), media.end(), [](IMedia* const media) { return media != nullptr; }));
-        if ((media_count == 0) || (media_count > std::numeric_limits<uint8_t>::max()))
+        if ((media_count == 0) || (media_count > std::numeric_limits<std::uint8_t>::max()))
         {
             return ArgumentError{};
         }
@@ -216,7 +216,7 @@ private:
 
     // MARK: TransportDelegate
 
-    CETL_NODISCARD inline TransportDelegate& asDelegate()
+    CETL_NODISCARD TransportDelegate& asDelegate()
     {
         return *this;
     }
@@ -252,7 +252,7 @@ private:
     {
     public:
         Media(const std::size_t _index, IMedia& _interface, const std::size_t tx_capacity)
-            : index{static_cast<uint8_t>(_index)}
+            : index{static_cast<std::uint8_t>(_index)}
             , interface{_interface}
             , canard_tx_queue{::canardTxInit(tx_capacity, _interface.getMtu())}
         {
@@ -262,9 +262,9 @@ private:
         Media& operator=(const Media&)     = delete;
         Media& operator=(Media&&) noexcept = delete;
 
-        const uint8_t index;
-        IMedia&       interface;
-        CanardTxQueue canard_tx_queue;
+        const std::uint8_t index;
+        IMedia&            interface;
+        CanardTxQueue      canard_tx_queue;
     };
     using MediaArray = libcyphal::detail::VarArray<Media>;
 

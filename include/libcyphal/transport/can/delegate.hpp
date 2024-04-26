@@ -99,17 +99,17 @@ public:
         canard_instance().user_reference = this;
     }
 
-    CETL_NODISCARD inline CanardInstance& canard_instance() noexcept
+    CETL_NODISCARD CanardInstance& canard_instance() noexcept
     {
         return canard_instance_;
     }
 
-    CETL_NODISCARD inline const CanardInstance& canard_instance() const noexcept
+    CETL_NODISCARD const CanardInstance& canard_instance() const noexcept
     {
         return canard_instance_;
     }
 
-    CETL_NODISCARD inline cetl::pmr::memory_resource& memory() const noexcept
+    CETL_NODISCARD cetl::pmr::memory_resource& memory() const noexcept
     {
         return memory_;
     }
@@ -163,7 +163,7 @@ private:
         alignas(std::max_align_t) std::size_t size;
     };
 
-    CETL_NODISCARD static inline TransportDelegate& getSelfFrom(const CanardInstance* const ins)
+    CETL_NODISCARD static TransportDelegate& getSelfFrom(const CanardInstance* const ins)
     {
         CETL_DEBUG_ASSERT(ins != nullptr, "Expected canard instance.");
         CETL_DEBUG_ASSERT(ins->user_reference != nullptr, "Expected `this` transport as user reference.");
@@ -171,7 +171,7 @@ private:
         return *static_cast<TransportDelegate*>(ins->user_reference);
     }
 
-    CETL_NODISCARD static void* allocateMemoryForCanard(CanardInstance* ins, size_t amount)
+    CETL_NODISCARD static void* allocateMemoryForCanard(CanardInstance* ins, std::size_t amount)
     {
         auto& self = getSelfFrom(ins);
 
