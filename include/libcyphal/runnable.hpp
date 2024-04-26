@@ -18,12 +18,12 @@ public:
     IRunnable(const IRunnable&)            = delete;
     IRunnable& operator=(IRunnable&&)      = delete;
     IRunnable& operator=(const IRunnable&) = delete;
+    virtual ~IRunnable()                   = default;
 
     virtual void run(const TimePoint now) = 0;
 
 protected:
-    IRunnable()          = default;
-    virtual ~IRunnable() = default;
+    IRunnable() = default;
 };
 
 }  // namespace libcyphal

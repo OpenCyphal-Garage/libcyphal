@@ -9,7 +9,7 @@
 include(FetchContent)
 
 set(libcanard_GIT_REPOSITORY "https://github.com/OpenCyphal/libcanard.git")
-set(libcanard_GIT_TAG "69ed329db4ae31d9c85dbe052434f60e552cecbe")
+set(libcanard_GIT_TAG "a8b646c97c2cdd668d4ca5d35b55e1361823d41b")
 
 FetchContent_Declare(
     libcanard

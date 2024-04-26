@@ -65,6 +65,18 @@ using PmrAllocator = cetl::pmr::polymorphic_allocator<T>;
 template <typename T>
 using VarArray = cetl::VariableLengthArray<T, PmrAllocator<T>>;
 
+template <typename Tag, typename... Args>
+CETL_NODISCARD UniquePtr<typename Tag::Interface> makeUniquePtr(cetl::pmr::memory_resource& memory, Args&&... args)
+{
+    PmrAllocator<typename Tag::Concrete> allocator{&memory};
+    auto interface_deleter = typename UniquePtr<typename Tag::Interface>::deleter_type{allocator, 1};
+
+    auto concrete  = cetl::pmr::Factory::make_unique(allocator, std::forward<Args>(args)...);
+    auto interface = UniquePtr<typename Tag::Interface>{concrete.release(), interface_deleter};
+
+    return interface;
+}
+
 }  // namespace detail
 
 }  // namespace libcyphal

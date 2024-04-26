@@ -8,7 +8,7 @@
 
 #include "libcyphal/types.hpp"
 #include "libcyphal/transport/errors.hpp"
-#include "libcyphal/transport/defines.hpp"
+#include "libcyphal/transport/types.hpp"
 
 namespace libcyphal
 {

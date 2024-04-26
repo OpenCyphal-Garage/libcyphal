@@ -3,8 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_TRANSPORT_DEFINES_HPP_INCLUDED
-#define LIBCYPHAL_TRANSPORT_DEFINES_HPP_INCLUDED
+#ifndef LIBCYPHAL_TRANSPORT_TYPES_HPP_INCLUDED
+#define LIBCYPHAL_TRANSPORT_TYPES_HPP_INCLUDED
 
 #include "scattered_buffer.hpp"
 
@@ -30,7 +30,6 @@ using TransferId = std::uint64_t;
 
 enum class Priority
 {
-
     Exceptional = 0,
     Immediate   = 1,
     Fast        = 2,
@@ -55,11 +54,19 @@ struct TransferMetadata
     Priority   priority;
 };
 
+// AUTOSAR A11-0-2 exception: we just enhance the base metadata with additional information.
 struct MessageTransferMetadata final : TransferMetadata
 {
+    MessageTransferMetadata(const TransferMetadata& transfer_metadata, cetl::optional<NodeId> _publisher_node_id)
+        : TransferMetadata{transfer_metadata}
+        , publisher_node_id{_publisher_node_id}
+    {
+    }
+
     cetl::optional<NodeId> publisher_node_id;
 };
 
+// AUTOSAR A11-0-2 exception: we just enhance the base metadata with additional information.
 struct ServiceTransferMetadata final : TransferMetadata
 {
     NodeId remote_node_id;
@@ -87,4 +94,4 @@ constexpr std::size_t MaxMediaInterfaces = 3;
 }  // namespace transport
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_TRANSPORT_DEFINES_HPP_INCLUDED
+#endif  // LIBCYPHAL_TRANSPORT_TYPES_HPP_INCLUDED

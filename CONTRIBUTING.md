@@ -147,10 +147,10 @@ and manually run it.
 
 ### TLDR
 ```
-docker pull ghcr.io/opencyphal/toolshed:ts22.4.3
+docker pull ghcr.io/opencyphal/toolshed:ts22.4.7
 git clone {this repo}
 cd {this repo}
-docker run --rm -it -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.3
+docker run --rm -it -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.7
 mkdir build
 cd build
 cmake ..
@@ -200,7 +200,7 @@ To ensure that the formatting matches the expectations of the CI suite,
 invoke Clang-Format of the correct version from the container (be sure to use the correct image tag):
 
 ```
-docker run --rm -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.3 ./build-tools/bin/verify.py build-danger-danger-repo-clang-format-in-place
+docker run --rm -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.7 ./build-tools/bin/verify.py build-danger-danger-repo-clang-format-in-place
 ```
 
 ### `issue/*` and hashtag-based CI triggering
