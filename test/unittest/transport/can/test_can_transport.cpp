@@ -282,9 +282,8 @@ TEST_F(TestCanTransport, sending_multiframe_payload_should_fail_for_anonymous)
     auto transport = makeTransport(mr_);
 
     auto maybe_session = transport->makeMessageTxSession({7});
-    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
-    EXPECT_THAT(session, NotNull());
 
     scheduler_.runNow(+10s);
     const auto send_time = now();
@@ -307,9 +306,8 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
     EXPECT_THAT(transport->setLocalNodeId(0x45), Eq(cetl::nullopt));
 
     auto maybe_session = transport->makeMessageTxSession({7});
-    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
-    EXPECT_THAT(session, NotNull());
 
     scheduler_.runNow(+10s);
     const auto timeout   = 1s;
@@ -361,9 +359,8 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
     EXPECT_THAT(transport->setLocalNodeId(0x45), Eq(cetl::nullopt));
 
     auto maybe_session = transport->makeMessageTxSession({7});
-    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
-    EXPECT_THAT(session, NotNull());
 
     scheduler_.runNow(+10s);
     const auto timeout   = 1s;

@@ -216,6 +216,42 @@ inline testing::Matcher<const CanId&> SubjectOfCanIdEq(PortId subject_id)
     return SubjectOfCanIdMatcher(subject_id);
 }
 
+class ServiceOfCanIdMatcher
+{
+public:
+    using is_gtest_matcher = void;
+
+    explicit ServiceOfCanIdMatcher(PortId service_id)
+        : service_id_{service_id}
+    {
+    }
+
+    bool MatchAndExplain(const CanId& can_id, std::ostream* os) const
+    {
+        const auto service_id = (can_id >> 14) & CANARD_SERVICE_ID_MAX;
+        if (os)
+        {
+            *os << "service_id=" << service_id;
+        }
+        return service_id == service_id_;
+    }
+    void DescribeTo(std::ostream* os) const
+    {
+        *os << "service_id==" << service_id_;
+    }
+    void DescribeNegationTo(std::ostream* os) const
+    {
+        *os << "service_id!=" << service_id_;
+    }
+
+private:
+    const PortId service_id_;
+};
+inline testing::Matcher<const CanId&> ServiceOfCanIdEq(PortId service_id)
+{
+    return ServiceOfCanIdMatcher(service_id);
+}
+
 class SourceNodeCanIdMatcher
 {
 public:
@@ -250,6 +286,42 @@ private:
 inline testing::Matcher<const CanId&> SourceNodeOfCanIdEq(NodeId node_id)
 {
     return SourceNodeCanIdMatcher(node_id);
+}
+
+class DestinationNodeCanIdMatcher
+{
+public:
+    using is_gtest_matcher = void;
+
+    explicit DestinationNodeCanIdMatcher(NodeId node_id)
+        : node_id_{node_id}
+    {
+    }
+
+    bool MatchAndExplain(const CanId& can_id, std::ostream* os) const
+    {
+        const auto node_id = (can_id >> 7) & CANARD_NODE_ID_MAX;
+        if (os)
+        {
+            *os << "node_id=" << node_id;
+        }
+        return node_id == node_id_;
+    }
+    void DescribeTo(std::ostream* os) const
+    {
+        *os << "node_id==" << node_id_;
+    }
+    void DescribeNegationTo(std::ostream* os) const
+    {
+        *os << "node_id!=" << node_id_;
+    }
+
+private:
+    const NodeId node_id_;
+};
+inline testing::Matcher<const CanId&> DestinationNodeOfCanIdEq(NodeId node_id)
+{
+    return DestinationNodeCanIdMatcher(node_id);
 }
 
 class TailByteMatcher

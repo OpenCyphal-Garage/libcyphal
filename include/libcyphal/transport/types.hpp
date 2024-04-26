@@ -58,7 +58,7 @@ struct TransferMetadata
 // AUTOSAR A11-0-2 exception: we just enhance the base metadata with additional information.
 struct MessageTransferMetadata final : TransferMetadata
 {
-    MessageTransferMetadata(const TransferMetadata& transfer_metadata, cetl::optional<NodeId> _publisher_node_id)
+    MessageTransferMetadata(const TransferMetadata& transfer_metadata, const cetl::optional<NodeId>& _publisher_node_id)
         : TransferMetadata{transfer_metadata}
         , publisher_node_id{_publisher_node_id}
     {
@@ -70,6 +70,12 @@ struct MessageTransferMetadata final : TransferMetadata
 // AUTOSAR A11-0-2 exception: we just enhance the base metadata with additional information.
 struct ServiceTransferMetadata final : TransferMetadata
 {
+    ServiceTransferMetadata(const TransferMetadata& transfer_metadata, const NodeId _remote_node_id)
+        : TransferMetadata{transfer_metadata}
+        , remote_node_id{_remote_node_id}
+    {
+    }
+
     NodeId remote_node_id;
 };
 

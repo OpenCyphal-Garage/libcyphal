@@ -81,9 +81,8 @@ TEST_F(TestCanMsgRxSession, make_setTransferIdTimeout)
     auto transport = makeTransport(mr_);
 
     auto maybe_session = transport->makeMessageRxSession({42, 123});
-    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(_));
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
-    EXPECT_THAT(session, NotNull());
 
     EXPECT_THAT(session->getParams().extent_bytes, 42);
     EXPECT_THAT(session->getParams().subject_id, 123);
@@ -120,9 +119,8 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
     auto transport = makeTransport(mr_);
 
     auto maybe_session = transport->makeMessageRxSession({4, 0x23});
-    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(_));
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
-    EXPECT_THAT(session, NotNull());
 
     // 1-st iteration: one frame available @ 1s
     {
