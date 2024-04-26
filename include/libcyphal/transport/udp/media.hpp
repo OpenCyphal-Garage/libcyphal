@@ -13,6 +13,10 @@ namespace transport
 namespace udp
 {
 
+/// @brief Defines interface to a custom UDP media implementation.
+///
+/// Implementation is supposed to be provided by an user of the library.
+///
 class IMedia
 {
 public:

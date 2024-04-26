@@ -13,6 +13,10 @@ namespace libcyphal
 {
 namespace transport
 {
+
+/// Internal implementation details of the transport layer.
+/// Not supposed to be used directly by the users of the library.
+///
 namespace detail
 {
 
@@ -56,7 +60,7 @@ public:
                 std::size_t offset = 0;
                 for (const Fragment frag : payload_fragments)
                 {
-                    std::memcpy(&buffer[offset], frag.data(), frag.size());
+                    std::memmove(&buffer[offset], frag.data(), frag.size());
                     offset += frag.size();
                 }
             }

@@ -33,6 +33,10 @@ struct RxMetadata final
     std::size_t payload_size;
 };
 
+/// @brief Defines interface to a custom CAN bus media implementation.
+///
+/// Implementation is supposed to be provided by an user of the library.
+///
 class IMedia
 {
 public:

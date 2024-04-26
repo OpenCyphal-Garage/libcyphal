@@ -11,6 +11,10 @@ namespace libcyphal
 namespace transport
 {
 
+/// @brief Defines interface to a custom multiplexer implementation.
+///
+/// Implementation is supposed to be provided by an user of the library.
+///
 class IMultiplexer
 {
 public:

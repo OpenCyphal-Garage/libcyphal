@@ -11,7 +11,7 @@
 namespace libcyphal
 {
 
-struct TestScheduler
+struct TestScheduler final
 {
     explicit TestScheduler(const TimePoint initial_now = {})
         : now_{initial_now}

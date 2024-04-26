@@ -22,6 +22,9 @@ namespace udp
 class IUdpTransport : public ITransport
 {};
 
+/// Internal implementation details of the UDP transport.
+/// Not supposed to be used directly by the users of the library.
+///
 namespace detail
 {
 
@@ -53,12 +56,12 @@ public:
 private:
     // MARK: ITransport
 
-    CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
+    CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept final
     {
         return cetl::nullopt;
     }
 
-    CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept override
+    CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept final
     {
         if (node_id > UDPARD_NODE_ID_MAX)
         {
@@ -70,45 +73,41 @@ private:
         return ArgumentError{};
     }
 
-    CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept override
+    CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept final
     {
         return ProtocolParams{};
     }
 
-    CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
-        const MessageRxParams&) override
+    CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(const MessageRxParams&) final
     {
         return NotImplementedError{};
     }
-    CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(
-        const MessageTxParams&) override
+    CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(const MessageTxParams&) final
     {
         return NotImplementedError{};
     }
-    CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(
-        const RequestRxParams&) override
+    CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(const RequestRxParams&) final
     {
         return NotImplementedError{};
     }
-    CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(
-        const RequestTxParams&) override
+    CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(const RequestTxParams&) final
     {
         return NotImplementedError{};
     }
     CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(
-        const ResponseRxParams&) override
+        const ResponseRxParams&) final
     {
         return NotImplementedError{};
     }
     CETL_NODISCARD Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(
-        const ResponseTxParams&) override
+        const ResponseTxParams&) final
     {
         return NotImplementedError{};
     }
 
     // MARK: IRunnable
 
-    void run(const TimePoint) override {}
+    void run(const TimePoint) final {}
 
 };  // TransportImpl
 

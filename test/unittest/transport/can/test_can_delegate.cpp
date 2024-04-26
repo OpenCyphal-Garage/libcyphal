@@ -30,7 +30,7 @@ using testing::VariantWith;
 class TestCanDelegate : public testing::Test
 {
 protected:
-    class TransportDelegateImpl : public detail::TransportDelegate
+    class TransportDelegateImpl final : public detail::TransportDelegate
     {
     public:
         explicit TransportDelegateImpl(cetl::pmr::memory_resource& memory)

@@ -20,6 +20,10 @@ namespace transport
 {
 namespace can
 {
+
+/// Internal implementation details of the CAN transport.
+/// Not supposed to be used directly by the users of the library.
+///
 namespace detail
 {
 class MessageTxSession final : public IMessageTxSession
@@ -55,20 +59,20 @@ public:
 private:
     // MARK: ITxSession
 
-    void setSendTimeout(const Duration timeout) override
+    void setSendTimeout(const Duration timeout) final
     {
         send_timeout_ = timeout;
     }
 
     // MARK: IMessageTxSession
 
-    CETL_NODISCARD MessageTxParams getParams() const noexcept override
+    CETL_NODISCARD MessageTxParams getParams() const noexcept final
     {
         return params_;
     }
 
     CETL_NODISCARD cetl::optional<AnyError> send(const TransferMetadata& metadata,
-                                                 const PayloadFragments  payload_fragments) override
+                                                 const PayloadFragments  payload_fragments) final
     {
         // libcanard currently does not support fragmented payloads (at `canardTxPush`).
         // so we need to concatenate them when there are more than one non-empty fragment.
@@ -97,7 +101,10 @@ private:
 
     // MARK: IRunnable
 
-    void run(const TimePoint) override {}
+    void run(const TimePoint) final
+    {
+        // Nothing to do here currently.
+    }
 
     // MARK: Data members:
 

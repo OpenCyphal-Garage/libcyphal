@@ -32,7 +32,7 @@ public:
 private:
     // MARK: cetl::pmr::memory_resource
 
-    void* do_allocate(std::size_t size_bytes, std::size_t alignment) override
+    void* do_allocate(std::size_t size_bytes, std::size_t alignment) final
     {
         if (alignment > alignof(std::max_align_t))
         {
@@ -50,7 +50,7 @@ private:
         return ptr;
     }
 
-    void do_deallocate(void* ptr, std::size_t size_bytes, std::size_t) override
+    void do_deallocate(void* ptr, std::size_t size_bytes, std::size_t) final
     {
         auto prev_alloc = std::find_if(allocations.cbegin(), allocations.cend(), [ptr](const auto& alloc) {
             return alloc.pointer == ptr;
@@ -66,7 +66,7 @@ private:
 
 #if (__cplusplus < CETL_CPP_STANDARD_17)
 
-    void* do_reallocate(void* ptr, std::size_t old_size_bytes, std::size_t new_size_bytes, std::size_t) override
+    void* do_reallocate(void* ptr, std::size_t old_size_bytes, std::size_t new_size_bytes, std::size_t) final
     {
         total_allocated_bytes -= old_size_bytes;
         total_allocated_bytes += new_size_bytes;
@@ -76,7 +76,7 @@ private:
 
 #endif
 
-    bool do_is_equal(const memory_resource& rhs) const noexcept override
+    bool do_is_equal(const memory_resource& rhs) const noexcept final
     {
         return (&rhs == this);
     }

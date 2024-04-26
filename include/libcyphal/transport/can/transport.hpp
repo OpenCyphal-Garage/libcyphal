@@ -28,6 +28,9 @@ namespace can
 class ICanTransport : public ITransport
 {};
 
+/// Internal implementation details of the CAN transport.
+/// Not supposed to be used directly by the users of the library.
+///
 namespace detail
 {
 class TransportImpl final : public ICanTransport, private TransportDelegate
@@ -98,7 +101,7 @@ public:
         canard_instance().node_id = canard_node_id;
     }
 
-    ~TransportImpl() override
+    ~TransportImpl() final
     {
         for (Media& media : media_array_)
         {
@@ -109,7 +112,7 @@ public:
 private:
     // MARK: ITransport
 
-    CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
+    CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept final
     {
         if (canard_instance().node_id > CANARD_NODE_ID_MAX)
         {
@@ -119,7 +122,7 @@ private:
         return cetl::make_optional(static_cast<NodeId>(canard_instance().node_id));
     }
 
-    CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept override
+    CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept final
     {
         if (node_id > CANARD_NODE_ID_MAX)
         {
@@ -142,7 +145,7 @@ private:
         return cetl::nullopt;
     }
 
-    CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept override
+    CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept final
     {
         const auto min_mtu =
             reduceMedia(std::numeric_limits<std::size_t>::max(), [](const std::size_t mtu, const Media& media) {
@@ -153,7 +156,7 @@ private:
     }
 
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
-        const MessageRxParams& params) override
+        const MessageRxParams& params) final
     {
         auto any_error = ensureNewSessionFor(CanardTransferKindMessage, params.subject_id, CANARD_SUBJECT_ID_MAX);
         if (any_error.has_value())
@@ -165,13 +168,13 @@ private:
     }
 
     CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(
-        const MessageTxParams& params) override
+        const MessageTxParams& params) final
     {
         return MessageTxSession::make(asDelegate(), params);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(
-        const RequestRxParams& params) override
+        const RequestRxParams& params) final
     {
         auto any_error = ensureNewSessionFor(CanardTransferKindRequest, params.service_id, CANARD_SERVICE_ID_MAX);
         if (any_error.has_value())
@@ -182,14 +185,13 @@ private:
         return NotImplementedError{};
     }
 
-    CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(
-        const RequestTxParams&) override
+    CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(const RequestTxParams&) final
     {
         return NotImplementedError{};
     }
 
     CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(
-        const ResponseRxParams& params) override
+        const ResponseRxParams& params) final
     {
         auto any_error = ensureNewSessionFor(CanardTransferKindResponse, params.service_id, CANARD_SERVICE_ID_MAX);
         if (any_error.has_value())
@@ -201,14 +203,14 @@ private:
     }
 
     CETL_NODISCARD Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(
-        const ResponseTxParams&) override
+        const ResponseTxParams&) final
     {
         return NotImplementedError{};
     }
 
     // MARK: IRunnable
 
-    void run(const TimePoint now) override
+    void run(const TimePoint now) final
     {
         runMediaTransmit(now);
         runMediaReceive();
@@ -224,7 +226,7 @@ private:
     CETL_NODISCARD cetl::optional<AnyError> sendTransfer(const CanardMicrosecond       deadline,
                                                          const CanardTransferMetadata& metadata,
                                                          const void* const             payload,
-                                                         const std::size_t             payload_size) override
+                                                         const std::size_t             payload_size) final
     {
         // TODO: Rework error handling strategy.
         //       Currently, we return the last error encountered, but we should consider all errors somehow.

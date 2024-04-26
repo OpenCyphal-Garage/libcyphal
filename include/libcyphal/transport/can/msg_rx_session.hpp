@@ -19,6 +19,10 @@ namespace transport
 {
 namespace can
 {
+
+/// Internal implementation details of the CAN transport.
+/// Not supposed to be used directly by the users of the library.
+///
 namespace detail
 {
 class MessageRxSession final : public IMessageRxSession, private SessionDelegate
@@ -74,7 +78,7 @@ public:
         subscription_.user_reference = static_cast<SessionDelegate*>(this);
     }
 
-    ~MessageRxSession() override
+    ~MessageRxSession() final
     {
         if (is_subscribed_)
         {
@@ -87,12 +91,12 @@ public:
 private:
     // MARK: IMessageRxSession
 
-    CETL_NODISCARD MessageRxParams getParams() const noexcept override
+    CETL_NODISCARD MessageRxParams getParams() const noexcept final
     {
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<MessageRxTransfer> receive() override
+    CETL_NODISCARD cetl::optional<MessageRxTransfer> receive() final
     {
         cetl::optional<MessageRxTransfer> result{};
         result.swap(last_rx_transfer_);
@@ -101,7 +105,7 @@ private:
 
     // MARK: IRxSession
 
-    void setTransferIdTimeout(const Duration timeout) override
+    void setTransferIdTimeout(const Duration timeout) final
     {
         const auto timeout_us = std::chrono::duration_cast<std::chrono::microseconds>(timeout);
         if (timeout_us.count() > 0)
@@ -112,11 +116,14 @@ private:
 
     // MARK: IRunnable
 
-    void run(const TimePoint) override {}
+    void run(const TimePoint) final
+    {
+        // Nothing to do here currently.
+    }
 
     // MARK: SessionDelegate
 
-    void acceptRxTransfer(const CanardRxTransfer& transfer) override
+    void acceptRxTransfer(const CanardRxTransfer& transfer) final
     {
         const auto priority    = static_cast<Priority>(transfer.metadata.priority);
         const auto transfer_id = static_cast<TransferId>(transfer.metadata.transfer_id);
