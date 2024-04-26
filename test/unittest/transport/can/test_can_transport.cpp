@@ -106,7 +106,7 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
     {
         std::array<IMedia*, 1> media_array{&media_mock_};
         auto                   maybe_transport = can::makeTransport(mr_, mux_mock_, media_array, 0, {});
-        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
+        ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
 
         auto transport = cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
         EXPECT_THAT(transport->getLocalNodeId(), Eq(cetl::nullopt));
@@ -118,7 +118,7 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
 
         std::array<IMedia*, 1> media_array{&media_mock_};
         auto                   maybe_transport = can::makeTransport(mr_, mux_mock_, media_array, 0, node_id);
-        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
+        ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
 
         auto transport = cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
         EXPECT_THAT(transport->getLocalNodeId(), Optional(42));
@@ -236,7 +236,7 @@ TEST_F(TestCanTransport, makeMessageRxSession)
     auto transport = makeTransport(mr_);
 
     auto maybe_rx_session = transport->makeMessageRxSession({42, 123});
-    EXPECT_THAT(maybe_rx_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+    ASSERT_THAT(maybe_rx_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
 
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_rx_session));
     EXPECT_THAT(session->getParams().extent_bytes, 42);
@@ -258,7 +258,7 @@ TEST_F(TestCanTransport, makeMessageRxSession_invalid_resubscription)
     const PortId test_subject_id = 111;
 
     auto maybe_rx_session1 = transport->makeMessageRxSession({0, test_subject_id});
-    EXPECT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+    ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
 
     auto maybe_rx_session2 = transport->makeMessageRxSession({0, test_subject_id});
     EXPECT_THAT(maybe_rx_session2, VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
@@ -269,7 +269,7 @@ TEST_F(TestCanTransport, makeMessageTxSession)
     auto transport = makeTransport(mr_);
 
     auto maybe_tx_session = transport->makeMessageTxSession({123});
-    EXPECT_THAT(maybe_tx_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
+    ASSERT_THAT(maybe_tx_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
 
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_tx_session));
     EXPECT_THAT(session->getParams().subject_id, 123);
@@ -282,7 +282,7 @@ TEST_F(TestCanTransport, sending_multiframe_payload_should_fail_for_anonymous)
     auto transport = makeTransport(mr_);
 
     auto maybe_session = transport->makeMessageTxSession({7});
-    EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
     EXPECT_THAT(session, NotNull());
 
@@ -307,7 +307,7 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
     EXPECT_THAT(transport->setLocalNodeId(0x45), Eq(cetl::nullopt));
 
     auto maybe_session = transport->makeMessageTxSession({7});
-    EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
     EXPECT_THAT(session, NotNull());
 
@@ -361,7 +361,7 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
     EXPECT_THAT(transport->setLocalNodeId(0x45), Eq(cetl::nullopt));
 
     auto maybe_session = transport->makeMessageTxSession({7});
-    EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
     EXPECT_THAT(session, NotNull());
 

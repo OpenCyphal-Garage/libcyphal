@@ -26,6 +26,7 @@ namespace can
 ///
 namespace detail
 {
+
 class MessageTxSession final : public IMessageTxSession
 {
     // In use to disable public construction.
@@ -41,6 +42,11 @@ public:
     CETL_NODISCARD static Expected<UniquePtr<IMessageTxSession>, AnyError> make(TransportDelegate&     delegate,
                                                                                 const MessageTxParams& params)
     {
+        if (params.subject_id > CANARD_SUBJECT_ID_MAX)
+        {
+            return ArgumentError{};
+        }
+
         auto session = libcyphal::detail::makeUniquePtr<Tag>(delegate.memory(), Tag{}, delegate, params);
         if (session == nullptr)
         {
@@ -74,29 +80,13 @@ private:
     CETL_NODISCARD cetl::optional<AnyError> send(const TransferMetadata& metadata,
                                                  const PayloadFragments  payload_fragments) final
     {
-        // libcanard currently does not support fragmented payloads (at `canardTxPush`).
-        // so we need to concatenate them when there are more than one non-empty fragment.
-        // See https://github.com/OpenCyphal/libcanard/issues/223
-        //
-        const transport::detail::ContiguousPayload contiguous_payload{delegate_.memory(), payload_fragments};
-        if ((contiguous_payload.data() == nullptr) && (contiguous_payload.size() > 0))
-        {
-            return MemoryError{};
-        }
-
-        const TimePoint deadline = metadata.timestamp + send_timeout_;
-        const auto deadline_us   = std::chrono::duration_cast<std::chrono::microseconds>(deadline.time_since_epoch());
-
         const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.priority),
                                                             CanardTransferKindMessage,
                                                             static_cast<CanardPortID>(params_.subject_id),
                                                             CANARD_NODE_ID_UNSET,
                                                             static_cast<CanardTransferID>(metadata.transfer_id)};
 
-        return delegate_.sendTransfer(static_cast<CanardMicrosecond>(deadline_us.count()),
-                                      canard_metadata,
-                                      contiguous_payload.data(),
-                                      contiguous_payload.size());
+        return delegate_.sendTransfer(metadata.timestamp + send_timeout_, canard_metadata, payload_fragments);
     }
 
     // MARK: IRunnable

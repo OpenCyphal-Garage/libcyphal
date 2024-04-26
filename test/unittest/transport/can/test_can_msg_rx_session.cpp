@@ -81,7 +81,7 @@ TEST_F(TestCanMsgRxSession, make_setTransferIdTimeout)
     auto transport = makeTransport(mr_);
 
     auto maybe_session = transport->makeMessageRxSession({42, 123});
-    EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(_));
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(_));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
     EXPECT_THAT(session, NotNull());
 
@@ -106,12 +106,21 @@ TEST_F(TestCanMsgRxSession, make_no_memory)
     EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
 }
 
+TEST_F(TestCanMsgRxSession, make_fails_due_to_argument_error)
+{
+    auto transport = makeTransport(mr_);
+
+    // Try invalid subject id
+    auto maybe_session = transport->makeMessageRxSession({64, CANARD_SUBJECT_ID_MAX + 1});
+    EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
+}
+
 TEST_F(TestCanMsgRxSession, run_and_receive)
 {
     auto transport = makeTransport(mr_);
 
     auto maybe_session = transport->makeMessageRxSession({4, 0x23});
-    EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(_));
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(_));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
     EXPECT_THAT(session, NotNull());
 

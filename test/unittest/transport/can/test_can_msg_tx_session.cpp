@@ -104,12 +104,21 @@ TEST_F(TestCanMsgTxSession, make_no_memory)
     EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
 }
 
+TEST_F(TestCanMsgTxSession, make_fails_due_to_argument_error)
+{
+    auto transport = makeTransport(mr_);
+
+    // Try invalid subject id
+    auto maybe_session = transport->makeMessageTxSession({CANARD_SUBJECT_ID_MAX + 1});
+    EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
+}
+
 TEST_F(TestCanMsgTxSession, send_empty_payload_and_no_transport_run)
 {
     auto transport = makeTransport(mr_);
 
     auto maybe_session = transport->makeMessageTxSession({123});
-    EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
     EXPECT_THAT(session, NotNull());
 
@@ -133,7 +142,7 @@ TEST_F(TestCanMsgTxSession, send_empty_payload)
     auto transport = makeTransport(mr_);
 
     auto maybe_session = transport->makeMessageTxSession({123});
-    EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
     EXPECT_THAT(session, NotNull());
 
@@ -169,7 +178,7 @@ TEST_F(TestCanMsgTxSession, send_empty_expired_payload)
     auto transport = makeTransport(mr_);
 
     auto maybe_session = transport->makeMessageTxSession({123});
-    EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
     EXPECT_THAT(session, NotNull());
 
@@ -197,7 +206,7 @@ TEST_F(TestCanMsgTxSession, send_7bytes_payload_with_500ms_timeout)
     auto transport = makeTransport(mr_);
 
     auto maybe_session = transport->makeMessageTxSession({17});
-    EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
     EXPECT_THAT(session, NotNull());
 
@@ -245,7 +254,7 @@ TEST_F(TestCanMsgTxSession, send_when_no_memory_for_contiguous_payload)
     EXPECT_CALL(mr_mock, do_allocate(sizeof(payload1) + sizeof(payload2), _)).WillOnce(Return(nullptr));
 
     auto maybe_session = transport->makeMessageTxSession({17});
-    EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(_));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
     EXPECT_THAT(session, NotNull());
 

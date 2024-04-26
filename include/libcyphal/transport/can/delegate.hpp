@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_TRANSPORT_CAN_DELEGATE_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_CAN_DELEGATE_HPP_INCLUDED
 
+#include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/scattered_buffer.hpp>
 
@@ -161,10 +162,9 @@ public:
     ///
     /// Internal method which is in use by TX session implementations to delegate actual sending to transport.
     ///
-    CETL_NODISCARD virtual cetl::optional<AnyError> sendTransfer(const CanardMicrosecond       deadline,
+    CETL_NODISCARD virtual cetl::optional<AnyError> sendTransfer(const TimePoint               deadline,
                                                                  const CanardTransferMetadata& metadata,
-                                                                 const void* const             payload,
-                                                                 const std::size_t             payload_size) = 0;
+                                                                 const PayloadFragments        payload_fragments) = 0;
 
 protected:
     ~TransportDelegate() = default;
@@ -229,6 +229,8 @@ private:
     CanardInstance              canard_instance_;
 
 };  // TransportDelegate
+
+// MARK: -
 
 /// This internal session delegate class serves the following purpose: it provides interface
 /// to access a session from transport (by casting canard's `user_reference` member to this class).

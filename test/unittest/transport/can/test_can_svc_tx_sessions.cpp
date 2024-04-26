@@ -59,11 +59,16 @@ protected:
     }
 
     CETL_NODISCARD UniquePtr<ICanTransport> makeTransport(cetl::pmr::memory_resource& mr,
+                                                          const NodeId                local_node_id,
                                                           const std::size_t           tx_capacity = 16)
     {
         std::array<IMedia*, 1> media_array{&media_mock_};
 
-        auto maybe_transport = can::makeTransport(mr, mux_mock_, media_array, tx_capacity, {});
+        // TODO: `local_node_id` could be just passed to `can::makeTransport` as an argument,
+        // but it's not possible due to CETL issue https://github.com/OpenCyphal/CETL/issues/119.
+        const auto opt_local_node_id = cetl::optional<NodeId>{local_node_id};
+
+        auto maybe_transport = can::makeTransport(mr, mux_mock_, media_array, tx_capacity, opt_local_node_id);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
         return cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
     }
@@ -78,29 +83,59 @@ protected:
 
 // MARK: Tests:
 
-TEST_F(TestCanSvcTxSessions, make_request_tx_sessions)
+TEST_F(TestCanSvcTxSessions, make_request_session)
 {
-    auto transport = makeTransport(mr_);
+    auto transport = makeTransport(mr_, 0);
 
-    auto maybe_session = transport->makeRequestTxSession({123, 1024});
-    EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IRequestTxSession>>(_));
+    auto maybe_session = transport->makeRequestTxSession({123, CANARD_NODE_ID_MAX});
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestTxSession>>(_));
     auto session = cetl::get<UniquePtr<IRequestTxSession>>(std::move(maybe_session));
     EXPECT_THAT(session, NotNull());
 
     EXPECT_THAT(session->getParams().service_id, 123);
-    EXPECT_THAT(session->getParams().server_node_id, 1024);
+    EXPECT_THAT(session->getParams().server_node_id, CANARD_NODE_ID_MAX);
+
+    session->run(now());
 }
 
-TEST_F(TestCanSvcTxSessions, make_response_tx_sessions)
+TEST_F(TestCanSvcTxSessions, make_request_fails_due_to_argument_error)
 {
-    auto transport = makeTransport(mr_);
+    auto transport = makeTransport(mr_, 0);
+
+    // Try invalid service id
+    {
+        auto maybe_session = transport->makeRequestTxSession({CANARD_SERVICE_ID_MAX + 1, 0});
+        EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
+    }
+
+    // Try invalid server node id
+    {
+        auto maybe_session = transport->makeRequestTxSession({0, CANARD_NODE_ID_MAX + 1});
+        EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
+    }
+}
+
+TEST_F(TestCanSvcTxSessions, make_response_session)
+{
+    auto transport = makeTransport(mr_, CANARD_NODE_ID_MAX, 2);
 
     auto maybe_session = transport->makeResponseTxSession({123});
-    EXPECT_THAT(maybe_session, VariantWith<UniquePtr<IResponseTxSession>>(_));
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseTxSession>>(_));
     auto session = cetl::get<UniquePtr<IResponseTxSession>>(std::move(maybe_session));
     EXPECT_THAT(session, NotNull());
 
     EXPECT_THAT(session->getParams().service_id, 123);
+
+    session->run(now());
+}
+
+TEST_F(TestCanSvcTxSessions, make_response_fails_due_to_argument_error)
+{
+    auto transport = makeTransport(mr_, 0);
+
+    // Try invalid service id
+    auto maybe_session = transport->makeResponseTxSession({CANARD_SERVICE_ID_MAX + 1});
+    EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
 }
 
 }  // namespace

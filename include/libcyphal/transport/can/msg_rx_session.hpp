@@ -25,6 +25,7 @@ namespace can
 ///
 namespace detail
 {
+
 class MessageRxSession final : public IMessageRxSession, private RxSessionDelegate
 {
     // In use to disable public construction.
@@ -40,6 +41,11 @@ public:
     CETL_NODISCARD static Expected<UniquePtr<IMessageRxSession>, AnyError> make(TransportDelegate&     delegate,
                                                                                 const MessageRxParams& params)
     {
+        if (params.subject_id > CANARD_SUBJECT_ID_MAX)
+        {
+            return ArgumentError{};
+        }
+
         auto session = libcyphal::detail::makeUniquePtr<Tag>(delegate.memory(), Tag{}, delegate, params);
         if (session == nullptr)
         {

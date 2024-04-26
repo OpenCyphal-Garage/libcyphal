@@ -34,6 +34,7 @@ class ICanTransport : public ITransport
 ///
 namespace detail
 {
+
 class TransportImpl final : public ICanTransport, private TransportDelegate
 {
     // In use to disable public construction.
@@ -159,7 +160,7 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
         const MessageRxParams& params) final
     {
-        auto any_error = ensureNewSessionFor(CanardTransferKindMessage, params.subject_id, CANARD_SUBJECT_ID_MAX);
+        auto any_error = ensureNewSessionFor(CanardTransferKindMessage, params.subject_id);
         if (any_error.has_value())
         {
             return any_error.value();
@@ -177,7 +178,7 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(
         const RequestRxParams& params) final
     {
-        auto any_error = ensureNewSessionFor(CanardTransferKindRequest, params.service_id, CANARD_SERVICE_ID_MAX);
+        auto any_error = ensureNewSessionFor(CanardTransferKindRequest, params.service_id);
         if (any_error.has_value())
         {
             return any_error.value();
@@ -195,7 +196,7 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(
         const ResponseRxParams& params) final
     {
-        auto any_error = ensureNewSessionFor(CanardTransferKindResponse, params.service_id, CANARD_SERVICE_ID_MAX);
+        auto any_error = ensureNewSessionFor(CanardTransferKindResponse, params.service_id);
         if (any_error.has_value())
         {
             return any_error.value();
@@ -225,11 +226,22 @@ private:
         return *this;
     }
 
-    CETL_NODISCARD cetl::optional<AnyError> sendTransfer(const CanardMicrosecond       deadline,
+    CETL_NODISCARD cetl::optional<AnyError> sendTransfer(const TimePoint               deadline,
                                                          const CanardTransferMetadata& metadata,
-                                                         const void* const             payload,
-                                                         const std::size_t             payload_size) final
+                                                         const PayloadFragments        payload_fragments) final
     {
+        // libcanard currently does not support fragmented payloads (at `canardTxPush`).
+        // so we need to concatenate them when there are more than one non-empty fragment.
+        // See https://github.com/OpenCyphal/libcanard/issues/223
+        //
+        const transport::detail::ContiguousPayload payload{memory(), payload_fragments};
+        if ((payload.data() == nullptr) && (payload.size() > 0))
+        {
+            return MemoryError{};
+        }
+
+        const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(deadline.time_since_epoch());
+
         // TODO: Rework error handling strategy.
         //       Currently, we return the last error encountered, but we should consider all errors somehow.
         //
@@ -239,8 +251,12 @@ private:
         {
             media.canard_tx_queue.mtu_bytes = media.interface.getMtu();
 
-            const auto result =
-                ::canardTxPush(&media.canard_tx_queue, &canard_instance(), deadline, &metadata, payload_size, payload);
+            const auto result = ::canardTxPush(&media.canard_tx_queue,
+                                               &canard_instance(),
+                                               static_cast<CanardMicrosecond>(deadline_us.count()),
+                                               &metadata,
+                                               payload.size(),
+                                               payload.data());
             if (result < 0)
             {
                 maybe_error = TransportDelegate::anyErrorFromCanard(result);
@@ -285,14 +301,8 @@ private:
     }
 
     CETL_NODISCARD cetl::optional<AnyError> ensureNewSessionFor(const CanardTransferKind transfer_kind,
-                                                                const PortId             port_id,
-                                                                const PortId             max_port_id) noexcept
+                                                                const PortId             port_id) noexcept
     {
-        if (port_id > max_port_id)
-        {
-            return ArgumentError{};
-        }
-
         const auto hasSubscription = ::canardRxHasSubscription(&canard_instance(), transfer_kind, port_id);
         CETL_DEBUG_ASSERT(hasSubscription >= 0, "There is no way currently to get an error here.");
         if (hasSubscription > 0)
