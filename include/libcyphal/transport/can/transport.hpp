@@ -295,7 +295,7 @@ private:
         }
         if (hasSubscription > 0)
         {
-            return SessionAlreadyExistsError{};
+            return AlreadyExistsError{};
         }
 
         return {};
