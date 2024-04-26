@@ -233,23 +233,23 @@ private:
 /// This internal session delegate class serves the following purpose: it provides interface
 /// to access a session from transport (by casting canard's `user_reference` member to this class).
 ///
-class SessionDelegate
+class RxSessionDelegate
 {
 public:
-    SessionDelegate(const SessionDelegate&)                = delete;
-    SessionDelegate(SessionDelegate&&) noexcept            = delete;
-    SessionDelegate& operator=(const SessionDelegate&)     = delete;
-    SessionDelegate& operator=(SessionDelegate&&) noexcept = delete;
+    RxSessionDelegate(const RxSessionDelegate&)                = delete;
+    RxSessionDelegate(RxSessionDelegate&&) noexcept            = delete;
+    RxSessionDelegate& operator=(const RxSessionDelegate&)     = delete;
+    RxSessionDelegate& operator=(RxSessionDelegate&&) noexcept = delete;
 
     /// @brief Accepts a received transfer from the transport dedicated to this RX session.
     ///
     virtual void acceptRxTransfer(const CanardRxTransfer& transfer) = 0;
 
 protected:
-    SessionDelegate()  = default;
-    ~SessionDelegate() = default;
+    RxSessionDelegate()  = default;
+    ~RxSessionDelegate() = default;
 
-};  // SessionDelegate
+};  // RxSessionDelegate
 
 }  // namespace detail
 }  // namespace can

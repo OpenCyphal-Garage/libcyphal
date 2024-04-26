@@ -59,10 +59,9 @@ protected:
     }
 
     CETL_NODISCARD UniquePtr<ICanTransport> makeTransport(cetl::pmr::memory_resource& mr,
-                                                          IMedia*                     extra_media = nullptr,
                                                           const std::size_t           tx_capacity = 16)
     {
-        std::array<IMedia*, 2> media_array{&media_mock_, extra_media};
+        std::array<IMedia*, 1> media_array{&media_mock_};
 
         auto maybe_transport = can::makeTransport(mr, mux_mock_, media_array, tx_capacity, {});
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));

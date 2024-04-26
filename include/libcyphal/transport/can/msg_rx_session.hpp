@@ -25,7 +25,7 @@ namespace can
 ///
 namespace detail
 {
-class MessageRxSession final : public IMessageRxSession, private SessionDelegate
+class MessageRxSession final : public IMessageRxSession, private RxSessionDelegate
 {
     // In use to disable public construction.
     // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
@@ -63,7 +63,7 @@ public:
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "New subscription supposed to be made.");
 
-        subscription_.user_reference = static_cast<SessionDelegate*>(this);
+        subscription_.user_reference = static_cast<RxSessionDelegate*>(this);
     }
 
     ~MessageRxSession() final
@@ -106,7 +106,7 @@ private:
         // Nothing to do here currently.
     }
 
-    // MARK: SessionDelegate
+    // MARK: RxSessionDelegate
 
     void acceptRxTransfer(const CanardRxTransfer& transfer) final
     {
