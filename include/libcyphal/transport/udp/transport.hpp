@@ -30,17 +30,20 @@ namespace detail
 
 class TransportImpl final : public IUdpTransport
 {
-    // In use to disable public construction.
-    // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
-    struct Tag
+    /// @brief Defines specification for making interface unique ptr.
+    ///
+    struct Spec
     {
-        explicit Tag()  = default;
         using Interface = IUdpTransport;
         using Concrete  = TransportImpl;
+
+        // In use to disable public construction.
+        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
+        explicit Spec() = default;
     };
 
 public:
-    TransportImpl(Tag,
+    TransportImpl(Spec,
                   cetl::pmr::memory_resource&            memory,
                   IMultiplexer&                          multiplexer,
                   libcyphal::detail::VarArray<IMedia*>&& media_array,

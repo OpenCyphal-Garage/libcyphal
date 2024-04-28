@@ -38,13 +38,16 @@ namespace detail
 template <typename Interface_, typename Params, CanardTransferKind TransferKind>
 class SvcRxSession final : public Interface_, private RxSessionDelegate
 {
-    // In use to disable public construction.
-    // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
-    struct Tag
+    /// @brief Defines specification for making interface unique ptr.
+    ///
+    struct Spec
     {
-        explicit Tag()  = default;
         using Interface = Interface_;
         using Concrete  = SvcRxSession;
+
+        // In use to disable public construction.
+        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
+        explicit Spec() = default;
     };
 
 public:
@@ -56,7 +59,7 @@ public:
             return ArgumentError{};
         }
 
-        auto session = libcyphal::detail::makeUniquePtr<Tag>(delegate.memory(), Tag{}, delegate, params);
+        auto session = libcyphal::detail::makeUniquePtr<Spec>(delegate.memory(), Spec{}, delegate, params);
         if (session == nullptr)
         {
             return MemoryError{};
@@ -65,7 +68,7 @@ public:
         return session;
     }
 
-    SvcRxSession(Tag, TransportDelegate& delegate, const Params& params)
+    SvcRxSession(Spec, TransportDelegate& delegate, const Params& params)
         : delegate_{delegate}
         , params_{params}
         , subscription_{}

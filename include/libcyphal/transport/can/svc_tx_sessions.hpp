@@ -31,13 +31,16 @@ namespace detail
 ///
 class SvcRequestTxSession final : public IRequestTxSession
 {
-    // In use to disable public construction.
-    // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
-    struct Tag
+    /// @brief Defines specification for making interface unique ptr.
+    ///
+    struct Spec
     {
-        explicit Tag()  = default;
         using Interface = IRequestTxSession;
         using Concrete  = SvcRequestTxSession;
+
+        // In use to disable public construction.
+        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
+        explicit Spec() = default;
     };
 
 public:
@@ -49,7 +52,7 @@ public:
             return ArgumentError{};
         }
 
-        auto session = libcyphal::detail::makeUniquePtr<Tag>(delegate.memory(), Tag{}, delegate, params);
+        auto session = libcyphal::detail::makeUniquePtr<Spec>(delegate.memory(), Spec{}, delegate, params);
         if (session == nullptr)
         {
             return MemoryError{};
@@ -58,7 +61,7 @@ public:
         return session;
     }
 
-    SvcRequestTxSession(Tag, TransportDelegate& delegate, const RequestTxParams& params)
+    SvcRequestTxSession(Spec, TransportDelegate& delegate, const RequestTxParams& params)
         : delegate_{delegate}
         , params_{params}
         , send_timeout_{std::chrono::seconds{1}}
@@ -123,13 +126,16 @@ private:
 ///
 class SvcResponseTxSession final : public IResponseTxSession
 {
-    // In use to disable public construction.
-    // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
-    struct Tag
+    /// @brief Defines specification for making interface unique ptr.
+    ///
+    struct Spec
     {
-        explicit Tag()  = default;
         using Interface = IResponseTxSession;
         using Concrete  = SvcResponseTxSession;
+
+        // In use to disable public construction.
+        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
+        explicit Spec() = default;
     };
 
 public:
@@ -141,7 +147,7 @@ public:
             return ArgumentError{};
         }
 
-        auto session = libcyphal::detail::makeUniquePtr<Tag>(delegate.memory(), Tag{}, delegate, params);
+        auto session = libcyphal::detail::makeUniquePtr<Spec>(delegate.memory(), Spec{}, delegate, params);
         if (session == nullptr)
         {
             return MemoryError{};
@@ -150,7 +156,7 @@ public:
         return session;
     }
 
-    SvcResponseTxSession(Tag, TransportDelegate& delegate, const ResponseTxParams& params)
+    SvcResponseTxSession(Spec, TransportDelegate& delegate, const ResponseTxParams& params)
         : delegate_{delegate}
         , params_{params}
         , send_timeout_{std::chrono::seconds{1}}

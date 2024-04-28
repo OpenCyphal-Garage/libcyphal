@@ -44,12 +44,13 @@ class TransportImpl final : public ICanTransport, private TransportDelegate
     {
         using Interface = ICanTransport;
         using Concrete  = TransportImpl;
+
+        // In use to disable public construction.
+        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
+        explicit Spec() = default;
     };
 
     /// @brief Internal (private) storage of a media index, its interface and TX queue.
-    ///
-    /// B/c it's private, it also disables public construction of `TransportImpl`.
-    /// See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
     ///
     class Media final
     {
@@ -103,8 +104,12 @@ public:
 
         const auto canard_node_id = static_cast<CanardNodeID>(local_node_id.value_or(CANARD_NODE_ID_UNSET));
 
-        auto transport =
-            libcyphal::detail::makeUniquePtr<Spec>(memory, memory, multiplexer, std::move(media_array), canard_node_id);
+        auto transport = libcyphal::detail::makeUniquePtr<Spec>(memory,
+                                                                Spec{},
+                                                                memory,
+                                                                multiplexer,
+                                                                std::move(media_array),
+                                                                canard_node_id);
         if (transport == nullptr)
         {
             return MemoryError{};
@@ -113,7 +118,8 @@ public:
         return transport;
     }
 
-    TransportImpl(cetl::pmr::memory_resource& memory,
+    TransportImpl(Spec,
+                  cetl::pmr::memory_resource& memory,
                   IMultiplexer&               multiplexer,
                   MediaArray&&                media_array,
                   const CanardNodeID          canard_node_id)
