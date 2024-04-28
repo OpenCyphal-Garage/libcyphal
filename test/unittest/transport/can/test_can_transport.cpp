@@ -32,6 +32,7 @@ using testing::NotNull;
 using testing::Optional;
 using testing::InSequence;
 using testing::StrictMock;
+using testing::ElementsAre;
 using testing::VariantWith;
 
 using namespace std::chrono_literals;
@@ -393,7 +394,7 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
                 EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId())) << ctx;
 
                 auto tbm = TailByteEq(metadata.transfer_id, false, true, false);
-                EXPECT_THAT(payload, ElementsAre(b('7'), b('8'), b('9'), _, _ /* CRC bytes */, tbm)) << ctx;
+                EXPECT_THAT(payload, ElementsAre(b('7'), b('8'), b('9'), b(0x7D), b(0x61) /* CRC bytes */, tbm)) << ctx;
                 return true;
             });
         };
@@ -412,6 +413,103 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
     scheduler_.runNow(+10us, [&] { transport->run(now()); });
     scheduler_.runNow(+10us, [&] { transport->run(now()); });
     scheduler_.runNow(+10us, [&] { transport->run(now()); });
+}
+
+TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
+{
+    StrictMock<MediaMock> media_mock2{};
+    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock2, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+
+    auto transport = makeTransport(mr_, &media_mock2);
+    EXPECT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
+
+    auto maybe_session = transport->makeResponseRxSession({64, 0x17B, 0x31});
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
+    auto session = cetl::get<UniquePtr<IResponseRxSession>>(std::move(maybe_session));
+
+    const auto timeout = 200ms;
+    session->setTransferIdTimeout(timeout);
+
+    const auto epoch = TimePoint{10s};
+    scheduler_.setNow(epoch);
+    const auto rx1_timestamp = epoch;
+    const auto rx2_timestamp = epoch + 2 * timeout;
+    {
+        InSequence seq;
+
+        // 1. Emulate that only one 1st frame came from the 1st media interface (@ rx1_timestamp+10ms)...
+        //
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
+            EXPECT_THAT(now(), rx1_timestamp + 10ms);
+            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+            p[0] = b('0');
+            p[1] = b('1');
+            p[2] = b('2');
+            p[3] = b('3');
+            p[4] = b('4');
+            p[5] = b('5');
+            p[6] = b('6');
+            p[7] = b(0b101'11101);
+            return RxMetadata{rx1_timestamp, 0b111'1'0'0'101111011'0010011'0110001, 8};
+        });
+        EXPECT_CALL(media_mock2, pop(_)).WillOnce([&](auto) {
+            EXPECT_THAT(now(), rx1_timestamp + 10ms);
+            return cetl::nullopt;
+        });
+        // 2. And then 2nd media delivered all frames ones again after timeout (@ rx2_timestamp+10ms).
+        //
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto) {
+            EXPECT_THAT(now(), rx2_timestamp + 10ms);
+            return cetl::nullopt;
+        });
+        EXPECT_CALL(media_mock2, pop(_)).WillOnce([&](auto p) {
+            EXPECT_THAT(now(), rx2_timestamp + 10ms);
+            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+            p[0] = b('0');
+            p[1] = b('1');
+            p[2] = b('2');
+            p[3] = b('3');
+            p[4] = b('4');
+            p[5] = b('5');
+            p[6] = b('6');
+            p[7] = b(0b101'11110);
+            return RxMetadata{rx2_timestamp, 0b111'1'0'0'101111011'0010011'0110001, 8};
+        });
+        EXPECT_CALL(media_mock2, pop(_)).WillOnce([&](auto p) {
+            EXPECT_THAT(now(), rx2_timestamp + 30ms);
+            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+            p[0] = b('7');
+            p[1] = b('8');
+            p[2] = b('9');
+            p[3] = b(0x7D);
+            p[4] = b(0x61);  // expected 16-bit CRC
+            p[5] = b(0b010'11110);
+            return RxMetadata{rx2_timestamp + 1ms, 0b111'1'0'0'101111011'0010011'0110001, 6};
+        });
+    }
+    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+    scheduler_.runNow(+10ms, [&] { session->run(now()); });
+    scheduler_.setNow(rx2_timestamp);
+    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+    scheduler_.runNow(+10ms, [&] { session->run(now()); });
+    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+    scheduler_.runNow(+10ms, [&] { session->run(now()); });
+
+    const auto maybe_rx_transfer = session->receive();
+    ASSERT_THAT(maybe_rx_transfer, Optional(_));
+    const auto& rx_transfer = maybe_rx_transfer.value();
+
+    EXPECT_THAT(rx_transfer.metadata.timestamp, rx2_timestamp);
+    EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x1E);
+    EXPECT_THAT(rx_transfer.metadata.priority, Priority::Optional);
+    EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x31);
+
+    std::array<char, 10> buffer{};
+    EXPECT_THAT(rx_transfer.payload.size(), buffer.size());
+    EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
+    EXPECT_THAT(buffer, ElementsAre('0', '1', '2', '3', '4', '5', '6', '7', '8', '9'));
 }
 
 }  // namespace

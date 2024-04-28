@@ -26,6 +26,8 @@ namespace can
 namespace detail
 {
 
+/// @brief A class to represent a message subscriber RX session.
+///
 class MessageRxSession final : public IMessageRxSession, private RxSessionDelegate
 {
     // In use to disable public construction.

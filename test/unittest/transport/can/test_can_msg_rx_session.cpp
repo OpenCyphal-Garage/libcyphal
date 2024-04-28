@@ -122,17 +122,18 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
 
-    // 1-st iteration: one frame available @ 1s
     {
+        SCOPED_TRACE("1-st iteration: one frame available @ 1s");
+
         scheduler_.setNow(TimePoint{1s});
         const auto rx_timestamp = now();
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([=](auto payload) {
-            EXPECT_THAT(payload.size(), CANARD_MTU_MAX);
-
-            payload[0] = b(42);
-            payload[1] = b(147);
-            payload[2] = b(0xED);
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
+            EXPECT_THAT(now(), rx_timestamp + 10ms);
+            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+            p[0] = b('0');
+            p[1] = b('1');
+            p[2] = b(0b111'01101);
             return RxMetadata{rx_timestamp, 0x0C'60'23'45, 3};
         });
 
@@ -148,18 +149,20 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
         EXPECT_THAT(rx_transfer.metadata.priority, Priority::High);
         EXPECT_THAT(rx_transfer.metadata.publisher_node_id, Optional(0x45));
 
-        std::array<std::uint8_t, 2> buffer{};
-        EXPECT_THAT(rx_transfer.payload.size(), 2);
-        EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), 2);
-        EXPECT_THAT(buffer, ElementsAre(42, 147));
+        std::array<char, 2> buffer{};
+        ASSERT_THAT(rx_transfer.payload.size(), buffer.size());
+        EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
+        EXPECT_THAT(buffer, ElementsAre('0', '1'));
     }
-
-    // 2-nd iteration: no frames available
     {
-        scheduler_.setNow(TimePoint{2s});
+        SCOPED_TRACE("2-nd iteration: no frames available @ 2s");
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([](auto payload) {
-            EXPECT_THAT(payload.size(), CANARD_MTU_MAX);
+        scheduler_.setNow(TimePoint{2s});
+        const auto rx_timestamp = now();
+
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
+            EXPECT_THAT(now(), rx_timestamp + 10ms);
+            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
             return cetl::nullopt;
         });
 
@@ -169,18 +172,18 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
         const auto maybe_rx_transfer = session->receive();
         EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
     }
-
-    // 3-rd iteration: one anonymous frame available @ 3s
     {
+        SCOPED_TRACE("3-rd iteration: one anonymous frame available @ 3s");
+
         scheduler_.setNow(TimePoint{3s});
         const auto rx_timestamp = now();
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([=](auto payload) {
-            EXPECT_THAT(payload.size(), CANARD_MTU_MAX);
-
-            payload[0] = b(42);
-            payload[1] = b(147);
-            payload[2] = b(0xEE);
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
+            EXPECT_THAT(now(), rx_timestamp + 10ms);
+            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+            p[0] = b('1');
+            p[1] = b('2');
+            p[2] = b(0b111'01110);
             return RxMetadata{rx_timestamp, 0x01'60'23'13, 3};
         });
 
@@ -196,10 +199,10 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
         EXPECT_THAT(rx_transfer.metadata.priority, Priority::Exceptional);
         EXPECT_THAT(rx_transfer.metadata.publisher_node_id, Eq(cetl::nullopt));
 
-        std::array<std::uint8_t, 2> buffer{};
-        EXPECT_THAT(rx_transfer.payload.size(), 2);
-        EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), 2);
-        EXPECT_THAT(buffer, ElementsAre(42, 147));
+        std::array<char, 2> buffer{};
+        ASSERT_THAT(rx_transfer.payload.size(), buffer.size());
+        EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
+        EXPECT_THAT(buffer, ElementsAre('1', '2'));
     }
 }
 

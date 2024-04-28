@@ -10,6 +10,7 @@
 #include "delegate.hpp"
 #include "msg_rx_session.hpp"
 #include "msg_tx_session.hpp"
+#include "svc_rx_sessions.hpp"
 #include "svc_tx_sessions.hpp"
 #include "libcyphal/transport/transport.hpp"
 #include "libcyphal/transport/multiplexer.hpp"
@@ -184,7 +185,7 @@ private:
             return any_error.value();
         }
 
-        return NotImplementedError{};
+        return SvcRequestRxSession::make(asDelegate(), params);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(
@@ -202,7 +203,7 @@ private:
             return any_error.value();
         }
 
-        return NotImplementedError{};
+        return SvcResponseRxSession::make(asDelegate(), params);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(

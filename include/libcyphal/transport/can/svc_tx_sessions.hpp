@@ -27,7 +27,7 @@ namespace can
 namespace detail
 {
 
-/// @brief A class to represent a service request TX session.
+/// @brief A class to represent a service request TX session (aka client side).
 ///
 class SvcRequestTxSession final : public IRequestTxSession
 {
@@ -118,7 +118,7 @@ private:
 
 // MARK: -
 
-/// @brief A class to represent a service response TX session.
+/// @brief A class to represent a service response TX session (aka server side).
 ///
 class SvcResponseTxSession final : public IResponseTxSession
 {

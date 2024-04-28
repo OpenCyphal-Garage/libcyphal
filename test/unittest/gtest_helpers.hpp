@@ -67,8 +67,8 @@ namespace libcyphal
 
 inline void PrintTo(const Duration duration, std::ostream* os)
 {
-    auto locale = os->imbue(std::locale("en_US"));
-    *os << std::chrono::duration_cast<std::chrono::microseconds>(duration).count() << "_us";
+    auto locale = os->imbue(std::locale(""));
+    *os << std::chrono::duration_cast<std::chrono::microseconds>(duration).count() << " us";
     os->imbue(locale);
 }
 
