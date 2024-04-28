@@ -8,9 +8,9 @@
 #include "media_mock.hpp"
 #include "../multiplexer_mock.hpp"
 #include "../../gtest_helpers.hpp"
-#include "../../test_scheduler.hpp"
 #include "../../test_utilities.hpp"
 #include "../../memory_resource_mock.hpp"
+#include "../../virtual_time_scheduler.hpp"
 #include "../../tracking_memory_resource.hpp"
 
 #include <limits>
@@ -70,7 +70,7 @@ protected:
 
     // MARK: Data members:
 
-    TestScheduler               scheduler_{};
+    VirtualTimeScheduler        scheduler_{};
     TrackingMemoryResource      mr_;
     StrictMock<MediaMock>       media_mock_{};
     StrictMock<MultiplexerMock> mux_mock_{};

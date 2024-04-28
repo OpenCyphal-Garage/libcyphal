@@ -34,6 +34,9 @@ class ContiguousPayload final
 public:
     ContiguousPayload(cetl::pmr::memory_resource& mr, const PayloadFragments payload_fragments)
         : mr_{mr}
+        , payload_{nullptr}
+        , payload_size_{0}
+        , allocated_buffer_{nullptr}
     {
         using Fragment = cetl::span<const cetl::byte>;
 
@@ -93,9 +96,9 @@ private:
     // MARK: Data members:
 
     cetl::pmr::memory_resource& mr_;
-    const cetl::byte*           payload_{nullptr};
-    std::size_t                 payload_size_{0};
-    cetl::byte*                 allocated_buffer_{nullptr};
+    const cetl::byte*           payload_;
+    std::size_t                 payload_size_;
+    cetl::byte*                 allocated_buffer_;
 
 };  // ContiguousBytes
 

@@ -59,6 +59,7 @@ public:
     MessageTxSession(Tag, TransportDelegate& delegate, const MessageTxParams& params)
         : delegate_{delegate}
         , params_{params}
+        , send_timeout_{std::chrono::seconds{1}}
     {
     }
 
@@ -100,7 +101,7 @@ private:
 
     TransportDelegate&    delegate_;
     const MessageTxParams params_;
-    Duration              send_timeout_ = std::chrono::seconds{1};
+    Duration              send_timeout_;
 
 };  // MessageTxSession
 

@@ -134,7 +134,7 @@ private:
 
         // Allow setting the same node ID multiple times, but only once otherwise.
         //
-        auto& ins = canard_instance();
+        CanardInstance& ins = canard_instance();
         if (ins.node_id == node_id)
         {
             return cetl::nullopt;
@@ -150,7 +150,7 @@ private:
 
     CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept final
     {
-        const auto min_mtu =
+        const std::size_t min_mtu =
             reduceMedia(std::numeric_limits<std::size_t>::max(), [](const std::size_t mtu, const Media& media) {
                 return std::min(mtu, media.interface.getMtu());
             });
@@ -161,7 +161,7 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
         const MessageRxParams& params) final
     {
-        auto any_error = ensureNewSessionFor(CanardTransferKindMessage, params.subject_id);
+        const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindMessage, params.subject_id);
         if (any_error.has_value())
         {
             return any_error.value();
@@ -179,7 +179,7 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(
         const RequestRxParams& params) final
     {
-        auto any_error = ensureNewSessionFor(CanardTransferKindRequest, params.service_id);
+        const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindRequest, params.service_id);
         if (any_error.has_value())
         {
             return any_error.value();
@@ -197,7 +197,7 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(
         const ResponseRxParams& params) final
     {
-        auto any_error = ensureNewSessionFor(CanardTransferKindResponse, params.service_id);
+        const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindResponse, params.service_id);
         if (any_error.has_value())
         {
             return any_error.value();
@@ -252,12 +252,12 @@ private:
         {
             media.canard_tx_queue.mtu_bytes = media.interface.getMtu();
 
-            const auto result = ::canardTxPush(&media.canard_tx_queue,
-                                               &canard_instance(),
-                                               static_cast<CanardMicrosecond>(deadline_us.count()),
-                                               &metadata,
-                                               payload.size(),
-                                               payload.data());
+            const std::int32_t result = ::canardTxPush(&media.canard_tx_queue,
+                                                       &canard_instance(),
+                                                       static_cast<CanardMicrosecond>(deadline_us.count()),
+                                                       &metadata,
+                                                       payload.size(),
+                                                       payload.data());
             if (result < 0)
             {
                 maybe_error = TransportDelegate::anyErrorFromCanard(result);
@@ -304,7 +304,7 @@ private:
     CETL_NODISCARD cetl::optional<AnyError> ensureNewSessionFor(const CanardTransferKind transfer_kind,
                                                                 const PortId             port_id) noexcept
     {
-        const auto hasSubscription = ::canardRxHasSubscription(&canard_instance(), transfer_kind, port_id);
+        const std::int8_t hasSubscription = ::canardRxHasSubscription(&canard_instance(), transfer_kind, port_id);
         CETL_DEBUG_ASSERT(hasSubscription >= 0, "There is no way currently to get an error here.");
         if (hasSubscription > 0)
         {
@@ -338,9 +338,9 @@ private:
 
     void flushCanardTxQueue(CanardTxQueue& canard_tx_queue)
     {
-        while (const auto maybe_item = ::canardTxPeek(&canard_tx_queue))
+        while (const CanardTxQueueItem* const maybe_item = ::canardTxPeek(&canard_tx_queue))
         {
-            auto item = ::canardTxPop(&canard_tx_queue, maybe_item);
+            CanardTxQueueItem* const item = ::canardTxPop(&canard_tx_queue, maybe_item);
             freeCanardMemory(item);
         }
     }
@@ -352,12 +352,12 @@ private:
         for (const Media& media : media_array_)
         {
             // TODO: Handle errors.
-            const auto pop_result = media.interface.pop(payload);
+            const Expected<cetl::optional<RxMetadata>, MediaError> pop_result = media.interface.pop(payload);
             if (const auto opt_rx_meta = cetl::get_if<cetl::optional<RxMetadata>>(&pop_result))
             {
                 if (opt_rx_meta->has_value())
                 {
-                    const auto& rx_meta = opt_rx_meta->value();
+                    const RxMetadata& rx_meta = opt_rx_meta->value();
 
                     const auto timestamp_us =
                         std::chrono::duration_cast<std::chrono::microseconds>(rx_meta.timestamp.time_since_epoch());
@@ -367,12 +367,12 @@ private:
                     CanardRxSubscription* out_subscription{};
 
                     // TODO: Handle errors.
-                    const auto result = ::canardRxAccept(&canard_instance(),
-                                                         static_cast<CanardMicrosecond>(timestamp_us.count()),
-                                                         &canard_frame,
-                                                         media.index,
-                                                         &out_transfer,
-                                                         &out_subscription);
+                    const std::int8_t result = ::canardRxAccept(&canard_instance(),
+                                                                static_cast<CanardMicrosecond>(timestamp_us.count()),
+                                                                &canard_frame,
+                                                                media.index,
+                                                                &out_transfer,
+                                                                &out_subscription);
                     if (result > 0)
                     {
                         CETL_DEBUG_ASSERT(out_subscription != nullptr, "Expected subscription.");
@@ -391,7 +391,7 @@ private:
     {
         for (Media& media : media_array_)
         {
-            while (const auto tx_item = ::canardTxPeek(&media.canard_tx_queue))
+            while (const CanardTxQueueItem* const tx_item = ::canardTxPeek(&media.canard_tx_queue))
             {
                 // We are dropping any TX item that has expired.
                 // Otherwise, we would send it to the media interface.
@@ -402,7 +402,7 @@ private:
                 {
                     const cetl::span<const cetl::byte> payload{static_cast<const cetl::byte*>(tx_item->frame.payload),
                                                                tx_item->frame.payload_size};
-                    const auto                         maybe_pushed =
+                    const Expected<bool, MediaError>   maybe_pushed =
                         media.interface.push(deadline, static_cast<CanId>(tx_item->frame.extended_can_id), payload);
                     if (const auto is_pushed = cetl::get_if<bool>(&maybe_pushed))
                     {

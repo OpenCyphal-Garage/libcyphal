@@ -3,17 +3,17 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_TEST_SCHEDULER_HPP
-#define LIBCYPHAL_TEST_SCHEDULER_HPP
+#ifndef LIBCYPHAL_VIRTUAL_TIME_SCHEDULER_HPP
+#define LIBCYPHAL_VIRTUAL_TIME_SCHEDULER_HPP
 
 #include <libcyphal/types.hpp>
 
 namespace libcyphal
 {
 
-struct TestScheduler final
+struct VirtualTimeScheduler final
 {
-    explicit TestScheduler(const TimePoint initial_now = {})
+    explicit VirtualTimeScheduler(const TimePoint initial_now = {})
         : now_{initial_now}
     {
     }
@@ -41,9 +41,9 @@ struct TestScheduler final
     }
 
 private:
-    TimePoint now_{};
+    TimePoint now_;
 };
 
 } // namespace libcyphal
 
-#endif  // LIBCYPHAL_TEST_SCHEDULER_HPP
+#endif  // LIBCYPHAL_VIRTUAL_TIME_SCHEDULER_HPP
