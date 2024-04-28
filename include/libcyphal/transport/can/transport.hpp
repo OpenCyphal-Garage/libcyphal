@@ -38,14 +38,39 @@ namespace detail
 
 class TransportImpl final : public ICanTransport, private TransportDelegate
 {
-    // In use to disable public construction.
-    // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
-    struct Tag
+    /// @brief Defines specification for making interface unique ptr.
+    ///
+    struct Spec
     {
-        explicit Tag()  = default;
         using Interface = ICanTransport;
         using Concrete  = TransportImpl;
     };
+
+    /// @brief Internal (private) storage of a media index, its interface and TX queue.
+    ///
+    /// B/c it's private, it also disables public construction of `TransportImpl`.
+    /// See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
+    ///
+    class Media final
+    {
+    public:
+        Media(const std::size_t _index, IMedia& _interface, const std::size_t tx_capacity)
+            : index{static_cast<std::uint8_t>(_index)}
+            , interface{_interface}
+            , canard_tx_queue{::canardTxInit(tx_capacity, _interface.getMtu())}
+        {
+        }
+        ~Media()                           = default;
+        Media(const Media&)                = delete;
+        Media(Media&&) noexcept            = default;
+        Media& operator=(const Media&)     = delete;
+        Media& operator=(Media&&) noexcept = delete;
+
+        const std::uint8_t index;
+        IMedia&            interface;
+        CanardTxQueue      canard_tx_queue;
+    };
+    using MediaArray = libcyphal::detail::VarArray<Media>;
 
 public:
     CETL_NODISCARD static Expected<UniquePtr<ICanTransport>, FactoryError> make(
@@ -65,21 +90,21 @@ public:
         {
             return ArgumentError{};
         }
-        if (local_node_id.has_value() && local_node_id.value() > CANARD_NODE_ID_MAX)
+        if (local_node_id.has_value() && (local_node_id.value() > CANARD_NODE_ID_MAX))
         {
             return ArgumentError{};
         }
 
+        MediaArray media_array{make_media_array(memory, tx_capacity, media_count, media)};
+        if (media_array.size() != media_count)
+        {
+            return MemoryError{};
+        }
+
         const auto canard_node_id = static_cast<CanardNodeID>(local_node_id.value_or(CANARD_NODE_ID_UNSET));
 
-        auto transport = libcyphal::detail::makeUniquePtr<Tag>(memory,
-                                                               Tag{},
-                                                               memory,
-                                                               multiplexer,
-                                                               media_count,
-                                                               media,
-                                                               tx_capacity,
-                                                               canard_node_id);
+        auto transport =
+            libcyphal::detail::makeUniquePtr<Spec>(memory, memory, multiplexer, std::move(media_array), canard_node_id);
         if (transport == nullptr)
         {
             return MemoryError{};
@@ -88,15 +113,12 @@ public:
         return transport;
     }
 
-    TransportImpl(Tag,
-                  cetl::pmr::memory_resource& memory,
+    TransportImpl(cetl::pmr::memory_resource& memory,
                   IMultiplexer&               multiplexer,
-                  const std::size_t           media_count,
-                  const cetl::span<IMedia*>   media_interfaces,
-                  const std::size_t           tx_capacity,
+                  MediaArray&&                media_array,
                   const CanardNodeID          canard_node_id)
         : TransportDelegate{memory}
-        , media_array_{make_media_array(memory, tx_capacity, media_count, media_interfaces)}
+        , media_array_{std::move(media_array)}
     {
         // TODO: Use it!
         (void) multiplexer;
@@ -269,27 +291,6 @@ private:
 
     // MARK: Privates:
 
-    class Media final
-    {
-    public:
-        Media(const std::size_t _index, IMedia& _interface, const std::size_t tx_capacity)
-            : index{static_cast<std::uint8_t>(_index)}
-            , interface{_interface}
-            , canard_tx_queue{::canardTxInit(tx_capacity, _interface.getMtu())}
-        {
-        }
-        ~Media()                           = default;
-        Media(const Media&)                = delete;
-        Media(Media&&) noexcept            = default;
-        Media& operator=(const Media&)     = delete;
-        Media& operator=(Media&&) noexcept = delete;
-
-        const std::uint8_t index;
-        IMedia&            interface;
-        CanardTxQueue      canard_tx_queue;
-    };
-    using MediaArray = libcyphal::detail::VarArray<Media>;
-
     template <typename T, typename Reducer>
     CETL_NODISCARD T reduceMedia(const T init, Reducer reducer) const
     {
@@ -320,18 +321,24 @@ private:
                                        const cetl::span<IMedia*>   media_interfaces)
     {
         MediaArray media_array{media_count, &memory};
-        media_array.reserve(media_count);
 
-        std::size_t index = 0;
-        for (IMedia* const media_interface : media_interfaces)
+        // Reserve the space for the whole array (to avoid reallocations).
+        // Capacity will be less than requested in case of out of memory.
+        media_array.reserve(media_count);
+        if (media_array.capacity() >= media_count)
         {
-            if (media_interface != nullptr)
+            std::size_t index = 0;
+            for (IMedia* const media_interface : media_interfaces)
             {
-                IMedia& media = *media_interface;
-                media_array.emplace_back(index++, media, tx_capacity);
+                if (media_interface != nullptr)
+                {
+                    IMedia& media = *media_interface;
+                    media_array.emplace_back(index++, media, tx_capacity);
+                }
             }
+            CETL_DEBUG_ASSERT(index == media_count, "");
+            CETL_DEBUG_ASSERT(media_array.size() == media_count, "");
         }
-        CETL_DEBUG_ASSERT(!media_array.empty() && (media_array.size() == media_count) && (index == media_count), "");
 
         return media_array;
     }

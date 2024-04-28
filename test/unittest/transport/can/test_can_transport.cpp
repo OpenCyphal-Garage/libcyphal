@@ -78,7 +78,23 @@ protected:
 
 // MARK: Tests:
 
-TEST_F(TestCanTransport, makeTransport_no_memory)
+TEST_F(TestCanTransport, makeTransport_no_memory_at_all)
+{
+    StrictMock<MemoryResourceMock> mr_mock{};
+    mr_mock.redirectExpectedCallsTo(mr_);
+
+    // Emulate that there is no memory at all (even for initial array of media).
+    EXPECT_CALL(mr_mock, do_allocate(_, _)).WillRepeatedly(Return(nullptr));
+#if (__cplusplus < CETL_CPP_STANDARD_17)
+    EXPECT_CALL(mr_mock, do_reallocate(nullptr, 0, _, _)).WillRepeatedly(Return(nullptr));
+#endif
+
+    std::array<IMedia*, 1> media_array{&media_mock_};
+    auto                   maybe_transport = can::makeTransport(mr_mock, mux_mock_, media_array, 0, {});
+    EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<MemoryError>(_)));
+}
+
+TEST_F(TestCanTransport, makeTransport_no_memory_for_impl)
 {
     StrictMock<MemoryResourceMock> mr_mock{};
     mr_mock.redirectExpectedCallsTo(mr_);
