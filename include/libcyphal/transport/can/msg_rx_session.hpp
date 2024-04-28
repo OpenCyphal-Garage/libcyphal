@@ -55,12 +55,12 @@ public:
         , subscription_{}
         , last_rx_transfer_{}
     {
-        const auto result = ::canardRxSubscribe(&delegate.canard_instance(),
-                                                CanardTransferKindMessage,
-                                                static_cast<CanardPortID>(params_.subject_id),
-                                                static_cast<std::size_t>(params_.extent_bytes),
-                                                CANARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC,
-                                                &subscription_);
+        const std::int8_t result = ::canardRxSubscribe(&delegate.canard_instance(),
+                                                       CanardTransferKindMessage,
+                                                       static_cast<CanardPortID>(params_.subject_id),
+                                                       static_cast<std::size_t>(params_.extent_bytes),
+                                                       CANARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC,
+                                                       &subscription_);
         (void) result;
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "New subscription supposed to be made.");

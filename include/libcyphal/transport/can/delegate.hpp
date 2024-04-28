@@ -89,7 +89,7 @@ public:
                 return 0;
             }
 
-            const auto bytes_to_copy = std::min(length_bytes, payload_size_ - offset_bytes);
+            const std::size_t bytes_to_copy = std::min(length_bytes, payload_size_ - offset_bytes);
             std::memmove(destination, static_cast<cetl::byte*>(buffer_) + offset_bytes, bytes_to_copy);
             return bytes_to_copy;
         }
@@ -199,7 +199,7 @@ private:
     ///
     CETL_NODISCARD static void* allocateMemoryForCanard(CanardInstance* ins, std::size_t amount)
     {
-        auto& self = getSelfFrom(ins);
+        TransportDelegate& self = getSelfFrom(ins);
 
         const std::size_t memory_size   = sizeof(CanardMemoryHeader) + amount;
         auto              memory_header = static_cast<CanardMemoryHeader*>(self.memory_.allocate(memory_size));
@@ -219,7 +219,7 @@ private:
     ///
     static void freeCanardMemory(CanardInstance* ins, void* pointer)
     {
-        auto& self = getSelfFrom(ins);
+        TransportDelegate& self = getSelfFrom(ins);
         self.freeCanardMemory(pointer);
     }
 
