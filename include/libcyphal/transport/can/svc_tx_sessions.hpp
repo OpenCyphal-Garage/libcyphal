@@ -61,6 +61,7 @@ public:
     SvcRequestTxSession(Tag, TransportDelegate& delegate, const RequestTxParams& params)
         : delegate_{delegate}
         , params_{params}
+        , send_timeout_{std::chrono::seconds{1}}
     {
     }
 
@@ -112,7 +113,7 @@ private:
 
     TransportDelegate&    delegate_;
     const RequestTxParams params_;
-    Duration              send_timeout_ = std::chrono::seconds{1};
+    Duration              send_timeout_;
 
 };  // SvcRequestTxSession
 
@@ -152,6 +153,7 @@ public:
     SvcResponseTxSession(Tag, TransportDelegate& delegate, const ResponseTxParams& params)
         : delegate_{delegate}
         , params_{params}
+        , send_timeout_{std::chrono::seconds{1}}
     {
     }
 
@@ -203,7 +205,7 @@ private:
 
     TransportDelegate&     delegate_;
     const ResponseTxParams params_;
-    Duration               send_timeout_ = std::chrono::seconds{1};
+    Duration               send_timeout_;
 
 };  // SvcResponseTxSession
 

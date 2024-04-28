@@ -137,9 +137,8 @@ private:
 
     // MARK: Data members:
 
-    TransportDelegate&    delegate_;
-    const MessageRxParams params_;
-
+    TransportDelegate&                delegate_;
+    const MessageRxParams             params_;
     CanardRxSubscription              subscription_;
     cetl::optional<MessageRxTransfer> last_rx_transfer_;
 
