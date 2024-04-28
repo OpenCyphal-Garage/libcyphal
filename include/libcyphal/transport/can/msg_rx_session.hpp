@@ -52,6 +52,8 @@ public:
     MessageRxSession(Tag, TransportDelegate& delegate, const MessageRxParams& params)
         : delegate_{delegate}
         , params_{params}
+        , subscription_{}
+        , last_rx_transfer_{}
     {
         const auto result = ::canardRxSubscribe(&delegate.canard_instance(),
                                                 CanardTransferKindMessage,
@@ -130,8 +132,8 @@ private:
     TransportDelegate&    delegate_;
     const MessageRxParams params_;
 
-    CanardRxSubscription              subscription_{};
-    cetl::optional<MessageRxTransfer> last_rx_transfer_{};
+    CanardRxSubscription              subscription_;
+    cetl::optional<MessageRxTransfer> last_rx_transfer_;
 
 };  // MessageRxSession
 
