@@ -128,7 +128,11 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_requests)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IRequestRxSession>>(std::move(maybe_session));
 
-    const auto timeout      = 200ms;
+    const auto params = session->getParams();
+    EXPECT_THAT(params.extent_bytes, extent_bytes);
+    EXPECT_THAT(params.service_id, 0x17B);
+
+    const auto timeout = 200ms;
     session->setTransferIdTimeout(timeout);
 
     {
