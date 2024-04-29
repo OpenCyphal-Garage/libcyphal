@@ -23,6 +23,8 @@ public:
     MediaMock()          = default;
     virtual ~MediaMock() = default;
 
+    MOCK_METHOD(std::size_t, getMtu, (), (const, noexcept, override));
+
 };  // MediaMock
 
 }  // namespace udp

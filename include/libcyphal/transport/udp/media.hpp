@@ -6,6 +6,8 @@
 #ifndef LIBCYPHAL_TRANSPORT_UDP_MEDIA_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_UDP_MEDIA_HPP_INCLUDED
 
+#include "libcyphal/types.hpp"
+
 namespace libcyphal
 {
 namespace transport
@@ -25,7 +27,12 @@ public:
     IMedia& operator=(const IMedia&)     = delete;
     IMedia& operator=(IMedia&&) noexcept = delete;
 
-    // TODO: Add methods here
+    /// @brief Get the maximum transmission unit (MTU) of the UDP media.
+    ///
+    /// This value may change arbitrarily at runtime. The transport implementation will query it before every
+    /// transmission on the port. This value has no effect on the reception pipeline as it can accept arbitrary MTU.
+    ///
+    CETL_NODISCARD virtual std::size_t getMtu() const noexcept = 0;
 
 protected:
     IMedia()  = default;

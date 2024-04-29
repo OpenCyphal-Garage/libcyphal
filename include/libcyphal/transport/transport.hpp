@@ -15,9 +15,20 @@ namespace libcyphal
 namespace transport
 {
 
+/// @brief Interface for a transport layer.
+///
 class ITransport : public IRunnable
 {
 public:
+    /// @brief Gets the protocol parameters.
+    ///
+    /// @return Almost the same parameters as they were passed to the corresponding transport layer factory.
+    ///         The only difference is that the `mtu_bytes` is calculated at run-time as current maximum for
+    ///         all media interfaces (see f.e. `can::IMedia::getMtu` method).
+    ///
+    /// @see can::IMedia::getMtu()
+    /// @see udp::IMedia::getMtu()
+    ///
     CETL_NODISCARD virtual ProtocolParams getProtocolParams() const noexcept = 0;
 
     /// @brief Gets the local node ID (if any).

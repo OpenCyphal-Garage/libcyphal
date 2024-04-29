@@ -26,7 +26,7 @@ namespace can
 namespace detail
 {
 
-/// @brief A template class to represent a service request/response RX session (both for server and sides).
+/// @brief A template class to represent a service request/response RX session (both for server and client sides).
 ///
 /// @tparam Interface_ Type of the session interface.
 ///                    Could be either `IRequestRxSession` or `IResponseRxSession`.

@@ -41,7 +41,7 @@ class TransportDelegate
 public:
     /// @brief RAII class to manage memory allocated by Canard library.
     ///
-    class CanardMemory final : public cetl::rtti_helper<CanardMemoryTypeIdType, ScatteredBuffer::Interface>
+    class CanardMemory final : public cetl::rtti_helper<CanardMemoryTypeIdType, ScatteredBuffer::Storage>
     {
     public:
         CanardMemory(TransportDelegate& delegate, void* const buffer, const std::size_t payload_size)
@@ -71,7 +71,7 @@ public:
         CanardMemory& operator=(const CanardMemory&)     = delete;
         CanardMemory& operator=(CanardMemory&&) noexcept = delete;
 
-        // MARK: ScatteredBuffer::Interface
+        // MARK: ScatteredBuffer::Storage
 
         CETL_NODISCARD std::size_t size() const noexcept final
         {
