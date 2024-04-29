@@ -6,7 +6,7 @@
 #ifndef LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
 
-#include <cetl/any.hpp>
+#include <cetl/unbounded_variant.hpp>
 
 #include <cstdint>
 
@@ -53,7 +53,7 @@ public:
         storage_ = std::move(other.storage_);
 
         other.interface_ = nullptr;
-        interface_       = cetl::any_cast<Interface>(&storage_);
+        interface_       = cetl::get_if<Interface>(&storage_);
     }
 
     /// @brief Accepts a Lizard-specific implementation of `Interface` and moves it into the internal storage.
@@ -61,7 +61,7 @@ public:
     template <typename T, typename = std::enable_if_t<std::is_base_of<Interface, T>::value>>
     explicit ScatteredBuffer(T&& source) noexcept
         : storage_(std::forward<T>(source))
-        , interface_{cetl::any_cast<Interface>(&storage_)}
+        , interface_{cetl::get_if<Interface>(&storage_)}
     {
     }
 
@@ -76,7 +76,7 @@ public:
         storage_ = std::move(other.storage_);
 
         other.interface_ = nullptr;
-        interface_       = cetl::any_cast<Interface>(&storage_);
+        interface_       = cetl::get_if<Interface>(&storage_);
 
         return *this;
     }
@@ -110,8 +110,8 @@ public:
     }
 
 private:
-    cetl::any<ImplementationFootprint, false, true> storage_;
-    const Interface*                                interface_ = nullptr;
+    cetl::unbounded_variant<ImplementationFootprint, false, true> storage_;
+    const Interface*                                              interface_ = nullptr;
 
 };  // ScatteredBuffer
 
