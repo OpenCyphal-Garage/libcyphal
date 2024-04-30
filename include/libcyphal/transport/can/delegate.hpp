@@ -30,7 +30,7 @@ namespace detail
 /// This internal transport delegate class serves the following purposes:
 /// 1. It provides memory management functions for the Canard library.
 /// 2. It provides a way to convert Canard error codes to `AnyError` type.
-/// 3. It provides interface to access the transport from various session classes.
+/// 3. It provides an interface to access the transport from various session classes.
 ///
 class TransportDelegate
 {
@@ -232,8 +232,8 @@ private:
 
 // MARK: -
 
-/// This internal session delegate class serves the following purpose: it provides interface
-/// to access a session from transport (by casting canard's `user_reference` member to this class).
+/// This internal session delegate class serves the following purpose: it provides an interface (aka gateway)
+/// to access RX session from transport (by casting canard's `user_reference` member to this class).
 ///
 class RxSessionDelegate
 {

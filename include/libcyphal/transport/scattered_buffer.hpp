@@ -6,7 +6,7 @@
 #ifndef LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
 
-#include <cetl/any.hpp>
+#include <cetl/unbounded_variant.hpp>
 
 #include <cstdint>
 
@@ -95,7 +95,7 @@ public:
         storage_variant_ = std::move(other.storage_variant_);
 
         other.storage_ = nullptr;
-        storage_       = cetl::any_cast<Storage>(&storage_variant_);
+        storage_       = cetl::get_if<Storage>(&storage_variant_);
     }
 
     /// @brief Constructs buffer by accepting a Lizard-specific implementation of `Storage`
@@ -107,7 +107,7 @@ public:
     template <typename AnyStorage, typename = std::enable_if_t<std::is_base_of<Storage, AnyStorage>::value>>
     explicit ScatteredBuffer(AnyStorage&& any_storage) noexcept
         : storage_variant_(std::forward<AnyStorage>(any_storage))
-        , storage_{cetl::any_cast<Storage>(&storage_variant_)}
+        , storage_{cetl::get_if<Storage>(&storage_variant_)}
     {
     }
 
@@ -125,7 +125,7 @@ public:
         storage_variant_ = std::move(other.storage_variant_);
 
         other.storage_ = nullptr;
-        storage_       = cetl::any_cast<Storage>(&storage_variant_);
+        storage_       = cetl::get_if<Storage>(&storage_variant_);
 
         return *this;
     }
@@ -166,8 +166,8 @@ public:
     }
 
 private:
-    cetl::any<StorageVariantFootprint, false, true> storage_variant_;
-    const Storage*                                  storage_;
+    cetl::unbounded_variant<StorageVariantFootprint, false, true> storage_variant_;
+    const Storage*                                                storage_;
 
 };  // ScatteredBuffer
 
