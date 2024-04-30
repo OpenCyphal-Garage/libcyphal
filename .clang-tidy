@@ -1,0 +1,31 @@
+Checks: >-
+  boost-*,
+  bugprone-*,
+  cert-*,
+  clang-analyzer-*,
+  cppcoreguidelines-*,
+  google-*,
+  hicpp-*,
+  llvm-*,
+  misc-*,
+  modernize-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -cppcoreguidelines-avoid-const-or-ref-data-members,
+  -google-readability-todo,
+  -readability-avoid-const-params-in-decls,
+  -readability-identifier-length,
+  -llvm-header-guard,
+  -llvm-include-order,
+  -*-use-trailing-return-type,
+  -*-named-parameter,
+CheckOptions:
+  - key:   readability-function-cognitive-complexity.Threshold
+    value: '90'
+  - key:   readability-magic-numbers.IgnoredIntegerValues
+    value: '1;2;3;4;5;8;10;16;20;32;60;64;100;128;256;500;512;1000'
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*\.hpp'
+AnalyzeTemporaryDtors: false
+FormatStyle: file

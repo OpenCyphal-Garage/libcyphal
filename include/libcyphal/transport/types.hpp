@@ -20,12 +20,12 @@ namespace transport
 ///
 using NodeId = std::uint16_t;
 
-/// @brief `PortId` is a 16-bit unsigned integer that represents a port (subject & service) in a Cyphal network.
+/// @brief `PortId` is a 16-bit unsigned integer that represents a port (subject or service) in a Cyphal network.
 ///
 using PortId = std::uint16_t;
 
-/// @brief `TransferId` is a 64-bit unsigned integer that represents a service transfer (request & response)
-/// in a Cyphal network.
+/// @brief TransferId is a 64-bit unsigned integer that represents a message
+/// or service transfer (request & response) in a Cyphal network.
 ///
 using TransferId = std::uint64_t;
 
