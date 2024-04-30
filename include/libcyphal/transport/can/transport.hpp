@@ -391,7 +391,7 @@ private:
                         CETL_DEBUG_ASSERT(out_subscription != nullptr, "Expected subscription.");
                         CETL_DEBUG_ASSERT(out_subscription->user_reference != nullptr, "Expected session delegate.");
 
-                        const auto delegate = static_cast<RxSessionDelegate*>(out_subscription->user_reference);
+                        const auto delegate = static_cast<IRxSessionDelegate*>(out_subscription->user_reference);
                         delegate->acceptRxTransfer(out_transfer);
                     }
                 }

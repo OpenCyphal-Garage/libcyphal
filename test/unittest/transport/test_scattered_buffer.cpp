@@ -21,7 +21,7 @@ using testing::StrictMock;
 using StorageWrapperTypeIdType =
     cetl::type_id_type<0x27, 0x7C, 0x35, 0x45, 0x56, 0x4C, 0x46, 0x17, 0x99, 0x3D, 0x27, 0xB1, 0x04, 0x3E, 0xCE, 0xBA>;
 
-class StorageMock : public ScatteredBuffer::Storage
+class StorageMock : public ScatteredBuffer::IStorage
 {
 public:
     MOCK_METHOD(void, moved, ());
@@ -30,7 +30,7 @@ public:
     MOCK_METHOD(std::size_t, size, (), (const, noexcept, override));
     MOCK_METHOD(std::size_t, copy, (const std::size_t, void* const, const std::size_t), (const, override));
 };
-class StorageWrapper final : public rtti_helper<StorageWrapperTypeIdType, ScatteredBuffer::Storage>
+class StorageWrapper final : public rtti_helper<StorageWrapperTypeIdType, ScatteredBuffer::IStorage>
 {
 public:
     explicit StorageWrapper(StorageMock* mock)

@@ -41,7 +41,7 @@ class TransportDelegate
 public:
     /// @brief RAII class to manage memory allocated by Canard library.
     ///
-    class CanardMemory final : public cetl::rtti_helper<CanardMemoryTypeIdType, ScatteredBuffer::Storage>
+    class CanardMemory final : public cetl::rtti_helper<CanardMemoryTypeIdType, ScatteredBuffer::IStorage>
     {
     public:
         CanardMemory(TransportDelegate& delegate, void* const buffer, const std::size_t payload_size)
@@ -235,23 +235,23 @@ private:
 /// This internal session delegate class serves the following purpose: it provides an interface (aka gateway)
 /// to access RX session from transport (by casting canard's `user_reference` member to this class).
 ///
-class RxSessionDelegate
+class IRxSessionDelegate
 {
 public:
-    RxSessionDelegate(const RxSessionDelegate&)                = delete;
-    RxSessionDelegate(RxSessionDelegate&&) noexcept            = delete;
-    RxSessionDelegate& operator=(const RxSessionDelegate&)     = delete;
-    RxSessionDelegate& operator=(RxSessionDelegate&&) noexcept = delete;
+    IRxSessionDelegate(const IRxSessionDelegate&)                = delete;
+    IRxSessionDelegate(IRxSessionDelegate&&) noexcept            = delete;
+    IRxSessionDelegate& operator=(const IRxSessionDelegate&)     = delete;
+    IRxSessionDelegate& operator=(IRxSessionDelegate&&) noexcept = delete;
 
     /// @brief Accepts a received transfer from the transport dedicated to this RX session.
     ///
     virtual void acceptRxTransfer(const CanardRxTransfer& transfer) = 0;
 
 protected:
-    RxSessionDelegate()  = default;
-    ~RxSessionDelegate() = default;
+    IRxSessionDelegate()  = default;
+    ~IRxSessionDelegate() = default;
 
-};  // RxSessionDelegate
+};  // IRxSessionDelegate
 
 }  // namespace detail
 }  // namespace can

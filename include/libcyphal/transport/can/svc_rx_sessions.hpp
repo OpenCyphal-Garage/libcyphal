@@ -36,7 +36,7 @@ namespace detail
 ///                      Could be either `CanardTransferKindRequest` or `CanardTransferKindResponse`.
 ///
 template <typename Interface_, typename Params, CanardTransferKind TransferKind>
-class SvcRxSession final : public Interface_, private RxSessionDelegate
+class SvcRxSession final : public Interface_, private IRxSessionDelegate
 {
     /// @brief Defines specification for making interface unique ptr.
     ///
@@ -84,7 +84,7 @@ public:
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "New subscription supposed to be made.");
 
-        subscription_.user_reference = static_cast<RxSessionDelegate*>(this);
+        subscription_.user_reference = static_cast<IRxSessionDelegate*>(this);
     }
 
     ~SvcRxSession() final
@@ -127,7 +127,7 @@ private:
         // Nothing to do here currently.
     }
 
-    // MARK: RxSessionDelegate
+    // MARK: IRxSessionDelegate
 
     void acceptRxTransfer(const CanardRxTransfer& transfer) final
     {

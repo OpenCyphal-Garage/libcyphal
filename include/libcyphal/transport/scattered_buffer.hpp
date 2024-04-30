@@ -23,7 +23,7 @@ namespace transport
 class ScatteredBuffer final
 {
     // 91C1B109-F90E-45BE-95CF-6ED02AC3FFAA
-    using StorageTypeIdType = cetl::
+    using IStorageTypeIdType = cetl::
         type_id_type<0x91, 0xC1, 0xB1, 0x09, 0xF9, 0x0E, 0x45, 0xBE, 0x95, 0xCF, 0x6E, 0xD0, 0x2A, 0xC3, 0xFF, 0xAA>;
 
 public:
@@ -35,18 +35,18 @@ public:
     ///
     /// @see ScatteredBuffer::ScatteredBuffer(AnyStorage&& any_storage)
     ///
-    class Storage : public cetl::rtti_helper<StorageTypeIdType>
+    class IStorage : public cetl::rtti_helper<IStorageTypeIdType>
     {
     public:
         // No copying, but move only!
-        Storage(const Storage&)            = delete;
-        Storage& operator=(const Storage&) = delete;
+        IStorage(const IStorage&)            = delete;
+        IStorage& operator=(const IStorage&) = delete;
 
         /// @brief Gets the total number of bytes stored in the buffer.
         ///
         /// The storage could be possibly scattered, but this is hidden from the user.
         ///
-        virtual std::size_t size() const noexcept = 0;
+        CETL_NODISCARD virtual std::size_t size() const noexcept = 0;
 
         /// @brief Copies a fragment of the specified size at the specified offset out of the storage.
         ///
@@ -59,17 +59,17 @@ public:
         /// @param length_bytes The number of bytes to copy.
         /// @return The number of bytes copied.
         ///
-        virtual std::size_t copy(const std::size_t offset_bytes,
-                                 void* const       destination,
-                                 const std::size_t length_bytes) const = 0;
+        CETL_NODISCARD virtual std::size_t copy(const std::size_t offset_bytes,
+                                                void* const       destination,
+                                                const std::size_t length_bytes) const = 0;
 
     protected:
-        Storage()                              = default;
-        ~Storage() override                    = default;
-        Storage(Storage&&) noexcept            = default;
-        Storage& operator=(Storage&&) noexcept = default;
+        IStorage()                               = default;
+        ~IStorage() override                     = default;
+        IStorage(IStorage&&) noexcept            = default;
+        IStorage& operator=(IStorage&&) noexcept = default;
 
-    };  // Storage
+    };  // IStorage
 
     /// @brief Default constructor of empty buffer with no storage attached.
     ///
@@ -95,19 +95,19 @@ public:
         storage_variant_ = std::move(other.storage_variant_);
 
         other.storage_ = nullptr;
-        storage_       = cetl::get_if<Storage>(&storage_variant_);
+        storage_       = cetl::get_if<IStorage>(&storage_variant_);
     }
 
-    /// @brief Constructs buffer by accepting a Lizard-specific implementation of `Storage`
+    /// @brief Constructs buffer by accepting a Lizard-specific implementation of `IStorage`
     ///        and moving it into the internal storage variant.
     ///
     /// @tparam AnyStorage The type of the storage implementation. Should fit into \ref StorageVariantFootprint.
     /// @param any_storage The storage to move into the buffer.
     ///
-    template <typename AnyStorage, typename = std::enable_if_t<std::is_base_of<Storage, AnyStorage>::value>>
+    template <typename AnyStorage, typename = std::enable_if_t<std::is_base_of<IStorage, AnyStorage>::value>>
     explicit ScatteredBuffer(AnyStorage&& any_storage) noexcept
         : storage_variant_(std::forward<AnyStorage>(any_storage))
-        , storage_{cetl::get_if<Storage>(&storage_variant_)}
+        , storage_{cetl::get_if<IStorage>(&storage_variant_)}
     {
     }
 
@@ -125,7 +125,7 @@ public:
         storage_variant_ = std::move(other.storage_variant_);
 
         other.storage_ = nullptr;
-        storage_       = cetl::get_if<Storage>(&storage_variant_);
+        storage_       = cetl::get_if<IStorage>(&storage_variant_);
 
         return *this;
     }
@@ -144,7 +144,7 @@ public:
     ///
     /// @return Returns zero if the buffer is moved away.
     ///
-    std::size_t size() const noexcept
+    CETL_NODISCARD std::size_t size() const noexcept
     {
         return storage_ ? storage_->size() : 0;
     }
@@ -160,14 +160,16 @@ public:
     /// @param length_bytes The number of bytes to copy.
     /// @return The number of bytes copied.
     ///
-    std::size_t copy(const std::size_t offset_bytes, void* const destination, const std::size_t length_bytes) const
+    CETL_NODISCARD std::size_t copy(const std::size_t offset_bytes,
+                                    void* const       destination,
+                                    const std::size_t length_bytes) const
     {
         return storage_ ? storage_->copy(offset_bytes, destination, length_bytes) : 0;
     }
 
 private:
     cetl::unbounded_variant<StorageVariantFootprint, false, true> storage_variant_;
-    const Storage*                                                storage_;
+    const IStorage*                                               storage_;
 
 };  // ScatteredBuffer
 

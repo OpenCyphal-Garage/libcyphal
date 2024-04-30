@@ -28,7 +28,7 @@ namespace detail
 
 /// @brief A class to represent a message subscriber RX session.
 ///
-class MessageRxSession final : public IMessageRxSession, private RxSessionDelegate
+class MessageRxSession final : public IMessageRxSession, private IRxSessionDelegate
 {
     /// @brief Defines specification for making interface unique ptr.
     ///
@@ -76,7 +76,7 @@ public:
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "New subscription supposed to be made.");
 
-        subscription_.user_reference = static_cast<RxSessionDelegate*>(this);
+        subscription_.user_reference = static_cast<IRxSessionDelegate*>(this);
     }
 
     ~MessageRxSession() final
@@ -119,7 +119,7 @@ private:
         // Nothing to do here currently.
     }
 
-    // MARK: RxSessionDelegate
+    // MARK: IRxSessionDelegate
 
     void acceptRxTransfer(const CanardRxTransfer& transfer) final
     {
