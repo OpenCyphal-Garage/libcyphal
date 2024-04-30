@@ -31,7 +31,7 @@ public:
     /// @brief Sets the timeout for a transmission.
     ///
     /// The value is added to the original transfer timestamp to determine its deadline.
-    /// Any transfer that exceeded this deadline would be dropped by the transport.
+    /// Any transfer that exceeded this deadline would be dropped.
     ///
     /// @param timeout - Positive duration for transmission timeout. Default value is 1 second.
     ///
