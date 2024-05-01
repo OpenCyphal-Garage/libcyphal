@@ -206,13 +206,14 @@ public:
                                                                  const CanardTransferMetadata& metadata,
                                                                  const PayloadFragments        payload_fragments) = 0;
 
-    /// @brief Triggers update of media filters.
+    /// @brief Triggers update of media filters due to a change of an RX subscription.
     ///
     /// Actual update will be done on next `run` of transport.
     ///
+    /// @param is_service `true` if called from a service subscription; `false` for a message one.
     /// @param is_subscription_added Indicates whether a new subscription was added; otherwise, it was removed.
     ///
-    virtual void triggerUpdateOfFilters(const bool is_subscription_added) noexcept = 0;
+    virtual void triggerUpdateOfFilters(const bool is_service, const bool is_subscription_added) noexcept = 0;
 
 protected:
     ~TransportDelegate() = default;

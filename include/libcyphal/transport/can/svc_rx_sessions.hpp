@@ -86,7 +86,7 @@ public:
 
         subscription_.user_reference = static_cast<IRxSessionDelegate*>(this);
 
-        delegate_.triggerUpdateOfFilters(true);
+        delegate_.triggerUpdateOfFilters(true, true);
     }
 
     ~SvcRxSession() final
@@ -95,7 +95,7 @@ public:
                               TransferKind,
                               static_cast<CanardPortID>(params_.service_id));
 
-        delegate_.triggerUpdateOfFilters(false);
+        delegate_.triggerUpdateOfFilters(true, false);
     }
 
 private:

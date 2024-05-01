@@ -139,8 +139,7 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
         });
         EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
             EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(filters[0].id, 0x2300);
-            EXPECT_THAT(filters[0].mask, 0x21FFF80);
+            EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
             return cetl::nullopt;
         });
 

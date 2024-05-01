@@ -126,7 +126,8 @@ public:
         : TransportDelegate{memory}
         , media_array_{std::move(media_array)}
         , should_reconfigure_filters_{false}
-        , total_number_of_subscriptions_{0}
+        , total_msg_subscriptions_{0}
+        , total_svc_subscriptions_{0}
     {
         // TODO: Use it!
         (void) multiplexer;
@@ -141,7 +142,8 @@ public:
             flushCanardTxQueue(media.canard_tx_queue);
         }
 
-        CETL_DEBUG_ASSERT(total_number_of_subscriptions_ == 0, "Sessions must be destroyed before transport.");
+        CETL_DEBUG_ASSERT(total_msg_subscriptions_ == 0, "Message sessions must be destroyed before transport.");
+        CETL_DEBUG_ASSERT(total_svc_subscriptions_ == 0, "Service sessions must be destroyed before transport.");
     }
 
 private:
@@ -177,6 +179,17 @@ private:
         }
 
         ins.node_id = static_cast<CanardNodeID>(node_id);
+
+        // We just became non-anonymous node, so we might need to reconfigure media filters
+        // in case we have at least one service RX subscription.
+        //
+        // @see runMediaFilters
+        //
+        if (total_svc_subscriptions_ > 0)
+        {
+            should_reconfigure_filters_ = true;
+        }
+
         return cetl::nullopt;
     }
 
@@ -300,18 +313,22 @@ private:
         return maybe_error;
     }
 
-    void triggerUpdateOfFilters(const bool is_subscription_added) noexcept final
+    void triggerUpdateOfFilters(const bool is_service, const bool is_subscription_added) noexcept final
     {
-        if (is_subscription_added)
-        {
-            ++total_number_of_subscriptions_;
-        }
-        else
-        {
-            // We are not going to allow negative number of subscriptions.
-            CETL_DEBUG_ASSERT(total_number_of_subscriptions_ > 0, "");
-            total_number_of_subscriptions_ -= std::min(static_cast<std::size_t>(1), total_number_of_subscriptions_);
-        }
+        auto safe_update = [](std::size_t& total, const bool increment) {
+            if (increment)
+            {
+                ++total;
+            }
+            else
+            {
+                // We are not going to allow negative number of total.
+                CETL_DEBUG_ASSERT(total > 0, "");
+                total -= std::min(static_cast<std::size_t>(1), total);
+            }
+        };
+        safe_update(is_service ? total_svc_subscriptions_ : total_msg_subscriptions_, is_subscription_added);
+
         should_reconfigure_filters_ = true;
     }
 
@@ -462,20 +479,23 @@ private:
         }  // for each media
     }
 
-    /// @brief Runs (if needed) reconfiguration of media filters based on the current subscriptions.
+    /// \brief Runs (if needed) reconfiguration of media filters based on the currently active subscriptions.
     ///
     /// Temporary allocates memory buffers for all filters, one per each active subscription (message or service).
     /// In case of redundant media, each media interface will be called with the same span of filters.
     /// In case of zero subscriptions, we still need to call media interfaces to clear their filters,
     /// through there will be no memory allocation for the empty buffer.
     ///
-    /// If \b whole process is successful, `should_reconfigure_filters_` will be reset to `false`,
-    /// so that next time the run won't do any job. But in case of any failure (memory allocation or media error),
-    /// the `should_reconfigure_filters_` will stay engaged (`true`), so that we will try again on next run.
+    /// @note Service RX subscriptions are not considered as active ones for \b anonymous nodes.
+    ///
+    /// @note If \b whole reconfiguration process was successful,
+    /// `should_reconfigure_filters_` will be reset to `false`, so that next time the run won't do any job.
+    /// But in case of any failure (memory allocation or media error),
+    /// `should_reconfigure_filters_` will stay engaged (`true`), so that we will try again on next run.
     ///
     void runMediaFilters()
     {
-        using RxSubscription = const CanardRxSubscription;
+        using RxSubscription     = const CanardRxSubscription;
         using RxSubscriptionTree = CanardConcreteTree<RxSubscription>;
 
         if (!should_reconfigure_filters_)
@@ -483,18 +503,24 @@ private:
             return;
         }
 
+        // Total "active" RX subscriptions depends on the local node ID. For anonymous nodes,
+        // we don't account for service subscriptions (b/c they don't work while being anonymous).
+        //
+        const CanardNodeID local_node_id     = canard_instance().node_id;
+        const auto         is_anonymous      = local_node_id > CANARD_NODE_ID_MAX;
+        const std::size_t  total_active_subs = total_msg_subscriptions_ + (is_anonymous ? 0 : total_svc_subscriptions_);
+
         // There is no memory allocation here yet - just empty span.
         //
         cetl::span<Filter>                  filters_span{};
-        libcyphal::detail::VarArray<Filter> filters{total_number_of_subscriptions_, &memory()};
-
-        if (total_number_of_subscriptions_ > 0)
+        libcyphal::detail::VarArray<Filter> filters{total_active_subs, &memory()};
+        if (total_active_subs > 0)
         {
             // Now we know that we have at least one active subscription,
             // so we need preallocate temp memory for total number of active subscriptions.
             //
-            filters.reserve(total_number_of_subscriptions_);
-            if (filters.capacity() < total_number_of_subscriptions_)
+            filters.reserve(total_active_subs);
+            if (filters.capacity() < total_active_subs)
             {
                 // This is out of memory situation. We will just leave this run,
                 // but `should_reconfigure_filters_` will stay engaged, so we will try again on next run.
@@ -502,19 +528,21 @@ private:
             }
 
             // `subs_count` counting is just for the sake of debug verification.
-            std::size_t subs_count = 0;
-
-            const auto msg_visitor = [&filters](RxSubscription& rx_subscription) {
-                const auto msb_flt = ::canardMakeFilterForSubject(rx_subscription.port_id);
-                filters.emplace_back(Filter{msb_flt.extended_can_id, msb_flt.extended_mask});
-            };
+            std::size_t            subs_count = 0;
             CanardTreeNode** const subs_trees = canard_instance().rx_subscriptions;
-            subs_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindMessage], msg_visitor);
+
+            if (total_msg_subscriptions_ > 0)
+            {
+                const auto msg_visitor = [&filters](RxSubscription& rx_subscription) {
+                    const auto msb_flt = ::canardMakeFilterForSubject(rx_subscription.port_id);
+                    filters.emplace_back(Filter{msb_flt.extended_can_id, msb_flt.extended_mask});
+                };
+                subs_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindMessage], msg_visitor);
+            }
 
             // No need to build service filters if we don't have a local node ID.
             //
-            const CanardNodeID local_node_id = canard_instance().node_id;
-            if (local_node_id <= CANARD_NODE_ID_MAX)
+            if ((total_svc_subscriptions_ > 0) && !is_anonymous)
             {
                 const auto svc_visitor = [&filters, local_node_id](RxSubscription& rx_subscription) {
                     const auto flt = ::canardMakeFilterForService(rx_subscription.port_id, local_node_id);
@@ -525,7 +553,7 @@ private:
             }
 
             (void) subs_count;
-            CETL_DEBUG_ASSERT(subs_count == total_number_of_subscriptions_, "");
+            CETL_DEBUG_ASSERT(subs_count == total_active_subs, "");
 
             filters_span = {filters.data(), filters.size()};
         }
@@ -553,7 +581,8 @@ private:
 
     MediaArray  media_array_;
     bool        should_reconfigure_filters_;
-    std::size_t total_number_of_subscriptions_;
+    std::size_t total_msg_subscriptions_;
+    std::size_t total_svc_subscriptions_;
 
 };  // TransportImpl
 

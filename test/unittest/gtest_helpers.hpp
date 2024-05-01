@@ -95,6 +95,18 @@ inline void PrintTo(const Priority priority, std::ostream* os)
     *os << names[static_cast<std::size_t>(priority)];
 }
 
+namespace can
+{
+
+inline void PrintTo(const Filter& filter, std::ostream* os)
+{
+    *os << std::uppercase << std::hex;
+    *os << "{id=0x" << std::setw(8) << std::setfill('0') << filter.id;
+    *os << ", mask=0x" << std::setw(8) << std::setfill('0') << filter.mask << "}";
+}
+
+}  // namespace can
+
 }  // namespace transport
 
 // MARK: - GTest Matchers:
@@ -382,6 +394,42 @@ inline testing::Matcher<const cetl::byte&> TailByteEq(TransferId transfer_id,
                                                       bool       is_toggle = true)
 {
     return TailByteMatcher(transfer_id, is_start, is_end, is_toggle);
+}
+
+class FilterMatcher
+{
+public:
+    using is_gtest_matcher = void;
+
+    explicit FilterMatcher(const Filter& filter)
+        : filter_{filter}
+    {
+    }
+
+    bool MatchAndExplain(const Filter& filter, std::ostream* os) const
+    {
+        if (os)
+        {
+            *os << testing::PrintToString(filter);
+        }
+        return filter.id == filter_.id && filter.mask == filter_.mask;
+    }
+    void DescribeTo(std::ostream* os) const
+    {
+        *os << testing::PrintToString(filter_);
+    }
+    void DescribeNegationTo(std::ostream* os) const
+    {
+        *os << "is NOT equal to ";
+        DescribeTo(os);
+    }
+
+private:
+    const Filter filter_;
+};
+inline testing::Matcher<const Filter&> FilterEq(Filter&& filter)
+{
+    return FilterMatcher(filter);
 }
 
 }  // namespace can
