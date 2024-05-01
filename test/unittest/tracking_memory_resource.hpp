@@ -1,6 +1,3 @@
-/// @file
-/// libcyphal common header.
-///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
 /// Copyright Amazon.com Inc. or its affiliates.
@@ -11,16 +8,31 @@
 
 #include <cetl/pmr/memory.hpp>
 
+#include <vector>
+#include <ostream>
+
 class TrackingMemoryResource final : public cetl::pmr::memory_resource
 {
 public:
-    std::size_t total_allocated_bytes = 0;
-    std::size_t total_deallocated_bytes = 0;
+    struct Allocation final
+    {
+        std::size_t size;
+        void*       pointer;
+
+        friend void PrintTo(const Allocation& alloc, std::ostream* os)
+        {
+            *os << "\n{ptr=0x" << std::hex << alloc.pointer << ", size=" << std::dec << alloc.size << "}";
+        }
+    };
+
+    std::vector<Allocation> allocations{};
+    std::size_t             total_allocated_bytes   = 0;
+    std::size_t             total_deallocated_bytes = 0;
 
 private:
     // MARK: cetl::pmr::memory_resource
 
-    void* do_allocate(std::size_t size_bytes, std::size_t alignment) override
+    void* do_allocate(std::size_t size_bytes, std::size_t alignment) final
     {
         if (alignment > alignof(std::max_align_t))
         {
@@ -30,22 +42,31 @@ private:
             return nullptr;
         }
 
+        auto ptr = std::malloc(size_bytes);
+
         total_allocated_bytes += size_bytes;
-        return std::malloc(size_bytes);
+        allocations.push_back({size_bytes, ptr});
+
+        return ptr;
     }
 
-    void do_deallocate(void* p, std::size_t size_bytes, std::size_t) override
+    void do_deallocate(void* ptr, std::size_t size_bytes, std::size_t) final
     {
+        auto prev_alloc = std::find_if(allocations.cbegin(), allocations.cend(), [ptr](const auto& alloc) {
+            return alloc.pointer == ptr;
+        });
+        if (prev_alloc != allocations.cend())
+        {
+            allocations.erase(prev_alloc);
+        }
         total_deallocated_bytes += size_bytes;
-        std::free(p);
+
+        std::free(ptr);
     }
 
 #if (__cplusplus < CETL_CPP_STANDARD_17)
 
-    void* do_reallocate(void*       ptr,
-                        std::size_t old_size_bytes,
-                        std::size_t new_size_bytes,
-                        std::size_t) override
+    void* do_reallocate(void* ptr, std::size_t old_size_bytes, std::size_t new_size_bytes, std::size_t) final
     {
         total_allocated_bytes -= old_size_bytes;
         total_allocated_bytes += new_size_bytes;
@@ -55,7 +76,7 @@ private:
 
 #endif
 
-    bool do_is_equal(const memory_resource& rhs) const noexcept override
+    bool do_is_equal(const memory_resource& rhs) const noexcept final
     {
         return (&rhs == this);
     }

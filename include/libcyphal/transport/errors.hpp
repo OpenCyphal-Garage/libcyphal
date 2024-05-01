@@ -33,7 +33,7 @@ struct PlatformError final
     std::uint32_t code;
 };
 
-struct SessionAlreadyExistsError final
+struct AlreadyExistsError final
 {};
 
 // TODO: Delete it when everything is implemented.
@@ -48,7 +48,7 @@ using AnyError = cetl::variant<StateError,
                                MemoryError,
                                CapacityError,
                                PlatformError,
-                               SessionAlreadyExistsError,
+                               AlreadyExistsError,
                                NotImplementedError>;
 
 /// @brief Defines any possible factory error at Cyphal transport layer.

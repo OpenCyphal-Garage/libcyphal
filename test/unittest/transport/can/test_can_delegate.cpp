@@ -19,8 +19,9 @@ using namespace libcyphal::transport::can;
 using testing::_;
 using testing::Eq;
 using testing::Each;
-using testing::IsNull;
 using testing::Return;
+using testing::IsNull;
+using testing::IsEmpty;
 using testing::Optional;
 using testing::StrictMock;
 using testing::ElementsAre;
@@ -29,8 +30,26 @@ using testing::VariantWith;
 class TestCanDelegate : public testing::Test
 {
 protected:
+    class TransportDelegateImpl final : public detail::TransportDelegate
+    {
+    public:
+        explicit TransportDelegateImpl(cetl::pmr::memory_resource& memory)
+            : detail::TransportDelegate{memory}
+        {
+        }
+        virtual ~TransportDelegateImpl() = default;
+
+        MOCK_METHOD((cetl::optional<AnyError>),
+                    sendTransfer,
+                    (const CanardMicrosecond       deadline,
+                     const CanardTransferMetadata& metadata,
+                     const void* const             payload,
+                     const std::size_t             payload_size));
+    };
+
     void TearDown() override
     {
+        EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_EQ(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
@@ -45,22 +64,22 @@ TEST_F(TestCanDelegate, CanardMemory_copy)
 {
     using CanardMemory = detail::TransportDelegate::CanardMemory;
 
-    detail::TransportDelegate delegate{mr_};
-    auto&                     canard_instance = delegate.canard_instance();
+    TransportDelegateImpl delegate{mr_};
+    auto&                 canard_instance = delegate.canard_instance();
 
     const auto payload = static_cast<char*>(canard_instance.memory_allocate(&canard_instance, 8));
     std::iota(payload, payload + 8, '0');
 
     const std::size_t  payload_size = 4;
     const CanardMemory canard_memory{delegate, payload, payload_size};
-    EXPECT_THAT(canard_memory.size(), Eq(payload_size));
+    EXPECT_THAT(canard_memory.size(), payload_size);
 
     // Ask exactly as payload
     {
         const std::size_t          ask_size = payload_size;
         std::array<char, ask_size> buffer{};
 
-        EXPECT_THAT(canard_memory.copy(0, buffer.data(), ask_size), Eq(ask_size));
+        EXPECT_THAT(canard_memory.copy(0, buffer.data(), ask_size), ask_size);
         EXPECT_THAT(buffer, ElementsAre('0', '1', '2', '3'));
     }
 
@@ -69,7 +88,7 @@ TEST_F(TestCanDelegate, CanardMemory_copy)
         const std::size_t                  ask_size = payload_size + 2;
         std::array<std::uint8_t, ask_size> buffer{};
 
-        EXPECT_THAT(canard_memory.copy(0, buffer.data(), ask_size), Eq(payload_size));
+        EXPECT_THAT(canard_memory.copy(0, buffer.data(), ask_size), payload_size);
         EXPECT_THAT(buffer, ElementsAre('0', '1', '2', '3', '\0', '\0'));
     }
 
@@ -78,24 +97,24 @@ TEST_F(TestCanDelegate, CanardMemory_copy)
         const std::size_t                  ask_size = payload_size - 2;
         std::array<std::uint8_t, ask_size> buffer{};
 
-        EXPECT_THAT(canard_memory.copy(0, buffer.data(), ask_size), Eq(ask_size));
+        EXPECT_THAT(canard_memory.copy(0, buffer.data(), ask_size), ask_size);
         EXPECT_THAT(buffer, ElementsAre('0', '1'));
 
-        EXPECT_THAT(canard_memory.copy(3, buffer.data(), buffer.size()), Eq(1));
+        EXPECT_THAT(canard_memory.copy(3, buffer.data(), buffer.size()), 1);
         EXPECT_THAT(buffer, ElementsAre('3', '1'));
 
-        EXPECT_THAT(canard_memory.copy(2, buffer.data(), ask_size), Eq(ask_size));
+        EXPECT_THAT(canard_memory.copy(2, buffer.data(), ask_size), ask_size);
         EXPECT_THAT(buffer, ElementsAre('2', '3'));
 
-        EXPECT_THAT(canard_memory.copy(payload_size, buffer.data(), ask_size), Eq(0));
+        EXPECT_THAT(canard_memory.copy(payload_size, buffer.data(), ask_size), 0);
         EXPECT_THAT(buffer, ElementsAre('2', '3'));
 
         // Ask nothing
-        EXPECT_THAT(canard_memory.copy(0, buffer.data(), 0), Eq(0));
+        EXPECT_THAT(canard_memory.copy(0, buffer.data(), 0), 0);
         EXPECT_THAT(buffer, ElementsAre('2', '3'));
 
         // No output buffer
-        EXPECT_THAT(canard_memory.copy(0, nullptr, 0), Eq(0));
+        EXPECT_THAT(canard_memory.copy(0, nullptr, 0), 0);
     }
 }
 
@@ -103,31 +122,31 @@ TEST_F(TestCanDelegate, CanardMemory_copy_on_moved)
 {
     using CanardMemory = detail::TransportDelegate::CanardMemory;
 
-    detail::TransportDelegate delegate{mr_};
-    auto&                     canard_instance = delegate.canard_instance();
+    TransportDelegateImpl delegate{mr_};
+    auto&                 canard_instance = delegate.canard_instance();
 
     const std::size_t payload_size = 4;
     const auto        payload = static_cast<char*>(canard_instance.memory_allocate(&canard_instance, payload_size));
     std::iota(payload, payload + payload_size, '0');
 
     CanardMemory old_canard_memory{delegate, payload, payload_size};
-    EXPECT_THAT(old_canard_memory.size(), Eq(payload_size));
+    EXPECT_THAT(old_canard_memory.size(), payload_size);
 
     CanardMemory new_canard_memory{std::move(old_canard_memory)};
-    EXPECT_THAT(old_canard_memory.size(), Eq(0));
-    EXPECT_THAT(new_canard_memory.size(), Eq(payload_size));
+    EXPECT_THAT(old_canard_memory.size(), 0);
+    EXPECT_THAT(new_canard_memory.size(), payload_size);
 
     // Try old one
     {
         std::array<char, payload_size> buffer{};
-        EXPECT_THAT(old_canard_memory.copy(0, buffer.data(), buffer.size()), Eq(0));
+        EXPECT_THAT(old_canard_memory.copy(0, buffer.data(), buffer.size()), 0);
         EXPECT_THAT(buffer, Each('\0'));
     }
 
     // Try new one
     {
         std::array<char, payload_size> buffer{};
-        EXPECT_THAT(new_canard_memory.copy(0, buffer.data(), buffer.size()), Eq(payload_size));
+        EXPECT_THAT(new_canard_memory.copy(0, buffer.data(), buffer.size()), payload_size);
         EXPECT_THAT(buffer, ElementsAre('0', '1', '2', '3'));
     }
 }
@@ -149,8 +168,8 @@ TEST_F(TestCanDelegate, canardMemoryAllocate_no_memory)
 {
     StrictMock<MemoryResourceMock> mr_mock{};
 
-    detail::TransportDelegate delegate{mr_mock};
-    auto&                     canard_instance = delegate.canard_instance();
+    TransportDelegateImpl delegate{mr_mock};
+    auto&                 canard_instance = delegate.canard_instance();
 
     // Emulate that there is no memory at all.
     EXPECT_CALL(mr_mock, do_allocate(_, _)).WillOnce(Return(nullptr));

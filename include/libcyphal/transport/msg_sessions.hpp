@@ -39,7 +39,7 @@ public:
 
 };  // IMessageRxSession
 
-class IMessageTxSession : public IRunnable
+class IMessageTxSession : public ITxSession
 {
 public:
     CETL_NODISCARD virtual MessageTxParams getParams() const noexcept = 0;

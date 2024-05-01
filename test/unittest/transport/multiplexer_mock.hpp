@@ -18,7 +18,7 @@ namespace transport
 class MultiplexerMock : public IMultiplexer
 {
 public:
-    MultiplexerMock() = default;
+    MultiplexerMock()          = default;
     virtual ~MultiplexerMock() = default;
 };
 

@@ -55,7 +55,7 @@ public:
     CETL_NODISCARD virtual RequestRxParams getParams() const noexcept = 0;
 };
 
-class IRequestTxSession : public ISession
+class IRequestTxSession : public ITxSession
 {
 public:
     CETL_NODISCARD virtual RequestTxParams getParams() const noexcept = 0;
@@ -76,7 +76,7 @@ public:
     CETL_NODISCARD virtual ResponseRxParams getParams() const noexcept = 0;
 };
 
-class IResponseTxSession : public ISession
+class IResponseTxSession : public ITxSession
 {
 public:
     CETL_NODISCARD virtual ResponseTxParams getParams() const noexcept = 0;

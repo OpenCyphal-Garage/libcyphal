@@ -33,13 +33,17 @@ struct RxMetadata final
     std::size_t payload_size;
 };
 
+/// @brief Defines interface to a custom CAN bus media implementation.
+///
+/// Implementation is supposed to be provided by an user of the library.
+///
 class IMedia
 {
 public:
-    IMedia(IMedia&&)                 = delete;
-    IMedia(const IMedia&)            = delete;
-    IMedia& operator=(IMedia&&)      = delete;
-    IMedia& operator=(const IMedia&) = delete;
+    IMedia(const IMedia&)                = delete;
+    IMedia(IMedia&&) noexcept            = delete;
+    IMedia& operator=(const IMedia&)     = delete;
+    IMedia& operator=(IMedia&&) noexcept = delete;
 
     /// @brief Get the maximum transmission unit (MTU) of the CAN bus.
     ///

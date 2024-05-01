@@ -19,6 +19,10 @@ namespace transport
 {
 namespace can
 {
+
+/// Internal implementation details of the CAN transport.
+/// Not supposed to be used directly by the users of the library.
+///
 namespace detail
 {
 class MessageRxSession final : public IMessageRxSession, private SessionDelegate
@@ -36,12 +40,7 @@ public:
     CETL_NODISCARD static Expected<UniquePtr<IMessageRxSession>, AnyError> make(TransportDelegate&     delegate,
                                                                                 const MessageRxParams& params)
     {
-        cetl::optional<AnyError> any_error{};
-        auto session = libcyphal::detail::makeUniquePtr<Tag>(delegate.memory(), Tag{}, delegate, params, any_error);
-        if (any_error.has_value())
-        {
-            return any_error.value();
-        }
+        auto session = libcyphal::detail::makeUniquePtr<Tag>(delegate.memory(), Tag{}, delegate, params);
         if (session == nullptr)
         {
             return MemoryError{};
@@ -50,49 +49,41 @@ public:
         return session;
     }
 
-    MessageRxSession(Tag,
-                     TransportDelegate&        delegate,
-                     const MessageRxParams&    params,
-                     cetl::optional<AnyError>& out_error)
+    MessageRxSession(Tag, TransportDelegate& delegate, const MessageRxParams& params)
         : delegate_{delegate}
         , params_{params}
+        , subscription_{}
+        , last_rx_transfer_{}
     {
-        const auto result = canardRxSubscribe(&delegate.canard_instance(),
-                                              CanardTransferKindMessage,
-                                              static_cast<CanardPortID>(params_.subject_id),
-                                              static_cast<size_t>(params_.extent_bytes),
-                                              CANARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC,
-                                              &subscription_);
-        if (result < 0)
-        {
-            out_error = TransportDelegate::anyErrorFromCanard(result);
-            return;
-        }
+        const std::int8_t result = ::canardRxSubscribe(&delegate.canard_instance(),
+                                                       CanardTransferKindMessage,
+                                                       static_cast<CanardPortID>(params_.subject_id),
+                                                       static_cast<std::size_t>(params_.extent_bytes),
+                                                       CANARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC,
+                                                       &subscription_);
+        (void) result;
+        CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "New subscription supposed to be made.");
 
-        is_subscribed_               = true;
         subscription_.user_reference = static_cast<SessionDelegate*>(this);
     }
 
-    ~MessageRxSession() override
+    ~MessageRxSession() final
     {
-        if (is_subscribed_)
-        {
-            canardRxUnsubscribe(&delegate_.canard_instance(),
-                                CanardTransferKindMessage,
-                                static_cast<CanardPortID>(params_.subject_id));
-        }
+        ::canardRxUnsubscribe(&delegate_.canard_instance(),
+                              CanardTransferKindMessage,
+                              static_cast<CanardPortID>(params_.subject_id));
     }
 
 private:
     // MARK: IMessageRxSession
 
-    CETL_NODISCARD MessageRxParams getParams() const noexcept override
+    CETL_NODISCARD MessageRxParams getParams() const noexcept final
     {
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<MessageRxTransfer> receive() override
+    CETL_NODISCARD cetl::optional<MessageRxTransfer> receive() final
     {
         cetl::optional<MessageRxTransfer> result{};
         result.swap(last_rx_transfer_);
@@ -101,7 +92,7 @@ private:
 
     // MARK: IRxSession
 
-    void setTransferIdTimeout(const Duration timeout) override
+    void setTransferIdTimeout(const Duration timeout) final
     {
         const auto timeout_us = std::chrono::duration_cast<std::chrono::microseconds>(timeout);
         if (timeout_us.count() > 0)
@@ -112,11 +103,14 @@ private:
 
     // MARK: IRunnable
 
-    void run(const TimePoint) override {}
+    void run(const TimePoint) final
+    {
+        // Nothing to do here currently.
+    }
 
     // MARK: SessionDelegate
 
-    void acceptRxTransfer(const CanardRxTransfer& transfer) override
+    void acceptRxTransfer(const CanardRxTransfer& transfer) final
     {
         const auto priority    = static_cast<Priority>(transfer.metadata.priority);
         const auto transfer_id = static_cast<TransferId>(transfer.metadata.transfer_id);
@@ -138,9 +132,8 @@ private:
     TransportDelegate&    delegate_;
     const MessageRxParams params_;
 
-    bool                              is_subscribed_{false};
-    CanardRxSubscription              subscription_{};
-    cetl::optional<MessageRxTransfer> last_rx_transfer_{};
+    CanardRxSubscription              subscription_;
+    cetl::optional<MessageRxTransfer> last_rx_transfer_;
 
 };  // MessageRxSession
 

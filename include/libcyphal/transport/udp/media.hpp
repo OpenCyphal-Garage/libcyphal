@@ -13,13 +13,17 @@ namespace transport
 namespace udp
 {
 
+/// @brief Defines interface to a custom UDP media implementation.
+///
+/// Implementation is supposed to be provided by an user of the library.
+///
 class IMedia
 {
 public:
-    IMedia(IMedia&&)                 = delete;
-    IMedia(const IMedia&)            = delete;
-    IMedia& operator=(IMedia&&)      = delete;
-    IMedia& operator=(const IMedia&) = delete;
+    IMedia(const IMedia&)                = delete;
+    IMedia(IMedia&&) noexcept            = delete;
+    IMedia& operator=(const IMedia&)     = delete;
+    IMedia& operator=(IMedia&&) noexcept = delete;
 
     // TODO: Add methods here
 

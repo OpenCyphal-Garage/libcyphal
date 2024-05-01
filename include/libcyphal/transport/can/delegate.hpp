@@ -19,9 +19,18 @@ namespace transport
 {
 namespace can
 {
+
+/// Internal implementation details of the CAN transport.
+/// Not supposed to be used directly by the users of the library.
+///
 namespace detail
 {
 
+/// This internal transport delegate class serves the following purposes:
+/// 1. It provides memory management functions for the Canard library.
+/// 2. It provides a way to convert Canard error codes to `AnyError` type.
+/// 3. It provides interface to access the transport from various session classes.
+///
 class TransportDelegate
 {
     // 1141F5C0-2E61-44BF-9F0E-FA1C518CD517
@@ -29,6 +38,8 @@ class TransportDelegate
         type_id_type<0x11, 0x41, 0xF5, 0xC0, 0x2E, 0x61, 0x44, 0xBF, 0x9F, 0x0E, 0xFA, 0x1C, 0x51, 0x8C, 0xD5, 0x17>;
 
 public:
+    /// @brief RAII class to manage memory allocated by Canard library.
+    ///
     class CanardMemory final : public cetl::rtti_helper<CanardMemoryTypeIdType, ScatteredBuffer::Interface>
     {
     public:
@@ -48,11 +59,11 @@ public:
         }
         CanardMemory(const CanardMemory&) = delete;
 
-        ~CanardMemory() override
+        ~CanardMemory() final
         {
             if (buffer_ != nullptr)
             {
-                delegate_.canardMemoryFree(buffer_);
+                delegate_.freeCanardMemory(buffer_);
             }
         }
 
@@ -61,14 +72,14 @@ public:
 
         // MARK: ScatteredBuffer::Interface
 
-        CETL_NODISCARD std::size_t size() const noexcept override
+        CETL_NODISCARD std::size_t size() const noexcept final
         {
             return payload_size_;
         }
 
         CETL_NODISCARD std::size_t copy(const std::size_t offset_bytes,
                                         void* const       destination,
-                                        const std::size_t length_bytes) const override
+                                        const std::size_t length_bytes) const final
         {
             CETL_DEBUG_ASSERT((destination != nullptr) || (length_bytes == 0),
                               "Destination could be null only with zero bytes ask.");
@@ -78,8 +89,8 @@ public:
                 return 0;
             }
 
-            const auto bytes_to_copy = std::min(length_bytes, payload_size_ - offset_bytes);
-            memcpy(destination, static_cast<cetl::byte*>(buffer_) + offset_bytes, bytes_to_copy);
+            const std::size_t bytes_to_copy = std::min(length_bytes, payload_size_ - offset_bytes);
+            std::memmove(destination, static_cast<cetl::byte*>(buffer_) + offset_bytes, bytes_to_copy);
             return bytes_to_copy;
         }
 
@@ -94,30 +105,30 @@ public:
 
     explicit TransportDelegate(cetl::pmr::memory_resource& memory)
         : memory_{memory}
-        , canard_instance_(canardInit(canardMemoryAllocate, canardMemoryFree))
+        , canard_instance_(::canardInit(allocateMemoryForCanard, freeCanardMemory))
     {
         canard_instance().user_reference = this;
     }
 
-    CETL_NODISCARD inline CanardInstance& canard_instance() noexcept
+    CETL_NODISCARD CanardInstance& canard_instance() noexcept
     {
         return canard_instance_;
     }
 
-    CETL_NODISCARD inline const CanardInstance& canard_instance() const noexcept
+    CETL_NODISCARD const CanardInstance& canard_instance() const noexcept
     {
         return canard_instance_;
     }
 
-    CETL_NODISCARD inline cetl::pmr::memory_resource& memory() const noexcept
+    CETL_NODISCARD cetl::pmr::memory_resource& memory() const noexcept
     {
         return memory_;
     }
 
-    static cetl::optional<AnyError> anyErrorFromCanard(const int8_t result)
+    static cetl::optional<AnyError> anyErrorFromCanard(const std::int32_t result)
     {
         // Canard error results are negative, so we need to negate them to get the error code.
-        const auto canard_error = static_cast<int8_t>(-result);
+        const auto canard_error = static_cast<std::int32_t>(-result);
 
         if (canard_error == CANARD_ERROR_INVALID_ARGUMENT)
         {
@@ -131,7 +142,9 @@ public:
         return {};
     }
 
-    void canardMemoryFree(void* const pointer)
+    /// @brief Releases memory allocated for canard (by previous `allocateMemoryForCanard` call).
+    ///
+    void freeCanardMemory(void* const pointer)
     {
         if (pointer == nullptr)
         {
@@ -144,6 +157,18 @@ public:
         memory_.deallocate(memory_header, memory_header->size);
     }
 
+    /// @brief Sends transfer to each media canard TX queue of the transport.
+    ///
+    /// Internal method which is in use by TX session implementations to delegate actual sending to transport.
+    ///
+    CETL_NODISCARD virtual cetl::optional<AnyError> sendTransfer(const CanardMicrosecond       deadline,
+                                                                 const CanardTransferMetadata& metadata,
+                                                                 const void* const             payload,
+                                                                 const std::size_t             payload_size) = 0;
+
+protected:
+    ~TransportDelegate() = default;
+
 private:
     // Until "canardMemFree must provide size" issue #216 is resolved,
     // we need to store the size of the memory allocated.
@@ -155,7 +180,11 @@ private:
         alignas(std::max_align_t) std::size_t size;
     };
 
-    CETL_NODISCARD static inline TransportDelegate& getSelfFrom(const CanardInstance* const ins)
+    /// @brief Converts Canard instance to the transport delegate.
+    ///
+    /// In use to bridge two worlds: canard library and transport entities.
+    ///
+    CETL_NODISCARD static TransportDelegate& getSelfFrom(const CanardInstance* const ins)
     {
         CETL_DEBUG_ASSERT(ins != nullptr, "Expected canard instance.");
         CETL_DEBUG_ASSERT(ins->user_reference != nullptr, "Expected `this` transport as user reference.");
@@ -163,9 +192,14 @@ private:
         return *static_cast<TransportDelegate*>(ins->user_reference);
     }
 
-    CETL_NODISCARD static void* canardMemoryAllocate(CanardInstance* ins, size_t amount)
+    /// @brief Allocates memory for canard instance.
+    ///
+    /// Implicitly stores the size of the allocated memory in the prepended `CanardMemoryHeader` struct,
+    /// so that it will possible later (at `freeCanardMemory`) restore the original size.
+    ///
+    CETL_NODISCARD static void* allocateMemoryForCanard(CanardInstance* ins, std::size_t amount)
     {
-        auto& self = getSelfFrom(ins);
+        TransportDelegate& self = getSelfFrom(ins);
 
         const std::size_t memory_size   = sizeof(CanardMemoryHeader) + amount;
         auto              memory_header = static_cast<CanardMemoryHeader*>(self.memory_.allocate(memory_size));
@@ -181,10 +215,12 @@ private:
         return ++memory_header;
     }
 
-    static void canardMemoryFree(CanardInstance* ins, void* pointer)
+    /// @brief Releases memory allocated for canard instance (by previous `allocateMemoryForCanard` call).
+    ///
+    static void freeCanardMemory(CanardInstance* ins, void* pointer)
     {
-        auto& self = getSelfFrom(ins);
-        self.canardMemoryFree(pointer);
+        TransportDelegate& self = getSelfFrom(ins);
+        self.freeCanardMemory(pointer);
     }
 
     // MARK: Data members:
@@ -194,14 +230,19 @@ private:
 
 };  // TransportDelegate
 
+/// This internal session delegate class serves the following purpose: it provides interface
+/// to access a session from transport (by casting canard's `user_reference` member to this class).
+///
 class SessionDelegate
 {
 public:
-    SessionDelegate(SessionDelegate&&)                 = delete;
-    SessionDelegate(const SessionDelegate&)            = delete;
-    SessionDelegate& operator=(SessionDelegate&&)      = delete;
-    SessionDelegate& operator=(const SessionDelegate&) = delete;
+    SessionDelegate(const SessionDelegate&)                = delete;
+    SessionDelegate(SessionDelegate&&) noexcept            = delete;
+    SessionDelegate& operator=(const SessionDelegate&)     = delete;
+    SessionDelegate& operator=(SessionDelegate&&) noexcept = delete;
 
+    /// @brief Accepts a received transfer from the transport dedicated to this RX session.
+    ///
     virtual void acceptRxTransfer(const CanardRxTransfer& transfer) = 0;
 
 protected:
