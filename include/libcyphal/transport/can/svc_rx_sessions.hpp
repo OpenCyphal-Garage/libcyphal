@@ -85,6 +85,8 @@ public:
         CETL_DEBUG_ASSERT(result > 0, "New subscription supposed to be made.");
 
         subscription_.user_reference = static_cast<IRxSessionDelegate*>(this);
+
+        delegate_.triggerUpdateOfFilters(true);
     }
 
     ~SvcRxSession() final
@@ -92,6 +94,8 @@ public:
         ::canardRxUnsubscribe(&delegate_.canard_instance(),
                               TransferKind,
                               static_cast<CanardPortID>(params_.service_id));
+
+        delegate_.triggerUpdateOfFilters(false);
     }
 
 private:

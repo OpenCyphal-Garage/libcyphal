@@ -125,6 +125,8 @@ public:
                   const CanardNodeID          canard_node_id)
         : TransportDelegate{memory}
         , media_array_{std::move(media_array)}
+        , should_reconfigure_filters_{false}
+        , total_number_of_subscriptions_{0}
     {
         // TODO: Use it!
         (void) multiplexer;
@@ -138,6 +140,8 @@ public:
         {
             flushCanardTxQueue(media.canard_tx_queue);
         }
+
+        CETL_DEBUG_ASSERT(total_number_of_subscriptions_ == 0, "Sessions must be destroyed before transport.");
     }
 
 private:
@@ -246,6 +250,7 @@ private:
     {
         runMediaTransmit(now);
         runMediaReceive();
+        runMediaFilters();
     }
 
     // MARK: TransportDelegate
@@ -293,6 +298,21 @@ private:
         }
 
         return maybe_error;
+    }
+
+    void triggerUpdateOfFilters(const bool is_subscription_added) noexcept final
+    {
+        if (is_subscription_added)
+        {
+            ++total_number_of_subscriptions_;
+        }
+        else
+        {
+            // We are not going to allow negative number of subscriptions.
+            CETL_DEBUG_ASSERT(total_number_of_subscriptions_ > 0, "");
+            total_number_of_subscriptions_ -= std::min(static_cast<std::size_t>(1), total_number_of_subscriptions_);
+        }
+        should_reconfigure_filters_ = true;
     }
 
     // MARK: Privates:
@@ -442,9 +462,98 @@ private:
         }  // for each media
     }
 
+    /// @brief Runs (if needed) reconfiguration of media filters based on the current subscriptions.
+    ///
+    /// Temporary allocates memory buffers for all filters, one per each active subscription (message or service).
+    /// In case of redundant media, each media interface will be called with the same span of filters.
+    /// In case of zero subscriptions, we still need to call media interfaces to clear their filters,
+    /// through there will be no memory allocation for the empty buffer.
+    ///
+    /// If \b whole process is successful, `should_reconfigure_filters_` will be reset to `false`,
+    /// so that next time the run won't do any job. But in case of any failure (memory allocation or media error),
+    /// the `should_reconfigure_filters_` will stay engaged (`true`), so that we will try again on next run.
+    ///
+    void runMediaFilters()
+    {
+        using RxSubscription = const CanardRxSubscription;
+        using RxSubscriptionTree = CanardConcreteTree<RxSubscription>;
+
+        if (!should_reconfigure_filters_)
+        {
+            return;
+        }
+
+        // There is no memory allocation here yet - just empty span.
+        //
+        cetl::span<Filter>                  filters_span{};
+        libcyphal::detail::VarArray<Filter> filters{total_number_of_subscriptions_, &memory()};
+
+        if (total_number_of_subscriptions_ > 0)
+        {
+            // Now we know that we have at least one active subscription,
+            // so we need preallocate temp memory for total number of active subscriptions.
+            //
+            filters.reserve(total_number_of_subscriptions_);
+            if (filters.capacity() < total_number_of_subscriptions_)
+            {
+                // This is out of memory situation. We will just leave this run,
+                // but `should_reconfigure_filters_` will stay engaged, so we will try again on next run.
+                return;
+            }
+
+            // `subs_count` counting is just for the sake of debug verification.
+            std::size_t subs_count = 0;
+
+            const auto msg_visitor = [&filters](RxSubscription& rx_subscription) {
+                const auto msb_flt = ::canardMakeFilterForSubject(rx_subscription.port_id);
+                filters.emplace_back(Filter{msb_flt.extended_can_id, msb_flt.extended_mask});
+            };
+            CanardTreeNode** const subs_trees = canard_instance().rx_subscriptions;
+            subs_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindMessage], msg_visitor);
+
+            // No need to build service filters if we don't have a local node ID.
+            //
+            const CanardNodeID local_node_id = canard_instance().node_id;
+            if (local_node_id <= CANARD_NODE_ID_MAX)
+            {
+                const auto svc_visitor = [&filters, local_node_id](RxSubscription& rx_subscription) {
+                    const auto flt = ::canardMakeFilterForService(rx_subscription.port_id, local_node_id);
+                    filters.emplace_back(Filter{flt.extended_can_id, flt.extended_mask});
+                };
+                subs_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindRequest], svc_visitor);
+                subs_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindResponse], svc_visitor);
+            }
+
+            (void) subs_count;
+            CETL_DEBUG_ASSERT(subs_count == total_number_of_subscriptions_, "");
+
+            filters_span = {filters.data(), filters.size()};
+        }
+
+        // Let know each media interface about the new filters (tracking the fact of possible media error).
+        //
+        bool was_error = false;
+        for (const Media& media : media_array_)
+        {
+            const cetl::optional<MediaError> maybe_error = media.interface.setFilters(filters_span);
+            if (maybe_error.has_value())
+            {
+                was_error = true;
+                // TODO: report error somehow.
+            }
+        }
+
+        if (!was_error)
+        {
+            should_reconfigure_filters_ = false;
+        }
+    }
+
     // MARK: Data members:
 
-    MediaArray media_array_;
+    MediaArray  media_array_;
+    bool        should_reconfigure_filters_;
+    std::size_t total_number_of_subscriptions_;
 
 };  // TransportImpl
 

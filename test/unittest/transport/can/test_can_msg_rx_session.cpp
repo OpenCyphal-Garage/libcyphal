@@ -28,6 +28,7 @@ using testing::_;
 using testing::Eq;
 using testing::Return;
 using testing::IsNull;
+using testing::SizeIs;
 using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
@@ -136,6 +137,12 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
             p[2] = b(0b111'01101);
             return RxMetadata{rx_timestamp, 0x0C'60'23'45, 3};
         });
+        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
+            EXPECT_THAT(now(), rx_timestamp + 10ms);
+            EXPECT_THAT(filters[0].id, 0x2300);
+            EXPECT_THAT(filters[0].mask, 0x21FFF80);
+            return cetl::nullopt;
+        });
 
         scheduler_.runNow(+10ms, [&] { transport->run(now()); });
         scheduler_.runNow(+10ms, [&] { session->run(now()); });
@@ -203,6 +210,23 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
         ASSERT_THAT(rx_transfer.payload.size(), buffer.size());
         EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
         EXPECT_THAT(buffer, ElementsAre('1', '2'));
+    }
+    {
+        SCOPED_TRACE("4-th iteration: unsubscribe @ 4s");
+
+        scheduler_.setNow(TimePoint{4s});
+        const auto reset_time = now();
+
+        EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+        EXPECT_CALL(media_mock_, setFilters(IsEmpty())).WillOnce([&](Filters) {
+            EXPECT_THAT(now(), reset_time + 10ms);
+            return cetl::nullopt;
+        });
+
+        session.reset();
+
+        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
     }
 }
 

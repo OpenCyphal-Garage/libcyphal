@@ -27,6 +27,7 @@ using testing::_;
 using testing::Eq;
 using testing::Return;
 using testing::IsNull;
+using testing::SizeIs;
 using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
@@ -479,6 +480,23 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
     const auto timeout = 200ms;
     session->setTransferIdTimeout(timeout);
 
+    {
+        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
+            EXPECT_THAT(now(), TimePoint{0s} + 10us);
+            EXPECT_THAT(filters[0].id, 0x25EC980);
+            EXPECT_THAT(filters[0].mask, 0x2FFFF80);
+            return cetl::nullopt;
+        });
+        EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
+            EXPECT_THAT(now(), TimePoint{0s} + 10us);
+            EXPECT_THAT(filters[0].id, 0x25EC980);
+            EXPECT_THAT(filters[0].mask, 0x2FFFF80);
+            return cetl::nullopt;
+        });
+
+        scheduler_.runNow(+10us, [&] { transport->run(now()); });
+    }
+
     const auto epoch = TimePoint{10s};
     scheduler_.setNow(epoch);
     const auto rx1_timestamp = epoch;
@@ -557,6 +575,29 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
     EXPECT_THAT(rx_transfer.payload.size(), buffer.size());
     EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
     EXPECT_THAT(buffer, ElementsAre('0', '1', '2', '3', '4', '5', '6', '7', '8', '9'));
+
+    {
+        SCOPED_TRACE("unsubscribe @ 99s");
+
+        scheduler_.setNow(TimePoint{99s});
+        const auto reset_time = now();
+
+        EXPECT_CALL(media_mock_, setFilters(IsEmpty())).WillOnce([&](Filters) {
+            EXPECT_THAT(now(), reset_time + 10ms);
+            return cetl::nullopt;
+        });
+        EXPECT_CALL(media_mock2, setFilters(IsEmpty())).WillOnce([&](Filters) {
+            EXPECT_THAT(now(), reset_time + 10ms);
+            return cetl::nullopt;
+        });
+        EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+        EXPECT_CALL(media_mock2, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+
+        session.reset();
+
+        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+    }
 }
 
 }  // namespace

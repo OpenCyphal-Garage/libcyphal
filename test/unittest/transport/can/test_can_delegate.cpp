@@ -44,6 +44,8 @@ protected:
                     (const libcyphal::TimePoint        deadline,
                      const CanardTransferMetadata&     metadata,
                      const PayloadFragments payload_fragments));
+
+        MOCK_METHOD(void, triggerUpdateOfFilters, (const bool is_subscription_added), (noexcept));
     };
 
     void TearDown() override
