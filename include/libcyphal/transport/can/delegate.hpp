@@ -71,7 +71,7 @@ public:
         CanardMemory& operator=(const CanardMemory&)     = delete;
         CanardMemory& operator=(CanardMemory&&) noexcept = delete;
 
-        // MARK: ScatteredBuffer::Storage
+        // MARK: ScatteredBuffer::IStorage
 
         CETL_NODISCARD std::size_t size() const noexcept final
         {
