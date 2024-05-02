@@ -13,6 +13,11 @@ project(libcyphal
         HOMEPAGE_URL https://github.com/OpenCyphal-Garage/libcyphal
 )
 
+if (NOT NO_CLANG_TIDY)
+    find_program(clang_tidy NAMES clang-tidy REQUIRED)
+    set(CMAKE_CXX_CLANG_TIDY "${clang_tidy}")
+endif ()
+
 add_subdirectory(test/unittest)
 add_subdirectory(docs)
 

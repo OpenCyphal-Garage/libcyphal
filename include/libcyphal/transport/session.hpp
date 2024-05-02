@@ -6,8 +6,9 @@
 #ifndef LIBCYPHAL_TRANSPORT_SESSION_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_SESSION_HPP_INCLUDED
 
-#include "libcyphal/runnable.hpp"
 #include "types.hpp"
+
+#include "libcyphal/runnable.hpp"
 
 namespace libcyphal
 {

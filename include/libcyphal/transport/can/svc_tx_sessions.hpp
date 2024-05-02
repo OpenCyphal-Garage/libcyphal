@@ -7,8 +7,9 @@
 #define LIBCYPHAL_TRANSPORT_CAN_SVC_TX_SESSIONS_HPP_INCLUDED
 
 #include "delegate.hpp"
-#include "libcyphal/transport/svc_sessions.hpp"
+
 #include "libcyphal/transport/contiguous_payload.hpp"
+#include "libcyphal/transport/svc_sessions.hpp"
 
 #include <canard.h>
 

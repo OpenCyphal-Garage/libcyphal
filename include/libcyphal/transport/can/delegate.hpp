@@ -6,9 +6,9 @@
 #ifndef LIBCYPHAL_TRANSPORT_CAN_DELEGATE_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_CAN_DELEGATE_HPP_INCLUDED
 
-#include <libcyphal/transport/types.hpp>
-#include <libcyphal/transport/errors.hpp>
-#include <libcyphal/transport/scattered_buffer.hpp>
+#include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/scattered_buffer.hpp"
+#include "libcyphal/transport/types.hpp"
 
 #include <canard.h>
 #include <cetl/rtti.hpp>
@@ -37,6 +37,7 @@ class TransportDelegate
 {
     // 1141F5C0-2E61-44BF-9F0E-FA1C518CD517
     using CanardMemoryTypeIdType = cetl::
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
         type_id_type<0x11, 0x41, 0xF5, 0xC0, 0x2E, 0x61, 0x44, 0xBF, 0x9F, 0x0E, 0xFA, 0x1C, 0x51, 0x8C, 0xD5, 0x17>;
 
 public:

@@ -6,9 +6,9 @@
 #ifndef LIBCYPHAL_TRANSPORT_CAN_MEDIA_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_CAN_MEDIA_HPP_INCLUDED
 
-#include "libcyphal/types.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/types.hpp"
+#include "libcyphal/types.hpp"
 
 namespace libcyphal
 {

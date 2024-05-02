@@ -5,15 +5,16 @@
 
 #include <libcyphal/transport/can/transport.hpp>
 
-#include "media_mock.hpp"
-#include "../multiplexer_mock.hpp"
 #include "../../gtest_helpers.hpp"
-#include "../../test_utilities.hpp"
 #include "../../memory_resource_mock.hpp"
-#include "../../virtual_time_scheduler.hpp"
+#include "../../test_utilities.hpp"
 #include "../../tracking_memory_resource.hpp"
+#include "../../virtual_time_scheduler.hpp"
+#include "../multiplexer_mock.hpp"
+#include "media_mock.hpp"
 
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 namespace
 {
@@ -22,21 +23,26 @@ using byte = cetl::byte;
 using namespace libcyphal;
 using namespace libcyphal::transport;
 using namespace libcyphal::transport::can;
-using namespace libcyphal::test_utilities;
+
+using libcyphal::test_utilities::b;
+using libcyphal::test_utilities::makeIotaArray;
+using libcyphal::test_utilities::makeSpansFrom;
 
 using testing::_;
 using testing::Eq;
 using testing::Return;
-using testing::IsNull;
 using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
-using testing::InSequence;
 using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
 
-using namespace std::chrono_literals;
+using std::chrono_literals::operator""s;
+using std::chrono_literals::operator""ms;
+using std::chrono_literals::operator""us;
+
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 class TestCanMsgTxSession : public testing::Test
 {
@@ -262,5 +268,7 @@ TEST_F(TestCanMsgTxSession, send_when_no_memory_for_contiguous_payload)
 
     scheduler_.runNow(+10ms, [&] { transport->run(scheduler_.now()); });
 }
+
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 }  // namespace

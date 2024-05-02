@@ -3,17 +3,18 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include "../../gtest_helpers.hpp"
+#include "../../memory_resource_mock.hpp"
+#include "../../test_utilities.hpp"
+#include "../../tracking_memory_resource.hpp"
+#include "../../virtual_time_scheduler.hpp"
+#include "../multiplexer_mock.hpp"
+#include "media_mock.hpp"
+
 #include <libcyphal/transport/can/transport.hpp>
 
-#include "media_mock.hpp"
-#include "../multiplexer_mock.hpp"
-#include "../../gtest_helpers.hpp"
-#include "../../test_utilities.hpp"
-#include "../../memory_resource_mock.hpp"
-#include "../../virtual_time_scheduler.hpp"
-#include "../../tracking_memory_resource.hpp"
-
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 namespace
 {
@@ -22,7 +23,8 @@ using byte = cetl::byte;
 using namespace libcyphal;
 using namespace libcyphal::transport;
 using namespace libcyphal::transport::can;
-using namespace libcyphal::test_utilities;
+
+using libcyphal::test_utilities::b;
 
 using testing::_;
 using testing::Eq;
@@ -276,7 +278,7 @@ TEST_F(TestCanSvcTxSessions, send_respose)
     session->setSendTimeout(timeout);
 
     const PayloadFragments        empty_payload{};
-    const ServiceTransferMetadata metadata{{0x66, send_time, Priority::Fast}, 13};
+    const ServiceTransferMetadata metadata{0x66, send_time, Priority::Fast, 13};
 
     auto maybe_error = session->send(metadata, empty_payload);
     EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
@@ -313,7 +315,7 @@ TEST_F(TestCanSvcTxSessions, send_respose_with_argument_error)
     auto session = cetl::get<UniquePtr<IResponseTxSession>>(std::move(maybe_session));
 
     const PayloadFragments  empty_payload{};
-    ServiceTransferMetadata metadata{{0x66, now(), Priority::Immediate}, 13};
+    ServiceTransferMetadata metadata{0x66, now(), Priority::Immediate, 13};
 
     // Should fail due to anonymous node.
     {

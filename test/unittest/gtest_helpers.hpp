@@ -9,8 +9,9 @@
 #include <libcyphal/types.hpp>
 #include <libcyphal/transport/types.hpp>
 
-#include <ostream>
 #include <gtest/gtest-printers.h>
+
+#include <ostream>
 
 // MARK: - GTest Printers:
 

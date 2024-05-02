@@ -3,13 +3,15 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include <libcyphal/transport/can/delegate.hpp>
-
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
 
-#include <numeric>
+#include <libcyphal/transport/can/delegate.hpp>
+
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
+#include <numeric>
 
 namespace
 {
@@ -26,6 +28,8 @@ using testing::Optional;
 using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
+
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 class TestCanDelegate : public testing::Test
 {
@@ -240,5 +244,7 @@ TEST_F(TestCanDelegate, CanardConcreteTree_visitCounting)
         EXPECT_THAT(names, IsEmpty());
     }
 }
+
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 }  // namespace

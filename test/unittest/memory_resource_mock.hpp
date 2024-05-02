@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_MEMORY_RESOURCE_MOCK_HPP_INCLUDED
 #define LIBCYPHAL_MEMORY_RESOURCE_MOCK_HPP_INCLUDED
 
+#include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pmr/memory.hpp>
 
 #include <gmock/gmock.h>

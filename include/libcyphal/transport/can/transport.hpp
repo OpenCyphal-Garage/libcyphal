@@ -6,14 +6,15 @@
 #ifndef LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_HPP_INCLUDED
 
-#include "media.hpp"
 #include "delegate.hpp"
+#include "media.hpp"
 #include "msg_rx_session.hpp"
 #include "msg_tx_session.hpp"
 #include "svc_rx_sessions.hpp"
 #include "svc_tx_sessions.hpp"
-#include "libcyphal/transport/transport.hpp"
+
 #include "libcyphal/transport/multiplexer.hpp"
+#include "libcyphal/transport/transport.hpp"
 
 #include <canard.h>
 

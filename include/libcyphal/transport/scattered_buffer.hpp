@@ -24,6 +24,7 @@ class ScatteredBuffer final
 {
     // 91C1B109-F90E-45BE-95CF-6ED02AC3FFAA
     using IStorageTypeIdType = cetl::
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
         type_id_type<0x91, 0xC1, 0xB1, 0x09, 0xF9, 0x0E, 0x45, 0xBE, 0x95, 0xCF, 0x6E, 0xD0, 0x2A, 0xC3, 0xFF, 0xAA>;
 
 public:
@@ -38,6 +39,8 @@ public:
     class IStorage : public cetl::rtti_helper<IStorageTypeIdType>
     {
     public:
+        ~IStorage() override = default;
+
         // No copying, but move only!
         IStorage(const IStorage&)            = delete;
         IStorage& operator=(const IStorage&) = delete;
@@ -65,7 +68,6 @@ public:
 
     protected:
         IStorage()                               = default;
-        ~IStorage() override                     = default;
         IStorage(IStorage&&) noexcept            = default;
         IStorage& operator=(IStorage&&) noexcept = default;
 
@@ -91,11 +93,10 @@ public:
     /// @param other The other buffer to move into.
     ///
     ScatteredBuffer(ScatteredBuffer&& other) noexcept
+        : storage_variant_(std::move(other.storage_variant_))
+        , storage_{cetl::get_if<IStorage>(&storage_variant_)}
     {
-        storage_variant_ = std::move(other.storage_variant_);
-
         other.storage_ = nullptr;
-        storage_       = cetl::get_if<IStorage>(&storage_variant_);
     }
 
     /// @brief Constructs buffer by accepting a Lizard-specific implementation of `IStorage`
@@ -146,7 +147,7 @@ public:
     ///
     CETL_NODISCARD std::size_t size() const noexcept
     {
-        return storage_ ? storage_->size() : 0;
+        return (storage_ != nullptr) ? storage_->size() : 0;
     }
 
     /// @brief Copies a fragment of the specified size at the specified offset out of the buffer.
@@ -164,7 +165,7 @@ public:
                                     void* const       destination,
                                     const std::size_t length_bytes) const
     {
-        return storage_ ? storage_->copy(offset_bytes, destination, length_bytes) : 0;
+        return (storage_ != nullptr) ? storage_->copy(offset_bytes, destination, length_bytes) : 0;
     }
 
 private:

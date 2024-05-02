@@ -3,19 +3,27 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include <libcyphal/transport/errors.hpp>
+#include <libcyphal/transport/udp/media.hpp>
 #include <libcyphal/transport/udp/transport.hpp>
 
-#include "media_mock.hpp"
-#include "../multiplexer_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
+#include "../multiplexer_mock.hpp"
+#include "media_mock.hpp"
 
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
+#include <array>
 
 namespace
 {
-using namespace libcyphal;
-using namespace libcyphal::transport;
-using namespace libcyphal::transport::udp;
+
+using libcyphal::transport::udp::IMedia;
+using libcyphal::transport::udp::MediaMock;
+using libcyphal::transport::MultiplexerMock;
+using libcyphal::transport::FactoryError;
+using libcyphal::transport::NotImplementedError;
 
 using testing::_;
 using testing::IsEmpty;
@@ -34,9 +42,11 @@ protected:
 
     // MARK: Data members:
 
+    // NOLINTBEGIN
     TrackingMemoryResource      mr_;
     StrictMock<MediaMock>       media_mock_{};
     StrictMock<MultiplexerMock> mux_mock_{};
+    // NOLINTEND
 };
 
 // MARK: Tests:

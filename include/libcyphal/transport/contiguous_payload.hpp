@@ -7,6 +7,7 @@
 #define LIBCYPHAL_TRANSPORT_CONTIGUOUS_PAYLOAD_HPP_INCLUDED
 
 #include "types.hpp"
+
 #include "libcyphal/types.hpp"
 
 namespace libcyphal
@@ -34,9 +35,6 @@ class ContiguousPayload final
 public:
     ContiguousPayload(cetl::pmr::memory_resource& mr, const PayloadFragments payload_fragments)
         : mr_{mr}
-        , payload_{nullptr}
-        , payload_size_{0}
-        , allocated_buffer_{nullptr}
     {
         using Fragment = cetl::span<const cetl::byte>;
 
@@ -63,6 +61,8 @@ public:
                 std::size_t offset = 0;
                 for (const Fragment frag : payload_fragments)
                 {
+                    // Next nolint is unavoidable: we need offset from the beginning of the buffer.
+                    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
                     std::memmove(&buffer[offset], frag.data(), frag.size());
                     offset += frag.size();
                 }
@@ -96,9 +96,9 @@ private:
     // MARK: Data members:
 
     cetl::pmr::memory_resource& mr_;
-    const cetl::byte*           payload_;
-    std::size_t                 payload_size_;
-    cetl::byte*                 allocated_buffer_;
+    const cetl::byte*           payload_{nullptr};
+    std::size_t                 payload_size_{0};
+    cetl::byte*                 allocated_buffer_{nullptr};
 
 };  // ContiguousBytes
 

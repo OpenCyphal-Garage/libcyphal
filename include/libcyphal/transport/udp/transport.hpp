@@ -7,8 +7,9 @@
 #define LIBCYPHAL_TRANSPORT_UDP_TRANSPORT_HPP_INCLUDED
 
 #include "media.hpp"
-#include "libcyphal/transport/transport.hpp"
+
 #include "libcyphal/transport/multiplexer.hpp"
+#include "libcyphal/transport/transport.hpp"
 
 #include <udpard.h>
 
@@ -46,7 +47,7 @@ public:
     TransportImpl(Spec,
                   cetl::pmr::memory_resource&            memory,
                   IMultiplexer&                          multiplexer,
-                  libcyphal::detail::VarArray<IMedia*>&& media_array,
+                  libcyphal::detail::VarArray<IMedia*>&& media_array, // NOLINT
                   const UdpardNodeID                     udpard_node_id)
     {
         // TODO: Use them!

@@ -3,17 +3,18 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include "../../gtest_helpers.hpp"
+#include "../../memory_resource_mock.hpp"
+#include "../../test_utilities.hpp"
+#include "../../tracking_memory_resource.hpp"
+#include "../../virtual_time_scheduler.hpp"
+#include "../multiplexer_mock.hpp"
+#include "media_mock.hpp"
+
 #include <libcyphal/transport/can/transport.hpp>
 
-#include "media_mock.hpp"
-#include "../multiplexer_mock.hpp"
-#include "../../gtest_helpers.hpp"
-#include "../../test_utilities.hpp"
-#include "../../memory_resource_mock.hpp"
-#include "../../virtual_time_scheduler.hpp"
-#include "../../tracking_memory_resource.hpp"
-
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 namespace
 {
@@ -22,7 +23,8 @@ using byte = cetl::byte;
 using namespace libcyphal;
 using namespace libcyphal::transport;
 using namespace libcyphal::transport::can;
-using namespace libcyphal::test_utilities;
+
+using libcyphal::test_utilities::b;
 
 using testing::_;
 using testing::Eq;

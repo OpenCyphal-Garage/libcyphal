@@ -7,6 +7,7 @@
 #define LIBCYPHAL_TRANSPORT_CAN_SVC_RX_SESSIONS_HPP_INCLUDED
 
 #include "delegate.hpp"
+
 #include "libcyphal/transport/svc_sessions.hpp"
 
 #include <canard.h>
@@ -140,7 +141,7 @@ private:
         const auto transfer_id    = static_cast<TransferId>(transfer.metadata.transfer_id);
         const auto timestamp      = TimePoint{std::chrono::microseconds{transfer.timestamp_usec}};
 
-        const ServiceTransferMetadata   meta{{transfer_id, timestamp, priority}, remote_node_id};
+        const ServiceTransferMetadata   meta{transfer_id, timestamp, priority, remote_node_id};
         TransportDelegate::CanardMemory canard_memory{delegate_, transfer.payload, transfer.payload_size};
 
         last_rx_transfer_.emplace(ServiceRxTransfer{meta, ScatteredBuffer{std::move(canard_memory)}});

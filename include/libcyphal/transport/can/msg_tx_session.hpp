@@ -7,8 +7,9 @@
 #define LIBCYPHAL_TRANSPORT_CAN_MSG_TX_SESSION_HPP_INCLUDED
 
 #include "delegate.hpp"
-#include "libcyphal/transport/msg_sessions.hpp"
+
 #include "libcyphal/transport/contiguous_payload.hpp"
+#include "libcyphal/transport/msg_sessions.hpp"
 
 #include <canard.h>
 

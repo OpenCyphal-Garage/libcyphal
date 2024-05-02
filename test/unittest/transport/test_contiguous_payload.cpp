@@ -3,21 +3,27 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include <libcyphal/transport/contiguous_payload.hpp>
-
-#include "../test_utilities.hpp"
 #include "../memory_resource_mock.hpp"
+#include "../test_utilities.hpp"
 #include "../tracking_memory_resource.hpp"
 
-#include <vector>
+#include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
+#include <libcyphal/transport/contiguous_payload.hpp>
+
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
+#include <array>
+#include <vector>
 
 namespace
 {
-using namespace libcyphal::test_utilities;
 
 using byte              = cetl::byte;
 using ContiguousPayload = libcyphal::transport::detail::ContiguousPayload;
+
+using libcyphal::test_utilities::b;
 
 using testing::_;
 using testing::IsNull;
@@ -38,7 +44,9 @@ protected:
 
     // MARK: Data members:
 
+    // NOLINTBEGIN
     TrackingMemoryResource mr_;
+    // NOLINTEND
 };
 
 // MARK: Tests:
@@ -54,7 +62,7 @@ TEST_F(TestContiguousPayload, ctor_data_size)
 
         EXPECT_THAT(payload.size(), 3);
         EXPECT_THAT(payload.data(), NotNull());
-        const std::vector<byte> v(payload.data(), payload.data() + payload.size());
+        const std::vector<byte> v(payload.data(), payload.data() + payload.size());  // NOLINT
         EXPECT_THAT(v, ElementsAre(b(1), b(2), b(3)));
     }
     EXPECT_THAT(mr_.total_allocated_bytes, 0);
@@ -70,7 +78,7 @@ TEST_F(TestContiguousPayload, ctor_data_size)
 
         EXPECT_THAT(payload.size(), 5);
         EXPECT_THAT(payload.data(), NotNull());
-        const std::vector<byte> v(payload.data(), payload.data() + payload.size());
+        const std::vector<byte> v(payload.data(), payload.data() + payload.size());  // NOLINT
         EXPECT_THAT(v, ElementsAre(b(1), b(2), b(3), b(4), b(5)));
     }
     EXPECT_THAT(mr_.total_allocated_bytes, 5);
@@ -119,7 +127,7 @@ TEST_F(TestContiguousPayload, ctor_no_alloc_for_single_non_empty_fragment)
 
     EXPECT_THAT(payload.size(), 3);
     EXPECT_THAT(payload.data(), data123.data());
-    const std::vector<byte> v(payload.data(), payload.data() + payload.size());
+    const std::vector<byte> v(payload.data(), payload.data() + payload.size());  // NOLINT
     EXPECT_THAT(v, ElementsAre(b(1), b(2), b(3)));
 }
 

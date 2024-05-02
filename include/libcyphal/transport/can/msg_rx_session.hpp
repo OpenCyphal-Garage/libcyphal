@@ -7,6 +7,7 @@
 #define LIBCYPHAL_TRANSPORT_CAN_MSG_RX_SESSION_HPP_INCLUDED
 
 #include "delegate.hpp"
+
 #include "libcyphal/transport/msg_sessions.hpp"
 
 #include <canard.h>
@@ -136,7 +137,7 @@ private:
                 ? cetl::nullopt
                 : cetl::make_optional<NodeId>(transfer.metadata.remote_node_id);
 
-        const MessageTransferMetadata   meta{{transfer_id, timestamp, priority}, publisher_node_id};
+        const MessageTransferMetadata   meta{transfer_id, timestamp, priority, publisher_node_id};
         TransportDelegate::CanardMemory canard_memory{delegate_, transfer.payload, transfer.payload_size};
 
         last_rx_transfer_.emplace(MessageRxTransfer{meta, ScatteredBuffer{std::move(canard_memory)}});
