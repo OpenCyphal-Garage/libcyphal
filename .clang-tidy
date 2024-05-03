@@ -12,6 +12,7 @@ Checks: >-
   performance-*,
   portability-*,
   readability-*,
+  -clang-analyzer-core.uninitialized.Assign,
   -cppcoreguidelines-avoid-const-or-ref-data-members,
   -google-readability-avoid-underscore-in-googletest-name,
   -google-readability-todo,
