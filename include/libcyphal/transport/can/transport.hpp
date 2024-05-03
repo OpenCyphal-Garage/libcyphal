@@ -53,7 +53,7 @@ class TransportImpl final : public ICanTransport, private TransportDelegate
 
     /// @brief Internal (private) storage of a media index, its interface and TX queue.
     ///
-    class Media final
+    struct Media final
     {
     public:
         Media(const std::size_t index, IMedia& interface, const std::size_t tx_capacity)
@@ -62,11 +62,6 @@ class TransportImpl final : public ICanTransport, private TransportDelegate
             , canard_tx_queue_{::canardTxInit(tx_capacity, interface.getMtu())}
         {
         }
-        ~Media()                           = default;
-        Media(const Media&)                = delete;
-        Media(Media&&) noexcept            = default;
-        Media& operator=(const Media&)     = delete;
-        Media& operator=(Media&&) noexcept = delete;
 
         std::uint8_t index() const
         {
@@ -118,7 +113,7 @@ public:
             return ArgumentError{};
         }
 
-        MediaArray media_array{make_media_array(memory, media_count, media, tx_capacity)};
+        const MediaArray media_array{make_media_array(memory, media_count, media, tx_capacity)};
         if (media_array.size() != media_count)
         {
             return MemoryError{};
@@ -126,12 +121,8 @@ public:
 
         const auto canard_node_id = static_cast<CanardNodeID>(local_node_id.value_or(CANARD_NODE_ID_UNSET));
 
-        auto transport = libcyphal::detail::makeUniquePtr<Spec>(memory,
-                                                                Spec{},
-                                                                memory,
-                                                                multiplexer,
-                                                                std::move(media_array),
-                                                                canard_node_id);
+        auto transport =
+            libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, memory, multiplexer, media_array, canard_node_id);
         if (transport == nullptr)
         {
             return MemoryError{};
@@ -143,7 +134,7 @@ public:
     TransportImpl(Spec,
                   cetl::pmr::memory_resource& memory,
                   IMultiplexer&               multiplexer,
-                  MediaArray&&                media_array,
+                  MediaArray                  media_array,
                   const CanardNodeID          canard_node_id)
         : TransportDelegate{memory}
         , media_array_{std::move(media_array)}

@@ -169,6 +169,7 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
 
         const auto maybe_rx_transfer = session->receive();
         ASSERT_THAT(maybe_rx_transfer, Optional(_));
+        // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
         const auto& rx_transfer = maybe_rx_transfer.value();
 
         EXPECT_THAT(rx_transfer.metadata.timestamp, rx_timestamp);
@@ -235,6 +236,7 @@ TEST_F(TestCanMsgRxSession, run_and_receive_one_anonymous_frame)
 
     const auto maybe_rx_transfer = session->receive();
     ASSERT_THAT(maybe_rx_transfer, Optional(_));
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     const auto& rx_transfer = maybe_rx_transfer.value();
 
     EXPECT_THAT(rx_transfer.metadata.timestamp, rx_timestamp);

@@ -18,6 +18,7 @@ Checks: >-
   -llvm-header-guard,
   -modernize-concat-nested-namespaces,
   -modernize-type-traits,
+  -modernize-use-constraints,
   -modernize-use-nodiscard,
   -readability-avoid-const-params-in-decls,
   -readability-identifier-length,

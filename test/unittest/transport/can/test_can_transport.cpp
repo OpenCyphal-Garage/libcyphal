@@ -604,6 +604,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
 
     const auto maybe_rx_transfer = session->receive();
     ASSERT_THAT(maybe_rx_transfer, Optional(_));
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     const auto& rx_transfer = maybe_rx_transfer.value();
 
     EXPECT_THAT(rx_transfer.metadata.timestamp, rx2_timestamp);
