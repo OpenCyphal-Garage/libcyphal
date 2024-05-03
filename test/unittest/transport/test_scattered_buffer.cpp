@@ -5,6 +5,8 @@
 
 #include <libcyphal/transport/scattered_buffer.hpp>
 
+#include <cetl/rtti.hpp>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -15,10 +17,8 @@
 
 namespace
 {
-using cetl::type_id_type;
-using cetl::rtti_helper;
 
-using ScatteredBuffer = libcyphal::transport::ScatteredBuffer;
+using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
 
 using testing::Return;
 using testing::StrictMock;
@@ -32,13 +32,13 @@ using StorageWrapperTypeIdType =
 class StorageMock : public ScatteredBuffer::IStorage
 {
 public:
-    MOCK_METHOD(void, moved, (), (noexcept)); // NOLINT(bugprone-exception-escape)
-    MOCK_METHOD(void, deinit, (), (noexcept)); // NOLINT(bugprone-exception-escape)
+    MOCK_METHOD(void, moved, (), (noexcept));   // NOLINT(bugprone-exception-escape)
+    MOCK_METHOD(void, deinit, (), (noexcept));  // NOLINT(bugprone-exception-escape)
 
-    MOCK_METHOD(std::size_t, size, (), (const, noexcept, override)); // NOLINT(bugprone-exception-escape)
+    MOCK_METHOD(std::size_t, size, (), (const, noexcept, override));  // NOLINT(bugprone-exception-escape)
     MOCK_METHOD(std::size_t, copy, (const std::size_t, void* const, const std::size_t), (const, override));
 };
-class StorageWrapper final : public rtti_helper<StorageWrapperTypeIdType, ScatteredBuffer::IStorage>
+class StorageWrapper final : public cetl::rtti_helper<StorageWrapperTypeIdType, ScatteredBuffer::IStorage>
 {
 public:
     explicit StorageWrapper(StorageMock* mock)

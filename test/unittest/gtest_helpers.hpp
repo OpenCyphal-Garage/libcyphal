@@ -6,9 +6,13 @@
 #ifndef LIBCYPHAL_GTEST_HELPERS_HPP
 #define LIBCYPHAL_GTEST_HELPERS_HPP
 
-#include <libcyphal/types.hpp>
+#include <libcyphal/transport/can/media.hpp>
 #include <libcyphal/transport/types.hpp>
+#include <libcyphal/types.hpp>
 
+#include <canard.h>
+
+#include <gmock/gmock.h>
 #include <gtest/gtest-printers.h>
 
 #include <ostream>

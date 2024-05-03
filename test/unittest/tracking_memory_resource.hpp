@@ -6,10 +6,11 @@
 #ifndef LIBCYPHAL_TRACKING_MEMORY_RESOURCE_HPP_INCLUDED
 #define LIBCYPHAL_TRACKING_MEMORY_RESOURCE_HPP_INCLUDED
 
+#include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pmr/memory.hpp>
 
-#include <vector>
 #include <ostream>
+#include <vector>
 
 class TrackingMemoryResource final : public cetl::pmr::memory_resource
 {

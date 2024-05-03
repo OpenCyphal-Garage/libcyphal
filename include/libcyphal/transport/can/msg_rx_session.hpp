@@ -65,7 +65,6 @@ public:
         : delegate_{delegate}
         , params_{params}
         , subscription_{}
-        , last_rx_transfer_{}
     {
         const std::int8_t result = ::canardRxSubscribe(&delegate.canard_instance(),
                                                        CanardTransferKindMessage,
@@ -81,6 +80,11 @@ public:
 
         delegate_.triggerUpdateOfFilters(false, true);
     }
+
+    MessageRxSession(const MessageRxSession&)                = delete;
+    MessageRxSession(MessageRxSession&&) noexcept            = delete;
+    MessageRxSession& operator=(const MessageRxSession&)     = delete;
+    MessageRxSession& operator=(MessageRxSession&&) noexcept = delete;
 
     ~MessageRxSession() final
     {

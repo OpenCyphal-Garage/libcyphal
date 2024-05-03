@@ -93,6 +93,8 @@ public:
             }
 
             const std::size_t bytes_to_copy = std::min(length_bytes, payload_size_ - offset_bytes);
+            // Next nolint is unavoidable: we need offset from the beginning of the buffer.
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             std::memmove(destination, static_cast<cetl::byte*>(buffer_) + offset_bytes, bytes_to_copy);
             return bytes_to_copy;
         }
@@ -137,6 +139,8 @@ public:
             std::size_t count = 1;
 
             count += visitCounting(node->lr[0], std::forward<Visitor>(visitor));
+            // Next nolint is unavoidable: this is integration with C code of Canard AVL trees.
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
             visitor(*reinterpret_cast<Node*>(node));
             count += visitCounting(node->lr[1], std::forward<Visitor>(visitor));
 
@@ -151,6 +155,11 @@ public:
     {
         canard_instance().user_reference = this;
     }
+
+    TransportDelegate(const TransportDelegate&)                = delete;
+    TransportDelegate(TransportDelegate&&) noexcept            = delete;
+    TransportDelegate& operator=(const TransportDelegate&)     = delete;
+    TransportDelegate& operator=(TransportDelegate&&) noexcept = delete;
 
     CETL_NODISCARD CanardInstance& canard_instance() noexcept
     {
@@ -170,7 +179,7 @@ public:
     static cetl::optional<AnyError> anyErrorFromCanard(const std::int32_t result)
     {
         // Canard error results are negative, so we need to negate them to get the error code.
-        const auto canard_error = static_cast<std::int32_t>(-result);
+        const std::int32_t canard_error = -result;
 
         if (canard_error == CANARD_ERROR_INVALID_ARGUMENT)
         {
@@ -193,7 +202,9 @@ public:
             return;
         }
 
-        auto memory_header = static_cast<CanardMemoryHeader*>(pointer);
+        auto* memory_header = static_cast<CanardMemoryHeader*>(pointer);
+        // Next nolint is unavoidable: this is integration with C code of Canard memory management.
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         --memory_header;
 
         memory_.deallocate(memory_header, memory_header->size);
@@ -252,7 +263,7 @@ private:
         TransportDelegate& self = getSelfFrom(ins);
 
         const std::size_t memory_size   = sizeof(CanardMemoryHeader) + amount;
-        auto              memory_header = static_cast<CanardMemoryHeader*>(self.memory_.allocate(memory_size));
+        auto*             memory_header = static_cast<CanardMemoryHeader*>(self.memory_.allocate(memory_size));
         if (memory_header == nullptr)
         {
             return nullptr;
@@ -262,6 +273,8 @@ private:
         // The size is used in `canardMemoryFree` to deallocate the memory.
         //
         memory_header->size = memory_size;
+        // Next nolint is unavoidable: this is integration with C code of Canard memory management.
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         return ++memory_header;
     }
 

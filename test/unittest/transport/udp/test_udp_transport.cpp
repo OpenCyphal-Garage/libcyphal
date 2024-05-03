@@ -3,13 +3,13 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include <libcyphal/transport/errors.hpp>
-#include <libcyphal/transport/udp/media.hpp>
-#include <libcyphal/transport/udp/transport.hpp>
-
 #include "../../tracking_memory_resource.hpp"
 #include "../multiplexer_mock.hpp"
 #include "media_mock.hpp"
+
+#include <libcyphal/transport/errors.hpp>
+#include <libcyphal/transport/udp/media.hpp>
+#include <libcyphal/transport/udp/transport.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -19,11 +19,7 @@
 namespace
 {
 
-using libcyphal::transport::udp::IMedia;
-using libcyphal::transport::udp::MediaMock;
-using libcyphal::transport::MultiplexerMock;
-using libcyphal::transport::FactoryError;
-using libcyphal::transport::NotImplementedError;
+using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
 
 using testing::_;
 using testing::IsEmpty;
@@ -44,8 +40,8 @@ protected:
 
     // NOLINTBEGIN
     TrackingMemoryResource      mr_;
-    StrictMock<MediaMock>       media_mock_{};
     StrictMock<MultiplexerMock> mux_mock_{};
+    StrictMock<udp::MediaMock>  media_mock_{};
     // NOLINTEND
 };
 
@@ -55,8 +51,8 @@ TEST_F(TestUpdTransport, makeTransport)
 {
     // Anonymous node
     {
-        std::array<IMedia*, 1> media_array{&media_mock_};
-        auto                   maybe_transport = makeTransport(mr_, mux_mock_, media_array, {});
+        std::array<udp::IMedia*, 1> media_array{&media_mock_};
+        auto                        maybe_transport = makeTransport(mr_, mux_mock_, media_array, {});
         EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<NotImplementedError>(_)));
     }
 }

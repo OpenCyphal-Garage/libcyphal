@@ -47,7 +47,7 @@ public:
     TransportImpl(Spec,
                   cetl::pmr::memory_resource&            memory,
                   IMultiplexer&                          multiplexer,
-                  libcyphal::detail::VarArray<IMedia*>&& media_array, // NOLINT
+                  libcyphal::detail::VarArray<IMedia*>&& media_array,  // NOLINT
                   const UdpardNodeID                     udpard_node_id)
     {
         // TODO: Use them!

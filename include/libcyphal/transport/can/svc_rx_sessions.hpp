@@ -73,7 +73,6 @@ public:
         : delegate_{delegate}
         , params_{params}
         , subscription_{}
-        , last_rx_transfer_{}
     {
         const int8_t result = ::canardRxSubscribe(&delegate.canard_instance(),
                                                   TransferKind,
@@ -89,6 +88,11 @@ public:
 
         delegate_.triggerUpdateOfFilters(true, true);
     }
+
+    SvcRxSession(const SvcRxSession&)                = delete;
+    SvcRxSession(SvcRxSession&&) noexcept            = delete;
+    SvcRxSession& operator=(const SvcRxSession&)     = delete;
+    SvcRxSession& operator=(SvcRxSession&&) noexcept = delete;
 
     ~SvcRxSession() final
     {

@@ -15,8 +15,9 @@
 
 namespace
 {
-using namespace libcyphal::transport;
-using namespace libcyphal::transport::can;
+
+using libcyphal::TimePoint;
+using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
 
 using testing::_;
 using testing::Eq;
@@ -62,7 +63,9 @@ protected:
 
     // MARK: Data members:
 
+    // NOLINTBEGIN
     TrackingMemoryResource mr_;
+    // NOLINTEND
 };
 
 // MARK: Tests:

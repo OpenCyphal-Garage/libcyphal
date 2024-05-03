@@ -20,9 +20,9 @@
 
 namespace
 {
-using namespace libcyphal;
-using namespace libcyphal::transport;
-using namespace libcyphal::transport::can;
+
+using libcyphal::TimePoint;
+using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
 
 using libcyphal::test_utilities::b;
 using libcyphal::test_utilities::makeIotaArray;
@@ -31,7 +31,6 @@ using libcyphal::test_utilities::makeSpansFrom;
 using testing::_;
 using testing::Eq;
 using testing::Return;
-using testing::IsNull;
 using testing::SizeIs;
 using testing::IsEmpty;
 using testing::NotNull;
@@ -42,7 +41,12 @@ using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
 
-using namespace std::chrono_literals;
+// https://github.com/llvm/llvm-project/issues/53444
+// NOLINTBEGIN(misc-unused-using-decls)
+using std::literals::chrono_literals::operator""s;
+using std::literals::chrono_literals::operator""ms;
+using std::literals::chrono_literals::operator""us;
+// NOLINTEND(misc-unused-using-decls)
 
 class TestCanTransport : public testing::Test
 {
@@ -64,9 +68,9 @@ protected:
         return scheduler_.now();
     }
 
-    CETL_NODISCARD UniquePtr<ICanTransport> makeTransport(cetl::pmr::memory_resource& mr,
-                                                          IMedia*                     extra_media = nullptr,
-                                                          const std::size_t           tx_capacity = 16)
+    UniquePtr<ICanTransport> makeTransport(cetl::pmr::memory_resource& mr,
+                                           IMedia*                     extra_media = nullptr,
+                                           const std::size_t           tx_capacity = 16)
     {
         std::array<IMedia*, 2> media_array{&media_mock_, extra_media};
 
@@ -77,10 +81,12 @@ protected:
 
     // MARK: Data members:
 
+    // NOLINTBEGIN
     VirtualTimeScheduler        scheduler_{};
     TrackingMemoryResource      mr_;
     StrictMock<MediaMock>       media_mock_{};
     StrictMock<MultiplexerMock> mux_mock_{};
+    // NOLINTEND
 };
 
 // MARK: Tests:

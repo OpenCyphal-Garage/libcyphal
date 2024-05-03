@@ -18,12 +18,11 @@
 
 namespace
 {
-using byte = cetl::byte;
 
-using namespace libcyphal;
-using namespace libcyphal::transport;
-using namespace libcyphal::transport::can;
+using libcyphal::TimePoint;
+using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
 
+using cetl::byte;
 using libcyphal::test_utilities::b;
 
 using testing::_;
@@ -38,7 +37,11 @@ using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
 
-using namespace std::chrono_literals;
+// https://github.com/llvm/llvm-project/issues/53444
+// NOLINTBEGIN(misc-unused-using-decls)
+using std::literals::chrono_literals::operator""s;
+using std::literals::chrono_literals::operator""ms;
+// NOLINTEND(misc-unused-using-decls)
 
 class TestCanSvcTxSessions : public testing::Test
 {
@@ -60,9 +63,9 @@ protected:
         return scheduler_.now();
     }
 
-    CETL_NODISCARD UniquePtr<ICanTransport> makeTransport(cetl::pmr::memory_resource& mr,
-                                                          const NodeId                local_node_id,
-                                                          const std::size_t           tx_capacity = 16)
+    UniquePtr<ICanTransport> makeTransport(cetl::pmr::memory_resource& mr,
+                                           const NodeId                local_node_id,
+                                           const std::size_t           tx_capacity = 16)
     {
         std::array<IMedia*, 1> media_array{&media_mock_};
 
@@ -77,10 +80,12 @@ protected:
 
     // MARK: Data members:
 
+    // NOLINTBEGIN
     VirtualTimeScheduler        scheduler_{};
     TrackingMemoryResource      mr_;
     StrictMock<MultiplexerMock> mux_mock_{};
     StrictMock<MediaMock>       media_mock_{};
+    // NOLINTEND
 };
 
 // MARK: Tests:
