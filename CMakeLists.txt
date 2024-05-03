@@ -13,9 +13,15 @@ project(libcyphal
         HOMEPAGE_URL https://github.com/OpenCyphal-Garage/libcyphal
 )
 
-if (NOT NO_CLANG_TIDY)
-    find_program(clang_tidy NAMES clang-tidy REQUIRED)
-    set(CMAKE_CXX_CLANG_TIDY "${clang_tidy}")
+# Use -DNO_STATIC_ANALYSIS=1 to suppress static analysis.
+# If not suppressed, the tools used here shall be available, otherwise the build will fail.
+if (NOT NO_STATIC_ANALYSIS)
+    # clang-tidy (separate config files per directory)
+    find_program(clang_tidy NAMES clang-tidy)
+    if (NOT clang_tidy)
+        message(FATAL_ERROR "Could not locate clang-tidy")
+    endif ()
+    message(STATUS "Using clang-tidy: ${clang_tidy}")
 endif ()
 
 add_subdirectory(test/unittest)

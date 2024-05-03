@@ -39,6 +39,11 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
         OUT_TEST_EXE_VARIABLE LOCAL_TEST_TARGET
         OUT_TEST_REPORT_VARIABLE LOCAL_TEST_REPORT
     )
+    set_target_properties(
+        ${LOCAL_TEST_LIB}
+        PROPERTIES
+        CXX_CLANG_TIDY "${clang_tidy}"
+    )
 
     list(APPEND ALL_TESTS_BUILD ${LOCAL_TEST_TARGET})
     list(APPEND ALL_TESTS_RUN ${LOCAL_TEST_REPORT})
