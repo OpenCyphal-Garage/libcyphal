@@ -18,10 +18,10 @@ using testing::Return;
 using testing::StrictMock;
 
 // Just random id: 277C3545-564C-4617-993D-27B1043ECEBA
-using TestTypeIdType =
+using StorageWrapperTypeIdType =
     cetl::type_id_type<0x27, 0x7C, 0x35, 0x45, 0x56, 0x4C, 0x46, 0x17, 0x99, 0x3D, 0x27, 0xB1, 0x04, 0x3E, 0xCE, 0xBA>;
 
-class InterfaceMock : public ScatteredBuffer::Interface
+class StorageMock : public ScatteredBuffer::IStorage
 {
 public:
     MOCK_METHOD(void, moved, ());
@@ -30,23 +30,23 @@ public:
     MOCK_METHOD(std::size_t, size, (), (const, noexcept, override));
     MOCK_METHOD(std::size_t, copy, (const std::size_t, void* const, const std::size_t), (const, override));
 };
-class InterfaceWrapper final : public rtti_helper<TestTypeIdType, ScatteredBuffer::Interface>
+class StorageWrapper final : public rtti_helper<StorageWrapperTypeIdType, ScatteredBuffer::IStorage>
 {
 public:
-    explicit InterfaceWrapper(InterfaceMock* mock)
+    explicit StorageWrapper(StorageMock* mock)
         : mock_{mock}
     {
     }
-    InterfaceWrapper(InterfaceWrapper&& other) noexcept
+    StorageWrapper(StorageWrapper&& other) noexcept
     {
         move_from(std::move(other));
     }
-    InterfaceWrapper& operator=(InterfaceWrapper&& other) noexcept
+    StorageWrapper& operator=(StorageWrapper&& other) noexcept
     {
         move_from(std::move(other));
         return *this;
     }
-    ~InterfaceWrapper() override
+    ~StorageWrapper() final
     {
         if (mock_ != nullptr)
         {
@@ -55,23 +55,23 @@ public:
         }
     }
 
-    // ScatteredBuffer::Interface
+    // ScatteredBuffer::Storage
 
-    CETL_NODISCARD std::size_t size() const noexcept override
+    std::size_t size() const noexcept final
     {
         return mock_ ? mock_->size() : 0;
     }
-    CETL_NODISCARD std::size_t copy(const std::size_t offset_bytes,
-                                    void* const       destination,
-                                    const std::size_t length_bytes) const override
+    std::size_t copy(const std::size_t offset_bytes,
+                     void* const       destination,
+                     const std::size_t length_bytes) const final
     {
         return mock_ ? mock_->copy(offset_bytes, destination, length_bytes) : 0;
     }
 
 private:
-    InterfaceMock* mock_ = nullptr;
+    StorageMock* mock_ = nullptr;
 
-    void move_from(InterfaceWrapper&& other)
+    void move_from(StorageWrapper&& other)
     {
         mock_       = other.mock_;
         other.mock_ = nullptr;
@@ -82,18 +82,18 @@ private:
         }
     }
 
-};  // InterfaceWrapper
+};  // StorageWrapper
 
 // MARK: Tests:
 
 TEST(TestScatteredBuffer, move_ctor_assign_size)
 {
-    StrictMock<InterfaceMock> interface_mock{};
-    EXPECT_CALL(interface_mock, deinit()).Times(1);
-    EXPECT_CALL(interface_mock, moved()).Times(1 + 2 + 2);
-    EXPECT_CALL(interface_mock, size()).Times(3).WillRepeatedly(Return(42));
+    StrictMock<StorageMock> storage_mock{};
+    EXPECT_CALL(storage_mock, deinit()).Times(1);
+    EXPECT_CALL(storage_mock, moved()).Times(1 + 2 + 2);
+    EXPECT_CALL(storage_mock, size()).Times(3).WillRepeatedly(Return(42));
     {
-        ScatteredBuffer src{InterfaceWrapper{&interface_mock}};  //< +1 move
+        ScatteredBuffer src{StorageWrapper{&storage_mock}};  //< +1 move
         EXPECT_THAT(src.size(), 42);
 
         ScatteredBuffer dst{std::move(src)};  //< +2 moves b/c of `cetl::any` specifics (via swap with tmp)
@@ -110,12 +110,12 @@ TEST(TestScatteredBuffer, copy_reset)
 {
     std::array<std::uint8_t, 16> test_dst{};
 
-    StrictMock<InterfaceMock> interface_mock{};
-    EXPECT_CALL(interface_mock, deinit()).Times(1);
-    EXPECT_CALL(interface_mock, moved()).Times(1);
-    EXPECT_CALL(interface_mock, copy(13, test_dst.data(), test_dst.size())).WillOnce(Return(7));
+    StrictMock<StorageMock> storage_mock{};
+    EXPECT_CALL(storage_mock, deinit()).Times(1);
+    EXPECT_CALL(storage_mock, moved()).Times(1);
+    EXPECT_CALL(storage_mock, copy(13, test_dst.data(), test_dst.size())).WillOnce(Return(7));
     {
-        ScatteredBuffer buffer{InterfaceWrapper{&interface_mock}};
+        ScatteredBuffer buffer{StorageWrapper{&storage_mock}};
 
         auto copied_bytes = buffer.copy(13, test_dst.data(), test_dst.size());
         EXPECT_THAT(copied_bytes, 7);

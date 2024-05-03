@@ -25,22 +25,33 @@ namespace can
 ///
 namespace detail
 {
-class MessageRxSession final : public IMessageRxSession, private SessionDelegate
+
+/// @brief A class to represent a message subscriber RX session.
+///
+class MessageRxSession final : public IMessageRxSession, private IRxSessionDelegate
 {
-    // In use to disable public construction.
-    // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
-    struct Tag
+    /// @brief Defines specification for making interface unique ptr.
+    ///
+    struct Spec
     {
-        explicit Tag()  = default;
         using Interface = IMessageRxSession;
         using Concrete  = MessageRxSession;
+
+        // In use to disable public construction.
+        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
+        explicit Spec() = default;
     };
 
 public:
     CETL_NODISCARD static Expected<UniquePtr<IMessageRxSession>, AnyError> make(TransportDelegate&     delegate,
                                                                                 const MessageRxParams& params)
     {
-        auto session = libcyphal::detail::makeUniquePtr<Tag>(delegate.memory(), Tag{}, delegate, params);
+        if (params.subject_id > CANARD_SUBJECT_ID_MAX)
+        {
+            return ArgumentError{};
+        }
+
+        auto session = libcyphal::detail::makeUniquePtr<Spec>(delegate.memory(), Spec{}, delegate, params);
         if (session == nullptr)
         {
             return MemoryError{};
@@ -49,7 +60,7 @@ public:
         return session;
     }
 
-    MessageRxSession(Tag, TransportDelegate& delegate, const MessageRxParams& params)
+    MessageRxSession(Spec, TransportDelegate& delegate, const MessageRxParams& params)
         : delegate_{delegate}
         , params_{params}
         , subscription_{}
@@ -65,14 +76,17 @@ public:
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "New subscription supposed to be made.");
 
-        subscription_.user_reference = static_cast<SessionDelegate*>(this);
+        subscription_.user_reference = static_cast<IRxSessionDelegate*>(this);
     }
 
     ~MessageRxSession() final
     {
-        ::canardRxUnsubscribe(&delegate_.canard_instance(),
-                              CanardTransferKindMessage,
-                              static_cast<CanardPortID>(params_.subject_id));
+        const int8_t result = ::canardRxUnsubscribe(&delegate_.canard_instance(),
+                                                    CanardTransferKindMessage,
+                                                    static_cast<CanardPortID>(params_.subject_id));
+        (void) result;
+        CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
+        CETL_DEBUG_ASSERT(result > 0, "Subscription supposed to be made at constructor.");
     }
 
 private:
@@ -108,7 +122,7 @@ private:
         // Nothing to do here currently.
     }
 
-    // MARK: SessionDelegate
+    // MARK: IRxSessionDelegate
 
     void acceptRxTransfer(const CanardRxTransfer& transfer) final
     {
@@ -129,9 +143,8 @@ private:
 
     // MARK: Data members:
 
-    TransportDelegate&    delegate_;
-    const MessageRxParams params_;
-
+    TransportDelegate&                delegate_;
+    const MessageRxParams             params_;
     CanardRxSubscription              subscription_;
     cetl::optional<MessageRxTransfer> last_rx_transfer_;
 

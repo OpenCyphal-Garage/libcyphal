@@ -10,6 +10,8 @@
 #include "delegate.hpp"
 #include "msg_rx_session.hpp"
 #include "msg_tx_session.hpp"
+#include "svc_rx_sessions.hpp"
+#include "svc_tx_sessions.hpp"
 #include "libcyphal/transport/transport.hpp"
 #include "libcyphal/transport/multiplexer.hpp"
 
@@ -42,12 +44,13 @@ class TransportImpl final : public ICanTransport, private TransportDelegate
     {
         using Interface = ICanTransport;
         using Concrete  = TransportImpl;
+
+        // In use to disable public construction.
+        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
+        explicit Spec() = default;
     };
 
     /// @brief Internal (private) storage of a media index, its interface and TX queue.
-    ///
-    /// B/c it's private, it also disables public construction of `TransportImpl`.
-    /// See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
     ///
     class Media final
     {
@@ -101,8 +104,12 @@ public:
 
         const auto canard_node_id = static_cast<CanardNodeID>(local_node_id.value_or(CANARD_NODE_ID_UNSET));
 
-        auto transport =
-            libcyphal::detail::makeUniquePtr<Spec>(memory, memory, multiplexer, std::move(media_array), canard_node_id);
+        auto transport = libcyphal::detail::makeUniquePtr<Spec>(memory,
+                                                                Spec{},
+                                                                memory,
+                                                                multiplexer,
+                                                                std::move(media_array),
+                                                                canard_node_id);
         if (transport == nullptr)
         {
             return MemoryError{};
@@ -111,7 +118,8 @@ public:
         return transport;
     }
 
-    TransportImpl(cetl::pmr::memory_resource& memory,
+    TransportImpl(Spec,
+                  cetl::pmr::memory_resource& memory,
                   IMultiplexer&               multiplexer,
                   MediaArray&&                media_array,
                   const CanardNodeID          canard_node_id)
@@ -181,8 +189,7 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
         const MessageRxParams& params) final
     {
-        const cetl::optional<AnyError> any_error =
-            ensureNewSessionFor(CanardTransferKindMessage, params.subject_id, CANARD_SUBJECT_ID_MAX);
+        const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindMessage, params.subject_id);
         if (any_error.has_value())
         {
             return any_error.value();
@@ -200,38 +207,37 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(
         const RequestRxParams& params) final
     {
-        const cetl::optional<AnyError> any_error =
-            ensureNewSessionFor(CanardTransferKindRequest, params.service_id, CANARD_SERVICE_ID_MAX);
+        const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindRequest, params.service_id);
         if (any_error.has_value())
         {
             return any_error.value();
         }
 
-        return NotImplementedError{};
+        return SvcRequestRxSession::make(asDelegate(), params);
     }
 
-    CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(const RequestTxParams&) final
+    CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(
+        const RequestTxParams& params) final
     {
-        return NotImplementedError{};
+        return SvcRequestTxSession::make(asDelegate(), params);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(
         const ResponseRxParams& params) final
     {
-        const cetl::optional<AnyError> any_error =
-            ensureNewSessionFor(CanardTransferKindResponse, params.service_id, CANARD_SERVICE_ID_MAX);
+        const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindResponse, params.service_id);
         if (any_error.has_value())
         {
             return any_error.value();
         }
 
-        return NotImplementedError{};
+        return SvcResponseRxSession::make(asDelegate(), params);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(
-        const ResponseTxParams&) final
+        const ResponseTxParams& params) final
     {
-        return NotImplementedError{};
+        return SvcResponseTxSession::make(asDelegate(), params);
     }
 
     // MARK: IRunnable
@@ -249,11 +255,22 @@ private:
         return *this;
     }
 
-    CETL_NODISCARD cetl::optional<AnyError> sendTransfer(const CanardMicrosecond       deadline,
+    CETL_NODISCARD cetl::optional<AnyError> sendTransfer(const TimePoint               deadline,
                                                          const CanardTransferMetadata& metadata,
-                                                         const void* const             payload,
-                                                         const std::size_t             payload_size) final
+                                                         const PayloadFragments        payload_fragments) final
     {
+        // libcanard currently does not support fragmented payloads (at `canardTxPush`).
+        // so we need to concatenate them when there are more than one non-empty fragment.
+        // See https://github.com/OpenCyphal/libcanard/issues/223
+        //
+        const transport::detail::ContiguousPayload payload{memory(), payload_fragments};
+        if ((payload.data() == nullptr) && (payload.size() > 0))
+        {
+            return MemoryError{};
+        }
+
+        const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(deadline.time_since_epoch());
+
         // TODO: Rework error handling strategy.
         //       Currently, we return the last error encountered, but we should consider all errors somehow.
         //
@@ -263,8 +280,12 @@ private:
         {
             media.canard_tx_queue.mtu_bytes = media.interface.getMtu();
 
-            const std::int32_t result =
-                ::canardTxPush(&media.canard_tx_queue, &canard_instance(), deadline, &metadata, payload_size, payload);
+            const std::int32_t result = ::canardTxPush(&media.canard_tx_queue,
+                                                       &canard_instance(),
+                                                       static_cast<CanardMicrosecond>(deadline_us.count()),
+                                                       &metadata,
+                                                       payload.size(),
+                                                       payload.data());
             if (result < 0)
             {
                 maybe_error = TransportDelegate::anyErrorFromCanard(result);
@@ -288,14 +309,8 @@ private:
     }
 
     CETL_NODISCARD cetl::optional<AnyError> ensureNewSessionFor(const CanardTransferKind transfer_kind,
-                                                                const PortId             port_id,
-                                                                const PortId             max_port_id) noexcept
+                                                                const PortId             port_id) noexcept
     {
-        if (port_id > max_port_id)
-        {
-            return ArgumentError{};
-        }
-
         const std::int8_t hasSubscription = ::canardRxHasSubscription(&canard_instance(), transfer_kind, port_id);
         CETL_DEBUG_ASSERT(hasSubscription >= 0, "There is no way currently to get an error here.");
         if (hasSubscription > 0)
@@ -376,7 +391,7 @@ private:
                         CETL_DEBUG_ASSERT(out_subscription != nullptr, "Expected subscription.");
                         CETL_DEBUG_ASSERT(out_subscription->user_reference != nullptr, "Expected session delegate.");
 
-                        const auto delegate = static_cast<SessionDelegate*>(out_subscription->user_reference);
+                        const auto delegate = static_cast<IRxSessionDelegate*>(out_subscription->user_reference);
                         delegate->acceptRxTransfer(out_transfer);
                     }
                 }

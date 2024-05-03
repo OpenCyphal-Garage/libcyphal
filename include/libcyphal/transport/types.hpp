@@ -20,12 +20,12 @@ namespace transport
 ///
 using NodeId = std::uint16_t;
 
-/// @brief `PortId` is a 16-bit unsigned integer that represents a port (subject & service) in a Cyphal network.
+/// @brief `PortId` is a 16-bit unsigned integer that represents a port (subject or service) in a Cyphal network.
 ///
 using PortId = std::uint16_t;
 
-/// @brief `TransferId` is a 64-bit unsigned integer that represents a service transfer (request & response)
-/// in a Cyphal network.
+/// @brief TransferId is a 64-bit unsigned integer that represents a message
+/// or service transfer (request & response) in a Cyphal network.
 ///
 using TransferId = std::uint64_t;
 
@@ -58,7 +58,7 @@ struct TransferMetadata
 // AUTOSAR A11-0-2 exception: we just enhance the base metadata with additional information.
 struct MessageTransferMetadata final : TransferMetadata
 {
-    MessageTransferMetadata(const TransferMetadata& transfer_metadata, cetl::optional<NodeId> _publisher_node_id)
+    MessageTransferMetadata(const TransferMetadata& transfer_metadata, const cetl::optional<NodeId>& _publisher_node_id)
         : TransferMetadata{transfer_metadata}
         , publisher_node_id{_publisher_node_id}
     {
@@ -70,6 +70,12 @@ struct MessageTransferMetadata final : TransferMetadata
 // AUTOSAR A11-0-2 exception: we just enhance the base metadata with additional information.
 struct ServiceTransferMetadata final : TransferMetadata
 {
+    ServiceTransferMetadata(const TransferMetadata& transfer_metadata, const NodeId _remote_node_id)
+        : TransferMetadata{transfer_metadata}
+        , remote_node_id{_remote_node_id}
+    {
+    }
+
     NodeId remote_node_id;
 };
 

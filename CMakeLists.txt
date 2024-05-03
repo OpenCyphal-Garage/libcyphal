@@ -62,7 +62,7 @@ if (${CMAKE_CXX_PLATFORM_ID} STREQUAL "Linux")
 endif()
 
 # Don't normalize deviance: if CMAKE_TOOLCHAIN_FILE is not set then provide
-# an initalized default to display in the status thus avoiding a warning about
+# an initialized default to display in the status thus avoiding a warning about
 # using an uninitialized variable.
 if (NOT CMAKE_TOOLCHAIN_FILE)
     set(LOCAL_CMAKE_TOOLCHAIN_FILE "(not set)")

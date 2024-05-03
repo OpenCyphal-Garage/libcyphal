@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_TRANSPORT_CAN_DELEGATE_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_CAN_DELEGATE_HPP_INCLUDED
 
+#include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/scattered_buffer.hpp>
 
@@ -29,7 +30,7 @@ namespace detail
 /// This internal transport delegate class serves the following purposes:
 /// 1. It provides memory management functions for the Canard library.
 /// 2. It provides a way to convert Canard error codes to `AnyError` type.
-/// 3. It provides interface to access the transport from various session classes.
+/// 3. It provides an interface to access the transport from various session classes.
 ///
 class TransportDelegate
 {
@@ -40,7 +41,7 @@ class TransportDelegate
 public:
     /// @brief RAII class to manage memory allocated by Canard library.
     ///
-    class CanardMemory final : public cetl::rtti_helper<CanardMemoryTypeIdType, ScatteredBuffer::Interface>
+    class CanardMemory final : public cetl::rtti_helper<CanardMemoryTypeIdType, ScatteredBuffer::IStorage>
     {
     public:
         CanardMemory(TransportDelegate& delegate, void* const buffer, const std::size_t payload_size)
@@ -70,7 +71,7 @@ public:
         CanardMemory& operator=(const CanardMemory&)     = delete;
         CanardMemory& operator=(CanardMemory&&) noexcept = delete;
 
-        // MARK: ScatteredBuffer::Interface
+        // MARK: ScatteredBuffer::IStorage
 
         CETL_NODISCARD std::size_t size() const noexcept final
         {
@@ -161,10 +162,9 @@ public:
     ///
     /// Internal method which is in use by TX session implementations to delegate actual sending to transport.
     ///
-    CETL_NODISCARD virtual cetl::optional<AnyError> sendTransfer(const CanardMicrosecond       deadline,
+    CETL_NODISCARD virtual cetl::optional<AnyError> sendTransfer(const TimePoint               deadline,
                                                                  const CanardTransferMetadata& metadata,
-                                                                 const void* const             payload,
-                                                                 const std::size_t             payload_size) = 0;
+                                                                 const PayloadFragments        payload_fragments) = 0;
 
 protected:
     ~TransportDelegate() = default;
@@ -230,26 +230,28 @@ private:
 
 };  // TransportDelegate
 
-/// This internal session delegate class serves the following purpose: it provides interface
-/// to access a session from transport (by casting canard's `user_reference` member to this class).
+// MARK: -
+
+/// This internal session delegate class serves the following purpose: it provides an interface (aka gateway)
+/// to access RX session from transport (by casting canard's `user_reference` member to this class).
 ///
-class SessionDelegate
+class IRxSessionDelegate
 {
 public:
-    SessionDelegate(const SessionDelegate&)                = delete;
-    SessionDelegate(SessionDelegate&&) noexcept            = delete;
-    SessionDelegate& operator=(const SessionDelegate&)     = delete;
-    SessionDelegate& operator=(SessionDelegate&&) noexcept = delete;
+    IRxSessionDelegate(const IRxSessionDelegate&)                = delete;
+    IRxSessionDelegate(IRxSessionDelegate&&) noexcept            = delete;
+    IRxSessionDelegate& operator=(const IRxSessionDelegate&)     = delete;
+    IRxSessionDelegate& operator=(IRxSessionDelegate&&) noexcept = delete;
 
     /// @brief Accepts a received transfer from the transport dedicated to this RX session.
     ///
     virtual void acceptRxTransfer(const CanardRxTransfer& transfer) = 0;
 
 protected:
-    SessionDelegate()  = default;
-    ~SessionDelegate() = default;
+    IRxSessionDelegate()  = default;
+    ~IRxSessionDelegate() = default;
 
-};  // SessionDelegate
+};  // IRxSessionDelegate
 
 }  // namespace detail
 }  // namespace can
