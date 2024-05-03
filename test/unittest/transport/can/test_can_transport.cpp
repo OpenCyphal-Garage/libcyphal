@@ -11,18 +11,32 @@
 #include "../multiplexer_mock.hpp"
 #include "media_mock.hpp"
 
+#include <canard.h>
+#include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/transport/can/media.hpp>
 #include <libcyphal/transport/can/transport.hpp>
+#include <libcyphal/transport/errors.hpp>
+#include <libcyphal/transport/msg_sessions.hpp>
+#include <libcyphal/transport/svc_sessions.hpp>
+#include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
+#include <string>
+#include <utility>
 
 namespace
 {
 
 using libcyphal::TimePoint;
+using libcyphal::UniquePtr;
 using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
 
 using libcyphal::test_utilities::b;
@@ -49,6 +63,8 @@ using std::literals::chrono_literals::operator""ms;
 using std::literals::chrono_literals::operator""us;
 // NOLINTEND(misc-unused-using-decls)
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+
 class TestCanTransport : public testing::Test
 {
 protected:
@@ -69,24 +85,24 @@ protected:
         return scheduler_.now();
     }
 
-    UniquePtr<ICanTransport> makeTransport(cetl::pmr::memory_resource& mr,
-                                           IMedia*                     extra_media = nullptr,
-                                           const std::size_t           tx_capacity = 16)
+    UniquePtr<can::ICanTransport> makeTransport(cetl::pmr::memory_resource& mr,
+                                                can::IMedia*                extra_media = nullptr,
+                                                const std::size_t           tx_capacity = 16)
     {
-        std::array<IMedia*, 2> media_array{&media_mock_, extra_media};
+        std::array<can::IMedia*, 2> media_array{&media_mock_, extra_media};
 
         auto maybe_transport = can::makeTransport(mr, mux_mock_, media_array, tx_capacity, {});
-        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
-        return cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
+        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
+        return cetl::get<UniquePtr<can::ICanTransport>>(std::move(maybe_transport));
     }
 
     // MARK: Data members:
 
     // NOLINTBEGIN
-    VirtualTimeScheduler        scheduler_{};
-    TrackingMemoryResource      mr_;
-    StrictMock<MediaMock>       media_mock_{};
-    StrictMock<MultiplexerMock> mux_mock_{};
+    libcyphal::VirtualTimeScheduler scheduler_{};
+    TrackingMemoryResource          mr_;
+    StrictMock<can::MediaMock>      media_mock_{};
+    StrictMock<MultiplexerMock>     mux_mock_{};
     // NOLINTEND
 };
 
@@ -103,8 +119,8 @@ TEST_F(TestCanTransport, makeTransport_no_memory_at_all)
     EXPECT_CALL(mr_mock, do_reallocate(nullptr, 0, _, _)).WillRepeatedly(Return(nullptr));
 #endif
 
-    std::array<IMedia*, 1> media_array{&media_mock_};
-    auto                   maybe_transport = can::makeTransport(mr_mock, mux_mock_, media_array, 0, {});
+    std::array<can::IMedia*, 1> media_array{&media_mock_};
+    auto                        maybe_transport = can::makeTransport(mr_mock, mux_mock_, media_array, 0, {});
     EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<MemoryError>(_)));
 }
 
@@ -116,15 +132,15 @@ TEST_F(TestCanTransport, makeTransport_no_memory_for_impl)
     // Emulate that there is no memory available for the transport.
     EXPECT_CALL(mr_mock, do_allocate(sizeof(can::detail::TransportImpl), _)).WillOnce(Return(nullptr));
 
-    std::array<IMedia*, 1> media_array{&media_mock_};
-    auto                   maybe_transport = can::makeTransport(mr_mock, mux_mock_, media_array, 0, {});
+    std::array<can::IMedia*, 1> media_array{&media_mock_};
+    auto                        maybe_transport = can::makeTransport(mr_mock, mux_mock_, media_array, 0, {});
     EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<MemoryError>(_)));
 }
 
 TEST_F(TestCanTransport, makeTransport_too_many_media)
 {
     // Canard use `std::uint8_t` as a media index, so 256+ media interfaces are not allowed.
-    std::array<IMedia*, std::numeric_limits<std::uint8_t>::max() + 1> media_array{};
+    std::array<can::IMedia*, std::numeric_limits<std::uint8_t>::max() + 1> media_array{};
     std::fill(media_array.begin(), media_array.end(), &media_mock_);
 
     auto maybe_transport = can::makeTransport(mr_, mux_mock_, media_array, 0, {});
@@ -135,11 +151,11 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
 {
     // Anonymous node
     {
-        std::array<IMedia*, 1> media_array{&media_mock_};
-        auto                   maybe_transport = can::makeTransport(mr_, mux_mock_, media_array, 0, {});
-        ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
+        std::array<can::IMedia*, 1> media_array{&media_mock_};
+        auto                        maybe_transport = can::makeTransport(mr_, mux_mock_, media_array, 0, {});
+        ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
 
-        auto transport = cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
+        auto transport = cetl::get<UniquePtr<can::ICanTransport>>(std::move(maybe_transport));
         EXPECT_THAT(transport->getLocalNodeId(), Eq(cetl::nullopt));
     }
 
@@ -147,33 +163,34 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
     {
         const auto node_id = cetl::make_optional(static_cast<NodeId>(42));
 
-        std::array<IMedia*, 1> media_array{&media_mock_};
-        auto                   maybe_transport = can::makeTransport(mr_, mux_mock_, media_array, 0, node_id);
-        ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
+        std::array<can::IMedia*, 1> media_array{&media_mock_};
+        auto                        maybe_transport = can::makeTransport(mr_, mux_mock_, media_array, 0, node_id);
+        ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
 
-        auto transport = cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
+        auto transport = cetl::get<UniquePtr<can::ICanTransport>>(std::move(maybe_transport));
         EXPECT_THAT(transport->getLocalNodeId(), Optional(42));
     }
 
     // Two media interfaces
     {
-        StrictMock<MediaMock> media_mock2;
+        StrictMock<can::MediaMock> media_mock2;
         EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_MAX));
 
-        std::array<IMedia*, 3> media_array{&media_mock_, nullptr, &media_mock2};
-        auto                   maybe_transport = can::makeTransport(mr_, mux_mock_, media_array, 0, {});
-        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
+        std::array<can::IMedia*, 3> media_array{&media_mock_, nullptr, &media_mock2};
+        auto                        maybe_transport = can::makeTransport(mr_, mux_mock_, media_array, 0, {});
+        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
     }
 
     // All 3 maximum number of media interfaces
     {
-        StrictMock<MediaMock> media_mock2{}, media_mock3{};
+        StrictMock<can::MediaMock> media_mock2{};
+        StrictMock<can::MediaMock> media_mock3{};
         EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_MAX));
         EXPECT_CALL(media_mock3, getMtu()).WillRepeatedly(Return(CANARD_MTU_MAX));
 
-        std::array<IMedia*, 3> media_array{&media_mock_, &media_mock2, &media_mock3};
-        auto                   maybe_transport = can::makeTransport(mr_, mux_mock_, media_array, 0, {});
-        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
+        std::array<can::IMedia*, 3> media_array{&media_mock_, &media_mock2, &media_mock3};
+        auto                        maybe_transport = can::makeTransport(mr_, mux_mock_, media_array, 0, {});
+        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
     }
 }
 
@@ -218,8 +235,8 @@ TEST_F(TestCanTransport, makeTransport_with_invalid_arguments)
     {
         const auto node_id = cetl::make_optional(static_cast<NodeId>(CANARD_NODE_ID_MAX + 1));
 
-        std::array<IMedia*, 1> media_array{&media_mock_};
-        const auto             maybe_transport = can::makeTransport(mr_, mux_mock_, media_array, 0, node_id);
+        std::array<can::IMedia*, 1> media_array{&media_mock_};
+        const auto                  maybe_transport = can::makeTransport(mr_, mux_mock_, media_array, 0, node_id);
         EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<ArgumentError>(_)));
     }
 
@@ -227,8 +244,8 @@ TEST_F(TestCanTransport, makeTransport_with_invalid_arguments)
     {
         const auto node_id = cetl::make_optional(static_cast<NodeId>(CANARD_NODE_ID_UNSET));
 
-        std::array<IMedia*, 1> media_array{&media_mock_};
-        const auto             maybe_transport = can::makeTransport(mr_, mux_mock_, media_array, 0, node_id);
+        std::array<can::IMedia*, 1> media_array{&media_mock_};
+        const auto                  maybe_transport = can::makeTransport(mr_, mux_mock_, media_array, 0, node_id);
         EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<ArgumentError>(_)));
     }
 
@@ -237,25 +254,25 @@ TEST_F(TestCanTransport, makeTransport_with_invalid_arguments)
         const NodeId too_big = static_cast<NodeId>(std::numeric_limits<CanardNodeID>::max()) + 1;
         const auto   node_id = cetl::make_optional(too_big);
 
-        std::array<IMedia*, 1> media_array{&media_mock_};
-        const auto             maybe_transport = can::makeTransport(mr_, mux_mock_, media_array, 0, node_id);
+        std::array<can::IMedia*, 1> media_array{&media_mock_};
+        const auto                  maybe_transport = can::makeTransport(mr_, mux_mock_, media_array, 0, node_id);
         EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<ArgumentError>(_)));
     }
 }
 
 TEST_F(TestCanTransport, getProtocolParams)
 {
-    StrictMock<MediaMock> media_mock2{};
+    StrictMock<can::MediaMock> media_mock2{};
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_MAX));
 
-    std::array<IMedia*, 2> media_array{&media_mock_, &media_mock2};
-    auto transport = cetl::get<UniquePtr<ICanTransport>>(can::makeTransport(mr_, mux_mock_, media_array, 0, {}));
+    std::array<can::IMedia*, 2> media_array{&media_mock_, &media_mock2};
+    auto transport = cetl::get<UniquePtr<can::ICanTransport>>(can::makeTransport(mr_, mux_mock_, media_array, 0, {}));
 
     EXPECT_CALL(media_mock_, getMtu()).WillRepeatedly(testing::Return(CANARD_MTU_CAN_FD));
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(testing::Return(CANARD_MTU_CAN_CLASSIC));
 
     auto params = transport->getProtocolParams();
-    EXPECT_THAT(params.transfer_id_modulo, 1 << CANARD_TRANSFER_ID_BIT_LENGTH);
+    EXPECT_THAT(params.transfer_id_modulo, static_cast<TransferId>(1) << CANARD_TRANSFER_ID_BIT_LENGTH);
     EXPECT_THAT(params.max_nodes, CANARD_NODE_ID_MAX + 1);
     EXPECT_THAT(params.mtu_bytes, CANARD_MTU_CAN_CLASSIC);
 
@@ -387,25 +404,25 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
     EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
 
     {
-        InSequence s;
+        const InSequence s;
 
         EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto payload) {
             EXPECT_THAT(now(), send_time + 10us);
             EXPECT_THAT(deadline, send_time + timeout);
-            EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45)));
-            EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
+            EXPECT_THAT(can_id, AllOf(can::SubjectOfCanIdEq(7), can::SourceNodeOfCanIdEq(0x45)));
+            EXPECT_THAT(can_id, AllOf(can::PriorityOfCanIdEq(metadata.priority), can::IsMessageCanId()));
 
-            auto tbm = TailByteEq(metadata.transfer_id, true, false);
+            auto tbm = can::TailByteEq(metadata.transfer_id, true, false);
             EXPECT_THAT(payload, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm));
             return true;
         });
         EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto payload) {
             EXPECT_THAT(now(), send_time + 10us);
             EXPECT_THAT(deadline, send_time + timeout);
-            EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45)));
-            EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
+            EXPECT_THAT(can_id, AllOf(can::SubjectOfCanIdEq(7), can::SourceNodeOfCanIdEq(0x45)));
+            EXPECT_THAT(can_id, AllOf(can::PriorityOfCanIdEq(metadata.priority), can::IsMessageCanId()));
 
-            auto tbm = TailByteEq(metadata.transfer_id, false, true, false);
+            auto tbm = can::TailByteEq(metadata.transfer_id, false, true, false);
             EXPECT_THAT(payload, ElementsAre(b('7'), _, _ /* CRC bytes */, tbm));
             return true;
         });
@@ -415,9 +432,10 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
     scheduler_.runNow(+10us, [&] { transport->run(now()); });
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
 {
-    StrictMock<MediaMock> media_mock2{};
+    StrictMock<can::MediaMock> media_mock2{};
     EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
     EXPECT_CALL(media_mock2, pop(_)).WillRepeatedly(Return(cetl::nullopt));
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
@@ -440,26 +458,26 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
     EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
 
     {
-        InSequence s;
+        const InSequence s;
 
-        auto expectMediaCalls = [&](MediaMock& media_mock, const std::string& ctx, TimePoint when) {
+        auto expectMediaCalls = [&](can::MediaMock& media_mock, const std::string& ctx, TimePoint when) {
             EXPECT_CALL(media_mock, push(_, _, _)).WillOnce([&, ctx, when](auto deadline, auto can_id, auto payload) {
                 EXPECT_THAT(now(), when) << ctx;
                 EXPECT_THAT(deadline, send_time + timeout) << ctx;
-                EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45))) << ctx;
-                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId())) << ctx;
+                EXPECT_THAT(can_id, AllOf(can::SubjectOfCanIdEq(7), can::SourceNodeOfCanIdEq(0x45))) << ctx;
+                EXPECT_THAT(can_id, AllOf(can::PriorityOfCanIdEq(metadata.priority), can::IsMessageCanId())) << ctx;
 
-                auto tbm = TailByteEq(metadata.transfer_id, true, false);
+                auto tbm = can::TailByteEq(metadata.transfer_id, true, false);
                 EXPECT_THAT(payload, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm)) << ctx;
                 return true;
             });
             EXPECT_CALL(media_mock, push(_, _, _)).WillOnce([&, ctx, when](auto deadline, auto can_id, auto payload) {
                 EXPECT_THAT(now(), when) << ctx;
                 EXPECT_THAT(deadline, send_time + timeout) << ctx;
-                EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45))) << ctx;
-                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId())) << ctx;
+                EXPECT_THAT(can_id, AllOf(can::SubjectOfCanIdEq(7), can::SourceNodeOfCanIdEq(0x45))) << ctx;
+                EXPECT_THAT(can_id, AllOf(can::PriorityOfCanIdEq(metadata.priority), can::IsMessageCanId())) << ctx;
 
-                auto tbm = TailByteEq(metadata.transfer_id, false, true, false);
+                auto tbm = can::TailByteEq(metadata.transfer_id, false, true, false);
                 EXPECT_THAT(payload, ElementsAre(b('7'), b('8'), b('9'), b(0x7D), b(0x61) /* CRC bytes */, tbm)) << ctx;
                 return true;
             });
@@ -481,9 +499,10 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
     scheduler_.runNow(+10us, [&] { transport->run(now()); });
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
 {
-    StrictMock<MediaMock> media_mock2{};
+    StrictMock<can::MediaMock> media_mock2{};
     EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
     EXPECT_CALL(media_mock2, pop(_)).WillRepeatedly(Return(cetl::nullopt));
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
@@ -504,14 +523,14 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
     session->setTransferIdTimeout(timeout);
 
     {
-        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
+        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](can::Filters filters) {
             EXPECT_THAT(now(), TimePoint{0s} + 10us);
-            EXPECT_THAT(filters, Contains(FilterEq({0x25EC980, 0x2FFFF80})));
+            EXPECT_THAT(filters, Contains(can::FilterEq({0x25EC980, 0x2FFFF80})));
             return cetl::nullopt;
         });
-        EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
+        EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce([&](can::Filters filters) {
             EXPECT_THAT(now(), TimePoint{0s} + 10us);
-            EXPECT_THAT(filters, Contains(FilterEq({0x25EC980, 0x2FFFF80})));
+            EXPECT_THAT(filters, Contains(can::FilterEq({0x25EC980, 0x2FFFF80})));
             return cetl::nullopt;
         });
 
@@ -523,7 +542,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
     const auto rx1_timestamp = epoch;
     const auto rx2_timestamp = epoch + 2 * timeout;
     {
-        InSequence seq;
+        const InSequence seq;
 
         // 1. Emulate that only one 1st frame came from the 1st media interface (@ rx1_timestamp+10ms)...
         //
@@ -538,7 +557,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
             p[5] = b('5');
             p[6] = b('6');
             p[7] = b(0b101'11101);
-            return RxMetadata{rx1_timestamp, 0b111'1'0'0'101111011'0010011'0110001, 8};
+            return can::RxMetadata{rx1_timestamp, 0b111'1'0'0'101111011'0010011'0110001, 8};
         });
         EXPECT_CALL(media_mock2, pop(_)).WillOnce([&](auto) {
             EXPECT_THAT(now(), rx1_timestamp + 10ms);
@@ -561,7 +580,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
             p[5] = b('5');
             p[6] = b('6');
             p[7] = b(0b101'11110);
-            return RxMetadata{rx2_timestamp, 0b111'1'0'0'101111011'0010011'0110001, 8};
+            return can::RxMetadata{rx2_timestamp, 0b111'1'0'0'101111011'0010011'0110001, 8};
         });
         EXPECT_CALL(media_mock2, pop(_)).WillOnce([&](auto p) {
             EXPECT_THAT(now(), rx2_timestamp + 30ms);
@@ -572,7 +591,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
             p[3] = b(0x7D);
             p[4] = b(0x61);  // expected 16-bit CRC
             p[5] = b(0b010'11110);
-            return RxMetadata{rx2_timestamp + 1ms, 0b111'1'0'0'101111011'0010011'0110001, 6};
+            return can::RxMetadata{rx2_timestamp + 1ms, 0b111'1'0'0'101111011'0010011'0110001, 6};
         });
     }
     scheduler_.runNow(+10ms, [&] { transport->run(now()); });
@@ -603,11 +622,11 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
         scheduler_.setNow(TimePoint{99s});
         const auto reset_time = now();
 
-        EXPECT_CALL(media_mock_, setFilters(IsEmpty())).WillOnce([&](Filters) {
+        EXPECT_CALL(media_mock_, setFilters(IsEmpty())).WillOnce([&](can::Filters) {
             EXPECT_THAT(now(), reset_time + 10ms);
             return cetl::nullopt;
         });
-        EXPECT_CALL(media_mock2, setFilters(IsEmpty())).WillOnce([&](Filters) {
+        EXPECT_CALL(media_mock2, setFilters(IsEmpty())).WillOnce([&](can::Filters) {
             EXPECT_THAT(now(), reset_time + 10ms);
             return cetl::nullopt;
         });
@@ -630,7 +649,7 @@ TEST_F(TestCanTransport, setLocalNodeId_when_msg_rx_subscription)
     auto maybe_msg_session = transport->makeMessageRxSession({0, 0x42});
     ASSERT_THAT(maybe_msg_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
 
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters) {
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](can::Filters) {
         EXPECT_THAT(now(), TimePoint{1s});
         return cetl::nullopt;
     });
@@ -654,19 +673,19 @@ TEST_F(TestCanTransport, setLocalNodeId_when_svc_rx_subscription)
     auto maybe_svc_session = transport->makeResponseRxSession({64, 0x17B, 0x31});
     ASSERT_THAT(maybe_svc_session, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
 
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](can::Filters filters) {
         EXPECT_THAT(now(), TimePoint{1s});
-        EXPECT_THAT(filters, Contains(FilterEq({0x4200, 0x21FFF80})));
+        EXPECT_THAT(filters, Contains(can::FilterEq({0x4200, 0x21FFF80})));
         return cetl::nullopt;
     });
     scheduler_.runNow(+1s, [&] { transport->run(now()); });
 
     ASSERT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
 
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(2))).WillOnce([&](Filters filters) {
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(2))).WillOnce([&](can::Filters filters) {
         EXPECT_THAT(now(), TimePoint{2s});
-        EXPECT_THAT(filters, Contains(FilterEq({0x4200, 0x21FFF80})));
-        EXPECT_THAT(filters, Contains(FilterEq({0x025EC980, 0x02FFFF80})));
+        EXPECT_THAT(filters, Contains(can::FilterEq({0x4200, 0x21FFF80})));
+        EXPECT_THAT(filters, Contains(can::FilterEq({0x025EC980, 0x02FFFF80})));
         return cetl::nullopt;
     });
     scheduler_.runNow(+1s, [&] { transport->run(now()); });
@@ -703,12 +722,14 @@ TEST_F(TestCanTransport, run_when_no_memory_for_filters)
 
     // And finally, make the media accept filters - should happen once (@5s)!
     //
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters) {
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](can::Filters) {
         EXPECT_THAT(now(), TimePoint{5s});
         return cetl::nullopt;
     });
     scheduler_.runNow(+1s, [&] { transport->run(now()); });
     scheduler_.runNow(+1s, [&] { transport->run(now()); });
 }
+
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 }  // namespace

@@ -44,6 +44,7 @@ using testing::SizeIs;
 using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
+using testing::InSequence;
 using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
@@ -208,22 +209,26 @@ TEST_F(TestCanMsgRxSession, run_and_receive_one_anonymous_frame)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
 
-    scheduler_.setNow(TimePoint{3s});
+    scheduler_.setNow(TimePoint{1s});
     const auto rx_timestamp = now();
 
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](can::Filters filters) {
-        EXPECT_THAT(now(), rx_timestamp + 10ms);
-        EXPECT_THAT(filters, Contains(can::FilterEq({0x2300, 0x21FFF80})));
-        return cetl::nullopt;
-    });
-    EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
-        EXPECT_THAT(now(), rx_timestamp + 10ms);
-        EXPECT_THAT(p.size(), CANARD_MTU_MAX);
-        p[0] = b('1');
-        p[1] = b('2');
-        p[2] = b(0b111'01110);
-        return can::RxMetadata{rx_timestamp, 0x01'60'23'13, 3};
-    });
+    {
+        const InSequence seq;
+
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
+            EXPECT_THAT(now(), rx_timestamp + 10ms);
+            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+            p[0] = b('1');
+            p[1] = b('2');
+            p[2] = b(0b111'01110);
+            return can::RxMetadata{rx_timestamp, 0x01'60'23'13, 3};
+        });
+        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](can::Filters filters) {
+            EXPECT_THAT(now(), rx_timestamp + 10ms);
+            EXPECT_THAT(filters, Contains(can::FilterEq({0x2300, 0x21FFF80})));
+            return cetl::nullopt;
+        });
+    }
 
     scheduler_.runNow(+10ms, [&] { transport->run(now()); });
     scheduler_.runNow(+10ms, [&] { session->run(now()); });
@@ -251,7 +256,7 @@ TEST_F(TestCanMsgRxSession, unsubscribe_and_run)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
 
-    scheduler_.setNow(TimePoint{4s});
+    scheduler_.setNow(TimePoint{1s});
     const auto reset_time = now();
 
     EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
