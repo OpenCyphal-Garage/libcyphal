@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_TEST_UTILITIES_HPP
 #define LIBCYPHAL_TEST_UTILITIES_HPP
 
+#include <cetl/pf20/cetlpf.hpp>
 #include <libcyphal/types.hpp>
 
 #include <numeric>

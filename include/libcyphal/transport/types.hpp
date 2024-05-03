@@ -10,6 +10,12 @@
 
 #include "libcyphal/types.hpp"
 
+#include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
+
+#include <cstddef>
+#include <cstdint>
+
 namespace libcyphal
 {
 namespace transport

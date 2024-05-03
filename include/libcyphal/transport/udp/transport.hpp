@@ -8,9 +8,17 @@
 
 #include "media.hpp"
 
+#include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/multiplexer.hpp"
+#include "libcyphal/transport/svc_sessions.hpp"
 #include "libcyphal/transport/transport.hpp"
+#include "libcyphal/transport/types.hpp"
+#include "libcyphal/types.hpp"
 
+#include <cetl/pf17/attribute.hpp>
+#include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
 #include <udpard.h>
 
 namespace libcyphal

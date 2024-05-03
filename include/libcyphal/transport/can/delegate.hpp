@@ -9,11 +9,18 @@
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
 #include "libcyphal/transport/types.hpp"
+#include "libcyphal/types.hpp"
 
 #include <canard.h>
+#include <cetl/cetl.hpp>
+#include <cetl/pf17/attribute.hpp>
+#include <cetl/pf17/cetlpf.hpp>
 #include <cetl/rtti.hpp>
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 
 namespace libcyphal
 {

@@ -6,7 +6,9 @@
 #ifndef LIBCYPHAL_TRANSPORT_ERRORS_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_ERRORS_HPP_INCLUDED
 
-#include "libcyphal/types.hpp"
+#include <cetl/pf17/cetlpf.hpp>
+
+#include <cstdint>
 
 namespace libcyphal
 {

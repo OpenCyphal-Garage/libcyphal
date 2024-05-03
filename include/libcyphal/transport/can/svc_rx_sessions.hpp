@@ -8,11 +8,20 @@
 
 #include "delegate.hpp"
 
+#include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
+#include "libcyphal/transport/types.hpp"
+#include "libcyphal/types.hpp"
 
 #include <canard.h>
+#include <cetl/cetl.hpp>
+#include <cetl/pf17/attribute.hpp>
+#include <cetl/pf17/cetlpf.hpp>
 
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <utility>
 
 namespace libcyphal
 {

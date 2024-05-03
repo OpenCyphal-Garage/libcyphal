@@ -7,6 +7,12 @@
 #define LIBCYPHAL_TRANSPORT_SVC_SESSION_HPP_INCLUDED
 
 #include "session.hpp"
+#include "types.hpp"
+
+#include <cetl/pf17/attribute.hpp>
+#include <cetl/pf17/cetlpf.hpp>
+
+#include <cstddef>
 
 namespace libcyphal
 {

@@ -6,9 +6,14 @@
 #ifndef LIBCYPHAL_TRANSPORT_CAN_MEDIA_MOCK_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_CAN_MEDIA_MOCK_HPP_INCLUDED
 
+#include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
 #include <libcyphal/transport/can/media.hpp>
+#include <libcyphal/transport/errors.hpp>
 
 #include <gmock/gmock.h>
+
+#include <cstddef>
 
 namespace libcyphal
 {

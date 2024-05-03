@@ -6,9 +6,13 @@
 #ifndef LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
 
+#include <cetl/pf17/attribute.hpp>
+#include <cetl/rtti.hpp>
 #include <cetl/unbounded_variant.hpp>
 
-#include <cstdint>
+#include <cstddef>
+#include <type_traits>
+#include <utility>
 
 namespace libcyphal
 {

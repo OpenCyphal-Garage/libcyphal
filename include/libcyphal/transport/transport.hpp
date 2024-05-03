@@ -9,6 +9,13 @@
 #include "errors.hpp"
 #include "msg_sessions.hpp"
 #include "svc_sessions.hpp"
+#include "types.hpp"
+
+#include "libcyphal/runnable.hpp"
+#include "libcyphal/types.hpp"
+
+#include <cetl/pf17/attribute.hpp>
+#include <cetl/pf17/cetlpf.hpp>
 
 namespace libcyphal
 {

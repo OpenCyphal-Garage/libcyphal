@@ -6,7 +6,14 @@
 #ifndef LIBCYPHAL_TRANSPORT_MSG_SESSIONS_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_MSG_SESSIONS_HPP_INCLUDED
 
+#include "errors.hpp"
 #include "session.hpp"
+#include "types.hpp"
+
+#include <cetl/pf17/attribute.hpp>
+#include <cetl/pf17/cetlpf.hpp>
+
+#include <cstddef>
 
 namespace libcyphal
 {

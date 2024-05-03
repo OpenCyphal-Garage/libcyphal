@@ -10,6 +10,8 @@
 
 #include <gmock/gmock.h>
 
+#include <cstddef>
+
 namespace libcyphal
 {
 namespace transport

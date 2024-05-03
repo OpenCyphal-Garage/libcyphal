@@ -6,7 +6,7 @@
 #ifndef LIBCYPHAL_TRANSPORT_UDP_MEDIA_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_UDP_MEDIA_HPP_INCLUDED
 
-#include "libcyphal/types.hpp"
+#include <cstddef>
 
 namespace libcyphal
 {
