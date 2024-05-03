@@ -609,9 +609,9 @@ private:
 
     // MARK: Data members:
 
-    MediaArray media_array_;
-    // Below nolint is to comply with AUTOSAR A11-0-2: we do ALL initialization in the constructor.
+    // Below nolint is to comply with AUTOSAR A11-0-2: in this class we do ALL initialization in the constructor.
     // NOLINTBEGIN(cppcoreguidelines-use-default-member-init,modernize-use-default-member-init)
+    MediaArray  media_array_;
     bool        should_reconfigure_filters_;
     std::size_t total_msg_subscriptions_;
     std::size_t total_svc_subscriptions_;

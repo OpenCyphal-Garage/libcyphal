@@ -30,7 +30,7 @@ struct CapacityError final
 
 struct PlatformError final
 {
-    std::uint32_t code;
+    std::uint32_t code{};
 };
 
 struct AlreadyExistsError final

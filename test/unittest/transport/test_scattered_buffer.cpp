@@ -102,17 +102,21 @@ TEST(TestScatteredBuffer, move_ctor_assign_size)
 {
     StrictMock<StorageMock> storage_mock{};
     EXPECT_CALL(storage_mock, deinit()).Times(1);
-    EXPECT_CALL(storage_mock, moved()).Times(1 + 2);
+    EXPECT_CALL(storage_mock, moved()).Times(1 + 1 + 2);
     EXPECT_CALL(storage_mock, size()).Times(3).WillRepeatedly(Return(42));
     {
         ScatteredBuffer src{StorageWrapper{&storage_mock}};  //< +1 move
         EXPECT_THAT(src.size(), 42);
 
-        ScatteredBuffer dst{std::move(src)};  //< +2 moves b/c of `cetl::any` specifics (via swap with tmp)
+        ScatteredBuffer dst{std::move(src)};  //< +1 move
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.Move,bugprone-use-after-move,hicpp-invalid-access-moved)
+        EXPECT_THAT(src.size(), 0);
         EXPECT_THAT(dst.size(), 42);
 
-        auto src2 = std::move(dst);  //< +2 moves
-        EXPECT_THAT(src2.size(), 42);
+        src = std::move(dst);  //< +2 moves b/c of `cetl::unbounded_variant` specifics (via swap with tmp)
+        EXPECT_THAT(src.size(), 42);
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.Move,bugprone-use-after-move,hicpp-invalid-access-moved)
+        EXPECT_THAT(dst.size(), 0);
     }
 }
 

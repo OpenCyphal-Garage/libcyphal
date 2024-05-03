@@ -35,6 +35,9 @@ class ContiguousPayload final
 public:
     ContiguousPayload(cetl::pmr::memory_resource& mr, const PayloadFragments payload_fragments)
         : mr_{mr}
+        , payload_{nullptr}
+        , payload_size_{0}
+        , allocated_buffer_{nullptr}
     {
         using Fragment = cetl::span<const cetl::byte>;
 
@@ -95,10 +98,13 @@ public:
 private:
     // MARK: Data members:
 
+    // Below nolint is to comply with AUTOSAR A11-0-2: in this class we do ALL initialization in the constructor.
+    // NOLINTBEGIN(cppcoreguidelines-use-default-member-init,modernize-use-default-member-init)
     cetl::pmr::memory_resource& mr_;
-    const cetl::byte*           payload_{nullptr};
-    std::size_t                 payload_size_{0};
-    cetl::byte*                 allocated_buffer_{nullptr};
+    const cetl::byte*           payload_;
+    std::size_t                 payload_size_;
+    cetl::byte*                 allocated_buffer_;
+    // NOLINTEND(cppcoreguidelines-use-default-member-init,modernize-use-default-member-init)
 
 };  // ContiguousBytes
 

@@ -15,13 +15,13 @@ namespace transport
 
 struct MessageRxParams final
 {
-    std::size_t extent_bytes;
-    PortId      subject_id;
+    std::size_t extent_bytes{};
+    PortId      subject_id{};
 };
 
 struct MessageTxParams final
 {
-    PortId subject_id;
+    PortId subject_id{};
 };
 
 class IMessageRxSession : public IRxSession

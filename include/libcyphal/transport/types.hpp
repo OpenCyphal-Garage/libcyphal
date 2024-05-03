@@ -44,32 +44,32 @@ enum class Priority : std::uint8_t
 
 struct ProtocolParams final
 {
-    TransferId  transfer_id_modulo;
-    std::size_t mtu_bytes;
-    NodeId      max_nodes;
+    TransferId  transfer_id_modulo{};
+    std::size_t mtu_bytes{};
+    NodeId      max_nodes{};
 };
 
 struct TransferMetadata final
 {
-    TransferId transfer_id;
+    TransferId transfer_id{};
     TimePoint  timestamp;
-    Priority   priority;
+    Priority   priority{};
 };
 
 struct MessageTransferMetadata final
 {
-    TransferId             transfer_id;
+    TransferId             transfer_id{};
     TimePoint              timestamp;
-    Priority               priority;
+    Priority               priority{};
     cetl::optional<NodeId> publisher_node_id;
 };
 
 struct ServiceTransferMetadata final
 {
-    TransferId transfer_id;
+    TransferId transfer_id{};
     TimePoint  timestamp;
-    Priority   priority;
-    NodeId     remote_node_id;
+    Priority   priority{};
+    NodeId     remote_node_id{};
 };
 
 /// @brief Defines a span of immutable fragments of payload.
