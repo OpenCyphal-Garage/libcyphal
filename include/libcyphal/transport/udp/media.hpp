@@ -32,7 +32,7 @@ public:
     /// This value may change arbitrarily at runtime. The transport implementation will query it before every
     /// transmission on the port. This value has no effect on the reception pipeline as it can accept arbitrary MTU.
     ///
-    CETL_NODISCARD virtual std::size_t getMtu() const noexcept = 0;
+    virtual std::size_t getMtu() const noexcept = 0;
 
 protected:
     IMedia()  = default;
