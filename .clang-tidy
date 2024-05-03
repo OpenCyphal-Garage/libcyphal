@@ -15,9 +15,12 @@ Checks: >-
   -cppcoreguidelines-avoid-const-or-ref-data-members,
   -google-readability-avoid-underscore-in-googletest-name,
   -google-readability-todo,
+  -llvm-header-guard,
+  -modernize-concat-nested-namespaces,
+  -modernize-type-traits,
+  -modernize-use-nodiscard,
   -readability-avoid-const-params-in-decls,
   -readability-identifier-length,
-  -llvm-header-guard,
   -*-use-trailing-return-type,
   -*-named-parameter,
 CheckOptions:
