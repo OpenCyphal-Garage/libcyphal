@@ -96,9 +96,12 @@ public:
 
     ~SvcRxSession() final
     {
-        ::canardRxUnsubscribe(&delegate_.canard_instance(),
-                              TransferKind,
-                              static_cast<CanardPortID>(params_.service_id));
+        const int8_t result = ::canardRxUnsubscribe(&delegate_.canard_instance(),
+                                                    TransferKind,
+                                                    static_cast<CanardPortID>(params_.service_id));
+        (void) result;
+        CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
+        CETL_DEBUG_ASSERT(result > 0, "Subscription supposed to be made at constructor.");
 
         delegate_.triggerUpdateOfFilters(true, false);
     }

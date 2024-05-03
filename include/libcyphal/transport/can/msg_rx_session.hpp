@@ -88,9 +88,12 @@ public:
 
     ~MessageRxSession() final
     {
-        ::canardRxUnsubscribe(&delegate_.canard_instance(),
-                              CanardTransferKindMessage,
-                              static_cast<CanardPortID>(params_.subject_id));
+        const int8_t result = ::canardRxUnsubscribe(&delegate_.canard_instance(),
+                                                    CanardTransferKindMessage,
+                                                    static_cast<CanardPortID>(params_.subject_id));
+        (void) result;
+        CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
+        CETL_DEBUG_ASSERT(result > 0, "Subscription supposed to be made at constructor.");
 
         delegate_.triggerUpdateOfFilters(false, false);
     }
