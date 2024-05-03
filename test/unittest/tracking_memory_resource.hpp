@@ -26,9 +26,11 @@ public:
         }
     };
 
+    // NOLINTBEGIN
     std::vector<Allocation> allocations{};
     std::size_t             total_allocated_bytes   = 0;
     std::size_t             total_deallocated_bytes = 0;
+    // NOLINTEND
 
 private:
     // MARK: cetl::pmr::memory_resource

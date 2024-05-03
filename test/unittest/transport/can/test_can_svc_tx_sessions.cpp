@@ -11,7 +11,9 @@
 #include "../multiplexer_mock.hpp"
 #include "media_mock.hpp"
 
+#include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/transport/can/transport.hpp>
+#include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

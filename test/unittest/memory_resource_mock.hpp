@@ -14,13 +14,15 @@
 class MemoryResourceMock : public cetl::pmr::memory_resource
 {
 public:
-    MOCK_METHOD(void*, do_allocate, (std::size_t, std::size_t));
+    MOCK_METHOD(void*, do_allocate, (std::size_t, std::size_t), (final));
     MOCK_METHOD(void, do_deallocate, (void*, std::size_t, std::size_t));
-    MOCK_METHOD(bool, do_is_equal, (const memory_resource&), (const, noexcept));
+    // NOLINTNEXTLINE(bugprone-exception-escape)
+    MOCK_METHOD(bool, do_is_equal, (const memory_resource&), (const, noexcept, final));
 
 #if (__cplusplus < CETL_CPP_STANDARD_17)
-    MOCK_METHOD(std::size_t, do_max_size, (), (const, noexcept));
-    MOCK_METHOD(void*, do_reallocate, (void*, std::size_t, std::size_t, std::size_t));
+    // NOLINTNEXTLINE(bugprone-exception-escape)
+    MOCK_METHOD(std::size_t, do_max_size, (), (const, noexcept, final));
+    MOCK_METHOD(void*, do_reallocate, (void*, std::size_t, std::size_t, std::size_t), (final));
 #endif
 
     void redirectExpectedCallsTo(cetl::pmr::memory_resource& mr)

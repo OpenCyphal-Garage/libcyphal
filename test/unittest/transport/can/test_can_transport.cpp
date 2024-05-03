@@ -12,6 +12,7 @@
 #include "media_mock.hpp"
 
 #include <libcyphal/transport/can/transport.hpp>
+#include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

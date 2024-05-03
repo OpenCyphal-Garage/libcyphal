@@ -23,7 +23,13 @@ public:
     MediaMock()          = default;
     virtual ~MediaMock() = default;
 
-    MOCK_METHOD(std::size_t, getMtu, (), (const, noexcept, override));
+    MediaMock(const MediaMock&)                = delete;
+    MediaMock(MediaMock&&) noexcept            = delete;
+    MediaMock& operator=(const MediaMock&)     = delete;
+    MediaMock& operator=(MediaMock&&) noexcept = delete;
+
+    // NOLINTNEXTLINE(bugprone-exception-escape)
+    MOCK_METHOD(std::size_t, getMtu, (), (const, noexcept, final));
 
 };  // MediaMock
 

@@ -23,16 +23,22 @@ public:
     MediaMock()          = default;
     virtual ~MediaMock() = default;
 
-    MOCK_METHOD(std::size_t, getMtu, (), (const, noexcept, override));
-    MOCK_METHOD(cetl::optional<MediaError>, setFilters, (const Filters filters), (noexcept, override));
+    MediaMock(const MediaMock&)                = delete;
+    MediaMock(MediaMock&&) noexcept            = delete;
+    MediaMock& operator=(const MediaMock&)     = delete;
+    MediaMock& operator=(MediaMock&&) noexcept = delete;
+
+    // NOLINTNEXTLINE(bugprone-exception-escape)
+    MOCK_METHOD(std::size_t, getMtu, (), (const, noexcept, final));
+    MOCK_METHOD(cetl::optional<MediaError>, setFilters, (const Filters filters), (noexcept, final));
     MOCK_METHOD((Expected<bool, MediaError>),
                 push,
                 (const TimePoint deadline, const CanId can_id, const cetl::span<const cetl::byte> payload),
-                (noexcept, override));
+                (noexcept, final));
     MOCK_METHOD((Expected<cetl::optional<RxMetadata>, MediaError>),
                 pop,
                 (const cetl::span<cetl::byte> payload_buffer),
-                (noexcept, override));
+                (noexcept, final));
 
 };  // MediaMock
 
