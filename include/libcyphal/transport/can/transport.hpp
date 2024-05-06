@@ -348,7 +348,8 @@ private:
     CETL_NODISCARD cetl::optional<AnyError> ensureNewSessionFor(const CanardTransferKind transfer_kind,
                                                                 const PortId             port_id) noexcept
     {
-        const std::int8_t hasSubscription = ::canardRxHasSubscription(&canard_instance(), transfer_kind, port_id);
+        const std::int8_t hasSubscription =
+            ::canardRxGetSubscription(&canard_instance(), transfer_kind, port_id, nullptr);
         CETL_DEBUG_ASSERT(hasSubscription >= 0, "There is no way currently to get an error here.");
         if (hasSubscription > 0)
         {
