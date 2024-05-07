@@ -78,7 +78,7 @@ public:
 
         subscription_.user_reference = static_cast<IRxSessionDelegate*>(this);
 
-        delegate_.triggerUpdateOfFilters(false, true);
+        delegate_.triggerUpdateOfFilters(TransportDelegate::FiltersUpdateCondition::SubjectPortAdded);
     }
 
     ~MessageRxSession() final
@@ -90,7 +90,7 @@ public:
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "Subscription supposed to be made at constructor.");
 
-        delegate_.triggerUpdateOfFilters(false, false);
+        delegate_.triggerUpdateOfFilters(TransportDelegate::FiltersUpdateCondition::SubjectPortRemoved);
     }
 
 private:

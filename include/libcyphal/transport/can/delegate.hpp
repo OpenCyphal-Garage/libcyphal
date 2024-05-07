@@ -115,8 +115,8 @@ public:
         /// @brief Recursively visits each node of the AVL tree, counting total number of nodes visited.
         ///
         /// Recursion goes first to the left child, then to the current node, and finally to the right child.
-        /// B/c AVL tree is balanced, the total complexity is `O(n)` and call stack depth
-        /// should not be deeper than `O(log(N))` (max 13 in case of 8192 active message subscriptions),
+        /// B/c AVL tree is balanced, the total complexity is `O(n)` and call stack depth should not be deeper than
+        /// ~O(log(N)) (`ceil(1.44 * log2(N + 2) - 0.328)` to be precise, or 19 in case of 8192 ports),
         /// where `N` is the total number of tree nodes. Hence, the `NOLINT(misc-no-recursion)` exception.
         ///
         /// @tparam Visitor Type of the visitor callable.
@@ -143,6 +143,14 @@ public:
         }
 
     };  // CanardConcreteTree
+
+    enum class FiltersUpdateCondition : std::uint8_t
+    {
+        SubjectPortAdded,
+        SubjectPortRemoved,
+        ServicePortAdded,
+        ServicePortRemoved
+    };
 
     explicit TransportDelegate(cetl::pmr::memory_resource& memory)
         : memory_{memory}
@@ -206,14 +214,14 @@ public:
                                                                  const CanardTransferMetadata& metadata,
                                                                  const PayloadFragments        payload_fragments) = 0;
 
-    /// @brief Triggers update of media filters due to a change of an RX subscription.
+    /// @brief Triggers update of media filters due to a change of RX ports.
     ///
     /// Actual update will be done on next `run` of transport.
     ///
-    /// @param is_service `true` if called from a service subscription; `false` for a message one.
-    /// @param is_subscription_added Indicates whether a new subscription was added; otherwise, it was removed.
+    /// @param condition Describes condition in which the RX ports change has happened. Allows to distinguish
+    ///                  between subject and service ports, and between adding and removing a port.
     ///
-    virtual void triggerUpdateOfFilters(const bool is_service, const bool is_subscription_added) noexcept = 0;
+    virtual void triggerUpdateOfFilters(const FiltersUpdateCondition condition) noexcept = 0;
 
 protected:
     ~TransportDelegate() = default;

@@ -126,8 +126,8 @@ public:
         : TransportDelegate{memory}
         , media_array_{std::move(media_array)}
         , should_reconfigure_filters_{false}
-        , total_msg_subscriptions_{0}
-        , total_svc_subscriptions_{0}
+        , total_message_ports_{0}
+        , total_service_ports_{0}
     {
         // TODO: Use it!
         (void) multiplexer;
@@ -142,8 +142,8 @@ public:
             flushCanardTxQueue(media.canard_tx_queue);
         }
 
-        CETL_DEBUG_ASSERT(total_msg_subscriptions_ == 0, "Message sessions must be destroyed before transport.");
-        CETL_DEBUG_ASSERT(total_svc_subscriptions_ == 0, "Service sessions must be destroyed before transport.");
+        CETL_DEBUG_ASSERT(total_message_ports_ == 0, "Message sessions must be destroyed before transport.");
+        CETL_DEBUG_ASSERT(total_service_ports_ == 0, "Service sessions must be destroyed before transport.");
     }
 
 private:
@@ -185,7 +185,7 @@ private:
         //
         // @see runMediaFilters
         //
-        if (total_svc_subscriptions_ > 0)
+        if (total_service_ports_ > 0)
         {
             should_reconfigure_filters_ = true;
         }
@@ -195,10 +195,11 @@ private:
 
     CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept final
     {
-        const std::size_t min_mtu =
-            reduceMedia(std::numeric_limits<std::size_t>::max(), [](const std::size_t mtu, const Media& media) {
-                return std::min(mtu, media.interface.getMtu());
-            });
+        std::size_t min_mtu = std::numeric_limits<std::size_t>::max();
+        for (const Media& media : media_array_)
+        {
+            min_mtu = std::min(min_mtu, media.interface.getMtu());
+        }
 
         return ProtocolParams{1 << CANARD_TRANSFER_ID_BIT_LENGTH, min_mtu, CANARD_NODE_ID_MAX + 1};
     }
@@ -313,37 +314,40 @@ private:
         return maybe_error;
     }
 
-    void triggerUpdateOfFilters(const bool is_service, const bool is_subscription_added) noexcept final
+    void triggerUpdateOfFilters(const FiltersUpdateCondition condition) noexcept final
     {
-        auto safe_update = [](std::size_t& total, const bool increment) {
-            if (increment)
-            {
-                ++total;
-            }
-            else
-            {
-                // We are not going to allow negative number of total.
-                CETL_DEBUG_ASSERT(total > 0, "");
-                total -= std::min(static_cast<std::size_t>(1), total);
-            }
-        };
-        safe_update(is_service ? total_svc_subscriptions_ : total_msg_subscriptions_, is_subscription_added);
+        switch (condition)
+        {
+        case FiltersUpdateCondition::SubjectPortAdded: {
+            ++total_message_ports_;
+            break;
+        }
+        case FiltersUpdateCondition::SubjectPortRemoved: {
+            // We are not going to allow negative number of ports.
+            CETL_DEBUG_ASSERT(total_message_ports_ > 0, "");
+            total_message_ports_ -= std::min(static_cast<std::size_t>(1), total_message_ports_);
+            break;
+        }
+        case FiltersUpdateCondition::ServicePortAdded: {
+            ++total_service_ports_;
+            break;
+        }
+        case FiltersUpdateCondition::ServicePortRemoved: {
+            // We are not going to allow negative number of ports.
+            CETL_DEBUG_ASSERT(total_service_ports_ > 0, "");
+            total_service_ports_ -= std::min(static_cast<std::size_t>(1), total_service_ports_);
+            break;
+        }
+        default: {
+            CETL_DEBUG_ASSERT(false, "Unexpected condition.");
+            return;
+        }
+        }
 
         should_reconfigure_filters_ = true;
     }
 
     // MARK: Privates:
-
-    template <typename T, typename Reducer>
-    CETL_NODISCARD T reduceMedia(const T init, Reducer reducer) const
-    {
-        T acc = init;
-        for (const Media& media : media_array_)
-        {
-            acc = reducer(std::forward<T>(acc), media);
-        }
-        return acc;
-    }
 
     CETL_NODISCARD cetl::optional<AnyError> ensureNewSessionFor(const CanardTransferKind transfer_kind,
                                                                 const PortId             port_id) noexcept
@@ -504,24 +508,23 @@ private:
             return;
         }
 
-        // Total "active" RX subscriptions depends on the local node ID. For anonymous nodes,
-        // we don't account for service subscriptions (b/c they don't work while being anonymous).
+        // Total "active" RX ports depends on the local node ID. For anonymous nodes,
+        // we don't account for service ports (b/c they don't work while being anonymous).
         //
-        const CanardNodeID local_node_id     = canard_instance().node_id;
-        const auto         is_anonymous      = local_node_id > CANARD_NODE_ID_MAX;
-        const std::size_t  total_active_subs = total_msg_subscriptions_ + (is_anonymous ? 0 : total_svc_subscriptions_);
+        const CanardNodeID local_node_id      = canard_instance().node_id;
+        const auto         is_anonymous       = local_node_id > CANARD_NODE_ID_MAX;
+        const std::size_t  total_active_ports = total_message_ports_ + (is_anonymous ? 0 : total_service_ports_);
 
         // There is no memory allocation here yet - just empty span.
         //
-        cetl::span<Filter>                  filters_span{};
-        libcyphal::detail::VarArray<Filter> filters{total_active_subs, &memory()};
-        if (total_active_subs > 0)
+        libcyphal::detail::VarArray<Filter> filters{total_active_ports, &memory()};
+        if (total_active_ports > 0)
         {
-            // Now we know that we have at least one active subscription,
-            // so we need preallocate temp memory for total number of active subscriptions.
+            // Now we know that we have at least one active port,
+            // so we need preallocate temp memory for total number of active ports.
             //
-            filters.reserve(total_active_subs);
-            if (filters.capacity() < total_active_subs)
+            filters.reserve(total_active_ports);
+            if (filters.capacity() < total_active_ports)
             {
                 // This is out of memory situation. We will just leave this run,
                 // but `should_reconfigure_filters_` will stay engaged, so we will try again on next run.
@@ -529,34 +532,32 @@ private:
             }
 
             // `subs_count` counting is just for the sake of debug verification.
-            std::size_t            subs_count = 0;
-            CanardTreeNode** const subs_trees = canard_instance().rx_subscriptions;
+            std::size_t            ports_count = 0;
+            CanardTreeNode** const subs_trees  = canard_instance().rx_subscriptions;
 
-            if (total_msg_subscriptions_ > 0)
+            if (total_message_ports_ > 0)
             {
                 const auto msg_visitor = [&filters](RxSubscription& rx_subscription) {
                     const auto msb_flt = ::canardMakeFilterForSubject(rx_subscription.port_id);
                     filters.emplace_back(Filter{msb_flt.extended_can_id, msb_flt.extended_mask});
                 };
-                subs_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindMessage], msg_visitor);
+                ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindMessage], msg_visitor);
             }
 
             // No need to build service filters if we don't have a local node ID.
             //
-            if ((total_svc_subscriptions_ > 0) && !is_anonymous)
+            if ((total_service_ports_ > 0) && !is_anonymous)
             {
                 const auto svc_visitor = [&filters, local_node_id](RxSubscription& rx_subscription) {
                     const auto flt = ::canardMakeFilterForService(rx_subscription.port_id, local_node_id);
                     filters.emplace_back(Filter{flt.extended_can_id, flt.extended_mask});
                 };
-                subs_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindRequest], svc_visitor);
-                subs_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindResponse], svc_visitor);
+                ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindRequest], svc_visitor);
+                ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindResponse], svc_visitor);
             }
 
-            (void) subs_count;
-            CETL_DEBUG_ASSERT(subs_count == total_active_subs, "");
-
-            filters_span = {filters.data(), filters.size()};
+            (void) ports_count;
+            CETL_DEBUG_ASSERT(ports_count == total_active_ports, "");
         }
 
         // Let know each media interface about the new filters (tracking the fact of possible media error).
@@ -564,7 +565,7 @@ private:
         bool was_error = false;
         for (const Media& media : media_array_)
         {
-            const cetl::optional<MediaError> maybe_error = media.interface.setFilters(filters_span);
+            const cetl::optional<MediaError> maybe_error = media.interface.setFilters({filters.data(), filters.size()});
             if (maybe_error.has_value())
             {
                 was_error = true;
@@ -582,8 +583,8 @@ private:
 
     MediaArray  media_array_;
     bool        should_reconfigure_filters_;
-    std::size_t total_msg_subscriptions_;
-    std::size_t total_svc_subscriptions_;
+    std::size_t total_message_ports_;
+    std::size_t total_service_ports_;
 
 };  // TransportImpl
 
