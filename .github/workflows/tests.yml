@@ -132,6 +132,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: >
           sonar-scanner
+          -X
           --define sonar.organization=opencyphal-garage
           --define sonar.projectKey=OpenCyphal-Garage_libcyphal
           --define sonar.projectName=libcyphal
