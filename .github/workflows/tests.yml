@@ -124,7 +124,7 @@ jobs:
           key: ${{ runner.os }}-${{ hashFiles('cmake/modules/*.cmake') }}
       - uses: actions/download-artifact@v3
         with:
-          name: Coverage-exceptions-14-gcc
+          name: Coverage-14-gcc
           path: build
       - name: Run sonar-scanner
         env:
