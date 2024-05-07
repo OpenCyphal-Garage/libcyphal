@@ -339,6 +339,7 @@ private:
             break;
         }
         default: {
+            // NOLINTNEXTLINE(cert-dcl03-c,hicpp-static-assert,misc-static-assert)
             CETL_DEBUG_ASSERT(false, "Unexpected condition.");
             return;
         }
