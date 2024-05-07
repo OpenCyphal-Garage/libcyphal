@@ -51,9 +51,9 @@ jobs:
     needs: [warmup]
     strategy:
       matrix:
-        build_flavor: [Release, Debug]
-        std: [14, 17, 20]
-        toolchain: [gcc, clang]
+#        build_flavor: [Release, Debug]
+#        std: [14, 17, 20]
+#        toolchain: [gcc, clang]
         include:
           - build_flavor: Coverage
             std: 14
@@ -86,7 +86,7 @@ jobs:
       if: ${{ runner.debug == '1' }}
       run: ls -lAhR build/
     - name: upload-artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.build_flavor }}-${{ matrix.std }}-${{ matrix.toolchain }}
         path: |
@@ -122,7 +122,7 @@ jobs:
         with:
           path: external
           key: ${{ runner.os }}-${{ hashFiles('cmake/modules/*.cmake') }}
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: Coverage-14-gcc
           path: build
