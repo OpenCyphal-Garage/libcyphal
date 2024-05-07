@@ -87,3 +87,20 @@ add_custom_target(
 set_directory_properties(PROPERTIES
     IN_BUILD_TESTS "${ALL_TESTS_RUN}"
 )
+
+# +---------------------------------------------------------------------------+
+# | SONARQUBE
+# +---------------------------------------------------------------------------+
+if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+
+    # we need to build at least one source file to get sonarqube to look at the cetl
+    # headers.
+    add_executable(cyphal_sonar
+        "sonar.cpp"
+    )
+
+    target_link_libraries(cyphal_sonar
+        PRIVATE cyphal
+    )
+
+endif()

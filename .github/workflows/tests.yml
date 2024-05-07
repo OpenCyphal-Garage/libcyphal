@@ -96,6 +96,58 @@ jobs:
           build/*/**/gcovr_html/*.*
         if-no-files-found: error
 
+  sonarcloud:
+    if: >
+      contains(github.event.head_commit.message, '#sonar') ||
+      contains(github.ref, '/main') ||
+      contains(github.ref, '/issue/') ||
+      (github.event_name == 'pull_request')
+    needs:
+      - verification
+      - docs
+    runs-on: ubuntu-latest
+    container: ghcr.io/opencyphal/toolshed:ts22.4.7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis by sonarqube.
+      - name: Install sonar-scanner
+        uses: SonarSource/sonarcloud-github-c-cpp@v2
+
+      - name: Cache ext modules
+        id: libcyphal-ext
+        uses: actions/cache@v4
+        env:
+          cache-name: libcyphal-ext-cache
+        with:
+          path: external
+          key: ${{ runner.os }}-${{ hashFiles('cmake/modules/*.cmake') }}
+      - uses: actions/download-artifact@v3
+        with:
+          name: Coverage-exceptions-14-gcc
+          path: build
+      - name: Run sonar-scanner
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: >
+          sonar-scanner
+          --define sonar.organization=opencyphal-garage
+          --define sonar.projectKey=OpenCyphal-Garage_libcyphal
+          --define sonar.projectName=libcyphal
+          --define sonar.projectVersion=1.0
+          --define sonar.sources=include,test/unittest/sonar.cpp
+          --define sonar.tests=test/unittest,docs/examples
+          --define sonar.test.inclusions=test_*.cpp,example_*.cpp
+          --define sonar.sourceEncoding=UTF-8
+          --define sonar.host.url=https://sonarcloud.io
+          --define sonar.cfamily.ignoreHeaderComments=false
+          --define sonar.coverage.exclusions="test/unittest/**/*,docs/examples/**/*,**/sonar.cpp"
+          --define sonar.cpd.exclusions="test/unittest/**/*,docs/examples/**/*,**/sonar.cpp"
+          --define sonar.cfamily.compile-commands="build/compile_commands.json"
+          --define sonar.cfamily.reportingCppStandardOverride=c++14
+          --define sonar.coverageReportPaths="build/test/unittest/coverage.xml,build/docs/examples/coverage.xml"
+          --define sonar.testExecutionReportPaths="build/test/unittest/unittest-sonarqube.xml,build/docs/examples/examples-sonarqube.xml"
   docs:
     if: >
       contains(github.event.head_commit.message, '#docs') ||
