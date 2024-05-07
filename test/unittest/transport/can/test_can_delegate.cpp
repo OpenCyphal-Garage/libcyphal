@@ -61,10 +61,7 @@ protected:
                      const PayloadFragments        payload_fragments),
                     (final));
         // NOLINTNEXTLINE(bugprone-exception-escape)
-        MOCK_METHOD(void,
-                    triggerUpdateOfFilters,
-                    (const bool is_service, const bool is_subscription_added),
-                    (noexcept, final));
+        MOCK_METHOD(void, triggerUpdateOfFilters, (const FiltersUpdateCondition condition), (noexcept));
     };
 
     void TearDown() override
