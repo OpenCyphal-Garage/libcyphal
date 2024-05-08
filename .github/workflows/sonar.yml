@@ -39,6 +39,7 @@ jobs:
           test
       - name: Generate XML coverage report
         run: |
+          cd build
           cmake --build . --target test/unittest/coverage.xml
           cmake --build . --target docs/examples/coverage.xml
       - name: upload-artifacts
