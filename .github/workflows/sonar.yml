@@ -40,10 +40,7 @@ jobs:
       - name: Run build-wrapper
         run: |
           cd build || die
-          pwd
-          ls -la
-          build-wrapper-linux-x86-64 --out-dir . make unittest VERBOSE=1 || die "Build wrapper failed"
-          cd ..
+          build-wrapper-linux-x86-64 --out-dir . cmake --build . --target unittest VERBOSE=1 || die "Build wrapper failed"
       - name: Run sonar-scanner
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
