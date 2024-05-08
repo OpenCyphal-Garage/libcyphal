@@ -117,7 +117,7 @@ set_directory_properties(PROPERTIES
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    enable_coverage_report(COVERAGE_REPORT_FORMATS html
+    enable_coverage_report(COVERAGE_REPORT_FORMATS html sonarqube
                            ROOT_DIRECTORY ${LIBCYPHAL_ROOT}
     )
 endif()

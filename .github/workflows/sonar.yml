@@ -37,6 +37,10 @@ jobs:
           --build-flavor Coverage
           --toolchain gcc
           test
+      - name: Generate XML coverage report
+        run: |
+          cmake --build . --target test/unittest/coverage.xml
+          cmake --build . --target docs/examples/coverage.xml
       - name: upload-artifacts
         uses: actions/upload-artifact@v4
         with:
