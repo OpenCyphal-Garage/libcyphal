@@ -215,7 +215,9 @@ public:
 
     /// @brief Releases memory allocated for canard (by previous `allocateMemoryForCanard` call).
     ///
-    void freeCanardMemory(void* const pointer)
+    /// NOSONAR b/s it is unavoidable: this is integration with low-level C code of Canard memory management.
+    ///
+    void freeCanardMemory(void* const pointer)  // NOSONAR
     {
         if (pointer == nullptr)
         {

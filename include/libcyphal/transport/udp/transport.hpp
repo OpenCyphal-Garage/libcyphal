@@ -81,8 +81,7 @@ private:
         }
 
         // TODO: Implement!
-
-        return ArgumentError{};
+        return {};
     }
 
     CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept override

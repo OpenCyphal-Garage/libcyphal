@@ -89,7 +89,7 @@ private:
     {
         const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.priority),
                                                             CanardTransferKindMessage,
-                                                            static_cast<CanardPortID>(params_.subject_id),
+                                                            params_.subject_id,
                                                             CANARD_NODE_ID_UNSET,
                                                             static_cast<CanardTransferID>(metadata.transfer_id)};
 

@@ -116,8 +116,10 @@ public:
         // - At least one media interface must be provided, but no more than the maximum allowed (255).
         // - If a local node ID is provided, it must be within the valid range.
         //
-        const auto media_count = static_cast<std::size_t>(
-            std::count_if(media.begin(), media.end(), [](IMedia* const media) { return media != nullptr; }));
+        const auto media_count =
+            static_cast<std::size_t>(std::count_if(media.begin(), media.end(), [](const IMedia* const media_ptr) {
+                return media_ptr != nullptr;
+            }));
         if ((media_count == 0) || (media_count > std::numeric_limits<std::uint8_t>::max()))
         {
             return ArgumentError{};
@@ -416,7 +418,8 @@ private:
                 if (media_interface != nullptr)
                 {
                     IMedia& media = *media_interface;
-                    media_array.emplace_back(index++, media, tx_capacity);
+                    media_array.emplace_back(index, media, tx_capacity);
+                    index++;
                 }
             }
             CETL_DEBUG_ASSERT(index == media_count, "");
@@ -493,7 +496,7 @@ private:
                     const cetl::span<const cetl::byte> payload{static_cast<const cetl::byte*>(tx_item->frame.payload),
                                                                tx_item->frame.payload_size};
                     const Expected<bool, MediaError>   maybe_pushed =
-                        media.interface().push(deadline, static_cast<CanId>(tx_item->frame.extended_can_id), payload);
+                        media.interface().push(deadline, tx_item->frame.extended_can_id, payload);
                     if (const auto* const is_pushed = cetl::get_if<bool>(&maybe_pushed))
                     {
                         if (!*is_pushed)

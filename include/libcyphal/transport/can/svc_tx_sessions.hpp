@@ -101,7 +101,7 @@ private:
 
         const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.priority),
                                                             CanardTransferKindRequest,
-                                                            static_cast<CanardPortID>(params_.service_id),
+                                                            params_.service_id,
                                                             static_cast<CanardNodeID>(params_.server_node_id),
                                                             static_cast<CanardTransferID>(metadata.transfer_id)};
 
@@ -196,7 +196,7 @@ private:
 
         const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.priority),
                                                             CanardTransferKindResponse,
-                                                            static_cast<CanardPortID>(params_.service_id),
+                                                            params_.service_id,
                                                             static_cast<CanardNodeID>(metadata.remote_node_id),
                                                             static_cast<CanardTransferID>(metadata.transfer_id)};
 

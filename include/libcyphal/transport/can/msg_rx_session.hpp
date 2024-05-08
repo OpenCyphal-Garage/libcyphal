@@ -77,8 +77,8 @@ public:
     {
         const std::int8_t result = ::canardRxSubscribe(&delegate.canard_instance(),
                                                        CanardTransferKindMessage,
-                                                       static_cast<CanardPortID>(params_.subject_id),
-                                                       static_cast<std::size_t>(params_.extent_bytes),
+                                                       params_.subject_id,
+                                                       params_.extent_bytes,
                                                        CANARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC,
                                                        &subscription_);
         (void) result;
@@ -97,9 +97,8 @@ public:
 
     ~MessageRxSession() override
     {
-        const int8_t result = ::canardRxUnsubscribe(&delegate_.canard_instance(),
-                                                    CanardTransferKindMessage,
-                                                    static_cast<CanardPortID>(params_.subject_id));
+        const int8_t result =
+            ::canardRxUnsubscribe(&delegate_.canard_instance(), CanardTransferKindMessage, params_.subject_id);
         (void) result;
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "Subscription supposed to be made at constructor.");
@@ -156,7 +155,7 @@ private:
         const MessageTransferMetadata   meta{transfer_id, timestamp, priority, publisher_node_id};
         TransportDelegate::CanardMemory canard_memory{delegate_, transfer.payload, transfer.payload_size};
 
-        last_rx_transfer_.emplace(MessageRxTransfer{meta, ScatteredBuffer{std::move(canard_memory)}});
+        (void) last_rx_transfer_.emplace(MessageRxTransfer{meta, ScatteredBuffer{std::move(canard_memory)}});
     }
 
     // MARK: Data members:
