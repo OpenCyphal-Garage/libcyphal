@@ -82,8 +82,20 @@ set_directory_properties(PROPERTIES
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    enable_coverage_report(COVERAGE_REPORT_FORMATS html
+
+    enable_coverage_report(COVERAGE_REPORT_FORMATS html sonarqube
         ROOT_DIRECTORY ${LIBCYPHAL_ROOT}
         OUT_REPORT_INDICIES LOCAL_COVERAGE_REPORT_INDICIES
     )
+
+    # we need to build at least one source file to get sonarqube to look at the cetl
+    # headers.
+    add_executable(cyphal_sonar
+        "sonar.cpp"
+    )
+
+    target_link_libraries(cyphal_sonar
+        PRIVATE cyphal
+    )
+
 endif()

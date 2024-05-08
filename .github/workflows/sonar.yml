@@ -37,6 +37,16 @@ jobs:
           --build-flavor Coverage
           --toolchain clang
           test
+      - name: upload-artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Coverage-14-gcc
+          path: |
+            build/compile_commands.json
+            build/*/**/coverage.xml
+            build/*/**/*-sonarqube.xml
+            build/*/**/gcovr_html/*.*
+          if-no-files-found: error
       - name: Run sonar-scanner
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -48,13 +58,14 @@ jobs:
           --define sonar.projectKey=OpenCyphal-Garage_libcyphal
           --define sonar.projectName=libcyphal
           --define sonar.projectVersion=1.0
-          --define sonar.sources=include
+          --define sonar.sources=include,test/unittest/sonar.cpp
           --define sonar.tests=test/unittest,docs/examples
           --define sonar.test.inclusions=test_*.cpp,example_*.cpp
           --define sonar.sourceEncoding=UTF-8
           --define sonar.host.url=https://sonarcloud.io
           --define sonar.cfamily.ignoreHeaderComments=false
-          --define sonar.coverage.exclusions="test/unittest/**/*,docs/examples/**/*"
-          --define sonar.cpd.exclusions="test/unittest/**/*,docs/examples/**/*"
+          --define sonar.coverage.exclusions="test/unittest/**/*,docs/examples/**/*,**/sonar.cpp"
+          --define sonar.cpd.exclusions="test/unittest/**/*,docs/examples/**/*,**/sonar.cpp"
           --define sonar.cfamily.compile-commands="build/compile_commands.json"
           --define sonar.cfamily.reportingCppStandardOverride=c++14
+          --define sonar.coverageReportPaths="build/test/unittest/coverage.xml,build/docs/examples/coverage.xml"
