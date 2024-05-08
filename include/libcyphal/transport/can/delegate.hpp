@@ -146,9 +146,9 @@ public:
             std::size_t count = 1;
 
             count += visitCounting(node->lr[0], std::forward<Visitor>(visitor));
-            // Next nolint is unavoidable: this is integration with C code of Canard AVL trees.
+            // Next nolint & nosonar are unavoidable: this is integration with low-level C code of Canard AVL trees.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-            visitor(*reinterpret_cast<Node*>(node));
+            visitor(*reinterpret_cast<Node*>(node)); // NOSONAR
             count += visitCounting(node->lr[1], std::forward<Visitor>(visitor));
 
             return count;
