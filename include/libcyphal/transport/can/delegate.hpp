@@ -131,7 +131,7 @@ public:
         /// Recursion goes first to the left child, then to the current node, and finally to the right child.
         /// B/c AVL tree is balanced, the total complexity is `O(n)` and call stack depth should not be deeper than
         /// ~O(log(N)) (`ceil(1.44 * log2(N + 2) - 0.328)` to be precise, or 19 in case of 8192 ports),
-        /// where `N` is the total number of tree nodes. Hence, the `NOLINT(misc-no-recursion)` exception.
+        /// where `N` is the total number of tree nodes. Hence, the `NOLINTNEXTLINE(misc-no-recursion)` exception.
         ///
         /// @tparam Visitor Type of the visitor callable.
         /// @param node (sub-)root node of the AVL tree. Could be `nullptr`.
@@ -139,8 +139,8 @@ public:
         /// @return Total count of visited nodes (including the `node` one). `0` if `node` is `nullptr`.
         ///
         template <typename Visitor>
-        static std::size_t visitCounting(CanardTreeNode* const node,
-                                         const Visitor&        visitor)  // NOLINT(misc-no-recursion)
+        // NOLINTNEXTLINE(misc-no-recursion)
+        static std::size_t visitCounting(CanardTreeNode* const node, const Visitor& visitor)
         {
             if (node == nullptr)
             {
