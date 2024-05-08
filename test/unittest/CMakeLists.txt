@@ -65,28 +65,28 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
     endif()
 endforeach()
 
-if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    enable_coverage_report(COVERAGE_REPORT_FORMATS html sonarqube
-                           ROOT_DIRECTORY ${LIBCYPHAL_ROOT}
-                           OUT_REPORT_INDICIES LOCAL_COVERAGE_REPORT_INDICIES
-    )
-endif()
-
 add_custom_target(
-     build_unittests
-     DEPENDS
-          ${ALL_TESTS_BUILD}
+    build_unittests
+    DEPENDS
+        ${ALL_TESTS_BUILD}
 )
 
 add_custom_target(
-     run_unittests
-     DEPENDS
-          ${ALL_TESTS_RUN}
+    run_unittests
+    DEPENDS
+        ${ALL_TESTS_RUN}
 )
 
 set_directory_properties(PROPERTIES
     IN_BUILD_TESTS "${ALL_TESTS_RUN}"
 )
+
+if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+    enable_coverage_report(COVERAGE_REPORT_FORMATS html sonarqube
+        ROOT_DIRECTORY ${LIBCYPHAL_ROOT}
+        OUT_REPORT_INDICIES LOCAL_COVERAGE_REPORT_INDICIES
+    )
+endif()
 
 # +---------------------------------------------------------------------------+
 # | SONARQUBE
