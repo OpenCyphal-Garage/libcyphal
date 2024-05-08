@@ -40,7 +40,9 @@ jobs:
       - name: Run build-wrapper
         run: |
           cd build || die
-          build-wrapper-linux-x86-64 --out-dir . make VERBOSE=1 || die "Build wrapper failed"
+          pwd
+          ls -la
+          build-wrapper-linux-x86-64 --out-dir . make unittest VERBOSE=1 || die "Build wrapper failed"
           cd ..
       - name: Run sonar-scanner
         env:
