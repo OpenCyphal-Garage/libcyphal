@@ -20,5 +20,45 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
+      - name: get nunavut
+        run: >
+          pip install nunavut
       - name: Install sonar-scanner and build-wrapper
         uses: SonarSource/sonarcloud-github-c-cpp@v2
+      - name: Run tests
+        env:
+          GTEST_COLOR: yes
+        run: >
+          ./build-tools/bin/verify.py
+          --verbose
+          --no-exceptions
+          --cpp-standard 14
+          --build-flavor Coverage
+          --toolchain clang
+          test
+      - name: Run build-wrapper
+        run: |
+          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} cmake --build build/ --config Release
+      - name: Run sonar-scanner
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: >
+          sonar-scanner
+          -X
+          --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}"
+          --define sonar.organization=opencyphal-garage
+          --define sonar.projectKey=OpenCyphal-Garage_libcyphal
+          --define sonar.projectName=libcyphal
+          --define sonar.projectVersion=1.0
+          --define sonar.sources=include,test/unittest/sonar.cpp
+          --define sonar.tests=test/unittest,docs/examples
+          --define sonar.test.inclusions=test_*.cpp,example_*.cpp
+          --define sonar.sourceEncoding=UTF-8
+          --define sonar.host.url=https://sonarcloud.io
+          --define sonar.cfamily.ignoreHeaderComments=false
+          --define sonar.coverage.exclusions="test/unittest/**/*,docs/examples/**/*,**/sonar.cpp"
+          --define sonar.cpd.exclusions="test/unittest/**/*,docs/examples/**/*,**/sonar.cpp"
+          --define sonar.cfamily.compile-commands="build/compile_commands.json"
+          --define sonar.cfamily.reportingCppStandardOverride=c++14
+          --define sonar.coverageReportPaths="build/test/unittest/coverage.xml,build/docs/examples/coverage.xml"
