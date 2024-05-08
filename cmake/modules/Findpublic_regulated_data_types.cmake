@@ -7,7 +7,7 @@
 include(FetchContent)
 
 set(public_regulated_data_types_GIT_REPOSITORY "https://github.com/OpenCyphal/public_regulated_data_types.git")
-set(public_regulated_data_types_GIT_TAG "935973babe11755d8070e67452b3508b4b6833e2")
+set(public_regulated_data_types_GIT_TAG "f9f67906cc0ca5d7c1b429924852f6b28f313cbf")
 
 FetchContent_Declare(
     public_regulated_data_types

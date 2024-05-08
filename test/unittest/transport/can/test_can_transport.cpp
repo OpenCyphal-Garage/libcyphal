@@ -27,8 +27,10 @@ using testing::_;
 using testing::Eq;
 using testing::Return;
 using testing::IsNull;
+using testing::SizeIs;
 using testing::IsEmpty;
 using testing::NotNull;
+using testing::Contains;
 using testing::Optional;
 using testing::InSequence;
 using testing::StrictMock;
@@ -165,19 +167,29 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
 
 TEST_F(TestCanTransport, setLocalNodeId)
 {
+    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+
     auto transport = makeTransport(mr_);
 
     EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX + 1), Optional(testing::A<ArgumentError>()));
     EXPECT_THAT(transport->getLocalNodeId(), Eq(cetl::nullopt));
 
-    EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX), Eq(cetl::nullopt));
-    EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
+    transport->run(now());
 
     EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX), Eq(cetl::nullopt));
     EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
+
+    transport->run(now());
+
+    EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX), Eq(cetl::nullopt));
+    EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
+
+    transport->run(now());
 
     EXPECT_THAT(transport->setLocalNodeId(0), Optional(testing::A<ArgumentError>()));
     EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
+
+    transport->run(now());
 }
 
 TEST_F(TestCanTransport, makeTransport_with_invalid_arguments)
@@ -479,6 +491,21 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
     const auto timeout = 200ms;
     session->setTransferIdTimeout(timeout);
 
+    {
+        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
+            EXPECT_THAT(now(), TimePoint{0s} + 10us);
+            EXPECT_THAT(filters, Contains(FilterEq({0x25EC980, 0x2FFFF80})));
+            return cetl::nullopt;
+        });
+        EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
+            EXPECT_THAT(now(), TimePoint{0s} + 10us);
+            EXPECT_THAT(filters, Contains(FilterEq({0x25EC980, 0x2FFFF80})));
+            return cetl::nullopt;
+        });
+
+        scheduler_.runNow(+10us, [&] { transport->run(now()); });
+    }
+
     const auto epoch = TimePoint{10s};
     scheduler_.setNow(epoch);
     const auto rx1_timestamp = epoch;
@@ -557,6 +584,119 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
     EXPECT_THAT(rx_transfer.payload.size(), buffer.size());
     EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
     EXPECT_THAT(buffer, ElementsAre('0', '1', '2', '3', '4', '5', '6', '7', '8', '9'));
+
+    {
+        SCOPED_TRACE("unsubscribe @ 99s");
+
+        scheduler_.setNow(TimePoint{99s});
+        const auto reset_time = now();
+
+        EXPECT_CALL(media_mock_, setFilters(IsEmpty())).WillOnce([&](Filters) {
+            EXPECT_THAT(now(), reset_time + 10ms);
+            return cetl::nullopt;
+        });
+        EXPECT_CALL(media_mock2, setFilters(IsEmpty())).WillOnce([&](Filters) {
+            EXPECT_THAT(now(), reset_time + 10ms);
+            return cetl::nullopt;
+        });
+        EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+        EXPECT_CALL(media_mock2, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+
+        session.reset();
+
+        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+    }
+}
+
+TEST_F(TestCanTransport, setLocalNodeId_when_msg_rx_subscription)
+{
+    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+
+    auto transport = makeTransport(mr_);
+
+    auto maybe_msg_session = transport->makeMessageRxSession({0, 0x42});
+    ASSERT_THAT(maybe_msg_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters) {
+        EXPECT_THAT(now(), TimePoint{1s});
+        return cetl::nullopt;
+    });
+    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+
+    ASSERT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
+
+    // No `setFilters` expected b/c there is no service RX subscriptions.
+    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+}
+
+TEST_F(TestCanTransport, setLocalNodeId_when_svc_rx_subscription)
+{
+    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+
+    auto transport = makeTransport(mr_);
+
+    auto maybe_msg_session = transport->makeMessageRxSession({0, 0x42});
+    ASSERT_THAT(maybe_msg_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+
+    auto maybe_svc_session = transport->makeResponseRxSession({64, 0x17B, 0x31});
+    ASSERT_THAT(maybe_svc_session, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
+
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
+        EXPECT_THAT(now(), TimePoint{1s});
+        EXPECT_THAT(filters, Contains(FilterEq({0x4200, 0x21FFF80})));
+        return cetl::nullopt;
+    });
+    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+
+    ASSERT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
+
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(2))).WillOnce([&](Filters filters) {
+        EXPECT_THAT(now(), TimePoint{2s});
+        EXPECT_THAT(filters, Contains(FilterEq({0x4200, 0x21FFF80})));
+        EXPECT_THAT(filters, Contains(FilterEq({0x025EC980, 0x02FFFF80})));
+        return cetl::nullopt;
+    });
+    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+}
+
+TEST_F(TestCanTransport, run_when_no_memory_for_filters)
+{
+    StrictMock<MemoryResourceMock> mr_mock{};
+    mr_mock.redirectExpectedCallsTo(mr_);
+
+    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+
+    auto transport = makeTransport(mr_mock);
+
+    auto maybe_msg_session = transport->makeMessageRxSession({0, 0x42});
+    ASSERT_THAT(maybe_msg_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+
+    // Emulate two times that there is no memory for filters.
+    //
+    EXPECT_CALL(mr_mock, do_allocate(_, _)).Times(2).WillRepeatedly(Return(nullptr));
+#if (__cplusplus < CETL_CPP_STANDARD_17)
+    EXPECT_CALL(mr_mock, do_reallocate(nullptr, 0, _, _)).Times(2).WillRepeatedly(Return(nullptr));
+#endif
+    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+
+    // Restore normal memory operation, but make media fail to accept filters.
+    //
+    mr_mock.redirectExpectedCallsTo(mr_);
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).Times(2).WillRepeatedly(Return(PlatformError{13}));
+    //
+    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+
+    // And finally, make the media accept filters - should happen once (@5s)!
+    //
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters) {
+        EXPECT_THAT(now(), TimePoint{5s});
+        return cetl::nullopt;
+    });
+    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+    scheduler_.runNow(+1s, [&] { transport->run(now()); });
 }
 
 }  // namespace

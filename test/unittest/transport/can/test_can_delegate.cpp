@@ -41,9 +41,10 @@ protected:
 
         MOCK_METHOD((cetl::optional<AnyError>),
                     sendTransfer,
-                    (const libcyphal::TimePoint        deadline,
-                     const CanardTransferMetadata&     metadata,
-                     const PayloadFragments payload_fragments));
+                    (const libcyphal::TimePoint    deadline,
+                     const CanardTransferMetadata& metadata,
+                     const PayloadFragments        payload_fragments));
+        MOCK_METHOD(void, triggerUpdateOfFilters, (const FiltersUpdateCondition condition), (noexcept));
     };
 
     void TearDown() override
@@ -174,6 +175,67 @@ TEST_F(TestCanDelegate, canardMemoryAllocate_no_memory)
     EXPECT_CALL(mr_mock, do_allocate(_, _)).WillOnce(Return(nullptr));
 
     EXPECT_THAT(canard_instance.memory_allocate(&canard_instance, 1), IsNull());
+}
+
+TEST_F(TestCanDelegate, CanardConcreteTree_visitCounting)
+{
+    struct MyNode final : public CanardTreeNode
+    {
+        explicit MyNode(std::string _name)
+            : CanardTreeNode{}
+            , name{std::move(_name)}
+        {
+        }
+        std::string name;
+    };
+    //        Root
+    //      ↙     ↘
+    //  Left       Right
+    //      ↘      ↙   ↘
+    //       LR  RL     RR
+    //
+    MyNode root{"Root"}, left{"Left"}, right{"Right"};
+    MyNode left_r{"LR"}, right_l{"RL"}, right_r{"RR"};
+    root.lr[0]  = &left;
+    root.lr[1]  = &right;
+    left_r.up   = &left;
+    left.lr[1]  = &left_r;
+    right.lr[0] = &right_l;
+    right.lr[1] = &right_r;
+    left.up = right.up = &root;
+    right_l.up = right_r.up = &right;
+
+    using MyTree = detail::TransportDelegate::CanardConcreteTree<const MyNode>;
+    {
+        std::vector<std::string> names;
+        auto count = MyTree::visitCounting(&root, [&names](const MyNode& node) { names.push_back(node.name); });
+        EXPECT_THAT(count, 6);
+        EXPECT_THAT(names, ElementsAre("Left", "LR", "Root", "RL", "Right", "RR"));
+    }
+    {
+        std::vector<std::string> names;
+        auto count = MyTree::visitCounting(&left, [&names](const MyNode& node) { names.push_back(node.name); });
+        EXPECT_THAT(count, 2);
+        EXPECT_THAT(names, ElementsAre("Left", "LR"));
+    }
+    {
+        std::vector<std::string> names;
+        auto count = MyTree::visitCounting(&right, [&names](const MyNode& node) { names.push_back(node.name); });
+        EXPECT_THAT(count, 3);
+        EXPECT_THAT(names, ElementsAre("RL", "Right", "RR"));
+    }
+    {
+        std::vector<std::string> names;
+        auto count = MyTree::visitCounting(&left_r, [&names](const MyNode& node) { names.push_back(node.name); });
+        EXPECT_THAT(count, 1);
+        EXPECT_THAT(names, ElementsAre("LR"));
+    }
+    {
+        std::vector<std::string> names;
+        auto count = MyTree::visitCounting(nullptr, [&names](const MyNode& node) { names.push_back(node.name); });
+        EXPECT_THAT(count, 0);
+        EXPECT_THAT(names, IsEmpty());
+    }
 }
 
 }  // namespace
