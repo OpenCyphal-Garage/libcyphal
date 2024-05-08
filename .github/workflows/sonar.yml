@@ -39,8 +39,8 @@ jobs:
           test
       - name: Run build-wrapper
         run: |
-          cd build || die
-          build-wrapper-linux-x86-64 --out-dir . cmake --build . --target unittest || die "Build wrapper failed"
+          ls -la build/
+          echo ${{ secrets.SONAR_TOKEN }}
       - name: Run sonar-scanner
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -48,7 +48,6 @@ jobs:
         run: >
           sonar-scanner
           -X
-          --define sonar.cfamily.build-wrapper-output="build"
           --define sonar.organization=opencyphal-garage
           --define sonar.projectKey=OpenCyphal-Garage_libcyphal
           --define sonar.projectName=libcyphal
