@@ -225,7 +225,7 @@ private:
         return cetl::nullopt;
     }
 
-    CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept
+    CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept override
     {
         std::size_t min_mtu = std::numeric_limits<std::size_t>::max();
         for (const Media& media : media_array_)
