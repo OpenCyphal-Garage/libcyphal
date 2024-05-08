@@ -3,6 +3,7 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include <libcyphal/transport/can/transport.hpp>
 #include <libcyphal/types.hpp>
 
 int main()
