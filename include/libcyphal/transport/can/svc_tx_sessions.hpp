@@ -74,20 +74,20 @@ public:
 private:
     // MARK: ITxSession
 
-    void setSendTimeout(const Duration timeout) final
+    void setSendTimeout(const Duration timeout) override
     {
         send_timeout_ = timeout;
     }
 
     // MARK: IRequestTxSession
 
-    CETL_NODISCARD RequestTxParams getParams() const noexcept final
+    CETL_NODISCARD RequestTxParams getParams() const noexcept override
     {
         return params_;
     }
 
     CETL_NODISCARD cetl::optional<AnyError> send(const TransferMetadata& metadata,
-                                                 const PayloadFragments  payload_fragments) final
+                                                 const PayloadFragments  payload_fragments) override
     {
         // Before delegating to transport it makes sense to do some sanity checks.
         // Otherwise, transport may do some work (like possible payload allocation/copying,
@@ -110,7 +110,7 @@ private:
 
     // MARK: IRunnable
 
-    void run(const TimePoint) final
+    void run(const TimePoint) override
     {
         // Nothing to do here currently.
     }
@@ -169,20 +169,20 @@ public:
 private:
     // MARK: ITxSession
 
-    void setSendTimeout(const Duration timeout) final
+    void setSendTimeout(const Duration timeout) override
     {
         send_timeout_ = timeout;
     }
 
     // MARK: IResponseTxSession
 
-    CETL_NODISCARD ResponseTxParams getParams() const noexcept final
+    CETL_NODISCARD ResponseTxParams getParams() const noexcept override
     {
         return params_;
     }
 
     CETL_NODISCARD cetl::optional<AnyError> send(const ServiceTransferMetadata& metadata,
-                                                 const PayloadFragments         payload_fragments) final
+                                                 const PayloadFragments         payload_fragments) override
     {
         // Before delegating to transport it makes sense to do some sanity checks.
         // Otherwise, transport may do some work (like possible payload allocation/copying,
@@ -205,7 +205,7 @@ private:
 
     // MARK: IRunnable
 
-    void run(const TimePoint) final
+    void run(const TimePoint) override
     {
         // Nothing to do here currently.
     }

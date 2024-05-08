@@ -167,7 +167,7 @@ public:
     TransportImpl& operator=(const TransportImpl&)     = delete;
     TransportImpl& operator=(TransportImpl&&) noexcept = delete;
 
-    ~TransportImpl() final
+    ~TransportImpl() override
     {
         for (Media& media : media_array_)
         {
@@ -181,7 +181,7 @@ public:
 private:
     // MARK: ITransport
 
-    CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept final
+    CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
     {
         if (canard_instance().node_id > CANARD_NODE_ID_MAX)
         {
@@ -191,7 +191,7 @@ private:
         return cetl::make_optional(static_cast<NodeId>(canard_instance().node_id));
     }
 
-    CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept final
+    CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept override
     {
         if (node_id > CANARD_NODE_ID_MAX)
         {
@@ -239,7 +239,7 @@ private:
     }
 
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
-        const MessageRxParams& params) final
+        const MessageRxParams& params) override
     {
         const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindMessage, params.subject_id);
         if (any_error.has_value())
@@ -251,13 +251,13 @@ private:
     }
 
     CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(
-        const MessageTxParams& params) final
+        const MessageTxParams& params) override
     {
         return MessageTxSession::make(asDelegate(), params);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(
-        const RequestRxParams& params) final
+        const RequestRxParams& params) override
     {
         const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindRequest, params.service_id);
         if (any_error.has_value())
@@ -269,13 +269,13 @@ private:
     }
 
     CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(
-        const RequestTxParams& params) final
+        const RequestTxParams& params) override
     {
         return SvcRequestTxSession::make(asDelegate(), params);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(
-        const ResponseRxParams& params) final
+        const ResponseRxParams& params) override
     {
         const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindResponse, params.service_id);
         if (any_error.has_value())
@@ -287,14 +287,14 @@ private:
     }
 
     CETL_NODISCARD Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(
-        const ResponseTxParams& params) final
+        const ResponseTxParams& params) override
     {
         return SvcResponseTxSession::make(asDelegate(), params);
     }
 
     // MARK: IRunnable
 
-    void run(const TimePoint now) final
+    void run(const TimePoint now) override
     {
         runMediaTransmit(now);
         runMediaReceive();
@@ -310,7 +310,7 @@ private:
 
     CETL_NODISCARD cetl::optional<AnyError> sendTransfer(const TimePoint               deadline,
                                                          const CanardTransferMetadata& metadata,
-                                                         const PayloadFragments        payload_fragments) final
+                                                         const PayloadFragments        payload_fragments) override
     {
         // libcanard currently does not support fragmented payloads (at `canardTxPush`).
         // so we need to concatenate them when there are more than one non-empty fragment.
@@ -348,7 +348,7 @@ private:
         return maybe_error;
     }
 
-    void triggerUpdateOfFilters(const FiltersUpdateCondition condition) noexcept final
+    void triggerUpdateOfFilters(const FiltersUpdateCondition condition) noexcept override
     {
         switch (condition)
         {

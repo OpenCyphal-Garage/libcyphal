@@ -59,9 +59,9 @@ protected:
                     (const libcyphal::TimePoint    deadline,
                      const CanardTransferMetadata& metadata,
                      const PayloadFragments        payload_fragments),
-                    (final));
+                    (override));
         // NOLINTNEXTLINE(bugprone-exception-escape)
-        MOCK_METHOD(void, triggerUpdateOfFilters, (const FiltersUpdateCondition condition), (noexcept));
+        MOCK_METHOD(void, triggerUpdateOfFilters, (const FiltersUpdateCondition condition), (noexcept, override));
     };
 
     void TearDown() override

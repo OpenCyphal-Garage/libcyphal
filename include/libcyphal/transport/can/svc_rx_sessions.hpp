@@ -103,7 +103,7 @@ public:
     SvcRxSession& operator=(const SvcRxSession&)     = delete;
     SvcRxSession& operator=(SvcRxSession&&) noexcept = delete;
 
-    ~SvcRxSession() final
+    ~SvcRxSession() override
     {
         const int8_t result = ::canardRxUnsubscribe(&delegate_.canard_instance(),
                                                     TransferKind,
@@ -118,12 +118,12 @@ public:
 private:
     // MARK: Interface
 
-    CETL_NODISCARD Params getParams() const noexcept final
+    CETL_NODISCARD Params getParams() const noexcept override
     {
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<ServiceRxTransfer> receive() final
+    CETL_NODISCARD cetl::optional<ServiceRxTransfer> receive() override
     {
         cetl::optional<ServiceRxTransfer> result{};
         result.swap(last_rx_transfer_);
@@ -132,7 +132,7 @@ private:
 
     // MARK: IRxSession
 
-    void setTransferIdTimeout(const Duration timeout) final
+    void setTransferIdTimeout(const Duration timeout) override
     {
         const auto timeout_us = std::chrono::duration_cast<std::chrono::microseconds>(timeout);
         if (timeout_us.count() > 0)
@@ -143,14 +143,14 @@ private:
 
     // MARK: IRunnable
 
-    void run(const TimePoint) final
+    void run(const TimePoint) override
     {
         // Nothing to do here currently.
     }
 
     // MARK: IRxSessionDelegate
 
-    void acceptRxTransfer(const CanardRxTransfer& transfer) final
+    void acceptRxTransfer(const CanardRxTransfer& transfer) override
     {
         const auto priority       = static_cast<Priority>(transfer.metadata.priority);
         const auto remote_node_id = static_cast<NodeId>(transfer.metadata.remote_node_id);

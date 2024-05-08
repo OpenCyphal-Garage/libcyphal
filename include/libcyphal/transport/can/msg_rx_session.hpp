@@ -95,7 +95,7 @@ public:
     MessageRxSession& operator=(const MessageRxSession&)     = delete;
     MessageRxSession& operator=(MessageRxSession&&) noexcept = delete;
 
-    ~MessageRxSession() final
+    ~MessageRxSession() override
     {
         const int8_t result = ::canardRxUnsubscribe(&delegate_.canard_instance(),
                                                     CanardTransferKindMessage,
@@ -110,12 +110,12 @@ public:
 private:
     // MARK: IMessageRxSession
 
-    CETL_NODISCARD MessageRxParams getParams() const noexcept final
+    CETL_NODISCARD MessageRxParams getParams() const noexcept override
     {
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<MessageRxTransfer> receive() final
+    CETL_NODISCARD cetl::optional<MessageRxTransfer> receive() override
     {
         cetl::optional<MessageRxTransfer> result{};
         result.swap(last_rx_transfer_);
@@ -124,7 +124,7 @@ private:
 
     // MARK: IRxSession
 
-    void setTransferIdTimeout(const Duration timeout) final
+    void setTransferIdTimeout(const Duration timeout) override
     {
         const auto timeout_us = std::chrono::duration_cast<std::chrono::microseconds>(timeout);
         if (timeout_us.count() > 0)
@@ -135,14 +135,14 @@ private:
 
     // MARK: IRunnable
 
-    void run(const TimePoint) final
+    void run(const TimePoint) override
     {
         // Nothing to do here currently.
     }
 
     // MARK: IRxSessionDelegate
 
-    void acceptRxTransfer(const CanardRxTransfer& transfer) final
+    void acceptRxTransfer(const CanardRxTransfer& transfer) override
     {
         const auto priority    = static_cast<Priority>(transfer.metadata.priority);
         const auto transfer_id = static_cast<TransferId>(transfer.metadata.transfer_id);

@@ -69,7 +69,7 @@ public:
         }
         CanardMemory(const CanardMemory&) = delete;
 
-        ~CanardMemory() final
+        ~CanardMemory() override
         {
             if (buffer_ != nullptr)
             {
@@ -82,14 +82,14 @@ public:
 
         // MARK: ScatteredBuffer::IStorage
 
-        CETL_NODISCARD std::size_t size() const noexcept final
+        CETL_NODISCARD std::size_t size() const noexcept override
         {
             return payload_size_;
         }
 
         CETL_NODISCARD std::size_t copy(const std::size_t offset_bytes,
                                         void* const       destination,
-                                        const std::size_t length_bytes) const final
+                                        const std::size_t length_bytes) const override
         {
             CETL_DEBUG_ASSERT((destination != nullptr) || (length_bytes == 0),
                               "Destination could be null only with zero bytes ask.");

@@ -58,7 +58,7 @@ public:
     StorageWrapper(const StorageWrapper& other)            = delete;
     StorageWrapper& operator=(const StorageWrapper& other) = delete;
 
-    ~StorageWrapper() final
+    ~StorageWrapper() override
     {
         if (mock_ != nullptr)
         {
@@ -69,13 +69,13 @@ public:
 
     // ScatteredBuffer::IStorage
 
-    std::size_t size() const noexcept final
+    std::size_t size() const noexcept override
     {
         return (mock_ != nullptr) ? mock_->size() : 0;
     }
     std::size_t copy(const std::size_t offset_bytes,
                      void* const       destination,
-                     const std::size_t length_bytes) const final
+                     const std::size_t length_bytes) const override
     {
         return (mock_ != nullptr) ? mock_->copy(offset_bytes, destination, length_bytes) : 0;
     }

@@ -31,7 +31,7 @@ public:
     MediaMock& operator=(MediaMock&&) noexcept = delete;
 
     // NOLINTNEXTLINE(bugprone-exception-escape)
-    MOCK_METHOD(std::size_t, getMtu, (), (const, noexcept, final));
+    MOCK_METHOD(std::size_t, getMtu, (), (const, noexcept, override));
 
 };  // MediaMock
 

@@ -68,12 +68,12 @@ public:
 private:
     // MARK: ITransport
 
-    CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept final
+    CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
     {
         return cetl::nullopt;
     }
 
-    CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept final
+    CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept override
     {
         if (node_id > UDPARD_NODE_ID_MAX)
         {
@@ -85,41 +85,45 @@ private:
         return ArgumentError{};
     }
 
-    CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept final
+    CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept override
     {
         return ProtocolParams{};
     }
 
-    CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(const MessageRxParams&) final
+    CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
+        const MessageRxParams&) override
     {
         return NotImplementedError{};
     }
-    CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(const MessageTxParams&) final
+    CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(
+        const MessageTxParams&) override
     {
         return NotImplementedError{};
     }
-    CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(const RequestRxParams&) final
+    CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(
+        const RequestRxParams&) override
     {
         return NotImplementedError{};
     }
-    CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(const RequestTxParams&) final
+    CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(
+        const RequestTxParams&) override
     {
         return NotImplementedError{};
     }
     CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(
-        const ResponseRxParams&) final
+        const ResponseRxParams&) override
     {
         return NotImplementedError{};
     }
     CETL_NODISCARD Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(
-        const ResponseTxParams&) final
+        const ResponseTxParams&) override
     {
         return NotImplementedError{};
     }
 
     // MARK: IRunnable
 
-    void run(const TimePoint) final {}
+    void run(const TimePoint) override {}
 
 };  // TransportImpl
 

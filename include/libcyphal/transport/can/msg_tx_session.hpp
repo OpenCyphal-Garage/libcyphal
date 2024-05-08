@@ -72,20 +72,20 @@ public:
 private:
     // MARK: ITxSession
 
-    void setSendTimeout(const Duration timeout) final
+    void setSendTimeout(const Duration timeout) override
     {
         send_timeout_ = timeout;
     }
 
     // MARK: IMessageTxSession
 
-    CETL_NODISCARD MessageTxParams getParams() const noexcept final
+    CETL_NODISCARD MessageTxParams getParams() const noexcept override
     {
         return params_;
     }
 
     CETL_NODISCARD cetl::optional<AnyError> send(const TransferMetadata& metadata,
-                                                 const PayloadFragments  payload_fragments) final
+                                                 const PayloadFragments  payload_fragments) override
     {
         const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.priority),
                                                             CanardTransferKindMessage,
@@ -98,7 +98,7 @@ private:
 
     // MARK: IRunnable
 
-    void run(const TimePoint) final
+    void run(const TimePoint) override
     {
         // Nothing to do here currently.
     }
