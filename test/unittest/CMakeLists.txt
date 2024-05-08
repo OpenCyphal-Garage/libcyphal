@@ -93,8 +93,7 @@ set_directory_properties(PROPERTIES
 # +---------------------------------------------------------------------------+
 if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
 
-    # we need to build at least one source file to get sonarqube to look at the cetl
-    # headers.
+    # we need to build at least one source file to get sonarqube to look at the cyphal headers.
     add_executable(cyphal_sonar
         "sonar.cpp"
     )
@@ -102,5 +101,55 @@ if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
     target_link_libraries(cyphal_sonar
         PRIVATE cyphal
     )
+
+    find_package(SonarScanner)
+
+    if (${SonarScanner_FOUND})
+
+        # This is allows local debugging of the github action that runs sonarqube.
+        # It's not supposed to be part of the normal development process. To use sonarqube
+        # as part of your normal development process, you should use SonarSource.sonarlint-vscode
+        # in vscode.
+        #
+        # WARNING: If you are a project admin and you have a SONAR_TOKEN, this will upload
+        # the measure to the libcyphal project on sonarcloud.io. Be sure you are on a branch
+        # if you do this.
+
+        message(STATUS "SonarScanner found. Adding a local Sonar Scanner target.")
+
+        if(NOT DEFINED ENV{SONAR_TOKEN})
+            message(WARNING "SONAR_TOKEN token not found. Set this in the environment upload scan results to "
+                    "${SONARSCANNER_SONARCLOUD_URL}. While the scan will still run, the scanner will return an "
+                    "error which will fail the build.")
+        endif()
+
+        define_sonar_cloud_scan_target_for_c_cpp(
+                ROOT_DIRECTORY ${LIBCYPHAL_ROOT}
+                PROJECT_KEY OpenCyphal-Garage_libcyphal
+                PROJECT_NAME libcyphal
+                DEPENDS
+                unittest-sonarqube.xml
+                ${LOCAL_COVERAGE_REPORT_INDICIES}
+                cyphal_sonar
+                SOURCES
+                "include"
+                "${CMAKE_CURRENT_SOURCE_DIR}/sonar.cpp"
+                TESTS
+                "${CMAKE_CURRENT_SOURCE_DIR}"
+                TEST_INCLUSIONS
+                "test_*.cpp"
+                EXCLUDE_COVERAGE
+                "${CMAKE_CURRENT_SOURCE_DIR}/**/*,**/sonar.cpp"
+                EXCLUDE_CPD
+                "${CMAKE_CURRENT_SOURCE_DIR}/**/*,**/sonar.cpp"
+                CPP_VERSION ${CETLVAST_CPP_STANDARD}
+                COVERAGE_REPORTS
+                "${CMAKE_CURRENT_BINARY_DIR}/coverage.xml"
+                TEST_REPORTS
+                "${CMAKE_CURRENT_BINARY_DIR}/unittest-sonarqube.xml"
+        )
+    else()
+        message(STATUS "SonarScanner not found. Skipping SonarCloud integration.")
+    endif()
 
 endif()
