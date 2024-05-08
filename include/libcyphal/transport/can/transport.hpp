@@ -524,12 +524,12 @@ private:
     /// Temporary allocates memory buffers for all filters, one per each active subscription (message or service).
     /// In case of redundant media, each media interface will be called with the same span of filters.
     /// In case of zero subscriptions, we still need to call media interfaces to clear their filters,
-    /// through there will be no memory allocation for the empty buffer.
+    /// though there will be no memory allocation for the empty buffer.
     ///
     /// @note Service RX subscriptions are not considered as active ones for \b anonymous nodes.
     ///
     /// @note If \b whole reconfiguration process was successful,
-    /// `should_reconfigure_filters_` will be reset to `false`, so that next time the run won't do any job.
+    /// `should_reconfigure_filters_` will be reset to `false`, so that next time the run won't do any work.
     /// But in case of any failure (memory allocation or media error),
     /// `should_reconfigure_filters_` will stay engaged (`true`), so that we will try again on next run.
     ///
@@ -596,7 +596,7 @@ private:
             CETL_DEBUG_ASSERT(ports_count == total_active_ports, "");
         }
 
-        // Let know each media interface about the new filters (tracking the fact of possible media error).
+        // Let each media interface know about the new filters (tracking the fact of possible media error).
         //
         bool was_error = false;
         for (const Media& media : media_array_)
