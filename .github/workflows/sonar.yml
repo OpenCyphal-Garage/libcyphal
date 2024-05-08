@@ -1,0 +1,24 @@
+name: "libcyphal_sonar"
+
+on:
+  push:  # Further filtering is done in the jobs.
+  pull_request:
+    branches:
+      - main
+      - 'issue/*'
+
+jobs:
+  sonarcloud:
+    if: >
+      contains(github.event.head_commit.message, '#sonar') ||
+      contains(github.ref, '/main') ||
+      contains(github.ref, '/issue/') ||
+      (github.event_name == 'pull_request')
+    runs-on: ubuntu-latest
+    container: ghcr.io/opencyphal/toolshed:ts22.4.7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
+      - name: Install sonar-scanner and build-wrapper
+        uses: SonarSource/sonarcloud-github-c-cpp@v2

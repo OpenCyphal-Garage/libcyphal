@@ -1,4 +1,4 @@
-name: "libcyphal_test"
+name: "libcyphal_tests"
 
 on:
   push:  # Further filtering is done in the jobs.
@@ -51,9 +51,9 @@ jobs:
     needs: [warmup]
     strategy:
       matrix:
-#        build_flavor: [Release, Debug]
-#        std: [14, 17, 20]
-#        toolchain: [gcc, clang]
+        build_flavor: [Release, Debug]
+        std: [14, 17, 20]
+        toolchain: [gcc, clang]
         include:
           - build_flavor: Coverage
             std: 14
