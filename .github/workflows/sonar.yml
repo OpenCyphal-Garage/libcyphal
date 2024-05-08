@@ -37,10 +37,6 @@ jobs:
           --build-flavor Coverage
           --toolchain clang
           test
-      - name: Run build-wrapper
-        run: |
-          ls -la build/
-          echo ${{ secrets.SONAR_TOKEN }}
       - name: Run sonar-scanner
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
