@@ -135,7 +135,7 @@ public:
         /// @return Total count of visited nodes (including the `node` one). `0` if `node` is `nullptr`.
         ///
         template <typename Visitor>
-        static std::size_t visitCounting(CanardTreeNode* const node, Visitor&& visitor)  // NOLINT(misc-no-recursion)
+        static std::size_t visitCounting(CanardTreeNode* const node, const Visitor& visitor)  // NOLINT(misc-no-recursion)
         {
             if (node == nullptr)
             {
@@ -145,11 +145,11 @@ public:
             // Initial `1` is for the current node.
             std::size_t count = 1;
 
-            count += visitCounting(node->lr[0], std::forward<Visitor>(visitor));
-            // Next nolint & nosonar are unavoidable: this is integration with low-level C code of Canard AVL trees.
+            count += visitCounting(node->lr[0], visitor);
+            // Next nolint & NOSONAR are unavoidable: this is integration with low-level C code of Canard AVL trees.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
             visitor(*reinterpret_cast<Node*>(node)); // NOSONAR
-            count += visitCounting(node->lr[1], std::forward<Visitor>(visitor));
+            count += visitCounting(node->lr[1], visitor);
 
             return count;
         }
