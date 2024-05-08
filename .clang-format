@@ -38,7 +38,7 @@ BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeComma
 BreakStringLiterals: true
 ColumnLimit:     120
-CommentPragmas:  '^ (coverity|pragma:)'
+CommentPragmas:  '^ (coverity|NOSONAR|pragma:)'
 CompactNamespaces: false
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
 ConstructorInitializerIndentWidth: 4
