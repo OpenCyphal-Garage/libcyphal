@@ -102,7 +102,7 @@ public:
             const std::size_t bytes_to_copy = std::min(length_bytes, payload_size_ - offset_bytes);
             // Next nolint is unavoidable: we need offset from the beginning of the buffer.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            std::memmove(destination, static_cast<cetl::byte*>(buffer_) + offset_bytes, bytes_to_copy);
+            (void) std::memmove(destination, static_cast<cetl::byte*>(buffer_) + offset_bytes, bytes_to_copy);
             return bytes_to_copy;
         }
 

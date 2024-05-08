@@ -72,7 +72,7 @@ public:
                 {
                     // Next nolint is unavoidable: we need offset from the beginning of the buffer.
                     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-                    std::memmove(&buffer[offset], frag.data(), frag.size());
+                    (void) std::memmove(&buffer[offset], frag.data(), frag.size());
                     offset += frag.size();
                 }
             }
