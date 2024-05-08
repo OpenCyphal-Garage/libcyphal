@@ -50,10 +50,12 @@ class TransportDelegate
 public:
     /// @brief RAII class to manage memory allocated by Canard library.
     ///
+    /// NOSONAR-s are unavoidable: this is class integrates with low-level C code of Canard memory management.
+    ///
     class CanardMemory final : public cetl::rtti_helper<CanardMemoryTypeIdType, ScatteredBuffer::IStorage>
     {
     public:
-        CanardMemory(TransportDelegate& delegate, void* const buffer, const std::size_t payload_size)
+        CanardMemory(TransportDelegate& delegate, void* const buffer, const std::size_t payload_size)  // NOSONAR
             : delegate_{delegate}
             , buffer_{buffer}
             , payload_size_{payload_size}
@@ -87,8 +89,10 @@ public:
             return payload_size_;
         }
 
+        // NOSONAR is unavoidable: integration with low-level Lizard memory access.
+        //
         CETL_NODISCARD std::size_t copy(const std::size_t offset_bytes,
-                                        void* const       destination,
+                                        void* const       destination,  // NOSONAR
                                         const std::size_t length_bytes) const override
         {
             CETL_DEBUG_ASSERT((destination != nullptr) || (length_bytes == 0),
@@ -110,7 +114,7 @@ public:
         // MARK: Data members:
 
         TransportDelegate& delegate_;
-        void*              buffer_;
+        void*              buffer_;  // NOSONAR
         std::size_t        payload_size_;
 
     };  // CanardMemory
@@ -135,7 +139,8 @@ public:
         /// @return Total count of visited nodes (including the `node` one). `0` if `node` is `nullptr`.
         ///
         template <typename Visitor>
-        static std::size_t visitCounting(CanardTreeNode* const node, const Visitor& visitor)  // NOLINT(misc-no-recursion)
+        static std::size_t visitCounting(CanardTreeNode* const node,
+                                         const Visitor&        visitor)  // NOLINT(misc-no-recursion)
         {
             if (node == nullptr)
             {
@@ -148,7 +153,7 @@ public:
             count += visitCounting(node->lr[0], visitor);
             // Next nolint & NOSONAR are unavoidable: this is integration with low-level C code of Canard AVL trees.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-            visitor(*reinterpret_cast<Node*>(node)); // NOSONAR
+            visitor(*reinterpret_cast<Node*>(node));  // NOSONAR
             count += visitCounting(node->lr[1], visitor);
 
             return count;
@@ -273,7 +278,10 @@ private:
     /// Implicitly stores the size of the allocated memory in the prepended `CanardMemoryHeader` struct,
     /// so that it will possible later (at `freeCanardMemory`) restore the original size.
     ///
-    CETL_NODISCARD static void* allocateMemoryForCanard(CanardInstance* ins, std::size_t amount)
+    /// NOSONAR b/s it is unavoidable: this is integration with low-level C code of Canard memory management.
+    /// @see ::canardInit
+    ///
+    CETL_NODISCARD static void* allocateMemoryForCanard(CanardInstance* ins, std::size_t amount)  // NOSONAR
     {
         TransportDelegate& self = getSelfFrom(ins);
 
@@ -295,7 +303,10 @@ private:
 
     /// @brief Releases memory allocated for canard instance (by previous `allocateMemoryForCanard` call).
     ///
-    static void freeCanardMemory(CanardInstance* ins, void* pointer)
+    /// NOSONAR b/s it is unavoidable: this is integration with low-level C code of Canard memory management.
+    /// @see ::canardInit
+    ///
+    static void freeCanardMemory(CanardInstance* ins, void* pointer)  // NOSONAR
     {
         TransportDelegate& self = getSelfFrom(ins);
         self.freeCanardMemory(pointer);
