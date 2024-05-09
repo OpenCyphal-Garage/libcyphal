@@ -613,9 +613,9 @@ private:
         if (total_message_ports_ > 0)
         {
             const auto msg_visitor = [&filters](RxSubscription& rx_subscription) {
-                // Build and store a single message filter
-                const auto msb_flt = ::canardMakeFilterForSubject(rx_subscription.port_id);
-                filters.emplace_back(Filter{msb_flt.extended_can_id, msb_flt.extended_mask});
+                // Make and store a single message filter.
+                const auto flt = ::canardMakeFilterForSubject(rx_subscription.port_id);
+                filters.emplace_back(Filter{flt.extended_can_id, flt.extended_mask});
             };
             ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindMessage], msg_visitor);
         }
@@ -625,7 +625,7 @@ private:
         if ((total_service_ports_ > 0) && !is_anonymous)
         {
             const auto svc_visitor = [&filters, local_node_id](RxSubscription& rx_subscription) {
-                //
+                // Make and store a single service filter.
                 const auto flt = ::canardMakeFilterForService(rx_subscription.port_id, local_node_id);
                 filters.emplace_back(Filter{flt.extended_can_id, flt.extended_mask});
             };
