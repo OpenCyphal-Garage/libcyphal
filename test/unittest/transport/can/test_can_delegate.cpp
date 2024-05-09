@@ -146,7 +146,7 @@ TEST_F(TestCanDelegate, CanardMemory_copy_on_moved)
 
     const std::size_t payload_size = 4;
     char* const       payload = static_cast<char*>(canard_instance.memory_allocate(&canard_instance, payload_size));
-    std::iota(payload, payload + payload_size, '0'); // NOLINT
+    std::iota(payload, payload + payload_size, '0');  // NOLINT
 
     CanardMemory old_canard_memory{delegate, payload, payload_size};
     EXPECT_THAT(old_canard_memory.size(), payload_size);
@@ -207,7 +207,7 @@ TEST_F(TestCanDelegate, CanardConcreteTree_visitCounting)
             , name{std::move(_name)}
         {
         }
-        std::string name; // NOLINT
+        std::string name;  // NOLINT
     };
     //        Root
     //      ↙     ↘
