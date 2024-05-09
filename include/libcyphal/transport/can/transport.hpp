@@ -154,9 +154,9 @@ public:
                   const CanardNodeID          canard_node_id)
         : TransportDelegate{memory}
         , media_array_{std::move(media_array)}
-        , should_reconfigure_filters_{false}
-        , total_message_ports_{0}
-        , total_service_ports_{0}
+        , should_reconfigure_filters_{false}  // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
+        , total_message_ports_{0}             // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
+        , total_service_ports_{0}             // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
     {
         // TODO: Use it!
         (void) multiplexer;

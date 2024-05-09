@@ -81,7 +81,7 @@ public:
     SvcRxSession(Spec, TransportDelegate& delegate, const Params& params)
         : delegate_{delegate}
         , params_{params}
-        , subscription_{}
+        , subscription_{}  // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
     {
         const int8_t result = ::canardRxSubscribe(&delegate.canard_instance(),
                                                   TransferKind,

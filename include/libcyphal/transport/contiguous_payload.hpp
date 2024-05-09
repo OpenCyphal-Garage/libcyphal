@@ -41,9 +41,9 @@ class ContiguousPayload final
 public:
     ContiguousPayload(cetl::pmr::memory_resource& mr, const PayloadFragments payload_fragments)
         : mr_{mr}
-        , payload_{nullptr}
-        , payload_size_{0}
-        , allocated_buffer_{nullptr}
+        , payload_{nullptr}           // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
+        , payload_size_{0}            // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
+        , allocated_buffer_{nullptr}  // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
     {
         using Fragment = cetl::span<const cetl::byte>;
 
@@ -104,7 +104,7 @@ public:
 private:
     // MARK: Data members:
 
-    // Below nolint is to comply with AUTOSAR A11-0-2: in this class we do ALL initialization in the constructor.
+    // Below nolint is to comply with AUTOSAR A12-1-2: in this class we do ALL initialization in the constructor.
     // NOLINTBEGIN(cppcoreguidelines-use-default-member-init,modernize-use-default-member-init)
     cetl::pmr::memory_resource& mr_;
     const cetl::byte*           payload_;

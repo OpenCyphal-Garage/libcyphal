@@ -169,9 +169,11 @@ public:
         ServicePortRemoved
     };
 
+    // NOSONAR below b/c Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
+    //
     explicit TransportDelegate(cetl::pmr::memory_resource& memory)
         : memory_{memory}
-        , canard_instance_(::canardInit(allocateMemoryForCanard, freeCanardMemory))
+        , canard_instance_{::canardInit(allocateMemoryForCanard, freeCanardMemory)}  // NOSONAR
     {
         canard_instance().user_reference = this;
     }

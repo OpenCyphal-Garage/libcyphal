@@ -65,7 +65,7 @@ public:
     MessageTxSession(Spec, TransportDelegate& delegate, const MessageTxParams& params)
         : delegate_{delegate}
         , params_{params}
-        , send_timeout_{std::chrono::seconds{1}}
+        , send_timeout_{std::chrono::seconds{1}}  // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
     {
     }
 
