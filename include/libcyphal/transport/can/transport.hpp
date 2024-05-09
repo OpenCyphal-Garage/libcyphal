@@ -215,7 +215,7 @@ private:
         ins.node_id = static_cast<CanardNodeID>(node_id);
 
         // We just became non-anonymous node, so we might need to reconfigure media filters
-        // in case we have at least one service RX subscription.
+        // in case we have at least one service RX port.
         //
         // @see runMediaFilters
         //
@@ -389,10 +389,9 @@ private:
     CETL_NODISCARD cetl::optional<AnyError> ensureNewSessionFor(const CanardTransferKind transfer_kind,
                                                                 const PortId             port_id) noexcept
     {
-        const std::int8_t hasSubscription =
-            ::canardRxGetSubscription(&canard_instance(), transfer_kind, port_id, nullptr);
-        CETL_DEBUG_ASSERT(hasSubscription >= 0, "There is no way currently to get an error here.");
-        if (hasSubscription > 0)
+        const std::int8_t has_port = ::canardRxGetSubscription(&canard_instance(), transfer_kind, port_id, nullptr);
+        CETL_DEBUG_ASSERT(has_port >= 0, "There is no way currently to get an error here.");
+        if (has_port > 0)
         {
             return AlreadyExistsError{};
         }
@@ -502,14 +501,16 @@ private:
             // Otherwise, we would send it to the media interface.
             // We use strictly `<` (instead of `<=`) to give this frame a chance (one extra 1us) at media level.
             //
-            if (const auto deadline = TimePoint{std::chrono::microseconds{tx_item->tx_deadline_usec}}; now < deadline)
+            const auto deadline = TimePoint{std::chrono::microseconds{tx_item->tx_deadline_usec}};
+            if (now < deadline)
             {
                 const cetl::span<const cetl::byte> payload{static_cast<const cetl::byte*>(tx_item->frame.payload),
                                                            tx_item->frame.payload_size};
 
                 const Expected<bool, MediaError> maybe_pushed =
                     media.interface().push(deadline, tx_item->frame.extended_can_id, payload);
-                if (const auto* const is_pushed = cetl::get_if<bool>(&maybe_pushed); !*is_pushed)
+                const auto* const is_pushed = cetl::get_if<bool>(&maybe_pushed);
+                if ((is_pushed != nullptr) && !*is_pushed)
                 {
                     // Media interface is busy, so we will try again with it later (on next `run`).
                     break;
@@ -526,14 +527,14 @@ private:
         }  // for each frame
     }
 
-    /// \brief Runs (if needed) reconfiguration of media filters based on the currently active subscriptions.
+    /// \brief Runs (if needed) reconfiguration of media filters based on the currently active RX ports.
     ///
-    /// Temporary allocates memory buffers for all filters, one per each active subscription (message or service).
+    /// Temporary allocates memory buffers for all filters, one per each active port (message or service).
     /// In case of redundant media, each media interface will be called with the same span of filters.
-    /// In case of zero subscriptions, we still need to call media interfaces to clear their filters,
+    /// In case of zero ports, we still need to call media interfaces to clear their filters,
     /// though there will be no memory allocation for the empty buffer.
     ///
-    /// @note Service RX subscriptions are not considered as active ones for \b anonymous nodes.
+    /// @note Service RX ports are not considered as active ones for \b anonymous nodes.
     ///
     /// @note If \b whole reconfiguration process was successful,
     /// `should_reconfigure_filters_` will be reset to `false`, so that next time the run won't do any work.
@@ -542,65 +543,17 @@ private:
     ///
     void runMediaFilters()
     {
-        using RxSubscription     = const CanardRxSubscription;
-        using RxSubscriptionTree = CanardConcreteTree<RxSubscription>;
-
         if (!should_reconfigure_filters_)
         {
             return;
         }
 
-        // Total "active" RX ports depends on the local node ID. For anonymous nodes,
-        // we don't account for service ports (b/c they don't work while being anonymous).
-        //
-        const CanardNodeID local_node_id      = canard_instance().node_id;
-        const auto         is_anonymous       = local_node_id > CANARD_NODE_ID_MAX;
-        const std::size_t  total_active_ports = total_message_ports_ + (is_anonymous ? 0 : total_service_ports_);
-
-        // There is no memory allocation here yet - just empty span.
-        //
-        libcyphal::detail::VarArray<Filter> filters{total_active_ports, &memory()};
-        if (total_active_ports > 0)
+        libcyphal::detail::VarArray<Filter> filters{&memory()};
+        if (!fillMediaFiltersArray(filters))
         {
-            // Now we know that we have at least one active port,
-            // so we need preallocate temp memory for total number of active ports.
-            //
-            filters.reserve(total_active_ports);
-            if (filters.capacity() < total_active_ports)
-            {
-                // This is out of memory situation. We will just leave this run,
-                // but `should_reconfigure_filters_` will stay engaged, so we will try again on next run.
-                return;
-            }
-
-            // `subs_count` counting is just for the sake of debug verification.
-            std::size_t ports_count = 0;
-
-            const auto& subs_trees = canard_instance().rx_subscriptions;
-
-            if (total_message_ports_ > 0)
-            {
-                const auto msg_visitor = [&filters](RxSubscription& rx_subscription) {
-                    const auto msb_flt = ::canardMakeFilterForSubject(rx_subscription.port_id);
-                    filters.emplace_back(Filter{msb_flt.extended_can_id, msb_flt.extended_mask});
-                };
-                ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindMessage], msg_visitor);
-            }
-
-            // No need to build service filters if we don't have a local node ID.
-            //
-            if ((total_service_ports_ > 0) && !is_anonymous)
-            {
-                const auto svc_visitor = [&filters, local_node_id](RxSubscription& rx_subscription) {
-                    const auto flt = ::canardMakeFilterForService(rx_subscription.port_id, local_node_id);
-                    filters.emplace_back(Filter{flt.extended_can_id, flt.extended_mask});
-                };
-                ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindRequest], svc_visitor);
-                ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindResponse], svc_visitor);
-            }
-
-            (void) ports_count;
-            CETL_DEBUG_ASSERT(ports_count == total_active_ports, "");
+            // This is out of memory situation. We will just leave this run,
+            // but `should_reconfigure_filters_` will stay engaged, so we will try again on next run.
+            return;
         }
 
         // Let each media interface know about the new filters (tracking the fact of possible media error).
@@ -621,6 +574,68 @@ private:
         {
             should_reconfigure_filters_ = false;
         }
+    }
+
+    /// @brief Fills an array with filters for each active RX port.
+    ///
+    bool fillMediaFiltersArray(libcyphal::detail::VarArray<Filter>& filters)
+    {
+        using RxSubscription     = const CanardRxSubscription;
+        using RxSubscriptionTree = CanardConcreteTree<RxSubscription>;
+
+        // Total "active" RX ports depends on the local node ID. For anonymous nodes,
+        // we don't account for service ports (b/c they don't work while being anonymous).
+        //
+        const CanardNodeID local_node_id      = canard_instance().node_id;
+        const auto         is_anonymous       = local_node_id > CANARD_NODE_ID_MAX;
+        const std::size_t  total_active_ports = total_message_ports_ + (is_anonymous ? 0 : total_service_ports_);
+        if (total_active_ports == 0)
+        {
+            // No need to allocate memory for zero filters.
+            return true;
+        }
+
+        // Now we know that we have at least one active port,
+        // so we need preallocate temp memory for total number of active ports.
+        //
+        filters.reserve(total_active_ports);
+        if (filters.capacity() < total_active_ports)
+        {
+            // This is out of memory situation.
+            return false;
+        }
+
+        // `ports_count` counting is just for the sake of debug verification.
+        std::size_t ports_count = 0;
+
+        const auto& subs_trees = canard_instance().rx_subscriptions;
+
+        if (total_message_ports_ > 0)
+        {
+            const auto msg_visitor = [&filters](RxSubscription& rx_subscription) {
+                // Build and store a single message filter
+                const auto msb_flt = ::canardMakeFilterForSubject(rx_subscription.port_id);
+                filters.emplace_back(Filter{msb_flt.extended_can_id, msb_flt.extended_mask});
+            };
+            ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindMessage], msg_visitor);
+        }
+
+        // No need to make service filters if we don't have a local node ID.
+        //
+        if ((total_service_ports_ > 0) && !is_anonymous)
+        {
+            const auto svc_visitor = [&filters, local_node_id](RxSubscription& rx_subscription) {
+                //
+                const auto flt = ::canardMakeFilterForService(rx_subscription.port_id, local_node_id);
+                filters.emplace_back(Filter{flt.extended_can_id, flt.extended_mask});
+            };
+            ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindRequest], svc_visitor);
+            ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindResponse], svc_visitor);
+        }
+
+        (void) ports_count;
+        CETL_DEBUG_ASSERT(ports_count == total_active_ports, "");
+        return true;
     }
 
     // MARK: Data members:
