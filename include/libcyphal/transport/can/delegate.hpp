@@ -50,9 +50,10 @@ class TransportDelegate
 public:
     /// @brief RAII class to manage memory allocated by Canard library.
     ///
-    /// NOSONAR-s are unavoidable: this is class integrates with low-level C code of Canard memory management.
+    /// NOSONAR-s for `void*` are unavoidable: integration with low-level C code of Canard memory management.
+    /// NOSONAR for below `class CanardMemory` is to disable Sonar cpp:S4963 - we do directly handle resources here.
     ///
-    class CanardMemory final : public cetl::rtti_helper<CanardMemoryTypeIdType, ScatteredBuffer::IStorage>
+    class CanardMemory final : public cetl::rtti_helper<CanardMemoryTypeIdType, ScatteredBuffer::IStorage>  // NOSONAR
     {
     public:
         CanardMemory(TransportDelegate& delegate, void* const buffer, const std::size_t payload_size)  // NOSONAR
