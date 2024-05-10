@@ -44,6 +44,6 @@ private:
     TimePoint now_;
 };
 
-} // namespace libcyphal
+}  // namespace libcyphal
 
 #endif  // LIBCYPHAL_VIRTUAL_TIME_SCHEDULER_HPP

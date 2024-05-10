@@ -7,11 +7,21 @@
 #define LIBCYPHAL_TRANSPORT_CAN_SVC_RX_SESSIONS_HPP_INCLUDED
 
 #include "delegate.hpp"
+
+#include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
+#include "libcyphal/transport/types.hpp"
+#include "libcyphal/types.hpp"
 
 #include <canard.h>
+#include <cetl/cetl.hpp>
+#include <cetl/pf17/attribute.hpp>
+#include <cetl/pf17/cetlpf.hpp>
 
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <utility>
 
 namespace libcyphal
 {
@@ -35,8 +45,11 @@ namespace detail
 /// @tparam TransferKind Kind of the service transfer.
 ///                      Could be either `CanardTransferKindRequest` or `CanardTransferKindResponse`.
 ///
+/// NOSONAR cpp:S4963 for below `class SvcRxSession` - we do directly handle resources here;
+/// namely: in destructor we have to unsubscribe, as well as let delegate to know this fact.
+///
 template <typename Interface_, typename Params, CanardTransferKind TransferKind>
-class SvcRxSession final : public Interface_, private IRxSessionDelegate
+class SvcRxSession final : public Interface_, private IRxSessionDelegate  // NOSONAR cpp:S4963
 {
     /// @brief Defines specification for making interface unique ptr.
     ///
@@ -72,12 +85,11 @@ public:
         : delegate_{delegate}
         , params_{params}
         , subscription_{}
-        , last_rx_transfer_{}
     {
         const int8_t result = ::canardRxSubscribe(&delegate.canard_instance(),
                                                   TransferKind,
-                                                  static_cast<CanardPortID>(params_.service_id),
-                                                  static_cast<std::size_t>(params_.extent_bytes),
+                                                  params_.service_id,
+                                                  params_.extent_bytes,
                                                   CANARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC,
                                                   &subscription_);
         (void) result;
@@ -89,11 +101,14 @@ public:
         delegate_.triggerUpdateOfFilters(TransportDelegate::FiltersUpdateCondition::ServicePortAdded);
     }
 
-    ~SvcRxSession() final
+    SvcRxSession(const SvcRxSession&)                = delete;
+    SvcRxSession(SvcRxSession&&) noexcept            = delete;
+    SvcRxSession& operator=(const SvcRxSession&)     = delete;
+    SvcRxSession& operator=(SvcRxSession&&) noexcept = delete;
+
+    ~SvcRxSession() override
     {
-        const int8_t result = ::canardRxUnsubscribe(&delegate_.canard_instance(),
-                                                    TransferKind,
-                                                    static_cast<CanardPortID>(params_.service_id));
+        const int8_t result = ::canardRxUnsubscribe(&delegate_.canard_instance(), TransferKind, params_.service_id);
         (void) result;
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "Subscription supposed to be made at constructor.");
@@ -104,12 +119,12 @@ public:
 private:
     // MARK: Interface
 
-    CETL_NODISCARD Params getParams() const noexcept final
+    CETL_NODISCARD Params getParams() const noexcept override
     {
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<ServiceRxTransfer> receive() final
+    CETL_NODISCARD cetl::optional<ServiceRxTransfer> receive() override
     {
         cetl::optional<ServiceRxTransfer> result{};
         result.swap(last_rx_transfer_);
@@ -118,7 +133,7 @@ private:
 
     // MARK: IRxSession
 
-    void setTransferIdTimeout(const Duration timeout) final
+    void setTransferIdTimeout(const Duration timeout) override
     {
         const auto timeout_us = std::chrono::duration_cast<std::chrono::microseconds>(timeout);
         if (timeout_us.count() > 0)
@@ -129,24 +144,24 @@ private:
 
     // MARK: IRunnable
 
-    void run(const TimePoint) final
+    void run(const TimePoint) override
     {
         // Nothing to do here currently.
     }
 
     // MARK: IRxSessionDelegate
 
-    void acceptRxTransfer(const CanardRxTransfer& transfer) final
+    void acceptRxTransfer(const CanardRxTransfer& transfer) override
     {
         const auto priority       = static_cast<Priority>(transfer.metadata.priority);
         const auto remote_node_id = static_cast<NodeId>(transfer.metadata.remote_node_id);
         const auto transfer_id    = static_cast<TransferId>(transfer.metadata.transfer_id);
         const auto timestamp      = TimePoint{std::chrono::microseconds{transfer.timestamp_usec}};
 
-        const ServiceTransferMetadata   meta{{transfer_id, timestamp, priority}, remote_node_id};
+        const ServiceTransferMetadata   meta{transfer_id, timestamp, priority, remote_node_id};
         TransportDelegate::CanardMemory canard_memory{delegate_, transfer.payload, transfer.payload_size};
 
-        last_rx_transfer_.emplace(ServiceRxTransfer{meta, ScatteredBuffer{std::move(canard_memory)}});
+        (void) last_rx_transfer_.emplace(ServiceRxTransfer{meta, ScatteredBuffer{std::move(canard_memory)}});
     }
 
     // MARK: Data members:

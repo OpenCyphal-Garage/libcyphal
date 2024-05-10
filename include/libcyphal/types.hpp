@@ -6,14 +6,13 @@
 #ifndef LIBCYPHAL_TYPES_HPP_INCLUDED
 #define LIBCYPHAL_TYPES_HPP_INCLUDED
 
-#include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf17/attribute.hpp>
-#include <cetl/pf20/cetlpf.hpp>
+#include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pmr/memory.hpp>
 #include <cetl/variable_length_array.hpp>
 
-#include <cstdint>
 #include <chrono>
+#include <cstdint>
 #include <ratio>
 
 namespace libcyphal

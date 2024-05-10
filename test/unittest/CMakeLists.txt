@@ -39,6 +39,11 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
         OUT_TEST_EXE_VARIABLE LOCAL_TEST_TARGET
         OUT_TEST_REPORT_VARIABLE LOCAL_TEST_REPORT
     )
+    set_target_properties(
+        ${LOCAL_TEST_LIB}
+        PROPERTIES
+        CXX_CLANG_TIDY "${clang_tidy}"
+    )
 
     list(APPEND ALL_TESTS_BUILD ${LOCAL_TEST_TARGET})
     list(APPEND ALL_TESTS_RUN ${LOCAL_TEST_REPORT})
@@ -60,25 +65,36 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
     endif()
 endforeach()
 
-if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    enable_coverage_report(COVERAGE_REPORT_FORMATS html sonarqube
-                           ROOT_DIRECTORY ${LIBCYPHAL_ROOT}
-                           OUT_REPORT_INDICIES LOCAL_COVERAGE_REPORT_INDICIES
-    )
-endif()
-
 add_custom_target(
-     build_unittests
-     DEPENDS
-          ${ALL_TESTS_BUILD}
+    build_unittests
+    DEPENDS
+        ${ALL_TESTS_BUILD}
 )
 
 add_custom_target(
-     run_unittests
-     DEPENDS
-          ${ALL_TESTS_RUN}
+    run_unittests
+    DEPENDS
+        ${ALL_TESTS_RUN}
 )
 
 set_directory_properties(PROPERTIES
     IN_BUILD_TESTS "${ALL_TESTS_RUN}"
 )
+
+if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+
+    enable_coverage_report(COVERAGE_REPORT_FORMATS html sonarqube
+        ROOT_DIRECTORY ${LIBCYPHAL_ROOT}
+        OUT_REPORT_INDICIES LOCAL_COVERAGE_REPORT_INDICIES
+    )
+
+    # We need to build at least one source file to get sonarqube to look at the libcyphal headers.
+    add_executable(cyphal_sonar
+        "sonar.cpp"
+    )
+
+    target_link_libraries(cyphal_sonar
+        PRIVATE cyphal
+    )
+
+endif()

@@ -7,12 +7,15 @@
 #define LIBCYPHAL_TRANSPORT_CAN_MSG_TX_SESSION_HPP_INCLUDED
 
 #include "delegate.hpp"
+
+#include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
-#include "libcyphal/transport/contiguous_payload.hpp"
+#include "libcyphal/transport/types.hpp"
+#include "libcyphal/types.hpp"
 
 #include <canard.h>
-
-#include <numeric>
+#include <cetl/pf17/attribute.hpp>
+#include <cetl/pf17/cetlpf.hpp>
 
 namespace libcyphal
 {
@@ -69,24 +72,24 @@ public:
 private:
     // MARK: ITxSession
 
-    void setSendTimeout(const Duration timeout) final
+    void setSendTimeout(const Duration timeout) override
     {
         send_timeout_ = timeout;
     }
 
     // MARK: IMessageTxSession
 
-    CETL_NODISCARD MessageTxParams getParams() const noexcept final
+    CETL_NODISCARD MessageTxParams getParams() const noexcept override
     {
         return params_;
     }
 
     CETL_NODISCARD cetl::optional<AnyError> send(const TransferMetadata& metadata,
-                                                 const PayloadFragments  payload_fragments) final
+                                                 const PayloadFragments  payload_fragments) override
     {
         const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.priority),
                                                             CanardTransferKindMessage,
-                                                            static_cast<CanardPortID>(params_.subject_id),
+                                                            params_.subject_id,
                                                             CANARD_NODE_ID_UNSET,
                                                             static_cast<CanardTransferID>(metadata.transfer_id)};
 
@@ -95,7 +98,7 @@ private:
 
     // MARK: IRunnable
 
-    void run(const TimePoint) final
+    void run(const TimePoint) override
     {
         // Nothing to do here currently.
     }

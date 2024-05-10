@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_MEMORY_RESOURCE_MOCK_HPP_INCLUDED
 #define LIBCYPHAL_MEMORY_RESOURCE_MOCK_HPP_INCLUDED
 
+#include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pmr/memory.hpp>
 
 #include <gmock/gmock.h>
@@ -13,13 +14,15 @@
 class MemoryResourceMock : public cetl::pmr::memory_resource
 {
 public:
-    MOCK_METHOD(void*, do_allocate, (std::size_t, std::size_t));
+    MOCK_METHOD(void*, do_allocate, (std::size_t, std::size_t), (override));
     MOCK_METHOD(void, do_deallocate, (void*, std::size_t, std::size_t));
-    MOCK_METHOD(bool, do_is_equal, (const memory_resource&), (const, noexcept));
+    // NOLINTNEXTLINE(bugprone-exception-escape)
+    MOCK_METHOD(bool, do_is_equal, (const memory_resource&), (const, noexcept, override));
 
 #if (__cplusplus < CETL_CPP_STANDARD_17)
-    MOCK_METHOD(std::size_t, do_max_size, (), (const, noexcept));
-    MOCK_METHOD(void*, do_reallocate, (void*, std::size_t, std::size_t, std::size_t));
+    // NOLINTNEXTLINE(bugprone-exception-escape)
+    MOCK_METHOD(std::size_t, do_max_size, (), (const, noexcept, override));
+    MOCK_METHOD(void*, do_reallocate, (void*, std::size_t, std::size_t, std::size_t), (override));
 #endif
 
     void redirectExpectedCallsTo(cetl::pmr::memory_resource& mr)

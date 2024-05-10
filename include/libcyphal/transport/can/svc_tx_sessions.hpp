@@ -7,12 +7,15 @@
 #define LIBCYPHAL_TRANSPORT_CAN_SVC_TX_SESSIONS_HPP_INCLUDED
 
 #include "delegate.hpp"
+
+#include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
-#include "libcyphal/transport/contiguous_payload.hpp"
+#include "libcyphal/transport/types.hpp"
+#include "libcyphal/types.hpp"
 
 #include <canard.h>
-
-#include <numeric>
+#include <cetl/pf17/attribute.hpp>
+#include <cetl/pf17/cetlpf.hpp>
 
 namespace libcyphal
 {
@@ -71,20 +74,20 @@ public:
 private:
     // MARK: ITxSession
 
-    void setSendTimeout(const Duration timeout) final
+    void setSendTimeout(const Duration timeout) override
     {
         send_timeout_ = timeout;
     }
 
     // MARK: IRequestTxSession
 
-    CETL_NODISCARD RequestTxParams getParams() const noexcept final
+    CETL_NODISCARD RequestTxParams getParams() const noexcept override
     {
         return params_;
     }
 
     CETL_NODISCARD cetl::optional<AnyError> send(const TransferMetadata& metadata,
-                                                 const PayloadFragments  payload_fragments) final
+                                                 const PayloadFragments  payload_fragments) override
     {
         // Before delegating to transport it makes sense to do some sanity checks.
         // Otherwise, transport may do some work (like possible payload allocation/copying,
@@ -98,7 +101,7 @@ private:
 
         const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.priority),
                                                             CanardTransferKindRequest,
-                                                            static_cast<CanardPortID>(params_.service_id),
+                                                            params_.service_id,
                                                             static_cast<CanardNodeID>(params_.server_node_id),
                                                             static_cast<CanardTransferID>(metadata.transfer_id)};
 
@@ -107,7 +110,7 @@ private:
 
     // MARK: IRunnable
 
-    void run(const TimePoint) final
+    void run(const TimePoint) override
     {
         // Nothing to do here currently.
     }
@@ -166,20 +169,20 @@ public:
 private:
     // MARK: ITxSession
 
-    void setSendTimeout(const Duration timeout) final
+    void setSendTimeout(const Duration timeout) override
     {
         send_timeout_ = timeout;
     }
 
     // MARK: IResponseTxSession
 
-    CETL_NODISCARD ResponseTxParams getParams() const noexcept final
+    CETL_NODISCARD ResponseTxParams getParams() const noexcept override
     {
         return params_;
     }
 
     CETL_NODISCARD cetl::optional<AnyError> send(const ServiceTransferMetadata& metadata,
-                                                 const PayloadFragments         payload_fragments) final
+                                                 const PayloadFragments         payload_fragments) override
     {
         // Before delegating to transport it makes sense to do some sanity checks.
         // Otherwise, transport may do some work (like possible payload allocation/copying,
@@ -193,7 +196,7 @@ private:
 
         const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.priority),
                                                             CanardTransferKindResponse,
-                                                            static_cast<CanardPortID>(params_.service_id),
+                                                            params_.service_id,
                                                             static_cast<CanardNodeID>(metadata.remote_node_id),
                                                             static_cast<CanardTransferID>(metadata.transfer_id)};
 
@@ -202,7 +205,7 @@ private:
 
     // MARK: IRunnable
 
-    void run(const TimePoint) final
+    void run(const TimePoint) override
     {
         // Nothing to do here currently.
     }

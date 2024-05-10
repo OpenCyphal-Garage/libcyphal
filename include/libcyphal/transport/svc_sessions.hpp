@@ -7,6 +7,12 @@
 #define LIBCYPHAL_TRANSPORT_SVC_SESSION_HPP_INCLUDED
 
 #include "session.hpp"
+#include "types.hpp"
+
+#include <cetl/pf17/attribute.hpp>
+#include <cetl/pf17/cetlpf.hpp>
+
+#include <cstddef>
 
 namespace libcyphal
 {
@@ -15,26 +21,26 @@ namespace transport
 
 struct RequestRxParams final
 {
-    std::size_t extent_bytes;
-    PortId      service_id;
+    std::size_t extent_bytes{};
+    PortId      service_id{};
 };
 
 struct RequestTxParams final
 {
-    PortId service_id;
-    NodeId server_node_id;
+    PortId service_id{};
+    NodeId server_node_id{};
 };
 
 struct ResponseRxParams final
 {
-    std::size_t extent_bytes;
-    PortId      service_id;
-    NodeId      server_node_id;
+    std::size_t extent_bytes{};
+    PortId      service_id{};
+    NodeId      server_node_id{};
 };
 
 struct ResponseTxParams final
 {
-    PortId service_id;
+    PortId service_id{};
 };
 
 class ISvcRxSession : public IRxSession

@@ -6,7 +6,14 @@
 #ifndef LIBCYPHAL_TRANSPORT_MSG_SESSIONS_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_MSG_SESSIONS_HPP_INCLUDED
 
+#include "errors.hpp"
 #include "session.hpp"
+#include "types.hpp"
+
+#include <cetl/pf17/attribute.hpp>
+#include <cetl/pf17/cetlpf.hpp>
+
+#include <cstddef>
 
 namespace libcyphal
 {
@@ -15,13 +22,13 @@ namespace transport
 
 struct MessageRxParams final
 {
-    std::size_t extent_bytes;
-    PortId      subject_id;
+    std::size_t extent_bytes{};
+    PortId      subject_id{};
 };
 
 struct MessageTxParams final
 {
-    PortId subject_id;
+    PortId subject_id{};
 };
 
 class IMessageRxSession : public IRxSession

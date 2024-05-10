@@ -12,12 +12,19 @@ Checks: >-
   performance-*,
   portability-*,
   readability-*,
+  -clang-analyzer-core.uninitialized.Assign,
   -cppcoreguidelines-avoid-const-or-ref-data-members,
+  -cppcoreguidelines-use-default-member-init,
+  -google-readability-avoid-underscore-in-googletest-name,
   -google-readability-todo,
+  -llvm-header-guard,
+  -modernize-concat-nested-namespaces,
+  -modernize-type-traits,
+  -modernize-use-constraints,
+  -modernize-use-default-member-init,
+  -modernize-use-nodiscard,
   -readability-avoid-const-params-in-decls,
   -readability-identifier-length,
-  -llvm-header-guard,
-  -llvm-include-order,
   -*-use-trailing-return-type,
   -*-named-parameter,
 CheckOptions:
@@ -26,6 +33,5 @@ CheckOptions:
   - key:   readability-magic-numbers.IgnoredIntegerValues
     value: '1;2;3;4;5;8;10;16;20;32;60;64;100;128;256;500;512;1000'
 WarningsAsErrors: '*'
-HeaderFilterRegex: '.*\.hpp'
-AnalyzeTemporaryDtors: false
+HeaderFilterRegex: 'include/libcyphal/.*\.hpp'
 FormatStyle: file

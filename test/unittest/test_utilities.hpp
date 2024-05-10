@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_TEST_UTILITIES_HPP
 #define LIBCYPHAL_TEST_UTILITIES_HPP
 
+#include <cetl/pf20/cetlpf.hpp>
 #include <libcyphal/types.hpp>
 
 #include <numeric>
@@ -15,7 +16,7 @@ namespace libcyphal
 namespace test_utilities
 {
 
-inline constexpr cetl::byte b(std::uint8_t b)
+inline cetl::byte b(std::uint8_t b)
 {
     return static_cast<cetl::byte>(b);
 }

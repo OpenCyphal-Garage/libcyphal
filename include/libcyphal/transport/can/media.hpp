@@ -6,9 +6,16 @@
 #ifndef LIBCYPHAL_TRANSPORT_CAN_MEDIA_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_CAN_MEDIA_HPP_INCLUDED
 
-#include "libcyphal/types.hpp"
 #include "libcyphal/transport/errors.hpp"
-#include "libcyphal/transport/types.hpp"
+#include "libcyphal/types.hpp"
+
+#include <cetl/cetl.hpp>
+#include <cetl/pf17/attribute.hpp>
+#include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
+
+#include <cstddef>
+#include <cstdint>
 
 namespace libcyphal
 {
@@ -21,16 +28,16 @@ using CanId = std::uint32_t;
 
 struct Filter final
 {
-    CanId id;
-    CanId mask;
+    CanId id{};
+    CanId mask{};
 };
 using Filters = cetl::span<const Filter>;
 
 struct RxMetadata final
 {
     TimePoint   timestamp;
-    CanId       can_id;
-    std::size_t payload_size;
+    CanId       can_id{};
+    std::size_t payload_size{};
 };
 
 /// @brief Defines interface to a custom CAN bus media implementation.

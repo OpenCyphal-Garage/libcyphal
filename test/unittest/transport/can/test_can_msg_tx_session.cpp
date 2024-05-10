@@ -3,40 +3,60 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include <libcyphal/transport/can/transport.hpp>
-
-#include "media_mock.hpp"
-#include "../multiplexer_mock.hpp"
 #include "../../gtest_helpers.hpp"
-#include "../../test_utilities.hpp"
 #include "../../memory_resource_mock.hpp"
-#include "../../virtual_time_scheduler.hpp"
+#include "../../test_utilities.hpp"
 #include "../../tracking_memory_resource.hpp"
+#include "../../virtual_time_scheduler.hpp"
+#include "../multiplexer_mock.hpp"
+#include "media_mock.hpp"
+
+#include <canard.h>
+#include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/transport/can/media.hpp>
+#include <libcyphal/transport/can/msg_tx_session.hpp>
+#include <libcyphal/transport/can/transport.hpp>
+#include <libcyphal/transport/errors.hpp>
+#include <libcyphal/transport/msg_sessions.hpp>
+#include <libcyphal/transport/types.hpp>
+#include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
+#include <array>
+#include <utility>
 
 namespace
 {
-using byte = cetl::byte;
 
-using namespace libcyphal;
-using namespace libcyphal::transport;
-using namespace libcyphal::transport::can;
-using namespace libcyphal::test_utilities;
+using libcyphal::TimePoint;
+using libcyphal::UniquePtr;
+using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
+
+using cetl::byte;
+using libcyphal::test_utilities::b;
+using libcyphal::test_utilities::makeIotaArray;
+using libcyphal::test_utilities::makeSpansFrom;
 
 using testing::_;
 using testing::Eq;
 using testing::Return;
-using testing::IsNull;
 using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
-using testing::InSequence;
 using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
 
-using namespace std::chrono_literals;
+// https://github.com/llvm/llvm-project/issues/53444
+// NOLINTBEGIN(misc-unused-using-decls)
+using std::literals::chrono_literals::operator""s;
+using std::literals::chrono_literals::operator""ms;
+using std::literals::chrono_literals::operator""us;
+// NOLINTEND(misc-unused-using-decls)
+
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 class TestCanMsgTxSession : public testing::Test
 {
@@ -58,22 +78,23 @@ protected:
         return scheduler_.now();
     }
 
-    CETL_NODISCARD UniquePtr<ICanTransport> makeTransport(cetl::pmr::memory_resource& mr,
-                                                          const std::size_t           tx_capacity = 16)
+    UniquePtr<can::ICanTransport> makeTransport(cetl::pmr::memory_resource& mr)
     {
-        std::array<IMedia*, 1> media_array{&media_mock_};
+        std::array<can::IMedia*, 1> media_array{&media_mock_};
 
-        auto maybe_transport = can::makeTransport(mr, mux_mock_, media_array, tx_capacity, {});
-        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
-        return cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
+        auto maybe_transport = can::makeTransport(mr, mux_mock_, media_array, 16, {});
+        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
+        return cetl::get<UniquePtr<can::ICanTransport>>(std::move(maybe_transport));
     }
 
     // MARK: Data members:
 
-    VirtualTimeScheduler        scheduler_{};
-    TrackingMemoryResource      mr_;
-    StrictMock<MultiplexerMock> mux_mock_{};
-    StrictMock<MediaMock>       media_mock_{};
+    // NOLINTBEGIN
+    libcyphal::VirtualTimeScheduler scheduler_{};
+    TrackingMemoryResource          mr_;
+    StrictMock<MultiplexerMock>     mux_mock_{};
+    StrictMock<can::MediaMock>      media_mock_{};
+    // NOLINTEND
 };
 
 // MARK: Tests:
@@ -156,10 +177,10 @@ TEST_F(TestCanMsgTxSession, send_empty_payload)
     EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto payload) {
         EXPECT_THAT(now(), send_time + 10ms);
         EXPECT_THAT(deadline, send_time + timeout);
-        EXPECT_THAT(can_id, SubjectOfCanIdEq(123));
-        EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
+        EXPECT_THAT(can_id, can::SubjectOfCanIdEq(123));
+        EXPECT_THAT(can_id, AllOf(can::PriorityOfCanIdEq(metadata.priority), can::IsMessageCanId()));
 
-        auto tbm = TailByteEq(metadata.transfer_id);
+        auto tbm = can::TailByteEq(metadata.transfer_id);
         EXPECT_THAT(payload, ElementsAre(tbm));
         return true;
     });
@@ -222,10 +243,10 @@ TEST_F(TestCanMsgTxSession, send_7bytes_payload_with_500ms_timeout)
     //
     EXPECT_CALL(media_mock_, push(TimePoint{send_time + timeout}, _, _)).WillOnce([&](auto, auto can_id, auto payload) {
         EXPECT_THAT(now(), send_time + timeout - 1us);
-        EXPECT_THAT(can_id, SubjectOfCanIdEq(17));
-        EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
+        EXPECT_THAT(can_id, can::SubjectOfCanIdEq(17));
+        EXPECT_THAT(can_id, AllOf(can::PriorityOfCanIdEq(metadata.priority), can::IsMessageCanId()));
 
-        auto tbm = TailByteEq(metadata.transfer_id);
+        auto tbm = can::TailByteEq(metadata.transfer_id);
         EXPECT_THAT(payload, ElementsAre(b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), b('7'), tbm));
         return true;
     });
@@ -262,5 +283,7 @@ TEST_F(TestCanMsgTxSession, send_when_no_memory_for_contiguous_payload)
 
     scheduler_.runNow(+10ms, [&] { transport->run(scheduler_.now()); });
 }
+
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 }  // namespace

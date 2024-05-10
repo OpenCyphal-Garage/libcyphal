@@ -7,7 +7,14 @@
 #define LIBCYPHAL_TRANSPORT_CONTIGUOUS_PAYLOAD_HPP_INCLUDED
 
 #include "types.hpp"
-#include "libcyphal/types.hpp"
+
+#include <cetl/pf17/attribute.hpp>
+#include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
+
+#include <algorithm>
+#include <cstddef>
+#include <cstring>
 
 namespace libcyphal
 {
@@ -29,7 +36,7 @@ namespace detail
 /// Probably could be deleted when libcanard will start support fragmented payloads (at `canardTxPush`).
 /// See https://github.com/OpenCyphal/libcanard/issues/223
 ///
-class ContiguousPayload final
+class ContiguousPayload final  // NOSONAR : cpp:S4963 - we do directly handle resources here.
 {
 public:
     ContiguousPayload(cetl::pmr::memory_resource& mr, const PayloadFragments payload_fragments)
@@ -63,7 +70,9 @@ public:
                 std::size_t offset = 0;
                 for (const Fragment frag : payload_fragments)
                 {
-                    std::memmove(&buffer[offset], frag.data(), frag.size());
+                    // Next nolint is unavoidable: we need offset from the beginning of the buffer.
+                    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                    (void) std::memmove(&buffer[offset], frag.data(), frag.size());
                     offset += frag.size();
                 }
             }

@@ -7,7 +7,14 @@
 #define LIBCYPHAL_TRANSPORT_TYPES_HPP_INCLUDED
 
 #include "scattered_buffer.hpp"
+
 #include "libcyphal/types.hpp"
+
+#include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
+
+#include <cstddef>
+#include <cstdint>
 
 namespace libcyphal
 {
@@ -29,7 +36,7 @@ using PortId = std::uint16_t;
 ///
 using TransferId = std::uint64_t;
 
-enum class Priority
+enum class Priority : std::uint8_t
 {
     Exceptional = 0,
     Immediate   = 1,
@@ -43,40 +50,32 @@ enum class Priority
 
 struct ProtocolParams final
 {
-    TransferId  transfer_id_modulo;
-    std::size_t mtu_bytes;
-    NodeId      max_nodes;
+    TransferId  transfer_id_modulo{};
+    std::size_t mtu_bytes{};
+    NodeId      max_nodes{};
 };
 
-struct TransferMetadata
+struct TransferMetadata final
 {
-    TransferId transfer_id;
+    TransferId transfer_id{};
     TimePoint  timestamp;
-    Priority   priority;
+    Priority   priority{};
 };
 
-// AUTOSAR A11-0-2 exception: we just enhance the base metadata with additional information.
-struct MessageTransferMetadata final : TransferMetadata
+struct MessageTransferMetadata final
 {
-    MessageTransferMetadata(const TransferMetadata& transfer_metadata, const cetl::optional<NodeId>& _publisher_node_id)
-        : TransferMetadata{transfer_metadata}
-        , publisher_node_id{_publisher_node_id}
-    {
-    }
-
+    TransferId             transfer_id{};
+    TimePoint              timestamp;
+    Priority               priority{};
     cetl::optional<NodeId> publisher_node_id;
 };
 
-// AUTOSAR A11-0-2 exception: we just enhance the base metadata with additional information.
-struct ServiceTransferMetadata final : TransferMetadata
+struct ServiceTransferMetadata final
 {
-    ServiceTransferMetadata(const TransferMetadata& transfer_metadata, const NodeId _remote_node_id)
-        : TransferMetadata{transfer_metadata}
-        , remote_node_id{_remote_node_id}
-    {
-    }
-
-    NodeId remote_node_id;
+    TransferId transfer_id{};
+    TimePoint  timestamp;
+    Priority   priority{};
+    NodeId     remote_node_id{};
 };
 
 /// @brief Defines a span of immutable fragments of payload.
