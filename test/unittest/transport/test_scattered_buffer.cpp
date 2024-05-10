@@ -5,6 +5,7 @@
 
 #include <libcyphal/transport/scattered_buffer.hpp>
 
+#include <cetl/pf17/cetlpf.hpp>
 #include <cetl/rtti.hpp>
 
 #include <gmock/gmock.h>
@@ -12,7 +13,6 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
 #include <utility>
 
 namespace
