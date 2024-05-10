@@ -67,7 +67,7 @@ public:
     SvcRequestTxSession(Spec, TransportDelegate& delegate, const RequestTxParams& params)
         : delegate_{delegate}
         , params_{params}
-        , send_timeout_{std::chrono::seconds{1}}  // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
+        , send_timeout_{std::chrono::seconds{1}}
     {
     }
 
@@ -162,7 +162,7 @@ public:
     SvcResponseTxSession(Spec, TransportDelegate& delegate, const ResponseTxParams& params)
         : delegate_{delegate}
         , params_{params}
-        , send_timeout_{std::chrono::seconds{1}}  // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
+        , send_timeout_{std::chrono::seconds{1}}
     {
     }
 

@@ -159,9 +159,9 @@ public:
                   const CanardNodeID          canard_node_id)
         : TransportDelegate{memory}
         , media_array_{std::move(media_array)}
-        , should_reconfigure_filters_{false}  // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
-        , total_message_ports_{0}             // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
-        , total_service_ports_{0}             // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
+        , should_reconfigure_filters_{false}
+        , total_message_ports_{0}
+        , total_service_ports_{0}
     {
         // TODO: Use it!
         (void) multiplexer;
@@ -645,13 +645,10 @@ private:
 
     // MARK: Data members:
 
-    // Below nolint is to comply with AUTOSAR A11-0-2: in this class we do ALL initialization in the constructor.
-    // NOLINTBEGIN(cppcoreguidelines-use-default-member-init,modernize-use-default-member-init)
     MediaArray  media_array_;
     bool        should_reconfigure_filters_;
     std::size_t total_message_ports_;
     std::size_t total_service_ports_;
-    // NOLINTEND(cppcoreguidelines-use-default-member-init,modernize-use-default-member-init)
 
 };  // TransportImpl
 

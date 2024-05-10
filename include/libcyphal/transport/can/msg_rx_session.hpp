@@ -76,7 +76,7 @@ public:
     MessageRxSession(Spec, TransportDelegate& delegate, const MessageRxParams& params)
         : delegate_{delegate}
         , params_{params}
-        , subscription_{}  // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
+        , subscription_{}
     {
         const std::int8_t result = ::canardRxSubscribe(&delegate.canard_instance(),
                                                        CanardTransferKindMessage,

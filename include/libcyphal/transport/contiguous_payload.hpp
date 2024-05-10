@@ -36,14 +36,14 @@ namespace detail
 /// Probably could be deleted when libcanard will start support fragmented payloads (at `canardTxPush`).
 /// See https://github.com/OpenCyphal/libcanard/issues/223
 ///
-class ContiguousPayload final  // NOSONAR : Disable Sonar cpp:S4963 - we do directly handle resources here.
+class ContiguousPayload final  // NOSONAR : cpp:S4963 - we do directly handle resources here.
 {
 public:
     ContiguousPayload(cetl::pmr::memory_resource& mr, const PayloadFragments payload_fragments)
         : mr_{mr}
         , payload_{nullptr}
-        , payload_size_{0}            // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
-        , allocated_buffer_{nullptr}  // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
+        , payload_size_{0}
+        , allocated_buffer_{nullptr}
     {
         using Fragment = cetl::span<const cetl::byte>;
 
@@ -104,13 +104,10 @@ public:
 private:
     // MARK: Data members:
 
-    // Below nolint is to comply with AUTOSAR A12-1-2: in this class we do ALL initialization in the constructor.
-    // NOLINTBEGIN(cppcoreguidelines-use-default-member-init,modernize-use-default-member-init)
     cetl::pmr::memory_resource& mr_;
     const cetl::byte*           payload_;
     std::size_t                 payload_size_;
     cetl::byte*                 allocated_buffer_;
-    // NOLINTEND(cppcoreguidelines-use-default-member-init,modernize-use-default-member-init)
 
 };  // ContiguousBytes
 
