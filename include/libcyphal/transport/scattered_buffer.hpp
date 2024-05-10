@@ -24,7 +24,9 @@ namespace transport
 /// The buffer is movable but not copyable because copying the contents of a buffer is considered wasteful.
 /// The buffer behaves as if it's empty if the underlying implementation is moved away.
 ///
-class ScatteredBuffer final
+/// NOSONAR for below `class ScatteredBuffer` is to disable Sonar cpp:S4963 - we do directly handle resources here.
+///
+class ScatteredBuffer final  // NOSONAR
 {
     // 91C1B109-F90E-45BE-95CF-6ED02AC3FFAA
     using IStorageTypeIdType = cetl::
@@ -165,7 +167,9 @@ public:
     /// @param length_bytes The number of bytes to copy.
     /// @return The number of bytes copied.
     ///
-    std::size_t copy(const std::size_t offset_bytes, void* const destination, const std::size_t length_bytes) const
+    std::size_t copy(const std::size_t offset_bytes,
+                     void* const       destination,  // NOSONAR : integration with low-level Lizard memory access.
+                     const std::size_t length_bytes) const
     {
         if (storage_ == nullptr)
         {
