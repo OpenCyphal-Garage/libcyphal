@@ -50,13 +50,16 @@ class TransportDelegate
 public:
     /// @brief RAII class to manage memory allocated by Canard library.
     ///
-    /// NOSONAR-s for `void*` are unavoidable: integration with low-level C code of Canard memory management.
-    /// NOSONAR for below `class CanardMemory` is to disable Sonar cpp:S4963 - we do directly handle resources here.
+    /// NOSONAR cpp:S5008 for `void*` are unavoidable: integration with low-level C code of Canard memory management.
+    /// NOSONAR cpp:S4963 for below `class CanardMemory` - we do directly handle resources here.
     ///
-    class CanardMemory final : public cetl::rtti_helper<CanardMemoryTypeIdType, ScatteredBuffer::IStorage>  // NOSONAR
+    class CanardMemory final  // NOSONAR cpp:S4963
+        : public cetl::rtti_helper<CanardMemoryTypeIdType, ScatteredBuffer::IStorage>
     {
     public:
-        CanardMemory(TransportDelegate& delegate, void* const buffer, const std::size_t payload_size)  // NOSONAR
+        CanardMemory(TransportDelegate& delegate,
+                     void* const        buffer,  // NOSONAR cpp:S5008
+                     const std::size_t  payload_size)
             : delegate_{delegate}
             , buffer_{buffer}
             , payload_size_{payload_size}
@@ -90,10 +93,10 @@ public:
             return payload_size_;
         }
 
-        // NOSONAR is unavoidable: integration with low-level Lizard memory access.
+        // NOSONAR cpp:S5008 is unavoidable: integration with low-level Lizard memory access.
         //
         CETL_NODISCARD std::size_t copy(const std::size_t offset_bytes,
-                                        void* const       destination,  // NOSONAR
+                                        void* const       destination,  // NOSONAR cpp:S5008
                                         const std::size_t length_bytes) const override
         {
             CETL_DEBUG_ASSERT((destination != nullptr) || (length_bytes == 0),
@@ -115,7 +118,7 @@ public:
         // MARK: Data members:
 
         TransportDelegate& delegate_;
-        void*              buffer_;  // NOSONAR
+        void*              buffer_;  // NOSONAR cpp:S5008
         std::size_t        payload_size_;
 
     };  // CanardMemory
@@ -152,9 +155,11 @@ public:
             std::size_t count = 1;
 
             count += visitCounting(node->lr[0], visitor);
+
             // Next nolint & NOSONAR are unavoidable: this is integration with low-level C code of Canard AVL trees.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-            visitor(*reinterpret_cast<Node*>(node));  // NOSONAR
+            visitor(*reinterpret_cast<Node*>(node));  // NOSONAR cpp:S3630
+
             count += visitCounting(node->lr[1], visitor);
 
             return count;
@@ -216,9 +221,9 @@ public:
 
     /// @brief Releases memory allocated for canard (by previous `allocateMemoryForCanard` call).
     ///
-    /// NOSONAR b/s it is unavoidable: this is integration with low-level C code of Canard memory management.
+    /// NOSONAR cpp:S5008 b/s it is unavoidable: this is integration with low-level C code of Canard memory management.
     ///
-    void freeCanardMemory(void* const pointer)  // NOSONAR
+    void freeCanardMemory(void* const pointer)  // NOSONAR cpp:S5008
     {
         if (pointer == nullptr)
         {
@@ -306,10 +311,7 @@ private:
 
     /// @brief Releases memory allocated for canard instance (by previous `allocateMemoryForCanard` call).
     ///
-    /// NOSONAR b/s it is unavoidable: this is integration with low-level C code of Canard memory management.
-    /// @see ::canardInit
-    ///
-    static void freeCanardMemory(CanardInstance* ins, void* pointer)  // NOSONAR
+    static void freeCanardMemory(CanardInstance* ins, void* pointer)
     {
         TransportDelegate& self = getSelfFrom(ins);
         self.freeCanardMemory(pointer);

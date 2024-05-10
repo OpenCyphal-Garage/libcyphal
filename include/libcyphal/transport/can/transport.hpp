@@ -53,10 +53,10 @@ namespace detail
 
 /// @brief Represents final implementation class of the CAN transport.
 ///
-/// NOSONAR for below `class TransportImpl` is to disable Sonar cpp:S4963 - we do directly handle resources here;
+/// NOSONAR cpp:S4963 for below `class TransportImpl` - we do directly handle resources here;
 /// namely: in destructor we have to unsubscribe, as well as let delegate to know this fact.
 ///
-class TransportImpl final : public ICanTransport, private TransportDelegate  // NOSONAR
+class TransportImpl final : public ICanTransport, private TransportDelegate  // NOSONAR cpp:S4963
 {
     /// @brief Defines specification for making interface unique ptr.
     ///

@@ -66,10 +66,10 @@ public:
         /// @param length_bytes The number of bytes to copy.
         /// @return The number of bytes copied.
         ///
-        /// NOSONAR below is unavoidable: integration with low-level Lizard memory access.
+        /// NOSONAR cpp:S5008 below is unavoidable: integration with low-level Lizard memory access.
         ///
         CETL_NODISCARD virtual std::size_t copy(const std::size_t offset_bytes,
-                                                void* const       destination,
+                                                void* const       destination,  // NOSONAR cpp:S5008
                                                 const std::size_t length_bytes) const = 0;
 
     protected:
