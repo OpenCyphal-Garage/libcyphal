@@ -45,11 +45,11 @@ namespace detail
 /// @tparam TransferKind Kind of the service transfer.
 ///                      Could be either `CanardTransferKindRequest` or `CanardTransferKindResponse`.
 ///
-/// NOSONAR for below `class SvcRxSession` is to disable Sonar cpp:S4963 - we do directly handle resources here;
+/// NOSONAR cpp:S4963 for below `class SvcRxSession` - we do directly handle resources here;
 /// namely: in destructor we have to unsubscribe, as well as let delegate to know this fact.
 ///
 template <typename Interface_, typename Params, CanardTransferKind TransferKind>
-class SvcRxSession final : public Interface_, private IRxSessionDelegate  // NOSONAR
+class SvcRxSession final : public Interface_, private IRxSessionDelegate  // NOSONAR cpp:S4963
 {
     /// @brief Defines specification for making interface unique ptr.
     ///
@@ -84,7 +84,7 @@ public:
     SvcRxSession(Spec, TransportDelegate& delegate, const Params& params)
         : delegate_{delegate}
         , params_{params}
-        , subscription_{}  // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
+        , subscription_{}
     {
         const int8_t result = ::canardRxSubscribe(&delegate.canard_instance(),
                                                   TransferKind,

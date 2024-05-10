@@ -52,10 +52,10 @@ namespace detail
 
 /// @brief Represents final implementation class of the CAN transport.
 ///
-/// NOSONAR for below `class TransportImpl` is to disable Sonar cpp:S4963 - we do directly handle resources here;
+/// NOSONAR cpp:S4963 for below `class TransportImpl` - we do directly handle resources here;
 /// namely: in destructor we have to unsubscribe, as well as let delegate to know this fact.
 ///
-class TransportImpl final : public ICanTransport, private TransportDelegate  // NOSONAR
+class TransportImpl final : public ICanTransport, private TransportDelegate  // NOSONAR cpp:S4963
 {
     /// @brief Defines specification for making interface unique ptr.
     ///
@@ -152,9 +152,9 @@ public:
     TransportImpl(Spec, cetl::pmr::memory_resource& memory, MediaArray media_array, const CanardNodeID canard_node_id)
         : TransportDelegate{memory}
         , media_array_{std::move(media_array)}
-        , should_reconfigure_filters_{false}  // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
-        , total_message_ports_{0}             // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
-        , total_service_ports_{0}             // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
+        , should_reconfigure_filters_{false}
+        , total_message_ports_{0}
+        , total_service_ports_{0}
     {
         canard_instance().node_id = canard_node_id;
     }
@@ -635,13 +635,10 @@ private:
 
     // MARK: Data members:
 
-    // Below nolint is to comply with AUTOSAR A11-0-2: in this class we do ALL initialization in the constructor.
-    // NOLINTBEGIN(cppcoreguidelines-use-default-member-init,modernize-use-default-member-init)
     MediaArray  media_array_;
     bool        should_reconfigure_filters_;
     std::size_t total_message_ports_;
     std::size_t total_service_ports_;
-    // NOLINTEND(cppcoreguidelines-use-default-member-init,modernize-use-default-member-init)
 
 };  // TransportImpl
 

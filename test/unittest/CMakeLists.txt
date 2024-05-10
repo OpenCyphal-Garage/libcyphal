@@ -88,8 +88,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
         OUT_REPORT_INDICIES LOCAL_COVERAGE_REPORT_INDICIES
     )
 
-    # we need to build at least one source file to get sonarqube to look at the cetl
-    # headers.
+    # We need to build at least one source file to get sonarqube to look at the libcyphal headers.
     add_executable(cyphal_sonar
         "sonar.cpp"
     )
