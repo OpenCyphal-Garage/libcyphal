@@ -41,7 +41,7 @@ class ContiguousPayload final  // NOSONAR : Disable Sonar cpp:S4963 - we do dire
 public:
     ContiguousPayload(cetl::pmr::memory_resource& mr, const PayloadFragments payload_fragments)
         : mr_{mr}
-        , payload_{nullptr}           // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
+        , payload_{nullptr}
         , payload_size_{0}            // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
         , allocated_buffer_{nullptr}  // NOSONAR : Sonar's cpp:S134 conflicts with AUTOSAR A12-1-2
     {
