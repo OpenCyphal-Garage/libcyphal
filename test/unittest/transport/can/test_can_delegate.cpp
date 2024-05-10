@@ -12,6 +12,7 @@
 #include <libcyphal/transport/can/delegate.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/types.hpp>
+#include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
