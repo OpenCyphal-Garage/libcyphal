@@ -21,11 +21,18 @@ inline cetl::byte b(std::uint8_t b)
     return static_cast<cetl::byte>(b);
 }
 
+inline void fillIotaBytes(const cetl::span<cetl::byte> span, const cetl::byte init)
+{
+    std::iota(reinterpret_cast<std::uint8_t*>(span.data()),
+              reinterpret_cast<std::uint8_t*>(span.data() + span.size()),
+              static_cast<std::uint8_t>(init));
+}
+
 template <std::size_t N>
-std::array<cetl::byte, N> makeIotaArray(const std::uint8_t init)
+std::array<cetl::byte, N> makeIotaArray(const cetl::byte init)
 {
     std::array<cetl::byte, N> arr{};
-    std::iota(reinterpret_cast<std::uint8_t*>(arr.begin()), reinterpret_cast<std::uint8_t*>(arr.end()), init);
+    fillIotaBytes(arr, init);
     return arr;
 }
 

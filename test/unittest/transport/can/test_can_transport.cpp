@@ -370,7 +370,7 @@ TEST_F(TestCanTransport, sending_multiframe_payload_should_fail_for_anonymous)
     scheduler_.runNow(+10s);
     const auto send_time = now();
 
-    const auto             payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC>('0');
+    const auto             payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC>(b('0'));
     const TransferMetadata metadata{0x13, send_time, Priority::Nominal};
 
     auto maybe_error = session->send(metadata, makeSpansFrom(payload));
@@ -395,7 +395,7 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
     const auto timeout   = 1s;
     const auto send_time = now();
 
-    const auto             payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC>('0');
+    const auto             payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC>(b('0'));
     const TransferMetadata metadata{0x13, send_time, Priority::Nominal};
 
     auto maybe_error = session->send(metadata, makeSpansFrom(payload));
@@ -449,7 +449,7 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
     const auto timeout   = 1s;
     const auto send_time = now();
 
-    const auto             payload = makeIotaArray<10>('0');
+    const auto             payload = makeIotaArray<10>(b('0'));
     const TransferMetadata metadata{0x13, send_time, Priority::Nominal};
 
     auto maybe_error = session->send(metadata, makeSpansFrom(payload));
