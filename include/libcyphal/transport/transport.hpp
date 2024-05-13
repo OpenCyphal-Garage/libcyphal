@@ -67,17 +67,11 @@ public:
     ///
     /// Lifetime of the RX session must never outlive this transport interface.
     ///
-    /// @param params Various initial parameters for the message RX session (like subject id and extent size).
-    /// @return Either a unique interface pointer to the message RX session, or an error.
-    ///
     virtual Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(const MessageRxParams& params) = 0;
 
     /// @brief Makes a message transmit (TX) session.
     ///
     /// Lifetime of the TX session must never outlive this transport interface.
-    ///
-    /// @param params Various initial parameters for the message TX session (like subject id).
-    /// @return Either a unique interface pointer to the message TX session, or an error.
     ///
     virtual Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(const MessageTxParams& params) = 0;
 
@@ -85,17 +79,11 @@ public:
     ///
     /// Lifetime of the RX session must never outlive this transport interface.
     ///
-    /// @param params Various initial parameters for the service request RX session (like service id and extent size).
-    /// @return Either a unique interface pointer to the service request RX session, or an error.
-    ///
     virtual Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(const RequestRxParams& params) = 0;
 
     /// @brief Makes a service request transmit (TX) session.
     ///
     /// Lifetime of the TX session must never outlive this transport interface.
-    ///
-    /// @param params Various initial parameters for the service request TX session (like service id and server node).
-    /// @return Either a unique interface pointer to the service request TX session, or an error.
     ///
     virtual Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(const RequestTxParams& params) = 0;
 
@@ -103,17 +91,11 @@ public:
     ///
     /// Lifetime of the RX session must never outlive this transport interface.
     ///
-    /// @param params Various initial parameters for the service response RX session (like service id and etc).
-    /// @return Either a unique interface pointer to the service response RX session, or an error.
-    ///
     virtual Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(const ResponseRxParams& params) = 0;
 
     /// @brief Makes a service response transmit (TX) session.
     ///
     /// Lifetime of the TX session must never outlive this transport interface.
-    ///
-    /// @param params Various initial parameters for the service response TX session (like service id).
-    /// @return Either a unique interface pointer to the service response TX session, or an error.
     ///
     virtual Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(const ResponseTxParams& params) = 0;
 
