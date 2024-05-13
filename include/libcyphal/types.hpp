@@ -42,7 +42,7 @@ struct MonotonicClock final
     ///     return std::chrono::time_point_cast<time_point>(std::chrono::steady_clock::now());
     /// }
     /// ```
-    CETL_NODISCARD static time_point now() noexcept;
+    static time_point now() noexcept;
 
 };  // MonotonicClock
 
@@ -58,6 +58,7 @@ using Expected = cetl::variant<Success, Failure>;
 
 namespace detail
 {
+
 template <typename T>
 using PmrAllocator = cetl::pmr::polymorphic_allocator<T>;
 

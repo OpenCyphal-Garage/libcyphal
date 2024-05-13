@@ -156,7 +156,9 @@ private:
                 : cetl::make_optional<NodeId>(transfer.metadata.remote_node_id);
 
         const MessageTransferMetadata   meta{transfer_id, timestamp, priority, publisher_node_id};
-        TransportDelegate::CanardMemory canard_memory{delegate_, transfer.payload, transfer.payload_size};
+        TransportDelegate::CanardMemory canard_memory{delegate_,
+                                                      static_cast<cetl::byte*>(transfer.payload),
+                                                      transfer.payload_size};
 
         (void) last_rx_transfer_.emplace(MessageRxTransfer{meta, ScatteredBuffer{std::move(canard_memory)}});
     }

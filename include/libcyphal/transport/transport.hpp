@@ -36,7 +36,7 @@ public:
     /// @see can::IMedia::getMtu()
     /// @see udp::IMedia::getMtu()
     ///
-    CETL_NODISCARD virtual ProtocolParams getProtocolParams() const noexcept = 0;
+    virtual ProtocolParams getProtocolParams() const noexcept = 0;
 
     /// @brief Gets the local node ID (if any).
     ///
@@ -46,7 +46,7 @@ public:
     /// @return The node ID previously assigned to this transport interface (via `setLocalNodeId`).
     ///         Otherwise it's `nullopt` for an anonymous node.
     ///
-    CETL_NODISCARD virtual cetl::optional<NodeId> getLocalNodeId() const noexcept = 0;
+    virtual cetl::optional<NodeId> getLocalNodeId() const noexcept = 0;
 
     /// @brief Sets the local node ID.
     ///
@@ -61,20 +61,61 @@ public:
     /// @return `nullopt` on successful set (or when node ID is the same).
     ///         Otherwise an `ArgumentError` in case of the subsequent calls or ID out of range.
     ///
-    CETL_NODISCARD virtual cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept = 0;
+    virtual cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept = 0;
 
-    CETL_NODISCARD virtual Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
-        const MessageRxParams& params) = 0;
-    CETL_NODISCARD virtual Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(
-        const MessageTxParams& params) = 0;
-    CETL_NODISCARD virtual Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(
-        const RequestRxParams& params) = 0;
-    CETL_NODISCARD virtual Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(
-        const RequestTxParams& params) = 0;
-    CETL_NODISCARD virtual Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(
-        const ResponseRxParams& params) = 0;
-    CETL_NODISCARD virtual Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(
-        const ResponseTxParams& params) = 0;
+    /// @brief Makes a message receive (RX) session.
+    ///
+    /// Lifetime of the RX session must never outlive this transport interface.
+    ///
+    /// @param params Various initial parameters for the message RX session (like subject id and extent size).
+    /// @return Either a unique interface pointer to the message RX session, or an error.
+    ///
+    virtual Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(const MessageRxParams& params) = 0;
+
+    /// @brief Makes a message transmit (TX) session.
+    ///
+    /// Lifetime of the TX session must never outlive this transport interface.
+    ///
+    /// @param params Various initial parameters for the message TX session (like subject id).
+    /// @return Either a unique interface pointer to the message TX session, or an error.
+    ///
+    virtual Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(const MessageTxParams& params) = 0;
+
+    /// @brief Makes a service request receive (RX) session.
+    ///
+    /// Lifetime of the RX session must never outlive this transport interface.
+    ///
+    /// @param params Various initial parameters for the service request RX session (like service id and extent size).
+    /// @return Either a unique interface pointer to the service request RX session, or an error.
+    ///
+    virtual Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(const RequestRxParams& params) = 0;
+
+    /// @brief Makes a service request transmit (TX) session.
+    ///
+    /// Lifetime of the TX session must never outlive this transport interface.
+    ///
+    /// @param params Various initial parameters for the service request TX session (like service id and server node).
+    /// @return Either a unique interface pointer to the service request TX session, or an error.
+    ///
+    virtual Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(const RequestTxParams& params) = 0;
+
+    /// @brief Makes a service response receive (RX) session.
+    ///
+    /// Lifetime of the RX session must never outlive this transport interface.
+    ///
+    /// @param params Various initial parameters for the service response RX session (like service id and etc).
+    /// @return Either a unique interface pointer to the service response RX session, or an error.
+    ///
+    virtual Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(const ResponseRxParams& params) = 0;
+
+    /// @brief Makes a service response transmit (TX) session.
+    ///
+    /// Lifetime of the TX session must never outlive this transport interface.
+    ///
+    /// @param params Various initial parameters for the service response TX session (like service id).
+    /// @return Either a unique interface pointer to the service response TX session, or an error.
+    ///
+    virtual Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(const ResponseTxParams& params) = 0;
 
 };  // ITransport
 

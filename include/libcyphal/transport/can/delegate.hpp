@@ -50,16 +50,13 @@ class TransportDelegate
 public:
     /// @brief RAII class to manage memory allocated by Canard library.
     ///
-    /// NOSONAR cpp:S5008 for `void*` are unavoidable: integration with low-level C code of Canard memory management.
     /// NOSONAR cpp:S4963 for below `class CanardMemory` - we do directly handle resources here.
     ///
     class CanardMemory final  // NOSONAR cpp:S4963
         : public cetl::rtti_helper<CanardMemoryTypeIdType, ScatteredBuffer::IStorage>
     {
     public:
-        CanardMemory(TransportDelegate& delegate,
-                     void* const        buffer,  // NOSONAR cpp:S5008
-                     const std::size_t  payload_size)
+        CanardMemory(TransportDelegate& delegate, cetl::byte* const buffer, const std::size_t payload_size)
             : delegate_{delegate}
             , buffer_{buffer}
             , payload_size_{payload_size}
@@ -93,10 +90,8 @@ public:
             return payload_size_;
         }
 
-        // NOSONAR cpp:S5008 is unavoidable: integration with low-level Lizard memory access.
-        //
         CETL_NODISCARD std::size_t copy(const std::size_t offset_bytes,
-                                        void* const       destination,  // NOSONAR cpp:S5008
+                                        cetl::byte* const destination,
                                         const std::size_t length_bytes) const override
         {
             CETL_DEBUG_ASSERT((destination != nullptr) || (length_bytes == 0),
@@ -110,7 +105,7 @@ public:
             const std::size_t bytes_to_copy = std::min(length_bytes, payload_size_ - offset_bytes);
             // Next nolint is unavoidable: we need offset from the beginning of the buffer.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            (void) std::memmove(destination, static_cast<cetl::byte*>(buffer_) + offset_bytes, bytes_to_copy);
+            (void) std::memmove(destination, buffer_ + offset_bytes, bytes_to_copy);
             return bytes_to_copy;
         }
 
@@ -118,7 +113,7 @@ public:
         // MARK: Data members:
 
         TransportDelegate& delegate_;
-        void*              buffer_;  // NOSONAR cpp:S5008
+        cetl::byte*        buffer_;
         std::size_t        payload_size_;
 
     };  // CanardMemory

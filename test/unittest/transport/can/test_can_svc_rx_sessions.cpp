@@ -7,7 +7,6 @@
 #include "../../test_utilities.hpp"
 #include "../../tracking_memory_resource.hpp"
 #include "../../virtual_time_scheduler.hpp"
-#include "../multiplexer_mock.hpp"
 #include "media_mock.hpp"
 
 #include <canard.h>
@@ -86,7 +85,7 @@ protected:
         // but it's not possible due to CETL issue https://github.com/OpenCyphal/CETL/issues/119.
         const auto opt_local_node_id = cetl::optional<NodeId>{local_node_id};
 
-        auto maybe_transport = can::makeTransport(mr, mux_mock_, media_array, 0, opt_local_node_id);
+        auto maybe_transport = can::makeTransport(mr, media_array, 0, opt_local_node_id);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
         return cetl::get<UniquePtr<can::ICanTransport>>(std::move(maybe_transport));
     }
@@ -97,7 +96,6 @@ protected:
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
     StrictMock<can::MediaMock>      media_mock_{};
-    StrictMock<MultiplexerMock>     mux_mock_{};
     // NOLINTEND
 };
 

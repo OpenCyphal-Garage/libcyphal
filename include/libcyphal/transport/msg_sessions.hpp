@@ -34,7 +34,7 @@ struct MessageTxParams final
 class IMessageRxSession : public IRxSession
 {
 public:
-    CETL_NODISCARD virtual MessageRxParams getParams() const noexcept = 0;
+    virtual MessageRxParams getParams() const noexcept = 0;
 
     /// @brief Receives a message from the transport layer.
     ///
@@ -42,14 +42,14 @@ public:
     ///
     /// @return A message transfer if available; otherwise an empty optional.
     ///
-    CETL_NODISCARD virtual cetl::optional<MessageRxTransfer> receive() = 0;
+    virtual cetl::optional<MessageRxTransfer> receive() = 0;
 
 };  // IMessageRxSession
 
 class IMessageTxSession : public ITxSession
 {
 public:
-    CETL_NODISCARD virtual MessageTxParams getParams() const noexcept = 0;
+    virtual MessageTxParams getParams() const noexcept = 0;
 
     /// @brief Sends a message to the transport layer.
     ///
@@ -57,8 +57,8 @@ public:
     /// @param payload_fragments Segments of the message payload.
     /// @return `nullopt` in case of success; otherwise a transport error.
     ///
-    CETL_NODISCARD virtual cetl::optional<AnyError> send(const TransferMetadata& metadata,
-                                                         const PayloadFragments  payload_fragments) = 0;
+    virtual cetl::optional<AnyError> send(const TransferMetadata& metadata,
+                                          const PayloadFragments  payload_fragments) = 0;
 };  // IMessageTxSession
 
 }  // namespace transport

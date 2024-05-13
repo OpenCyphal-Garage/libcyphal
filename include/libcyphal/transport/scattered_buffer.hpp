@@ -24,7 +24,7 @@ namespace transport
 /// The buffer is movable but not copyable because copying the contents of a buffer is considered wasteful.
 /// The buffer behaves as if it's empty if the underlying implementation is moved away.
 ///
-class ScatteredBuffer final
+class ScatteredBuffer final  // NOSONAR : cpp:S4963 - we do directly handle resources here.
 {
     // 91C1B109-F90E-45BE-95CF-6ED02AC3FFAA
     using IStorageTypeIdType = cetl::
@@ -53,7 +53,7 @@ public:
         ///
         /// The storage could be possibly scattered, but this is hidden from the user.
         ///
-        CETL_NODISCARD virtual std::size_t size() const noexcept = 0;
+        virtual std::size_t size() const noexcept = 0;
 
         /// @brief Copies a fragment of the specified size at the specified offset out of the storage.
         ///
@@ -66,11 +66,9 @@ public:
         /// @param length_bytes The number of bytes to copy.
         /// @return The number of bytes copied.
         ///
-        /// NOSONAR cpp:S5008 below is unavoidable: integration with low-level Lizard memory access.
-        ///
-        CETL_NODISCARD virtual std::size_t copy(const std::size_t offset_bytes,
-                                                void* const       destination,  // NOSONAR cpp:S5008
-                                                const std::size_t length_bytes) const = 0;
+        virtual std::size_t copy(const std::size_t offset_bytes,
+                                 cetl::byte* const destination,
+                                 const std::size_t length_bytes) const = 0;
 
     protected:
         IStorage()                               = default;
@@ -151,7 +149,7 @@ public:
     ///
     /// @return Returns zero if the buffer is moved away.
     ///
-    CETL_NODISCARD std::size_t size() const noexcept
+    std::size_t size() const noexcept
     {
         return (storage_ != nullptr) ? storage_->size() : 0;
     }
@@ -167,11 +165,16 @@ public:
     /// @param length_bytes The number of bytes to copy.
     /// @return The number of bytes copied.
     ///
-    CETL_NODISCARD std::size_t copy(const std::size_t offset_bytes,
-                                    void* const       destination,
-                                    const std::size_t length_bytes) const
+    std::size_t copy(const std::size_t offset_bytes,
+                     void* const       destination,  // NOSONAR : integration with low-level Lizard memory access.
+                     const std::size_t length_bytes) const
     {
-        return (storage_ != nullptr) ? storage_->copy(offset_bytes, destination, length_bytes) : 0;
+        if (storage_ == nullptr)
+        {
+            return 0;
+        }
+
+        return storage_->copy(offset_bytes, static_cast<cetl::byte*>(destination), length_bytes);
     }
 
 private:
