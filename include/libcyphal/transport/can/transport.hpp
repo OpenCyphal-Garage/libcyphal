@@ -650,7 +650,7 @@ private:
 ///
 /// @param memory Reference to a polymorphic memory resource to use for all allocations.
 /// @param media Collection of redundant media interfaces to use.
-/// @param tx_capacity Total number of frames that can be queued for transmission.
+/// @param tx_capacity Total number of frames that can be queued for transmission per `IMedia` instance.
 /// @param local_node_id Optional id of the local node. Could be set (once!) later by `setLocalNodeId` call.
 /// @return Unique pointer to the new CAN transport instance or an error.
 ///
