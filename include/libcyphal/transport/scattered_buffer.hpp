@@ -165,8 +165,10 @@ public:
     /// @param length_bytes The number of bytes to copy.
     /// @return The number of bytes copied.
     ///
+    /// NOSONAR cpp:S5008 below currently unavoidable. Could be fixed if nunavut provides `cetl::byte*` support.
+    ///
     std::size_t copy(const std::size_t offset_bytes,
-                     void* const       destination,  // NOSONAR : integration with low-level Lizard memory access.
+                     void* const       destination,  // NOSONAR : cpp:S5008
                      const std::size_t length_bytes) const
     {
         if (storage_ == nullptr)
