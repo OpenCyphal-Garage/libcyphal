@@ -81,7 +81,7 @@ protected:
     {
         std::array<can::IMedia*, 1> media_array{&media_mock_};
 
-        auto maybe_transport = can::makeTransport(mr, media_array, 16, {});
+        auto maybe_transport = can::makeTransport(mr, media_array, 16);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
         return cetl::get<UniquePtr<can::ICanTransport>>(std::move(maybe_transport));
     }

@@ -90,7 +90,7 @@ protected:
     {
         std::array<can::IMedia*, 2> media_array{&media_mock_, extra_media};
 
-        auto maybe_transport = can::makeTransport(mr, media_array, tx_capacity, {});
+        auto maybe_transport = can::makeTransport(mr, media_array, tx_capacity);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
         return cetl::get<UniquePtr<can::ICanTransport>>(std::move(maybe_transport));
     }
@@ -118,7 +118,7 @@ TEST_F(TestCanTransport, makeTransport_no_memory_at_all)
 #endif
 
     std::array<can::IMedia*, 1> media_array{&media_mock_};
-    auto                        maybe_transport = can::makeTransport(mr_mock, media_array, 0, {});
+    auto                        maybe_transport = can::makeTransport(mr_mock, media_array, 0);
     EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<MemoryError>(_)));
 }
 
@@ -131,7 +131,7 @@ TEST_F(TestCanTransport, makeTransport_no_memory_for_impl)
     EXPECT_CALL(mr_mock, do_allocate(sizeof(can::detail::TransportImpl), _)).WillOnce(Return(nullptr));
 
     std::array<can::IMedia*, 1> media_array{&media_mock_};
-    auto                        maybe_transport = can::makeTransport(mr_mock, media_array, 0, {});
+    auto                        maybe_transport = can::makeTransport(mr_mock, media_array, 0);
     EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<MemoryError>(_)));
 }
 
@@ -141,7 +141,7 @@ TEST_F(TestCanTransport, makeTransport_too_many_media)
     std::array<can::IMedia*, std::numeric_limits<std::uint8_t>::max() + 1> media_array{};
     std::fill(media_array.begin(), media_array.end(), &media_mock_);
 
-    auto maybe_transport = can::makeTransport(mr_, media_array, 0, {});
+    auto maybe_transport = can::makeTransport(mr_, media_array, 0);
     EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<ArgumentError>(_)));
 }
 
@@ -150,7 +150,7 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
     // Anonymous node
     {
         std::array<can::IMedia*, 1> media_array{&media_mock_};
-        auto                        maybe_transport = can::makeTransport(mr_, media_array, 0, {});
+        auto                        maybe_transport = can::makeTransport(mr_, media_array, 0);
         ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
 
         auto transport = cetl::get<UniquePtr<can::ICanTransport>>(std::move(maybe_transport));
@@ -159,13 +159,13 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
 
     // Node with ID
     {
-        const auto node_id = cetl::make_optional(static_cast<NodeId>(42));
-
         std::array<can::IMedia*, 1> media_array{&media_mock_};
-        auto                        maybe_transport = can::makeTransport(mr_, media_array, 0, node_id);
+        auto                        maybe_transport = can::makeTransport(mr_, media_array, 0);
         ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
 
         auto transport = cetl::get<UniquePtr<can::ICanTransport>>(std::move(maybe_transport));
+        transport->setLocalNodeId(42);
+
         EXPECT_THAT(transport->getLocalNodeId(), Optional(42));
     }
 
@@ -175,7 +175,7 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
         EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_MAX));
 
         std::array<can::IMedia*, 3> media_array{&media_mock_, nullptr, &media_mock2};
-        auto                        maybe_transport = can::makeTransport(mr_, media_array, 0, {});
+        auto                        maybe_transport = can::makeTransport(mr_, media_array, 0);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
     }
 
@@ -187,7 +187,7 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
         EXPECT_CALL(media_mock3, getMtu()).WillRepeatedly(Return(CANARD_MTU_MAX));
 
         std::array<can::IMedia*, 3> media_array{&media_mock_, &media_mock2, &media_mock3};
-        auto                        maybe_transport = can::makeTransport(mr_, media_array, 0, {});
+        auto                        maybe_transport = can::makeTransport(mr_, media_array, 0);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
     }
 }
@@ -222,40 +222,8 @@ TEST_F(TestCanTransport, setLocalNodeId)
 TEST_F(TestCanTransport, makeTransport_with_invalid_arguments)
 {
     // No media
-    {
-        const auto node_id = cetl::make_optional(static_cast<NodeId>(CANARD_NODE_ID_MAX));
-
-        const auto maybe_transport = can::makeTransport(mr_, {}, 0, node_id);
-        EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<ArgumentError>(_)));
-    }
-
-    // try just a bit bigger than max canard id (aka 128)
-    {
-        const auto node_id = cetl::make_optional(static_cast<NodeId>(CANARD_NODE_ID_MAX + 1));
-
-        std::array<can::IMedia*, 1> media_array{&media_mock_};
-        const auto                  maybe_transport = can::makeTransport(mr_, media_array, 0, node_id);
-        EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<ArgumentError>(_)));
-    }
-
-    // magic 255 number (aka CANARD_NODE_ID_UNSET) can't be used as well
-    {
-        const auto node_id = cetl::make_optional(static_cast<NodeId>(CANARD_NODE_ID_UNSET));
-
-        std::array<can::IMedia*, 1> media_array{&media_mock_};
-        const auto                  maybe_transport = can::makeTransport(mr_, media_array, 0, node_id);
-        EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<ArgumentError>(_)));
-    }
-
-    // just in case try 0x100 (aka overflow)
-    {
-        const NodeId too_big = static_cast<NodeId>(std::numeric_limits<CanardNodeID>::max()) + 1;
-        const auto   node_id = cetl::make_optional(too_big);
-
-        std::array<can::IMedia*, 1> media_array{&media_mock_};
-        const auto                  maybe_transport = can::makeTransport(mr_, media_array, 0, node_id);
-        EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<ArgumentError>(_)));
-    }
+    const auto maybe_transport = can::makeTransport(mr_, {}, 0);
+    EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<ArgumentError>(_)));
 }
 
 TEST_F(TestCanTransport, getProtocolParams)
@@ -264,7 +232,7 @@ TEST_F(TestCanTransport, getProtocolParams)
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_MAX));
 
     std::array<can::IMedia*, 2> media_array{&media_mock_, &media_mock2};
-    auto transport = cetl::get<UniquePtr<can::ICanTransport>>(can::makeTransport(mr_, media_array, 0, {}));
+    auto transport = cetl::get<UniquePtr<can::ICanTransport>>(can::makeTransport(mr_, media_array, 0));
 
     EXPECT_CALL(media_mock_, getMtu()).WillRepeatedly(testing::Return(CANARD_MTU_CAN_FD));
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(testing::Return(CANARD_MTU_CAN_CLASSIC));

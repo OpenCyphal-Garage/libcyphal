@@ -76,13 +76,13 @@ protected:
     {
         std::array<can::IMedia*, 1> media_array{&media_mock_};
 
-        // TODO: `local_node_id` could be just passed to `can::makeTransport` as an argument,
-        // but it's not possible due to CETL issue https://github.com/OpenCyphal/CETL/issues/119.
-        const auto opt_local_node_id = cetl::optional<NodeId>{local_node_id};
-
-        auto maybe_transport = can::makeTransport(mr, media_array, 16, opt_local_node_id);
+        auto maybe_transport = can::makeTransport(mr, media_array, 16);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
-        return cetl::get<UniquePtr<can::ICanTransport>>(std::move(maybe_transport));
+        auto transport = cetl::get<UniquePtr<can::ICanTransport>>(std::move(maybe_transport));
+
+        transport->setLocalNodeId(local_node_id);
+
+        return transport;
     }
 
     // MARK: Data members:
@@ -185,7 +185,7 @@ TEST_F(TestCanSvcTxSessions, send_request_with_argument_error)
     // Make initially anonymous node transport.
     //
     std::array<can::IMedia*, 1> media_array{&media_mock_};
-    auto                        maybe_transport = can::makeTransport(mr_, media_array, 2, {});
+    auto                        maybe_transport = can::makeTransport(mr_, media_array, 2);
     ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
     auto transport = cetl::get<UniquePtr<can::ICanTransport>>(std::move(maybe_transport));
 
@@ -317,7 +317,7 @@ TEST_F(TestCanSvcTxSessions, send_respose_with_argument_error)
     // Make initially anonymous node transport.
     //
     std::array<can::IMedia*, 1> media_array{&media_mock_};
-    auto                        maybe_transport = can::makeTransport(mr_, media_array, 2, {});
+    auto                        maybe_transport = can::makeTransport(mr_, media_array, 2);
     ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
     auto transport = cetl::get<UniquePtr<can::ICanTransport>>(std::move(maybe_transport));
 
