@@ -22,7 +22,7 @@
 #include "libcyphal/types.hpp"
 
 #include <canard.h>
-#include <cetl/pf17/attribute.hpp>
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 

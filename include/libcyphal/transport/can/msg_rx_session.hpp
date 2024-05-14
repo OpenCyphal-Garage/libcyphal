@@ -15,7 +15,6 @@
 
 #include <canard.h>
 #include <cetl/cetl.hpp>
-#include <cetl/pf17/attribute.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <chrono>

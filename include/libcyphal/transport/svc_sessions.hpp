@@ -9,7 +9,6 @@
 #include "session.hpp"
 #include "types.hpp"
 
-#include <cetl/pf17/attribute.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <cstddef>
