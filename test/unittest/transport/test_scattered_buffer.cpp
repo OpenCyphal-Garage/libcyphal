@@ -5,6 +5,7 @@
 
 #include <libcyphal/transport/scattered_buffer.hpp>
 
+#include <cetl/pf17/cetlpf.hpp>
 #include <cetl/rtti.hpp>
 
 #include <gmock/gmock.h>
@@ -12,7 +13,6 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
 #include <utility>
 
 namespace
@@ -36,7 +36,7 @@ public:
     MOCK_METHOD(void, deinit, (), (noexcept));  // NOLINT(bugprone-exception-escape)
 
     MOCK_METHOD(std::size_t, size, (), (const, noexcept, override));  // NOLINT(bugprone-exception-escape)
-    MOCK_METHOD(std::size_t, copy, (const std::size_t, void* const, const std::size_t), (const, override));
+    MOCK_METHOD(std::size_t, copy, (const std::size_t, cetl::byte* const, const std::size_t), (const, override));
 };
 class StorageWrapper final : public cetl::rtti_helper<StorageWrapperTypeIdType, ScatteredBuffer::IStorage>
 {
@@ -74,7 +74,7 @@ public:
         return (mock_ != nullptr) ? mock_->size() : 0;
     }
     std::size_t copy(const std::size_t offset_bytes,
-                     void* const       destination,
+                     cetl::byte* const destination,
                      const std::size_t length_bytes) const override
     {
         return (mock_ != nullptr) ? mock_->copy(offset_bytes, destination, length_bytes) : 0;
@@ -122,7 +122,7 @@ TEST(TestScatteredBuffer, move_ctor_assign_size)
 
 TEST(TestScatteredBuffer, copy_reset)
 {
-    std::array<std::uint8_t, 16> test_dst{};
+    std::array<cetl::byte, 16> test_dst{};
 
     StrictMock<StorageMock> storage_mock{};
     EXPECT_CALL(storage_mock, deinit()).Times(1);

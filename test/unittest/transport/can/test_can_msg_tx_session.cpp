@@ -8,7 +8,6 @@
 #include "../../test_utilities.hpp"
 #include "../../tracking_memory_resource.hpp"
 #include "../../virtual_time_scheduler.hpp"
-#include "../multiplexer_mock.hpp"
 #include "media_mock.hpp"
 
 #include <canard.h>
@@ -82,7 +81,7 @@ protected:
     {
         std::array<can::IMedia*, 1> media_array{&media_mock_};
 
-        auto maybe_transport = can::makeTransport(mr, mux_mock_, media_array, 16, {});
+        auto maybe_transport = can::makeTransport(mr, media_array, 16);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
         return cetl::get<UniquePtr<can::ICanTransport>>(std::move(maybe_transport));
     }
@@ -92,7 +91,6 @@ protected:
     // NOLINTBEGIN
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
-    StrictMock<MultiplexerMock>     mux_mock_{};
     StrictMock<can::MediaMock>      media_mock_{};
     // NOLINTEND
 };
@@ -232,7 +230,7 @@ TEST_F(TestCanMsgTxSession, send_7bytes_payload_with_500ms_timeout)
     scheduler_.runNow(+10s);
     const auto send_time = now();
 
-    const auto             payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC - 1>('1');
+    const auto             payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC - 1>(b('1'));
     const TransferMetadata metadata{0x03, send_time, Priority::High};
 
     auto maybe_error = session->send(metadata, makeSpansFrom(payload));
@@ -265,8 +263,8 @@ TEST_F(TestCanMsgTxSession, send_when_no_memory_for_contiguous_payload)
     auto transport = makeTransport(mr_mock);
 
     // Emulate that there is no memory available for the expected contiguous payload.
-    const auto payload1 = makeIotaArray<1>('0');
-    const auto payload2 = makeIotaArray<2>('1');
+    const auto payload1 = makeIotaArray<1>(b('0'));
+    const auto payload2 = makeIotaArray<2>(b('1'));
     EXPECT_CALL(mr_mock, do_allocate(sizeof(payload1) + sizeof(payload2), _)).WillOnce(Return(nullptr));
 
     auto maybe_session = transport->makeMessageTxSession({17});

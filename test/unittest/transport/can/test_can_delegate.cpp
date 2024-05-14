@@ -4,6 +4,7 @@
 /// SPDX-License-Identifier: MIT
 
 #include "../../memory_resource_mock.hpp"
+#include "../../test_utilities.hpp"
 #include "../../tracking_memory_resource.hpp"
 
 #include <canard.h>
@@ -18,8 +19,6 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdint>
-#include <numeric>
 #include <string>
 #include <utility>
 #include <vector>
@@ -29,6 +28,10 @@ namespace
 
 using libcyphal::TimePoint;
 using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
+
+using cetl::byte;
+using libcyphal::test_utilities::b;
+using libcyphal::test_utilities::fillIotaBytes;
 
 using testing::_;
 using testing::Eq;
@@ -86,8 +89,8 @@ TEST_F(TestCanDelegate, CanardMemory_copy)
     TransportDelegateImpl delegate{mr_};
     auto&                 canard_instance = delegate.canard_instance();
 
-    char* const payload = static_cast<char*>(canard_instance.memory_allocate(&canard_instance, 8));
-    std::iota(payload, payload + 8, '0');  // NOLINT
+    auto* const payload = static_cast<byte*>(canard_instance.memory_allocate(&canard_instance, 8));
+    fillIotaBytes({payload, 8}, b('0'));
 
     const std::size_t  payload_size = 4;
     const CanardMemory canard_memory{delegate, payload, payload_size};
@@ -96,41 +99,41 @@ TEST_F(TestCanDelegate, CanardMemory_copy)
     // Ask exactly as payload
     {
         const std::size_t          ask_size = payload_size;
-        std::array<char, ask_size> buffer{};
+        std::array<byte, ask_size> buffer{};
 
         EXPECT_THAT(canard_memory.copy(0, buffer.data(), ask_size), ask_size);
-        EXPECT_THAT(buffer, ElementsAre('0', '1', '2', '3'));
+        EXPECT_THAT(buffer, ElementsAre(b('0'), b('1'), b('2'), b('3')));
     }
 
     // Ask more than payload
     {
-        const std::size_t                  ask_size = payload_size + 2;
-        std::array<std::uint8_t, ask_size> buffer{};
+        const std::size_t          ask_size = payload_size + 2;
+        std::array<byte, ask_size> buffer{};
 
         EXPECT_THAT(canard_memory.copy(0, buffer.data(), ask_size), payload_size);
-        EXPECT_THAT(buffer, ElementsAre('0', '1', '2', '3', '\0', '\0'));
+        EXPECT_THAT(buffer, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('\0'), b('\0')));
     }
 
     // Ask less than payload (with different offsets)
     {
-        const std::size_t                  ask_size = payload_size - 2;
-        std::array<std::uint8_t, ask_size> buffer{};
+        const std::size_t          ask_size = payload_size - 2;
+        std::array<byte, ask_size> buffer{};
 
         EXPECT_THAT(canard_memory.copy(0, buffer.data(), ask_size), ask_size);
-        EXPECT_THAT(buffer, ElementsAre('0', '1'));
+        EXPECT_THAT(buffer, ElementsAre(b('0'), b('1')));
 
         EXPECT_THAT(canard_memory.copy(3, buffer.data(), buffer.size()), 1);
-        EXPECT_THAT(buffer, ElementsAre('3', '1'));
+        EXPECT_THAT(buffer, ElementsAre(b('3'), b('1')));
 
         EXPECT_THAT(canard_memory.copy(2, buffer.data(), ask_size), ask_size);
-        EXPECT_THAT(buffer, ElementsAre('2', '3'));
+        EXPECT_THAT(buffer, ElementsAre(b('2'), b('3')));
 
         EXPECT_THAT(canard_memory.copy(payload_size, buffer.data(), ask_size), 0);
-        EXPECT_THAT(buffer, ElementsAre('2', '3'));
+        EXPECT_THAT(buffer, ElementsAre(b('2'), b('3')));
 
         // Ask nothing
         EXPECT_THAT(canard_memory.copy(0, buffer.data(), 0), 0);
-        EXPECT_THAT(buffer, ElementsAre('2', '3'));
+        EXPECT_THAT(buffer, ElementsAre(b('2'), b('3')));
 
         // No output buffer
         EXPECT_THAT(canard_memory.copy(0, nullptr, 0), 0);
@@ -145,8 +148,8 @@ TEST_F(TestCanDelegate, CanardMemory_copy_on_moved)
     auto&                 canard_instance = delegate.canard_instance();
 
     const std::size_t payload_size = 4;
-    char* const       payload = static_cast<char*>(canard_instance.memory_allocate(&canard_instance, payload_size));
-    std::iota(payload, payload + payload_size, '0'); // NOLINT
+    auto* const       payload = static_cast<byte*>(canard_instance.memory_allocate(&canard_instance, payload_size));
+    fillIotaBytes({payload, payload_size}, b('0'));
 
     CanardMemory old_canard_memory{delegate, payload, payload_size};
     EXPECT_THAT(old_canard_memory.size(), payload_size);
@@ -158,17 +161,17 @@ TEST_F(TestCanDelegate, CanardMemory_copy_on_moved)
 
     // Try old one
     {
-        std::array<char, payload_size> buffer{};
+        std::array<byte, payload_size> buffer{};
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.Move)
         EXPECT_THAT(old_canard_memory.copy(0, buffer.data(), buffer.size()), 0);
-        EXPECT_THAT(buffer, Each('\0'));
+        EXPECT_THAT(buffer, Each(b('\0')));
     }
 
     // Try new one
     {
-        std::array<char, payload_size> buffer{};
+        std::array<byte, payload_size> buffer{};
         EXPECT_THAT(new_canard_memory.copy(0, buffer.data(), buffer.size()), payload_size);
-        EXPECT_THAT(buffer, ElementsAre('0', '1', '2', '3'));
+        EXPECT_THAT(buffer, ElementsAre(b('0'), b('1'), b('2'), b('3')));
     }
 }
 
@@ -207,7 +210,7 @@ TEST_F(TestCanDelegate, CanardConcreteTree_visitCounting)
             , name{std::move(_name)}
         {
         }
-        std::string name; // NOLINT
+        std::string name;  // NOLINT
     };
     //        Root
     //      ↙     ↘

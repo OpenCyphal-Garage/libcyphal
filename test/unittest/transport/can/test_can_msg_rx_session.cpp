@@ -8,7 +8,6 @@
 #include "../../test_utilities.hpp"
 #include "../../tracking_memory_resource.hpp"
 #include "../../virtual_time_scheduler.hpp"
-#include "../multiplexer_mock.hpp"
 #include "media_mock.hpp"
 
 #include <canard.h>
@@ -81,7 +80,7 @@ protected:
     {
         std::array<can::IMedia*, 1> media_array{&media_mock_};
 
-        auto maybe_transport = can::makeTransport(mr, mux_mock_, media_array, 0, {});
+        auto maybe_transport = can::makeTransport(mr, media_array, 0);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
         return cetl::get<UniquePtr<can::ICanTransport>>(std::move(maybe_transport));
     }
@@ -92,7 +91,6 @@ protected:
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
     StrictMock<can::MediaMock>      media_mock_{};
-    StrictMock<MultiplexerMock>     mux_mock_{};
     // NOLINTEND
 };
 

@@ -14,7 +14,6 @@
 #include "libcyphal/runnable.hpp"
 #include "libcyphal/types.hpp"
 
-#include <cetl/pf17/attribute.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 
 namespace libcyphal
@@ -36,7 +35,7 @@ public:
     /// @see can::IMedia::getMtu()
     /// @see udp::IMedia::getMtu()
     ///
-    CETL_NODISCARD virtual ProtocolParams getProtocolParams() const noexcept = 0;
+    virtual ProtocolParams getProtocolParams() const noexcept = 0;
 
     /// @brief Gets the local node ID (if any).
     ///
@@ -46,7 +45,7 @@ public:
     /// @return The node ID previously assigned to this transport interface (via `setLocalNodeId`).
     ///         Otherwise it's `nullopt` for an anonymous node.
     ///
-    CETL_NODISCARD virtual cetl::optional<NodeId> getLocalNodeId() const noexcept = 0;
+    virtual cetl::optional<NodeId> getLocalNodeId() const noexcept = 0;
 
     /// @brief Sets the local node ID.
     ///
@@ -61,20 +60,43 @@ public:
     /// @return `nullopt` on successful set (or when node ID is the same).
     ///         Otherwise an `ArgumentError` in case of the subsequent calls or ID out of range.
     ///
-    CETL_NODISCARD virtual cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept = 0;
+    virtual cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept = 0;
 
-    CETL_NODISCARD virtual Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
-        const MessageRxParams& params) = 0;
-    CETL_NODISCARD virtual Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(
-        const MessageTxParams& params) = 0;
-    CETL_NODISCARD virtual Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(
-        const RequestRxParams& params) = 0;
-    CETL_NODISCARD virtual Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(
-        const RequestTxParams& params) = 0;
-    CETL_NODISCARD virtual Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(
-        const ResponseRxParams& params) = 0;
-    CETL_NODISCARD virtual Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(
-        const ResponseTxParams& params) = 0;
+    /// @brief Makes a message receive (RX) session.
+    ///
+    /// The RX session must never outlive this transport interface.
+    ///
+    virtual Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(const MessageRxParams& params) = 0;
+
+    /// @brief Makes a message transmit (TX) session.
+    ///
+    /// The TX session must never outlive this transport interface.
+    ///
+    virtual Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(const MessageTxParams& params) = 0;
+
+    /// @brief Makes a service request receive (RX) session.
+    ///
+    /// The RX session must never outlive this transport interface.
+    ///
+    virtual Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(const RequestRxParams& params) = 0;
+
+    /// @brief Makes a service request transmit (TX) session.
+    ///
+    /// The TX session must never outlive this transport interface.
+    ///
+    virtual Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(const RequestTxParams& params) = 0;
+
+    /// @brief Makes a service response receive (RX) session.
+    ///
+    /// The RX session must never outlive this transport interface.
+    ///
+    virtual Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(const ResponseRxParams& params) = 0;
+
+    /// @brief Makes a service response transmit (TX) session.
+    ///
+    /// The TX session must never outlive this transport interface.
+    ///
+    virtual Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(const ResponseTxParams& params) = 0;
 
 };  // ITransport
 

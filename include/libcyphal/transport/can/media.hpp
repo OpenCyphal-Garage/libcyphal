@@ -10,7 +10,6 @@
 #include "libcyphal/types.hpp"
 
 #include <cetl/cetl.hpp>
-#include <cetl/pf17/attribute.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
@@ -68,20 +67,22 @@ public:
     ///
     /// @return Returns `nullopt` on success; otherwise some `MediaError` in case of a low-level error.
     ///
-    CETL_NODISCARD virtual cetl::optional<MediaError> setFilters(const Filters filters) noexcept = 0;
+    virtual cetl::optional<MediaError> setFilters(const Filters filters) noexcept = 0;
 
     /// @brief Schedules the frame for transmission asynchronously and return immediately.
     ///
     /// @return Returns `true` if accepted or already timed out; `false` to try again later.
     ///
-    CETL_NODISCARD virtual Expected<bool, MediaError> push(const TimePoint                    deadline,
-                                                           const CanId                        can_id,
-                                                           const cetl::span<const cetl::byte> payload) noexcept = 0;
+    virtual Expected<bool, MediaError> push(const TimePoint                    deadline,
+                                            const CanId                        can_id,
+                                            const cetl::span<const cetl::byte> payload) noexcept = 0;
 
     /// @brief Takes the next payload fragment (aka CAN frame) from the reception queue unless it's empty.
     ///
     /// @param payload_buffer The payload of the frame will be written into the mutable `payload_buffer` (aka span).
     /// @return Description of a received fragment if available; otherwise an empty optional is returned immediately.
+    ///         `nodiscard` is used to prevent ignoring the return value, which contains not only possible media error,
+    ///         but also important metadata (like `payload_size` field for further parsing of the result payload).
     ///
     CETL_NODISCARD virtual Expected<cetl::optional<RxMetadata>, MediaError> pop(
         const cetl::span<cetl::byte> payload_buffer) noexcept = 0;

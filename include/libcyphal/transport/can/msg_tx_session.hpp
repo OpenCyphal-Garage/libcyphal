@@ -14,7 +14,7 @@
 #include "libcyphal/types.hpp"
 
 #include <canard.h>
-#include <cetl/pf17/attribute.hpp>
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 
 namespace libcyphal

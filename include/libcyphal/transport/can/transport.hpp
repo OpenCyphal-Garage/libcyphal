@@ -16,14 +16,13 @@
 #include "libcyphal/transport/contiguous_payload.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
-#include "libcyphal/transport/multiplexer.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
 #include "libcyphal/transport/transport.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
 
 #include <canard.h>
-#include <cetl/pf17/attribute.hpp>
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
@@ -110,12 +109,9 @@ class TransportImpl final : public ICanTransport, private TransportDelegate  // 
     using MediaArray = libcyphal::detail::VarArray<Media>;
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<ICanTransport>, FactoryError> make(
-        cetl::pmr::memory_resource&  memory,
-        IMultiplexer&                multiplexer,
-        const cetl::span<IMedia*>    media,
-        const std::size_t            tx_capacity,
-        const cetl::optional<NodeId> local_node_id)
+    CETL_NODISCARD static Expected<UniquePtr<ICanTransport>, FactoryError> make(cetl::pmr::memory_resource& memory,
+                                                                                const cetl::span<IMedia*>   media,
+                                                                                const std::size_t           tx_capacity)
     {
         // Verify input arguments:
         // - At least one media interface must be provided, but no more than the maximum allowed (255).
@@ -129,10 +125,6 @@ public:
         {
             return ArgumentError{};
         }
-        if (local_node_id.has_value() && (local_node_id.value() > CANARD_NODE_ID_MAX))
-        {
-            return ArgumentError{};
-        }
 
         const MediaArray media_array{make_media_array(memory, media_count, media, tx_capacity)};
         if (media_array.size() != media_count)
@@ -140,10 +132,7 @@ public:
             return MemoryError{};
         }
 
-        const auto canard_node_id = static_cast<CanardNodeID>(local_node_id.value_or(CANARD_NODE_ID_UNSET));
-
-        auto transport =
-            libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, memory, multiplexer, media_array, canard_node_id);
+        auto transport = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, memory, media_array);
         if (transport == nullptr)
         {
             return MemoryError{};
@@ -152,21 +141,13 @@ public:
         return transport;
     }
 
-    TransportImpl(Spec,
-                  cetl::pmr::memory_resource& memory,
-                  IMultiplexer&               multiplexer,
-                  MediaArray                  media_array,
-                  const CanardNodeID          canard_node_id)
+    TransportImpl(Spec, cetl::pmr::memory_resource& memory, MediaArray media_array)
         : TransportDelegate{memory}
         , media_array_{std::move(media_array)}
         , should_reconfigure_filters_{false}
         , total_message_ports_{0}
         , total_service_ports_{0}
     {
-        // TODO: Use it!
-        (void) multiplexer;
-
-        canard_instance().node_id = canard_node_id;
     }
 
     TransportImpl(const TransportImpl&)                = delete;
@@ -654,14 +635,20 @@ private:
 
 }  // namespace detail
 
-CETL_NODISCARD inline Expected<UniquePtr<ICanTransport>, FactoryError> makeTransport(
-    cetl::pmr::memory_resource&  memory,
-    IMultiplexer&                multiplexer,
-    const cetl::span<IMedia*>    media,
-    const std::size_t            tx_capacity,
-    const cetl::optional<NodeId> local_node_id)
+/// @brief Makes a new CAN transport instance.
+///
+/// NB! Lifetime of the transport instance must never outlive `memory` and `media` instances.
+///
+/// @param memory Reference to a polymorphic memory resource to use for all allocations.
+/// @param media Collection of redundant media interfaces to use.
+/// @param tx_capacity Total number of frames that can be queued for transmission per `IMedia` instance.
+/// @return Unique pointer to the new CAN transport instance or an error.
+///
+inline Expected<UniquePtr<ICanTransport>, FactoryError> makeTransport(cetl::pmr::memory_resource& memory,
+                                                                      const cetl::span<IMedia*>   media,
+                                                                      const std::size_t           tx_capacity)
 {
-    return detail::TransportImpl::make(memory, multiplexer, media, tx_capacity, local_node_id);
+    return detail::TransportImpl::make(memory, media, tx_capacity);
 }
 
 }  // namespace can
