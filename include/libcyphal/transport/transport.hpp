@@ -65,37 +65,37 @@ public:
 
     /// @brief Makes a message receive (RX) session.
     ///
-    /// Lifetime of the RX session must never outlive this transport interface.
+    /// The RX session must never outlive this transport interface.
     ///
     virtual Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(const MessageRxParams& params) = 0;
 
     /// @brief Makes a message transmit (TX) session.
     ///
-    /// Lifetime of the TX session must never outlive this transport interface.
+    /// The TX session must never outlive this transport interface.
     ///
     virtual Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(const MessageTxParams& params) = 0;
 
     /// @brief Makes a service request receive (RX) session.
     ///
-    /// Lifetime of the RX session must never outlive this transport interface.
+    /// The RX session must never outlive this transport interface.
     ///
     virtual Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(const RequestRxParams& params) = 0;
 
     /// @brief Makes a service request transmit (TX) session.
     ///
-    /// Lifetime of the TX session must never outlive this transport interface.
+    /// The TX session must never outlive this transport interface.
     ///
     virtual Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(const RequestTxParams& params) = 0;
 
     /// @brief Makes a service response receive (RX) session.
     ///
-    /// Lifetime of the RX session must never outlive this transport interface.
+    /// The RX session must never outlive this transport interface.
     ///
     virtual Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(const ResponseRxParams& params) = 0;
 
     /// @brief Makes a service response transmit (TX) session.
     ///
-    /// Lifetime of the TX session must never outlive this transport interface.
+    /// The TX session must never outlive this transport interface.
     ///
     virtual Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(const ResponseTxParams& params) = 0;
 
