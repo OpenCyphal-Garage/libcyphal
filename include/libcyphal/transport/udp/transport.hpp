@@ -30,7 +30,14 @@ namespace udp
 
 class IUdpTransport : public ITransport
 {
+public:
+    IUdpTransport(const IUdpTransport&)                = delete;
+    IUdpTransport(IUdpTransport&&) noexcept            = delete;
+    IUdpTransport& operator=(const IUdpTransport&)     = delete;
+    IUdpTransport& operator=(IUdpTransport&&) noexcept = delete;
+
 protected:
+    IUdpTransport()  = default;
     ~IUdpTransport() = default;
 };
 

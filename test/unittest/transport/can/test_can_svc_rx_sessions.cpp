@@ -23,6 +23,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <utility>
@@ -50,10 +51,10 @@ using testing::ElementsAre;
 using testing::VariantWith;
 
 // https://github.com/llvm/llvm-project/issues/53444
-// NOLINTBEGIN(misc-unused-using-decls)
+// NOLINTBEGIN(misc-unused-using-decls, misc-include-cleaner)
 using std::literals::chrono_literals::operator""s;
 using std::literals::chrono_literals::operator""ms;
-// NOLINTEND(misc-unused-using-decls)
+// NOLINTEND(misc-unused-using-decls, misc-include-cleaner)
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 

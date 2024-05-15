@@ -43,7 +43,14 @@ namespace can
 
 class ICanTransport : public ITransport
 {
+public:
+    ICanTransport(const ICanTransport&)                = delete;
+    ICanTransport(ICanTransport&&) noexcept            = delete;
+    ICanTransport& operator=(const ICanTransport&)     = delete;
+    ICanTransport& operator=(ICanTransport&&) noexcept = delete;
+
 protected:
+    ICanTransport()  = default;
     ~ICanTransport() = default;
 };
 

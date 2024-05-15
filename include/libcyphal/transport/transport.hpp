@@ -26,6 +26,11 @@ namespace transport
 class ITransport : public IRunnable
 {
 public:
+    ITransport(const ITransport&)                = delete;
+    ITransport(ITransport&&) noexcept            = delete;
+    ITransport& operator=(const ITransport&)     = delete;
+    ITransport& operator=(ITransport&&) noexcept = delete;
+
     /// @brief Gets the protocol parameters.
     ///
     /// @return Almost the same parameters as they were passed to the corresponding transport layer factory.
@@ -99,6 +104,7 @@ public:
     virtual Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(const ResponseTxParams& params) = 0;
 
 protected:
+    ITransport()  = default;
     ~ITransport() = default;
 
 };  // ITransport
