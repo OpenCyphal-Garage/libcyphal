@@ -48,7 +48,7 @@ namespace detail
 /// namely: in destructor we have to unsubscribe, as well as let delegate to know this fact.
 ///
 template <typename Interface_, typename Params, CanardTransferKind TransferKind>
-class SvcRxSession final : public Interface_, private IRxSessionDelegate  // NOSONAR cpp:S4963
+class SvcRxSession final : private IRxSessionDelegate, public Interface_  // NOSONAR cpp:S4963
 {
     /// @brief Defines specification for making interface unique ptr.
     ///
@@ -105,7 +105,7 @@ public:
     SvcRxSession& operator=(const SvcRxSession&)     = delete;
     SvcRxSession& operator=(SvcRxSession&&) noexcept = delete;
 
-    ~SvcRxSession() override
+    ~SvcRxSession()
     {
         const int8_t result = ::canardRxUnsubscribe(&delegate_.canard_instance(), TransferKind, params_.service_id);
         (void) result;

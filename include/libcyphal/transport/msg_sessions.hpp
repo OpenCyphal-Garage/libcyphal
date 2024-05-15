@@ -43,6 +43,9 @@ public:
     ///
     virtual cetl::optional<MessageRxTransfer> receive() = 0;
 
+protected:
+    ~IMessageRxSession() = default;
+
 };  // IMessageRxSession
 
 class IMessageTxSession : public ITxSession
@@ -58,6 +61,10 @@ public:
     ///
     virtual cetl::optional<AnyError> send(const TransferMetadata& metadata,
                                           const PayloadFragments  payload_fragments) = 0;
+
+protected:
+    ~IMessageTxSession() = default;
+
 };  // IMessageTxSession
 
 }  // namespace transport

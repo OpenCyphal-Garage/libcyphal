@@ -29,7 +29,10 @@ namespace udp
 {
 
 class IUdpTransport : public ITransport
-{};
+{
+protected:
+    ~IUdpTransport() = default;
+};
 
 /// Internal implementation details of the UDP transport.
 /// Not supposed to be used directly by the users of the library.

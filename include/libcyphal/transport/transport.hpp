@@ -98,6 +98,9 @@ public:
     ///
     virtual Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(const ResponseTxParams& params) = 0;
 
+protected:
+    ~ITransport() = default;
+
 };  // ITransport
 
 }  // namespace transport

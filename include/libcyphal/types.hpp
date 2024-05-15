@@ -8,7 +8,7 @@
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
-#include <cetl/pmr/memory.hpp>
+#include <cetl/pmr/interface_ptr.hpp>
 #include <cetl/variable_length_array.hpp>
 
 #include <chrono>
@@ -50,7 +50,7 @@ using TimePoint = MonotonicClock::time_point;
 using Duration  = MonotonicClock::duration;
 
 template <typename T>
-using UniquePtr = cetl::pmr::Factory::unique_ptr_t<cetl::pmr::polymorphic_allocator<T>>;
+using UniquePtr = cetl::pmr::InterfacePtr<T>;
 
 // TODO: Maybe introduce `cetl::expected` at CETL repo.
 template <typename Success, typename Failure>
@@ -68,13 +68,8 @@ using VarArray = cetl::VariableLengthArray<T, PmrAllocator<T>>;
 template <typename Spec, typename... Args>
 CETL_NODISCARD UniquePtr<typename Spec::Interface> makeUniquePtr(cetl::pmr::memory_resource& memory, Args&&... args)
 {
-    PmrAllocator<typename Spec::Concrete> allocator{&memory};
-    auto interface_deleter = typename UniquePtr<typename Spec::Interface>::deleter_type{allocator, 1};
-
-    auto concrete  = cetl::pmr::Factory::make_unique(allocator, std::forward<Args>(args)...);
-    auto interface = UniquePtr<typename Spec::Interface>{concrete.release(), interface_deleter};
-
-    return interface;
+    return cetl::pmr::InterfaceFactory::make_unique<
+        typename Spec::Interface>(PmrAllocator<typename Spec::Concrete>{&memory}, std::forward<Args>(args)...);
 }
 
 }  // namespace detail

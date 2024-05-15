@@ -16,13 +16,17 @@ namespace transport
 
 class ISession : public IRunnable
 {
-public:
+protected:
+    ~ISession() = default;
 };
 
 class IRxSession : public ISession
 {
 public:
     virtual void setTransferIdTimeout(const Duration timeout) = 0;
+
+protected:
+    ~IRxSession() = default;
 };
 
 class ITxSession : public ISession
@@ -36,6 +40,9 @@ public:
     /// @param timeout - Positive duration for transmission timeout. Default value is 1 second.
     ///
     virtual void setSendTimeout(const Duration timeout) = 0;
+
+protected:
+    ~ITxSession() = default;
 };
 
 }  // namespace transport

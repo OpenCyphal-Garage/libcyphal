@@ -42,7 +42,10 @@ namespace can
 {
 
 class ICanTransport : public ITransport
-{};
+{
+protected:
+    ~ICanTransport() = default;
+};
 
 /// Internal implementation details of the CAN transport.
 /// Not supposed to be used directly by the users of the library.
@@ -55,7 +58,7 @@ namespace detail
 /// NOSONAR cpp:S4963 for below `class TransportImpl` - we do directly handle resources here;
 /// namely: in destructor we have to unsubscribe, as well as let delegate to know this fact.
 ///
-class TransportImpl final : public ICanTransport, private TransportDelegate  // NOSONAR cpp:S4963
+class TransportImpl final : private TransportDelegate, public ICanTransport  // NOSONAR cpp:S4963
 {
     /// @brief Defines specification for making interface unique ptr.
     ///
@@ -155,7 +158,7 @@ public:
     TransportImpl& operator=(const TransportImpl&)     = delete;
     TransportImpl& operator=(TransportImpl&&) noexcept = delete;
 
-    ~TransportImpl() override
+    ~TransportImpl()
     {
         for (Media& media : media_array_)
         {

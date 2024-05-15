@@ -52,12 +52,18 @@ public:
     /// @return A service transfer if available; otherwise an empty optional.
     ///
     virtual cetl::optional<ServiceRxTransfer> receive() = 0;
+
+protected:
+    ~ISvcRxSession() = default;
 };
 
 class IRequestRxSession : public ISvcRxSession
 {
 public:
     virtual RequestRxParams getParams() const noexcept = 0;
+
+protected:
+    ~IRequestRxSession() = default;
 };
 
 class IRequestTxSession : public ITxSession
@@ -73,12 +79,18 @@ public:
     ///
     virtual cetl::optional<AnyError> send(const TransferMetadata& metadata,
                                           const PayloadFragments  payload_fragments) = 0;
+
+protected:
+    ~IRequestTxSession() = default;
 };
 
 class IResponseRxSession : public ISvcRxSession
 {
 public:
     virtual ResponseRxParams getParams() const noexcept = 0;
+
+protected:
+    ~IResponseRxSession() = default;
 };
 
 class IResponseTxSession : public ITxSession
@@ -94,6 +106,9 @@ public:
     ///
     virtual cetl::optional<AnyError> send(const ServiceTransferMetadata& metadata,
                                           const PayloadFragments         payload_fragments) = 0;
+
+protected:
+    ~IResponseTxSession() = default;
 };
 
 }  // namespace transport
