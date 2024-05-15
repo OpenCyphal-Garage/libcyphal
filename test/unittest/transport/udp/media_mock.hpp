@@ -10,6 +10,8 @@
 
 #include <gmock/gmock.h>
 
+#include <cstddef>
+
 namespace libcyphal
 {
 namespace transport
@@ -20,8 +22,16 @@ namespace udp
 class MediaMock : public IMedia
 {
 public:
-    MediaMock() = default;
+    MediaMock()          = default;
     virtual ~MediaMock() = default;
+
+    MediaMock(const MediaMock&)                = delete;
+    MediaMock(MediaMock&&) noexcept            = delete;
+    MediaMock& operator=(const MediaMock&)     = delete;
+    MediaMock& operator=(MediaMock&&) noexcept = delete;
+
+    // NOLINTNEXTLINE(bugprone-exception-escape)
+    MOCK_METHOD(std::size_t, getMtu, (), (const, noexcept, override));
 
 };  // MediaMock
 

@@ -7,6 +7,11 @@
 #define LIBCYPHAL_TRANSPORT_SVC_SESSION_HPP_INCLUDED
 
 #include "session.hpp"
+#include "types.hpp"
+
+#include <cetl/pf17/cetlpf.hpp>
+
+#include <cstddef>
 
 namespace libcyphal
 {
@@ -15,26 +20,26 @@ namespace transport
 
 struct RequestRxParams final
 {
-    std::size_t extent_bytes;
-    PortId      service_id;
+    std::size_t extent_bytes{};
+    PortId      service_id{};
 };
 
 struct RequestTxParams final
 {
-    PortId service_id;
-    NodeId server_node_id;
+    PortId service_id{};
+    NodeId server_node_id{};
 };
 
 struct ResponseRxParams final
 {
-    std::size_t extent_bytes;
-    PortId      service_id;
-    NodeId      server_node_id;
+    std::size_t extent_bytes{};
+    PortId      service_id{};
+    NodeId      server_node_id{};
 };
 
 struct ResponseTxParams final
 {
-    PortId service_id;
+    PortId service_id{};
 };
 
 class ISvcRxSession : public IRxSession
@@ -46,19 +51,19 @@ public:
     ///
     /// @return A service transfer if available; otherwise an empty optional.
     ///
-    CETL_NODISCARD virtual cetl::optional<ServiceRxTransfer> receive() = 0;
+    virtual cetl::optional<ServiceRxTransfer> receive() = 0;
 };
 
 class IRequestRxSession : public ISvcRxSession
 {
 public:
-    CETL_NODISCARD virtual RequestRxParams getParams() const noexcept = 0;
+    virtual RequestRxParams getParams() const noexcept = 0;
 };
 
-class IRequestTxSession : public ISession
+class IRequestTxSession : public ITxSession
 {
 public:
-    CETL_NODISCARD virtual RequestTxParams getParams() const noexcept = 0;
+    virtual RequestTxParams getParams() const noexcept = 0;
 
     /// @brief Sends a service request to the transport layer.
     ///
@@ -66,20 +71,20 @@ public:
     /// @param payload_fragments Segments of the request payload.
     /// @return `nullopt` in case of success; otherwise a transport error.
     ///
-    CETL_NODISCARD virtual cetl::optional<AnyError> send(const TransferMetadata& metadata,
-                                                         const PayloadFragments  payload_fragments) = 0;
+    virtual cetl::optional<AnyError> send(const TransferMetadata& metadata,
+                                          const PayloadFragments  payload_fragments) = 0;
 };
 
 class IResponseRxSession : public ISvcRxSession
 {
 public:
-    CETL_NODISCARD virtual ResponseRxParams getParams() const noexcept = 0;
+    virtual ResponseRxParams getParams() const noexcept = 0;
 };
 
-class IResponseTxSession : public ISession
+class IResponseTxSession : public ITxSession
 {
 public:
-    CETL_NODISCARD virtual ResponseTxParams getParams() const noexcept = 0;
+    virtual ResponseTxParams getParams() const noexcept = 0;
 
     /// @brief Sends a service response to the transport layer.
     ///
@@ -87,8 +92,8 @@ public:
     /// @param payload_fragments Segments of the response payload.
     /// @return `nullopt` in case of success; otherwise a transport error.
     ///
-    CETL_NODISCARD virtual cetl::optional<AnyError> send(const ServiceTransferMetadata& metadata,
-                                                         const PayloadFragments         payload_fragments) = 0;
+    virtual cetl::optional<AnyError> send(const ServiceTransferMetadata& metadata,
+                                          const PayloadFragments         payload_fragments) = 0;
 };
 
 }  // namespace transport

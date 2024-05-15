@@ -11,13 +11,17 @@ namespace libcyphal
 namespace transport
 {
 
+/// @brief Defines interface to a custom multiplexer implementation.
+///
+/// Implementation is supposed to be provided by an user of the library.
+///
 class IMultiplexer
 {
 public:
-    IMultiplexer(IMultiplexer&&)                 = delete;
-    IMultiplexer(const IMultiplexer&)            = delete;
-    IMultiplexer& operator=(IMultiplexer&&)      = delete;
-    IMultiplexer& operator=(const IMultiplexer&) = delete;
+    IMultiplexer(const IMultiplexer&)                = delete;
+    IMultiplexer(IMultiplexer&&) noexcept            = delete;
+    IMultiplexer& operator=(const IMultiplexer&)     = delete;
+    IMultiplexer& operator=(IMultiplexer&&) noexcept = delete;
 
     // TODO: Add methods here
 

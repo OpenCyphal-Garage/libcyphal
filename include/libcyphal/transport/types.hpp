@@ -3,10 +3,18 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_TRANSPORT_DEFINES_HPP_INCLUDED
-#define LIBCYPHAL_TRANSPORT_DEFINES_HPP_INCLUDED
+#ifndef LIBCYPHAL_TRANSPORT_TYPES_HPP_INCLUDED
+#define LIBCYPHAL_TRANSPORT_TYPES_HPP_INCLUDED
 
 #include "scattered_buffer.hpp"
+
+#include "libcyphal/types.hpp"
+
+#include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
+
+#include <cstddef>
+#include <cstdint>
 
 namespace libcyphal
 {
@@ -19,18 +27,17 @@ namespace transport
 ///
 using NodeId = std::uint16_t;
 
-/// @brief `PortId` is a 16-bit unsigned integer that represents a port (subject & service) in a Cyphal network.
+/// @brief `PortId` is a 16-bit unsigned integer that represents a port (subject or service) in a Cyphal network.
 ///
 using PortId = std::uint16_t;
 
-/// @brief `TransferId` is a 64-bit unsigned integer that represents a service transfer (request & response)
-/// in a Cyphal network.
+/// @brief TransferId is a 64-bit unsigned integer that represents a message
+/// or service transfer (request & response) in a Cyphal network.
 ///
 using TransferId = std::uint64_t;
 
-enum class Priority
+enum class Priority : std::uint8_t
 {
-
     Exceptional = 0,
     Immediate   = 1,
     Fast        = 2,
@@ -43,26 +50,32 @@ enum class Priority
 
 struct ProtocolParams final
 {
-    TransferId  transfer_id_modulo;
-    std::size_t mtu_bytes;
-    NodeId      max_nodes;
+    TransferId  transfer_id_modulo{};
+    std::size_t mtu_bytes{};
+    NodeId      max_nodes{};
 };
 
-struct TransferMetadata
+struct TransferMetadata final
 {
-    TransferId transfer_id;
+    TransferId transfer_id{};
     TimePoint  timestamp;
-    Priority   priority;
+    Priority   priority{};
 };
 
-struct MessageTransferMetadata final : TransferMetadata
+struct MessageTransferMetadata final
 {
+    TransferId             transfer_id{};
+    TimePoint              timestamp;
+    Priority               priority{};
     cetl::optional<NodeId> publisher_node_id;
 };
 
-struct ServiceTransferMetadata final : TransferMetadata
+struct ServiceTransferMetadata final
 {
-    NodeId remote_node_id;
+    TransferId transfer_id{};
+    TimePoint  timestamp;
+    Priority   priority{};
+    NodeId     remote_node_id{};
 };
 
 /// @brief Defines a span of immutable fragments of payload.
@@ -80,11 +93,7 @@ struct ServiceRxTransfer final
     ScatteredBuffer         payload;
 };
 
-/// @brief Defines maximum number of media interfaces that can be used in a Cyphal transport.
-/// TODO: This is a temporary constant and will be replaced by `cetl::span::size()` (see `makeTransport`).
-constexpr std::size_t MaxMediaInterfaces = 3;
-
 }  // namespace transport
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_TRANSPORT_DEFINES_HPP_INCLUDED
+#endif  // LIBCYPHAL_TRANSPORT_TYPES_HPP_INCLUDED

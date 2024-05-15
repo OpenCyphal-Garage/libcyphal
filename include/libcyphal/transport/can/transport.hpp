@@ -6,13 +6,33 @@
 #ifndef LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_HPP_INCLUDED
 
+#include "delegate.hpp"
 #include "media.hpp"
+#include "msg_rx_session.hpp"
+#include "msg_tx_session.hpp"
+#include "svc_rx_sessions.hpp"
+#include "svc_tx_sessions.hpp"
+
+#include "libcyphal/transport/contiguous_payload.hpp"
+#include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/msg_sessions.hpp"
+#include "libcyphal/transport/svc_sessions.hpp"
 #include "libcyphal/transport/transport.hpp"
-#include "libcyphal/transport/multiplexer.hpp"
+#include "libcyphal/transport/types.hpp"
+#include "libcyphal/types.hpp"
 
 #include <canard.h>
+#include <cetl/cetl.hpp>
+#include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
 
 #include <algorithm>
+#include <array>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <utility>
 
 namespace libcyphal
 {
@@ -24,185 +44,611 @@ namespace can
 class ICanTransport : public ITransport
 {};
 
+/// Internal implementation details of the CAN transport.
+/// Not supposed to be used directly by the users of the library.
+///
 namespace detail
 {
-class TransportImpl final : public ICanTransport
+
+/// @brief Represents final implementation class of the CAN transport.
+///
+/// NOSONAR cpp:S4963 for below `class TransportImpl` - we do directly handle resources here;
+/// namely: in destructor we have to unsubscribe, as well as let delegate to know this fact.
+///
+class TransportImpl final : public ICanTransport, private TransportDelegate  // NOSONAR cpp:S4963
 {
-public:
-    TransportImpl(cetl::pmr::memory_resource&            memory,
-                  libcyphal::detail::VarArray<IMedia*>&& media_array,
-                  const CanardNodeID                     canard_node_id)
-        : memory_{memory}
-        , media_array_{std::move(media_array)}
-        , canard_instance_{canardInit(canardMemoryAllocate, canardMemoryFree)}
+    /// @brief Defines specification for making interface unique ptr.
+    ///
+    struct Spec
     {
-        canard_instance_.user_reference = this;
-        canard_instance_.node_id        = canard_node_id;
+        using Interface = ICanTransport;
+        using Concrete  = TransportImpl;
+
+        // In use to disable public construction.
+        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
+        explicit Spec() = default;
+    };
+
+    /// @brief Internal (private) storage of a media index, its interface and TX queue.
+    ///
+    struct Media final
+    {
+    public:
+        Media(const std::size_t index, IMedia& interface, const std::size_t tx_capacity)
+            : index_{static_cast<std::uint8_t>(index)}
+            , interface_{interface}
+            , canard_tx_queue_{::canardTxInit(tx_capacity, interface.getMtu())}
+        {
+        }
+
+        std::uint8_t index() const
+        {
+            return index_;
+        }
+
+        IMedia& interface() const
+        {
+            return interface_;
+        }
+
+        CanardTxQueue& canard_tx_queue()
+        {
+            return canard_tx_queue_;
+        }
+
+        void propagateMtuToTxQueue()
+        {
+            canard_tx_queue_.mtu_bytes = interface_.getMtu();
+        }
+
+    private:
+        const std::uint8_t index_;
+        IMedia&            interface_;
+        CanardTxQueue      canard_tx_queue_;
+    };
+    using MediaArray = libcyphal::detail::VarArray<Media>;
+
+public:
+    CETL_NODISCARD static Expected<UniquePtr<ICanTransport>, FactoryError> make(cetl::pmr::memory_resource& memory,
+                                                                                const cetl::span<IMedia*>   media,
+                                                                                const std::size_t           tx_capacity)
+    {
+        // Verify input arguments:
+        // - At least one media interface must be provided, but no more than the maximum allowed (255).
+        // - If a local node ID is provided, it must be within the valid range.
+        //
+        const auto media_count =
+            static_cast<std::size_t>(std::count_if(media.begin(), media.end(), [](const IMedia* const media_ptr) {
+                return media_ptr != nullptr;
+            }));
+        if ((media_count == 0) || (media_count > std::numeric_limits<std::uint8_t>::max()))
+        {
+            return ArgumentError{};
+        }
+
+        const MediaArray media_array{make_media_array(memory, media_count, media, tx_capacity)};
+        if (media_array.size() != media_count)
+        {
+            return MemoryError{};
+        }
+
+        auto transport = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, memory, media_array);
+        if (transport == nullptr)
+        {
+            return MemoryError{};
+        }
+
+        return transport;
     }
 
-    // MARK: ICanTransport
+    TransportImpl(Spec, cetl::pmr::memory_resource& memory, MediaArray media_array)
+        : TransportDelegate{memory}
+        , media_array_{std::move(media_array)}
+        , should_reconfigure_filters_{false}
+        , total_message_ports_{0}
+        , total_service_ports_{0}
+    {
+    }
 
+    TransportImpl(const TransportImpl&)                = delete;
+    TransportImpl(TransportImpl&&) noexcept            = delete;
+    TransportImpl& operator=(const TransportImpl&)     = delete;
+    TransportImpl& operator=(TransportImpl&&) noexcept = delete;
+
+    ~TransportImpl() override
+    {
+        for (Media& media : media_array_)
+        {
+            flushCanardTxQueue(media.canard_tx_queue());
+        }
+
+        CETL_DEBUG_ASSERT(total_message_ports_ == 0, "Message sessions must be destroyed before transport.");
+        CETL_DEBUG_ASSERT(total_service_ports_ == 0, "Service sessions must be destroyed before transport.");
+    }
+
+private:
     // MARK: ITransport
 
     CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
     {
-        return canard_instance_.node_id > CANARD_NODE_ID_MAX ? cetl::nullopt
-                                                             : cetl::make_optional(canard_instance_.node_id);
+        if (canard_instance().node_id > CANARD_NODE_ID_MAX)
+        {
+            return cetl::nullopt;
+        }
+
+        return cetl::make_optional(static_cast<NodeId>(canard_instance().node_id));
     }
+
+    CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept override
+    {
+        if (node_id > CANARD_NODE_ID_MAX)
+        {
+            return ArgumentError{};
+        }
+
+        // Allow setting the same node ID multiple times, but only once otherwise.
+        //
+        CanardInstance& ins = canard_instance();
+        if (ins.node_id == node_id)
+        {
+            return cetl::nullopt;
+        }
+        if (ins.node_id != CANARD_NODE_ID_UNSET)
+        {
+            return ArgumentError{};
+        }
+
+        ins.node_id = static_cast<CanardNodeID>(node_id);
+
+        // We just became non-anonymous node, so we might need to reconfigure media filters
+        // in case we have at least one service RX port.
+        //
+        // @see runMediaFilters
+        //
+        if (total_service_ports_ > 0)
+        {
+            should_reconfigure_filters_ = true;
+        }
+
+        return cetl::nullopt;
+    }
+
     CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept override
     {
-        const auto min_mtu =
-            reduceMediaInto(std::numeric_limits<std::size_t>::max(),
-                            [](std::size_t&& mtu, IMedia& media) { mtu = std::min(mtu, media.getMtu()); });
-        return ProtocolParams{1 << CANARD_TRANSFER_ID_BIT_LENGTH, min_mtu, CANARD_NODE_ID_MAX + 1};
+        std::size_t min_mtu = std::numeric_limits<std::size_t>::max();
+        for (const Media& media : media_array_)
+        {
+            min_mtu = std::min(min_mtu, media.interface().getMtu());
+        }
+
+        return ProtocolParams{static_cast<TransferId>(1) << CANARD_TRANSFER_ID_BIT_LENGTH,
+                              min_mtu,
+                              CANARD_NODE_ID_MAX + 1};
     }
 
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
-        const MessageRxParams&) override
+        const MessageRxParams& params) override
     {
-        return NotImplementedError{};
+        const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindMessage, params.subject_id);
+        if (any_error.has_value())
+        {
+            return any_error.value();
+        }
+
+        return MessageRxSession::make(asDelegate(), params);
     }
+
     CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(
-        const MessageTxParams&) override
+        const MessageTxParams& params) override
     {
-        return NotImplementedError{};
+        return MessageTxSession::make(asDelegate(), params);
     }
+
     CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(
-        const RequestRxParams&) override
+        const RequestRxParams& params) override
     {
-        return NotImplementedError{};
+        const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindRequest, params.service_id);
+        if (any_error.has_value())
+        {
+            return any_error.value();
+        }
+
+        return SvcRequestRxSession::make(asDelegate(), params);
     }
+
     CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(
-        const RequestTxParams&) override
+        const RequestTxParams& params) override
     {
-        return NotImplementedError{};
+        return SvcRequestTxSession::make(asDelegate(), params);
     }
+
     CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(
-        const ResponseRxParams&) override
+        const ResponseRxParams& params) override
     {
-        return NotImplementedError{};
+        const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindResponse, params.service_id);
+        if (any_error.has_value())
+        {
+            return any_error.value();
+        }
+
+        return SvcResponseRxSession::make(asDelegate(), params);
     }
+
     CETL_NODISCARD Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(
-        const ResponseTxParams&) override
+        const ResponseTxParams& params) override
     {
-        return NotImplementedError{};
+        return SvcResponseTxSession::make(asDelegate(), params);
     }
 
     // MARK: IRunnable
 
-    void run(const TimePoint) override {}
-
-private:
-    // MARK: Privates:
-
-    // Until "canardMemFree must provide size" issue #216 is resolved,
-    // we need to store the size of the memory allocated.
-    // TODO: Remove this workaround when the issue is resolved.
-    // see https://github.com/OpenCyphal/libcanard/issues/216
-    //
-    struct CanardMemory final
+    void run(const TimePoint now) override
     {
-        alignas(std::max_align_t) std::size_t size;
-    };
-
-    CETL_NODISCARD static inline TransportImpl& getSelfFrom(const CanardInstance* const ins)
-    {
-        CETL_DEBUG_ASSERT(ins != nullptr, "Expected canard instance.");
-        CETL_DEBUG_ASSERT(ins->user_reference != nullptr, "Expected `this` transport as user reference.");
-
-        return *static_cast<TransportImpl*>(ins->user_reference);
+        runMediaTransmit(now);
+        runMediaReceive();
+        runMediaFilters();
     }
 
-    CETL_NODISCARD static void* canardMemoryAllocate(CanardInstance* ins, size_t amount)
-    {
-        auto& self = getSelfFrom(ins);
+    // MARK: TransportDelegate
 
-        const std::size_t memory_size   = sizeof(CanardMemory) + amount;
-        auto              canard_memory = static_cast<CanardMemory*>(self.memory_.allocate(memory_size));
-        if (canard_memory == nullptr)
+    CETL_NODISCARD TransportDelegate& asDelegate()
+    {
+        return *this;
+    }
+
+    CETL_NODISCARD cetl::optional<AnyError> sendTransfer(const TimePoint               deadline,
+                                                         const CanardTransferMetadata& metadata,
+                                                         const PayloadFragments        payload_fragments) override
+    {
+        // libcanard currently does not support fragmented payloads (at `canardTxPush`).
+        // so we need to concatenate them when there are more than one non-empty fragment.
+        // See https://github.com/OpenCyphal/libcanard/issues/223
+        //
+        const transport::detail::ContiguousPayload payload{memory(), payload_fragments};
+        if ((payload.data() == nullptr) && (payload.size() > 0))
         {
-            return nullptr;
+            return MemoryError{};
         }
 
-        // Return the memory after the `CanardMemory` struct (containing its size).
-        // The size is used in `canardMemoryFree` to deallocate the memory.
+        const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(deadline.time_since_epoch());
+
+        // TODO: Rework error handling strategy.
+        //       Currently, we return the last error encountered, but we should consider all errors somehow.
         //
-        canard_memory->size = memory_size;
-        return ++canard_memory;
+        cetl::optional<AnyError> maybe_error{};
+
+        for (Media& media : media_array_)
+        {
+            media.propagateMtuToTxQueue();
+
+            const std::int32_t result = ::canardTxPush(&media.canard_tx_queue(),
+                                                       &canard_instance(),
+                                                       static_cast<CanardMicrosecond>(deadline_us.count()),
+                                                       &metadata,
+                                                       payload.size(),
+                                                       payload.data());
+            if (result < 0)
+            {
+                maybe_error = TransportDelegate::anyErrorFromCanard(result);
+            }
+        }
+
+        return maybe_error;
     }
 
-    static void canardMemoryFree(CanardInstance* ins, void* pointer)
+    void triggerUpdateOfFilters(const FiltersUpdateCondition condition) noexcept override
     {
-        if (pointer == nullptr)
+        switch (condition)
+        {
+        case FiltersUpdateCondition::SubjectPortAdded: {
+            ++total_message_ports_;
+            break;
+        }
+        case FiltersUpdateCondition::SubjectPortRemoved: {
+            // We are not going to allow negative number of ports.
+            CETL_DEBUG_ASSERT(total_message_ports_ > 0, "");
+            total_message_ports_ -= std::min(static_cast<std::size_t>(1), total_message_ports_);
+            break;
+        }
+        case FiltersUpdateCondition::ServicePortAdded: {
+            ++total_service_ports_;
+            break;
+        }
+        case FiltersUpdateCondition::ServicePortRemoved: {
+            // We are not going to allow negative number of ports.
+            CETL_DEBUG_ASSERT(total_service_ports_ > 0, "");
+            total_service_ports_ -= std::min(static_cast<std::size_t>(1), total_service_ports_);
+            break;
+        }
+        default: {
+            // NOLINTNEXTLINE(cert-dcl03-c,hicpp-static-assert,misc-static-assert)
+            CETL_DEBUG_ASSERT(false, "Unexpected condition.");
+            return;
+        }
+        }
+
+        should_reconfigure_filters_ = true;
+    }
+
+    // MARK: Privates:
+
+    CETL_NODISCARD cetl::optional<AnyError> ensureNewSessionFor(const CanardTransferKind transfer_kind,
+                                                                const PortId             port_id) noexcept
+    {
+        const std::int8_t has_port = ::canardRxGetSubscription(&canard_instance(), transfer_kind, port_id, nullptr);
+        CETL_DEBUG_ASSERT(has_port >= 0, "There is no way currently to get an error here.");
+        if (has_port > 0)
+        {
+            return AlreadyExistsError{};
+        }
+
+        return {};
+    }
+
+    static MediaArray make_media_array(cetl::pmr::memory_resource& memory,
+                                       const std::size_t           media_count,
+                                       const cetl::span<IMedia*>   media_interfaces,
+                                       const std::size_t           tx_capacity)
+    {
+        MediaArray media_array{media_count, &memory};
+
+        // Reserve the space for the whole array (to avoid reallocations).
+        // Capacity will be less than requested in case of out of memory.
+        media_array.reserve(media_count);
+        if (media_array.capacity() >= media_count)
+        {
+            std::size_t index = 0;
+            for (IMedia* const media_interface : media_interfaces)
+            {
+                if (media_interface != nullptr)
+                {
+                    IMedia& media = *media_interface;
+                    media_array.emplace_back(index, media, tx_capacity);
+                    index++;
+                }
+            }
+            CETL_DEBUG_ASSERT(index == media_count, "");
+            CETL_DEBUG_ASSERT(media_array.size() == media_count, "");
+        }
+
+        return media_array;
+    }
+
+    void flushCanardTxQueue(CanardTxQueue& canard_tx_queue)
+    {
+        while (const CanardTxQueueItem* const maybe_item = ::canardTxPeek(&canard_tx_queue))
+        {
+            CanardTxQueueItem* const item = ::canardTxPop(&canard_tx_queue, maybe_item);
+            freeCanardMemory(item);
+        }
+    }
+
+    void runMediaReceive()
+    {
+        std::array<cetl::byte, CANARD_MTU_MAX> payload{};
+
+        for (const Media& media : media_array_)
+        {
+            // TODO: Handle errors.
+            const Expected<cetl::optional<RxMetadata>, MediaError> pop_result = media.interface().pop(payload);
+            const auto* const opt_rx_meta = cetl::get_if<cetl::optional<RxMetadata>>(&pop_result);
+            if ((opt_rx_meta == nullptr) || !opt_rx_meta->has_value())
+            {
+                continue;
+            }
+
+            const RxMetadata& rx_meta = opt_rx_meta->value();
+
+            const auto timestamp_us =
+                std::chrono::duration_cast<std::chrono::microseconds>(rx_meta.timestamp.time_since_epoch());
+            const CanardFrame canard_frame{rx_meta.can_id, rx_meta.payload_size, payload.cbegin()};
+
+            CanardRxTransfer      out_transfer{};
+            CanardRxSubscription* out_subscription{};
+
+            // TODO: Handle errors.
+            const std::int8_t result = ::canardRxAccept(&canard_instance(),
+                                                        static_cast<CanardMicrosecond>(timestamp_us.count()),
+                                                        &canard_frame,
+                                                        media.index(),
+                                                        &out_transfer,
+                                                        &out_subscription);
+            if (result > 0)
+            {
+                CETL_DEBUG_ASSERT(out_subscription != nullptr, "Expected subscription.");
+                CETL_DEBUG_ASSERT(out_subscription->user_reference != nullptr, "Expected session delegate.");
+
+                auto* const delegate = static_cast<IRxSessionDelegate*>(out_subscription->user_reference);
+                delegate->acceptRxTransfer(out_transfer);
+            }
+
+        }  // for each media
+    }
+
+    /// @brief Runs transmission loop for each redundant media interface.
+    ///
+    void runMediaTransmit(const TimePoint now)
+    {
+        for (Media& media : media_array_)
+        {
+            runSingleMediaTransmit(media, now);
+        }
+    }
+
+    /// @brief Runs transmission loop for a single media interface.
+    ///
+    /// Transmits as much as possible frames that are ready to be sent by the media interface.
+    ///
+    void runSingleMediaTransmit(Media& media, const TimePoint now)
+    {
+        while (const CanardTxQueueItem* const tx_item = ::canardTxPeek(&media.canard_tx_queue()))
+        {
+            // We are dropping any TX item that has expired.
+            // Otherwise, we would send it to the media interface.
+            // We use strictly `<` (instead of `<=`) to give this frame a chance (one extra 1us) at media level.
+            //
+            const auto deadline = TimePoint{std::chrono::microseconds{tx_item->tx_deadline_usec}};
+            if (now < deadline)
+            {
+                const cetl::span<const cetl::byte> payload{static_cast<const cetl::byte*>(tx_item->frame.payload),
+                                                           tx_item->frame.payload_size};
+
+                const Expected<bool, MediaError> maybe_pushed =
+                    media.interface().push(deadline, tx_item->frame.extended_can_id, payload);
+                const auto* const is_pushed = cetl::get_if<bool>(&maybe_pushed);
+                if ((is_pushed != nullptr) && !*is_pushed)
+                {
+                    // Media interface is busy, so we will try again with it later (on next `run`).
+                    break;
+                }
+                // TODO: Add error (if any) reporting somehow.
+
+                // In case of media error we are going to drop this frame
+                // (b/c it looks like media can't handle this frame),
+                // but we will continue to process other frames.
+            }
+
+            freeCanardMemory(::canardTxPop(&media.canard_tx_queue(), tx_item));
+
+        }  // for each frame
+    }
+
+    /// \brief Runs (if needed) reconfiguration of media filters based on the currently active RX ports.
+    ///
+    /// Temporary allocates memory buffers for all filters, one per each active port (message or service).
+    /// In case of redundant media, each media interface will be called with the same span of filters.
+    /// In case of zero ports, we still need to call media interfaces to clear their filters,
+    /// though there will be no memory allocation for the empty buffer.
+    ///
+    /// @note Service RX ports are not considered as active ones for \b anonymous nodes.
+    ///
+    /// @note If \b whole reconfiguration process was successful,
+    /// `should_reconfigure_filters_` will be reset to `false`, so that next time the run won't do any work.
+    /// But in case of any failure (memory allocation or media error),
+    /// `should_reconfigure_filters_` will stay engaged (`true`), so that we will try again on next run.
+    ///
+    void runMediaFilters()
+    {
+        if (!should_reconfigure_filters_)
         {
             return;
         }
 
-        auto canard_memory = static_cast<CanardMemory*>(pointer);
-        --canard_memory;
+        libcyphal::detail::VarArray<Filter> filters{&memory()};
+        if (!fillMediaFiltersArray(filters))
+        {
+            // This is out of memory situation. We will just leave this run,
+            // but `should_reconfigure_filters_` will stay engaged, so we will try again on next run.
+            return;
+        }
 
-        auto& self = getSelfFrom(ins);
-        self.memory_.deallocate(canard_memory, canard_memory->size);
+        // Let each media interface know about the new filters (tracking the fact of possible media error).
+        //
+        bool was_error = false;
+        for (const Media& media : media_array_)
+        {
+            const cetl::optional<MediaError> maybe_error =
+                media.interface().setFilters({filters.data(), filters.size()});
+            if (maybe_error.has_value())
+            {
+                was_error = true;
+                // TODO: report error somehow.
+            }
+        }
+
+        if (!was_error)
+        {
+            should_reconfigure_filters_ = false;
+        }
     }
 
-    template <typename T, typename Reducer>
-    T reduceMediaInto(T&& init, Reducer reducer) const
+    /// @brief Fills an array with filters for each active RX port.
+    ///
+    bool fillMediaFiltersArray(libcyphal::detail::VarArray<Filter>& filters)
     {
-        for (IMedia* const media : media_array_)
+        using RxSubscription     = const CanardRxSubscription;
+        using RxSubscriptionTree = CanardConcreteTree<RxSubscription>;
+
+        // Total "active" RX ports depends on the local node ID. For anonymous nodes,
+        // we don't account for service ports (b/c they don't work while being anonymous).
+        //
+        const CanardNodeID local_node_id      = canard_instance().node_id;
+        const auto         is_anonymous       = local_node_id > CANARD_NODE_ID_MAX;
+        const std::size_t  total_active_ports = total_message_ports_ + (is_anonymous ? 0 : total_service_ports_);
+        if (total_active_ports == 0)
         {
-            CETL_DEBUG_ASSERT(media != nullptr, "Expected media interface.");
-            reducer(std::forward<T>(init), std::ref(*media));
+            // No need to allocate memory for zero filters.
+            return true;
         }
-        return init;
+
+        // Now we know that we have at least one active port,
+        // so we need preallocate temp memory for total number of active ports.
+        //
+        filters.reserve(total_active_ports);
+        if (filters.capacity() < total_active_ports)
+        {
+            // This is out of memory situation.
+            return false;
+        }
+
+        // `ports_count` counting is just for the sake of debug verification.
+        std::size_t ports_count = 0;
+
+        const auto& subs_trees = canard_instance().rx_subscriptions;
+
+        if (total_message_ports_ > 0)
+        {
+            const auto msg_visitor = [&filters](RxSubscription& rx_subscription) {
+                // Make and store a single message filter.
+                const auto flt = ::canardMakeFilterForSubject(rx_subscription.port_id);
+                filters.emplace_back(Filter{flt.extended_can_id, flt.extended_mask});
+            };
+            ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindMessage], msg_visitor);
+        }
+
+        // No need to make service filters if we don't have a local node ID.
+        //
+        if ((total_service_ports_ > 0) && !is_anonymous)
+        {
+            const auto svc_visitor = [&filters, local_node_id](RxSubscription& rx_subscription) {
+                // Make and store a single service filter.
+                const auto flt = ::canardMakeFilterForService(rx_subscription.port_id, local_node_id);
+                filters.emplace_back(Filter{flt.extended_can_id, flt.extended_mask});
+            };
+            ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindRequest], svc_visitor);
+            ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindResponse], svc_visitor);
+        }
+
+        (void) ports_count;
+        CETL_DEBUG_ASSERT(ports_count == total_active_ports, "");
+        return true;
     }
 
     // MARK: Data members:
 
-    cetl::pmr::memory_resource&                memory_;
-    const libcyphal::detail::VarArray<IMedia*> media_array_;
-    CanardInstance                             canard_instance_;
+    MediaArray  media_array_;
+    bool        should_reconfigure_filters_;
+    std::size_t total_message_ports_;
+    std::size_t total_service_ports_;
 
 };  // TransportImpl
 
 }  // namespace detail
 
-CETL_NODISCARD inline Expected<UniquePtr<ICanTransport>, FactoryError> makeTransport(
-    cetl::pmr::memory_resource&                    memory,
-    IMultiplexer&                                  multiplexer,
-    const std::array<IMedia*, MaxMediaInterfaces>& media,  // TODO: replace with `cetl::span<IMedia*>`
-    const cetl::optional<NodeId>                   local_node_id)
+/// @brief Makes a new CAN transport instance.
+///
+/// NB! Lifetime of the transport instance must never outlive `memory` and `media` instances.
+///
+/// @param memory Reference to a polymorphic memory resource to use for all allocations.
+/// @param media Collection of redundant media interfaces to use.
+/// @param tx_capacity Total number of frames that can be queued for transmission per `IMedia` instance.
+/// @return Unique pointer to the new CAN transport instance or an error.
+///
+inline Expected<UniquePtr<ICanTransport>, FactoryError> makeTransport(cetl::pmr::memory_resource& memory,
+                                                                      const cetl::span<IMedia*>   media,
+                                                                      const std::size_t           tx_capacity)
 {
-    // TODO: Use these!
-    (void) multiplexer;
-
-    // Verify input arguments:
-    // - At least one media interface must be provided.
-    // - If a local node ID is provided, it must be within the valid range.
-    //
-    const auto media_count = static_cast<std::size_t>(
-        std::count_if(media.cbegin(), media.cend(), [](IMedia* const m) { return m != nullptr; }));
-    if (media_count == 0)
-    {
-        return ArgumentError{};
-    }
-    if (local_node_id.has_value() && local_node_id.value() > CANARD_NODE_ID_MAX)
-    {
-        return ArgumentError{};
-    }
-
-    libcyphal::detail::VarArray<IMedia*> media_array{MaxMediaInterfaces, &memory};
-    media_array.reserve(media_count);
-    std::copy_if(media.cbegin(), media.cend(), std::back_inserter(media_array), [](IMedia* const m) {
-        return m != nullptr;
-    });
-    CETL_DEBUG_ASSERT(!media_array.empty() && (media_array.size() == media_count), "");
-
-    const auto canard_node_id = static_cast<CanardNodeID>(local_node_id.value_or(CANARD_NODE_ID_UNSET));
-
-    libcyphal::detail::PmrAllocator<detail::TransportImpl> allocator{&memory};
-    auto transport = cetl::pmr::Factory::make_unique(allocator, memory, std::move(media_array), canard_node_id);
-
-    return UniquePtr<ICanTransport>{transport.release(), UniquePtr<ICanTransport>::deleter_type{allocator, 1}};
+    return detail::TransportImpl::make(memory, media, tx_capacity);
 }
 
 }  // namespace can

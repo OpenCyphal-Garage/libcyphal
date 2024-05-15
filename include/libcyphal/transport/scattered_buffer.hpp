@@ -6,61 +6,112 @@
 #ifndef LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
 
-#include <cetl/any.hpp>
+#include <cetl/rtti.hpp>
+#include <cetl/unbounded_variant.hpp>
 
-#include <cstdint>
+#include <cstddef>
+#include <type_traits>
+#include <utility>
 
 namespace libcyphal
 {
 namespace transport
 {
 
+/// @brief Represents a buffer that could be scattered across multiple memory regions of an abstract storage.
+///
 /// The buffer is movable but not copyable because copying the contents of a buffer is considered wasteful.
 /// The buffer behaves as if it's empty if the underlying implementation is moved away.
 ///
-class ScatteredBuffer final
+class ScatteredBuffer final  // NOSONAR : cpp:S4963 - we do directly handle resources here.
 {
     // 91C1B109-F90E-45BE-95CF-6ED02AC3FFAA
-    using InterfaceTypeIdType = cetl::
+    using IStorageTypeIdType = cetl::
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
         type_id_type<0x91, 0xC1, 0xB1, 0x09, 0xF9, 0x0E, 0x45, 0xBE, 0x95, 0xCF, 0x6E, 0xD0, 0x2A, 0xC3, 0xFF, 0xAA>;
 
 public:
-    static constexpr std::size_t ImplementationFootprint = sizeof(void*) * 8;
+    /// @brief Defines maximum size (aka footprint) of the storage variant.
+    ///
+    static constexpr std::size_t StorageVariantFootprint = sizeof(void*) * 8;
 
-    class Interface : public cetl::rtti_helper<InterfaceTypeIdType>
+    /// @brief Defines storage interface for the scattered buffer.
+    ///
+    /// @see ScatteredBuffer::ScatteredBuffer(AnyStorage&& any_storage)
+    ///
+    class IStorage : public cetl::rtti_helper<IStorageTypeIdType>
     {
     public:
-        Interface(const Interface&)            = delete;
-        Interface& operator=(const Interface&) = delete;
+        ~IStorage() override = default;
 
-        CETL_NODISCARD virtual std::size_t size() const noexcept                      = 0;
-        CETL_NODISCARD virtual std::size_t copy(const std::size_t offset_bytes,
-                                                void* const       destination,
-                                                const std::size_t length_bytes) const = 0;
+        // No copying, but move only!
+        IStorage(const IStorage&)            = delete;
+        IStorage& operator=(const IStorage&) = delete;
+
+        /// @brief Gets the total number of bytes stored in the buffer.
+        ///
+        /// The storage could be possibly scattered, but this is hidden from the user.
+        ///
+        virtual std::size_t size() const noexcept = 0;
+
+        /// @brief Copies a fragment of the specified size at the specified offset out of the storage.
+        ///
+        /// The request `[offset, offset+length)` range is truncated to prevent out-of-range memory access.
+        /// The storage memory could be possibly scattered, but this is hidden from the user.
+        ///
+        /// @param offset_bytes The offset in bytes from the beginning of the storage.
+        /// @param destination The pointer to the destination buffer. Should be at least `length_bytes` long.
+        ///                    Could be `nullptr` if `length_bytes` is zero.
+        /// @param length_bytes The number of bytes to copy.
+        /// @return The number of bytes copied.
+        ///
+        virtual std::size_t copy(const std::size_t offset_bytes,
+                                 cetl::byte* const destination,
+                                 const std::size_t length_bytes) const = 0;
 
     protected:
-        Interface()                                = default;
-        Interface(Interface&&) noexcept            = default;
-        Interface& operator=(Interface&&) noexcept = default;
+        IStorage()                               = default;
+        IStorage(IStorage&&) noexcept            = default;
+        IStorage& operator=(IStorage&&) noexcept = default;
 
-    };  // Interface
+    };  // IStorage
 
-    ScatteredBuffer()                             = default;
-    ScatteredBuffer(const ScatteredBuffer& other) = delete;
-    ScatteredBuffer(ScatteredBuffer&& other) noexcept
+    /// @brief Default constructor of empty buffer with no storage attached.
+    ///
+    /// `copy()` method will do no operation, and returns zero (as `size()` does).
+    ///
+    ScatteredBuffer()
+        : storage_{}
     {
-        storage_ = std::move(other.storage_);
-
-        other.interface_ = nullptr;
-        interface_       = cetl::any_cast<Interface>(&storage_);
     }
 
-    /// @brief Accepts a Lizard-specific implementation of `Interface` and moves it into the internal storage.
+    // No copying, but move only!
+    ScatteredBuffer(const ScatteredBuffer& other)            = delete;
+    ScatteredBuffer& operator=(const ScatteredBuffer& other) = delete;
+
+    /// @brief Moves other buffer into this new scattered buffer instance.
     ///
-    template <typename T, typename = std::enable_if_t<std::is_base_of<Interface, T>::value>>
-    explicit ScatteredBuffer(T&& source) noexcept
-        : storage_(std::forward<T>(source))
-        , interface_{cetl::any_cast<Interface>(&storage_)}
+    /// The buffer is moved by moving the internal storage variant.
+    ///
+    /// @param other The other buffer to move into.
+    ///
+    ScatteredBuffer(ScatteredBuffer&& other) noexcept
+        : storage_variant_(std::move(other.storage_variant_))
+        , storage_{cetl::get_if<IStorage>(&storage_variant_)}
+    {
+        other.storage_ = nullptr;
+    }
+
+    /// @brief Constructs buffer by accepting a Lizard-specific implementation of `IStorage`
+    ///        and moving it into the internal storage variant.
+    ///
+    /// @tparam AnyStorage The type of the storage implementation. Should fit into \ref StorageVariantFootprint.
+    /// @param any_storage The storage to move into the buffer.
+    ///
+    template <typename AnyStorage, typename = std::enable_if_t<std::is_base_of<IStorage, AnyStorage>::value>>
+    explicit ScatteredBuffer(AnyStorage&& any_storage) noexcept
+        : storage_variant_(std::forward<AnyStorage>(any_storage))
+        , storage_{cetl::get_if<IStorage>(&storage_variant_)}
     {
     }
 
@@ -69,48 +120,67 @@ public:
         reset();
     }
 
-    ScatteredBuffer& operator=(const ScatteredBuffer& other) = delete;
+    /// @brief Assigns other scattered buffer by moving it into the this one.
+    ///
+    /// @param other The other buffer to move into.
+    ///
     ScatteredBuffer& operator=(ScatteredBuffer&& other) noexcept
     {
-        storage_ = std::move(other.storage_);
+        storage_variant_ = std::move(other.storage_variant_);
 
-        other.interface_ = nullptr;
-        interface_       = cetl::any_cast<Interface>(&storage_);
+        other.storage_ = nullptr;
+        storage_       = cetl::get_if<IStorage>(&storage_variant_);
 
         return *this;
     }
 
+    /// @brief Resets the buffer by releasing its internal source.
+    ///
+    /// Has similar effect as if moved away. Has no effect if the buffer is moved away already.
+    ///
     void reset() noexcept
     {
-        storage_.reset();
-        interface_ = nullptr;
+        storage_variant_.reset();
+        storage_ = nullptr;
     }
 
     /// @brief Gets the number of bytes stored in the buffer (possibly scattered, but this is hidden from the user).
     ///
     /// @return Returns zero if the buffer is moved away.
     ///
-    CETL_NODISCARD std::size_t size() const noexcept
+    std::size_t size() const noexcept
     {
-        return interface_ ? interface_->size() : 0;
+        return (storage_ != nullptr) ? storage_->size() : 0;
     }
 
     /// @brief Copies a fragment of the specified size at the specified offset out of the buffer.
     ///
-    /// The request is truncated to prevent out-of-range memory access.
-    /// Returns the number of bytes copied.
+    /// The request `[offset, offset+length)` range is truncated to prevent out-of-range memory access.
     /// Does nothing and returns zero if the instance has been moved away.
     ///
-    CETL_NODISCARD std::size_t copy(const std::size_t offset_bytes,
-                                    void* const       destination,
-                                    const std::size_t length_bytes) const
+    /// @param offset_bytes The offset in bytes from the beginning of the buffer.
+    /// @param destination The pointer to the destination buffer. Should be at least `length_bytes` long.
+    ///                    Could be `nullptr` if `length_bytes` is zero.
+    /// @param length_bytes The number of bytes to copy.
+    /// @return The number of bytes copied.
+    ///
+    /// NOSONAR cpp:S5008 below currently unavoidable. Could be fixed if nunavut provides `cetl::byte*` support.
+    ///
+    std::size_t copy(const std::size_t offset_bytes,
+                     void* const       destination,  // NOSONAR : cpp:S5008
+                     const std::size_t length_bytes) const
     {
-        return interface_ ? interface_->copy(offset_bytes, destination, length_bytes) : 0;
+        if (storage_ == nullptr)
+        {
+            return 0;
+        }
+
+        return storage_->copy(offset_bytes, static_cast<cetl::byte*>(destination), length_bytes);
     }
 
 private:
-    cetl::any<ImplementationFootprint, false, true> storage_;
-    const Interface*                                interface_ = nullptr;
+    cetl::unbounded_variant<StorageVariantFootprint, false, true> storage_variant_;
+    const IStorage*                                               storage_;
 
 };  // ScatteredBuffer
 

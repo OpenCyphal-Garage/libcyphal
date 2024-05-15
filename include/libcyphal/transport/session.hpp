@@ -7,7 +7,7 @@
 #define LIBCYPHAL_TRANSPORT_SESSION_HPP_INCLUDED
 
 #include "libcyphal/runnable.hpp"
-#include "defines.hpp"
+#include "libcyphal/types.hpp"
 
 namespace libcyphal
 {
@@ -23,6 +23,19 @@ class IRxSession : public ISession
 {
 public:
     virtual void setTransferIdTimeout(const Duration timeout) = 0;
+};
+
+class ITxSession : public ISession
+{
+public:
+    /// @brief Sets the timeout for a transmission.
+    ///
+    /// The value is added to the original transfer timestamp to determine its deadline.
+    /// Any transfer that exceeded this deadline would be dropped.
+    ///
+    /// @param timeout - Positive duration for transmission timeout. Default value is 1 second.
+    ///
+    virtual void setSendTimeout(const Duration timeout) = 0;
 };
 
 }  // namespace transport

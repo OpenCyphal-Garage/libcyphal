@@ -1,4 +1,4 @@
-name: "libcyphal_test"
+name: "libcyphal_tests"
 
 on:
   push:  # Further filtering is done in the jobs.
@@ -16,7 +16,7 @@ jobs:
       contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts22.4.3
+    container: ghcr.io/opencyphal/toolshed:ts22.4.7
     steps:
       - uses: actions/checkout@v4
       - name: Cache ext modules
@@ -47,7 +47,7 @@ jobs:
       contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts22.4.3
+    container: ghcr.io/opencyphal/toolshed:ts22.4.7
     needs: [warmup]
     strategy:
       matrix:
@@ -77,7 +77,7 @@ jobs:
       run: >
         ./build-tools/bin/verify.py
         --verbose
-        --asserts
+        ${{ matrix.build_flavor != 'Coverage' && '--asserts' || '--no-exceptions' }}
         --cpp-standard ${{ matrix.std }}
         --build-flavor ${{ matrix.build_flavor }}
         --toolchain ${{ matrix.toolchain }}
@@ -91,8 +91,6 @@ jobs:
         name: ${{ matrix.build_flavor }}-${{ matrix.std }}-${{ matrix.toolchain }}
         path: |
           build/compile_commands.json
-          build/*/**/coverage.xml
-          build/*/**/*-sonarqube.xml
           build/*/**/gcovr_html/*.*
         if-no-files-found: error
 
@@ -103,7 +101,7 @@ jobs:
       contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts22.4.3
+    container: ghcr.io/opencyphal/toolshed:ts22.4.7
     needs: [warmup]
     steps:
     - uses: actions/checkout@v4

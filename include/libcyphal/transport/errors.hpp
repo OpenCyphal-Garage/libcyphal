@@ -6,41 +6,52 @@
 #ifndef LIBCYPHAL_TRANSPORT_ERRORS_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_ERRORS_HPP_INCLUDED
 
-#include "libcyphal/types.hpp"
+#include <cetl/pf17/cetlpf.hpp>
+
+#include <cstdint>
 
 namespace libcyphal
 {
 namespace transport
 {
 
-struct StateError
+struct StateError final
 {};
 
-struct AnonymousError
+struct AnonymousError final
 {};
 
-struct ArgumentError
+struct ArgumentError final
 {};
 
-struct MemoryError
+struct MemoryError final
 {};
 
-struct CapacityError
+struct CapacityError final
 {};
 
-struct PlatformError
+struct PlatformError final
 {
-    std::uint32_t code;
+    std::uint32_t code{};
 };
 
+struct AlreadyExistsError final
+{};
+
 // TODO: Delete it when everything is implemented.
-struct NotImplementedError
+struct NotImplementedError final
 {};
 
 /// @brief Defines any possible error at Cyphal transport layer.
 ///
-using AnyError = cetl::
-    variant<StateError, AnonymousError, ArgumentError, MemoryError, CapacityError, PlatformError, NotImplementedError>;
+using AnyError = cetl::variant<StateError,
+                               AnonymousError,
+                               ArgumentError,
+                               MemoryError,
+                               CapacityError,
+                               PlatformError,
+                               AlreadyExistsError,
+                               NotImplementedError>;
 
 /// @brief Defines any possible factory error at Cyphal transport layer.
 ///

@@ -7,8 +7,19 @@
 #define LIBCYPHAL_TRANSPORT_UDP_TRANSPORT_HPP_INCLUDED
 
 #include "media.hpp"
-#include "libcyphal/transport/transport.hpp"
+
+#include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/multiplexer.hpp"
+#include "libcyphal/transport/svc_sessions.hpp"
+#include "libcyphal/transport/transport.hpp"
+#include "libcyphal/transport/types.hpp"
+#include "libcyphal/types.hpp"
+
+#include <cetl/cetl.hpp>
+#include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
+#include <udpard.h>
 
 namespace libcyphal
 {
@@ -20,20 +31,59 @@ namespace udp
 class IUdpTransport : public ITransport
 {};
 
+/// Internal implementation details of the UDP transport.
+/// Not supposed to be used directly by the users of the library.
+///
 namespace detail
 {
 
 class TransportImpl final : public IUdpTransport
 {
-public:
-    // MARK: IUpdTransport
+    /// @brief Defines specification for making interface unique ptr.
+    ///
+    struct Spec
+    {
+        using Interface = IUdpTransport;
+        using Concrete  = TransportImpl;
 
+        // In use to disable public construction.
+        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
+        explicit Spec() = default;
+    };
+
+public:
+    TransportImpl(Spec,
+                  cetl::pmr::memory_resource&            memory,
+                  IMultiplexer&                          multiplexer,
+                  libcyphal::detail::VarArray<IMedia*>&& media_array,  // NOLINT
+                  const UdpardNodeID                     udpard_node_id)
+    {
+        // TODO: Use them!
+        (void) memory;
+        (void) multiplexer;
+        (void) media_array;
+        (void) udpard_node_id;
+    }
+
+private:
     // MARK: ITransport
 
     CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
     {
         return cetl::nullopt;
     }
+
+    CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept override
+    {
+        if (node_id > UDPARD_NODE_ID_MAX)
+        {
+            return ArgumentError{};
+        }
+
+        // TODO: Implement!
+        return {};
+    }
+
     CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept override
     {
         return ProtocolParams{};
@@ -78,11 +128,20 @@ public:
 
 }  // namespace detail
 
-CETL_NODISCARD inline Expected<UniquePtr<IUdpTransport>, FactoryError> makeTransport(
-    cetl::pmr::memory_resource&                   memory,
-    IMultiplexer&                                 multiplexer,
-    const std::array<IMedia*, MaxMediaInterfaces> media,  // TODO: replace with `cetl::span<IMedia*>`
-    const cetl::optional<NodeId>                  local_node_id)
+/// @brief Makes a new UDP transport instance.
+///
+/// NB! Lifetime of the transport instance must never outlive `memory`, `media` and `multiplexer` instances.
+///
+/// @param memory Reference to a polymorphic memory resource to use for all allocations.
+/// @param multiplexer Interface of the multiplexer to use.
+/// @param media Collection of redundant media interfaces to use.
+/// @param local_node_id Optional id of the local node. Could be set (once!) later by `setLocalNodeId` call.
+/// @return Unique pointer to the new UDP transport instance or an error.
+///
+inline Expected<UniquePtr<IUdpTransport>, FactoryError> makeTransport(cetl::pmr::memory_resource&  memory,
+                                                                      IMultiplexer&                multiplexer,
+                                                                      const cetl::span<IMedia*>    media,
+                                                                      const cetl::optional<NodeId> local_node_id)
 {
     // TODO: Use these!
     (void) multiplexer;

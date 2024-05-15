@@ -669,6 +669,8 @@ def _cmake_configure(args: argparse.Namespace, cmake_args: typing.List[str]) -> 
 
     # --[BUILD FLAVOR]-------------------------------------
     cmake_configure_args.append("-DCMAKE_BUILD_TYPE={}".format(args.build_flavor))
+    if args.build_flavor == "Coverage":
+        cmake_configure_args.append("-DNO_STATIC_ANALYSIS:BOOL=ON")
 
     # --[COMPILER FLAGS]-----------------------------------
     flag_set_dir = _test_suite_dir(args) / pathlib.Path("cmake") / pathlib.Path("compiler_flag_sets")

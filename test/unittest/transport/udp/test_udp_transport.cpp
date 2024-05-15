@@ -3,34 +3,57 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "media_mock.hpp"
+#include "../../tracking_memory_resource.hpp"
 #include "../multiplexer_mock.hpp"
+#include "media_mock.hpp"
+
+#include <libcyphal/transport/errors.hpp>
+#include <libcyphal/transport/udp/media.hpp>
 #include <libcyphal/transport/udp/transport.hpp>
 
-#include <cetl/pf17/variant.hpp>
-
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
+#include <array>
 
 namespace
 {
-using namespace libcyphal;
-using namespace libcyphal::transport;
-using namespace libcyphal::transport::udp;
 
+using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
+
+using testing::_;
+using testing::IsEmpty;
 using testing::StrictMock;
+using testing::VariantWith;
 
-TEST(test_udp_transport, makeTransport)
+class TestUpdTransport : public testing::Test
 {
-    auto mr = cetl::pmr::new_delete_resource();
-
-    StrictMock<MediaMock>       media_mock{};
-    StrictMock<MultiplexerMock> multiplex_mock{};
-
+protected:
+    void TearDown() override
     {
-        auto maybe_transport = makeTransport(*mr, multiplex_mock, {&media_mock}, {});
+        EXPECT_THAT(mr_.allocations, IsEmpty());
+        // TODO: Uncomment this when PMR deleter is fixed.
+        // EXPECT_EQ(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+    }
 
-        EXPECT_FALSE(cetl::get_if<UniquePtr<IUdpTransport>>(&maybe_transport));
-        EXPECT_TRUE(cetl::get_if<NotImplementedError>(cetl::get_if<FactoryError>(&maybe_transport)));
+    // MARK: Data members:
+
+    // NOLINTBEGIN
+    TrackingMemoryResource      mr_;
+    StrictMock<MultiplexerMock> mux_mock_{};
+    StrictMock<udp::MediaMock>  media_mock_{};
+    // NOLINTEND
+};
+
+// MARK: Tests:
+
+TEST_F(TestUpdTransport, makeTransport)
+{
+    // Anonymous node
+    {
+        std::array<udp::IMedia*, 1> media_array{&media_mock_};
+        auto                        maybe_transport = makeTransport(mr_, mux_mock_, media_array, {});
+        EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<NotImplementedError>(_)));
     }
 }
 
