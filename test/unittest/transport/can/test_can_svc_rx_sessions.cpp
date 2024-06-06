@@ -3,8 +3,9 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include "../../cetl_gtest_helpers.hpp"
 #include "../../memory_resource_mock.hpp"
-#include "../../test_utilities.hpp"
+#include "../../verification_utilities.hpp"
 #include "../../tracking_memory_resource.hpp"
 #include "../../virtual_time_scheduler.hpp"
 #include "media_mock.hpp"
@@ -36,7 +37,7 @@ using libcyphal::UniquePtr;
 using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
 
 using cetl::byte;
-using libcyphal::test_utilities::b;
+using libcyphal::verification_utilities::b;
 
 using testing::_;
 using testing::Eq;
@@ -176,8 +177,8 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_requests)
             return cetl::nullopt;
         });
 
-        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-        scheduler_.runNow(+10ms, [&] { session->run(now()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -206,8 +207,8 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_requests)
             return cetl::nullopt;
         });
 
-        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-        scheduler_.runNow(+10ms, [&] { session->run(now()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
@@ -259,10 +260,10 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_two_frame)
             return can::RxMetadata{rx_timestamp, 0b000'1'1'0'101111011'0110001'0010011, 6};
         });
     }
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-    scheduler_.runNow(+10ms, [&] { session->run(now()); });
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-    scheduler_.runNow(+10ms, [&] { session->run(now()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
     const auto maybe_rx_transfer = session->receive();
     ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -300,8 +301,8 @@ TEST_F(TestCanSvcRxSessions, unsubscribe_and_run)
 
     session.reset();
 
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

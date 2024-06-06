@@ -7,65 +7,20 @@
 #define LIBCYPHAL_GTEST_HELPERS_HPP
 
 #include <libcyphal/transport/can/media.hpp>
+#include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
 #include <canard.h>
 
 #include <gmock/gmock.h>
+#include <gtest/gtest-matchers.h>
 #include <gtest/gtest-printers.h>
 
+#include <iomanip>
 #include <ostream>
 
 // MARK: - GTest Printers:
-
-namespace std
-{
-#if (__cplusplus >= CETL_CPP_STANDARD_17)
-inline std::ostream& operator<<(std::ostream& os, const std::byte& b)
-{
-    return os << "0x" << std::uppercase << std::hex << std::setw(2) << std::setfill('0')
-              << static_cast<std::uint32_t>(b);
-}
-#endif
-#if (__cplusplus >= CETL_CPP_STANDARD_20)
-template <typename T>
-inline std::ostream& operator<<(std::ostream& os, const std::span<T>& items)
-{
-    os << "{size=" << items.size() << ", data=[";
-    for (const auto& item : items)
-    {
-        os << testing::PrintToString(item) << ", ";
-    }
-    return os << ")}";
-}
-#endif
-}  // namespace std
-
-namespace cetl
-{
-namespace pf17
-{
-inline std::ostream& operator<<(std::ostream& os, const cetl::byte& b)
-{
-    return os << "0x" << std::uppercase << std::hex << std::setw(2) << std::setfill('0')
-              << static_cast<std::uint32_t>(b);
-}
-}  // namespace pf17
-namespace pf20
-{
-template <typename T>
-inline std::ostream& operator<<(std::ostream& os, const cetl::span<T>& items)
-{
-    os << "{size=" << items.size() << ", data=[";
-    for (const auto& item : items)
-    {
-        os << testing::PrintToString(item) << ", ";
-    }
-    return os << ")}";
-}
-}  // namespace pf20
-}  // namespace cetl
 
 namespace libcyphal
 {

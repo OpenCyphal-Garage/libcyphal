@@ -9,6 +9,7 @@
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pmr/interface_ptr.hpp>
+#include <cetl/unbounded_variant.hpp>
 #include <cetl/variable_length_array.hpp>
 
 #include <chrono>
@@ -55,6 +56,48 @@ using UniquePtr = cetl::pmr::InterfacePtr<T>;
 // TODO: Maybe introduce `cetl::expected` at CETL repo.
 template <typename Success, typename Failure>
 using Expected = cetl::variant<Success, Failure>;
+
+/// A generalized implementation of https://www.fluentcpp.com/2021/01/29/inheritance-without-pointers/
+/// that works with any `cetl::unbounded_variant`.
+///
+/// The instance is always initialized with a valid value, but it may turn valueless if the value is moved.
+/// The AnyUbVar type can be a `cetl::unbounded_variant`.
+///
+template <typename Interface, typename AnyUbVar>
+class ImplementationCell final
+{
+public:
+    template <typename Impl,
+              typename ImplD = std::decay_t<Impl>,
+              typename       = std::enable_if_t<std::is_base_of<Interface, ImplD>::value>>
+    explicit ImplementationCell(Impl&& object)
+        : ub_var_(std::forward<Impl>(object))
+        , fn_getter_mut_{[](AnyUbVar& ub_var) -> Interface* { return cetl::get_if<ImplD>(&ub_var); }}
+        , fn_getter_const_{[](const AnyUbVar& ub_var) -> const Interface* { return cetl::get_if<ImplD>(&ub_var); }}
+    {
+    }
+
+    Interface* operator->()
+    {
+        return fn_getter_mut_(ub_var_);
+    }
+
+    const Interface* operator->() const
+    {
+        return fn_getter_const_(ub_var_);
+    }
+
+    explicit operator bool() const
+    {
+        return ub_var_.has_value();
+    }
+
+private:
+    AnyUbVar ub_var_;
+    Interface* (*fn_getter_mut_)(AnyUbVar&);
+    const Interface* (*fn_getter_const_)(const AnyUbVar&);
+
+};  // ImplementationCell
 
 namespace detail
 {

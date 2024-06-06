@@ -4,7 +4,7 @@
 /// SPDX-License-Identifier: MIT
 
 #include "../memory_resource_mock.hpp"
-#include "../test_utilities.hpp"
+#include "../verification_utilities.hpp"
 #include "../tracking_memory_resource.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -23,7 +23,7 @@ namespace
 using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
 
 using cetl::byte;
-using libcyphal::test_utilities::b;
+using libcyphal::verification_utilities::b;
 
 using testing::_;
 using testing::IsNull;

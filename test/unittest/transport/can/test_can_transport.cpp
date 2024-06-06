@@ -3,15 +3,17 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include "../../cetl_gtest_helpers.hpp"
 #include "../../gtest_helpers.hpp"
 #include "../../memory_resource_mock.hpp"
-#include "../../test_utilities.hpp"
+#include "../../verification_utilities.hpp"
 #include "../../tracking_memory_resource.hpp"
 #include "../../virtual_time_scheduler.hpp"
 #include "media_mock.hpp"
 
 #include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/rtti.hpp>
 #include <libcyphal/transport/can/media.hpp>
 #include <libcyphal/transport/can/transport.hpp>
 #include <libcyphal/transport/errors.hpp>
@@ -39,9 +41,9 @@ using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
 using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
 
-using libcyphal::test_utilities::b;
-using libcyphal::test_utilities::makeIotaArray;
-using libcyphal::test_utilities::makeSpansFrom;
+using libcyphal::verification_utilities::b;
+using libcyphal::verification_utilities::makeIotaArray;
+using libcyphal::verification_utilities::makeSpansFrom;
 
 using testing::_;
 using testing::Eq;
@@ -64,6 +66,17 @@ using std::literals::chrono_literals::operator""us;
 // NOLINTEND(misc-unused-using-decls, misc-include-cleaner)
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+
+struct MyPlatformError : public IPlatformError
+{
+    MyPlatformError(int _code)
+        : code{_code}
+    {
+    }
+
+    int code;
+
+};  // MyPlatformError
 
 class TestCanTransport : public testing::Test
 {
@@ -201,22 +214,22 @@ TEST_F(TestCanTransport, setLocalNodeId)
     EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX + 1), Optional(testing::A<ArgumentError>()));
     EXPECT_THAT(transport->getLocalNodeId(), Eq(cetl::nullopt));
 
-    transport->run(now());
+    EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
 
     EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX), Eq(cetl::nullopt));
     EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
 
-    transport->run(now());
+    EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
 
     EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX), Eq(cetl::nullopt));
     EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
 
-    transport->run(now());
+    EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
 
     EXPECT_THAT(transport->setLocalNodeId(0), Optional(testing::A<ArgumentError>()));
     EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
 
-    transport->run(now());
+    EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
 }
 
 TEST_F(TestCanTransport, makeTransport_with_invalid_arguments)
@@ -344,8 +357,8 @@ TEST_F(TestCanTransport, sending_multiframe_payload_should_fail_for_anonymous)
     auto maybe_error = session->send(metadata, makeSpansFrom(payload));
     EXPECT_THAT(maybe_error, Optional(VariantWith<ArgumentError>(_)));
 
-    scheduler_.runNow(+10us, [&] { transport->run(now()); });
-    scheduler_.runNow(10us, [&] { session->run(now()); });
+    scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(10us, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 }
 
 TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
@@ -394,8 +407,8 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
         });
     }
 
-    scheduler_.runNow(+10us, [&] { transport->run(now()); });
-    scheduler_.runNow(+10us, [&] { transport->run(now()); });
+    scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -460,9 +473,9 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
         expectMediaCalls(media_mock_, "M#1", send_time + 20us);
     }
 
-    scheduler_.runNow(+10us, [&] { transport->run(now()); });
-    scheduler_.runNow(+10us, [&] { transport->run(now()); });
-    scheduler_.runNow(+10us, [&] { transport->run(now()); });
+    scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -500,7 +513,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
             return cetl::nullopt;
         });
 
-        scheduler_.runNow(+10us, [&] { transport->run(now()); });
+        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     }
 
     const auto epoch = TimePoint{10s};
@@ -560,13 +573,13 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
             return can::RxMetadata{rx2_timestamp + 1ms, 0b111'1'0'0'101111011'0010011'0110001, 6};
         });
     }
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-    scheduler_.runNow(+10ms, [&] { session->run(now()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
     scheduler_.setNow(rx2_timestamp);
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-    scheduler_.runNow(+10ms, [&] { session->run(now()); });
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-    scheduler_.runNow(+10ms, [&] { session->run(now()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
     const auto maybe_rx_transfer = session->receive();
     ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -602,8 +615,8 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
 
         session.reset();
 
-        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     }
 }
 
@@ -620,12 +633,12 @@ TEST_F(TestCanTransport, setLocalNodeId_when_msg_rx_subscription)
         EXPECT_THAT(now(), TimePoint{1s});
         return cetl::nullopt;
     });
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 
     ASSERT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
 
     // No `setFilters` expected b/c there is no service RX subscriptions.
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
 TEST_F(TestCanTransport, setLocalNodeId_when_svc_rx_subscription)
@@ -645,7 +658,7 @@ TEST_F(TestCanTransport, setLocalNodeId_when_svc_rx_subscription)
         EXPECT_THAT(filters, Contains(can::FilterEq({0x4200, 0x21FFF80})));
         return cetl::nullopt;
     });
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 
     ASSERT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
 
@@ -655,7 +668,7 @@ TEST_F(TestCanTransport, setLocalNodeId_when_svc_rx_subscription)
         EXPECT_THAT(filters, Contains(can::FilterEq({0x025EC980, 0x02FFFF80})));
         return cetl::nullopt;
     });
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
 TEST_F(TestCanTransport, run_when_no_memory_for_filters)
@@ -676,16 +689,24 @@ TEST_F(TestCanTransport, run_when_no_memory_for_filters)
 #if (__cplusplus < CETL_CPP_STANDARD_17)
     EXPECT_CALL(mr_mock, do_reallocate(nullptr, 0, _, _)).Times(2).WillRepeatedly(Return(nullptr));
 #endif
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+    scheduler_.runNow(+1s, [&] {
+        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<MemoryError>(_)));
+    });
+    scheduler_.runNow(+1s, [&] {
+        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<MemoryError>(_)));
+    });
 
     // Restore normal memory operation, but make media fail to accept filters.
     //
     mr_mock.redirectExpectedCallsTo(mr_);
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).Times(2).WillRepeatedly(Return(PlatformError{13}));
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).Times(2).WillRepeatedly(Return(PlatformError{MyPlatformError{13}}));
     //
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+    scheduler_.runNow(+1s, [&] {
+        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<PlatformError>(_)));
+    });
+    scheduler_.runNow(+1s, [&] {
+        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<PlatformError>(_)));
+    });
 
     // And finally, make the media accept filters - should happen once (@5s)!
     //
@@ -693,10 +714,20 @@ TEST_F(TestCanTransport, run_when_no_memory_for_filters)
         EXPECT_THAT(now(), TimePoint{5s});
         return cetl::nullopt;
     });
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 }  // namespace
+
+namespace cetl
+{
+
+// Just random id: AD188CA2-0582-47A0-BCCF-C20E5E146213
+template <>
+constexpr type_id type_id_value<MyPlatformError> =
+    {0xAD, 0x18, 0x8C, 0xA2, 0x05, 0x82, 0x47, 0xA0, 0xBC, 0xCF, 0xC2, 0x0E, 0x5E, 0x14, 0x62, 0x13};
+
+}  // namespace cetl

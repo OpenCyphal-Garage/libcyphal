@@ -8,6 +8,7 @@
 
 #include "delegate.hpp"
 
+#include "libcyphal/runnable.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -136,9 +137,10 @@ private:
 
     // MARK: IRunnable
 
-    void run(const TimePoint) override
+    IRunnable::MaybeError run(const TimePoint) override
     {
         // Nothing to do here currently.
+        return {};
     }
 
     // MARK: IRxSessionDelegate

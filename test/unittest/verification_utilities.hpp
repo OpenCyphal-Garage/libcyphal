@@ -3,8 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_TEST_UTILITIES_HPP
-#define LIBCYPHAL_TEST_UTILITIES_HPP
+#ifndef LIBCYPHAL_VERIFICATION_UTILITIES_HPP
+#define LIBCYPHAL_VERIFICATION_UTILITIES_HPP
 
 #include <cetl/pf20/cetlpf.hpp>
 #include <libcyphal/types.hpp>
@@ -13,7 +13,7 @@
 
 namespace libcyphal
 {
-namespace test_utilities
+namespace verification_utilities
 {
 
 inline cetl::byte b(std::uint8_t b)
@@ -49,7 +49,7 @@ std::array<cetl::span<const cetl::byte>, 2> makeSpansFrom(const std::array<cetl:
     return {payload1, payload2};
 }
 
-}  // namespace test_utilities
+}  // namespace verification_utilities
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_TEST_UTILITIES_HPP
+#endif  // LIBCYPHAL_VERIFICATION_UTILITIES_HPP

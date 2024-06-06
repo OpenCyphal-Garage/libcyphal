@@ -15,6 +15,8 @@
 #include "libcyphal/types.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pmr/function.hpp>
+#include <cetl/unbounded_variant.hpp>
 
 namespace libcyphal
 {
@@ -26,6 +28,24 @@ namespace transport
 class ITransport : public IRunnable
 {
 public:
+    /// Defines structure for reporting transport errors to the user's handler.
+    ///
+    /// In addition to the error itself, it provides a pointer to the entity that has caused this error.
+    ///
+    struct AnyErrorReport final
+    {
+        /// Holds any transport error.
+        ///
+        AnyError error;
+
+        /// Holds pointer to an interface of the entity that has caused this error for enhanced context.
+        ///
+        /// In case of the media entity, it's the `IMedia` interface pointer.
+        ///
+        cetl::unbounded_variant<sizeof(void*)> culprit;
+    };
+    using TransientErrorHandler = cetl::pmr::function<void(const AnyErrorReport&), sizeof(void*) * 3>;
+
     ITransport(const ITransport&)                = delete;
     ITransport(ITransport&&) noexcept            = delete;
     ITransport& operator=(const ITransport&)     = delete;
@@ -66,6 +86,8 @@ public:
     ///         Otherwise an `ArgumentError` in case of the subsequent calls or ID out of range.
     ///
     virtual cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept = 0;
+
+    virtual void setTransientErrorHandler(TransientErrorHandler handler) = 0;
 
     /// @brief Makes a message receive (RX) session.
     ///
