@@ -6,8 +6,8 @@
 #include "../../cetl_gtest_helpers.hpp"
 #include "../../gtest_helpers.hpp"
 #include "../../memory_resource_mock.hpp"
-#include "../../verification_utilities.hpp"
 #include "../../tracking_memory_resource.hpp"
+#include "../../verification_utilities.hpp"
 #include "../../virtual_time_scheduler.hpp"
 #include "media_mock.hpp"
 
@@ -69,7 +69,7 @@ using std::literals::chrono_literals::operator""us;
 
 struct MyPlatformError : public IPlatformError
 {
-    MyPlatformError(int _code)
+    explicit MyPlatformError(int _code)
         : code{_code}
     {
     }
@@ -727,7 +727,9 @@ namespace cetl
 
 // Just random id: AD188CA2-0582-47A0-BCCF-C20E5E146213
 template <>
-constexpr type_id type_id_value<MyPlatformError> =
-    {0xAD, 0x18, 0x8C, 0xA2, 0x05, 0x82, 0x47, 0xA0, 0xBC, 0xCF, 0xC2, 0x0E, 0x5E, 0x14, 0x62, 0x13};
+constexpr type_id type_id_getter<MyPlatformError>() noexcept
+{
+    return {0xAD, 0x18, 0x8C, 0xA2, 0x05, 0x82, 0x47, 0xA0, 0xBC, 0xCF, 0xC2, 0x0E, 0x5E, 0x14, 0x62, 0x13};
+}
 
 }  // namespace cetl
