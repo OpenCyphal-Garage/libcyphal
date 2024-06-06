@@ -396,7 +396,7 @@ private:
     // MARK: Privates:
 
     template <typename ErrorVariant>
-    CETL_NODISCARD AnyError anyErrorFromErrorVariant(ErrorVariant&& other_error_var)
+    CETL_NODISCARD static AnyError anyErrorFromVariant(ErrorVariant&& other_error_var)
     {
         return cetl::visit([](auto&& error) -> AnyError { return std::forward<decltype(error)>(error); },
                            std::forward<ErrorVariant>(other_error_var));
@@ -581,7 +581,7 @@ private:
             if (maybe_error.has_value())
             {
                 was_error      = true;
-                auto any_error = anyErrorFromErrorVariant(std::move(maybe_error.value()));
+                auto any_error = anyErrorFromVariant(std::move(maybe_error.value()));
 
                 // If we don't have a transient error handler we will just leave this run with this failure as is.
                 // Note that `should_reconfigure_filters_` still stays engaged, so we will try again on next run.
