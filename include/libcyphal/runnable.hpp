@@ -6,8 +6,8 @@
 #ifndef LIBCYPHAL_RUNNABLE_HPP_INCLUDED
 #define LIBCYPHAL_RUNNABLE_HPP_INCLUDED
 
-#include "types.hpp"
 #include "transport/errors.hpp"
+#include "types.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/unbounded_variant.hpp>

@@ -12,8 +12,6 @@
 #include <string>
 #include <utility>
 
-// NOLINTBEGIN(*-use-after-move)
-
 namespace
 {
 
@@ -63,11 +61,10 @@ TEST_F(TestTypes, ImplementationCell)
     EXPECT_THAT(my_cell1->what(), "MyConcrete B");
 
     const MyCell my_cell2{std::move(my_cell1)};
+    // NOLINTNEXTLINE(clang-analyzer-cplusplus.Move,bugprone-use-after-move,hicpp-invalid-access-moved)
     EXPECT_THAT(!!my_cell1, false);
     EXPECT_THAT(!!my_cell2, true);
     EXPECT_THAT(my_cell2->what(), "MyConcrete B");
 }
 
 }  // namespace
-
-// NOLINTEND(*-use-after-move)

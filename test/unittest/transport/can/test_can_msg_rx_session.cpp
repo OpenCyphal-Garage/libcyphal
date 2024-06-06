@@ -135,6 +135,7 @@ TEST_F(TestCanMsgRxSession, make_fails_due_to_argument_error)
     EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestCanMsgRxSession, run_and_receive)
 {
     auto transport = makeTransport(mr_);

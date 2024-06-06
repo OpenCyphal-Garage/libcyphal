@@ -140,6 +140,7 @@ TEST_F(TestCanSvcRxSessions, make_request_fails_due_to_argument_error)
     EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestCanSvcRxSessions, run_and_receive_requests)
 {
     auto transport = makeTransport(mr_, 0x31);
@@ -215,6 +216,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_requests)
     }
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestCanSvcRxSessions, run_and_receive_two_frame)
 {
     auto transport = makeTransport(mr_, 0x31);
