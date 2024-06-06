@@ -74,7 +74,11 @@ struct MyPlatformError : public IPlatformError
     {
     }
 
+    // MARK: Data members:
+
+    // NOLINTBEGIN
     int code;
+    // NOLINTEND
 
 };  // MyPlatformError
 

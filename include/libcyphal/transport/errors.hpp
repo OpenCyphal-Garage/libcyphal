@@ -82,6 +82,7 @@ namespace cetl
 template <>
 constexpr type_id type_id_getter<libcyphal::transport::AnyError>() noexcept
 {
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
     return {0xC6, 0x27, 0x18, 0x89, 0xBC, 0xF8, 0x43, 0xA9, 0x8D, 0x79, 0xFA, 0x64, 0xFC, 0x3E, 0xFD, 0x93};
 }
 

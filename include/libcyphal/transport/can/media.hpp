@@ -105,6 +105,7 @@ namespace cetl
 template <>
 constexpr type_id type_id_getter<libcyphal::transport::can::IMedia*>() noexcept
 {
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
     return {0x87, 0xCA, 0x7D, 0x3F, 0x70, 0xA3, 0x4B, 0xB5, 0x99, 0x79, 0xE4, 0x4A, 0x56, 0xB3, 0x50, 0xC8};
 }
 
