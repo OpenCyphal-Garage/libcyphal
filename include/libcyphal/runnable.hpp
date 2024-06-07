@@ -9,7 +9,6 @@
 #include "transport/errors.hpp"
 #include "types.hpp"
 
-#include <cetl/pf17/cetlpf.hpp>
 #include <cetl/unbounded_variant.hpp>
 
 #include <cstddef>
@@ -19,9 +18,13 @@ namespace libcyphal
 
 class IRunnable
 {
-    static constexpr std::size_t MaxErrorSize = sizeof(transport::AnyError);
+    static constexpr std::size_t MaxErrorSize = sizeof(void*) * 14;
 
 public:
+    /// @brief Defines possible error for the runnable entity.
+    ///
+    /// Empty unbounded_variant represents success (see `unbounded_variant::has_value`).
+    ///
     using MaybeError = cetl::unbounded_variant<MaxErrorSize>;
 
     IRunnable(const IRunnable&)                = delete;
