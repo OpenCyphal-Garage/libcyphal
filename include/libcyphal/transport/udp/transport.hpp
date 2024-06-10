@@ -92,7 +92,7 @@ private:
         }
 
         // TODO: Implement!
-        return {};
+        return cetl::nullopt;
     }
 
     CETL_NODISCARD ProtocolParams getProtocolParams() const noexcept override

@@ -789,8 +789,11 @@ TEST_F(TestCanTransport, run_setFilters_with_transient_handler)
     // 1st `run`: Transient handler for `setFilters` call will fail to handle the error,
     //            so the handler's result error will be returned (and no call to `media_mock2`).
     //
-    transport->setTransientErrorHandler([](ITransport::AnyErrorReport& report) {
+    transport->setTransientErrorHandler([&](ITransport::AnyErrorReport& report) {
         EXPECT_THAT(report.error, VariantWith<CapacityError>(_));
+        EXPECT_THAT(report.operation, ITransport::AnyErrorReport::Operation::MediaConfig);
+        EXPECT_THAT(report.media_index, 0);
+        EXPECT_THAT(report.culprit, UbVariantWith<can::IMedia*>(&media_mock_));
         return StateError{};
     });
     EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(CapacityError{}));
@@ -801,8 +804,11 @@ TEST_F(TestCanTransport, run_setFilters_with_transient_handler)
     // 2nd `run`: `media_mock_.setFilters` will fail again but now handler will handle the error,
     //            and so redundant `media_mock2` will be called as well.
     //
-    transport->setTransientErrorHandler([](ITransport::AnyErrorReport& report) {
+    transport->setTransientErrorHandler([&](ITransport::AnyErrorReport& report) {
         EXPECT_THAT(report.error, VariantWith<CapacityError>(_));
+        EXPECT_THAT(report.operation, ITransport::AnyErrorReport::Operation::MediaConfig);
+        EXPECT_THAT(report.media_index, 0);
+        EXPECT_THAT(report.culprit, UbVariantWith<can::IMedia*>(&media_mock_));
         return cetl::nullopt;
     });
     EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(CapacityError{}));
