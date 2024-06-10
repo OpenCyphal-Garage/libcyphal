@@ -153,6 +153,11 @@ public:
 
     /// Sets new transient error handler.
     ///
+    /// If the handler is set, it will be called by the transport layer when a transient media related error occurs.
+    /// If the handler is not set (default mode), the transport will ignore such errors and continue
+    /// its current process in a "best-effort" manner, namely in assumption that
+    /// either other redundant media (if any) will deliver what is needed,
+    /// or later retry (aka next `run`) of the operation will resolve the issue.
     /// See \ref TransientErrorHandler for more details.
     ///
     virtual void setTransientErrorHandler(TransientErrorHandler handler) = 0;
