@@ -577,11 +577,11 @@ private:
         bool was_error = false;
         for (const Media& media : media_array_)
         {
-            cetl::optional<MediaError> maybe_error = media.interface().setFilters({filters.data(), filters.size()});
-            if (maybe_error.has_value())
+            cetl::optional<MediaError> media_error = media.interface().setFilters({filters.data(), filters.size()});
+            if (media_error.has_value())
             {
                 was_error      = true;
-                auto any_error = anyErrorFromVariant(std::move(maybe_error.value()));
+                auto any_error = anyErrorFromVariant(std::move(media_error.value()));
 
                 // If we don't have a transient error handler we will just leave this run with this failure as is.
                 // Note that `should_reconfigure_filters_` still stays engaged, so we will try again on next run.
@@ -591,8 +591,12 @@ private:
                     return any_error;
                 }
 
-                const AnyErrorReport report{std::move(any_error), &media.interface()};
-                transient_error_handler_(report);
+                AnyErrorReport           report{std::move(any_error), &media.interface()};
+                cetl::optional<AnyError> handling_error = transient_error_handler_(report);
+                if (handling_error.has_value())
+                {
+                    return handling_error;
+                }
             }
         }
 

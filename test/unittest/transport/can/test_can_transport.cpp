@@ -19,6 +19,7 @@
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
+#include <libcyphal/transport/transport.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
@@ -47,6 +48,7 @@ using libcyphal::verification_utilities::makeSpansFrom;
 
 using testing::_;
 using testing::Eq;
+using testing::Truly;
 using testing::Return;
 using testing::SizeIs;
 using testing::IsEmpty;
@@ -67,18 +69,28 @@ using std::literals::chrono_literals::operator""us;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-struct MyPlatformError : public IPlatformError
+class MyPlatformError final : public IPlatformError
 {
-    explicit MyPlatformError(int _code)
-        : code{_code}
+public:
+    explicit MyPlatformError(std::uint32_t code)
+        : code_{code}
     {
     }
+    virtual ~MyPlatformError() noexcept                    = default;
+    MyPlatformError(const MyPlatformError&)                = default;
+    MyPlatformError(MyPlatformError&&) noexcept            = default;
+    MyPlatformError& operator=(const MyPlatformError&)     = default;
+    MyPlatformError& operator=(MyPlatformError&&) noexcept = default;
 
-    // MARK: Data members:
+    // MARK: IPlatformError
 
-    // NOLINTBEGIN
-    int code;
-    // NOLINTEND
+    std::uint32_t code() const noexcept override
+    {
+        return code_;
+    }
+
+private:
+    std::uint32_t code_;
 
 };  // MyPlatformError
 
@@ -675,7 +687,7 @@ TEST_F(TestCanTransport, setLocalNodeId_when_svc_rx_subscription)
     scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
-TEST_F(TestCanTransport, run_when_no_memory_for_filters)
+TEST_F(TestCanTransport, run_setFilters_no_memory)
 {
     StrictMock<MemoryResourceMock> mr_mock{};
     mr_mock.redirectExpectedCallsTo(mr_);
@@ -706,10 +718,17 @@ TEST_F(TestCanTransport, run_when_no_memory_for_filters)
     EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).Times(2).WillRepeatedly(Return(PlatformError{MyPlatformError{13}}));
     //
     scheduler_.runNow(+1s, [&] {
-        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<PlatformError>(_)));
+        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<PlatformError>(Truly([](auto err) {
+                        EXPECT_THAT(err->code(), 13);
+                        return true;
+                    }))));
     });
     scheduler_.runNow(+1s, [&] {
-        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<PlatformError>(_)));
+        EXPECT_THAT(transport->run(now()),
+                    UbVariantWith<AnyError>(VariantWith<PlatformError>(Truly([](const auto& err) {
+                        EXPECT_THAT(err->code(), 13);
+                        return true;
+                    }))));
     });
 
     // And finally, make the media accept filters - should happen once (@5s)!
@@ -719,6 +738,86 @@ TEST_F(TestCanTransport, run_when_no_memory_for_filters)
         return cetl::nullopt;
     });
     scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+}
+
+TEST_F(TestCanTransport, run_setFilters_no_transient_handler)
+{
+    StrictMock<can::MediaMock> media_mock2{};
+    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock2, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+
+    auto transport = makeTransport(mr_, &media_mock2);
+
+    auto maybe_msg_session = transport->makeMessageRxSession({0, 0x42});
+    ASSERT_THAT(maybe_msg_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+
+    // 1st `run`: No transient handler for setFilters,
+    //            so `media_mock_.setFilters` error will be returned (and no call to `media_mock2`).
+    //
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(CapacityError{}));
+    //
+    scheduler_.runNow(+1s, [&] {
+        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<CapacityError>(_)));
+    });
+
+    // 2nd `run`: Now `media_mock_.setFilters` succeeds,
+    //            and so redundant `media_mock2` will be called as well.
+    //
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
+    //
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+
+    // 3rd `run`: Will do nothing.
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+}
+
+TEST_F(TestCanTransport, run_setFilters_with_transient_handler)
+{
+    StrictMock<can::MediaMock> media_mock2{};
+    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock2, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+
+    auto transport = makeTransport(mr_, &media_mock2);
+
+    auto maybe_msg_session = transport->makeMessageRxSession({0, 0x42});
+    ASSERT_THAT(maybe_msg_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+
+    // 1st `run`: Transient handler for `setFilters` call will fail to handle the error,
+    //            so the handler's result error will be returned (and no call to `media_mock2`).
+    //
+    transport->setTransientErrorHandler([](ITransport::AnyErrorReport& report) {
+        EXPECT_THAT(report.error, VariantWith<CapacityError>(_));
+        return StateError{};
+    });
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(CapacityError{}));
+    //
+    scheduler_.runNow(+1s,
+                      [&] { EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<StateError>(_))); });
+
+    // 2nd `run`: `media_mock_.setFilters` will fail again but now handler will handle the error,
+    //            and so redundant `media_mock2` will be called as well.
+    //
+    transport->setTransientErrorHandler([](ITransport::AnyErrorReport& report) {
+        EXPECT_THAT(report.error, VariantWith<CapacityError>(_));
+        return cetl::nullopt;
+    });
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(CapacityError{}));
+    EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
+    //
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+
+    // 3rd `run`: Will still try set filters (b/c there was transient error before).
+    //
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
+    //
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+
+    // 4th `run`: Will do nothing.
     scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 

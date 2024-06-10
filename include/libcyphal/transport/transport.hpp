@@ -44,7 +44,20 @@ public:
         ///
         cetl::unbounded_variant<sizeof(void*)> culprit;
     };
-    using TransientErrorHandler = cetl::pmr::function<void(const AnyErrorReport&), sizeof(void*) * 3>;
+
+    /// @brief Defines signature of a transient error handler.
+    ///
+    /// @param report The error report to be handled. It's made as non-const ref to allow the handler to modify it,
+    ///               and f.e. reuse original `.error` field value by moving it as is to return result.
+    /// @return An optional (maybe different) error back to the transport.
+    ///         - If `cetl::nullopt` is returned, the original error (in the `report`) is considered handled
+    ///           and transport will continue its current process (effectively either ignoring such transient failure,
+    ///           or retrying the process later on its next run).
+    ///         - If an error is returned, the transport will stop current process
+    ///           and return this (potentially new or converted) error to the user (via `run` result).
+    ///
+    using TransientErrorHandler =
+        cetl::pmr::function<cetl::optional<AnyError>(AnyErrorReport& report), sizeof(void*) * 3>;
 
     ITransport(const ITransport&)                = delete;
     ITransport(ITransport&&) noexcept            = delete;

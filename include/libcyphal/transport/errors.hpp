@@ -34,8 +34,15 @@ struct MemoryError final
 struct CapacityError final
 {};
 
+/// @brief Defines platform-specific error.
+///
 class IPlatformError
 {
+public:
+    /// Gets platform-specific error code.
+    ///
+    virtual std::uint32_t code() const noexcept = 0;
+
 protected:
     IPlatformError()                                     = default;
     ~IPlatformError()                                    = default;

@@ -15,6 +15,7 @@
 #include <chrono>
 #include <cstdint>
 #include <ratio>
+#include <type_traits>
 
 namespace libcyphal
 {
@@ -61,9 +62,9 @@ using Expected = cetl::variant<Success, Failure>;
 /// that works with any `cetl::unbounded_variant`.
 ///
 /// The instance is always initialized with a valid value, but it may turn valueless if the value is moved.
-/// The AnyUbVar type can be a `cetl::unbounded_variant`.
+/// The `Any` type can be a `cetl::unbounded_variant`.
 ///
-template <typename Interface, typename AnyUbVar>
+template <typename Interface, typename Any>
 class ImplementationCell final
 {
 public:
@@ -71,31 +72,31 @@ public:
               typename ImplD = std::decay_t<Impl>,
               typename       = std::enable_if_t<std::is_base_of<Interface, ImplD>::value>>
     explicit ImplementationCell(Impl&& object)
-        : ub_var_(std::forward<Impl>(object))
-        , fn_getter_mut_{[](AnyUbVar& ub_var) -> Interface* { return cetl::get_if<ImplD>(&ub_var); }}
-        , fn_getter_const_{[](const AnyUbVar& ub_var) -> const Interface* { return cetl::get_if<ImplD>(&ub_var); }}
+        : any_(std::forward<Impl>(object))
+        , fn_getter_mut_{[](Any& any) -> Interface* { return cetl::get_if<ImplD>(&any); }}
+        , fn_getter_const_{[](const Any& any) -> const Interface* { return cetl::get_if<ImplD>(&any); }}
     {
     }
 
     Interface* operator->()
     {
-        return fn_getter_mut_(ub_var_);
+        return fn_getter_mut_(any_);
     }
 
     const Interface* operator->() const
     {
-        return fn_getter_const_(ub_var_);
+        return fn_getter_const_(any_);
     }
 
     explicit operator bool() const
     {
-        return ub_var_.has_value();
+        return any_.has_value();
     }
 
 private:
-    AnyUbVar ub_var_;
-    Interface* (*fn_getter_mut_)(AnyUbVar&);
-    const Interface* (*fn_getter_const_)(const AnyUbVar&);
+    Any any_;
+    Interface* (*fn_getter_mut_)(Any&);
+    const Interface* (*fn_getter_const_)(const Any&);
 
 };  // ImplementationCell
 
