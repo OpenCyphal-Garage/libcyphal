@@ -489,7 +489,7 @@ private:
         return opt_any_error;
     }
 
-    cetl::optional<AnyError> runSingleMediaReceive(Media& media)
+    cetl::optional<AnyError> runSingleMediaReceive(const Media& media)
     {
         std::array<cetl::byte, CANARD_MTU_MAX> payload{};
 

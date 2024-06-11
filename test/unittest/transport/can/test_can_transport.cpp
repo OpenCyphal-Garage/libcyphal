@@ -496,6 +496,81 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
     scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
+TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
+{
+    StrictMock<can::MediaMock> media_mock2{};
+    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock2, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+
+    auto transport = makeTransport(mr_, &media_mock2);
+    EXPECT_THAT(transport->setLocalNodeId(0x45), Eq(cetl::nullopt));
+
+    auto maybe_session = transport->makeMessageTxSession({7});
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
+    auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
+
+    scheduler_.runNow(+10s);
+    const auto send_time = now();
+
+    const auto             payload = makeIotaArray<6>(b('0'));
+    const TransferMetadata metadata{0x13, send_time, Priority::Nominal};
+
+    // First attempt to send payload.
+    auto maybe_error = session->send(metadata, makeSpansFrom(payload));
+    EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+
+    // 1st run: media #0 and there is no transient error handler; its frame should be dropped.
+    {
+        EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce(Return(CapacityError{}));
+
+        scheduler_.runNow(+10us, [&] {
+            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<CapacityError>(_)));
+        });
+    }
+    // 2nd run: media #1 and transient error handler have failed; its frame should be dropped.
+    {
+        StrictMock<TransientErrorHandlerMock> handler_mock{};
+        transport->setTransientErrorHandler(std::ref(handler_mock));
+        EXPECT_CALL(handler_mock, invoke(testing::Field(&ITransport::AnyErrorReport::media_index, 1)))
+            .WillOnce(Return(CapacityError{}));
+
+        EXPECT_CALL(media_mock2, push(_, _, _)).WillOnce(Return(CapacityError{}));
+
+        scheduler_.runNow(+10us, [&] {
+            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<CapacityError>(_)));
+        });
+
+        // No frames should be left in the session.
+        scheduler_.runNow(+10us, [&] {
+            EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
+        });
+    }
+
+    // Second attempt to send payload.
+    EXPECT_THAT(session->send(metadata, makeSpansFrom(payload)), Eq(cetl::nullopt));
+
+    // 3rd run: media #0 has failed but transient error handler succeeded.
+    {
+        StrictMock<TransientErrorHandlerMock> handler_mock{};
+        transport->setTransientErrorHandler(std::ref(handler_mock));
+        EXPECT_CALL(handler_mock, invoke(testing::Field(&ITransport::AnyErrorReport::media_index, 0)))
+            .WillOnce(Return(cetl::nullopt));
+
+        EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce(Return(CapacityError{}));
+        EXPECT_CALL(media_mock2, push(_, _, _)).WillOnce(Return(true));
+
+        scheduler_.runNow(+10us, [&] {
+            EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
+        });
+
+        // No frames should be left in the session.
+        scheduler_.runNow(+10us, [&] {
+            EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
+        });
+    }
+}
+
 TEST_F(TestCanTransport, send_payload_to_out_of_capacity_canard_tx)
 {
     StrictMock<can::MediaMock> media_mock2{};
