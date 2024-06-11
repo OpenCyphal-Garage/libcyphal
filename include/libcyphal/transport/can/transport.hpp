@@ -302,12 +302,15 @@ private:
     {
         cetl::optional<AnyError> any_error{};
 
+        // We deliberately first run TX as much as possible, and only then running RX -
+        // transmission will release resources (like TX queue items) and make room for new incoming frames.
+        //
         any_error = runMediaTransmit(now);
         if (any_error.has_value())
         {
             return any_error.value();
         }
-
+        //
         any_error = runMediaReceive();
         if (any_error.has_value())
         {
@@ -477,7 +480,7 @@ private:
     {
         cetl::optional<AnyError> opt_any_error{};
 
-        for (Media& media : media_array_)
+        for (const Media& media : media_array_)
         {
             opt_any_error = runSingleMediaReceive(media);
             if (opt_any_error.has_value())
