@@ -9,6 +9,7 @@
 #include "../../tracking_memory_resource.hpp"
 #include "../../verification_utilities.hpp"
 #include "../../virtual_time_scheduler.hpp"
+#include "../transient_error_handler_mock.hpp"
 #include "media_mock.hpp"
 
 #include <canard.h>
@@ -31,6 +32,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <string>
 #include <utility>
@@ -492,6 +494,56 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
     scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+}
+
+TEST_F(TestCanTransport, send_payload_to_out_of_capacity_canard_tx)
+{
+    StrictMock<can::MediaMock> media_mock2{};
+    EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+
+    // Make transport with no TX capacity - this will cause `MemoryError` on send attempts.
+    //
+    auto transport = makeTransport(mr_, &media_mock2, 0 /*capacity*/);
+    EXPECT_THAT(transport->setLocalNodeId(0x45), Eq(cetl::nullopt));
+
+    auto maybe_session = transport->makeMessageTxSession({7});
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
+    auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
+
+    const auto             payload = makeIotaArray<6>(b('0'));
+    const TransferMetadata metadata{0x13, now(), Priority::Nominal};
+
+    // 1st. Try to send a frame with "failing" handler - only the 0-th media index will be used.
+    {
+        StrictMock<TransientErrorHandlerMock> handler_mock{};
+        transport->setTransientErrorHandler(std::ref(handler_mock));
+        EXPECT_CALL(handler_mock, invoke(Truly([](auto& report) {
+                        EXPECT_THAT(report.error, VariantWith<MemoryError>(_));
+                        EXPECT_THAT(report.operation, ITransport::AnyErrorReport::Operation::TxPush);
+                        EXPECT_THAT(report.media_index, 0);
+                        EXPECT_THAT(report.culprit, UbVariantWith<struct CanardInstance*>(Truly([](const auto* canard) {
+                                        EXPECT_THAT(canard->node_id, 0x45);
+                                        return true;
+                                    })));
+                        return true;
+                    })))
+            .WillOnce(Return(StateError{}));
+
+        auto opt_any_error = session->send(metadata, makeSpansFrom(payload));
+        EXPECT_THAT(opt_any_error, Optional(VariantWith<StateError>(_)));
+    }
+    // 2nd. Try to send a frame with "succeeding" handler - both media indices will be used.
+    {
+        StrictMock<TransientErrorHandlerMock> handler_mock{};
+        transport->setTransientErrorHandler(std::ref(handler_mock));
+        EXPECT_CALL(handler_mock, invoke(testing::Field(&ITransport::AnyErrorReport::media_index, 0)))
+            .WillOnce(Return(cetl::nullopt));
+        EXPECT_CALL(handler_mock, invoke(testing::Field(&ITransport::AnyErrorReport::media_index, 1)))
+            .WillOnce(Return(cetl::nullopt));
+
+        auto opt_any_error = session->send(metadata, makeSpansFrom(payload));
+        EXPECT_THAT(opt_any_error, Eq(cetl::nullopt));
+    }
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)

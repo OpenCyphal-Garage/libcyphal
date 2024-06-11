@@ -6,8 +6,9 @@
 #ifndef LIBCYPHAL_GTEST_HELPERS_HPP
 #define LIBCYPHAL_GTEST_HELPERS_HPP
 
+#include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/transport/can/media.hpp>
-#include <libcyphal/transport/errors.hpp>
+#include <libcyphal/transport/transport.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
@@ -17,8 +18,15 @@
 #include <gtest/gtest-matchers.h>
 #include <gtest/gtest-printers.h>
 
+#include <array>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <iomanip>
+#include <ios>
 #include <ostream>
+
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 // MARK: - GTest Printers:
 
@@ -42,17 +50,55 @@ namespace transport
 
 inline void PrintTo(const Priority priority, std::ostream* os)
 {
-    static constexpr std::array<const char*, 8> names{
-        "Exceptional (0)",
-        "Immediate (1)",
-        "Fast (2)",
-        "High (3)",
-        "Nominal (4)",
-        "Low (5)",
-        "Slow (6)",
-        "Optional (7)",
-    };
-    *os << names[static_cast<std::size_t>(priority)];
+    switch (priority)
+    {
+    case Priority::Exceptional:
+        *os << "Exceptional (0)";
+        break;
+    case Priority::Immediate:
+        *os << "Immediate (1)";
+        break;
+    case Priority::Fast:
+        *os << "Fast (2)";
+        break;
+    case Priority::High:
+        *os << "High (3)";
+        break;
+    case Priority::Nominal:
+        *os << "Nominal (4)";
+        break;
+    case Priority::Low:
+        *os << "Low (5)";
+        break;
+    case Priority::Slow:
+        *os << "Slow (6)";
+        break;
+    case Priority::Optional:
+        *os << "Optional (7)";
+        break;
+    }
+}
+
+inline void PrintTo(const ITransport::AnyErrorReport::Operation operation, std::ostream* os)
+{
+    switch (operation)
+    {
+    case ITransport::AnyErrorReport::Operation::TxPush:
+        *os << "TxPush";
+        break;
+    case ITransport::AnyErrorReport::Operation::RxAccept:
+        *os << "RxAccept";
+        break;
+    case ITransport::AnyErrorReport::Operation::MediaPop:
+        *os << "MediaPop";
+        break;
+    case ITransport::AnyErrorReport::Operation::MediaPush:
+        *os << "MediaPush";
+        break;
+    case ITransport::AnyErrorReport::Operation::MediaConfig:
+        *os << "MediaConfig";
+        break;
+    }
 }
 
 namespace can
@@ -88,8 +134,8 @@ public:
 
     bool MatchAndExplain(const CanId& can_id, std::ostream* os) const
     {
-        const auto priority = static_cast<Priority>((can_id >> 26) & 0b111);
-        if (os)
+        const auto priority = static_cast<Priority>((can_id >> 26UL) & 0b111UL);
+        if (os != nullptr)
         {
             *os << "priority='" << testing::PrintToString(priority) << "'";
         }
@@ -124,8 +170,8 @@ public:
 
     bool MatchAndExplain(const CanId& can_id, std::ostream* os) const
     {
-        const auto is_service = (can_id & 1 << 25) != 0;
-        if (os)
+        const auto is_service = (can_id & (1UL << 25UL)) != 0;
+        if (os != nullptr)
         {
             *os << "is_service=" << std::boolalpha << is_service;
         }
@@ -164,8 +210,8 @@ public:
 
     bool MatchAndExplain(const CanId& can_id, std::ostream* os) const
     {
-        const auto subject_id = (can_id >> 8) & CANARD_SUBJECT_ID_MAX;
-        if (os)
+        const auto subject_id = (can_id >> 8UL) & CANARD_SUBJECT_ID_MAX;
+        if (os != nullptr)
         {
             *os << "subject_id=" << subject_id;
         }
@@ -200,8 +246,8 @@ public:
 
     bool MatchAndExplain(const CanId& can_id, std::ostream* os) const
     {
-        const auto service_id = (can_id >> 14) & CANARD_SERVICE_ID_MAX;
-        if (os)
+        const auto service_id = (can_id >> 14UL) & CANARD_SERVICE_ID_MAX;
+        if (os != nullptr)
         {
             *os << "service_id=" << service_id;
         }
@@ -237,7 +283,7 @@ public:
     bool MatchAndExplain(const CanId& can_id, std::ostream* os) const
     {
         const auto node_id = can_id & CANARD_NODE_ID_MAX;
-        if (os)
+        if (os != nullptr)
         {
             *os << "node_id=" << node_id;
         }
@@ -272,8 +318,8 @@ public:
 
     bool MatchAndExplain(const CanId& can_id, std::ostream* os) const
     {
-        const auto node_id = (can_id >> 7) & CANARD_NODE_ID_MAX;
-        if (os)
+        const auto node_id = (can_id >> 7UL) & CANARD_NODE_ID_MAX;
+        if (os != nullptr)
         {
             *os << "node_id=" << node_id;
         }
@@ -313,10 +359,10 @@ public:
     {
         const auto byte_value  = static_cast<std::uint8_t>(last_byte);
         const auto transfer_id = byte_value & CANARD_TRANSFER_ID_MAX;
-        const auto is_start    = (byte_value & 1 << 7) != 0;
-        const auto is_end      = (byte_value & 1 << 6) != 0;
-        const auto is_toggle   = (byte_value & 1 << 5) != 0;
-        if (os)
+        const auto is_start    = (byte_value & (1UL << 7UL)) != 0;
+        const auto is_end      = (byte_value & (1UL << 6UL)) != 0;
+        const auto is_toggle   = (byte_value & (1UL << 5UL)) != 0;
+        if (os != nullptr)
         {
             *os << "{";
             *os << "transfer_id=" << static_cast<cetl::byte>(transfer_id_) << ", ";
@@ -368,7 +414,7 @@ public:
 
     bool MatchAndExplain(const Filter& filter, std::ostream* os) const
     {
-        if (os)
+        if (os != nullptr)
         {
             *os << testing::PrintToString(filter);
         }
@@ -387,7 +433,7 @@ public:
 private:
     const Filter filter_;
 };
-inline testing::Matcher<const Filter&> FilterEq(Filter&& filter)
+inline testing::Matcher<const Filter&> FilterEq(const Filter& filter)
 {
     return FilterMatcher(filter);
 }
@@ -395,5 +441,7 @@ inline testing::Matcher<const Filter&> FilterEq(Filter&& filter)
 }  // namespace can
 }  // namespace transport
 }  // namespace libcyphal
+
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 #endif  // LIBCYPHAL_GTEST_HELPERS_HPP
