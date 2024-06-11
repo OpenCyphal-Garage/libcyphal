@@ -593,22 +593,28 @@ private:
                 Expected<bool, MediaError> maybe_pushed =
                     media.interface().push(deadline, tx_item->frame.extended_can_id, payload);
 
-                // In case of media error we are going to drop this frame
+                // In case of media push error we are going to drop this problematic frame
                 // (b/c it looks like media can't handle this frame),
-                // but we will continue to process other frames if error handler say so.
+                // but we will continue to process with other frames if error handler says so.
+                // Note that media not being ready/able to push a frame just yet (aka temporary)
+                // is not reported as an error (see `is_pushed` below).
                 //
                 if (auto* media_error = cetl::get_if<MediaError>(&maybe_pushed))
                 {
-                    auto any_error = anyErrorFromVariant(std::move(*media_error));
+                    cetl::optional<AnyError> opt_any_error = anyErrorFromVariant(std::move(*media_error));
                     if (transient_error_handler_)
                     {
-                        AnyErrorReport report{std::move(any_error),
+                        AnyErrorReport report{std::move(opt_any_error.value()),
                                               AnyErrorReport::Operation::MediaPush,
                                               media.index(),
                                               &media.interface()};
-                        return transient_error_handler_(report);
+                        opt_any_error = transient_error_handler_(report);
                     }
-                    return any_error;
+                    if (opt_any_error.has_value())
+                    {
+                        freeCanardMemory(::canardTxPop(&media.canard_tx_queue(), tx_item));
+                        return opt_any_error;
+                    }
                 }
 
                 const auto* const is_pushed = cetl::get_if<bool>(&maybe_pushed);
