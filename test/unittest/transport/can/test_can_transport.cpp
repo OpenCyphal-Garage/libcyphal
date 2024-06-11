@@ -542,9 +542,7 @@ TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
         });
 
         // No frames should be left in the session.
-        scheduler_.runNow(+10us, [&] {
-            EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
-        });
+        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     }
 
     // Second attempt to send payload.
@@ -560,14 +558,10 @@ TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
         EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce(Return(CapacityError{}));
         EXPECT_CALL(media_mock2, push(_, _, _)).WillOnce(Return(true));
 
-        scheduler_.runNow(+10us, [&] {
-            EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
-        });
+        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 
         // No frames should be left in the session.
-        scheduler_.runNow(+10us, [&] {
-            EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
-        });
+        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     }
 }
 
@@ -760,6 +754,147 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    }
+}
+
+TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_fallible_media)
+{
+    StrictMock<can::MediaMock> media_mock2{};
+    EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+
+    auto transport = makeTransport(mr_, &media_mock2);
+    EXPECT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
+
+    auto maybe_session = transport->makeResponseRxSession({64, 0x17B, 0x31});
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
+    auto session = cetl::get<UniquePtr<IResponseRxSession>>(std::move(maybe_session));
+
+    // skip `setFilters` calls; they are tested elsewhere.
+    {
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(cetl::nullopt));
+        EXPECT_CALL(media_mock2, pop(_)).WillOnce(Return(cetl::nullopt));
+
+        EXPECT_CALL(media_mock_, setFilters(_)).WillOnce(Return(cetl::nullopt));
+        EXPECT_CALL(media_mock2, setFilters(_)).WillOnce(Return(cetl::nullopt));
+
+        scheduler_.runNow(+0us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    }
+
+    // 1st run: media #0 pop has failed and there is no transient error handler.
+    {
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(ArgumentError{}));
+
+        scheduler_.runNow(+1s, [&] {
+            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<ArgumentError>(_)));
+        });
+    }
+    // 2nd run: media #0 pop and transient error handler have failed.
+    {
+        StrictMock<TransientErrorHandlerMock> handler_mock{};
+        transport->setTransientErrorHandler(std::ref(handler_mock));
+        EXPECT_CALL(handler_mock, invoke(testing::Field(&ITransport::AnyErrorReport::media_index, 0)))
+            .WillOnce(Return(CapacityError{}));
+
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(ArgumentError{}));
+
+        scheduler_.runNow(+1s, [&] {
+            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<CapacityError>(_)));
+        });
+    }
+    // 3rd run: media #0 pop failed but transient error handler succeeded.
+    {
+        StrictMock<TransientErrorHandlerMock> handler_mock{};
+        transport->setTransientErrorHandler(std::ref(handler_mock));
+        EXPECT_CALL(handler_mock, invoke(testing::Field(&ITransport::AnyErrorReport::media_index, 0)))
+            .WillOnce(Return(cetl::nullopt));
+
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(ArgumentError{}));
+        EXPECT_CALL(media_mock2, pop(_)).WillOnce(Return(cetl::nullopt));
+
+        scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    }
+}
+
+TEST_F(TestCanTransport, run_and_receive_svc_responses_with_fallible_oom_canard)
+{
+    StrictMock<MemoryResourceMock> mr_mock{};
+    mr_mock.redirectExpectedCallsTo(mr_);
+
+    auto transport = makeTransport(mr_mock);
+    EXPECT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
+
+    auto maybe_session = transport->makeResponseRxSession({64, 0x17B, 0x31});
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
+    auto session = cetl::get<UniquePtr<IResponseRxSession>>(std::move(maybe_session));
+
+    // Skip setFilters call; it is tested elsewhere.
+    {
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(cetl::nullopt));
+        EXPECT_CALL(media_mock_, setFilters(_)).WillOnce(Return(cetl::nullopt));
+
+        scheduler_.runNow(+0us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    }
+
+    // Emulate that there is constantly a new frame to receive, but the Canard RX has no memory to accept it.
+    //
+    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly([&](auto p) {
+        EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+        p[0] = b('0');
+        p[1] = b('1');
+        p[2] = b('2');
+        p[3] = b(0b111'11101);
+        return can::RxMetadata{now(), 0b111'1'0'0'101111011'0010011'0110001, 4};
+    });
+    EXPECT_CALL(mr_mock, do_allocate(_, _)).WillRepeatedly(Return(nullptr));
+
+    // 1st run: canard RX has failed to accept frame and there is no transient error handler.
+    {
+        scheduler_.runNow(+1s, [&] {
+            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<MemoryError>(_)));
+        });
+        EXPECT_THAT(session->receive(), Eq(cetl::nullopt));
+    }
+    // 2nd run: canard RX has failed to accept frame and there is "failing" transient error handler.
+    {
+        StrictMock<TransientErrorHandlerMock> handler_mock{};
+        transport->setTransientErrorHandler(std::ref(handler_mock));
+        EXPECT_CALL(handler_mock, invoke(_)).WillOnce(Return(StateError{}));
+
+        scheduler_.runNow(+1s, [&] {
+            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<StateError>(_)));
+        });
+        EXPECT_THAT(session->receive(), Eq(cetl::nullopt));
+    }
+    // 3rd run: canard RX has failed to accept frame and there is "success" transient error handler -
+    // the received frame should be just dropped, but overall `run` result should be success (aka ignore OOM).
+    {
+        StrictMock<TransientErrorHandlerMock> handler_mock{};
+        transport->setTransientErrorHandler(std::ref(handler_mock));
+        EXPECT_CALL(handler_mock, invoke(_)).WillOnce(Return(cetl::nullopt));
+
+        scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        EXPECT_THAT(session->receive(), Eq(cetl::nullopt));
+    }
+    // 4th run: fix memory problems - now we should receive the payload.
+    {
+        mr_mock.redirectExpectedCallsTo(mr_);
+
+        StrictMock<TransientErrorHandlerMock> handler_mock{};
+        transport->setTransientErrorHandler(std::ref(handler_mock));
+
+        scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        EXPECT_THAT(session->receive(), Optional(Truly([](const auto& rx_transfer) {
+                        EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x1D);
+                        EXPECT_THAT(rx_transfer.metadata.priority, Priority::Optional);
+                        EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x31);
+
+                        std::array<char, 3> buffer{};
+                        EXPECT_THAT(rx_transfer.payload.size(), buffer.size());
+                        EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
+                        EXPECT_THAT(buffer, ElementsAre('0', '1', '2'));
+
+                        return true;
+                    })));
     }
 }
 
