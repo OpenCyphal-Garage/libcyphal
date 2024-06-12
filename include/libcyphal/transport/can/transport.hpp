@@ -126,7 +126,6 @@ public:
     {
         // Verify input arguments:
         // - At least one media interface must be provided, but no more than the maximum allowed (255).
-        // - If a local node ID is provided, it must be within the valid range.
         //
         const auto media_count =
             static_cast<std::size_t>(std::count_if(media.begin(), media.end(), [](const IMedia* const media_ptr) {
@@ -137,13 +136,13 @@ public:
             return ArgumentError{};
         }
 
-        const MediaArray media_array{make_media_array(memory, media_count, media, tx_capacity)};
+        MediaArray media_array{make_media_array(memory, media_count, media, tx_capacity)};
         if (media_array.size() != media_count)
         {
             return MemoryError{};
         }
 
-        auto transport = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, memory, media_array);
+        auto transport = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, memory, std::move(media_array));
         if (transport == nullptr)
         {
             return MemoryError{};
@@ -152,7 +151,7 @@ public:
         return transport;
     }
 
-    TransportImpl(Spec, cetl::pmr::memory_resource& memory, MediaArray media_array)
+    TransportImpl(Spec, cetl::pmr::memory_resource& memory, MediaArray&& media_array)
         : TransportDelegate{memory}
         , media_array_{std::move(media_array)}
         , should_reconfigure_filters_{false}
