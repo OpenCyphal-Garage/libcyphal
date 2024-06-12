@@ -63,11 +63,9 @@ public:
         }
         CanardMemory(CanardMemory&& other) noexcept
             : delegate_{other.delegate_}
-            , buffer_{other.buffer_}
-            , payload_size_{other.payload_size_}
+            , buffer_{std::exchange(other.buffer_, nullptr)}
+            , payload_size_{std::exchange(other.payload_size_, 0)}
         {
-            other.buffer_       = nullptr;
-            other.payload_size_ = 0;
         }
         CanardMemory(const CanardMemory&) = delete;
 
