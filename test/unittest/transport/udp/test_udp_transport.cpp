@@ -8,7 +8,6 @@
 #include "media_mock.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/udp/media.hpp>
 #include <libcyphal/transport/udp/transport.hpp>
 #include <udpard.h>
@@ -26,7 +25,6 @@ namespace
 using libcyphal::UniquePtr;
 using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
 
-using testing::_;
 using testing::Eq;
 using testing::Return;
 using testing::IsEmpty;
