@@ -12,7 +12,6 @@
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
-#include <cetl/rtti.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -100,18 +99,5 @@ protected:
 }  // namespace can
 }  // namespace transport
 }  // namespace libcyphal
-
-namespace cetl
-{
-
-// 87CA7D3F-70A3-4BB5-9979-E44A56B350C8
-template <>
-constexpr type_id type_id_getter<libcyphal::transport::can::IMedia*>() noexcept
-{
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
-    return {0x87, 0xCA, 0x7D, 0x3F, 0x70, 0xA3, 0x4B, 0xB5, 0x99, 0x79, 0xE4, 0x4A, 0x56, 0xB3, 0x50, 0xC8};
-}
-
-}  // namespace cetl
 
 #endif  // LIBCYPHAL_TRANSPORT_CAN_MEDIA_HPP_INCLUDED

@@ -23,6 +23,8 @@ namespace transport
 namespace can
 {
 
+/// @brief Defines interface of CAN transport layer.
+///
 class ICanTransport : public ITransport
 {
 public:

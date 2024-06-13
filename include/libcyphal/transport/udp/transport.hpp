@@ -29,6 +29,8 @@ namespace transport
 namespace udp
 {
 
+/// @brief Defines interface of UDP transport layer.
+///
 class IUdpTransport : public ITransport
 {
 public:

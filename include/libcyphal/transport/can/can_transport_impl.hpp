@@ -406,7 +406,7 @@ private:
     }
 
     template <typename Report>
-    cetl::optional<AnyError> tryHandleTransientMediaError(MediaError&& media_error, const Media& media)
+    CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientMediaError(MediaError&& media_error, const Media& media)
     {
         AnyError any_error = anyErrorFromVariant(std::move(media_error));
         if (!transient_error_handler_)
@@ -419,7 +419,8 @@ private:
     }
 
     template <typename Report>
-    cetl::optional<AnyError> tryHandleTransientCanardResult(const std::int32_t result, const Media& media)
+    CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientCanardResult(const std::int32_t result,
+                                                                           const Media&       media)
     {
         cetl::optional<AnyError> opt_any_error = optAnyErrorFromCanard(result);
         if (opt_any_error.has_value() && transient_error_handler_)
