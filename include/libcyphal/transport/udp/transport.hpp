@@ -187,7 +187,7 @@ public:
                                                                 Spec{},
                                                                 memory_resources,
                                                                 multiplexer,
-                                                                std::move(media_array));
+                                                                media_array);
         if (transport == nullptr)
         {
             return MemoryError{};
@@ -196,7 +196,7 @@ public:
         return transport;
     }
 
-    TransportImpl(Spec, const MemoryResources& memory_resources, IMultiplexer& multiplexer, MediaArray&& media_array)
+    TransportImpl(Spec, const MemoryResources& memory_resources, IMultiplexer& multiplexer, MediaArray& media_array)
         : TransportDelegate{memory_resources}
         , media_array_{std::move(media_array)}
         , local_node_id_{UDPARD_NODE_ID_UNSET}
