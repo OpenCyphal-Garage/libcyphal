@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_TRANSPORT_SVC_SESSION_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_SVC_SESSION_HPP_INCLUDED
 
+#include "errors.hpp"
 #include "session.hpp"
 #include "types.hpp"
 

@@ -136,7 +136,7 @@ public:
             return ArgumentError{};
         }
 
-        MediaArray media_array{make_media_array(memory, media_count, media, tx_capacity)};
+        MediaArray media_array{makeMediaArray(memory, media_count, media, tx_capacity)};
         if (media_array.size() != media_count)
         {
             return MemoryError{};
@@ -455,10 +455,10 @@ private:
         return cetl::nullopt;
     }
 
-    CETL_NODISCARD static MediaArray make_media_array(cetl::pmr::memory_resource& memory,
-                                                      const std::size_t           media_count,
-                                                      const cetl::span<IMedia*>   media_interfaces,
-                                                      const std::size_t           tx_capacity)
+    CETL_NODISCARD static MediaArray makeMediaArray(cetl::pmr::memory_resource& memory,
+                                                    const std::size_t           media_count,
+                                                    const cetl::span<IMedia*>   media_interfaces,
+                                                    const std::size_t           tx_capacity)
     {
         MediaArray media_array{media_count, &memory};
 
