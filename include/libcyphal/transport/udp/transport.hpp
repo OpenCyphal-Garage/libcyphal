@@ -166,18 +166,18 @@ public:
             return ArgumentError{};
         }
 
-        MemoryResources memory_resources{mem_res_spec.general,
-                                         makeUdpardMemoryResource(mem_res_spec.session, mem_res_spec.general),
-                                         makeUdpardMemoryResource(mem_res_spec.fragment, mem_res_spec.general),
-                                         makeUdpardMemoryDeleter(mem_res_spec.payload, mem_res_spec.general)};
+        const MemoryResources memory_resources{mem_res_spec.general,
+                                               makeUdpardMemoryResource(mem_res_spec.session, mem_res_spec.general),
+                                               makeUdpardMemoryResource(mem_res_spec.fragment, mem_res_spec.general),
+                                               makeUdpardMemoryDeleter(mem_res_spec.payload, mem_res_spec.general)};
 
         const UdpardNodeID unset_node_id = UDPARD_NODE_ID_UNSET;
-        MediaArray         media_array{makeMediaArray(mem_res_spec.general,
-                                              media_count,
-                                              media,
-                                              &unset_node_id,
-                                              tx_capacity,
-                                              memory_resources.fragment)};
+        MediaArray         media_array   = makeMediaArray(mem_res_spec.general,
+                                                media_count,
+                                                media,
+                                                &unset_node_id,
+                                                tx_capacity,
+                                                memory_resources.fragment);
         if (media_array.size() != media_count)
         {
             return MemoryError{};
@@ -196,7 +196,7 @@ public:
         return transport;
     }
 
-    TransportImpl(Spec, MemoryResources memory_resources, IMultiplexer& multiplexer, MediaArray&& media_array)
+    TransportImpl(Spec, const MemoryResources& memory_resources, IMultiplexer& multiplexer, MediaArray&& media_array)
         : TransportDelegate{memory_resources}
         , media_array_{std::move(media_array)}
         , local_node_id_{UDPARD_NODE_ID_UNSET}
@@ -220,7 +220,7 @@ private:
             return cetl::nullopt;
         }
 
-        return cetl::make_optional(static_cast<NodeId>(local_node_id_));
+        return cetl::make_optional(local_node_id_);
     }
 
     CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept override

@@ -64,7 +64,7 @@ protected:
     };
 
 public:
-    explicit TransportDelegate(MemoryResources memory_resources)
+    explicit TransportDelegate(const MemoryResources& memory_resources)
         : memory_resources_{memory_resources}
     {
     }
@@ -74,7 +74,7 @@ public:
     TransportDelegate& operator=(const TransportDelegate&)     = delete;
     TransportDelegate& operator=(TransportDelegate&&) noexcept = delete;
 
-    CETL_NODISCARD MemoryResources& memoryResources() noexcept
+    CETL_NODISCARD const MemoryResources& memoryResources() const noexcept
     {
         return memory_resources_;
     }
@@ -149,7 +149,7 @@ private:
 
     // MARK: Data members:
 
-    MemoryResources memory_resources_;
+    const MemoryResources memory_resources_;
 
 };  // TransportDelegate
 

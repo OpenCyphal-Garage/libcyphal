@@ -88,6 +88,7 @@ public:
     ~MessageRxSession()
     {
         // TODO: Implement!
+        (void) 0;
     }
 
 private:

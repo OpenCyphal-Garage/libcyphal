@@ -94,6 +94,7 @@ public:
     ~SvcRxSession()
     {
         // TODO: Implement!
+        (void) 0;
     }
 
 private:
