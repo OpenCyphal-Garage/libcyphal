@@ -173,7 +173,7 @@ public:
 
         const UdpardNodeID unset_node_id = UDPARD_NODE_ID_UNSET;
 
-        // False positive of clang-tidy - we move `media_array` to the `transport` instance.
+        // False positive of clang-tidy - we move `media_array` to the `transport` instance, so can't make it const.
         // NOLINTNEXTLINE(misc-const-correctness)
         MediaArray media_array = makeMediaArray(mem_res_spec.general,
                                                 media_count,

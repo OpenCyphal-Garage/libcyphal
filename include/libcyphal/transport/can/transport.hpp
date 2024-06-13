@@ -136,7 +136,7 @@ public:
             return ArgumentError{};
         }
 
-        // False positive of clang-tidy - we move `media_array` to the `transport` instance.
+        // False positive of clang-tidy - we move `media_array` to the `transport` instance, so can't make it const.
         // NOLINTNEXTLINE(misc-const-correctness)
         MediaArray media_array = makeMediaArray(memory, media_count, media, tx_capacity);
         if (media_array.size() != media_count)
