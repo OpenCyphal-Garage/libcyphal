@@ -37,28 +37,6 @@ namespace can
 
 // MARK: - GTest Printers:
 
-inline void PrintTo(const ICanTransport::AnyErrorReport::Operation operation, std::ostream* os)
-{
-    switch (operation)
-    {
-    case ICanTransport::AnyErrorReport::Operation::TxPush:
-        *os << "TxPush";
-        break;
-    case ICanTransport::AnyErrorReport::Operation::RxAccept:
-        *os << "RxAccept";
-        break;
-    case ICanTransport::AnyErrorReport::Operation::MediaPop:
-        *os << "MediaPop";
-        break;
-    case ICanTransport::AnyErrorReport::Operation::MediaPush:
-        *os << "MediaPush";
-        break;
-    case ICanTransport::AnyErrorReport::Operation::MediaConfig:
-        *os << "MediaConfig";
-        break;
-    }
-}
-
 inline void PrintTo(const Filter& filter, std::ostream* os)
 {
     *os << std::uppercase << std::hex;

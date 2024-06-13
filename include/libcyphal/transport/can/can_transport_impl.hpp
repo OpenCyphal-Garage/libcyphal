@@ -350,7 +350,7 @@ private:
                                                        payload.size(),
                                                        payload.data());
 
-            opt_any_error = tryHandleTransientCanardResult(result, AnyErrorReport::Operation::TxPush, media);
+            opt_any_error = tryHandleTransientCanardResult<TransientErrorReport::CanardTxPush>(result, media);
             if (opt_any_error.has_value())
             {
                 // The handler (if any) just said that it's NOT fine to continue with pushing to other media TX queues,
@@ -405,9 +405,8 @@ private:
                            std::forward<ErrorVariant>(other_error_var));
     }
 
-    cetl::optional<AnyError> tryHandleTransientMediaError(MediaError&&                    media_error,
-                                                          const AnyErrorReport::Operation operation,
-                                                          const Media&                    media)
+    template <typename Report>
+    cetl::optional<AnyError> tryHandleTransientMediaError(MediaError&& media_error, const Media& media)
     {
         AnyError any_error = anyErrorFromVariant(std::move(media_error));
         if (!transient_error_handler_)
@@ -415,19 +414,20 @@ private:
             return any_error;
         }
 
-        AnyErrorReport report{std::move(any_error), operation, media.index(), &media.interface()};
-        return transient_error_handler_(report);
+        TransientErrorReport::Variant report_var{Report{std::move(any_error), media.index(), media.interface()}};
+        return transient_error_handler_(report_var);
     }
 
-    cetl::optional<AnyError> tryHandleTransientCanardResult(const std::int32_t              result,
-                                                            const AnyErrorReport::Operation operation,
-                                                            const Media&                    media)
+    template <typename Report>
+    cetl::optional<AnyError> tryHandleTransientCanardResult(const std::int32_t result, const Media& media)
     {
         cetl::optional<AnyError> opt_any_error = optAnyErrorFromCanard(result);
         if (opt_any_error.has_value() && transient_error_handler_)
         {
-            AnyErrorReport report{std::move(opt_any_error.value()), operation, media.index(), &canard_instance()};
-            opt_any_error = transient_error_handler_(report);
+            TransientErrorReport::Variant report_var{
+                Report{std::move(opt_any_error.value()), media.index(), canard_instance()}};
+
+            opt_any_error = transient_error_handler_(report_var);
         }
         return opt_any_error;
     }
@@ -506,7 +506,7 @@ private:
         Expected<cetl::optional<RxMetadata>, MediaError> pop_result = media.interface().pop(payload);
         if (auto* media_error = cetl::get_if<MediaError>(&pop_result))
         {
-            return tryHandleTransientMediaError(std::move(*media_error), AnyErrorReport::Operation::MediaPop, media);
+            return tryHandleTransientMediaError<TransientErrorReport::MediaPop>(std::move(*media_error), media);
         }
         const auto* const opt_rx_meta = cetl::get_if<cetl::optional<RxMetadata>>(&pop_result);
         if ((opt_rx_meta == nullptr) || !opt_rx_meta->has_value())
@@ -530,7 +530,7 @@ private:
                                                     &out_transfer,
                                                     &out_subscription);
         cetl::optional<AnyError> opt_any_error =
-            tryHandleTransientCanardResult(result, AnyErrorReport::Operation::RxAccept, media);
+            tryHandleTransientCanardResult<TransientErrorReport::CanardRxAccept>(result, media);
         if (!opt_any_error.has_value() && (result > 0))
         {
             CETL_DEBUG_ASSERT(out_subscription != nullptr, "Expected subscription.");
@@ -605,7 +605,7 @@ private:
                 popAndFreeCanardTxQueueItem();
 
                 cetl::optional<AnyError> opt_any_error =
-                    tryHandleTransientMediaError(std::move(*media_error), AnyErrorReport::Operation::MediaPush, media);
+                    tryHandleTransientMediaError<TransientErrorReport::MediaPush>(std::move(*media_error), media);
                 if (!opt_any_error.has_value())
                 {
                     // The handler (if any) just said that it's fine to continue with pushing other frames
@@ -672,9 +672,8 @@ private:
                 was_error = true;
 
                 cetl::optional<AnyError> opt_any_error =
-                    tryHandleTransientMediaError(std::move(media_error.value()),
-                                                 AnyErrorReport::Operation::MediaConfig,
-                                                 media);
+                    tryHandleTransientMediaError<TransientErrorReport::MediaConfig>(std::move(media_error.value()),
+                                                                                    media);
                 if (opt_any_error.has_value())
                 {
                     // The handler (if any) just said that it's NOT fine to continue with configuring other media,

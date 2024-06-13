@@ -50,6 +50,7 @@ using libcyphal::verification_utilities::makeSpansFrom;
 
 using testing::_;
 using testing::Eq;
+using testing::Ref;
 using testing::Truly;
 using testing::Return;
 using testing::SizeIs;
@@ -265,8 +266,8 @@ TEST_F(TestCanTransport, getProtocolParams)
     std::array<IMedia*, 2> media_array{&media_mock_, &media_mock2};
     auto                   transport = cetl::get<UniquePtr<ICanTransport>>(can::makeTransport(mr_, media_array, 0));
 
-    EXPECT_CALL(media_mock_, getMtu()).WillRepeatedly(testing::Return(CANARD_MTU_CAN_FD));
-    EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(testing::Return(CANARD_MTU_CAN_CLASSIC));
+    EXPECT_CALL(media_mock_, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_FD));
+    EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
 
     auto params = transport->getProtocolParams();
     EXPECT_THAT(params.transfer_id_modulo, static_cast<TransferId>(1) << CANARD_TRANSFER_ID_BIT_LENGTH);
@@ -275,13 +276,13 @@ TEST_F(TestCanTransport, getProtocolParams)
 
     // Manipulate MTU values on fly
     {
-        EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(testing::Return(CANARD_MTU_CAN_FD));
+        EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_FD));
         EXPECT_THAT(transport->getProtocolParams().mtu_bytes, CANARD_MTU_CAN_FD);
 
-        EXPECT_CALL(media_mock_, getMtu()).WillRepeatedly(testing::Return(CANARD_MTU_CAN_CLASSIC));
+        EXPECT_CALL(media_mock_, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
         EXPECT_THAT(transport->getProtocolParams().mtu_bytes, CANARD_MTU_CAN_CLASSIC);
 
-        EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(testing::Return(CANARD_MTU_CAN_CLASSIC));
+        EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
         EXPECT_THAT(transport->getProtocolParams().mtu_bytes, CANARD_MTU_CAN_CLASSIC);
     }
 }
@@ -498,6 +499,8 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
 
 TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
 {
+    using MediaPushReport = ICanTransport::TransientErrorReport::MediaPush;
+
     StrictMock<MediaMock> media_mock2{};
     EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
     EXPECT_CALL(media_mock2, pop(_)).WillRepeatedly(Return(cetl::nullopt));
@@ -532,7 +535,12 @@ TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
     {
         StrictMock<TransientErrorHandlerMock> handler_mock{};
         transport->setTransientErrorHandler(std::ref(handler_mock));
-        EXPECT_CALL(handler_mock, invoke(testing::Field(&ICanTransport::AnyErrorReport::media_index, 1)))
+        EXPECT_CALL(handler_mock, invoke(VariantWith<MediaPushReport>(Truly([&](auto& report) {
+                        EXPECT_THAT(report.error, VariantWith<CapacityError>(_));
+                        EXPECT_THAT(report.media_index, 1);
+                        EXPECT_THAT(report.culprit, Ref(media_mock2));
+                        return true;
+                    }))))
             .WillOnce(Return(CapacityError{}));
 
         EXPECT_CALL(media_mock2, push(_, _, _)).WillOnce(Return(CapacityError{}));
@@ -552,7 +560,12 @@ TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
     {
         StrictMock<TransientErrorHandlerMock> handler_mock{};
         transport->setTransientErrorHandler(std::ref(handler_mock));
-        EXPECT_CALL(handler_mock, invoke(testing::Field(&ICanTransport::AnyErrorReport::media_index, 0)))
+        EXPECT_CALL(handler_mock, invoke(VariantWith<MediaPushReport>(Truly([&](auto& report) {
+                        EXPECT_THAT(report.error, VariantWith<CapacityError>(_));
+                        EXPECT_THAT(report.media_index, 0);
+                        EXPECT_THAT(report.culprit, Ref(media_mock_));
+                        return true;
+                    }))))
             .WillOnce(Return(cetl::nullopt));
 
         EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce(Return(CapacityError{}));
@@ -567,6 +580,8 @@ TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
 
 TEST_F(TestCanTransport, send_payload_to_out_of_capacity_canard_tx)
 {
+    using CanardTxPushReport = ICanTransport::TransientErrorReport::CanardTxPush;
+
     StrictMock<MediaMock> media_mock2{};
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
 
@@ -586,16 +601,15 @@ TEST_F(TestCanTransport, send_payload_to_out_of_capacity_canard_tx)
     {
         StrictMock<TransientErrorHandlerMock> handler_mock{};
         transport->setTransientErrorHandler(std::ref(handler_mock));
-        EXPECT_CALL(handler_mock, invoke(Truly([](auto& report) {
+        EXPECT_CALL(handler_mock, invoke(VariantWith<CanardTxPushReport>(Truly([](auto& report) {
                         EXPECT_THAT(report.error, VariantWith<MemoryError>(_));
-                        EXPECT_THAT(report.operation, ICanTransport::AnyErrorReport::Operation::TxPush);
                         EXPECT_THAT(report.media_index, 0);
-                        EXPECT_THAT(report.culprit, UbVariantWith<struct CanardInstance*>(Truly([](const auto* canard) {
-                                        EXPECT_THAT(canard->node_id, 0x45);
+                        EXPECT_THAT(report.culprit, Truly([](auto& canard_ins) {
+                                        EXPECT_THAT(canard_ins.node_id, 0x45);
                                         return true;
-                                    })));
+                                    }));
                         return true;
-                    })))
+                    }))))
             .WillOnce(Return(StateError{}));
 
         auto opt_any_error = session->send(metadata, makeSpansFrom(payload));
@@ -605,9 +619,15 @@ TEST_F(TestCanTransport, send_payload_to_out_of_capacity_canard_tx)
     {
         StrictMock<TransientErrorHandlerMock> handler_mock{};
         transport->setTransientErrorHandler(std::ref(handler_mock));
-        EXPECT_CALL(handler_mock, invoke(testing::Field(&ICanTransport::AnyErrorReport::media_index, 0)))
+        EXPECT_CALL(handler_mock, invoke(VariantWith<CanardTxPushReport>(Truly([](auto& report) {
+                        EXPECT_THAT(report.error, VariantWith<MemoryError>(_));
+                        return report.media_index == 0;
+                    }))))
             .WillOnce(Return(cetl::nullopt));
-        EXPECT_CALL(handler_mock, invoke(testing::Field(&ICanTransport::AnyErrorReport::media_index, 1)))
+        EXPECT_CALL(handler_mock, invoke(VariantWith<CanardTxPushReport>(Truly([](auto& report) {
+                        EXPECT_THAT(report.error, VariantWith<MemoryError>(_));
+                        return report.media_index == 1;
+                    }))))
             .WillOnce(Return(cetl::nullopt));
 
         auto opt_any_error = session->send(metadata, makeSpansFrom(payload));
@@ -759,6 +779,8 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
 
 TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_fallible_media)
 {
+    using MediaPopReport = ICanTransport::TransientErrorReport::MediaPop;
+
     StrictMock<MediaMock> media_mock2{};
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
 
@@ -792,7 +814,12 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_fallible_m
     {
         StrictMock<TransientErrorHandlerMock> handler_mock{};
         transport->setTransientErrorHandler(std::ref(handler_mock));
-        EXPECT_CALL(handler_mock, invoke(testing::Field(&ICanTransport::AnyErrorReport::media_index, 0)))
+        EXPECT_CALL(handler_mock, invoke(VariantWith<MediaPopReport>(Truly([&](auto& report) {
+                        EXPECT_THAT(report.error, VariantWith<ArgumentError>(_));
+                        EXPECT_THAT(report.media_index, 0);
+                        EXPECT_THAT(report.culprit, Ref(media_mock_));
+                        return true;
+                    }))))
             .WillOnce(Return(CapacityError{}));
 
         EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(ArgumentError{}));
@@ -805,7 +832,12 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_fallible_m
     {
         StrictMock<TransientErrorHandlerMock> handler_mock{};
         transport->setTransientErrorHandler(std::ref(handler_mock));
-        EXPECT_CALL(handler_mock, invoke(testing::Field(&ICanTransport::AnyErrorReport::media_index, 0)))
+        EXPECT_CALL(handler_mock, invoke(VariantWith<MediaPopReport>(Truly([&](auto& report) {
+                        EXPECT_THAT(report.error, VariantWith<ArgumentError>(_));
+                        EXPECT_THAT(report.media_index, 0);
+                        EXPECT_THAT(report.culprit, Ref(media_mock_));
+                        return true;
+                    }))))
             .WillOnce(Return(cetl::nullopt));
 
         EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(ArgumentError{}));
@@ -1038,6 +1070,8 @@ TEST_F(TestCanTransport, run_setFilters_no_transient_handler)
 
 TEST_F(TestCanTransport, run_setFilters_with_transient_handler)
 {
+    using Report = ICanTransport::TransientErrorReport;
+
     StrictMock<MediaMock> media_mock2{};
     EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
     EXPECT_CALL(media_mock2, pop(_)).WillRepeatedly(Return(cetl::nullopt));
@@ -1051,11 +1085,13 @@ TEST_F(TestCanTransport, run_setFilters_with_transient_handler)
     // 1st `run`: Transient handler for `setFilters` call will fail to handle the error,
     //            so the handler's result error will be returned (and no call to `media_mock2`).
     //
-    transport->setTransientErrorHandler([&](ICanTransport::AnyErrorReport& report) {
-        EXPECT_THAT(report.error, VariantWith<CapacityError>(_));
-        EXPECT_THAT(report.operation, ICanTransport::AnyErrorReport::Operation::MediaConfig);
-        EXPECT_THAT(report.media_index, 0);
-        EXPECT_THAT(report.culprit, UbVariantWith<IMedia*>(&media_mock_));
+    transport->setTransientErrorHandler([&](Report::Variant& report_var) {
+        EXPECT_THAT(report_var, VariantWith<Report::MediaConfig>(Truly([&](auto& report) {
+                        EXPECT_THAT(report.error, VariantWith<CapacityError>(_));
+                        EXPECT_THAT(report.media_index, 0);
+                        EXPECT_THAT(report.culprit, Ref(media_mock_));
+                        return true;
+                    })));
         return StateError{};
     });
     EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(CapacityError{}));
@@ -1066,11 +1102,13 @@ TEST_F(TestCanTransport, run_setFilters_with_transient_handler)
     // 2nd `run`: `media_mock_.setFilters` will fail again but now handler will handle the error,
     //            and so redundant `media_mock2` will be called as well.
     //
-    transport->setTransientErrorHandler([&](ICanTransport::AnyErrorReport& report) {
-        EXPECT_THAT(report.error, VariantWith<CapacityError>(_));
-        EXPECT_THAT(report.operation, ICanTransport::AnyErrorReport::Operation::MediaConfig);
-        EXPECT_THAT(report.media_index, 0);
-        EXPECT_THAT(report.culprit, UbVariantWith<IMedia*>(&media_mock_));
+    transport->setTransientErrorHandler([&](Report::Variant& report_var) {
+        EXPECT_THAT(report_var, VariantWith<Report::MediaConfig>(Truly([&](auto& report) {
+                        EXPECT_THAT(report.error, VariantWith<CapacityError>(_));
+                        EXPECT_THAT(report.media_index, 0);
+                        EXPECT_THAT(report.culprit, Ref(media_mock_));
+                        return true;
+                    })));
         return cetl::nullopt;
     });
     EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(CapacityError{}));

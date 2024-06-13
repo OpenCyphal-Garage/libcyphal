@@ -6,9 +6,11 @@
 #ifndef LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_HPP_INCLUDED
 
+#include "libcyphal/transport/can/media.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/transport.hpp"
 
+#include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pmr/function.hpp>
 
@@ -24,56 +26,61 @@ namespace can
 class ICanTransport : public ITransport
 {
 public:
-    /// Defines structure for reporting transport errors to the user's handler.
+    /// Defines structure for reporting transient transport errors to the user's handler.
     ///
     /// In addition to the error itself, it provides:
-    /// - index of media interface related to this error
-    /// - a pointer to the entity that has caused this error
+    /// - Index of media interface related to this error.
+    ///   This index is the same as the index of the (not `nullptr`!) media interface
+    ///   pointer in the `media` span argument used at the `makeTransport()` factory method.
+    /// - A reference to the entity that has caused this error.
     ///
-    struct AnyErrorReport final
+    struct TransientErrorReport
     {
-        /// Defines high level transport (agnostic) operations which could be done by the transport
-        /// processes and its entities, and so could be the source of potentially fatal or transient errors.
-        ///
-        enum class Operation : std::uint8_t
+        /// @brief Error report about pushing a message to a TX session.
+        struct CanardTxPush
         {
-            /// Pushing message to the TX session.
-            TxPush,
-            /// Accepting frame for a RX session.
-            RxAccept,
-            /// Receiving frame from the media interface.
-            MediaPop,
-            /// Pushing frame to the media interface.
-            MediaPush,
-            /// Configuring media interface (f.e. applying filters).
-            MediaConfig,
+            AnyError        error;
+            std::uint8_t    media_index;
+            CanardInstance& culprit;
         };
 
-        /// Holds any transport error.
-        ///
-        AnyError error;
+        /// @brief Error report about accepting a frame for an RX session.
+        struct CanardRxAccept
+        {
+            AnyError        error;
+            std::uint8_t    media_index;
+            CanardInstance& culprit;
+        };
 
-        /// Holds the operation that has caused this error.
-        ///
-        /// Could be used as a hint for the user's handler to understand the context and the `culprit` of the error.
-        ///
-        Operation operation;
+        /// @brief Error report about receiving frame from the media interface.
+        struct MediaPop
+        {
+            AnyError     error;
+            std::uint8_t media_index;
+            IMedia&      culprit;
+        };
 
-        /// Holds index of media interface that has related to this error.
-        ///
-        /// This index is the same as the index of the (not `nullptr`!) media interface
-        /// pointer in the `media` span argument used at the `makeTransport()` factory method.
-        ///
-        std::uint8_t media_index;
+        /// @brief Error report about pushing a frame to the media interface.
+        struct MediaPush
+        {
+            AnyError     error;
+            std::uint8_t media_index;
+            IMedia&      culprit;
+        };
 
-        /// Holds pointer to an interface of the entity that has caused this error for enhanced context.
-        ///
-        /// In case of a media entity, it's the media interface pointer (like `can::IMedia*` or `udp::IMedia*`).
-        /// In case of a lizard entity, it's the lizard instance pointer (like `struct CanardInstance*` or udp one).
-        ///
-        cetl::unbounded_variant<sizeof(void*)> culprit;
+        /// @brief Error report about configuring the media interface (f.e. applying filters).
+        struct MediaConfig
+        {
+            AnyError     error;
+            std::uint8_t media_index;
+            IMedia&      culprit;
+        };
 
-    };  // AnyErrorReport
+        /// Defines variant of all possible transient error reports.
+        ///
+        using Variant = cetl::variant<CanardTxPush, CanardRxAccept, MediaPop, MediaPush, MediaConfig>;
+
+    };  // TransientErrorReport
 
     /// @brief Defines signature of a transient error handler.
     ///
@@ -102,7 +109,7 @@ public:
     ///           other media (if any), and propagate the returned error to the user (as result of `run` or etc).
     ///
     using TransientErrorHandler =
-        cetl::pmr::function<cetl::optional<AnyError>(AnyErrorReport& report), sizeof(void*) * 3>;
+        cetl::pmr::function<cetl::optional<AnyError>(TransientErrorReport::Variant& report_var), sizeof(void*) * 3>;
 
     ICanTransport(const ICanTransport&)                = delete;
     ICanTransport(ICanTransport&&) noexcept            = delete;

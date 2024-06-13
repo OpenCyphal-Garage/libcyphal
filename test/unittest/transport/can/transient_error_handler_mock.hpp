@@ -22,12 +22,12 @@ namespace can
 class TransientErrorHandlerMock
 {
 public:
-    cetl::optional<AnyError> operator()(ICanTransport::AnyErrorReport& report)
+    cetl::optional<AnyError> operator()(ICanTransport::TransientErrorReport::Variant& report_var)
     {
-        return invoke(report);
+        return invoke(report_var);
     }
 
-    MOCK_METHOD(cetl::optional<AnyError>, invoke, (ICanTransport::AnyErrorReport& report));
+    MOCK_METHOD(cetl::optional<AnyError>, invoke, (ICanTransport::TransientErrorReport::Variant& report_var));
 };
 
 }  // namespace can
