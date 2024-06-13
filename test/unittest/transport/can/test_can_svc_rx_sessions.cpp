@@ -3,9 +3,10 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include "../../cetl_gtest_helpers.hpp"
 #include "../../memory_resource_mock.hpp"
-#include "../../test_utilities.hpp"
 #include "../../tracking_memory_resource.hpp"
+#include "../../verification_utilities.hpp"
 #include "../../virtual_time_scheduler.hpp"
 #include "media_mock.hpp"
 
@@ -23,6 +24,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <utility>
@@ -35,7 +37,7 @@ using libcyphal::UniquePtr;
 using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
 
 using cetl::byte;
-using libcyphal::test_utilities::b;
+using libcyphal::verification_utilities::b;
 
 using testing::_;
 using testing::Eq;
@@ -50,10 +52,10 @@ using testing::ElementsAre;
 using testing::VariantWith;
 
 // https://github.com/llvm/llvm-project/issues/53444
-// NOLINTBEGIN(misc-unused-using-decls)
+// NOLINTBEGIN(misc-unused-using-decls, misc-include-cleaner)
 using std::literals::chrono_literals::operator""s;
 using std::literals::chrono_literals::operator""ms;
-// NOLINTEND(misc-unused-using-decls)
+// NOLINTEND(misc-unused-using-decls, misc-include-cleaner)
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
@@ -68,8 +70,7 @@ protected:
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
-        // TODO: Uncomment this when PMR deleter is fixed.
-        // EXPECT_EQ(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+        EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
     TimePoint now() const
@@ -139,6 +140,7 @@ TEST_F(TestCanSvcRxSessions, make_request_fails_due_to_argument_error)
     EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestCanSvcRxSessions, run_and_receive_requests)
 {
     auto transport = makeTransport(mr_, 0x31);
@@ -176,8 +178,8 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_requests)
             return cetl::nullopt;
         });
 
-        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-        scheduler_.runNow(+10ms, [&] { session->run(now()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -206,14 +208,15 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_requests)
             return cetl::nullopt;
         });
 
-        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-        scheduler_.runNow(+10ms, [&] { session->run(now()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
     }
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestCanSvcRxSessions, run_and_receive_two_frame)
 {
     auto transport = makeTransport(mr_, 0x31);
@@ -259,10 +262,10 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_two_frame)
             return can::RxMetadata{rx_timestamp, 0b000'1'1'0'101111011'0110001'0010011, 6};
         });
     }
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-    scheduler_.runNow(+10ms, [&] { session->run(now()); });
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-    scheduler_.runNow(+10ms, [&] { session->run(now()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
     const auto maybe_rx_transfer = session->receive();
     ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -300,8 +303,8 @@ TEST_F(TestCanSvcRxSessions, unsubscribe_and_run)
 
     session.reset();
 
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

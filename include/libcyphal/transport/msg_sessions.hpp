@@ -33,6 +33,11 @@ struct MessageTxParams final
 class IMessageRxSession : public IRxSession
 {
 public:
+    IMessageRxSession(const IMessageRxSession&)                = delete;
+    IMessageRxSession(IMessageRxSession&&) noexcept            = delete;
+    IMessageRxSession& operator=(const IMessageRxSession&)     = delete;
+    IMessageRxSession& operator=(IMessageRxSession&&) noexcept = delete;
+
     virtual MessageRxParams getParams() const noexcept = 0;
 
     /// @brief Receives a message from the transport layer.
@@ -43,11 +48,20 @@ public:
     ///
     virtual cetl::optional<MessageRxTransfer> receive() = 0;
 
+protected:
+    IMessageRxSession()  = default;
+    ~IMessageRxSession() = default;
+
 };  // IMessageRxSession
 
 class IMessageTxSession : public ITxSession
 {
 public:
+    IMessageTxSession(const IMessageTxSession&)                = delete;
+    IMessageTxSession(IMessageTxSession&&) noexcept            = delete;
+    IMessageTxSession& operator=(const IMessageTxSession&)     = delete;
+    IMessageTxSession& operator=(IMessageTxSession&&) noexcept = delete;
+
     virtual MessageTxParams getParams() const noexcept = 0;
 
     /// @brief Sends a message to the transport layer.
@@ -58,6 +72,11 @@ public:
     ///
     virtual cetl::optional<AnyError> send(const TransferMetadata& metadata,
                                           const PayloadFragments  payload_fragments) = 0;
+
+protected:
+    IMessageTxSession()  = default;
+    ~IMessageTxSession() = default;
+
 };  // IMessageTxSession
 
 }  // namespace transport

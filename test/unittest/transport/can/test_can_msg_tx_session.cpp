@@ -3,10 +3,11 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include "../../cetl_gtest_helpers.hpp"
 #include "../../gtest_helpers.hpp"
 #include "../../memory_resource_mock.hpp"
-#include "../../test_utilities.hpp"
 #include "../../tracking_memory_resource.hpp"
+#include "../../verification_utilities.hpp"
 #include "../../virtual_time_scheduler.hpp"
 #include "media_mock.hpp"
 
@@ -24,6 +25,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <chrono>
 #include <utility>
 
 namespace
@@ -34,9 +36,9 @@ using libcyphal::UniquePtr;
 using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
 
 using cetl::byte;
-using libcyphal::test_utilities::b;
-using libcyphal::test_utilities::makeIotaArray;
-using libcyphal::test_utilities::makeSpansFrom;
+using libcyphal::verification_utilities::b;
+using libcyphal::verification_utilities::makeIotaArray;
+using libcyphal::verification_utilities::makeSpansFrom;
 
 using testing::_;
 using testing::Eq;
@@ -49,11 +51,11 @@ using testing::ElementsAre;
 using testing::VariantWith;
 
 // https://github.com/llvm/llvm-project/issues/53444
-// NOLINTBEGIN(misc-unused-using-decls)
+// NOLINTBEGIN(misc-unused-using-decls, misc-include-cleaner)
 using std::literals::chrono_literals::operator""s;
 using std::literals::chrono_literals::operator""ms;
 using std::literals::chrono_literals::operator""us;
-// NOLINTEND(misc-unused-using-decls)
+// NOLINTEND(misc-unused-using-decls, misc-include-cleaner)
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
@@ -68,8 +70,7 @@ protected:
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
-        // TODO: Uncomment this when PMR deleter is fixed.
-        // EXPECT_EQ(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+        EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
     TimePoint now() const
@@ -183,8 +184,8 @@ TEST_F(TestCanMsgTxSession, send_empty_payload)
         return true;
     });
 
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
 TEST_F(TestCanMsgTxSession, send_empty_expired_payload)
@@ -210,8 +211,8 @@ TEST_F(TestCanMsgTxSession, send_empty_expired_payload)
     // Emulate run calls just on the very edge of the default 1s timeout (exactly at the deadline).
     // Payload should NOT be sent but dropped instead.
     //
-    scheduler_.runNow(+timeout, [&] { transport->run(now()); });
-    scheduler_.runNow(+1us, [&] { transport->run(now()); });
+    scheduler_.runNow(+timeout, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+1us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
 TEST_F(TestCanMsgTxSession, send_7bytes_payload_with_500ms_timeout)
@@ -249,8 +250,8 @@ TEST_F(TestCanMsgTxSession, send_7bytes_payload_with_500ms_timeout)
         return true;
     });
     //
-    scheduler_.runNow(timeout - 1us, [&] { transport->run(now()); });
-    scheduler_.runNow(+0us, [&] { transport->run(now()); });
+    scheduler_.runNow(timeout - 1us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+0us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
 TEST_F(TestCanMsgTxSession, send_when_no_memory_for_contiguous_payload)

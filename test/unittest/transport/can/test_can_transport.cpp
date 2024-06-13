@@ -3,20 +3,23 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include "../../cetl_gtest_helpers.hpp"
 #include "../../gtest_helpers.hpp"
 #include "../../memory_resource_mock.hpp"
-#include "../../test_utilities.hpp"
 #include "../../tracking_memory_resource.hpp"
+#include "../../verification_utilities.hpp"
 #include "../../virtual_time_scheduler.hpp"
 #include "media_mock.hpp"
 
 #include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/rtti.hpp>
 #include <libcyphal/transport/can/media.hpp>
 #include <libcyphal/transport/can/transport.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
+#include <libcyphal/transport/transport.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
@@ -25,6 +28,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -38,12 +42,13 @@ using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
 using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
 
-using libcyphal::test_utilities::b;
-using libcyphal::test_utilities::makeIotaArray;
-using libcyphal::test_utilities::makeSpansFrom;
+using libcyphal::verification_utilities::b;
+using libcyphal::verification_utilities::makeIotaArray;
+using libcyphal::verification_utilities::makeSpansFrom;
 
 using testing::_;
 using testing::Eq;
+using testing::Truly;
 using testing::Return;
 using testing::SizeIs;
 using testing::IsEmpty;
@@ -56,13 +61,38 @@ using testing::ElementsAre;
 using testing::VariantWith;
 
 // https://github.com/llvm/llvm-project/issues/53444
-// NOLINTBEGIN(misc-unused-using-decls)
+// NOLINTBEGIN(misc-unused-using-decls, misc-include-cleaner)
 using std::literals::chrono_literals::operator""s;
 using std::literals::chrono_literals::operator""ms;
 using std::literals::chrono_literals::operator""us;
-// NOLINTEND(misc-unused-using-decls)
+// NOLINTEND(misc-unused-using-decls, misc-include-cleaner)
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+
+class MyPlatformError final : public IPlatformError
+{
+public:
+    explicit MyPlatformError(std::uint32_t code)
+        : code_{code}
+    {
+    }
+    virtual ~MyPlatformError() noexcept                    = default;
+    MyPlatformError(const MyPlatformError&)                = default;
+    MyPlatformError(MyPlatformError&&) noexcept            = default;
+    MyPlatformError& operator=(const MyPlatformError&)     = default;
+    MyPlatformError& operator=(MyPlatformError&&) noexcept = default;
+
+    // MARK: IPlatformError
+
+    std::uint32_t code() const noexcept override
+    {
+        return code_;
+    }
+
+private:
+    std::uint32_t code_;
+
+};  // MyPlatformError
 
 class TestCanTransport : public testing::Test
 {
@@ -75,8 +105,7 @@ protected:
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
-        // TODO: Uncomment this when PMR deleter is fixed.
-        // EXPECT_EQ(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+        EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
     TimePoint now() const
@@ -201,22 +230,22 @@ TEST_F(TestCanTransport, setLocalNodeId)
     EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX + 1), Optional(testing::A<ArgumentError>()));
     EXPECT_THAT(transport->getLocalNodeId(), Eq(cetl::nullopt));
 
-    transport->run(now());
+    EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
 
     EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX), Eq(cetl::nullopt));
     EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
 
-    transport->run(now());
+    EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
 
     EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX), Eq(cetl::nullopt));
     EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
 
-    transport->run(now());
+    EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
 
     EXPECT_THAT(transport->setLocalNodeId(0), Optional(testing::A<ArgumentError>()));
     EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
 
-    transport->run(now());
+    EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
 }
 
 TEST_F(TestCanTransport, makeTransport_with_invalid_arguments)
@@ -344,8 +373,8 @@ TEST_F(TestCanTransport, sending_multiframe_payload_should_fail_for_anonymous)
     auto maybe_error = session->send(metadata, makeSpansFrom(payload));
     EXPECT_THAT(maybe_error, Optional(VariantWith<ArgumentError>(_)));
 
-    scheduler_.runNow(+10us, [&] { transport->run(now()); });
-    scheduler_.runNow(10us, [&] { session->run(now()); });
+    scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(10us, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 }
 
 TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
@@ -394,8 +423,8 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
         });
     }
 
-    scheduler_.runNow(+10us, [&] { transport->run(now()); });
-    scheduler_.runNow(+10us, [&] { transport->run(now()); });
+    scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -460,9 +489,9 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
         expectMediaCalls(media_mock_, "M#1", send_time + 20us);
     }
 
-    scheduler_.runNow(+10us, [&] { transport->run(now()); });
-    scheduler_.runNow(+10us, [&] { transport->run(now()); });
-    scheduler_.runNow(+10us, [&] { transport->run(now()); });
+    scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -500,7 +529,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
             return cetl::nullopt;
         });
 
-        scheduler_.runNow(+10us, [&] { transport->run(now()); });
+        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     }
 
     const auto epoch = TimePoint{10s};
@@ -560,13 +589,13 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
             return can::RxMetadata{rx2_timestamp + 1ms, 0b111'1'0'0'101111011'0010011'0110001, 6};
         });
     }
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-    scheduler_.runNow(+10ms, [&] { session->run(now()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
     scheduler_.setNow(rx2_timestamp);
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-    scheduler_.runNow(+10ms, [&] { session->run(now()); });
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-    scheduler_.runNow(+10ms, [&] { session->run(now()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
     const auto maybe_rx_transfer = session->receive();
     ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -602,8 +631,8 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
 
         session.reset();
 
-        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     }
 }
 
@@ -620,12 +649,12 @@ TEST_F(TestCanTransport, setLocalNodeId_when_msg_rx_subscription)
         EXPECT_THAT(now(), TimePoint{1s});
         return cetl::nullopt;
     });
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 
     ASSERT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
 
     // No `setFilters` expected b/c there is no service RX subscriptions.
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
 TEST_F(TestCanTransport, setLocalNodeId_when_svc_rx_subscription)
@@ -645,7 +674,7 @@ TEST_F(TestCanTransport, setLocalNodeId_when_svc_rx_subscription)
         EXPECT_THAT(filters, Contains(can::FilterEq({0x4200, 0x21FFF80})));
         return cetl::nullopt;
     });
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 
     ASSERT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
 
@@ -655,10 +684,10 @@ TEST_F(TestCanTransport, setLocalNodeId_when_svc_rx_subscription)
         EXPECT_THAT(filters, Contains(can::FilterEq({0x025EC980, 0x02FFFF80})));
         return cetl::nullopt;
     });
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
-TEST_F(TestCanTransport, run_when_no_memory_for_filters)
+TEST_F(TestCanTransport, run_setFilters_no_memory)
 {
     StrictMock<MemoryResourceMock> mr_mock{};
     mr_mock.redirectExpectedCallsTo(mr_);
@@ -676,16 +705,31 @@ TEST_F(TestCanTransport, run_when_no_memory_for_filters)
 #if (__cplusplus < CETL_CPP_STANDARD_17)
     EXPECT_CALL(mr_mock, do_reallocate(nullptr, 0, _, _)).Times(2).WillRepeatedly(Return(nullptr));
 #endif
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+    scheduler_.runNow(+1s, [&] {
+        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<MemoryError>(_)));
+    });
+    scheduler_.runNow(+1s, [&] {
+        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<MemoryError>(_)));
+    });
 
     // Restore normal memory operation, but make media fail to accept filters.
     //
     mr_mock.redirectExpectedCallsTo(mr_);
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).Times(2).WillRepeatedly(Return(PlatformError{13}));
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).Times(2).WillRepeatedly(Return(PlatformError{MyPlatformError{13}}));
     //
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+    scheduler_.runNow(+1s, [&] {
+        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<PlatformError>(Truly([](auto err) {
+                        EXPECT_THAT(err->code(), 13);
+                        return true;
+                    }))));
+    });
+    scheduler_.runNow(+1s, [&] {
+        EXPECT_THAT(transport->run(now()),
+                    UbVariantWith<AnyError>(VariantWith<PlatformError>(Truly([](const auto& err) {
+                        EXPECT_THAT(err->code(), 13);
+                        return true;
+                    }))));
+    });
 
     // And finally, make the media accept filters - should happen once (@5s)!
     //
@@ -693,10 +737,103 @@ TEST_F(TestCanTransport, run_when_no_memory_for_filters)
         EXPECT_THAT(now(), TimePoint{5s});
         return cetl::nullopt;
     });
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
-    scheduler_.runNow(+1s, [&] { transport->run(now()); });
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+}
+
+TEST_F(TestCanTransport, run_setFilters_no_transient_handler)
+{
+    StrictMock<can::MediaMock> media_mock2{};
+    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock2, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+
+    auto transport = makeTransport(mr_, &media_mock2);
+
+    auto maybe_msg_session = transport->makeMessageRxSession({0, 0x42});
+    ASSERT_THAT(maybe_msg_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+
+    // 1st `run`: No transient handler for setFilters,
+    //            so `media_mock_.setFilters` error will be returned (and no call to `media_mock2`).
+    //
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(CapacityError{}));
+    //
+    scheduler_.runNow(+1s, [&] {
+        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<CapacityError>(_)));
+    });
+
+    // 2nd `run`: Now `media_mock_.setFilters` succeeds,
+    //            and so redundant `media_mock2` will be called as well.
+    //
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
+    //
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+
+    // 3rd `run`: Will do nothing.
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+}
+
+TEST_F(TestCanTransport, run_setFilters_with_transient_handler)
+{
+    StrictMock<can::MediaMock> media_mock2{};
+    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock2, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+
+    auto transport = makeTransport(mr_, &media_mock2);
+
+    auto maybe_msg_session = transport->makeMessageRxSession({0, 0x42});
+    ASSERT_THAT(maybe_msg_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+
+    // 1st `run`: Transient handler for `setFilters` call will fail to handle the error,
+    //            so the handler's result error will be returned (and no call to `media_mock2`).
+    //
+    transport->setTransientErrorHandler([](ITransport::AnyErrorReport& report) {
+        EXPECT_THAT(report.error, VariantWith<CapacityError>(_));
+        return StateError{};
+    });
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(CapacityError{}));
+    //
+    scheduler_.runNow(+1s,
+                      [&] { EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<StateError>(_))); });
+
+    // 2nd `run`: `media_mock_.setFilters` will fail again but now handler will handle the error,
+    //            and so redundant `media_mock2` will be called as well.
+    //
+    transport->setTransientErrorHandler([](ITransport::AnyErrorReport& report) {
+        EXPECT_THAT(report.error, VariantWith<CapacityError>(_));
+        return cetl::nullopt;
+    });
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(CapacityError{}));
+    EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
+    //
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+
+    // 3rd `run`: Will still try set filters (b/c there was transient error before).
+    //
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
+    //
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+
+    // 4th `run`: Will do nothing.
+    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 }  // namespace
+
+namespace cetl
+{
+
+// Just random id: AD188CA2-0582-47A0-BCCF-C20E5E146213
+template <>
+constexpr type_id type_id_getter<MyPlatformError>() noexcept
+{
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+    return {0xAD, 0x18, 0x8C, 0xA2, 0x05, 0x82, 0x47, 0xA0, 0xBC, 0xCF, 0xC2, 0x0E, 0x5E, 0x14, 0x62, 0x13};
+}
+
+}  // namespace cetl

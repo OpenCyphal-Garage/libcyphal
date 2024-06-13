@@ -13,6 +13,7 @@
 #include "svc_rx_sessions.hpp"
 #include "svc_tx_sessions.hpp"
 
+#include "libcyphal/runnable.hpp"
 #include "libcyphal/transport/contiguous_payload.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
@@ -42,7 +43,17 @@ namespace can
 {
 
 class ICanTransport : public ITransport
-{};
+{
+public:
+    ICanTransport(const ICanTransport&)                = delete;
+    ICanTransport(ICanTransport&&) noexcept            = delete;
+    ICanTransport& operator=(const ICanTransport&)     = delete;
+    ICanTransport& operator=(ICanTransport&&) noexcept = delete;
+
+protected:
+    ICanTransport()  = default;
+    ~ICanTransport() = default;
+};
 
 /// Internal implementation details of the CAN transport.
 /// Not supposed to be used directly by the users of the library.
@@ -55,7 +66,7 @@ namespace detail
 /// NOSONAR cpp:S4963 for below `class TransportImpl` - we do directly handle resources here;
 /// namely: in destructor we have to unsubscribe, as well as let delegate to know this fact.
 ///
-class TransportImpl final : public ICanTransport, private TransportDelegate  // NOSONAR cpp:S4963
+class TransportImpl final : private TransportDelegate, public ICanTransport  // NOSONAR cpp:S4963
 {
     /// @brief Defines specification for making interface unique ptr.
     ///
@@ -155,7 +166,7 @@ public:
     TransportImpl& operator=(const TransportImpl&)     = delete;
     TransportImpl& operator=(TransportImpl&&) noexcept = delete;
 
-    ~TransportImpl() override
+    ~TransportImpl()
     {
         for (Media& media : media_array_)
         {
@@ -226,6 +237,11 @@ private:
                               CANARD_NODE_ID_MAX + 1};
     }
 
+    void setTransientErrorHandler(TransientErrorHandler handler) override
+    {
+        transient_error_handler_ = std::move(handler);
+    }
+
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
         const MessageRxParams& params) override
     {
@@ -282,11 +298,18 @@ private:
 
     // MARK: IRunnable
 
-    void run(const TimePoint now) override
+    CETL_NODISCARD IRunnable::MaybeError run(const TimePoint now) override
     {
         runMediaTransmit(now);
         runMediaReceive();
-        runMediaFilters();
+
+        cetl::optional<AnyError> any_error = runMediaFilters();
+        if (any_error.has_value())
+        {
+            return any_error.value();
+        }
+
+        return {};
     }
 
     // MARK: TransportDelegate
@@ -372,6 +395,13 @@ private:
 
     // MARK: Privates:
 
+    template <typename ErrorVariant>
+    CETL_NODISCARD static AnyError anyErrorFromVariant(ErrorVariant&& other_error_var)
+    {
+        return cetl::visit([](auto&& error) -> AnyError { return std::forward<decltype(error)>(error); },
+                           std::forward<ErrorVariant>(other_error_var));
+    }
+
     CETL_NODISCARD cetl::optional<AnyError> ensureNewSessionFor(const CanardTransferKind transfer_kind,
                                                                 const PortId             port_id) noexcept
     {
@@ -385,10 +415,10 @@ private:
         return {};
     }
 
-    static MediaArray make_media_array(cetl::pmr::memory_resource& memory,
-                                       const std::size_t           media_count,
-                                       const cetl::span<IMedia*>   media_interfaces,
-                                       const std::size_t           tx_capacity)
+    CETL_NODISCARD static MediaArray make_media_array(cetl::pmr::memory_resource& memory,
+                                                      const std::size_t           media_count,
+                                                      const cetl::span<IMedia*>   media_interfaces,
+                                                      const std::size_t           tx_capacity)
     {
         MediaArray media_array{media_count, &memory};
 
@@ -527,11 +557,11 @@ private:
     /// But in case of any failure (memory allocation or media error),
     /// `should_reconfigure_filters_` will stay engaged (`true`), so that we will try again on next run.
     ///
-    void runMediaFilters()
+    CETL_NODISCARD cetl::optional<AnyError> runMediaFilters()
     {
         if (!should_reconfigure_filters_)
         {
-            return;
+            return cetl::nullopt;
         }
 
         libcyphal::detail::VarArray<Filter> filters{&memory()};
@@ -539,7 +569,7 @@ private:
         {
             // This is out of memory situation. We will just leave this run,
             // but `should_reconfigure_filters_` will stay engaged, so we will try again on next run.
-            return;
+            return MemoryError{};
         }
 
         // Let each media interface know about the new filters (tracking the fact of possible media error).
@@ -547,12 +577,26 @@ private:
         bool was_error = false;
         for (const Media& media : media_array_)
         {
-            const cetl::optional<MediaError> maybe_error =
-                media.interface().setFilters({filters.data(), filters.size()});
-            if (maybe_error.has_value())
+            cetl::optional<MediaError> media_error = media.interface().setFilters({filters.data(), filters.size()});
+            if (media_error.has_value())
             {
-                was_error = true;
-                // TODO: report error somehow.
+                was_error      = true;
+                auto any_error = anyErrorFromVariant(std::move(media_error.value()));
+
+                // If we don't have a transient error handler we will just leave this run with this failure as is.
+                // Note that `should_reconfigure_filters_` still stays engaged, so we will try again on next run.
+                //
+                if (!transient_error_handler_)
+                {
+                    return any_error;
+                }
+
+                AnyErrorReport           report{std::move(any_error), &media.interface()};
+                cetl::optional<AnyError> handling_error = transient_error_handler_(report);
+                if (handling_error.has_value())
+                {
+                    return handling_error;
+                }
             }
         }
 
@@ -560,11 +604,13 @@ private:
         {
             should_reconfigure_filters_ = false;
         }
+
+        return cetl::nullopt;
     }
 
     /// @brief Fills an array with filters for each active RX port.
     ///
-    bool fillMediaFiltersArray(libcyphal::detail::VarArray<Filter>& filters)
+    CETL_NODISCARD bool fillMediaFiltersArray(libcyphal::detail::VarArray<Filter>& filters)
     {
         using RxSubscription     = const CanardRxSubscription;
         using RxSubscriptionTree = CanardConcreteTree<RxSubscription>;
@@ -626,10 +672,11 @@ private:
 
     // MARK: Data members:
 
-    MediaArray  media_array_;
-    bool        should_reconfigure_filters_;
-    std::size_t total_message_ports_;
-    std::size_t total_service_ports_;
+    MediaArray            media_array_;
+    bool                  should_reconfigure_filters_;
+    std::size_t           total_message_ports_;
+    std::size_t           total_service_ports_;
+    TransientErrorHandler transient_error_handler_;
 
 };  // TransportImpl
 

@@ -8,12 +8,14 @@
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
-#include <cetl/pmr/memory.hpp>
+#include <cetl/pmr/interface_ptr.hpp>
+#include <cetl/unbounded_variant.hpp>
 #include <cetl/variable_length_array.hpp>
 
 #include <chrono>
 #include <cstdint>
 #include <ratio>
+#include <type_traits>
 
 namespace libcyphal
 {
@@ -50,11 +52,53 @@ using TimePoint = MonotonicClock::time_point;
 using Duration  = MonotonicClock::duration;
 
 template <typename T>
-using UniquePtr = cetl::pmr::Factory::unique_ptr_t<cetl::pmr::polymorphic_allocator<T>>;
+using UniquePtr = cetl::pmr::InterfacePtr<T>;
 
 // TODO: Maybe introduce `cetl::expected` at CETL repo.
 template <typename Success, typename Failure>
 using Expected = cetl::variant<Success, Failure>;
+
+/// A generalized implementation of https://www.fluentcpp.com/2021/01/29/inheritance-without-pointers/
+/// that works with any `cetl::unbounded_variant`.
+///
+/// The instance is always initialized with a valid value, but it may turn valueless if the value is moved.
+/// The `Any` type can be a `cetl::unbounded_variant`.
+///
+template <typename Interface, typename Any>
+class ImplementationCell final
+{
+public:
+    template <typename Impl,
+              typename ImplD = std::decay_t<Impl>,
+              typename       = std::enable_if_t<std::is_base_of<Interface, ImplD>::value>>
+    explicit ImplementationCell(Impl&& object)
+        : any_(std::forward<Impl>(object))
+        , fn_getter_mut_{[](Any& any) -> Interface* { return cetl::get_if<ImplD>(&any); }}
+        , fn_getter_const_{[](const Any& any) -> const Interface* { return cetl::get_if<ImplD>(&any); }}
+    {
+    }
+
+    Interface* operator->()
+    {
+        return fn_getter_mut_(any_);
+    }
+
+    const Interface* operator->() const
+    {
+        return fn_getter_const_(any_);
+    }
+
+    explicit operator bool() const
+    {
+        return any_.has_value();
+    }
+
+private:
+    Any any_;
+    Interface* (*fn_getter_mut_)(Any&);
+    const Interface* (*fn_getter_const_)(const Any&);
+
+};  // ImplementationCell
 
 namespace detail
 {
@@ -68,13 +112,8 @@ using VarArray = cetl::VariableLengthArray<T, PmrAllocator<T>>;
 template <typename Spec, typename... Args>
 CETL_NODISCARD UniquePtr<typename Spec::Interface> makeUniquePtr(cetl::pmr::memory_resource& memory, Args&&... args)
 {
-    PmrAllocator<typename Spec::Concrete> allocator{&memory};
-    auto interface_deleter = typename UniquePtr<typename Spec::Interface>::deleter_type{allocator, 1};
-
-    auto concrete  = cetl::pmr::Factory::make_unique(allocator, std::forward<Args>(args)...);
-    auto interface = UniquePtr<typename Spec::Interface>{concrete.release(), interface_deleter};
-
-    return interface;
+    return cetl::pmr::InterfaceFactory::make_unique<
+        typename Spec::Interface>(PmrAllocator<typename Spec::Concrete>{&memory}, std::forward<Args>(args)...);
 }
 
 }  // namespace detail

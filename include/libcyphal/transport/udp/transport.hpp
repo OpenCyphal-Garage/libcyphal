@@ -8,6 +8,7 @@
 
 #include "media.hpp"
 
+#include "libcyphal/runnable.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/multiplexer.hpp"
@@ -29,7 +30,17 @@ namespace udp
 {
 
 class IUdpTransport : public ITransport
-{};
+{
+public:
+    IUdpTransport(const IUdpTransport&)                = delete;
+    IUdpTransport(IUdpTransport&&) noexcept            = delete;
+    IUdpTransport& operator=(const IUdpTransport&)     = delete;
+    IUdpTransport& operator=(IUdpTransport&&) noexcept = delete;
+
+protected:
+    IUdpTransport()  = default;
+    ~IUdpTransport() = default;
+};
 
 /// Internal implementation details of the UDP transport.
 /// Not supposed to be used directly by the users of the library.
@@ -89,6 +100,11 @@ private:
         return ProtocolParams{};
     }
 
+    void setTransientErrorHandler(TransientErrorHandler handler) override
+    {
+        transient_error_handler_ = std::move(handler);
+    }
+
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
         const MessageRxParams&) override
     {
@@ -122,7 +138,14 @@ private:
 
     // MARK: IRunnable
 
-    void run(const TimePoint) override {}
+    CETL_NODISCARD IRunnable::MaybeError run(const TimePoint) override
+    {
+        return AnyError{NotImplementedError{}};
+    }
+
+    // MARK: Data members:
+
+    TransientErrorHandler transient_error_handler_;
 
 };  // TransportImpl
 

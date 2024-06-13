@@ -15,6 +15,8 @@
 #include "libcyphal/types.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pmr/function.hpp>
+#include <cetl/unbounded_variant.hpp>
 
 namespace libcyphal
 {
@@ -26,6 +28,42 @@ namespace transport
 class ITransport : public IRunnable
 {
 public:
+    /// Defines structure for reporting transport errors to the user's handler.
+    ///
+    /// In addition to the error itself, it provides a pointer to the entity that has caused this error.
+    ///
+    struct AnyErrorReport final
+    {
+        /// Holds any transport error.
+        ///
+        AnyError error;
+
+        /// Holds pointer to an interface of the entity that has caused this error for enhanced context.
+        ///
+        /// In case of the media entity, it's the `IMedia` interface pointer.
+        ///
+        cetl::unbounded_variant<sizeof(void*)> culprit;
+    };
+
+    /// @brief Defines signature of a transient error handler.
+    ///
+    /// @param report The error report to be handled. It's made as non-const ref to allow the handler to modify it,
+    ///               and f.e. reuse original `.error` field value by moving it as is to return result.
+    /// @return An optional (maybe different) error back to the transport.
+    ///         - If `cetl::nullopt` is returned, the original error (in the `report`) is considered handled
+    ///           and transport will continue its current process (effectively either ignoring such transient failure,
+    ///           or retrying the process later on its next run).
+    ///         - If an error is returned, the transport will stop current process
+    ///           and return this (potentially new or converted) error to the user (via `run` result).
+    ///
+    using TransientErrorHandler =
+        cetl::pmr::function<cetl::optional<AnyError>(AnyErrorReport& report), sizeof(void*) * 3>;
+
+    ITransport(const ITransport&)                = delete;
+    ITransport(ITransport&&) noexcept            = delete;
+    ITransport& operator=(const ITransport&)     = delete;
+    ITransport& operator=(ITransport&&) noexcept = delete;
+
     /// @brief Gets the protocol parameters.
     ///
     /// @return Almost the same parameters as they were passed to the corresponding transport layer factory.
@@ -62,6 +100,8 @@ public:
     ///
     virtual cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept = 0;
 
+    virtual void setTransientErrorHandler(TransientErrorHandler handler) = 0;
+
     /// @brief Makes a message receive (RX) session.
     ///
     /// The RX session must never outlive this transport interface.
@@ -97,6 +137,10 @@ public:
     /// The TX session must never outlive this transport interface.
     ///
     virtual Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(const ResponseTxParams& params) = 0;
+
+protected:
+    ITransport()  = default;
+    ~ITransport() = default;
 
 };  // ITransport
 

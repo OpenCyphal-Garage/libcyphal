@@ -3,6 +3,7 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include "../../cetl_gtest_helpers.hpp"
 #include "../../gtest_helpers.hpp"
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
@@ -23,6 +24,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <chrono>
 #include <utility>
 
 namespace
@@ -45,10 +47,10 @@ using testing::ElementsAre;
 using testing::VariantWith;
 
 // https://github.com/llvm/llvm-project/issues/53444
-// NOLINTBEGIN(misc-unused-using-decls)
+// NOLINTBEGIN(misc-unused-using-decls, misc-include-cleaner)
 using std::literals::chrono_literals::operator""s;
 using std::literals::chrono_literals::operator""ms;
-// NOLINTEND(misc-unused-using-decls)
+// NOLINTEND(misc-unused-using-decls, misc-include-cleaner)
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
@@ -63,8 +65,7 @@ protected:
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
-        // TODO: Uncomment this when PMR deleter is fixed.
-        // EXPECT_EQ(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+        EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
     TimePoint now() const
@@ -107,7 +108,7 @@ TEST_F(TestCanSvcTxSessions, make_request_session)
     EXPECT_THAT(session->getParams().service_id, 123);
     EXPECT_THAT(session->getParams().server_node_id, CANARD_NODE_ID_MAX);
 
-    session->run(now());
+    EXPECT_THAT(session->run(now()), UbVariantWithoutValue());
 }
 
 TEST_F(TestCanSvcTxSessions, make_request_fails_due_to_argument_error)
@@ -174,8 +175,8 @@ TEST_F(TestCanSvcTxSessions, send_request)
         return true;
     });
 
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
 TEST_F(TestCanSvcTxSessions, send_request_with_argument_error)
@@ -207,8 +208,8 @@ TEST_F(TestCanSvcTxSessions, send_request_with_argument_error)
         const auto maybe_error = session->send(metadata, empty_payload);
         EXPECT_THAT(maybe_error, Optional(VariantWith<ArgumentError>(_)));
 
-        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     }
 
     // Fix anonymous node
@@ -232,8 +233,8 @@ TEST_F(TestCanSvcTxSessions, send_request_with_argument_error)
             return true;
         });
 
-        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     }
 }
 
@@ -247,7 +248,7 @@ TEST_F(TestCanSvcTxSessions, make_response_session)
 
     EXPECT_THAT(session->getParams().service_id, 123);
 
-    session->run(now());
+    EXPECT_THAT(session->run(now()), UbVariantWithoutValue());
 }
 
 TEST_F(TestCanSvcTxSessions, make_response_fails_due_to_argument_error)
@@ -306,8 +307,8 @@ TEST_F(TestCanSvcTxSessions, send_respose)
         return true;
     });
 
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-    scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
 TEST_F(TestCanSvcTxSessions, send_respose_with_argument_error)
@@ -335,8 +336,8 @@ TEST_F(TestCanSvcTxSessions, send_respose_with_argument_error)
         const auto maybe_error = session->send(metadata, empty_payload);
         EXPECT_THAT(maybe_error, Optional(VariantWith<ArgumentError>(_)));
 
-        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     }
 
     // Fix anonymous node, but break remote node id.
@@ -348,8 +349,8 @@ TEST_F(TestCanSvcTxSessions, send_respose_with_argument_error)
         const auto maybe_error  = session->send(metadata, empty_payload);
         EXPECT_THAT(maybe_error, Optional(VariantWith<ArgumentError>(_)));
 
-        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
-        scheduler_.runNow(+10ms, [&] { transport->run(now()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     }
 }
 

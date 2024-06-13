@@ -45,6 +45,11 @@ struct ResponseTxParams final
 class ISvcRxSession : public IRxSession
 {
 public:
+    ISvcRxSession(const ISvcRxSession&)                = delete;
+    ISvcRxSession(ISvcRxSession&&) noexcept            = delete;
+    ISvcRxSession& operator=(const ISvcRxSession&)     = delete;
+    ISvcRxSession& operator=(ISvcRxSession&&) noexcept = delete;
+
     /// @brief Receives a service transfer (request or response) from the transport layer.
     ///
     /// Method is not blocking, and will return immediately if no transfer is available.
@@ -52,17 +57,35 @@ public:
     /// @return A service transfer if available; otherwise an empty optional.
     ///
     virtual cetl::optional<ServiceRxTransfer> receive() = 0;
+
+protected:
+    ISvcRxSession()  = default;
+    ~ISvcRxSession() = default;
 };
 
 class IRequestRxSession : public ISvcRxSession
 {
 public:
+    IRequestRxSession(const IRequestRxSession&)                = delete;
+    IRequestRxSession(IRequestRxSession&&) noexcept            = delete;
+    IRequestRxSession& operator=(const IRequestRxSession&)     = delete;
+    IRequestRxSession& operator=(IRequestRxSession&&) noexcept = delete;
+
     virtual RequestRxParams getParams() const noexcept = 0;
+
+protected:
+    IRequestRxSession()  = default;
+    ~IRequestRxSession() = default;
 };
 
 class IRequestTxSession : public ITxSession
 {
 public:
+    IRequestTxSession(const IRequestTxSession&)                = delete;
+    IRequestTxSession(IRequestTxSession&&) noexcept            = delete;
+    IRequestTxSession& operator=(const IRequestTxSession&)     = delete;
+    IRequestTxSession& operator=(IRequestTxSession&&) noexcept = delete;
+
     virtual RequestTxParams getParams() const noexcept = 0;
 
     /// @brief Sends a service request to the transport layer.
@@ -73,17 +96,35 @@ public:
     ///
     virtual cetl::optional<AnyError> send(const TransferMetadata& metadata,
                                           const PayloadFragments  payload_fragments) = 0;
+
+protected:
+    IRequestTxSession()  = default;
+    ~IRequestTxSession() = default;
 };
 
 class IResponseRxSession : public ISvcRxSession
 {
 public:
+    IResponseRxSession(const IResponseRxSession&)                = delete;
+    IResponseRxSession(IResponseRxSession&&) noexcept            = delete;
+    IResponseRxSession& operator=(const IResponseRxSession&)     = delete;
+    IResponseRxSession& operator=(IResponseRxSession&&) noexcept = delete;
+
     virtual ResponseRxParams getParams() const noexcept = 0;
+
+protected:
+    IResponseRxSession()  = default;
+    ~IResponseRxSession() = default;
 };
 
 class IResponseTxSession : public ITxSession
 {
 public:
+    IResponseTxSession(const IResponseTxSession&)                = delete;
+    IResponseTxSession(IResponseTxSession&&) noexcept            = delete;
+    IResponseTxSession& operator=(const IResponseTxSession&)     = delete;
+    IResponseTxSession& operator=(IResponseTxSession&&) noexcept = delete;
+
     virtual ResponseTxParams getParams() const noexcept = 0;
 
     /// @brief Sends a service response to the transport layer.
@@ -94,6 +135,10 @@ public:
     ///
     virtual cetl::optional<AnyError> send(const ServiceTransferMetadata& metadata,
                                           const PayloadFragments         payload_fragments) = 0;
+
+protected:
+    IResponseTxSession()  = default;
+    ~IResponseTxSession() = default;
 };
 
 }  // namespace transport

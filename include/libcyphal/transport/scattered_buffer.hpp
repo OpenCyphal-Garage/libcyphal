@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
 
+#include <cetl/pf17/cetlpf.hpp>
 #include <cetl/rtti.hpp>
 #include <cetl/unbounded_variant.hpp>
 

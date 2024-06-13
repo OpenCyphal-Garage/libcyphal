@@ -8,6 +8,7 @@
 
 #include "delegate.hpp"
 
+#include "libcyphal/runnable.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -40,7 +41,7 @@ namespace detail
 /// NOSONAR cpp:S4963 for below `class MessageRxSession` - we do directly handle resources here;
 /// namely: in destructor we have to unsubscribe, as well as let delegate to know this fact.
 ///
-class MessageRxSession final : public IMessageRxSession, private IRxSessionDelegate  // NOSONAR cpp:S4963
+class MessageRxSession final : private IRxSessionDelegate, public IMessageRxSession  // NOSONAR cpp:S4963
 {
     /// @brief Defines specification for making interface unique ptr.
     ///
@@ -97,7 +98,7 @@ public:
     MessageRxSession& operator=(const MessageRxSession&)     = delete;
     MessageRxSession& operator=(MessageRxSession&&) noexcept = delete;
 
-    ~MessageRxSession() override
+    ~MessageRxSession()
     {
         const int8_t result =
             ::canardRxUnsubscribe(&delegate_.canard_instance(), CanardTransferKindMessage, params_.subject_id);
@@ -136,9 +137,10 @@ private:
 
     // MARK: IRunnable
 
-    void run(const TimePoint) override
+    IRunnable::MaybeError run(const TimePoint) override
     {
         // Nothing to do here currently.
+        return {};
     }
 
     // MARK: IRxSessionDelegate
