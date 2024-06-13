@@ -136,7 +136,7 @@ public:
             return ArgumentError{};
         }
 
-        MediaArray media_array{makeMediaArray(memory, media_count, media, tx_capacity)};
+        MediaArray media_array = makeMediaArray(memory, media_count, media, tx_capacity);
         if (media_array.size() != media_count)
         {
             return MemoryError{};

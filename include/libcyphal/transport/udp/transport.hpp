@@ -236,7 +236,7 @@ private:
             return ArgumentError{};
         }
 
-        local_node_id_ = static_cast<UdpardNodeID>(node_id);
+        local_node_id_ = node_id;
 
         return cetl::nullopt;
     }
