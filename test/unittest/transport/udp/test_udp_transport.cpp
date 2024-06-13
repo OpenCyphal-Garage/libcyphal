@@ -23,7 +23,8 @@ namespace
 {
 
 using libcyphal::UniquePtr;
-using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
 using testing::Eq;
 using testing::Return;
@@ -60,7 +61,7 @@ protected:
     // NOLINTBEGIN
     TrackingMemoryResource      mr_;
     StrictMock<MultiplexerMock> mux_mock_{};
-    StrictMock<udp::MediaMock>  media_mock_{};
+    StrictMock<MediaMock>       media_mock_{};
     // NOLINTEND
 };
 

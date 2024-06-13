@@ -3,9 +3,10 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_HPP_INCLUDED
-#define LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_HPP_INCLUDED
+#ifndef LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_IMPL_HPP_INCLUDED
+#define LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_IMPL_HPP_INCLUDED
 
+#include "can_transport.hpp"
 #include "delegate.hpp"
 #include "media.hpp"
 #include "msg_rx_session.hpp"
@@ -18,7 +19,6 @@
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
-#include "libcyphal/transport/transport.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
 
@@ -41,19 +41,6 @@ namespace transport
 {
 namespace can
 {
-
-class ICanTransport : public ITransport
-{
-public:
-    ICanTransport(const ICanTransport&)                = delete;
-    ICanTransport(ICanTransport&&) noexcept            = delete;
-    ICanTransport& operator=(const ICanTransport&)     = delete;
-    ICanTransport& operator=(ICanTransport&&) noexcept = delete;
-
-protected:
-    ICanTransport()  = default;
-    ~ICanTransport() = default;
-};
 
 /// Internal implementation details of the CAN transport.
 /// Not supposed to be used directly by the users of the library.
@@ -179,6 +166,13 @@ public:
     }
 
 private:
+    // MARK: ICanTransport
+
+    void setTransientErrorHandler(TransientErrorHandler handler) override
+    {
+        transient_error_handler_ = std::move(handler);
+    }
+
     // MARK: ITransport
 
     CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
@@ -236,11 +230,6 @@ private:
         return ProtocolParams{static_cast<TransferId>(1) << CANARD_TRANSFER_ID_BIT_LENGTH,
                               min_mtu,
                               CANARD_NODE_ID_MAX + 1};
-    }
-
-    void setTransientErrorHandler(TransientErrorHandler handler) override
-    {
-        transient_error_handler_ = std::move(handler);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
@@ -362,7 +351,7 @@ private:
                                                        payload.size(),
                                                        payload.data());
 
-            opt_any_error = tryHandleTransientCanardResult(result, AnyErrorReport::Operation::TxPush, media);
+            opt_any_error = tryHandleTransientCanardResult<TransientErrorReport::CanardTxPush>(result, media);
             if (opt_any_error.has_value())
             {
                 // The handler (if any) just said that it's NOT fine to continue with pushing to other media TX queues,
@@ -417,9 +406,8 @@ private:
                            std::forward<ErrorVariant>(other_error_var));
     }
 
-    cetl::optional<AnyError> tryHandleTransientMediaError(MediaError&&                    media_error,
-                                                          const AnyErrorReport::Operation operation,
-                                                          const Media&                    media)
+    template <typename Report>
+    CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientMediaError(MediaError&& media_error, const Media& media)
     {
         AnyError any_error = anyErrorFromVariant(std::move(media_error));
         if (!transient_error_handler_)
@@ -427,19 +415,21 @@ private:
             return any_error;
         }
 
-        AnyErrorReport report{std::move(any_error), operation, media.index(), &media.interface()};
-        return transient_error_handler_(report);
+        TransientErrorReport::Variant report_var{Report{std::move(any_error), media.index(), media.interface()}};
+        return transient_error_handler_(report_var);
     }
 
-    cetl::optional<AnyError> tryHandleTransientCanardResult(const std::int32_t              result,
-                                                            const AnyErrorReport::Operation operation,
-                                                            const Media&                    media)
+    template <typename Report>
+    CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientCanardResult(const std::int32_t result,
+                                                                           const Media&       media)
     {
         cetl::optional<AnyError> opt_any_error = optAnyErrorFromCanard(result);
         if (opt_any_error.has_value() && transient_error_handler_)
         {
-            AnyErrorReport report{std::move(opt_any_error.value()), operation, media.index(), &canard_instance()};
-            opt_any_error = transient_error_handler_(report);
+            TransientErrorReport::Variant report_var{
+                Report{std::move(opt_any_error.value()), media.index(), canard_instance()}};
+
+            opt_any_error = transient_error_handler_(report_var);
         }
         return opt_any_error;
     }
@@ -518,7 +508,7 @@ private:
         Expected<cetl::optional<RxMetadata>, MediaError> pop_result = media.interface().pop(payload);
         if (auto* media_error = cetl::get_if<MediaError>(&pop_result))
         {
-            return tryHandleTransientMediaError(std::move(*media_error), AnyErrorReport::Operation::MediaPop, media);
+            return tryHandleTransientMediaError<TransientErrorReport::MediaPop>(std::move(*media_error), media);
         }
         const auto* const opt_rx_meta = cetl::get_if<cetl::optional<RxMetadata>>(&pop_result);
         if ((opt_rx_meta == nullptr) || !opt_rx_meta->has_value())
@@ -542,7 +532,7 @@ private:
                                                     &out_transfer,
                                                     &out_subscription);
         cetl::optional<AnyError> opt_any_error =
-            tryHandleTransientCanardResult(result, AnyErrorReport::Operation::RxAccept, media);
+            tryHandleTransientCanardResult<TransientErrorReport::CanardRxAccept>(result, media);
         if (!opt_any_error.has_value() && (result > 0))
         {
             CETL_DEBUG_ASSERT(out_subscription != nullptr, "Expected subscription.");
@@ -617,7 +607,7 @@ private:
                 popAndFreeCanardTxQueueItem();
 
                 cetl::optional<AnyError> opt_any_error =
-                    tryHandleTransientMediaError(std::move(*media_error), AnyErrorReport::Operation::MediaPush, media);
+                    tryHandleTransientMediaError<TransientErrorReport::MediaPush>(std::move(*media_error), media);
                 if (!opt_any_error.has_value())
                 {
                     // The handler (if any) just said that it's fine to continue with pushing other frames
@@ -684,9 +674,8 @@ private:
                 was_error = true;
 
                 cetl::optional<AnyError> opt_any_error =
-                    tryHandleTransientMediaError(std::move(media_error.value()),
-                                                 AnyErrorReport::Operation::MediaConfig,
-                                                 media);
+                    tryHandleTransientMediaError<TransientErrorReport::MediaConfig>(std::move(media_error.value()),
+                                                                                    media);
                 if (opt_any_error.has_value())
                 {
                     // The handler (if any) just said that it's NOT fine to continue with configuring other media,
@@ -800,4 +789,4 @@ inline Expected<UniquePtr<ICanTransport>, FactoryError> makeTransport(cetl::pmr:
 }  // namespace transport
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_HPP_INCLUDED
+#endif  // LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_IMPL_HPP_INCLUDED

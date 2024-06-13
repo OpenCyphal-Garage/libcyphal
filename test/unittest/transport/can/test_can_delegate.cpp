@@ -27,7 +27,8 @@ namespace
 {
 
 using libcyphal::TimePoint;
-using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport::can;  // NOLINT This our main concern here in the unit tests.
 
 using cetl::byte;
 using libcyphal::verification_utilities::b;

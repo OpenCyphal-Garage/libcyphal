@@ -348,17 +348,4 @@ protected:
 }  // namespace transport
 }  // namespace libcyphal
 
-namespace cetl
-{
-
-// C5D9A2FB-C3F8-45F9-A96A-5A4FE9D4F38D
-template <>
-constexpr type_id type_id_getter<struct CanardInstance*>() noexcept
-{
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
-    return {0xC5, 0xD9, 0xA2, 0xFB, 0xC3, 0xF8, 0x45, 0xF9, 0xA9, 0x6A, 0x5A, 0x4F, 0xE9, 0xD4, 0xF3, 0x8D};
-}
-
-}  // namespace cetl
-
 #endif  // LIBCYPHAL_TRANSPORT_CAN_DELEGATE_HPP_INCLUDED

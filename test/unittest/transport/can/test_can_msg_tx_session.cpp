@@ -4,18 +4,19 @@
 /// SPDX-License-Identifier: MIT
 
 #include "../../cetl_gtest_helpers.hpp"
-#include "../../gtest_helpers.hpp"
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
 #include "../../verification_utilities.hpp"
 #include "../../virtual_time_scheduler.hpp"
+#include "can_gtest_helpers.hpp"
 #include "media_mock.hpp"
 
 #include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/transport/can/can_transport.hpp>
+#include <libcyphal/transport/can/can_transport_impl.hpp>
 #include <libcyphal/transport/can/media.hpp>
 #include <libcyphal/transport/can/msg_tx_session.hpp>
-#include <libcyphal/transport/can/transport.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
@@ -25,7 +26,6 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <chrono>
 #include <utility>
 
 namespace
@@ -33,7 +33,8 @@ namespace
 
 using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
-using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport::can;  // NOLINT This our main concern here in the unit tests.
 
 using cetl::byte;
 using libcyphal::verification_utilities::b;
@@ -78,13 +79,13 @@ protected:
         return scheduler_.now();
     }
 
-    UniquePtr<can::ICanTransport> makeTransport(cetl::pmr::memory_resource& mr)
+    UniquePtr<ICanTransport> makeTransport(cetl::pmr::memory_resource& mr)
     {
-        std::array<can::IMedia*, 1> media_array{&media_mock_};
+        std::array<IMedia*, 1> media_array{&media_mock_};
 
         auto maybe_transport = can::makeTransport(mr, media_array, 16);
-        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
-        return cetl::get<UniquePtr<can::ICanTransport>>(std::move(maybe_transport));
+        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
+        return cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
     }
 
     // MARK: Data members:
@@ -92,7 +93,7 @@ protected:
     // NOLINTBEGIN
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
-    StrictMock<can::MediaMock>      media_mock_{};
+    StrictMock<MediaMock>           media_mock_{};
     // NOLINTEND
 };
 
@@ -176,10 +177,10 @@ TEST_F(TestCanMsgTxSession, send_empty_payload)
     EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto payload) {
         EXPECT_THAT(now(), send_time + 10ms);
         EXPECT_THAT(deadline, send_time + timeout);
-        EXPECT_THAT(can_id, can::SubjectOfCanIdEq(123));
-        EXPECT_THAT(can_id, AllOf(can::PriorityOfCanIdEq(metadata.priority), can::IsMessageCanId()));
+        EXPECT_THAT(can_id, SubjectOfCanIdEq(123));
+        EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
 
-        auto tbm = can::TailByteEq(metadata.transfer_id);
+        auto tbm = TailByteEq(metadata.transfer_id);
         EXPECT_THAT(payload, ElementsAre(tbm));
         return true;
     });
@@ -242,10 +243,10 @@ TEST_F(TestCanMsgTxSession, send_7bytes_payload_with_500ms_timeout)
     //
     EXPECT_CALL(media_mock_, push(TimePoint{send_time + timeout}, _, _)).WillOnce([&](auto, auto can_id, auto payload) {
         EXPECT_THAT(now(), send_time + timeout - 1us);
-        EXPECT_THAT(can_id, can::SubjectOfCanIdEq(17));
-        EXPECT_THAT(can_id, AllOf(can::PriorityOfCanIdEq(metadata.priority), can::IsMessageCanId()));
+        EXPECT_THAT(can_id, SubjectOfCanIdEq(17));
+        EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
 
-        auto tbm = can::TailByteEq(metadata.transfer_id);
+        auto tbm = TailByteEq(metadata.transfer_id);
         EXPECT_THAT(payload, ElementsAre(b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), b('7'), tbm));
         return true;
     });

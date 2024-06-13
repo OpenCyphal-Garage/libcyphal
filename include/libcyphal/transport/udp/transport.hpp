@@ -40,6 +40,8 @@ namespace transport
 namespace udp
 {
 
+/// @brief Defines interface of UDP transport layer.
+///
 class IUdpTransport : public ITransport
 {
 public:
@@ -249,11 +251,6 @@ private:
         return ProtocolParams{};
     }
 
-    void setTransientErrorHandler(TransientErrorHandler handler) override
-    {
-        transient_error_handler_ = std::move(handler);
-    }
-
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
         const MessageRxParams&) override
     {
@@ -329,7 +326,6 @@ private:
 
     MediaArray            media_array_;
     UdpardNodeID          local_node_id_;
-    TransientErrorHandler transient_error_handler_;
 
 };  // TransportImpl
 
