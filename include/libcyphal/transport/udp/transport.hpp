@@ -172,7 +172,10 @@ public:
                                                makeUdpardMemoryDeleter(mem_res_spec.payload, mem_res_spec.general)};
 
         const UdpardNodeID unset_node_id = UDPARD_NODE_ID_UNSET;
-        MediaArray         media_array   = makeMediaArray(mem_res_spec.general,
+
+        // False positive of clang-tidy - we move `media_array` to the `transport` instance.
+        // NOLINTNEXTLINE(misc-const-correctness)
+        MediaArray media_array = makeMediaArray(mem_res_spec.general,
                                                 media_count,
                                                 media,
                                                 &unset_node_id,
@@ -187,7 +190,7 @@ public:
                                                                 Spec{},
                                                                 memory_resources,
                                                                 multiplexer,
-                                                                media_array);
+                                                                std::move(media_array));
         if (transport == nullptr)
         {
             return MemoryError{};
@@ -196,7 +199,7 @@ public:
         return transport;
     }
 
-    TransportImpl(Spec, const MemoryResources& memory_resources, IMultiplexer& multiplexer, MediaArray& media_array)
+    TransportImpl(Spec, const MemoryResources& memory_resources, IMultiplexer& multiplexer, MediaArray&& media_array)
         : TransportDelegate{memory_resources}
         , media_array_{std::move(media_array)}
         , local_node_id_{UDPARD_NODE_ID_UNSET}

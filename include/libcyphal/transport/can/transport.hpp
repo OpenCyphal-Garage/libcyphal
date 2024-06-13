@@ -136,13 +136,15 @@ public:
             return ArgumentError{};
         }
 
+        // False positive of clang-tidy - we move `media_array` to the `transport` instance.
+        // NOLINTNEXTLINE(misc-const-correctness)
         MediaArray media_array = makeMediaArray(memory, media_count, media, tx_capacity);
         if (media_array.size() != media_count)
         {
             return MemoryError{};
         }
 
-        auto transport = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, memory, media_array);
+        auto transport = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, memory, std::move(media_array));
         if (transport == nullptr)
         {
             return MemoryError{};
@@ -151,7 +153,7 @@ public:
         return transport;
     }
 
-    TransportImpl(Spec, cetl::pmr::memory_resource& memory, MediaArray& media_array)
+    TransportImpl(Spec, cetl::pmr::memory_resource& memory, MediaArray&& media_array)
         : TransportDelegate{memory}
         , media_array_{std::move(media_array)}
         , should_reconfigure_filters_{false}
