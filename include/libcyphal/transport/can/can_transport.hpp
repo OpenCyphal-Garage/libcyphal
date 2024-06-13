@@ -6,9 +6,9 @@
 #ifndef LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_HPP_INCLUDED
 
-#include "libcyphal/transport/can/media.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/transport.hpp"
+#include "media.hpp"
 
 #include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>

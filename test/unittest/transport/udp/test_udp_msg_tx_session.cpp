@@ -3,8 +3,6 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "../../cetl_gtest_helpers.hpp"
-#include "../../gtest_helpers.hpp"
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
 #include "../../verification_utilities.hpp"
@@ -13,12 +11,13 @@
 #include "media_mock.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <libcyphal/transport/udp/media.hpp>
-#include <libcyphal/transport/udp/msg_tx_session.hpp>
-#include <libcyphal/transport/udp/transport.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
+#include <libcyphal/transport/udp/media.hpp>
+#include <libcyphal/transport/udp/msg_tx_session.hpp>
+#include <libcyphal/transport/udp/udp_transport.hpp>
+#include <libcyphal/transport/udp/udp_transport_impl.hpp>
 #include <libcyphal/types.hpp>
 #include <udpard.h>
 
@@ -26,7 +25,6 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <chrono>
 #include <utility>
 
 namespace
@@ -34,7 +32,8 @@ namespace
 
 using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
-using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
 using cetl::byte;
 using libcyphal::verification_utilities::b;
@@ -79,13 +78,13 @@ protected:
         return scheduler_.now();
     }
 
-    UniquePtr<udp::IUdpTransport> makeTransport(cetl::pmr::memory_resource& mr)
+    UniquePtr<IUdpTransport> makeTransport(cetl::pmr::memory_resource& mr)
     {
-        std::array<udp::IMedia*, 1> media_array{&media_mock_};
+        std::array<IMedia*, 1> media_array{&media_mock_};
 
         auto maybe_transport = udp::makeTransport({mr}, mux_mock_, media_array, 16);
-        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<udp::IUdpTransport>>(NotNull()));
-        return cetl::get<UniquePtr<udp::IUdpTransport>>(std::move(maybe_transport));
+        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<IUdpTransport>>(NotNull()));
+        return cetl::get<UniquePtr<IUdpTransport>>(std::move(maybe_transport));
     }
 
     // MARK: Data members:
@@ -94,7 +93,7 @@ protected:
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
     StrictMock<MultiplexerMock>     mux_mock_{};
-    StrictMock<udp::MediaMock>      media_mock_{};
+    StrictMock<MediaMock>           media_mock_{};
     // NOLINTEND
 };
 
@@ -180,10 +179,10 @@ TEST_F(TestUdpMsgTxSession, send_empty_payload)
     EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto payload) {
         EXPECT_THAT(now(), send_time + 10ms);
         EXPECT_THAT(deadline, send_time + timeout);
-        EXPECT_THAT(can_id, udp::SubjectOfCanIdEq(123));
-        EXPECT_THAT(can_id, AllOf(udp::PriorityOfCanIdEq(metadata.priority), udp::IsMessageCanId()));
+        EXPECT_THAT(can_id, SubjectOfCanIdEq(123));
+        EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
 
-        auto tbm = udp::TailByteEq(metadata.transfer_id);
+        auto tbm = TailByteEq(metadata.transfer_id);
         EXPECT_THAT(payload, ElementsAre(tbm));
         return true;
     });
@@ -246,10 +245,10 @@ TEST_F(TestUdpMsgTxSession, send_7bytes_payload_with_500ms_timeout)
     //
     EXPECT_CALL(media_mock_, push(TimePoint{send_time + timeout}, _, _)).WillOnce([&](auto, auto can_id, auto payload) {
         EXPECT_THAT(now(), send_time + timeout - 1us);
-        EXPECT_THAT(can_id, udp::SubjectOfCanIdEq(17));
-        EXPECT_THAT(can_id, AllOf(udp::PriorityOfCanIdEq(metadata.priority), udp::IsMessageCanId()));
+        EXPECT_THAT(can_id, SubjectOfCanIdEq(17));
+        EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
 
-        auto tbm = udp::TailByteEq(metadata.transfer_id);
+        auto tbm = TailByteEq(metadata.transfer_id);
         EXPECT_THAT(payload, ElementsAre(b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), b('7'), tbm));
         return true;
     });

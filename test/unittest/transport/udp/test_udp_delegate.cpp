@@ -19,7 +19,8 @@ namespace
 {
 
 using libcyphal::TimePoint;
-using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
 using testing::_;
 using testing::Eq;
@@ -94,7 +95,7 @@ TEST_F(TestUdpDelegate, makeUdpardMemoryResource)
     EXPECT_THAT(udp_mem_res1.deallocate, NotNull());
 
     StrictMock<MemoryResourceMock> mr_mock{};
-    const auto udp_mem_res2 = TransportDelegateImpl::makeUdpardMemoryResource(&mr_mock, mr_);
+    const auto                     udp_mem_res2 = TransportDelegateImpl::makeUdpardMemoryResource(&mr_mock, mr_);
     EXPECT_THAT(udp_mem_res2.user_reference, &mr_mock);
     EXPECT_THAT(udp_mem_res2.allocate, NotNull());
     EXPECT_THAT(udp_mem_res2.deallocate, NotNull());
@@ -107,7 +108,7 @@ TEST_F(TestUdpDelegate, makeUdpardMemoryDeleter)
     EXPECT_THAT(udp_mr_del1.deallocate, NotNull());
 
     StrictMock<MemoryResourceMock> mr_mock{};
-    const auto udp_mr_del2 = TransportDelegateImpl::makeUdpardMemoryDeleter(&mr_mock, mr_);
+    const auto                     udp_mr_del2 = TransportDelegateImpl::makeUdpardMemoryDeleter(&mr_mock, mr_);
     EXPECT_THAT(udp_mr_del2.user_reference, &mr_mock);
     EXPECT_THAT(udp_mr_del2.deallocate, NotNull());
 }

@@ -4,7 +4,6 @@
 /// SPDX-License-Identifier: MIT
 
 #include "../../cetl_gtest_helpers.hpp"
-#include "../../gtest_helpers.hpp"
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
 #include "../../virtual_time_scheduler.hpp"
@@ -12,12 +11,13 @@
 #include "media_mock.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <libcyphal/transport/udp/media.hpp>
-#include <libcyphal/transport/udp/svc_tx_sessions.hpp>
-#include <libcyphal/transport/udp/transport.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
+#include <libcyphal/transport/udp/media.hpp>
+#include <libcyphal/transport/udp/svc_tx_sessions.hpp>
+#include <libcyphal/transport/udp/udp_transport.hpp>
+#include <libcyphal/transport/udp/udp_transport_impl.hpp>
 #include <libcyphal/types.hpp>
 #include <udpard.h>
 
@@ -25,7 +25,6 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <chrono>
 #include <utility>
 
 namespace
@@ -33,7 +32,8 @@ namespace
 
 using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
-using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
 using cetl::byte;
 
@@ -74,13 +74,13 @@ protected:
         return scheduler_.now();
     }
 
-    UniquePtr<udp::IUdpTransport> makeTransport(cetl::pmr::memory_resource& mr, const NodeId local_node_id)
+    UniquePtr<IUdpTransport> makeTransport(cetl::pmr::memory_resource& mr, const NodeId local_node_id)
     {
-        std::array<udp::IMedia*, 1> media_array{&media_mock_};
+        std::array<IMedia*, 1> media_array{&media_mock_};
 
         auto maybe_transport = udp::makeTransport({mr}, mux_mock_, media_array, 16);
-        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<udp::IUdpTransport>>(NotNull()));
-        auto transport = cetl::get<UniquePtr<udp::IUdpTransport>>(std::move(maybe_transport));
+        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<IUdpTransport>>(NotNull()));
+        auto transport = cetl::get<UniquePtr<IUdpTransport>>(std::move(maybe_transport));
 
         transport->setLocalNodeId(local_node_id);
 
@@ -93,7 +93,7 @@ protected:
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
     StrictMock<MultiplexerMock>     mux_mock_{};
-    StrictMock<udp::MediaMock>      media_mock_{};
+    StrictMock<MediaMock>           media_mock_{};
     // NOLINTEND
 };
 
@@ -170,11 +170,11 @@ TEST_F(TestUdpSvcTxSessions, send_request)
     EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto payload) {
         EXPECT_THAT(now(), send_time + 10ms);
         EXPECT_THAT(deadline, send_time + timeout);
-        EXPECT_THAT(can_id, udp::ServiceOfCanIdEq(123));
-        EXPECT_THAT(can_id, AllOf(udp::SourceNodeOfCanIdEq(13), udp::DestinationNodeOfCanIdEq(31)));
-        EXPECT_THAT(can_id, AllOf(udp::PriorityOfCanIdEq(metadata.priority), udp::IsServiceCanId()));
+        EXPECT_THAT(can_id, ServiceOfCanIdEq(123));
+        EXPECT_THAT(can_id, AllOf(SourceNodeOfCanIdEq(13), DestinationNodeOfCanIdEq(31)));
+        EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsServiceCanId()));
 
-        auto tbm = udp::TailByteEq(metadata.transfer_id);
+        auto tbm = TailByteEq(metadata.transfer_id);
         EXPECT_THAT(payload, ElementsAre(tbm));
         return true;
     });
@@ -189,10 +189,10 @@ TEST_F(TestUdpSvcTxSessions, send_request_with_argument_error)
 
     // Make initially anonymous node transport.
     //
-    std::array<udp::IMedia*, 1> media_array{&media_mock_};
+    std::array<IMedia*, 1> media_array{&media_mock_};
     auto                        maybe_transport = udp::makeTransport(mr_, media_array, 2);
-    ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<udp::IUdpTransport>>(NotNull()));
-    auto transport = cetl::get<UniquePtr<udp::IUdpTransport>>(std::move(maybe_transport));
+    ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<IUdpTransport>>(NotNull()));
+    auto transport = cetl::get<UniquePtr<IUdpTransport>>(std::move(maybe_transport));
 
     auto maybe_session = transport->makeRequestTxSession({123, 31});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestTxSession>>(NotNull()));
@@ -228,11 +228,11 @@ TEST_F(TestUdpSvcTxSessions, send_request_with_argument_error)
         EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto payload) {
             EXPECT_THAT(now(), send_time + 10ms);
             EXPECT_THAT(deadline, transfer_time + timeout);
-            EXPECT_THAT(can_id, udp::ServiceOfCanIdEq(123));
-            EXPECT_THAT(can_id, AllOf(udp::SourceNodeOfCanIdEq(13), udp::DestinationNodeOfCanIdEq(31)));
-            EXPECT_THAT(can_id, AllOf(udp::PriorityOfCanIdEq(metadata.priority), udp::IsServiceCanId()));
+            EXPECT_THAT(can_id, ServiceOfCanIdEq(123));
+            EXPECT_THAT(can_id, AllOf(SourceNodeOfCanIdEq(13), DestinationNodeOfCanIdEq(31)));
+            EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsServiceCanId()));
 
-            auto tbm = udp::TailByteEq(metadata.transfer_id);
+            auto tbm = TailByteEq(metadata.transfer_id);
             EXPECT_THAT(payload, ElementsAre(tbm));
             return true;
         });
@@ -302,11 +302,11 @@ TEST_F(TestUdpSvcTxSessions, send_respose)
     EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto payload) {
         EXPECT_THAT(now(), send_time + 10ms);
         EXPECT_THAT(deadline, send_time + timeout);
-        EXPECT_THAT(can_id, udp::ServiceOfCanIdEq(123));
-        EXPECT_THAT(can_id, AllOf(udp::SourceNodeOfCanIdEq(31), udp::DestinationNodeOfCanIdEq(13)));
-        EXPECT_THAT(can_id, AllOf(udp::PriorityOfCanIdEq(metadata.priority), udp::IsServiceCanId()));
+        EXPECT_THAT(can_id, ServiceOfCanIdEq(123));
+        EXPECT_THAT(can_id, AllOf(SourceNodeOfCanIdEq(31), DestinationNodeOfCanIdEq(13)));
+        EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsServiceCanId()));
 
-        auto tbm = udp::TailByteEq(metadata.transfer_id);
+        auto tbm = TailByteEq(metadata.transfer_id);
         EXPECT_THAT(payload, ElementsAre(tbm));
         return true;
     });
@@ -321,10 +321,10 @@ TEST_F(TestUdpSvcTxSessions, send_respose_with_argument_error)
 
     // Make initially anonymous node transport.
     //
-    std::array<udp::IMedia*, 1> media_array{&media_mock_};
+    std::array<IMedia*, 1> media_array{&media_mock_};
     auto                        maybe_transport = udp::makeTransport(mr_, media_array, 2);
-    ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<udp::IUdpTransport>>(NotNull()));
-    auto transport = cetl::get<UniquePtr<udp::IUdpTransport>>(std::move(maybe_transport));
+    ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<IUdpTransport>>(NotNull()));
+    auto transport = cetl::get<UniquePtr<IUdpTransport>>(std::move(maybe_transport));
 
     auto maybe_session = transport->makeResponseTxSession({123});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseTxSession>>(NotNull()));
