@@ -100,11 +100,6 @@ private:
         return ProtocolParams{};
     }
 
-    void setTransientErrorHandler(TransientErrorHandler handler) override
-    {
-        transient_error_handler_ = std::move(handler);
-    }
-
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
         const MessageRxParams&) override
     {
@@ -144,8 +139,6 @@ private:
     }
 
     // MARK: Data members:
-
-    TransientErrorHandler transient_error_handler_;
 
 };  // TransportImpl
 

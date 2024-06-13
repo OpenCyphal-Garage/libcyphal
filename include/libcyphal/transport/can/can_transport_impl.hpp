@@ -3,9 +3,10 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_HPP_INCLUDED
-#define LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_HPP_INCLUDED
+#ifndef LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_IMPL_HPP_INCLUDED
+#define LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_IMPL_HPP_INCLUDED
 
+#include "can_transport.hpp"
 #include "delegate.hpp"
 #include "media.hpp"
 #include "msg_rx_session.hpp"
@@ -18,7 +19,6 @@
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
-#include "libcyphal/transport/transport.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
 
@@ -41,19 +41,6 @@ namespace transport
 {
 namespace can
 {
-
-class ICanTransport : public ITransport
-{
-public:
-    ICanTransport(const ICanTransport&)                = delete;
-    ICanTransport(ICanTransport&&) noexcept            = delete;
-    ICanTransport& operator=(const ICanTransport&)     = delete;
-    ICanTransport& operator=(ICanTransport&&) noexcept = delete;
-
-protected:
-    ICanTransport()  = default;
-    ~ICanTransport() = default;
-};
 
 /// Internal implementation details of the CAN transport.
 /// Not supposed to be used directly by the users of the library.
@@ -178,6 +165,13 @@ public:
     }
 
 private:
+    // MARK: ICanTransport
+
+    void setTransientErrorHandler(TransientErrorHandler handler) override
+    {
+        transient_error_handler_ = std::move(handler);
+    }
+
     // MARK: ITransport
 
     CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
@@ -235,11 +229,6 @@ private:
         return ProtocolParams{static_cast<TransferId>(1) << CANARD_TRANSFER_ID_BIT_LENGTH,
                               min_mtu,
                               CANARD_NODE_ID_MAX + 1};
-    }
-
-    void setTransientErrorHandler(TransientErrorHandler handler) override
-    {
-        transient_error_handler_ = std::move(handler);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
@@ -799,4 +788,4 @@ inline Expected<UniquePtr<ICanTransport>, FactoryError> makeTransport(cetl::pmr:
 }  // namespace transport
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_HPP_INCLUDED
+#endif  // LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_IMPL_HPP_INCLUDED

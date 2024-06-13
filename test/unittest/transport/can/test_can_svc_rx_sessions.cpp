@@ -12,9 +12,9 @@
 
 #include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/transport/can/can_transport_impl.hpp>
 #include <libcyphal/transport/can/media.hpp>
 #include <libcyphal/transport/can/svc_rx_sessions.hpp>
-#include <libcyphal/transport/can/transport.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
@@ -25,7 +25,6 @@
 
 #include <array>
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
 #include <utility>
 
@@ -34,7 +33,8 @@ namespace
 
 using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
-using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport::can;  // NOLINT This our main concern here in the unit tests.
 
 using cetl::byte;
 using libcyphal::verification_utilities::b;
@@ -78,13 +78,13 @@ protected:
         return scheduler_.now();
     }
 
-    UniquePtr<can::ICanTransport> makeTransport(cetl::pmr::memory_resource& mr, const NodeId local_node_id)
+    UniquePtr<ICanTransport> makeTransport(cetl::pmr::memory_resource& mr, const NodeId local_node_id)
     {
-        std::array<can::IMedia*, 1> media_array{&media_mock_};
+        std::array<IMedia*, 1> media_array{&media_mock_};
 
         auto maybe_transport = can::makeTransport(mr, media_array, 0);
-        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
-        auto transport = cetl::get<UniquePtr<can::ICanTransport>>(std::move(maybe_transport));
+        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
+        auto transport = cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
 
         transport->setLocalNodeId(local_node_id);
 
@@ -96,7 +96,7 @@ protected:
     // NOLINTBEGIN
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
-    StrictMock<can::MediaMock>      media_mock_{};
+    StrictMock<MediaMock>           media_mock_{};
     // NOLINTEND
 };
 
@@ -169,9 +169,9 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_requests)
             p[0] = b(42);
             p[1] = b(147);
             p[2] = b(0b111'11101);
-            return can::RxMetadata{rx_timestamp, 0b011'1'1'0'101111011'0110001'0010011, 3};
+            return RxMetadata{rx_timestamp, 0b011'1'1'0'101111011'0110001'0010011, 3};
         });
-        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](can::Filters filters) {
+        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
             EXPECT_THAT(now(), rx_timestamp + 10ms);
             EXPECT_THAT(filters[0].id, 0b1'0'0'101111011'0110001'0000000);
             EXPECT_THAT(filters[0].mask, 0b1'0'1'111111111'1111111'0000000);
@@ -242,9 +242,9 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_two_frame)
             p[5] = b('5');
             p[6] = b('6');
             p[7] = b(0b101'11110);
-            return can::RxMetadata{rx_timestamp, 0b000'1'1'0'101111011'0110001'0010011, 8};
+            return RxMetadata{rx_timestamp, 0b000'1'1'0'101111011'0110001'0010011, 8};
         });
-        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](can::Filters filters) {
+        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
             EXPECT_THAT(now(), rx_timestamp + 10ms);
             EXPECT_THAT(filters[0].id, 0b1'0'0'101111011'0110001'0000000);
             EXPECT_THAT(filters[0].mask, 0b1'0'1'111111111'1111111'0000000);
@@ -259,7 +259,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_two_frame)
             p[3] = b(0x7D);
             p[4] = b(0x61);  // expected 16-bit CRC
             p[5] = b(0b010'11110);
-            return can::RxMetadata{rx_timestamp, 0b000'1'1'0'101111011'0110001'0010011, 6};
+            return RxMetadata{rx_timestamp, 0b000'1'1'0'101111011'0110001'0010011, 6};
         });
     }
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
@@ -296,7 +296,7 @@ TEST_F(TestCanSvcRxSessions, unsubscribe_and_run)
     const auto reset_time = now();
 
     EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-    EXPECT_CALL(media_mock_, setFilters(IsEmpty())).WillOnce([&](can::Filters) {
+    EXPECT_CALL(media_mock_, setFilters(IsEmpty())).WillOnce([&](Filters) {
         EXPECT_THAT(now(), reset_time + 10ms);
         return cetl::nullopt;
     });

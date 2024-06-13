@@ -9,13 +9,14 @@
 #include "../../tracking_memory_resource.hpp"
 #include "../../verification_utilities.hpp"
 #include "../../virtual_time_scheduler.hpp"
+#include "can_gtest_helpers.hpp"
 #include "media_mock.hpp"
 
 #include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/transport/can/can_transport_impl.hpp>
 #include <libcyphal/transport/can/media.hpp>
 #include <libcyphal/transport/can/msg_rx_session.hpp>
-#include <libcyphal/transport/can/transport.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
@@ -25,7 +26,6 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <chrono>
 #include <utility>
 
 namespace
@@ -33,7 +33,8 @@ namespace
 
 using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
-using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport::can;  // NOLINT This our main concern here in the unit tests.
 
 using cetl::byte;
 using libcyphal::verification_utilities::b;
@@ -77,13 +78,13 @@ protected:
         return scheduler_.now();
     }
 
-    UniquePtr<can::ICanTransport> makeTransport(cetl::pmr::memory_resource& mr)
+    UniquePtr<ICanTransport> makeTransport(cetl::pmr::memory_resource& mr)
     {
-        std::array<can::IMedia*, 1> media_array{&media_mock_};
+        std::array<IMedia*, 1> media_array{&media_mock_};
 
         auto maybe_transport = can::makeTransport(mr, media_array, 0);
-        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<can::ICanTransport>>(NotNull()));
-        return cetl::get<UniquePtr<can::ICanTransport>>(std::move(maybe_transport));
+        EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
+        return cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
     }
 
     // MARK: Data members:
@@ -91,7 +92,7 @@ protected:
     // NOLINTBEGIN
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
-    StrictMock<can::MediaMock>      media_mock_{};
+    StrictMock<MediaMock>           media_mock_{};
     // NOLINTEND
 };
 
@@ -156,11 +157,11 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
             p[0] = b('0');
             p[1] = b('1');
             p[2] = b(0b111'01101);
-            return can::RxMetadata{rx_timestamp, 0x0C'60'23'45, 3};
+            return RxMetadata{rx_timestamp, 0x0C'60'23'45, 3};
         });
-        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](can::Filters filters) {
+        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
             EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(filters, Contains(can::FilterEq({0x2300, 0x21FFF80})));
+            EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
             return cetl::nullopt;
         });
 
@@ -222,11 +223,11 @@ TEST_F(TestCanMsgRxSession, run_and_receive_one_anonymous_frame)
             p[0] = b('1');
             p[1] = b('2');
             p[2] = b(0b111'01110);
-            return can::RxMetadata{rx_timestamp, 0x01'60'23'13, 3};
+            return RxMetadata{rx_timestamp, 0x01'60'23'13, 3};
         });
-        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](can::Filters filters) {
+        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
             EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(filters, Contains(can::FilterEq({0x2300, 0x21FFF80})));
+            EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
             return cetl::nullopt;
         });
     }
@@ -262,7 +263,7 @@ TEST_F(TestCanMsgRxSession, unsubscribe_and_run)
     const auto reset_time = now();
 
     EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-    EXPECT_CALL(media_mock_, setFilters(IsEmpty())).WillOnce([&](can::Filters) {
+    EXPECT_CALL(media_mock_, setFilters(IsEmpty())).WillOnce([&](Filters) {
         EXPECT_THAT(now(), reset_time + 10ms);
         return cetl::nullopt;
     });
