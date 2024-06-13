@@ -111,36 +111,35 @@ protected:
                                                          cetl::pmr::memory_resource&       general)
     {
         return UdpardMemoryResource{(custom != nullptr) ? custom : &general,
-                                    udpardMemoryDeallocate,
-                                    udpardMemoryAllocate};
+                                    deallocateMemoryForUdpard,
+                                    allocateMemoryForUdpard};
     }
 
     static UdpardMemoryDeleter makeUdpardMemoryDeleter(cetl::pmr::memory_resource* const custom,
                                                        cetl::pmr::memory_resource&       general)
     {
-        return UdpardMemoryDeleter{(custom != nullptr) ? custom : &general, udpardMemoryDeallocate};
+        return UdpardMemoryDeleter{(custom != nullptr) ? custom : &general, deallocateMemoryForUdpard};
     }
 
 private:
-    /// @brief Converts type erased user pointer to the transport delegate.
+    /// @brief Allocates memory for udpard.
     ///
-    /// In use to bridge two worlds: Udpard library and transport entities.
+    /// NOSONAR cpp:S5008 is unavoidable: this is integration with low-level C code of Udpard memory management.
     ///
-    CETL_NODISCARD static TransportDelegate& getSelfFrom(void* const self)
-    {
-        CETL_DEBUG_ASSERT(self != nullptr, "Expected non-null pointer.");
-
-        return *static_cast<TransportDelegate*>(self);
-    }
-
-    static void* udpardMemoryAllocate(void* const user_reference, const size_t size)
+    static void* allocateMemoryForUdpard(void* const user_reference, const size_t size)  // NOSONAR cpp:S5008
     {
         auto* mr = static_cast<cetl::pmr::memory_resource*>(user_reference);
         CETL_DEBUG_ASSERT(mr != nullptr, "Memory resource should not be null.");
         return mr->allocate(size);
     }
 
-    static void udpardMemoryDeallocate(void* const user_reference, const size_t size, void* const pointer)
+    /// @brief Releases memory allocated for udpard (by previous `allocateMemoryForUdpard` call).
+    ///
+    /// NOSONAR cpp:S5008 is unavoidable: this is integration with low-level C code of Udpard memory management.
+    ///
+    static void deallocateMemoryForUdpard(void* const  user_reference,  // NOSONAR cpp:S5008
+                                          const size_t size,
+                                          void* const  pointer)  // NOSONAR cpp:S5008
     {
         auto* mr = static_cast<cetl::pmr::memory_resource*>(user_reference);
         CETL_DEBUG_ASSERT(mr != nullptr, "Memory resource should not be null.");

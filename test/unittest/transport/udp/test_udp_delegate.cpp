@@ -112,14 +112,14 @@ TEST_F(TestUdpDelegate, makeUdpardMemoryDeleter)
     EXPECT_THAT(udp_mr_del2.deallocate, NotNull());
 }
 
-TEST_F(TestUdpDelegate, udpardMemoryAllocate_udpardMemoryDeallocate)
+TEST_F(TestUdpDelegate, allocateMemoryForUdpard_deallocateMemoryForUdpard)
 {
     StrictMock<MemoryResourceMock> mr_mock{};
     mr_mock.redirectExpectedCallsTo(mr_);
 
-    TransportDelegateImpl delegate{mr_mock};
+    const TransportDelegateImpl delegate{mr_mock};
 
-    auto& fragment_mr = delegate.memoryResources().fragment;
+    const auto& fragment_mr = delegate.memoryResources().fragment;
 
     auto* mem_ptr = fragment_mr.allocate(fragment_mr.user_reference, 1);
     EXPECT_THAT(mem_ptr, NotNull());
@@ -127,16 +127,16 @@ TEST_F(TestUdpDelegate, udpardMemoryAllocate_udpardMemoryDeallocate)
     fragment_mr.deallocate(fragment_mr.user_reference, 1, mem_ptr);
 }
 
-TEST_F(TestUdpDelegate, udpardMemoryAllocate_no_memory)
+TEST_F(TestUdpDelegate, allocateMemoryForUdpard_no_memory)
 {
     StrictMock<MemoryResourceMock> mr_mock{};
 
-    TransportDelegateImpl delegate{mr_mock};
+    const TransportDelegateImpl delegate{mr_mock};
 
     // Emulate that there is no memory at all.
     EXPECT_CALL(mr_mock, do_allocate(1, _)).WillOnce(Return(nullptr));
 
-    auto& session_mr = delegate.memoryResources().session;
+    const auto& session_mr = delegate.memoryResources().session;
     EXPECT_THAT(session_mr.allocate(session_mr.user_reference, 1), IsNull());
 }
 
