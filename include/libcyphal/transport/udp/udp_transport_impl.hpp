@@ -31,7 +31,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 #include <utility>
 
 namespace libcyphal
@@ -114,13 +113,13 @@ public:
                                                                                 const std::size_t          tx_capacity)
     {
         // Verify input arguments:
-        // - At least one media interface must be provided, but no more than the maximum allowed (255).
+        // - At least one media interface must be provided, but no more than the maximum allowed (3).
         //
         const auto media_count =
             static_cast<std::size_t>(std::count_if(media.begin(), media.end(), [](const IMedia* const media_ptr) {
                 return media_ptr != nullptr;
             }));
-        if ((media_count == 0) || (media_count > std::numeric_limits<std::uint8_t>::max()))
+        if ((media_count == 0) || (media_count > UDPARD_NETWORK_INTERFACE_COUNT_MAX))
         {
             return ArgumentError{};
         }
@@ -189,6 +188,11 @@ private:
 
     CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept override
     {
+        if (node_id > UDPARD_NODE_ID_MAX)
+        {
+            return ArgumentError{};
+        }
+
         // Allow setting the same node ID multiple times, but only once otherwise.
         //
         if (local_node_id_ == node_id)
@@ -254,6 +258,7 @@ private:
     {
         return SvcRequestTxSession::make(asDelegate(), params);
     }
+
     CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(
         const ResponseRxParams& params) override
     {
@@ -266,6 +271,7 @@ private:
 
         return SvcResponseRxSession::make(asDelegate(), params);
     }
+
     CETL_NODISCARD Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(
         const ResponseTxParams& params) override
     {
@@ -276,7 +282,8 @@ private:
 
     CETL_NODISCARD IRunnable::MaybeError run(const TimePoint) override
     {
-        return AnyError{NotImplementedError{}};
+        // TODO: Implement!
+        return {};
     }
 
     CETL_NODISCARD TransportDelegate& asDelegate()

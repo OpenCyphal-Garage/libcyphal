@@ -34,18 +34,12 @@ using namespace libcyphal::transport;       // NOLINT This our main concern here
 using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
 using cetl::byte;
-using libcyphal::verification_utilities::b;
 
 using testing::_;
-using testing::Eq;
 using testing::Return;
-using testing::SizeIs;
 using testing::IsEmpty;
 using testing::NotNull;
-using testing::Optional;
-using testing::InSequence;
 using testing::StrictMock;
-using testing::ElementsAre;
 using testing::VariantWith;
 
 // https://github.com/llvm/llvm-project/issues/53444

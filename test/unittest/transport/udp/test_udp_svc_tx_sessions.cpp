@@ -38,13 +38,10 @@ using namespace libcyphal::transport::udp;  // NOLINT This our main concern here
 using cetl::byte;
 
 using testing::_;
-using testing::Eq;
 using testing::Return;
 using testing::IsEmpty;
 using testing::NotNull;
-using testing::Optional;
 using testing::StrictMock;
-using testing::ElementsAre;
 using testing::VariantWith;
 
 // https://github.com/llvm/llvm-project/issues/53444
