@@ -18,6 +18,8 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <udpard.h>
 
+#include <chrono>
+
 namespace libcyphal
 {
 namespace transport
@@ -86,11 +88,18 @@ private:
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<AnyError> send(const TransferMetadata&, const PayloadFragments) override
+    CETL_NODISCARD cetl::optional<AnyError> send(const TransferMetadata& metadata,
+                                                 const PayloadFragments  payload_fragments) override
     {
-        // TODO: Implement!
-        (void) delegate_;
-        return NotImplementedError{};
+        const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(
+            (metadata.timestamp + send_timeout_).time_since_epoch());
+
+        const auto tx_metadata = AnyUdpardTxMetadata::Publish{static_cast<UdpardMicrosecond>(deadline_us.count()),
+                                                              static_cast<UdpardPriority>(metadata.priority),
+                                                              params_.subject_id,
+                                                              static_cast<UdpardTransferID>(metadata.transfer_id)};
+
+        return delegate_.sendAnyTransfer(tx_metadata, payload_fragments);
     }
 
     // MARK: IRunnable

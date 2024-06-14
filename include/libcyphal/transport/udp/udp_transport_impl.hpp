@@ -15,11 +15,11 @@
 #include "udp_transport.hpp"
 
 #include "libcyphal/runnable.hpp"
+#include "libcyphal/transport/contiguous_payload.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/multiplexer.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
-#include "libcyphal/transport/transport.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
 
@@ -29,6 +29,7 @@
 #include <udpard.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <utility>
@@ -286,12 +287,120 @@ private:
         return {};
     }
 
+    // MARK: TransportDelegate
+
     CETL_NODISCARD TransportDelegate& asDelegate()
     {
         return *this;
     }
 
+    CETL_NODISCARD cetl::optional<AnyError> sendAnyTransfer(const AnyUdpardTxMetadata::Variant& tx_metadata_var,
+                                                            const PayloadFragments payload_fragments) override
+    {
+        // Udpard currently does not support fragmented payloads (at `udpardTx[Publish|Request|Respond]`).
+        // so we need to concatenate them when there are more than one non-empty fragment.
+        // TODO: Make similar issue but for Udpard repo.
+        // See https://github.com/OpenCyphal/libcanard/issues/223
+        //
+        const ContiguousPayload payload{memoryResources().general, payload_fragments};
+        if ((payload.data() == nullptr) && (payload.size() > 0))
+        {
+            return MemoryError{};
+        }
+
+        for (Media& media : media_array_)
+        {
+            media.propagateMtuToTxQueue();
+
+            const TxTransferHandler  transfer_handler{*this, media, payload};
+            cetl::optional<AnyError> opt_any_error = cetl::visit(transfer_handler, tx_metadata_var);
+            if (opt_any_error.has_value())
+            {
+                // The handler (if any) just said that it's NOT fine to continue with transferring to
+                // other media TX queues, and the error should not be ignored but propagated outside.
+                return opt_any_error;
+            }
+        }
+
+        return cetl::nullopt;
+    }
+
     // MARK: Privates:
+
+    using Self              = TransportImpl;
+    using ContiguousPayload = transport::detail::ContiguousPayload;
+
+    struct TxTransferHandler
+    {
+        TxTransferHandler(const Self& self, Media& media, const ContiguousPayload& cont_payload)
+            : self_{self}
+            , media_{media}
+            , payload_{cont_payload.size(), cont_payload.data()}
+        {
+        }
+
+        cetl::optional<AnyError> operator()(const AnyUdpardTxMetadata::Publish& tx_metadata) const
+        {
+            const std::int32_t result = ::udpardTxPublish(&media_.udpard_tx(),
+                                                          tx_metadata.deadline_us,
+                                                          tx_metadata.priority,
+                                                          tx_metadata.subject_id,
+                                                          tx_metadata.transfer_id,
+                                                          payload_,
+                                                          nullptr);
+
+            return self_.tryHandleTransientUdpardResult<TransientErrorReport::UdpardTxPublish>(result, media_);
+        }
+
+        cetl::optional<AnyError> operator()(const AnyUdpardTxMetadata::Request& tx_metadata) const
+        {
+            const std::int32_t result = ::udpardTxRequest(&media_.udpard_tx(),
+                                                          tx_metadata.deadline_us,
+                                                          tx_metadata.priority,
+                                                          tx_metadata.service_id,
+                                                          tx_metadata.server_node_id,
+                                                          tx_metadata.transfer_id,
+                                                          payload_,
+                                                          nullptr);
+
+            return self_.tryHandleTransientUdpardResult<TransientErrorReport::UdpardTxRequest>(result, media_);
+        }
+
+        cetl::optional<AnyError> operator()(const AnyUdpardTxMetadata::Respond& tx_metadata) const
+        {
+            const std::int32_t result = ::udpardTxRespond(&media_.udpard_tx(),
+                                                          tx_metadata.deadline_us,
+                                                          tx_metadata.priority,
+                                                          tx_metadata.service_id,
+                                                          tx_metadata.client_node_id,
+                                                          tx_metadata.transfer_id,
+                                                          payload_,
+                                                          nullptr);
+
+            return self_.tryHandleTransientUdpardResult<TransientErrorReport::UdpardTxRespond>(result, media_);
+        }
+
+    private:
+        const Self&                self_;
+        Media&                     media_;
+        const struct UdpardPayload payload_;
+
+    };  // TxTransferHandler
+
+    template <typename Report>
+    CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientUdpardResult(const std::int32_t result,
+                                                                           Media&             media) const
+    {
+        cetl::optional<AnyError> opt_any_error = optAnyErrorFromUdpard(result);
+        if (opt_any_error.has_value() && transient_error_handler_)
+        {
+            TransientErrorReport::Variant report_var{
+                Report{std::move(opt_any_error.value()), media.index(), media.udpard_tx()}};
+
+            opt_any_error = transient_error_handler_(report_var);
+        }
+        return opt_any_error;
+    }
 
     CETL_NODISCARD static MediaArray makeMediaArray(cetl::pmr::memory_resource&       memory,
                                                     const std::size_t                 media_count,
@@ -326,8 +435,9 @@ private:
 
     // MARK: Data members:
 
-    MediaArray   media_array_;
-    UdpardNodeID local_node_id_;
+    MediaArray            media_array_;
+    UdpardNodeID          local_node_id_;
+    TransientErrorHandler transient_error_handler_;
 
 };  // TransportImpl
 

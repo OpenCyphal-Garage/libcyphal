@@ -58,6 +58,8 @@ protected:
         {
         }
 
+        // MARK: TransportDelegate
+
         MOCK_METHOD((cetl::optional<AnyError>),
                     sendTransfer,
                     (const libcyphal::TimePoint    deadline,

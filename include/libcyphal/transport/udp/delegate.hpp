@@ -31,6 +31,38 @@ namespace udp
 namespace detail
 {
 
+struct AnyUdpardTxMetadata
+{
+    struct Publish
+    {
+        UdpardMicrosecond deadline_us;
+        UdpardPriority    priority;
+        UdpardPortID      subject_id;
+        UdpardTransferID  transfer_id;
+    };
+    struct Request
+    {
+        UdpardMicrosecond deadline_us;
+        UdpardPriority    priority;
+        UdpardPortID      service_id;
+        UdpardNodeID      server_node_id;
+        UdpardTransferID  transfer_id;
+    };
+    struct Respond
+    {
+        UdpardMicrosecond deadline_us;
+        UdpardPriority    priority;
+        UdpardPortID      service_id;
+        UdpardNodeID      client_node_id;
+        UdpardTransferID  transfer_id;
+    };
+
+    /// Defines variant of all possible transient error reports.
+    ///
+    using Variant = cetl::variant<Publish, Request, Respond>;
+
+};  // AnyUdpardTxMetadata
+
 /// This internal transport delegate class serves the following purposes:
 /// 1. It provides memory management functions for the Udpard library.
 /// 2. It provides a way to convert Udpard error codes to `AnyError` type.
@@ -103,6 +135,13 @@ public:
 
         return cetl::nullopt;
     }
+
+    /// @brief Sends transfer to each media udpard TX queue of the transport.
+    ///
+    /// Internal method which is in use by TX session implementations to delegate actual sending to transport.
+    ///
+    CETL_NODISCARD virtual cetl::optional<AnyError> sendAnyTransfer(const AnyUdpardTxMetadata::Variant& tx_metadata_var,
+                                                                    const PayloadFragments payload_fragments) = 0;
 
 protected:
     ~TransportDelegate() = default;

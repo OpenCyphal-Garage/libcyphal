@@ -51,6 +51,14 @@ protected:
         {
         }
 
+        // MARK: TransportDelegate
+
+        MOCK_METHOD((cetl::optional<AnyError>),
+                    sendAnyTransfer,
+                    (const udp::detail::AnyUdpardTxMetadata::Variant& tx_metadata_var,
+                     const PayloadFragments                           payload_fragments),
+                    (override));
+
     };  // TransportDelegateImpl
 
     void TearDown() override
