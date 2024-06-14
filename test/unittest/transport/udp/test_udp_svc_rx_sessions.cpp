@@ -5,7 +5,6 @@
 
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
-#include "../../verification_utilities.hpp"
 #include "../../virtual_time_scheduler.hpp"
 #include "../multiplexer_mock.hpp"
 #include "media_mock.hpp"

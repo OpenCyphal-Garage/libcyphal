@@ -5,7 +5,6 @@
 
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
-#include "../../verification_utilities.hpp"
 #include "../../virtual_time_scheduler.hpp"
 #include "../multiplexer_mock.hpp"
 #include "media_mock.hpp"
@@ -13,6 +12,7 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
+#include <libcyphal/transport/udp/media.hpp>
 #include <libcyphal/transport/udp/msg_rx_session.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
 #include <libcyphal/transport/udp/udp_transport_impl.hpp>
