@@ -215,7 +215,7 @@ public:
     ///
     /// NOSONAR cpp:S5008 b/s it is unavoidable: this is integration with low-level C code of Canard memory management.
     ///
-    void freeCanardMemory(void* const pointer)  // NOSONAR cpp:S5008
+    void freeCanardMemory(void* const pointer) const  // NOSONAR cpp:S5008
     {
         if (pointer == nullptr)
         {

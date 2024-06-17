@@ -138,7 +138,7 @@ TEST_F(TestUdpSvcRxSessions, make_request_fails_due_to_argument_error)
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestUdpSvcRxSessions, run_and_receive_requests)
 {
-    auto transport = makeTransport(mr_, 0x31);
+    auto transport = makeTransport({mr_}, 0x31);
 
     const std::size_t extent_bytes  = 8;
     auto              maybe_session = transport->makeRequestRxSession({extent_bytes, 0x17B});
@@ -214,7 +214,7 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_requests)
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestUdpSvcRxSessions, run_and_receive_two_frame)
 {
-    auto transport = makeTransport(mr_, 0x31);
+    auto transport = makeTransport({mr_}, 0x31);
 
     const std::size_t extent_bytes  = 8;
     auto              maybe_session = transport->makeRequestRxSession({extent_bytes, 0x17B});
@@ -280,7 +280,7 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_two_frame)
 
 TEST_F(TestUdpSvcRxSessions, unsubscribe_and_run)
 {
-    auto transport = makeTransport(mr_, 0x31);
+    auto transport = makeTransport({mr_}, 0x31);
 
     const std::size_t extent_bytes  = 8;
     auto              maybe_session = transport->makeRequestRxSession({extent_bytes, 0x17B});

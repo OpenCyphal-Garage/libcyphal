@@ -51,7 +51,7 @@ namespace detail
 /// @brief Represents final implementation class of the CAN transport.
 ///
 /// NOSONAR cpp:S4963 for below `class TransportImpl` - we do directly handle resources here;
-/// namely: in destructor we have to unsubscribe, as well as let delegate to know this fact.
+/// namely: in destructor we have to flush TX queues (otherwise there will be memory leaks).
 ///
 class TransportImpl final : private TransportDelegate, public ICanTransport  // NOSONAR cpp:S4963
 {
@@ -476,7 +476,7 @@ private:
         return media_array;
     }
 
-    void flushCanardTxQueue(CanardTxQueue& canard_tx_queue)
+    void flushCanardTxQueue(CanardTxQueue& canard_tx_queue) const
     {
         while (const CanardTxQueueItem* const maybe_item = ::canardTxPeek(&canard_tx_queue))
         {

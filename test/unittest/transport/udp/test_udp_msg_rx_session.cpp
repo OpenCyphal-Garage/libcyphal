@@ -133,7 +133,7 @@ TEST_F(TestUdpMsgRxSession, make_fails_due_to_argument_error)
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestUdpMsgRxSession, run_and_receive)
 {
-    auto transport = makeTransport(mr_);
+    auto transport = makeTransport({mr_});
 
     auto maybe_session = transport->makeMessageRxSession({4, 0x23});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
@@ -199,7 +199,7 @@ TEST_F(TestUdpMsgRxSession, run_and_receive)
 
 TEST_F(TestUdpMsgRxSession, run_and_receive_one_anonymous_frame)
 {
-    auto transport = makeTransport(mr_);
+    auto transport = makeTransport({mr_});
 
     auto maybe_session = transport->makeMessageRxSession({4, 0x23});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
@@ -247,7 +247,7 @@ TEST_F(TestUdpMsgRxSession, run_and_receive_one_anonymous_frame)
 
 TEST_F(TestUdpMsgRxSession, unsubscribe_and_run)
 {
-    auto transport = makeTransport(mr_);
+    auto transport = makeTransport({mr_});
 
     auto maybe_session = transport->makeMessageRxSession({4, 0x23});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));

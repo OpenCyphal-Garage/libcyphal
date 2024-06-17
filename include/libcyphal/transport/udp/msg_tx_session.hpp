@@ -97,7 +97,7 @@ private:
         const auto tx_metadata = AnyUdpardTxMetadata::Publish{static_cast<UdpardMicrosecond>(deadline_us.count()),
                                                               static_cast<UdpardPriority>(metadata.priority),
                                                               params_.subject_id,
-                                                              static_cast<UdpardTransferID>(metadata.transfer_id)};
+                                                              metadata.transfer_id};
 
         return delegate_.sendAnyTransfer(tx_metadata, payload_fragments);
     }

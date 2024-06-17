@@ -47,7 +47,12 @@ namespace udp
 namespace detail
 {
 
-class TransportImpl final : private TransportDelegate, public IUdpTransport
+/// @brief Represents final implementation class of the UDP transport.
+///
+/// NOSONAR cpp:S4963 for below `class TransportImpl` - we do directly handle resources here;
+/// namely: in destructor we have to flush TX queues (otherwise there will be memory leaks).
+///
+class TransportImpl final : private TransportDelegate, public IUdpTransport  // NOSONAR cpp:S4963
 {
     /// @brief Defines specification for making interface unique ptr.
     ///
@@ -171,6 +176,11 @@ public:
         // TODO: Use it!
         (void) multiplexer;
     }
+
+    TransportImpl(const TransportImpl&)                = delete;
+    TransportImpl(TransportImpl&&) noexcept            = delete;
+    TransportImpl& operator=(const TransportImpl&)     = delete;
+    TransportImpl& operator=(TransportImpl&&) noexcept = delete;
 
     ~TransportImpl()
     {
@@ -441,7 +451,7 @@ private:
         return media_array;
     }
 
-    void flushUdpardTxQueue(UdpardTx& udpard_tx)
+    void flushUdpardTxQueue(UdpardTx& udpard_tx) const
     {
         while (const UdpardTxItem* const maybe_item = ::udpardTxPeek(&udpard_tx))
         {
