@@ -234,8 +234,7 @@ private:
             min_mtu = std::min(min_mtu, media.interface().getMtu());
         }
 
-        // TODO: What about `transfer_id_modulo`???
-        return ProtocolParams{0, min_mtu, UDPARD_NODE_ID_MAX + 1};
+        return ProtocolParams{std::numeric_limits<TransferId>::max(), min_mtu, UDPARD_NODE_ID_MAX + 1};
     }
 
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(

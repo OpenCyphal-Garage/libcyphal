@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <limits>
 #include <utility>
 
 namespace
@@ -213,7 +214,7 @@ TEST_F(TestUpdTransport, getProtocolParams)
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(UDPARD_MTU_DEFAULT - 256));
 
     auto params = transport->getProtocolParams();
-    EXPECT_THAT(params.transfer_id_modulo, 0);
+    EXPECT_THAT(params.transfer_id_modulo, std::numeric_limits<TransferId>::max());
     EXPECT_THAT(params.max_nodes, UDPARD_NODE_ID_MAX + 1);
     EXPECT_THAT(params.mtu_bytes, UDPARD_MTU_DEFAULT - 256);
 
