@@ -9,6 +9,7 @@
 #include "../../virtual_time_scheduler.hpp"
 #include "../multiplexer_mock.hpp"
 #include "media_mock.hpp"
+#include "tx_rx_sockets_mock.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/transport/errors.hpp>

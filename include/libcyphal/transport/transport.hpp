@@ -15,10 +15,6 @@
 #include "libcyphal/types.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <cetl/pmr/function.hpp>
-#include <cetl/unbounded_variant.hpp>
-
-#include <cstdint>
 
 namespace libcyphal
 {
