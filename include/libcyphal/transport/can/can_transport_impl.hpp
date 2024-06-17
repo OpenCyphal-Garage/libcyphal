@@ -177,34 +177,32 @@ private:
 
     CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
     {
-        if (canard_instance().node_id > CANARD_NODE_ID_MAX)
+        if (node_id() > CANARD_NODE_ID_MAX)
         {
             return cetl::nullopt;
         }
 
-        return cetl::make_optional(static_cast<NodeId>(canard_instance().node_id));
+        return cetl::make_optional(node_id());
     }
 
-    CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept override
+    CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId new_node_id) noexcept override
     {
-        if (node_id > CANARD_NODE_ID_MAX)
+        if (new_node_id > CANARD_NODE_ID_MAX)
         {
             return ArgumentError{};
         }
 
         // Allow setting the same node ID multiple times, but only once otherwise.
         //
-        CanardInstance& ins = canard_instance();
-        if (ins.node_id == node_id)
+        if (node_id() == new_node_id)
         {
             return cetl::nullopt;
         }
-        if (ins.node_id != CANARD_NODE_ID_UNSET)
+        if (node_id() != CANARD_NODE_ID_UNSET)
         {
             return ArgumentError{};
         }
-
-        ins.node_id = static_cast<CanardNodeID>(node_id);
+        canard_node_id() = static_cast<CanardNodeID>(new_node_id);
 
         // We just became non-anonymous node, so we might need to reconfigure media filters
         // in case we have at least one service RX port.
@@ -705,7 +703,7 @@ private:
         // Total "active" RX ports depends on the local node ID. For anonymous nodes,
         // we don't account for service ports (b/c they don't work while being anonymous).
         //
-        const CanardNodeID local_node_id      = canard_instance().node_id;
+        const CanardNodeID local_node_id      = canard_node_id();
         const auto         is_anonymous       = local_node_id > CANARD_NODE_ID_MAX;
         const std::size_t  total_active_ports = total_message_ports_ + (is_anonymous ? 0 : total_service_ports_);
         if (total_active_ports == 0)

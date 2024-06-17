@@ -18,6 +18,8 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <udpard.h>
 
+#include <chrono>
+
 namespace libcyphal
 {
 namespace transport
@@ -88,11 +90,28 @@ private:
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<AnyError> send(const TransferMetadata&, const PayloadFragments) override
+    CETL_NODISCARD cetl::optional<AnyError> send(const TransferMetadata& metadata,
+                                                 const PayloadFragments  payload_fragments) override
     {
-        // TODO: Implement!
-        (void) delegate_;
-        return NotImplementedError{};
+        // Before delegating to transport it makes sense to do some sanity checks.
+        // Otherwise, transport may do some work (like possible payload allocation/copying,
+        // media enumeration and pushing into their TX queues) doomed to fail with argument error.
+        //
+        if (delegate_.node_id() > UDPARD_NODE_ID_MAX)
+        {
+            return ArgumentError{};
+        }
+
+        const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(
+            (metadata.timestamp + send_timeout_).time_since_epoch());
+
+        const auto tx_metadata = AnyUdpardTxMetadata::Request{static_cast<UdpardMicrosecond>(deadline_us.count()),
+                                                              static_cast<UdpardPriority>(metadata.priority),
+                                                              params_.service_id,
+                                                              params_.server_node_id,
+                                                              metadata.transfer_id};
+
+        return delegate_.sendAnyTransfer(tx_metadata, payload_fragments);
     }
 
     // MARK: IRunnable
@@ -170,11 +189,28 @@ private:
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<AnyError> send(const ServiceTransferMetadata&, const PayloadFragments) override
+    CETL_NODISCARD cetl::optional<AnyError> send(const ServiceTransferMetadata& metadata,
+                                                 const PayloadFragments         payload_fragments) override
     {
-        // TODO: Implement!
-        (void) delegate_;
-        return NotImplementedError{};
+        // Before delegating to transport it makes sense to do some sanity checks.
+        // Otherwise, transport may do some work (like possible payload allocation/copying,
+        // media enumeration and pushing into their TX queues) doomed to fail with argument error.
+        //
+        if ((delegate_.node_id() > UDPARD_NODE_ID_MAX) || (metadata.remote_node_id > UDPARD_NODE_ID_MAX))
+        {
+            return ArgumentError{};
+        }
+
+        const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(
+            (metadata.timestamp + send_timeout_).time_since_epoch());
+
+        const auto tx_metadata = AnyUdpardTxMetadata::Respond{static_cast<UdpardMicrosecond>(deadline_us.count()),
+                                                              static_cast<UdpardPriority>(metadata.priority),
+                                                              params_.service_id,
+                                                              metadata.remote_node_id,
+                                                              metadata.transfer_id};
+
+        return delegate_.sendAnyTransfer(tx_metadata, payload_fragments);
     }
 
     // MARK: IRunnable

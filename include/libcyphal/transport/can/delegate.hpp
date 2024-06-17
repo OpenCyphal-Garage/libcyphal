@@ -179,6 +179,16 @@ public:
     TransportDelegate& operator=(const TransportDelegate&)     = delete;
     TransportDelegate& operator=(TransportDelegate&&) noexcept = delete;
 
+    CETL_NODISCARD NodeId node_id() const noexcept
+    {
+        return canard_instance_.node_id;
+    }
+
+    CETL_NODISCARD CanardNodeID& canard_node_id() noexcept
+    {
+        return canard_instance_.node_id;
+    }
+
     CETL_NODISCARD CanardInstance& canard_instance() noexcept
     {
         return canard_instance_;
@@ -309,7 +319,7 @@ private:
     static void freeCanardMemory(CanardInstance* ins,  // NOSONAR cpp:S995
                                  void*           pointer)        // NOSONAR cpp:S5008
     {
-        TransportDelegate& self = getSelfFrom(ins);
+        const TransportDelegate& self = getSelfFrom(ins);
         self.freeCanardMemory(pointer);
     }
 

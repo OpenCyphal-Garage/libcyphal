@@ -97,7 +97,8 @@ protected:
 
 public:
     explicit TransportDelegate(const MemoryResources& memory_resources)
-        : memory_resources_{memory_resources}
+        : udpard_node_id_{UDPARD_NODE_ID_UNSET}
+        , memory_resources_{memory_resources}
     {
     }
 
@@ -105,6 +106,16 @@ public:
     TransportDelegate(TransportDelegate&&) noexcept            = delete;
     TransportDelegate& operator=(const TransportDelegate&)     = delete;
     TransportDelegate& operator=(TransportDelegate&&) noexcept = delete;
+
+    CETL_NODISCARD NodeId node_id() const noexcept
+    {
+        return udpard_node_id_;
+    }
+
+    CETL_NODISCARD UdpardNodeID& udpard_node_id() noexcept
+    {
+        return udpard_node_id_;
+    }
 
     CETL_NODISCARD const MemoryResources& memoryResources() const noexcept
     {
@@ -187,6 +198,7 @@ private:
 
     // MARK: Data members:
 
+    UdpardNodeID          udpard_node_id_;
     const MemoryResources memory_resources_;
 
 };  // TransportDelegate

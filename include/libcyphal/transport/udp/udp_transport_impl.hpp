@@ -166,11 +166,10 @@ public:
     TransportImpl(Spec, const MemoryResources& memory_resources, IMultiplexer& multiplexer, MediaArray&& media_array)
         : TransportDelegate{memory_resources}
         , media_array_{std::move(media_array)}
-        , local_node_id_{UDPARD_NODE_ID_UNSET}
     {
         for (auto& media : media_array_)
         {
-            media.udpard_tx().local_node_id = &local_node_id_;
+            media.udpard_tx().local_node_id = &udpard_node_id();
         }
 
         // TODO: Use it!
@@ -197,33 +196,32 @@ private:
 
     CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
     {
-        if (local_node_id_ > UDPARD_NODE_ID_MAX)
+        if (node_id() > UDPARD_NODE_ID_MAX)
         {
             return cetl::nullopt;
         }
 
-        return cetl::make_optional(local_node_id_);
+        return cetl::make_optional(node_id());
     }
 
-    CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept override
+    CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId new_node_id) noexcept override
     {
-        if (node_id > UDPARD_NODE_ID_MAX)
+        if (new_node_id > UDPARD_NODE_ID_MAX)
         {
             return ArgumentError{};
         }
 
         // Allow setting the same node ID multiple times, but only once otherwise.
         //
-        if (local_node_id_ == node_id)
+        if (node_id() == new_node_id)
         {
             return cetl::nullopt;
         }
-        if (local_node_id_ != UDPARD_NODE_ID_UNSET)
+        if (node_id() != UDPARD_NODE_ID_UNSET)
         {
             return ArgumentError{};
         }
-
-        local_node_id_ = node_id;
+        udpard_node_id() = new_node_id;
 
         return cetl::nullopt;
     }
@@ -463,7 +461,6 @@ private:
     // MARK: Data members:
 
     MediaArray            media_array_;
-    UdpardNodeID          local_node_id_;
     TransientErrorHandler transient_error_handler_;
 
 };  // TransportImpl

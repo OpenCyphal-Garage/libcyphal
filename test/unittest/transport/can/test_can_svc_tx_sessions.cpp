@@ -275,7 +275,7 @@ TEST_F(TestCanSvcTxSessions, make_response_fails_due_to_no_memory)
     EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
 }
 
-TEST_F(TestCanSvcTxSessions, send_respose)
+TEST_F(TestCanSvcTxSessions, send_response)
 {
     EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
 
@@ -312,7 +312,7 @@ TEST_F(TestCanSvcTxSessions, send_respose)
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
-TEST_F(TestCanSvcTxSessions, send_respose_with_argument_error)
+TEST_F(TestCanSvcTxSessions, send_response_with_argument_error)
 {
     EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
 

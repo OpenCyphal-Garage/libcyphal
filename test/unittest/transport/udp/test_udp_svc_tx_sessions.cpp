@@ -25,6 +25,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cstddef>
 #include <utility>
 
 namespace
@@ -38,6 +39,7 @@ using namespace libcyphal::transport::udp;  // NOLINT This our main concern here
 using cetl::byte;
 
 using testing::_;
+using testing::Eq;
 using testing::Return;
 using testing::IsEmpty;
 using testing::NotNull;
@@ -71,7 +73,8 @@ protected:
         return scheduler_.now();
     }
 
-    UniquePtr<IUdpTransport> makeTransport(const MemoryResourcesSpec& mem_res_spec, const NodeId local_node_id)
+    UniquePtr<IUdpTransport> makeTransport(const MemoryResourcesSpec&   mem_res_spec,
+                                           const cetl::optional<NodeId> local_node_id = cetl::nullopt)
     {
         std::array<IMedia*, 1> media_array{&media_mock_};
 
@@ -79,7 +82,10 @@ protected:
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<IUdpTransport>>(NotNull()));
         auto transport = cetl::get<UniquePtr<IUdpTransport>>(std::move(maybe_transport));
 
-        transport->setLocalNodeId(local_node_id);
+        if (local_node_id.has_value())
+        {
+            transport->setLocalNodeId(local_node_id.value());
+        }
 
         return transport;
     }
@@ -98,7 +104,7 @@ protected:
 
 TEST_F(TestUdpSvcTxSessions, make_request_session)
 {
-    auto transport = makeTransport({mr_}, 0);
+    auto transport = makeTransport({mr_}, static_cast<NodeId>(0));
 
     auto maybe_session = transport->makeRequestTxSession({123, UDPARD_NODE_ID_MAX});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestTxSession>>(NotNull()));
@@ -112,7 +118,7 @@ TEST_F(TestUdpSvcTxSessions, make_request_session)
 
 TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_argument_error)
 {
-    auto transport = makeTransport({mr_}, 0);
+    auto transport = makeTransport({mr_}, static_cast<NodeId>(0));
 
     // Try invalid service id
     {
@@ -135,10 +141,102 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_no_memory)
     // Emulate that there is no memory available for the message session.
     EXPECT_CALL(mr_mock, do_allocate(sizeof(udp::detail::SvcRequestTxSession), _)).WillOnce(Return(nullptr));
 
-    auto transport = makeTransport({mr_mock}, UDPARD_NODE_ID_MAX);
+    auto transport = makeTransport({mr_mock}, static_cast<NodeId>(UDPARD_NODE_ID_MAX));
 
     auto maybe_session = transport->makeRequestTxSession({0x23, 0});
     EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
+}
+
+TEST_F(TestUdpSvcTxSessions, send_empty_payload_request_and_no_transport_run)
+{
+    StrictMock<MemoryResourceMock> fragment_mr_mock{};
+    fragment_mr_mock.redirectExpectedCallsTo(mr_);
+
+    auto transport = makeTransport({mr_, nullptr, &fragment_mr_mock});
+
+    auto maybe_session = transport->makeRequestTxSession({0x23, 0});
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestTxSession>>(NotNull()));
+    auto session = cetl::get<UniquePtr<IRequestTxSession>>(std::move(maybe_session));
+
+    const PayloadFragments empty_payload{};
+    const TransferMetadata metadata{0x1AF52, {}, Priority::Low};
+
+    // 1st try anonymous node - should fail without even trying to allocate & send payload.
+    {
+        auto maybe_error = session->send(metadata, empty_payload);
+        EXPECT_THAT(maybe_error, Optional(VariantWith<ArgumentError>(_)));
+    }
+
+    // 2nd. Try again but now with a valid node id.
+    {
+        EXPECT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
+
+        // TX item for our payload to send is expected to be de/allocated on the *fragment* memory resource.
+        //
+        EXPECT_CALL(fragment_mr_mock, do_allocate(_, _))
+            .WillOnce([&](std::size_t size_bytes, std::size_t alignment) -> void* {
+                return mr_.allocate(size_bytes, alignment);
+            });
+        EXPECT_CALL(fragment_mr_mock, do_deallocate(_, _, _))
+            .WillOnce([&](void* p, std::size_t size_bytes, std::size_t alignment) {
+                mr_.deallocate(p, size_bytes, alignment);
+            });
+
+        auto maybe_error = session->send(metadata, empty_payload);
+        EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+
+        scheduler_.runNow(+10ms, [&] { session->run(scheduler_.now()); });
+    }
+
+    // Payload still inside udpard TX queue (b/c there was no `transport->run` call deliberately),
+    // but there will be no memory leak b/c we expect that it should be deallocated when the transport is destroyed.
+    // See `EXPECT_THAT(mr_.allocations, IsEmpty());` at the `TearDown` method.
+}
+
+TEST_F(TestUdpSvcTxSessions, send_empty_payload_responce_and_no_transport_run)
+{
+    StrictMock<MemoryResourceMock> fragment_mr_mock{};
+    fragment_mr_mock.redirectExpectedCallsTo(mr_);
+
+    auto transport = makeTransport({mr_, nullptr, &fragment_mr_mock});
+
+    auto maybe_session = transport->makeResponseTxSession({0x23});
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseTxSession>>(NotNull()));
+    auto session = cetl::get<UniquePtr<IResponseTxSession>>(std::move(maybe_session));
+
+    const PayloadFragments        empty_payload{};
+    const ServiceTransferMetadata metadata{0x1AF52, {}, Priority::Low, 0x31};
+
+    // 1st try anonymous node - should fail without even trying to allocate & send payload.
+    {
+        auto maybe_error = session->send(metadata, empty_payload);
+        EXPECT_THAT(maybe_error, Optional(VariantWith<ArgumentError>(_)));
+    }
+
+    // 2nd. Try again but now with a valid node id.
+    {
+        EXPECT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
+
+        // TX item for our payload to send is expected to be de/allocated on the *fragment* memory resource.
+        //
+        EXPECT_CALL(fragment_mr_mock, do_allocate(_, _))
+            .WillOnce([&](std::size_t size_bytes, std::size_t alignment) -> void* {
+                return mr_.allocate(size_bytes, alignment);
+            });
+        EXPECT_CALL(fragment_mr_mock, do_deallocate(_, _, _))
+            .WillOnce([&](void* p, std::size_t size_bytes, std::size_t alignment) {
+                mr_.deallocate(p, size_bytes, alignment);
+            });
+
+        auto maybe_error = session->send(metadata, empty_payload);
+        EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+
+        scheduler_.runNow(+10ms, [&] { session->run(scheduler_.now()); });
+    }
+
+    // Payload still inside udpard TX queue (b/c there was no `transport->run` call deliberately),
+    // but there will be no memory leak b/c we expect that it should be deallocated when the transport is destroyed.
+    // See `EXPECT_THAT(mr_.allocations, IsEmpty());` at the `TearDown` method.
 }
 
 // TODO: Uncomment gradually as the implementation progresses.
@@ -275,7 +373,7 @@ TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_no_memory)
     EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
 }
 
-TEST_F(TestUdpSvcTxSessions, send_respose)
+TEST_F(TestUdpSvcTxSessions, send_response)
 {
     EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
 
@@ -312,7 +410,7 @@ TEST_F(TestUdpSvcTxSessions, send_respose)
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
-TEST_F(TestUdpSvcTxSessions, send_respose_with_argument_error)
+TEST_F(TestUdpSvcTxSessions, send_response_with_argument_error)
 {
     EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
 
