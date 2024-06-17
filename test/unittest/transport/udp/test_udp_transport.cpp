@@ -59,13 +59,13 @@ protected:
         return scheduler_.now();
     }
 
-    UniquePtr<IUdpTransport> makeTransport(cetl::pmr::memory_resource& mr,
-                                           IMedia*                     extra_media = nullptr,
-                                           const std::size_t           tx_capacity = 16)
+    UniquePtr<IUdpTransport> makeTransport(const MemoryResourcesSpec& mem_res_spec,
+                                           IMedia*                    extra_media = nullptr,
+                                           const std::size_t          tx_capacity = 16)
     {
         std::array<IMedia*, 2> media_array{&media_mock_, extra_media};
 
-        auto maybe_transport = udp::makeTransport({mr}, mux_mock_, media_array, tx_capacity);
+        auto maybe_transport = udp::makeTransport(mem_res_spec, mux_mock_, media_array, tx_capacity);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<IUdpTransport>>(NotNull()));
         return cetl::get<UniquePtr<IUdpTransport>>(std::move(maybe_transport));
     }
@@ -171,7 +171,7 @@ TEST_F(TestUpdTransport, setLocalNodeId)
 {
     // EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
 
-    auto transport = makeTransport(mr_);
+    auto transport = makeTransport({mr_});
 
     EXPECT_THAT(transport->setLocalNodeId(UDPARD_NODE_ID_MAX + 1), Optional(testing::A<ArgumentError>()));
     EXPECT_THAT(transport->getLocalNodeId(), Eq(cetl::nullopt));

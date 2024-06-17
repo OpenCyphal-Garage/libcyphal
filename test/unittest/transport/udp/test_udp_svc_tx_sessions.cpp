@@ -71,11 +71,11 @@ protected:
         return scheduler_.now();
     }
 
-    UniquePtr<IUdpTransport> makeTransport(cetl::pmr::memory_resource& mr, const NodeId local_node_id)
+    UniquePtr<IUdpTransport> makeTransport(const MemoryResourcesSpec& mem_res_spec, const NodeId local_node_id)
     {
         std::array<IMedia*, 1> media_array{&media_mock_};
 
-        auto maybe_transport = udp::makeTransport({mr}, mux_mock_, media_array, 16);
+        auto maybe_transport = udp::makeTransport(mem_res_spec, mux_mock_, media_array, 16);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<IUdpTransport>>(NotNull()));
         auto transport = cetl::get<UniquePtr<IUdpTransport>>(std::move(maybe_transport));
 
@@ -98,7 +98,7 @@ protected:
 
 TEST_F(TestUdpSvcTxSessions, make_request_session)
 {
-    auto transport = makeTransport(mr_, 0);
+    auto transport = makeTransport({mr_}, 0);
 
     auto maybe_session = transport->makeRequestTxSession({123, UDPARD_NODE_ID_MAX});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestTxSession>>(NotNull()));
@@ -112,7 +112,7 @@ TEST_F(TestUdpSvcTxSessions, make_request_session)
 
 TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_argument_error)
 {
-    auto transport = makeTransport(mr_, 0);
+    auto transport = makeTransport({mr_}, 0);
 
     // Try invalid service id
     {
@@ -135,7 +135,7 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_no_memory)
     // Emulate that there is no memory available for the message session.
     EXPECT_CALL(mr_mock, do_allocate(sizeof(udp::detail::SvcRequestTxSession), _)).WillOnce(Return(nullptr));
 
-    auto transport = makeTransport(mr_mock, UDPARD_NODE_ID_MAX);
+    auto transport = makeTransport({mr_mock}, UDPARD_NODE_ID_MAX);
 
     auto maybe_session = transport->makeRequestTxSession({0x23, 0});
     EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));

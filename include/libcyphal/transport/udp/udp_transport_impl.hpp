@@ -29,9 +29,9 @@
 #include <udpard.h>
 
 #include <algorithm>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <utility>
 
 namespace libcyphal
@@ -170,6 +170,14 @@ public:
 
         // TODO: Use it!
         (void) multiplexer;
+    }
+
+    ~TransportImpl()
+    {
+        for (Media& media : media_array_)
+        {
+            flushUdpardTxQueue(media.udpard_tx());
+        }
     }
 
 private:
@@ -431,6 +439,15 @@ private:
         }
 
         return media_array;
+    }
+
+    void flushUdpardTxQueue(UdpardTx& udpard_tx)
+    {
+        while (const UdpardTxItem* const maybe_item = ::udpardTxPeek(&udpard_tx))
+        {
+            UdpardTxItem* const item = ::udpardTxPop(&udpard_tx, maybe_item);
+            ::udpardTxFree(memoryResources().fragment, item);
+        }
     }
 
     // MARK: Data members:

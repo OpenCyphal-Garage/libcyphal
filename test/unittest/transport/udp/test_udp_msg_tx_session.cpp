@@ -12,6 +12,7 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
+#include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/media.hpp>
 #include <libcyphal/transport/udp/msg_tx_session.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
@@ -23,6 +24,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cstddef>
 #include <utility>
 
 namespace
@@ -36,6 +38,7 @@ using namespace libcyphal::transport::udp;  // NOLINT This our main concern here
 using cetl::byte;
 
 using testing::_;
+using testing::Eq;
 using testing::Return;
 using testing::IsEmpty;
 using testing::NotNull;
@@ -70,11 +73,11 @@ protected:
         return scheduler_.now();
     }
 
-    UniquePtr<IUdpTransport> makeTransport(cetl::pmr::memory_resource& mr)
+    UniquePtr<IUdpTransport> makeTransport(const MemoryResourcesSpec& mem_res_spec)
     {
         std::array<IMedia*, 1> media_array{&media_mock_};
 
-        auto maybe_transport = udp::makeTransport({mr}, mux_mock_, media_array, 16);
+        auto maybe_transport = udp::makeTransport(mem_res_spec, mux_mock_, media_array, 16);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<IUdpTransport>>(NotNull()));
         return cetl::get<UniquePtr<IUdpTransport>>(std::move(maybe_transport));
     }
@@ -93,7 +96,7 @@ protected:
 
 TEST_F(TestUdpMsgTxSession, make)
 {
-    auto transport = makeTransport(mr_);
+    auto transport = makeTransport({mr_});
 
     auto maybe_session = transport->makeMessageTxSession({123});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
@@ -110,7 +113,7 @@ TEST_F(TestUdpMsgTxSession, make_no_memory)
     // Emulate that there is no memory available for the message session.
     EXPECT_CALL(mr_mock, do_allocate(sizeof(udp::detail::MessageTxSession), _)).WillOnce(Return(nullptr));
 
-    auto transport = makeTransport(mr_mock);
+    auto transport = makeTransport({mr_mock});
 
     auto maybe_session = transport->makeMessageTxSession({0x23});
     EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
@@ -118,18 +121,19 @@ TEST_F(TestUdpMsgTxSession, make_no_memory)
 
 TEST_F(TestUdpMsgTxSession, make_fails_due_to_argument_error)
 {
-    auto transport = makeTransport(mr_);
+    auto transport = makeTransport({mr_});
 
     // Try invalid subject id
     auto maybe_session = transport->makeMessageTxSession({UDPARD_SUBJECT_ID_MAX + 1});
     EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
 }
 
-// TODO: Uncomment gradually as the implementation progresses.
-/*
 TEST_F(TestUdpMsgTxSession, send_empty_payload_and_no_transport_run)
 {
-    auto transport = makeTransport(mr_);
+    StrictMock<MemoryResourceMock> fragment_mr_mock{};
+    fragment_mr_mock.redirectExpectedCallsTo(mr_);
+
+    auto transport = makeTransport({mr_, nullptr, &fragment_mr_mock});
 
     auto maybe_session = transport->makeMessageTxSession({123});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
@@ -137,6 +141,16 @@ TEST_F(TestUdpMsgTxSession, send_empty_payload_and_no_transport_run)
 
     const PayloadFragments empty_payload{};
     const TransferMetadata metadata{0x1AF52, {}, Priority::Low};
+
+    // TX item for our payload to send is expected to be de/allocated on the *fragment* memory resource.
+    //
+    EXPECT_CALL(fragment_mr_mock, do_allocate(_, _))
+        .WillOnce([&](std::size_t size_bytes, std::size_t alignment) -> void* {
+            return mr_.allocate(size_bytes, alignment);
+        });
+    EXPECT_CALL(fragment_mr_mock, do_deallocate(_, _, _))
+        .WillOnce(
+            [&](void* p, std::size_t size_bytes, std::size_t alignment) { mr_.deallocate(p, size_bytes, alignment); });
 
     auto maybe_error = session->send(metadata, empty_payload);
     EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
@@ -148,6 +162,8 @@ TEST_F(TestUdpMsgTxSession, send_empty_payload_and_no_transport_run)
     // See `EXPECT_THAT(mr_.allocations, IsEmpty());` at the `TearDown` method.
 }
 
+// TODO: Uncomment gradually as the implementation progresses.
+/*
 TEST_F(TestUdpMsgTxSession, send_empty_payload)
 {
     EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));

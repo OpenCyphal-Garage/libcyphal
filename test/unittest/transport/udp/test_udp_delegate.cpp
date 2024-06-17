@@ -8,6 +8,7 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/transport/errors.hpp>
+#include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/delegate.hpp>
 #include <libcyphal/types.hpp>
 #include <udpard.h>

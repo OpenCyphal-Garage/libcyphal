@@ -69,11 +69,11 @@ protected:
         return scheduler_.now();
     }
 
-    UniquePtr<IUdpTransport> makeTransport(cetl::pmr::memory_resource& mr)
+    UniquePtr<IUdpTransport> makeTransport(const MemoryResourcesSpec& mem_res_spec)
     {
         std::array<IMedia*, 1> media_array{&media_mock_};
 
-        auto maybe_transport = udp::makeTransport({mr}, mux_mock_, media_array, 0);
+        auto maybe_transport = udp::makeTransport(mem_res_spec, mux_mock_, media_array, 0);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<IUdpTransport>>(NotNull()));
         return cetl::get<UniquePtr<IUdpTransport>>(std::move(maybe_transport));
     }
@@ -92,7 +92,7 @@ protected:
 
 TEST_F(TestUdpMsgRxSession, make_setTransferIdTimeout)
 {
-    auto transport = makeTransport(mr_);
+    auto transport = makeTransport({mr_});
 
     auto maybe_session = transport->makeMessageRxSession({42, 123});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
@@ -113,7 +113,7 @@ TEST_F(TestUdpMsgRxSession, make_no_memory)
     // Emulate that there is no memory available for the message session.
     EXPECT_CALL(mr_mock, do_allocate(sizeof(udp::detail::MessageRxSession), _)).WillOnce(Return(nullptr));
 
-    auto transport = makeTransport(mr_mock);
+    auto transport = makeTransport({mr_mock});
 
     auto maybe_session = transport->makeMessageRxSession({64, 0x23});
     EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
@@ -121,7 +121,7 @@ TEST_F(TestUdpMsgRxSession, make_no_memory)
 
 TEST_F(TestUdpMsgRxSession, make_fails_due_to_argument_error)
 {
-    auto transport = makeTransport(mr_);
+    auto transport = makeTransport({mr_});
 
     // Try invalid subject id
     auto maybe_session = transport->makeMessageRxSession({64, UDPARD_SUBJECT_ID_MAX + 1});
