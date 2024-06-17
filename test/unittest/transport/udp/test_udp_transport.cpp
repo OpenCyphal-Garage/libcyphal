@@ -15,6 +15,7 @@
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/media.hpp>
+#include <libcyphal/transport/udp/tx_rx_sockets.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
 #include <libcyphal/transport/udp/udp_transport_impl.hpp>
 #include <libcyphal/types.hpp>
@@ -26,6 +27,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <utility>
 
@@ -51,6 +53,14 @@ using testing::VariantWith;
 class TestUpdTransport : public testing::Test
 {
 protected:
+    void SetUp() override
+    {
+        EXPECT_CALL(media_mock_, getMtu()).WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
+        EXPECT_CALL(media_mock_, makeTxSocket()).WillRepeatedly(testing::Invoke([this]() {
+            return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock_);
+        }));
+    }
+
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
@@ -80,6 +90,7 @@ protected:
     TrackingMemoryResource          mr_;
     StrictMock<MultiplexerMock>     mux_mock_{};
     StrictMock<MediaMock>           media_mock_{};
+    StrictMock<TxSocketMock>        tx_socket_mock_{};
     // NOLINTEND
 };
 

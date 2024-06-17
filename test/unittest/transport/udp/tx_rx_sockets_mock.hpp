@@ -27,6 +27,48 @@ namespace udp
 class TxSocketMock : public ITxSocket
 {
 public:
+    struct ReferenceWrapper : ITxSocket
+    {
+        struct Spec
+        {
+            using Interface = ITxSocket;
+            using Concrete  = ReferenceWrapper;
+        };
+
+        explicit ReferenceWrapper(TxSocketMock& tx_socket_mock)
+            : tx_socket_mock_{tx_socket_mock}
+        {
+        }
+        ReferenceWrapper(const ReferenceWrapper& other)
+            : tx_socket_mock_{other.tx_socket_mock_}
+        {
+        }
+
+        virtual ~ReferenceWrapper()                              = default;
+        ReferenceWrapper(ReferenceWrapper&&) noexcept            = delete;
+        ReferenceWrapper& operator=(const ReferenceWrapper&)     = delete;
+        ReferenceWrapper& operator=(ReferenceWrapper&&) noexcept = delete;
+
+        // MARK: ITxSocket
+
+        std::size_t getMtu() const noexcept override
+        {
+            return tx_socket_mock_.getMtu();
+        }
+
+        libcyphal::Expected<bool, cetl::variant<PlatformError, ArgumentError>> send(
+            const IpEndpoint       multicast_endpoint,
+            const std::uint8_t     dscp,
+            const PayloadFragments payload_fragments) override
+        {
+            return tx_socket_mock_.send(multicast_endpoint, dscp, payload_fragments);
+        }
+
+    private:
+        TxSocketMock& tx_socket_mock_;
+
+    };  // ReferenceWrapper
+
     TxSocketMock()          = default;
     virtual ~TxSocketMock() = default;
 
@@ -46,6 +88,8 @@ public:
                 (override));
 
 };  // TxSocketMock
+
+// MARK: -
 
 class RxSocketMock : public IRxSocket
 {
