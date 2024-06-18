@@ -390,7 +390,7 @@ private:
                                                           payload_,
                                                           nullptr);
 
-            return self_.tryHandleTransientUdpardResult<TransientErrorReport::UdpardTxPublish>(result, media_);
+            return self_.tryHandleTransientUdpardResult<TransientErrorReport::UdpardTxPublish>(media_, result);
         }
 
         cetl::optional<AnyError> operator()(const AnyUdpardTxMetadata::Request& tx_metadata) const
@@ -404,7 +404,7 @@ private:
                                                           payload_,
                                                           nullptr);
 
-            return self_.tryHandleTransientUdpardResult<TransientErrorReport::UdpardTxRequest>(result, media_);
+            return self_.tryHandleTransientUdpardResult<TransientErrorReport::UdpardTxRequest>(media_, result);
         }
 
         cetl::optional<AnyError> operator()(const AnyUdpardTxMetadata::Respond& tx_metadata) const
@@ -418,7 +418,7 @@ private:
                                                           payload_,
                                                           nullptr);
 
-            return self_.tryHandleTransientUdpardResult<TransientErrorReport::UdpardTxRespond>(result, media_);
+            return self_.tryHandleTransientUdpardResult<TransientErrorReport::UdpardTxRespond>(media_, result);
         }
 
     private:
@@ -429,7 +429,7 @@ private:
     };  // TxTransferHandler
 
     template <typename Report, typename ErrorVariant>
-    CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientMediaError(Media& media, ErrorVariant&& error_var)
+    CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientMediaError(const Media& media, ErrorVariant&& error_var)
     {
         AnyError any_error = common::detail::anyErrorFromVariant(std::forward<ErrorVariant>(error_var));
         if (!transient_error_handler_)
@@ -442,8 +442,8 @@ private:
     }
 
     template <typename Report>
-    CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientUdpardResult(const std::int32_t result,
-                                                                           Media&             media) const
+    CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientUdpardResult(Media&             media,
+                                                                           const std::int32_t result) const
     {
         cetl::optional<AnyError> opt_any_error = optAnyErrorFromUdpard(result);
         if (opt_any_error.has_value() && transient_error_handler_)

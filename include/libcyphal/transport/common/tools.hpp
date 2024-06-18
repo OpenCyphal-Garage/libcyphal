@@ -23,10 +23,10 @@ namespace detail
 /// @brief Converts a compatible (aka subset) error variant to transport's `AnyError` one.
 ///
 template <typename ErrorVariant>
-CETL_NODISCARD static AnyError anyErrorFromVariant(ErrorVariant&& other_error_var)
+CETL_NODISCARD static AnyError anyErrorFromVariant(ErrorVariant&& error_var)
 {
     return cetl::visit([](auto&& error) -> AnyError { return std::forward<decltype(error)>(error); },
-                       std::forward<ErrorVariant>(other_error_var));
+                       std::forward<ErrorVariant>(error_var));
 }
 
 }  // namespace detail
