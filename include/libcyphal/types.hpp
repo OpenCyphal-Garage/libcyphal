@@ -103,8 +103,8 @@ private:
 namespace detail
 {
 
-template <typename T>
-using PmrAllocator = cetl::pmr::polymorphic_allocator<T>;
+template <typename Concrete>
+using PmrAllocator = cetl::pmr::polymorphic_allocator<Concrete>;
 
 template <typename T>
 using VarArray = cetl::VariableLengthArray<T, PmrAllocator<T>>;

@@ -76,7 +76,6 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
             : index_{static_cast<std::uint8_t>(index)}
             , interface_{interface}
             , udpard_tx_{}
-            , tx_socket_ptr_{nullptr, {}}
         {
             const std::int8_t result = ::udpardTxInit(&udpard_tx_, local_node_id, tx_capacity, udp_mem_res);
             CETL_DEBUG_ASSERT(result == 0, "There should be no path for an error here.");
