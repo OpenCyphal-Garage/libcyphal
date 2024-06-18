@@ -59,7 +59,11 @@ class TransportImpl final : private TransportDelegate, public ICanTransport  // 
     /// @brief Defines private specification for making interface unique ptr.
     ///
     struct Spec : libcyphal::detail::UniquePtrSpec<ICanTransport, TransportImpl>
-    {};
+    {
+        // `explicit` here is in use to disable public construction of derived private `Spec` structs.
+        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
+        explicit Spec() = default;
+    };
 
     /// @brief Defines private storage of a media index, its interface and TX queue.
     ///

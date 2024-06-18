@@ -44,7 +44,11 @@ class MessageRxSession final : private IRxSessionDelegate, public IMessageRxSess
     /// @brief Defines private specification for making interface unique ptr.
     ///
     struct Spec : libcyphal::detail::UniquePtrSpec<IMessageRxSession, MessageRxSession>
-    {};
+    {
+        // `explicit` here is in use to disable public construction of derived private `Spec` structs.
+        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
+        explicit Spec() = default;
+    };
 
 public:
     CETL_NODISCARD static Expected<UniquePtr<IMessageRxSession>, AnyError> make(TransportDelegate&     delegate,

@@ -114,10 +114,6 @@ struct UniquePtrSpec
 {
     using Interface = I;
     using Concrete  = C;
-
-    // `explicit` here is in use to disable public construction of derived private `Spec` structs.
-    // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
-    explicit UniquePtrSpec() = default;
 };
 
 template <typename UniquePtrSpec, typename... Args>
