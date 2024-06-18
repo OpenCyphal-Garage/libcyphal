@@ -359,41 +359,53 @@ private:
         return opt_any_error;
     }
 
-    void triggerUpdateOfFilters(const FiltersUpdateCondition condition) noexcept override
+    void triggerUpdateOfFilters(const FiltersUpdateCondition::Variant& condition) override
     {
-        switch (condition)
-        {
-        case FiltersUpdateCondition::SubjectPortAdded: {
-            ++total_message_ports_;
-            break;
-        }
-        case FiltersUpdateCondition::SubjectPortRemoved: {
-            // We are not going to allow negative number of ports.
-            CETL_DEBUG_ASSERT(total_message_ports_ > 0, "");
-            total_message_ports_ -= std::min(static_cast<std::size_t>(1), total_message_ports_);
-            break;
-        }
-        case FiltersUpdateCondition::ServicePortAdded: {
-            ++total_service_ports_;
-            break;
-        }
-        case FiltersUpdateCondition::ServicePortRemoved: {
-            // We are not going to allow negative number of ports.
-            CETL_DEBUG_ASSERT(total_service_ports_ > 0, "");
-            total_service_ports_ -= std::min(static_cast<std::size_t>(1), total_service_ports_);
-            break;
-        }
-        default: {
-            // NOLINTNEXTLINE(cert-dcl03-c,hicpp-static-assert,misc-static-assert)
-            CETL_DEBUG_ASSERT(false, "Unexpected condition.");
-            return;
-        }
-        }
+        FiltersUpdateHandler handler_with{*this};
+        cetl::visit(handler_with, condition);
 
         should_reconfigure_filters_ = true;
     }
 
     // MARK: Privates:
+
+    using Self = TransportImpl;
+
+    struct FiltersUpdateHandler
+    {
+        explicit FiltersUpdateHandler(Self& self)
+            : self_{self}
+        {
+        }
+
+        void operator()(const FiltersUpdateCondition::SubjectPortAdded) const
+        {
+            ++self_.total_message_ports_;
+        }
+
+        void operator()(const FiltersUpdateCondition::SubjectPortRemoved) const
+        {
+            // We are not going to allow negative number of ports.
+            CETL_DEBUG_ASSERT(self_.total_message_ports_ > 0, "");
+            self_.total_message_ports_ -= std::min(static_cast<std::size_t>(1), self_.total_message_ports_);
+        }
+
+        void operator()(const FiltersUpdateCondition::ServicePortAdded) const
+        {
+            ++self_.total_service_ports_;
+        }
+
+        void operator()(const FiltersUpdateCondition::ServicePortRemoved) const
+        {
+            // We are not going to allow negative number of ports.
+            CETL_DEBUG_ASSERT(self_.total_service_ports_ > 0, "");
+            self_.total_service_ports_ -= std::min(static_cast<std::size_t>(1), self_.total_service_ports_);
+        }
+
+    private:
+        Self& self_;
+
+    };  // FiltersUpdateHandler
 
     template <typename Report>
     CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientMediaError(const Media& media, MediaError&& error)
@@ -499,13 +511,13 @@ private:
         {
             return tryHandleTransientMediaError<TransientErrorReport::MediaPop>(media, std::move(*error));
         }
-        const auto* const opt_rx_meta = cetl::get_if<cetl::optional<RxMetadata>>(&pop_result);
-        if ((opt_rx_meta == nullptr) || !opt_rx_meta->has_value())
+        const auto& opt_rx_meta = cetl::get<cetl::optional<RxMetadata>>(pop_result);
+        if (!opt_rx_meta.has_value())
         {
             return cetl::nullopt;
         }
 
-        const RxMetadata& rx_meta = opt_rx_meta->value();
+        const RxMetadata& rx_meta = opt_rx_meta.value();
 
         const auto timestamp_us =
             std::chrono::duration_cast<std::chrono::microseconds>(rx_meta.timestamp.time_since_epoch());
@@ -580,7 +592,8 @@ private:
 
             const cetl::span<const cetl::byte> payload{static_cast<const cetl::byte*>(tx_item->frame.payload),
                                                        tx_item->frame.payload_size};
-            Expected<bool, MediaError>         maybe_pushed =
+
+            Expected<bool, MediaError> maybe_pushed =
                 media.interface().push(deadline, tx_item->frame.extended_can_id, payload);
 
             // In case of media push error we are going to drop this problematic frame
@@ -606,9 +619,8 @@ private:
 
                 return opt_any_error;
             }
-
-            const auto* const is_pushed = cetl::get_if<bool>(&maybe_pushed);
-            if ((is_pushed != nullptr) && !*is_pushed)
+            const auto is_pushed = cetl::get<bool>(maybe_pushed);
+            if (!is_pushed)
             {
                 // Media interface is busy, so we are done with this media for now,
                 // and will just try again with it later (on next `run`).

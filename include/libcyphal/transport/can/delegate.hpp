@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <type_traits>
 
 namespace libcyphal
 {
@@ -159,13 +160,26 @@ public:
 
     };  // CanardConcreteTree
 
-    enum class FiltersUpdateCondition : std::uint8_t
+    struct FiltersUpdateCondition
     {
-        SubjectPortAdded,
-        SubjectPortRemoved,
-        ServicePortAdded,
-        ServicePortRemoved
-    };
+    private:
+        enum class Case : std::uint8_t
+        {
+            SubjectPortAdded,
+            SubjectPortRemoved,
+            ServicePortAdded,
+            ServicePortRemoved,
+        };
+
+    public:
+        using SubjectPortAdded   = std::integral_constant<Case, Case::SubjectPortAdded>;
+        using SubjectPortRemoved = std::integral_constant<Case, Case::SubjectPortRemoved>;
+        using ServicePortAdded   = std::integral_constant<Case, Case::ServicePortAdded>;
+        using ServicePortRemoved = std::integral_constant<Case, Case::ServicePortRemoved>;
+
+        using Variant = cetl::variant<SubjectPortAdded, SubjectPortRemoved, ServicePortAdded, ServicePortRemoved>;
+
+    };  // FiltersUpdateCondition
 
     explicit TransportDelegate(cetl::pmr::memory_resource& memory)
         : memory_{memory}
@@ -255,7 +269,7 @@ public:
     /// @param condition Describes condition in which the RX ports change has happened. Allows to distinguish
     ///                  between subject and service ports, and between adding and removing a port.
     ///
-    virtual void triggerUpdateOfFilters(const FiltersUpdateCondition condition) noexcept = 0;
+    virtual void triggerUpdateOfFilters(const FiltersUpdateCondition::Variant& condition) = 0;
 
 protected:
     ~TransportDelegate() = default;

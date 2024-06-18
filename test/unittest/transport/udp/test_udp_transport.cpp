@@ -15,6 +15,7 @@
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/media.hpp>
+#include <libcyphal/transport/udp/udp_transport.hpp>
 #include <libcyphal/transport/udp/udp_transport_impl.hpp>
 #include <libcyphal/types.hpp>
 #include <udpard.h>

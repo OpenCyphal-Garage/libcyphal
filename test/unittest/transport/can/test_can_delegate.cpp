@@ -66,8 +66,7 @@ protected:
                      const CanardTransferMetadata& metadata,
                      const PayloadFragments        payload_fragments),
                     (override));
-        // NOLINTNEXTLINE(bugprone-exception-escape)
-        MOCK_METHOD(void, triggerUpdateOfFilters, (const FiltersUpdateCondition condition), (noexcept, override));
+        MOCK_METHOD(void, triggerUpdateOfFilters, (const FiltersUpdateCondition::Variant& condition), (override));
     };
 
     void TearDown() override
