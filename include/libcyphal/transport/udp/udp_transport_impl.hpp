@@ -12,9 +12,11 @@
 #include "msg_tx_session.hpp"
 #include "svc_rx_sessions.hpp"
 #include "svc_tx_sessions.hpp"
+#include "tx_rx_sockets.hpp"
 #include "udp_transport.hpp"
 
 #include "libcyphal/runnable.hpp"
+#include "libcyphal/transport/common/tools.hpp"
 #include "libcyphal/transport/contiguous_payload.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
@@ -26,11 +28,13 @@
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
+#include <cetl/pmr/interface_ptr.hpp>
 #include <udpard.h>
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <utility>
 
@@ -54,19 +58,12 @@ namespace detail
 ///
 class TransportImpl final : private TransportDelegate, public IUdpTransport  // NOSONAR cpp:S4963
 {
-    /// @brief Defines specification for making interface unique ptr.
+    /// @brief Defines private specification for making interface unique ptr.
     ///
-    struct Spec
-    {
-        using Interface = IUdpTransport;
-        using Concrete  = TransportImpl;
+    struct Spec : libcyphal::detail::UniquePtrSpec<IUdpTransport, TransportImpl>
+    {};
 
-        // In use to disable public construction.
-        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
-        explicit Spec() = default;
-    };
-
-    /// @brief Internal (private) storage of a media index, its interface and TX queue.
+    /// @brief Defines private storage of a media index, its interface, TX queue and socket.
     ///
     struct Media final
     {
@@ -79,6 +76,7 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
             : index_{static_cast<std::uint8_t>(index)}
             , interface_{interface}
             , udpard_tx_{}
+            , tx_socket_ptr_{nullptr, {}}
         {
             const std::int8_t result = ::udpardTxInit(&udpard_tx_, local_node_id, tx_capacity, udp_mem_res);
             CETL_DEBUG_ASSERT(result == 0, "There should be no path for an error here.");
@@ -100,15 +98,21 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
             return udpard_tx_;
         }
 
+        UniquePtr<ITxSocket>& tx_socket_ptr()
+        {
+            return tx_socket_ptr_;
+        }
+
         void propagateMtuToTxQueue()
         {
             udpard_tx_.mtu = interface_.getMtu();
         }
 
     private:
-        const std::uint8_t index_;
-        IMedia&            interface_;
-        UdpardTx           udpard_tx_;
+        const std::uint8_t   index_;
+        IMedia&              interface_;
+        UdpardTx             udpard_tx_;
+        UniquePtr<ITxSocket> tx_socket_ptr_;
     };
     using MediaArray = libcyphal::detail::VarArray<Media>;
 
@@ -258,6 +262,12 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(
         const MessageTxParams& params) override
     {
+        auto any_error = ensureMediaTxSockets();
+        if (any_error.has_value())
+        {
+            return any_error.value();
+        }
+
         return MessageTxSession::make(asDelegate(), params);
     }
 
@@ -277,6 +287,12 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(
         const RequestTxParams& params) override
     {
+        auto any_error = ensureMediaTxSockets();
+        if (any_error.has_value())
+        {
+            return any_error.value();
+        }
+
         return SvcRequestTxSession::make(asDelegate(), params);
     }
 
@@ -296,6 +312,12 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(
         const ResponseTxParams& params) override
     {
+        auto any_error = ensureMediaTxSockets();
+        if (any_error.has_value())
+        {
+            return any_error.value();
+        }
+
         return SvcResponseTxSession::make(asDelegate(), params);
     }
 
@@ -407,6 +429,19 @@ private:
 
     };  // TxTransferHandler
 
+    template <typename Report, typename ErrorVariant>
+    CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientMediaError(Media& media, ErrorVariant&& error_var)
+    {
+        AnyError any_error = common::detail::anyErrorFromVariant(std::forward<ErrorVariant>(error_var));
+        if (!transient_error_handler_)
+        {
+            return any_error;
+        }
+
+        TransientErrorReport::Variant report_var{Report{std::move(any_error), media.index(), media.interface()}};
+        return transient_error_handler_(report_var);
+    }
+
     template <typename Report>
     CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientUdpardResult(const std::int32_t result,
                                                                            Media&             media) const
@@ -453,6 +488,45 @@ private:
         return media_array;
     }
 
+    /// @brief Tries to run an action with media and its TX socket (the latter one is made on demand if necessary).
+    ///
+    template <typename Action>
+    CETL_NODISCARD cetl::optional<AnyError> withEnsureMediaTxSocket(Media& media, Action&& action)
+    {
+        using ErrorReport = TransientErrorReport::MediaMakeTxSocket;
+
+        if (!media.tx_socket_ptr())
+        {
+            auto maybe_tx_socket = media.interface().makeTxSocket();
+            if (auto* media_error = cetl::get_if<cetl::variant<MemoryError, PlatformError>>(&maybe_tx_socket))
+            {
+                return tryHandleTransientMediaError<ErrorReport>(media, std::move(*media_error));
+            }
+
+            media.tx_socket_ptr() = cetl::get<UniquePtr<ITxSocket>>(std::move(maybe_tx_socket));
+            if (!media.tx_socket_ptr())
+            {
+                return tryHandleTransientMediaError<ErrorReport, cetl::variant<MemoryError>>(media, MemoryError{});
+            }
+        }
+
+        return std::forward<Action>(action)(media, *media.tx_socket_ptr());
+    }
+
+    CETL_NODISCARD cetl::optional<AnyError> ensureMediaTxSockets()
+    {
+        for (Media& media : media_array_)
+        {
+            auto any_error = withEnsureMediaTxSocket(media, [](auto&, auto&) { return cetl::nullopt; });
+            if (any_error.has_value())
+            {
+                return any_error;
+            }
+        }
+
+        return cetl::nullopt;
+    }
+
     void flushUdpardTxQueue(UdpardTx& udpard_tx) const
     {
         while (const UdpardTxItem* const maybe_item = ::udpardTxPeek(&udpard_tx))
@@ -488,6 +562,7 @@ inline Expected<UniquePtr<IUdpTransport>, FactoryError> makeTransport(const Memo
 {
     return detail::TransportImpl::make(mem_res_spec, multiplexer, media, tx_capacity);
 }
+
 }  // namespace udp
 }  // namespace transport
 }  // namespace libcyphal

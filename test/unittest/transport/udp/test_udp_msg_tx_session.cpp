@@ -8,6 +8,7 @@
 #include "../../virtual_time_scheduler.hpp"
 #include "../multiplexer_mock.hpp"
 #include "media_mock.hpp"
+#include "tx_rx_sockets_mock.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/transport/errors.hpp>
@@ -60,6 +61,9 @@ protected:
     void SetUp() override
     {
         EXPECT_CALL(media_mock_, getMtu()).WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
+        EXPECT_CALL(media_mock_, makeTxSocket()).WillRepeatedly(testing::Invoke([this]() {
+            return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock_);
+        }));
     }
 
     void TearDown() override
@@ -89,6 +93,7 @@ protected:
     TrackingMemoryResource          mr_;
     StrictMock<MultiplexerMock>     mux_mock_{};
     StrictMock<MediaMock>           media_mock_{};
+    StrictMock<TxSocketMock>        tx_socket_mock_{};
     // NOLINTEND
 };
 

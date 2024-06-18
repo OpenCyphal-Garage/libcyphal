@@ -15,6 +15,7 @@
 #include "svc_tx_sessions.hpp"
 
 #include "libcyphal/runnable.hpp"
+#include "libcyphal/transport/common/tools.hpp"
 #include "libcyphal/transport/contiguous_payload.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
@@ -55,19 +56,12 @@ namespace detail
 ///
 class TransportImpl final : private TransportDelegate, public ICanTransport  // NOSONAR cpp:S4963
 {
-    /// @brief Defines specification for making interface unique ptr.
+    /// @brief Defines private specification for making interface unique ptr.
     ///
-    struct Spec
-    {
-        using Interface = ICanTransport;
-        using Concrete  = TransportImpl;
+    struct Spec : libcyphal::detail::UniquePtrSpec<ICanTransport, TransportImpl>
+    {};
 
-        // In use to disable public construction.
-        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
-        explicit Spec() = default;
-    };
-
-    /// @brief Internal (private) storage of a media index, its interface and TX queue.
+    /// @brief Defines private storage of a media index, its interface and TX queue.
     ///
     struct Media final
     {
@@ -397,17 +391,10 @@ private:
 
     // MARK: Privates:
 
-    template <typename ErrorVariant>
-    CETL_NODISCARD static AnyError anyErrorFromVariant(ErrorVariant&& other_error_var)
-    {
-        return cetl::visit([](auto&& error) -> AnyError { return std::forward<decltype(error)>(error); },
-                           std::forward<ErrorVariant>(other_error_var));
-    }
-
     template <typename Report>
     CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientMediaError(MediaError&& media_error, const Media& media)
     {
-        AnyError any_error = anyErrorFromVariant(std::move(media_error));
+        AnyError any_error = common::detail::anyErrorFromVariant(std::move(media_error));
         if (!transient_error_handler_)
         {
             return any_error;

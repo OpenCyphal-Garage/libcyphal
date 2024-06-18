@@ -62,9 +62,17 @@ public:
             UdpardTx&    culprit;
         };
 
+        /// @brief Error report about making TX socket by the media interface.
+        struct MediaMakeTxSocket
+        {
+            AnyError     error;
+            std::uint8_t media_index;
+            IMedia&      culprit;
+        };
+
         /// Defines variant of all possible transient error reports.
         ///
-        using Variant = cetl::variant<UdpardTxPublish, UdpardTxRequest, UdpardTxRespond>;
+        using Variant = cetl::variant<UdpardTxPublish, UdpardTxRequest, UdpardTxRespond, MediaMakeTxSocket>;
 
     };  // TransientErrorReport
 

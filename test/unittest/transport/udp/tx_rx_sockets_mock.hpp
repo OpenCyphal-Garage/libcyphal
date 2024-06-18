@@ -29,11 +29,8 @@ class TxSocketMock : public ITxSocket
 public:
     struct ReferenceWrapper : ITxSocket
     {
-        struct Spec
-        {
-            using Interface = ITxSocket;
-            using Concrete  = ReferenceWrapper;
-        };
+        struct Spec : libcyphal::detail::UniquePtrSpec<ITxSocket, ReferenceWrapper>
+        {};
 
         explicit ReferenceWrapper(TxSocketMock& tx_socket_mock)
             : tx_socket_mock_{tx_socket_mock}

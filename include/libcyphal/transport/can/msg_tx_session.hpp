@@ -33,17 +33,10 @@ namespace detail
 
 class MessageTxSession final : public IMessageTxSession
 {
-    /// @brief Defines specification for making interface unique ptr.
+    /// @brief Defines private specification for making interface unique ptr.
     ///
-    struct Spec
-    {
-        using Interface = IMessageTxSession;
-        using Concrete  = MessageTxSession;
-
-        // In use to disable public construction.
-        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
-        explicit Spec() = default;
-    };
+    struct Spec : libcyphal::detail::UniquePtrSpec<IMessageTxSession, MessageTxSession>
+    {};
 
 public:
     CETL_NODISCARD static Expected<UniquePtr<IMessageTxSession>, AnyError> make(TransportDelegate&     delegate,

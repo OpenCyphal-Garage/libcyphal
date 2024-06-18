@@ -35,17 +35,10 @@ namespace detail
 ///
 class SvcRequestTxSession final : public IRequestTxSession
 {
-    /// @brief Defines specification for making interface unique ptr.
+    /// @brief Defines private specification for making interface unique ptr.
     ///
-    struct Spec
-    {
-        using Interface = IRequestTxSession;
-        using Concrete  = SvcRequestTxSession;
-
-        // In use to disable public construction.
-        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
-        explicit Spec() = default;
-    };
+    struct Spec : libcyphal::detail::UniquePtrSpec<IRequestTxSession, SvcRequestTxSession>
+    {};
 
 public:
     CETL_NODISCARD static Expected<UniquePtr<IRequestTxSession>, AnyError> make(TransportDelegate&     delegate,
@@ -130,17 +123,10 @@ private:
 ///
 class SvcResponseTxSession final : public IResponseTxSession
 {
-    /// @brief Defines specification for making interface unique ptr.
+    /// @brief Defines private specification for making interface unique ptr.
     ///
-    struct Spec
-    {
-        using Interface = IResponseTxSession;
-        using Concrete  = SvcResponseTxSession;
-
-        // In use to disable public construction.
-        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
-        explicit Spec() = default;
-    };
+    struct Spec : libcyphal::detail::UniquePtrSpec<IResponseTxSession, SvcResponseTxSession>
+    {};
 
 public:
     CETL_NODISCARD static Expected<UniquePtr<IResponseTxSession>, AnyError> make(TransportDelegate&      delegate,

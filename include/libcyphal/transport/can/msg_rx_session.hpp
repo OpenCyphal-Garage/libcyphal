@@ -43,17 +43,10 @@ namespace detail
 ///
 class MessageRxSession final : private IRxSessionDelegate, public IMessageRxSession  // NOSONAR cpp:S4963
 {
-    /// @brief Defines specification for making interface unique ptr.
+    /// @brief Defines private specification for making interface unique ptr.
     ///
-    struct Spec
-    {
-        using Interface = IMessageRxSession;
-        using Concrete  = MessageRxSession;
-
-        // In use to disable public construction.
-        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
-        explicit Spec() = default;
-    };
+    struct Spec : libcyphal::detail::UniquePtrSpec<IMessageRxSession, MessageRxSession>
+    {};
 
 public:
     CETL_NODISCARD static Expected<UniquePtr<IMessageRxSession>, AnyError> make(TransportDelegate&     delegate,

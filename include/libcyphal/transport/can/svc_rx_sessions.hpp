@@ -51,17 +51,10 @@ namespace detail
 template <typename Interface_, typename Params, CanardTransferKind TransferKind>
 class SvcRxSession final : private IRxSessionDelegate, public Interface_  // NOSONAR cpp:S4963
 {
-    /// @brief Defines specification for making interface unique ptr.
+    /// @brief Defines private specification for making interface unique ptr.
     ///
-    struct Spec
-    {
-        using Interface = Interface_;
-        using Concrete  = SvcRxSession;
-
-        // In use to disable public construction.
-        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
-        explicit Spec() = default;
-    };
+    struct Spec : libcyphal::detail::UniquePtrSpec<Interface_, SvcRxSession>
+    {};
 
 public:
     CETL_NODISCARD static Expected<UniquePtr<Interface_>, AnyError> make(TransportDelegate& delegate,
