@@ -11,6 +11,7 @@
 #include "libcyphal/types.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <udpard.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -56,7 +57,7 @@ public:
     /// The default MTU is derived as:
     /// 1500B Ethernet MTU (RFC 894) - 60B IPv4 max header - 8B UDP Header - 24B Cyphal header.
     ///
-    static constexpr std::size_t DefaultMtu = 1408UL;
+    static constexpr std::size_t DefaultMtu = UDPARD_MTU_DEFAULT;
 
     /// @brief Sends payload fragments to this socket.
     ///
