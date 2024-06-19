@@ -20,7 +20,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <type_traits>
+#include <utility>
 
 namespace libcyphal
 {
@@ -160,26 +160,20 @@ public:
 
     };  // CanardConcreteTree
 
-    struct FiltersUpdateCondition
+    struct FiltersUpdate
     {
-    private:
-        enum class Case : std::uint8_t
+        struct SubjectPort
         {
-            SubjectPortAdded,
-            SubjectPortRemoved,
-            ServicePortAdded,
-            ServicePortRemoved,
+            bool is_added;
+        };
+        struct ServicePort
+        {
+            bool is_added;
         };
 
-    public:
-        using SubjectPortAdded   = std::integral_constant<Case, Case::SubjectPortAdded>;
-        using SubjectPortRemoved = std::integral_constant<Case, Case::SubjectPortRemoved>;
-        using ServicePortAdded   = std::integral_constant<Case, Case::ServicePortAdded>;
-        using ServicePortRemoved = std::integral_constant<Case, Case::ServicePortRemoved>;
+        using Variant = cetl::variant<SubjectPort, ServicePort>;
 
-        using Variant = cetl::variant<SubjectPortAdded, SubjectPortRemoved, ServicePortAdded, ServicePortRemoved>;
-
-    };  // FiltersUpdateCondition
+    };  // FiltersUpdate
 
     explicit TransportDelegate(cetl::pmr::memory_resource& memory)
         : memory_{memory}
@@ -204,11 +198,6 @@ public:
     }
 
     CETL_NODISCARD CanardInstance& canard_instance() noexcept
-    {
-        return canard_instance_;
-    }
-
-    CETL_NODISCARD const CanardInstance& canard_instance() const noexcept
     {
         return canard_instance_;
     }
@@ -266,10 +255,10 @@ public:
     ///
     /// Actual update will be done on next `run` of transport.
     ///
-    /// @param condition Describes condition in which the RX ports change has happened. Allows to distinguish
-    ///                  between subject and service ports, and between adding and removing a port.
+    /// @param update_var Describes variant of which the RX ports update has happened.
+    ///                   Allows to distinguish between subject and service ports.
     ///
-    virtual void triggerUpdateOfFilters(const FiltersUpdateCondition::Variant& condition) = 0;
+    virtual void triggerUpdateOfFilters(const FiltersUpdate::Variant& update_var) = 0;
 
 protected:
     ~TransportDelegate() = default;

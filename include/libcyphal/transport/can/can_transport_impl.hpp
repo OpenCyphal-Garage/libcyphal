@@ -359,10 +359,10 @@ private:
         return opt_any_error;
     }
 
-    void triggerUpdateOfFilters(const FiltersUpdateCondition::Variant& condition) override
+    void triggerUpdateOfFilters(const FiltersUpdate::Variant& update_var) override
     {
         FiltersUpdateHandler handler_with{*this};
-        cetl::visit(handler_with, condition);
+        cetl::visit(handler_with, update_var);
 
         should_reconfigure_filters_ = true;
     }
@@ -378,28 +378,32 @@ private:
         {
         }
 
-        void operator()(const FiltersUpdateCondition::SubjectPortAdded) const
+        void operator()(const FiltersUpdate::SubjectPort& port) const
         {
-            ++self_.total_message_ports_;
+            if (port.is_added)
+            {
+                ++self_.total_message_ports_;
+            }
+            else
+            {
+                // We are not going to allow negative number of ports.
+                CETL_DEBUG_ASSERT(self_.total_message_ports_ > 0, "");
+                self_.total_message_ports_ -= std::min(static_cast<std::size_t>(1), self_.total_message_ports_);
+            }
         }
 
-        void operator()(const FiltersUpdateCondition::SubjectPortRemoved) const
+        void operator()(const FiltersUpdate::ServicePort& port) const
         {
-            // We are not going to allow negative number of ports.
-            CETL_DEBUG_ASSERT(self_.total_message_ports_ > 0, "");
-            self_.total_message_ports_ -= std::min(static_cast<std::size_t>(1), self_.total_message_ports_);
-        }
-
-        void operator()(const FiltersUpdateCondition::ServicePortAdded) const
-        {
-            ++self_.total_service_ports_;
-        }
-
-        void operator()(const FiltersUpdateCondition::ServicePortRemoved) const
-        {
-            // We are not going to allow negative number of ports.
-            CETL_DEBUG_ASSERT(self_.total_service_ports_ > 0, "");
-            self_.total_service_ports_ -= std::min(static_cast<std::size_t>(1), self_.total_service_ports_);
+            if (port.is_added)
+            {
+                ++self_.total_service_ports_;
+            }
+            else
+            {
+                // We are not going to allow negative number of ports.
+                CETL_DEBUG_ASSERT(self_.total_service_ports_ > 0, "");
+                self_.total_service_ports_ -= std::min(static_cast<std::size_t>(1), self_.total_service_ports_);
+            }
         }
 
     private:

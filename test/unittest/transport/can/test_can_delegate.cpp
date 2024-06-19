@@ -66,7 +66,7 @@ protected:
                      const CanardTransferMetadata& metadata,
                      const PayloadFragments        payload_fragments),
                     (override));
-        MOCK_METHOD(void, triggerUpdateOfFilters, (const FiltersUpdateCondition::Variant& condition), (override));
+        MOCK_METHOD(void, triggerUpdateOfFilters, (const FiltersUpdate::Variant& update_var), (override));
     };
 
     void TearDown() override

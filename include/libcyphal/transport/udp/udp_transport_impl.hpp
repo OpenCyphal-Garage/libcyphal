@@ -28,13 +28,11 @@
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
-#include <cetl/pmr/interface_ptr.hpp>
 #include <udpard.h>
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <limits>
 #include <utility>
 

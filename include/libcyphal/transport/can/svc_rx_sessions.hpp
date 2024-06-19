@@ -19,7 +19,6 @@
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
 #include <utility>
 
@@ -95,7 +94,7 @@ public:
 
         subscription_.user_reference = static_cast<IRxSessionDelegate*>(this);
 
-        delegate_.triggerUpdateOfFilters(TransportDelegate::FiltersUpdateCondition::ServicePortAdded{});
+        delegate_.triggerUpdateOfFilters(TransportDelegate::FiltersUpdate::ServicePort{true});
     }
 
     SvcRxSession(const SvcRxSession&)                = delete;
@@ -110,7 +109,7 @@ public:
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "Subscription supposed to be made at constructor.");
 
-        delegate_.triggerUpdateOfFilters(TransportDelegate::FiltersUpdateCondition::ServicePortRemoved{});
+        delegate_.triggerUpdateOfFilters(TransportDelegate::FiltersUpdate::ServicePort{false});
     }
 
 private:
