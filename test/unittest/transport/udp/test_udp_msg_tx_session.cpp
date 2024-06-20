@@ -10,6 +10,7 @@
 #include "../../virtual_time_scheduler.hpp"
 #include "../multiplexer_mock.hpp"
 #include "media_mock.hpp"
+#include "transient_error_handler_mock.hpp"
 #include "tx_rx_sockets_mock.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -18,6 +19,7 @@
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/media.hpp>
 #include <libcyphal/transport/udp/msg_tx_session.hpp>
+#include <libcyphal/transport/udp/tx_rx_sockets.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
 #include <libcyphal/transport/udp/udp_transport_impl.hpp>
 #include <libcyphal/types.hpp>
@@ -29,6 +31,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <utility>
 
 namespace
@@ -46,6 +49,7 @@ using libcyphal::verification_utilities::makeSpansFrom;
 
 using testing::_;
 using testing::Eq;
+using testing::Truly;
 using testing::Invoke;
 using testing::Return;
 using testing::SizeIs;
@@ -139,6 +143,44 @@ TEST_F(TestUdpMsgTxSession, make_fails_due_to_argument_error)
     // Try invalid subject id
     auto maybe_session = transport->makeMessageTxSession({UDPARD_SUBJECT_ID_MAX + 1});
     EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
+}
+
+TEST_F(TestUdpMsgTxSession, make_fails_due_to_media_socket)
+{
+    using MakeSocketReport = IUdpTransport::TransientErrorReport::MediaMakeTxSocket;
+
+    auto transport = makeTransport({mr_});
+
+    // 1. Transport will fail to make msg TX session b/c media fails to create a TX socket.
+    {
+        EXPECT_CALL(media_mock_, makeTxSocket()).WillOnce(Return(MemoryError{}));
+
+        auto maybe_tx_session = transport->makeMessageTxSession({123});
+        EXPECT_THAT(maybe_tx_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
+    }
+
+    // 2. Transport will succeed to make TX session despite the media fails to create a TX socket.
+    //    This is b/c transient error handler will be set and will handle the error.
+    {
+        EXPECT_CALL(media_mock_, makeTxSocket()).WillOnce(Return(MemoryError{}));
+
+        StrictMock<TransientErrorHandlerMock> handler_mock{};
+        transport->setTransientErrorHandler(std::ref(handler_mock));
+        EXPECT_CALL(handler_mock, invoke(VariantWith<MakeSocketReport>(Truly([&](auto& report) {
+                        EXPECT_THAT(report.error, VariantWith<MemoryError>(_));
+                        EXPECT_THAT(report.media_index, 0);
+                        EXPECT_THAT(report.culprit, Ref(media_mock_));
+                        return true;
+                    }))))
+            .WillOnce(Return(cetl::nullopt));
+
+        auto maybe_tx_session = transport->makeMessageTxSession({123});
+        ASSERT_THAT(maybe_tx_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
+
+        auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_tx_session));
+        EXPECT_THAT(session->getParams().subject_id, 123);
+        EXPECT_THAT(transport->getProtocolParams().mtu_bytes, ITxSocket::DefaultMtu);
+    }
 }
 
 TEST_F(TestUdpMsgTxSession, send_empty_payload_and_no_transport_run)

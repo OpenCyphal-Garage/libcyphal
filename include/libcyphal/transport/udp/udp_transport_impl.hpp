@@ -366,13 +366,14 @@ private:
 
         for (Media& some_media : media_array_)
         {
-            opt_any_error =
-                withEnsureMediaTxSocket(some_media, [this, &tx_metadata_var, &payload](auto& media, auto& tx_socket) {
-                    media.udpard_tx().mtu = tx_socket.getMtu();
+            opt_any_error = withEnsureMediaTxSocket(some_media,
+                                                    [this, &tx_metadata_var, &payload](auto& media, auto& tx_socket)
+                                                        -> cetl::optional<AnyError> {
+                                                        media.udpard_tx().mtu = tx_socket.getMtu();
 
-                    const TxTransferHandler transfer_handler{*this, media, payload};
-                    return cetl::visit(transfer_handler, tx_metadata_var);
-                });
+                                                        const TxTransferHandler transfer_handler{*this, media, payload};
+                                                        return cetl::visit(transfer_handler, tx_metadata_var);
+                                                    });
             if (opt_any_error.has_value())
             {
                 // The handler (if any) just said that it's NOT fine to continue with transferring to
