@@ -64,6 +64,8 @@ public:
     /// The payload may be fragmented to minimize data copying in the user space,
     /// allowing the implementation to use vectorized I/O (iov).
     ///
+    /// @param deadline The deadline for the send operation. Socket implementation should drop the payload
+    ///                 if the deadline is exceeded (aka `now > deadline`).
     /// @param multicast_endpoint The multicast endpoint to send the payload to.
     /// @param dscp The Differentiated Services Code Point (DSCP) to set in the IP header.
     /// @param payload_fragments Fragments of the payload to send.
@@ -71,6 +73,7 @@ public:
     ///         In case of failure, an error is returned.
     ///
     virtual Expected<bool, cetl::variant<PlatformError, ArgumentError>> send(
+        const TimePoint        deadline,
         const IpEndpoint       multicast_endpoint,
         const std::uint8_t     dscp,
         const PayloadFragments payload_fragments) = 0;

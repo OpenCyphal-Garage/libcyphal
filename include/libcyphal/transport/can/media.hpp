@@ -72,6 +72,9 @@ public:
 
     /// @brief Schedules the frame for transmission asynchronously and return immediately.
     ///
+    /// @param deadline The deadline for the push operation. Media implementation should drop the payload
+    ///                 if the deadline is exceeded (aka `now > deadline`).
+    /// @param can_id The destination CAN ID of the frame.
     /// @return `true` if the frame is accepted or already timed out;
     ///         `false` to try again later (f.e. b/c output TX queue is currently full).
     ///         If any media error occurred, the frame will be dropped by transport.

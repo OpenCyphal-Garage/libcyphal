@@ -611,7 +611,8 @@ private:
                                 tx_item->datagram_payload.size}};
 
             Expected<bool, cetl::variant<PlatformError, ArgumentError>> maybe_sent =
-                tx_socket.send({tx_item->destination.ip_address, tx_item->destination.udp_port},
+                tx_socket.send(deadline,
+                               {tx_item->destination.ip_address, tx_item->destination.udp_port},
                                tx_item->dscp,
                                single_payload_fragment);
 

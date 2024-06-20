@@ -54,11 +54,12 @@ public:
         }
 
         libcyphal::Expected<bool, cetl::variant<PlatformError, ArgumentError>> send(
+            const TimePoint        deadline,
             const IpEndpoint       multicast_endpoint,
             const std::uint8_t     dscp,
             const PayloadFragments payload_fragments) override
         {
-            return tx_socket_mock_.send(multicast_endpoint, dscp, payload_fragments);
+            return tx_socket_mock_.send(deadline, multicast_endpoint, dscp, payload_fragments);
         }
 
     private:
@@ -79,7 +80,8 @@ public:
 
     MOCK_METHOD((Expected<bool, cetl::variant<PlatformError, ArgumentError>>),
                 send,
-                (const IpEndpoint       multicast_endpoint,
+                (const TimePoint        deadline,
+                 const IpEndpoint       multicast_endpoint,
                  const std::uint8_t     dscp,
                  const PayloadFragments payload_fragments),
                 (override));
