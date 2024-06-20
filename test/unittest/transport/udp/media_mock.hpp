@@ -34,9 +34,6 @@ public:
     MediaMock& operator=(const MediaMock&)     = delete;
     MediaMock& operator=(MediaMock&&) noexcept = delete;
 
-    // NOLINTNEXTLINE(bugprone-exception-escape)
-    MOCK_METHOD(std::size_t, getMtu, (), (const, noexcept, override));
-
     MOCK_METHOD((Expected<UniquePtr<ITxSocket>, cetl::variant<MemoryError, PlatformError>>),
                 makeTxSocket,
                 (),

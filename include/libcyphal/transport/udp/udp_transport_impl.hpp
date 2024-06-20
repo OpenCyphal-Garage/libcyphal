@@ -105,9 +105,9 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
             return tx_socket_ptr_;
         }
 
-        void propagateMtuToTxQueue()
+        std::size_t getTxSocketMtu() const noexcept
         {
-            udpard_tx_.mtu = interface_.getMtu();
+            return tx_socket_ptr_ ? tx_socket_ptr_->getMtu() : ITxSocket::DefaultMtu;
         }
 
     private:
@@ -242,7 +242,7 @@ private:
         std::size_t min_mtu = std::numeric_limits<std::size_t>::max();
         for (const Media& media : media_array_)
         {
-            min_mtu = std::min(min_mtu, media.interface().getMtu());
+            min_mtu = std::min(min_mtu, media.getTxSocketMtu());
         }
 
         return ProtocolParams{std::numeric_limits<TransferId>::max(), min_mtu, UDPARD_NODE_ID_MAX + 1};
@@ -362,21 +362,26 @@ private:
             return MemoryError{};
         }
 
-        for (Media& media : media_array_)
-        {
-            media.propagateMtuToTxQueue();
+        cetl::optional<AnyError> opt_any_error;
 
-            const TxTransferHandler  transfer_handler{*this, media, payload};
-            cetl::optional<AnyError> opt_any_error = cetl::visit(transfer_handler, tx_metadata_var);
+        for (Media& some_media : media_array_)
+        {
+            opt_any_error =
+                withEnsureMediaTxSocket(some_media, [this, &tx_metadata_var, &payload](auto& media, auto& tx_socket) {
+                    media.udpard_tx().mtu = tx_socket.getMtu();
+
+                    const TxTransferHandler transfer_handler{*this, media, payload};
+                    return cetl::visit(transfer_handler, tx_metadata_var);
+                });
             if (opt_any_error.has_value())
             {
                 // The handler (if any) just said that it's NOT fine to continue with transferring to
                 // other media TX queues, and the error should not be ignored but propagated outside.
-                return opt_any_error;
+                break;
             }
         }
 
-        return cetl::nullopt;
+        return opt_any_error;
     }
 
     // MARK: Privates:
@@ -454,6 +459,7 @@ private:
 
         TransientErrorReport::Variant report_var{
             Report{std::move(any_error), media.index(), std::forward<Culprit>(culprit)}};
+
         return transient_error_handler_(report_var);
     }
 
@@ -513,9 +519,9 @@ private:
         if (!media.tx_socket_ptr())
         {
             auto maybe_tx_socket = media.interface().makeTxSocket();
-            if (auto* media_error = cetl::get_if<cetl::variant<MemoryError, PlatformError>>(&maybe_tx_socket))
+            if (auto* error = cetl::get_if<cetl::variant<MemoryError, PlatformError>>(&maybe_tx_socket))
             {
-                return tryHandleTransientMediaError<ErrorReport>(media, std::move(*media_error), media.interface());
+                return tryHandleTransientMediaError<ErrorReport>(media, std::move(*error), media.interface());
             }
 
             media.tx_socket_ptr() = cetl::get<UniquePtr<ITxSocket>>(std::move(maybe_tx_socket));
@@ -567,6 +573,7 @@ private:
                                         [this, now](Media& media, ITxSocket& tx_socket) -> cetl::optional<AnyError> {
                                             return runSingleMediaTransmit(media, tx_socket, now);
                                         });
+
             if (opt_any_error.has_value())
             {
                 break;

@@ -16,6 +16,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
+#include <utility>
 
 namespace libcyphal
 {
@@ -46,6 +48,11 @@ public:
         ReferenceWrapper& operator=(const ReferenceWrapper&)     = delete;
         ReferenceWrapper& operator=(ReferenceWrapper&&) noexcept = delete;
 
+        TxSocketMock& tx_socket_mock()
+        {
+            return tx_socket_mock_;
+        }
+
         // MARK: ITxSocket
 
         std::size_t getMtu() const noexcept override
@@ -67,13 +74,26 @@ public:
 
     };  // ReferenceWrapper
 
-    TxSocketMock()          = default;
-    virtual ~TxSocketMock() = default;
+    explicit TxSocketMock(std::string name)
+        : name_{std::move(name)} {};
 
+    virtual ~TxSocketMock()                          = default;
     TxSocketMock(const TxSocketMock&)                = delete;
     TxSocketMock(TxSocketMock&&) noexcept            = delete;
     TxSocketMock& operator=(const TxSocketMock&)     = delete;
     TxSocketMock& operator=(TxSocketMock&&) noexcept = delete;
+
+    std::string getMockName() const
+    {
+        return name_;
+    }
+
+    std::size_t getBaseMtu() const noexcept
+    {
+        return ITxSocket::getMtu();
+    }
+
+    // MARK: ITxSocket
 
     // NOLINTNEXTLINE(bugprone-exception-escape)
     MOCK_METHOD(std::size_t, getMtu, (), (const, noexcept, override));
@@ -85,6 +105,9 @@ public:
                  const std::uint8_t     dscp,
                  const PayloadFragments payload_fragments),
                 (override));
+
+private:
+    const std::string name_;
 
 };  // TxSocketMock
 

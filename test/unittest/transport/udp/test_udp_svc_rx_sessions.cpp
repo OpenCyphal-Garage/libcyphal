@@ -56,7 +56,6 @@ class TestUdpSvcRxSessions : public testing::Test
 protected:
     void SetUp() override
     {
-        EXPECT_CALL(media_mock_, getMtu()).WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
     }
 
     void TearDown() override

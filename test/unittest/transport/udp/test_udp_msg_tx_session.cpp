@@ -46,6 +46,7 @@ using libcyphal::verification_utilities::makeSpansFrom;
 
 using testing::_;
 using testing::Eq;
+using testing::Invoke;
 using testing::Return;
 using testing::SizeIs;
 using testing::IsEmpty;
@@ -67,10 +68,10 @@ class TestUdpMsgTxSession : public testing::Test
 protected:
     void SetUp() override
     {
-        EXPECT_CALL(media_mock_, getMtu()).WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
-        EXPECT_CALL(media_mock_, makeTxSocket()).WillRepeatedly(testing::Invoke([this]() {
+        EXPECT_CALL(media_mock_, makeTxSocket()).WillRepeatedly(Invoke([this]() {
             return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock_);
         }));
+        EXPECT_CALL(tx_socket_mock_, getMtu()).WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
     }
 
     void TearDown() override
@@ -100,7 +101,7 @@ protected:
     TrackingMemoryResource          mr_;
     StrictMock<MultiplexerMock>     mux_mock_{};
     StrictMock<MediaMock>           media_mock_{};
-    StrictMock<TxSocketMock>        tx_socket_mock_{};
+    StrictMock<TxSocketMock>        tx_socket_mock_{"S1"};
     // NOLINTEND
 };
 

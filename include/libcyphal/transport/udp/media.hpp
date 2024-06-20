@@ -12,8 +12,6 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 
-#include <cstddef>
-
 namespace libcyphal
 {
 namespace transport
@@ -32,13 +30,6 @@ public:
     IMedia(IMedia&&) noexcept            = delete;
     IMedia& operator=(const IMedia&)     = delete;
     IMedia& operator=(IMedia&&) noexcept = delete;
-
-    /// @brief Get the maximum transmission unit (MTU) of the UDP media.
-    ///
-    /// This value may change arbitrarily at runtime. The transport implementation will query it before every
-    /// transmission on the port. This value has no effect on the reception pipeline as it can accept arbitrary MTU.
-    ///
-    virtual std::size_t getMtu() const noexcept = 0;
 
     /// Constructs a new TX socket bound to this media.
     ///
