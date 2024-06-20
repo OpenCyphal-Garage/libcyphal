@@ -9,6 +9,7 @@
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/transport.hpp"
 #include "media.hpp"
+#include "tx_rx_sockets.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pmr/function.hpp>
@@ -70,9 +71,18 @@ public:
             IMedia&      culprit;
         };
 
+        /// @brief Error report about sending a frame to the media TX socket interface.
+        struct MediaTxSocketSend
+        {
+            AnyError     error;
+            std::uint8_t media_index;
+            ITxSocket&   culprit;
+        };
+
         /// Defines variant of all possible transient error reports.
         ///
-        using Variant = cetl::variant<UdpardTxPublish, UdpardTxRequest, UdpardTxRespond, MediaMakeTxSocket>;
+        using Variant =
+            cetl::variant<UdpardTxPublish, UdpardTxRequest, UdpardTxRespond, MediaMakeTxSocket, MediaTxSocketSend>;
 
     };  // TransientErrorReport
 

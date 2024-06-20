@@ -112,8 +112,8 @@ public:
         // Verify input arguments:
         // - At least one media interface must be provided, but no more than the maximum allowed (255).
         //
-        const auto media_count =
-            static_cast<std::size_t>(std::count_if(media.begin(), media.end(), [](const IMedia* const media_ptr) {
+        const auto media_count = static_cast<std::size_t>(
+            std::count_if(media.begin(), media.end(), [](const IMedia* const media_ptr) -> bool {
                 return media_ptr != nullptr;
             }));
         if ((media_count == 0) || (media_count > std::numeric_limits<std::uint8_t>::max()))
