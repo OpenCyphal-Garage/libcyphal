@@ -75,7 +75,7 @@ public:
         return session;
     }
 
-    SvcRxSession(Spec, TransportDelegate& delegate, const Params& params)
+    SvcRxSession(const Spec, TransportDelegate& delegate, const Params& params)
         : delegate_{delegate}
         , params_{params}
     {

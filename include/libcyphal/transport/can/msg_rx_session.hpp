@@ -70,7 +70,7 @@ public:
         return session;
     }
 
-    MessageRxSession(Spec, TransportDelegate& delegate, const MessageRxParams& params)
+    MessageRxSession(const Spec, TransportDelegate& delegate, const MessageRxParams& params)
         : delegate_{delegate}
         , params_{params}
         , subscription_{}

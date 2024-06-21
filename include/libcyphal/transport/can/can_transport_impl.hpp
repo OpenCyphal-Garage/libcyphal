@@ -138,7 +138,7 @@ public:
         return transport;
     }
 
-    TransportImpl(Spec, cetl::pmr::memory_resource& memory, MediaArray&& media_array)
+    TransportImpl(const Spec, cetl::pmr::memory_resource& memory, MediaArray&& media_array)
         : TransportDelegate{memory}
         , media_array_{std::move(media_array)}
         , should_reconfigure_filters_{false}
@@ -511,7 +511,7 @@ private:
         std::array<cetl::byte, CANARD_MTU_MAX> payload{};
 
         Expected<cetl::optional<RxMetadata>, MediaError> pop_result = media.interface().pop(payload);
-        if (auto* error = cetl::get_if<MediaError>(&pop_result))
+        if (auto* const error = cetl::get_if<MediaError>(&pop_result))
         {
             return tryHandleTransientMediaError<TransientErrorReport::MediaPop>(media, std::move(*error));
         }
@@ -538,7 +538,7 @@ private:
                                                     &out_subscription);
         cetl::optional<AnyError> opt_any_error =
             tryHandleTransientCanardResult<TransientErrorReport::CanardRxAccept>(media, result);
-        if (!opt_any_error.has_value() && (result > 0))
+        if ((!opt_any_error.has_value()) && (result > 0))
         {
             CETL_DEBUG_ASSERT(out_subscription != nullptr, "Expected subscription.");
             CETL_DEBUG_ASSERT(out_subscription->user_reference != nullptr, "Expected session delegate.");
@@ -606,7 +606,7 @@ private:
             // Note that media not being ready/able to push a frame just yet (aka temporary)
             // is not reported as an error (see `is_pushed` below).
             //
-            if (auto* error = cetl::get_if<MediaError>(&maybe_pushed))
+            if (auto* const error = cetl::get_if<MediaError>(&maybe_pushed))
             {
                 // Release problematic frame from the TX queue, so that other frames in TX queue have their chance.
                 // Otherwise, we would be stuck in a run loop trying to push the same frame.
@@ -745,7 +745,7 @@ private:
 
         // No need to make service filters if we don't have a local node ID.
         //
-        if ((total_service_ports_ > 0) && !is_anonymous)
+        if ((total_service_ports_ > 0) && (!is_anonymous))
         {
             const auto svc_visitor = [&filters, local_node_id](RxSubscription& rx_subscription) {
                 // Make and store a single service filter.

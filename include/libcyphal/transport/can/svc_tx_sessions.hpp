@@ -62,7 +62,7 @@ public:
         return session;
     }
 
-    SvcRequestTxSession(Spec, TransportDelegate& delegate, const RequestTxParams& params)
+    SvcRequestTxSession(const Spec, TransportDelegate& delegate, const RequestTxParams& params)
         : delegate_{delegate}
         , params_{params}
         , send_timeout_{std::chrono::seconds{1}}
@@ -154,7 +154,7 @@ public:
         return session;
     }
 
-    SvcResponseTxSession(Spec, TransportDelegate& delegate, const ResponseTxParams& params)
+    SvcResponseTxSession(const Spec, TransportDelegate& delegate, const ResponseTxParams& params)
         : delegate_{delegate}
         , params_{params}
         , send_timeout_{std::chrono::seconds{1}}

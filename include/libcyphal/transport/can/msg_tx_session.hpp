@@ -60,7 +60,7 @@ public:
         return session;
     }
 
-    MessageTxSession(Spec, TransportDelegate& delegate, const MessageTxParams& params)
+    MessageTxSession(const Spec, TransportDelegate& delegate, const MessageTxParams& params)
         : delegate_{delegate}
         , params_{params}
         , send_timeout_{std::chrono::seconds{1}}

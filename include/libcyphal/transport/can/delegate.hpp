@@ -128,7 +128,8 @@ public:
         /// Recursion goes first to the left child, then to the current node, and finally to the right child.
         /// B/c AVL tree is balanced, the total complexity is `O(n)` and call stack depth should not be deeper than
         /// ~O(log(N)) (`ceil(1.44 * log2(N + 2) - 0.328)` to be precise, or 19 in case of 8192 ports),
-        /// where `N` is the total number of tree nodes. Hence, the `NOLINTNEXTLINE(misc-no-recursion)` exception.
+        /// where `N` is the total number of tree nodes. Hence, the `NOLINTNEXTLINE(misc-no-recursion)`
+        /// and `NOSONAR cpp:S925` exceptions.
         ///
         /// @tparam Visitor Type of the visitor callable.
         /// @param node (sub-)root node of the AVL tree. Could be `nullptr`.
@@ -147,13 +148,13 @@ public:
             // Initial `1` is for the current node.
             std::size_t count = 1;
 
-            count += visitCounting(node->lr[0], visitor);
+            count += visitCounting(node->lr[0], visitor);  // NOSONAR cpp:S925
 
             // Next nolint & NOSONAR are unavoidable: this is integration with low-level C code of Canard AVL trees.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
             visitor(*reinterpret_cast<Node*>(node));  // NOSONAR cpp:S3630
 
-            count += visitCounting(node->lr[1], visitor);
+            count += visitCounting(node->lr[1], visitor);  // NOSONAR cpp:S925
 
             return count;
         }
