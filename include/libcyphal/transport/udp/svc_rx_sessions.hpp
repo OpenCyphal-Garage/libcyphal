@@ -57,16 +57,16 @@ class SvcRxSession final : private IRxSessionDelegate, public Interface_  // NOS
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<Interface_>, AnyError> make(TransportDelegate& delegate,
-                                                                         const Params&      params)
+    CETL_NODISCARD static Expected<UniquePtr<Interface_>, AnyError> make(cetl::pmr::memory_resource& memory,
+                                                                         TransportDelegate&          delegate,
+                                                                         const Params&               params)
     {
         if (params.service_id > UDPARD_SERVICE_ID_MAX)
         {
             return ArgumentError{};
         }
 
-        auto session =
-            libcyphal::detail::makeUniquePtr<Spec>(delegate.memoryResources().general, Spec{}, delegate, params);
+        auto session = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, delegate, params);
         if (session == nullptr)
         {
             return MemoryError{};

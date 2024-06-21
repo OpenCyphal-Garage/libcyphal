@@ -602,7 +602,7 @@ private:
 
                 // No Sonar `cpp:S909` b/c it make sense to use `continue` statement here - the corner case of
                 // "early" (by deadline) frame drop. Using `if` would make the code less readable and more nested.
-                continue; // NOSONAR cpp:S909
+                continue;  // NOSONAR cpp:S909
             }
 
             // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libcanard API.

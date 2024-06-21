@@ -41,6 +41,7 @@ protected:
     class TransportDelegateImpl final : public udp::detail::TransportDelegate
     {
     public:
+        using udp::detail::TransportDelegate::memoryResources;
         using udp::detail::TransportDelegate::makeUdpardMemoryDeleter;
         using udp::detail::TransportDelegate::makeUdpardMemoryResource;
 

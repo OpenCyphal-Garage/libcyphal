@@ -178,14 +178,6 @@ public:
 
     };  // FiltersUpdate
 
-    explicit TransportDelegate(cetl::pmr::memory_resource& memory)
-        : memory_{memory}
-        , canard_instance_{::canardInit(allocateMemoryForCanard, freeCanardMemory)}
-    {
-        // No Sonar `cpp:S5356` b/c we integrate here with C libcanard API.
-        canard_instance().user_reference = this;  // NOSONAR cpp:S5356
-    }
-
     TransportDelegate(const TransportDelegate&)                = delete;
     TransportDelegate(TransportDelegate&&) noexcept            = delete;
     TransportDelegate& operator=(const TransportDelegate&)     = delete;
@@ -266,6 +258,14 @@ public:
     virtual void triggerUpdateOfFilters(const FiltersUpdate::Variant& update_var) = 0;
 
 protected:
+    explicit TransportDelegate(cetl::pmr::memory_resource& memory)
+        : memory_{memory}
+        , canard_instance_{::canardInit(allocateMemoryForCanard, freeCanardMemory)}
+    {
+        // No Sonar `cpp:S5356` b/c we integrate here with C libcanard API.
+        canard_instance().user_reference = this;  // NOSONAR cpp:S5356
+    }
+
     ~TransportDelegate() = default;
 
 private:

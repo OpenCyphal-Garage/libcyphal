@@ -51,16 +51,16 @@ class MessageRxSession final : private IRxSessionDelegate, public IMessageRxSess
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<IMessageRxSession>, AnyError> make(TransportDelegate&     delegate,
-                                                                                const MessageRxParams& params)
+    CETL_NODISCARD static Expected<UniquePtr<IMessageRxSession>, AnyError> make(cetl::pmr::memory_resource& memory,
+                                                                                TransportDelegate&          delegate,
+                                                                                const MessageRxParams&      params)
     {
         if (params.subject_id > UDPARD_SUBJECT_ID_MAX)
         {
             return ArgumentError{};
         }
 
-        auto session =
-            libcyphal::detail::makeUniquePtr<Spec>(delegate.memoryResources().general, Spec{}, delegate, params);
+        auto session = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, delegate, params);
         if (session == nullptr)
         {
             return MemoryError{};

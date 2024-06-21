@@ -47,16 +47,16 @@ class SvcRequestTxSession final : public IRequestTxSession
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<IRequestTxSession>, AnyError> make(TransportDelegate&     delegate,
-                                                                                const RequestTxParams& params)
+    CETL_NODISCARD static Expected<UniquePtr<IRequestTxSession>, AnyError> make(cetl::pmr::memory_resource& memory,
+                                                                                TransportDelegate&          delegate,
+                                                                                const RequestTxParams&      params)
     {
         if ((params.service_id > UDPARD_SERVICE_ID_MAX) || (params.server_node_id > UDPARD_NODE_ID_MAX))
         {
             return ArgumentError{};
         }
 
-        auto session =
-            libcyphal::detail::makeUniquePtr<Spec>(delegate.memoryResources().general, Spec{}, delegate, params);
+        auto session = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, delegate, params);
         if (session == nullptr)
         {
             return MemoryError{};
@@ -143,16 +143,16 @@ class SvcResponseTxSession final : public IResponseTxSession
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<IResponseTxSession>, AnyError> make(TransportDelegate&      delegate,
-                                                                                 const ResponseTxParams& params)
+    CETL_NODISCARD static Expected<UniquePtr<IResponseTxSession>, AnyError> make(cetl::pmr::memory_resource& memory,
+                                                                                 TransportDelegate&          delegate,
+                                                                                 const ResponseTxParams&     params)
     {
         if (params.service_id > UDPARD_SERVICE_ID_MAX)
         {
             return ArgumentError{};
         }
 
-        auto session =
-            libcyphal::detail::makeUniquePtr<Spec>(delegate.memoryResources().general, Spec{}, delegate, params);
+        auto session = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, delegate, params);
         if (session == nullptr)
         {
             return MemoryError{};

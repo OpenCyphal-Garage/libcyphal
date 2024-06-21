@@ -69,38 +69,7 @@ struct AnyUdpardTxMetadata
 ///
 class TransportDelegate
 {
-protected:
-    /// @brief Defines internal set of memory resources used by the UDP transport.
-    ///
-    struct MemoryResources
-    {
-        /// The general purpose memory resource is used to provide memory for the libcyphal library.
-        /// It is NOT used for any Udpard TX or RX transfers, payload (de)fragmentation or transient handles,
-        /// but only for the libcyphal internal needs (like `make*[Rx|Tx]Session` factory calls).
-        cetl::pmr::memory_resource& general;
-
-        /// The session memory resource is used to provide memory for the Udpard session instances.
-        /// Each instance is fixed-size, so a trivial zero-fragmentation block allocator is sufficient.
-        UdpardMemoryResource session;
-
-        /// The fragment handles are allocated per payload fragment; each handle contains a pointer to its fragment.
-        /// Each instance is of a very small fixed size, so a trivial zero-fragmentation block allocator is sufficient.
-        UdpardMemoryResource fragment;
-
-        /// The library never allocates payload buffers itself, as they are handed over by the application via
-        /// receive calls. Once a buffer is handed over, the library may choose to keep it if it is deemed to be
-        /// necessary to complete a transfer reassembly, or to discard it if it is deemed to be unnecessary.
-        /// Discarded payload buffers are freed using this memory resource.
-        UdpardMemoryDeleter payload;
-    };
-
 public:
-    explicit TransportDelegate(const MemoryResources& memory_resources)
-        : udpard_node_id_{UDPARD_NODE_ID_UNSET}
-        , memory_resources_{memory_resources}
-    {
-    }
-
     TransportDelegate(const TransportDelegate&)                = delete;
     TransportDelegate(TransportDelegate&&) noexcept            = delete;
     TransportDelegate& operator=(const TransportDelegate&)     = delete;
@@ -114,11 +83,6 @@ public:
     CETL_NODISCARD UdpardNodeID& udpard_node_id() noexcept
     {
         return udpard_node_id_;
-    }
-
-    CETL_NODISCARD const MemoryResources& memoryResources() const noexcept
-    {
-        return memory_resources_;
     }
 
     static cetl::optional<AnyError> optAnyErrorFromUdpard(const std::int32_t result)
@@ -154,7 +118,42 @@ public:
                                                                     const PayloadFragments payload_fragments) = 0;
 
 protected:
+    /// @brief Defines internal set of memory resources used by the UDP transport.
+    ///
+    struct MemoryResources
+    {
+        /// The general purpose memory resource is used to provide memory for the libcyphal library.
+        /// It is NOT used for any Udpard TX or RX transfers, payload (de)fragmentation or transient handles,
+        /// but only for the libcyphal internal needs (like `make*[Rx|Tx]Session` factory calls).
+        cetl::pmr::memory_resource& general;
+
+        /// The session memory resource is used to provide memory for the Udpard session instances.
+        /// Each instance is fixed-size, so a trivial zero-fragmentation block allocator is sufficient.
+        UdpardMemoryResource session;
+
+        /// The fragment handles are allocated per payload fragment; each handle contains a pointer to its fragment.
+        /// Each instance is of a very small fixed size, so a trivial zero-fragmentation block allocator is sufficient.
+        UdpardMemoryResource fragment;
+
+        /// The library never allocates payload buffers itself, as they are handed over by the application via
+        /// receive calls. Once a buffer is handed over, the library may choose to keep it if it is deemed to be
+        /// necessary to complete a transfer reassembly, or to discard it if it is deemed to be unnecessary.
+        /// Discarded payload buffers are freed using this memory resource.
+        UdpardMemoryDeleter payload;
+    };
+
+    explicit TransportDelegate(const MemoryResources& memory_resources)
+        : udpard_node_id_{UDPARD_NODE_ID_UNSET}
+        , memory_resources_{memory_resources}
+    {
+    }
+
     ~TransportDelegate() = default;
+
+    CETL_NODISCARD const MemoryResources& memoryResources() const noexcept
+    {
+        return memory_resources_;
+    }
 
     static UdpardMemoryResource makeUdpardMemoryResource(cetl::pmr::memory_resource* const custom,
                                                          cetl::pmr::memory_resource&       general)
