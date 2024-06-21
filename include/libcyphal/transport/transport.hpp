@@ -61,11 +61,11 @@ public:
     /// - an UDP transport may have a range of 0...65534 node ids (see `UDPARD_NODE_ID_MAX` in `udpard.h`)
     /// - a CAN bus transport may have a range of 0...127 node ids (see `CANARD_NODE_ID_MAX` in `canard.h`)
     ///
-    /// @param node_id Specific node ID to be assigned to this transport interface.
+    /// @param new_node_id Specific node ID to be assigned to this transport interface.
     /// @return `nullopt` on successful set (or when node ID is the same).
     ///         Otherwise an `ArgumentError` in case of the subsequent calls or ID out of range.
     ///
-    virtual cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept = 0;
+    virtual cetl::optional<ArgumentError> setLocalNodeId(const NodeId new_node_id) noexcept = 0;
 
     /// @brief Makes a message receive (RX) session.
     ///

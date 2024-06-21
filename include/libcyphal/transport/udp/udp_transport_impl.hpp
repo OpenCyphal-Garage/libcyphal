@@ -567,10 +567,10 @@ private:
     {
         cetl::optional<AnyError> opt_any_error{};
 
-        for (Media& media : media_array_)
+        for (Media& some_media : media_array_)
         {
             opt_any_error =
-                withEnsureMediaTxSocket(media,
+                withEnsureMediaTxSocket(some_media,
                                         [this, now](Media& media, ITxSocket& tx_socket) -> cetl::optional<AnyError> {
                                             return runSingleMediaTransmit(media, tx_socket, now);
                                         });
