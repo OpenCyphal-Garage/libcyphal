@@ -27,7 +27,8 @@ namespace
 {
 
 using libcyphal::TimePoint;
-using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport::can;  // NOLINT This our main concern here in the unit tests.
 
 using cetl::byte;
 using libcyphal::verification_utilities::b;
@@ -175,17 +176,17 @@ TEST_F(TestCanDelegate, CanardMemory_copy_on_moved)
     }
 }
 
-TEST_F(TestCanDelegate, anyErrorFromCanard)
+TEST_F(TestCanDelegate, optAnyErrorFromCanard)
 {
-    EXPECT_THAT(can::detail::TransportDelegate::anyErrorFromCanard(-CANARD_ERROR_OUT_OF_MEMORY),
+    EXPECT_THAT(can::detail::TransportDelegate::optAnyErrorFromCanard(-CANARD_ERROR_OUT_OF_MEMORY),
                 Optional(VariantWith<MemoryError>(_)));
 
-    EXPECT_THAT(can::detail::TransportDelegate::anyErrorFromCanard(-CANARD_ERROR_INVALID_ARGUMENT),
+    EXPECT_THAT(can::detail::TransportDelegate::optAnyErrorFromCanard(-CANARD_ERROR_INVALID_ARGUMENT),
                 Optional(VariantWith<ArgumentError>(_)));
 
-    EXPECT_THAT(can::detail::TransportDelegate::anyErrorFromCanard(0), Eq(cetl::nullopt));
-    EXPECT_THAT(can::detail::TransportDelegate::anyErrorFromCanard(1), Eq(cetl::nullopt));
-    EXPECT_THAT(can::detail::TransportDelegate::anyErrorFromCanard(-1), Eq(cetl::nullopt));
+    EXPECT_THAT(can::detail::TransportDelegate::optAnyErrorFromCanard(0), Eq(cetl::nullopt));
+    EXPECT_THAT(can::detail::TransportDelegate::optAnyErrorFromCanard(1), Eq(cetl::nullopt));
+    EXPECT_THAT(can::detail::TransportDelegate::optAnyErrorFromCanard(-1), Eq(cetl::nullopt));
 }
 
 TEST_F(TestCanDelegate, canardMemoryAllocate_no_memory)

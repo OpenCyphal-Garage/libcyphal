@@ -12,7 +12,6 @@
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
-#include <cetl/rtti.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -66,13 +65,16 @@ public:
     /// While reconfiguration is in progress, incoming frames may be lost and/or unwanted frames may be received.
     /// The lifetime of the filter array may end upon return (no references retained).
     ///
-    /// @return Returns `nullopt` on success; otherwise some `MediaError` in case of a low-level error.
+    /// @return `nullopt` on success; otherwise some `MediaError` in case of a low-level error.
+    ///         In case of any media error, the transport will try apply filters again on its next run.
     ///
     virtual cetl::optional<MediaError> setFilters(const Filters filters) noexcept = 0;
 
     /// @brief Schedules the frame for transmission asynchronously and return immediately.
     ///
-    /// @return Returns `true` if accepted or already timed out; `false` to try again later.
+    /// @return `true` if the frame is accepted or already timed out;
+    ///         `false` to try again later (f.e. b/c output TX queue is currently full).
+    ///         If any media error occurred, the frame will be dropped by transport.
     ///
     virtual Expected<bool, MediaError> push(const TimePoint                    deadline,
                                             const CanId                        can_id,
@@ -97,18 +99,5 @@ protected:
 }  // namespace can
 }  // namespace transport
 }  // namespace libcyphal
-
-namespace cetl
-{
-
-// 87CA7D3F-70A3-4BB5-9979-E44A56B350C8
-template <>
-constexpr type_id type_id_getter<libcyphal::transport::can::IMedia*>() noexcept
-{
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
-    return {0x87, 0xCA, 0x7D, 0x3F, 0x70, 0xA3, 0x4B, 0xB5, 0x99, 0x79, 0xE4, 0x4A, 0x56, 0xB3, 0x50, 0xC8};
-}
-
-}  // namespace cetl
 
 #endif  // LIBCYPHAL_TRANSPORT_CAN_MEDIA_HPP_INCLUDED

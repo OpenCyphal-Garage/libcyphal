@@ -63,11 +63,9 @@ public:
         }
         CanardMemory(CanardMemory&& other) noexcept
             : delegate_{other.delegate_}
-            , buffer_{other.buffer_}
-            , payload_size_{other.payload_size_}
+            , buffer_{std::exchange(other.buffer_, nullptr)}
+            , payload_size_{std::exchange(other.payload_size_, 0)}
         {
-            other.buffer_       = nullptr;
-            other.payload_size_ = 0;
         }
         CanardMemory(const CanardMemory&) = delete;
 
@@ -196,7 +194,7 @@ public:
         return memory_;
     }
 
-    static cetl::optional<AnyError> anyErrorFromCanard(const std::int32_t result)
+    static cetl::optional<AnyError> optAnyErrorFromCanard(const std::int32_t result)
     {
         // Canard error results are negative, so we need to negate them to get the error code.
         const std::int32_t canard_error = -result;
@@ -210,7 +208,7 @@ public:
             return MemoryError{};
         }
 
-        return {};
+        return cetl::nullopt;
     }
 
     /// @brief Releases memory allocated for canard (by previous `allocateMemoryForCanard` call).

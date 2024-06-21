@@ -19,7 +19,8 @@
 namespace
 {
 
-using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
 using testing::_;
 using testing::IsEmpty;
@@ -40,7 +41,7 @@ protected:
     // NOLINTBEGIN
     TrackingMemoryResource      mr_;
     StrictMock<MultiplexerMock> mux_mock_{};
-    StrictMock<udp::MediaMock>  media_mock_{};
+    StrictMock<MediaMock>       media_mock_{};
     // NOLINTEND
 };
 
@@ -50,8 +51,8 @@ TEST_F(TestUpdTransport, makeTransport)
 {
     // Anonymous node
     {
-        std::array<udp::IMedia*, 1> media_array{&media_mock_};
-        auto                        maybe_transport = makeTransport(mr_, mux_mock_, media_array, {});
+        std::array<IMedia*, 1> media_array{&media_mock_};
+        auto                   maybe_transport = udp::makeTransport(mr_, mux_mock_, media_array, {});
         EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<NotImplementedError>(_)));
     }
 }

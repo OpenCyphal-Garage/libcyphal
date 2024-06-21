@@ -4,13 +4,14 @@
 /// SPDX-License-Identifier: MIT
 
 #include <libcyphal/runnable.hpp>
+#include <libcyphal/transport/can/can_transport.hpp>
+#include <libcyphal/transport/can/can_transport_impl.hpp>
 #include <libcyphal/transport/can/delegate.hpp>
 #include <libcyphal/transport/can/media.hpp>
 #include <libcyphal/transport/can/msg_rx_session.hpp>
 #include <libcyphal/transport/can/msg_tx_session.hpp>
 #include <libcyphal/transport/can/svc_rx_sessions.hpp>
 #include <libcyphal/transport/can/svc_tx_sessions.hpp>
-#include <libcyphal/transport/can/transport.hpp>
 #include <libcyphal/transport/contiguous_payload.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>

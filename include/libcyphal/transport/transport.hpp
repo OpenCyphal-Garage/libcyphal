@@ -18,6 +18,8 @@
 #include <cetl/pmr/function.hpp>
 #include <cetl/unbounded_variant.hpp>
 
+#include <cstdint>
+
 namespace libcyphal
 {
 namespace transport
@@ -28,37 +30,6 @@ namespace transport
 class ITransport : public IRunnable
 {
 public:
-    /// Defines structure for reporting transport errors to the user's handler.
-    ///
-    /// In addition to the error itself, it provides a pointer to the entity that has caused this error.
-    ///
-    struct AnyErrorReport final
-    {
-        /// Holds any transport error.
-        ///
-        AnyError error;
-
-        /// Holds pointer to an interface of the entity that has caused this error for enhanced context.
-        ///
-        /// In case of the media entity, it's the `IMedia` interface pointer.
-        ///
-        cetl::unbounded_variant<sizeof(void*)> culprit;
-    };
-
-    /// @brief Defines signature of a transient error handler.
-    ///
-    /// @param report The error report to be handled. It's made as non-const ref to allow the handler to modify it,
-    ///               and f.e. reuse original `.error` field value by moving it as is to return result.
-    /// @return An optional (maybe different) error back to the transport.
-    ///         - If `cetl::nullopt` is returned, the original error (in the `report`) is considered handled
-    ///           and transport will continue its current process (effectively either ignoring such transient failure,
-    ///           or retrying the process later on its next run).
-    ///         - If an error is returned, the transport will stop current process
-    ///           and return this (potentially new or converted) error to the user (via `run` result).
-    ///
-    using TransientErrorHandler =
-        cetl::pmr::function<cetl::optional<AnyError>(AnyErrorReport& report), sizeof(void*) * 3>;
-
     ITransport(const ITransport&)                = delete;
     ITransport(ITransport&&) noexcept            = delete;
     ITransport& operator=(const ITransport&)     = delete;
@@ -99,8 +70,6 @@ public:
     ///         Otherwise an `ArgumentError` in case of the subsequent calls or ID out of range.
     ///
     virtual cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept = 0;
-
-    virtual void setTransientErrorHandler(TransientErrorHandler handler) = 0;
 
     /// @brief Makes a message receive (RX) session.
     ///
