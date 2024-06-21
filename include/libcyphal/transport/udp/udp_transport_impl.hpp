@@ -600,13 +600,6 @@ private:
 
         while (const UdpardTxItem* const tx_item = ::udpardTxPeek(&media.udpard_tx()))
         {
-            // Prepare a lambda to pop and free the TX queue item, but not just yet.
-            // In case of socket not being ready to send this item, we will need to retry it on next `run`.
-            //
-            auto popAndFreeUdpardTxItem = [tx_queue = &media.udpard_tx(), tx_item]() {
-                ::udpardTxFree(tx_queue->memory, ::udpardTxPop(tx_queue, tx_item));
-            };
-
             // We are dropping any TX item that has expired.
             // Otherwise, we would send it to the media TX socket interface.
             // We use strictly `>=` (instead of `>`) to give this frame a chance (one extra 1us) at the socket.
@@ -614,10 +607,11 @@ private:
             const auto deadline = TimePoint{std::chrono::microseconds{tx_item->deadline_usec}};
             if (now >= deadline)
             {
-                popAndFreeUdpardTxItem();
+                // Release whole expired transfer b/c possible next frames of the same transfer are also expired.
+                popAndFreeUdpardTxItem(&media.udpard_tx(), tx_item, true /*whole transfer*/);
 
                 // No Sonar `cpp:S909` b/c it make sense to use `continue` statement here - the corner case of
-                // "early" (by deadline) frame drop. Using `if` would make the code less readable and more nested.
+                // "early" (by deadline) transfer drop. Using `if` would make the code less readable and more nested.
                 continue;  // NOSONAR cpp:S909
             }
 
@@ -641,9 +635,10 @@ private:
             //
             if (auto* const error = cetl::get_if<cetl::variant<PlatformError, ArgumentError>>(&maybe_sent))
             {
-                // Release problematic frame from the TX queue, so that other frames in TX queue have their chance.
+                // Release whole problematic transfer from the TX queue,
+                // so that other transfers in TX queue have their chance.
                 // Otherwise, we would be stuck in a run loop trying to send the same frame.
-                popAndFreeUdpardTxItem();
+                popAndFreeUdpardTxItem(&media.udpard_tx(), tx_item, true /*whole transfer*/);
 
                 cetl::optional<AnyError> opt_any_error =
                     tryHandleTransientMediaError<TransientErrorReport::MediaTxSocketSend>(media,
@@ -671,7 +666,7 @@ private:
                     //       but it is not yet implemented, so for now just `break`.
                 }
 
-                popAndFreeUdpardTxItem();
+                popAndFreeUdpardTxItem(&media.udpard_tx(), tx_item, false /*single frame*/);
             }
 
         }  // for each frame

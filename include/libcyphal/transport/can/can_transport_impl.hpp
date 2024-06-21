@@ -583,14 +583,6 @@ private:
     {
         while (const CanardTxQueueItem* const tx_item = ::canardTxPeek(&media.canard_tx_queue()))
         {
-            // Prepare a lambda to pop and free the TX queue item, but not just yet.
-            // In case of media not being ready to push this item, we will need to retry it on next `run`.
-            //
-            auto popAndFreeCanardTxQueueItem = [this, tx_queue = &media.canard_tx_queue(), tx_item]() {
-                // No Sonar `cpp:S5356` b/c we need to free tx item allocated by libcanard as a raw memory.
-                freeCanardMemory(::canardTxPop(tx_queue, tx_item));  // NOSONAR cpp:S5356
-            };
-
             // We are dropping any TX item that has expired.
             // Otherwise, we would send it to the media interface.
             // We use strictly `>=` (instead of `>`) to give this frame a chance (one extra 1us) at media level.
@@ -598,10 +590,11 @@ private:
             const auto deadline = TimePoint{std::chrono::microseconds{tx_item->tx_deadline_usec}};
             if (now >= deadline)
             {
-                popAndFreeCanardTxQueueItem();
+                // Release whole expired transfer b/c possible next frames of the same transfer are also expired.
+                popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, true /*whole transfer*/);
 
                 // No Sonar `cpp:S909` b/c it make sense to use `continue` statement here - the corner case of
-                // "early" (by deadline) frame drop. Using `if` would make the code less readable and more nested.
+                // "early" (by deadline) transfer drop. Using `if` would make the code less readable and more nested.
                 continue;  // NOSONAR cpp:S909
             }
 
@@ -621,9 +614,10 @@ private:
             //
             if (auto* const error = cetl::get_if<MediaError>(&maybe_pushed))
             {
-                // Release problematic frame from the TX queue, so that other frames in TX queue have their chance.
+                // Release whole problematic transfer from the TX queue,
+                // so that other transfers in TX queue have their chance.
                 // Otherwise, we would be stuck in a run loop trying to push the same frame.
-                popAndFreeCanardTxQueueItem();
+                popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, true /*whole transfer*/);
 
                 cetl::optional<AnyError> opt_any_error =
                     tryHandleTransientMediaError<TransientErrorReport::MediaPush>(media, std::move(*error));
@@ -646,7 +640,7 @@ private:
                     break;
                 }
 
-                popAndFreeCanardTxQueueItem();
+                popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, false /*single frame*/);
             }
 
         }  // for each frame

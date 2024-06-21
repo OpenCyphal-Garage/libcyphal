@@ -110,6 +110,27 @@ public:
         return cetl::nullopt;
     }
 
+    /// Pops and frees Udpard TX queue item(s).
+    ///
+    /// @param tx_queue The TX queue from which the item should be popped.
+    /// @param tx_item The TX queue item to be popped and freed.
+    /// @param whole_transfer If `true` then whole transfer should be released from the queue.
+    ///
+    static void popAndFreeUdpardTxItem(UdpardTx* const tx_queue, const UdpardTxItem* tx_item, const bool whole_transfer)
+    {
+        while (UdpardTxItem* const mut_tx_item = ::udpardTxPop(tx_queue, tx_item))
+        {
+            tx_item = tx_item->next_in_transfer;
+
+            ::udpardTxFree(tx_queue->memory, mut_tx_item);
+
+            if (!whole_transfer)
+            {
+                break;
+            }
+        }
+    }
+
     /// @brief Sends transfer to each media udpard TX queue of the transport.
     ///
     /// Internal method which is in use by TX session implementations to delegate actual sending to transport.

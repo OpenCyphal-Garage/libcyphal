@@ -240,6 +240,30 @@ public:
         memory_.deallocate(memory_header, memory_header->size);  // NOSONAR cpp:S5356
     }
 
+    /// Pops and frees Canard TX queue item(s).
+    ///
+    /// @param tx_queue The TX queue from which the item should be popped.
+    /// @param tx_item The TX queue item to be popped and freed.
+    /// @param whole_transfer If `true` then whole transfer should be released from the queue.
+    ///
+    void popAndFreeCanardTxQueueItem(CanardTxQueue* const     tx_queue,
+                                     const CanardTxQueueItem* tx_item,
+                                     const bool               whole_transfer) const
+    {
+        while (CanardTxQueueItem* const mut_tx_item = ::canardTxPop(tx_queue, tx_item))
+        {
+            tx_item = tx_item->next_in_transfer;
+
+            // No Sonar `cpp:S5356` b/c we need to free tx item allocated by libcanard as a raw memory.
+            freeCanardMemory(mut_tx_item);  // NOSONAR cpp:S5356
+
+            if (!whole_transfer)
+            {
+                break;
+            }
+        }
+    }
+
     /// @brief Sends transfer to each media canard TX queue of the transport.
     ///
     /// Internal method which is in use by TX session implementations to delegate actual sending to transport.
