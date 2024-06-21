@@ -305,8 +305,10 @@ private:
     {
         TransportDelegate& self = getSelfFrom(ins);
 
-        const std::size_t memory_size   = sizeof(CanardMemoryHeader) + amount;
-        auto*             memory_header = static_cast<CanardMemoryHeader*>(self.memory_.allocate(memory_size));
+        // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libcanard memory management.
+        const std::size_t memory_size = sizeof(CanardMemoryHeader) + amount;
+        auto*             memory_header =
+            static_cast<CanardMemoryHeader*>(self.memory_.allocate(memory_size));  // NOSONAR cpp:S5356 cpp:S5357
         if (memory_header == nullptr)
         {
             return nullptr;
@@ -317,8 +319,9 @@ private:
         //
         memory_header->size = memory_size;
         // Next nolint is unavoidable: this is integration with C code of Canard memory management.
+        // No Sonar `cpp:S5356` b/c we integrate here with C libcanard memory management.
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        return ++memory_header;
+        return ++memory_header;  // NOSONAR cpp:S5356
     }
 
     /// @brief Releases memory allocated for canard instance (by previous `allocateMemoryForCanard` call).

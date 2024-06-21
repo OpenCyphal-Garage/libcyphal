@@ -602,9 +602,9 @@ private:
                 continue;
             }
 
-            // No Sonar `cpp:S5357` b/c we integrate here with C libcanard API.
-            const cetl::span<const cetl::byte> payload{static_cast<const cetl::byte*>(
-                                                           tx_item->frame.payload),  // NOSONAR cpp:S5357
+            // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libcanard API.
+            const cetl::span<const cetl::byte> payload{static_cast<const cetl::byte*>(  // NOSONAR cpp:S5356 cpp:S5357
+                                                           tx_item->frame.payload),
                                                        tx_item->frame.payload_size};
 
             Expected<bool, MediaError> maybe_pushed =
