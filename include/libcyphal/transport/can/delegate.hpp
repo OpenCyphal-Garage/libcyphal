@@ -284,6 +284,8 @@ private:
         CETL_DEBUG_ASSERT(ins != nullptr, "Expected canard instance.");
         CETL_DEBUG_ASSERT(ins->user_reference != nullptr, "Expected `this` transport as user reference.");
 
+        // NOSONAR cpp:S5357 b/c the raw `user_reference` is part of libcanard api,
+        // and it was set by us at this delegate constructor (see `TransportDelegate` ctor).
         return *static_cast<TransportDelegate*>(ins->user_reference);
     }
 
