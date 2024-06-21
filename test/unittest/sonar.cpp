@@ -12,6 +12,7 @@
 #include <libcyphal/transport/can/msg_tx_session.hpp>
 #include <libcyphal/transport/can/svc_rx_sessions.hpp>
 #include <libcyphal/transport/can/svc_tx_sessions.hpp>
+#include <libcyphal/transport/common/tools.hpp>
 #include <libcyphal/transport/contiguous_payload.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
@@ -27,6 +28,7 @@
 #include <libcyphal/transport/udp/msg_tx_session.hpp>
 #include <libcyphal/transport/udp/svc_rx_sessions.hpp>
 #include <libcyphal/transport/udp/svc_tx_sessions.hpp>
+#include <libcyphal/transport/udp/tx_rx_sockets.hpp>
 #include "libcyphal/transport/udp/udp_transport.hpp"
 #include "libcyphal/transport/udp/udp_transport_impl.hpp"
 #include <libcyphal/types.hpp>
