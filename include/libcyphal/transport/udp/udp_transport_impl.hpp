@@ -598,7 +598,8 @@ private:
     {
         using PayloadFragment = cetl::span<const cetl::byte>;
 
-        while (const UdpardTxItem* const tx_item = ::udpardTxPeek(&media.udpard_tx()))
+        for (const UdpardTxItem* tx_item = ::udpardTxPeek(&media.udpard_tx()); tx_item != nullptr;
+             tx_item                     = ::udpardTxPeek(&media.udpard_tx()))
         {
             // Prepare a lambda to pop and free the TX queue item, but not just yet.
             // In case of socket not being ready to send this item, we will need to retry it on next `run`.
@@ -646,28 +647,30 @@ private:
                     tryHandleTransientMediaError<TransientErrorReport::MediaTxSocketSend>(media,
                                                                                           std::move(*error),
                                                                                           tx_socket);
-                if (!opt_any_error.has_value())
+                if (opt_any_error.has_value())
                 {
-                    // The handler (if any) just said that it's fine to continue with sending other frames
-                    // and ignore such a transient media error (and don't propagate it outside).
-                    continue;
+                    return opt_any_error;
                 }
 
-                return opt_any_error;
+                // The handler just said that it's fine to continue with sending other frames
+                // and ignore such a transient media error (and don't propagate it outside).
             }
-            const auto is_sent = cetl::get<bool>(maybe_sent);
-            if (!is_sent)
+            else
             {
-                // TX socket interface is busy, so we are done with this media for now,
-                // and will just try again with it later (on next `run`).
-                // Note, we are NOT releasing this item from the queue, so it will be retried on next `run`.
-                break;
+                const auto is_sent = cetl::get<bool>(maybe_sent);
+                if (!is_sent)
+                {
+                    // TX socket interface is busy, so we are done with this media for now,
+                    // and will just try again with it later (on next `run`).
+                    // Note, we are NOT releasing this item from the queue, so it will be retried on next `run`.
+                    break;
 
-                // TODO: It seems that `Multiplexer` interface would be used here
-                //       but it is not yet implemented, so for now just `break`.
+                    // TODO: It seems that `Multiplexer` interface would be used here
+                    //       but it is not yet implemented, so for now just `break`.
+                }
+
+                popAndFreeUdpardTxItem();
             }
-
-            popAndFreeUdpardTxItem();
 
         }  // for each frame
 

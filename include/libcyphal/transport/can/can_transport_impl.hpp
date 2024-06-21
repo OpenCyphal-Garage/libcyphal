@@ -581,7 +581,8 @@ private:
     ///
     CETL_NODISCARD cetl::optional<AnyError> runSingleMediaTransmit(Media& media, const TimePoint now)
     {
-        while (const CanardTxQueueItem* const tx_item = ::canardTxPeek(&media.canard_tx_queue()))
+        for (const CanardTxQueueItem* tx_item = ::canardTxPeek(&media.canard_tx_queue()); tx_item != nullptr;
+             tx_item                          = ::canardTxPeek(&media.canard_tx_queue()))
         {
             // Prepare a lambda to pop and free the TX queue item, but not just yet.
             // In case of media not being ready to push this item, we will need to retry it on next `run`.
@@ -624,25 +625,27 @@ private:
 
                 cetl::optional<AnyError> opt_any_error =
                     tryHandleTransientMediaError<TransientErrorReport::MediaPush>(media, std::move(*error));
-                if (!opt_any_error.has_value())
+                if (opt_any_error.has_value())
                 {
-                    // The handler (if any) just said that it's fine to continue with pushing other frames
-                    // and ignore such a transient media error (and don't propagate it outside).
-                    continue;
+                    return opt_any_error;
                 }
 
-                return opt_any_error;
+                // The handler just said that it's fine to continue with pushing other frames
+                // and ignore such a transient media error (and don't propagate it outside).
             }
-            const auto is_pushed = cetl::get<bool>(maybe_pushed);
-            if (!is_pushed)
+            else
             {
-                // Media interface is busy, so we are done with this media for now,
-                // and will just try again with it later (on next `run`).
-                // Note, we are NOT releasing this item from the queue, so it will be retried on next `run`.
-                break;
-            }
+                const auto is_pushed = cetl::get<bool>(maybe_pushed);
+                if (!is_pushed)
+                {
+                    // Media interface is busy, so we are done with this media for now,
+                    // and will just try again with it later (on next `run`).
+                    // Note, we are NOT releasing this item from the queue, so it will be retried on next `run`.
+                    break;
+                }
 
-            popAndFreeCanardTxQueueItem();
+                popAndFreeCanardTxQueueItem();
+            }
 
         }  // for each frame
 
