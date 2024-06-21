@@ -154,11 +154,11 @@ private:
         const auto transfer_id    = static_cast<TransferId>(transfer.metadata.transfer_id);
         const auto timestamp      = TimePoint{std::chrono::microseconds{transfer.timestamp_usec}};
 
-        const ServiceTransferMetadata   meta{transfer_id, timestamp, priority, remote_node_id};
-        TransportDelegate::CanardMemory canard_memory{delegate_,
-                                                      static_cast<cetl::byte*>(transfer.payload),
-                                                      transfer.payload_size};
+        // No Sonar `cpp:S5356` and `cpp:S5357` b/c we need to pass raw data from C libcanard api.
+        auto* const buffer = static_cast<cetl::byte*>(transfer.payload);  // NOSONAR cpp:S5356 cpp:S5357
+        TransportDelegate::CanardMemory canard_memory{delegate_, buffer, transfer.payload_size};
 
+        const ServiceTransferMetadata meta{transfer_id, timestamp, priority, remote_node_id};
         (void) last_rx_transfer_.emplace(ServiceRxTransfer{meta, ScatteredBuffer{std::move(canard_memory)}});
     }
 

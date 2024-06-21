@@ -395,10 +395,11 @@ private:
 
     struct TxTransferHandler
     {
+        // No Sonar `cpp:S5356` b/c we integrate here with libudpard raw C buffers.
         TxTransferHandler(const Self& self, Media& media, const ContiguousPayload& cont_payload)
             : self_{self}
             , media_{media}
-            , payload_{cont_payload.size(), cont_payload.data()}
+            , payload_{cont_payload.size(), cont_payload.data()}  // NOSONAR cpp:S5356
         {
         }
 
@@ -523,7 +524,7 @@ private:
         if (!media.tx_socket_ptr())
         {
             auto maybe_tx_socket = media.interface().makeTxSocket();
-            if (auto* error = cetl::get_if<cetl::variant<MemoryError, PlatformError>>(&maybe_tx_socket))
+            if (auto* const error = cetl::get_if<cetl::variant<MemoryError, PlatformError>>(&maybe_tx_socket))
             {
                 return tryHandleTransientMediaError<ErrorReport>(media, std::move(*error), media.interface());
             }
@@ -617,9 +618,11 @@ private:
                 continue;
             }
 
+            // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libudpard API.
+            const auto* const buffer =
+                static_cast<const cetl::byte*>(tx_item->datagram_payload.data);  // NOSONAR cpp:S5356 cpp:S5357
             const std::array<PayloadFragment, 1> single_payload_fragment{
-                PayloadFragment{static_cast<const cetl::byte*>(tx_item->datagram_payload.data),
-                                tx_item->datagram_payload.size}};
+                PayloadFragment{buffer, tx_item->datagram_payload.size}};
 
             Expected<bool, cetl::variant<PlatformError, ArgumentError>> maybe_sent =
                 tx_socket.send(deadline,
@@ -633,7 +636,7 @@ private:
             // Note that socket not being ready/able to send a frame just yet (aka temporary)
             // is not reported as an error (see `is_sent` below).
             //
-            if (auto* error = cetl::get_if<cetl::variant<PlatformError, ArgumentError>>(&maybe_sent))
+            if (auto* const error = cetl::get_if<cetl::variant<PlatformError, ArgumentError>>(&maybe_sent))
             {
                 // Release problematic frame from the TX queue, so that other frames in TX queue have their chance.
                 // Otherwise, we would be stuck in a run loop trying to send the same frame.

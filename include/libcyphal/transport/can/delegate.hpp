@@ -103,7 +103,7 @@ public:
 
             const std::size_t bytes_to_copy = std::min(length_bytes, payload_size_ - offset_bytes);
             // Next nolint is unavoidable: we need offset from the beginning of the buffer.
-            // No Sonar `cpp:S5356` b/c we integrate here with C libcanard raw buffers.
+            // No Sonar `cpp:S5356` b/c we integrate here with libcanard raw C buffers.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             (void) std::memmove(destination, buffer_ + offset_bytes, bytes_to_copy);  // NOSONAR cpp:S5356
             return bytes_to_copy;
@@ -305,9 +305,10 @@ private:
     {
         TransportDelegate& self = getSelfFrom(ins);
 
-        // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libcanard memory management.
         const std::size_t memory_size = sizeof(CanardMemoryHeader) + amount;
-        auto*             memory_header =
+
+        // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libcanard memory management.
+        auto* memory_header =
             static_cast<CanardMemoryHeader*>(self.memory_.allocate(memory_size));  // NOSONAR cpp:S5356 cpp:S5357
         if (memory_header == nullptr)
         {
@@ -318,8 +319,8 @@ private:
         // The size is used in `canardMemoryFree` to deallocate the memory.
         //
         memory_header->size = memory_size;
-        // Next nolint is unavoidable: this is integration with C code of Canard memory management.
-        // No Sonar `cpp:S5356` b/c we integrate here with C libcanard memory management.
+        // Next nolint and no Sonar `cpp:S5356` are unavoidable -
+        // this is integration with C code of Canard memory management.
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         return ++memory_header;  // NOSONAR cpp:S5356
     }

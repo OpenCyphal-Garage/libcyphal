@@ -159,15 +159,17 @@ protected:
     static UdpardMemoryResource makeUdpardMemoryResource(cetl::pmr::memory_resource* const custom,
                                                          cetl::pmr::memory_resource&       general)
     {
-        return UdpardMemoryResource{(custom != nullptr) ? custom : &general,
-                                    deallocateMemoryForUdpard,
-                                    allocateMemoryForUdpard};
+        // No Sonar `cpp:S5356` b/c the raw `user_reference` is part of libudpard api.
+        void* const user_reference = (custom != nullptr) ? custom : &general;  // NOSONAR cpp:S5356
+        return UdpardMemoryResource{user_reference, deallocateMemoryForUdpard, allocateMemoryForUdpard};
     }
 
     static UdpardMemoryDeleter makeUdpardMemoryDeleter(cetl::pmr::memory_resource* const custom,
                                                        cetl::pmr::memory_resource&       general)
     {
-        return UdpardMemoryDeleter{(custom != nullptr) ? custom : &general, deallocateMemoryForUdpard};
+        // No Sonar `cpp:S5356` b/c the raw `user_reference` is part of libudpard api.
+        void* const user_reference = (custom != nullptr) ? custom : &general;  // NOSONAR cpp:S5356
+        return UdpardMemoryDeleter{user_reference, deallocateMemoryForUdpard};
     }
 
 private:
@@ -177,7 +179,9 @@ private:
     ///
     static void* allocateMemoryForUdpard(void* const user_reference, const size_t size)  // NOSONAR cpp:S5008
     {
-        auto* mr = static_cast<cetl::pmr::memory_resource*>(user_reference);
+        // No Sonar `cpp:S5356` and `cpp:S5357` b/c the raw `user_reference` is part of libudpard api,
+        // and it was set by us at `makeUdpardMemoryResource` call.
+        auto* const mr = static_cast<cetl::pmr::memory_resource*>(user_reference);  // NOSONAR cpp:S5356 cpp:S5357
         CETL_DEBUG_ASSERT(mr != nullptr, "Memory resource should not be null.");
         return mr->allocate(size);
     }
@@ -190,7 +194,9 @@ private:
                                           const size_t size,
                                           void* const  pointer)  // NOSONAR cpp:S5008
     {
-        auto* mr = static_cast<cetl::pmr::memory_resource*>(user_reference);
+        // No Sonar `cpp:S5356` and `cpp:S5357` b/c the raw `user_reference` is part of libudpard api,
+        // and it was set by us at `makeUdpardMemoryResource` call.
+        auto* const mr = static_cast<cetl::pmr::memory_resource*>(user_reference);  // NOSONAR cpp:S5356 cpp:S5357
         CETL_DEBUG_ASSERT(mr != nullptr, "Memory resource should not be null.");
         mr->deallocate(pointer, size);
     }
