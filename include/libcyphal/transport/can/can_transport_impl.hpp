@@ -581,8 +581,7 @@ private:
     ///
     CETL_NODISCARD cetl::optional<AnyError> runSingleMediaTransmit(Media& media, const TimePoint now)
     {
-        for (const CanardTxQueueItem* tx_item = ::canardTxPeek(&media.canard_tx_queue()); tx_item != nullptr;
-             tx_item                          = ::canardTxPeek(&media.canard_tx_queue()))
+        while (const CanardTxQueueItem* const tx_item = ::canardTxPeek(&media.canard_tx_queue()))
         {
             // Prepare a lambda to pop and free the TX queue item, but not just yet.
             // In case of media not being ready to push this item, we will need to retry it on next `run`.
@@ -600,7 +599,10 @@ private:
             if (now >= deadline)
             {
                 popAndFreeCanardTxQueueItem();
-                continue;
+
+                // No Sonar `cpp:S909` b/c it make sense to use `continue` statement here - the corner case of
+                // "early" (by deadline) frame drop. Using `if` would make the code less readable and more nested.
+                continue; // NOSONAR cpp:S909
             }
 
             // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libcanard API.

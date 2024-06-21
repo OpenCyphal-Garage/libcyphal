@@ -598,8 +598,7 @@ private:
     {
         using PayloadFragment = cetl::span<const cetl::byte>;
 
-        for (const UdpardTxItem* tx_item = ::udpardTxPeek(&media.udpard_tx()); tx_item != nullptr;
-             tx_item                     = ::udpardTxPeek(&media.udpard_tx()))
+        while (const UdpardTxItem* const tx_item = ::udpardTxPeek(&media.udpard_tx()))
         {
             // Prepare a lambda to pop and free the TX queue item, but not just yet.
             // In case of socket not being ready to send this item, we will need to retry it on next `run`.
@@ -616,7 +615,10 @@ private:
             if (now >= deadline)
             {
                 popAndFreeUdpardTxItem();
-                continue;
+
+                // No Sonar `cpp:S909` b/c it make sense to use `continue` statement here - the corner case of
+                // "early" (by deadline) frame drop. Using `if` would make the code less readable and more nested.
+                continue; // NOSONAR cpp:S909
             }
 
             // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libudpard API.
