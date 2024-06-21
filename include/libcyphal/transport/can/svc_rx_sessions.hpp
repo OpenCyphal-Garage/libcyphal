@@ -92,7 +92,8 @@ public:
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "New subscription supposed to be made.");
 
-        subscription_.user_reference = static_cast<IRxSessionDelegate*>(this);
+        // No Sonar `cpp:S5356` b/c we integrate here with C libcanard API.
+        subscription_.user_reference = static_cast<IRxSessionDelegate*>(this);  // NOSONAR cpp:S5356
 
         delegate_.triggerUpdateOfFilters(TransportDelegate::FiltersUpdate::ServicePort{true});
     }

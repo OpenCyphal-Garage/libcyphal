@@ -340,7 +340,7 @@ private:
         {
             media.propagateMtuToTxQueue();
 
-            // No Sonar `cpp:S5356` exception b/c we need to pass payload as a raw data to the libcanard.
+            // No Sonar `cpp:S5356` b/c we need to pass payload as a raw data to the libcanard.
             const std::int32_t result = ::canardTxPush(&media.canard_tx_queue(),
                                                        &canard_instance(),
                                                        static_cast<CanardMicrosecond>(deadline_us.count()),
@@ -488,7 +488,7 @@ private:
         {
             CanardTxQueueItem* const item = ::canardTxPop(&canard_tx_queue, maybe_item);
 
-            // No Sonar `cpp:S5356` exception b/c we need to free tx item allocated by libcanard as a raw memory.
+            // No Sonar `cpp:S5356` b/c we need to free tx item allocated by libcanard as a raw memory.
             freeCanardMemory(item);  // NOSONAR cpp:S5356
         }
     }
@@ -547,9 +547,10 @@ private:
             CETL_DEBUG_ASSERT(out_subscription != nullptr, "Expected subscription.");
             CETL_DEBUG_ASSERT(out_subscription->user_reference != nullptr, "Expected session delegate.");
 
-            // NOSONAR cpp:S5357 b/c the raw `user_reference` is part of libcanard api,
+            // No Sonar `cpp:S5357` b/c the raw `user_reference` is part of libcanard api,
             // and it was set by us at a RX session constructor (see f.e. `MessageRxSession` ctor).
-            auto* const delegate = static_cast<IRxSessionDelegate*>(out_subscription->user_reference);
+            auto* const delegate =
+                static_cast<IRxSessionDelegate*>(out_subscription->user_reference);  // NOSONAR cpp:S5357
             delegate->acceptRxTransfer(out_transfer);
         }
 
@@ -586,7 +587,7 @@ private:
             // In case of media not being ready to push this item, we will need to retry it on next `run`.
             //
             auto popAndFreeCanardTxQueueItem = [this, tx_queue = &media.canard_tx_queue(), tx_item]() {
-                // No Sonar `cpp:S5356` exception b/c we need to free tx item allocated by libcanard as a raw memory.
+                // No Sonar `cpp:S5356` b/c we need to free tx item allocated by libcanard as a raw memory.
                 freeCanardMemory(::canardTxPop(tx_queue, tx_item));  // NOSONAR cpp:S5356
             };
 
@@ -601,7 +602,9 @@ private:
                 continue;
             }
 
-            const cetl::span<const cetl::byte> payload{static_cast<const cetl::byte*>(tx_item->frame.payload),
+            // No Sonar `cpp:S5357` b/c we integrate here with C libcanard API.
+            const cetl::span<const cetl::byte> payload{static_cast<const cetl::byte*>(
+                                                           tx_item->frame.payload),  // NOSONAR cpp:S5357
                                                        tx_item->frame.payload_size};
 
             Expected<bool, MediaError> maybe_pushed =

@@ -74,7 +74,8 @@ public:
         {
             if (buffer_ != nullptr)
             {
-                delegate_.freeCanardMemory(buffer_);
+                // No Sonar `cpp:S5356` b/c we integrate here with C libcanard memory management.
+                delegate_.freeCanardMemory(buffer_);  // NOSONAR cpp:S5356
             }
         }
 
@@ -102,8 +103,9 @@ public:
 
             const std::size_t bytes_to_copy = std::min(length_bytes, payload_size_ - offset_bytes);
             // Next nolint is unavoidable: we need offset from the beginning of the buffer.
+            // No Sonar `cpp:S5356` b/c we integrate here with C libcanard raw buffers.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            (void) std::memmove(destination, buffer_ + offset_bytes, bytes_to_copy);
+            (void) std::memmove(destination, buffer_ + offset_bytes, bytes_to_copy);  // NOSONAR cpp:S5356
             return bytes_to_copy;
         }
 
@@ -180,7 +182,8 @@ public:
         : memory_{memory}
         , canard_instance_{::canardInit(allocateMemoryForCanard, freeCanardMemory)}
     {
-        canard_instance().user_reference = this;
+        // No Sonar `cpp:S5356` b/c we integrate here with C libcanard API.
+        canard_instance().user_reference = this;  // NOSONAR cpp:S5356
     }
 
     TransportDelegate(const TransportDelegate&)                = delete;
