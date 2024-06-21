@@ -230,7 +230,8 @@ public:
 
     /// @brief Releases memory allocated for canard (by previous `allocateMemoryForCanard` call).
     ///
-    /// NOSONAR cpp:S5008 b/s it is unavoidable: this is integration with low-level C code of Canard memory management.
+    /// No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable -
+    /// this is integration with low-level C code of Canard memory management.
     ///
     void freeCanardMemory(void* const pointer) const  // NOSONAR cpp:S5008
     {
@@ -239,12 +240,12 @@ public:
             return;
         }
 
-        auto* memory_header = static_cast<CanardMemoryHeader*>(pointer);
+        auto* memory_header = static_cast<CanardMemoryHeader*>(pointer);  // NOSONAR cpp:S5356
         // Next nolint is unavoidable: this is integration with C code of Canard memory management.
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         --memory_header;
 
-        memory_.deallocate(memory_header, memory_header->size);
+        memory_.deallocate(memory_header, memory_header->size);  // NOSONAR cpp:S5356
     }
 
     /// @brief Sends transfer to each media canard TX queue of the transport.
@@ -287,9 +288,9 @@ private:
         CETL_DEBUG_ASSERT(ins != nullptr, "Expected canard instance.");
         CETL_DEBUG_ASSERT(ins->user_reference != nullptr, "Expected `this` transport as user reference.");
 
-        // NOSONAR cpp:S5357 b/c the raw `user_reference` is part of libcanard api,
+        // No Sonar `cpp:S5357` b/c the raw `user_reference` is part of libcanard api,
         // and it was set by us at this delegate constructor (see `TransportDelegate` ctor).
-        return *static_cast<TransportDelegate*>(ins->user_reference);
+        return *static_cast<TransportDelegate*>(ins->user_reference);  // NOSONAR cpp:S5357
     }
 
     /// @brief Allocates memory for canard instance.
