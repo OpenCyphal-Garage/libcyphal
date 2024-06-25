@@ -128,7 +128,7 @@ private:
 
     // MARK: IRxSessionDelegate
 
-    void acceptRxTransfer(const UdpardRxTransfer&) override
+    void acceptRxTransfer(UdpardRxTransfer&) override
     {
         // TODO: Implement!
     }

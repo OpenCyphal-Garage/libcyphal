@@ -7,15 +7,20 @@
 #define LIBCYPHAL_TRANSPORT_UDP_DELEGATE_HPP_INCLUDED
 
 #include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/scattered_buffer.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/rtti.hpp>
 #include <udpard.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <utility>
 
 namespace libcyphal
 {
@@ -69,7 +74,71 @@ struct AnyUdpardTxMetadata
 ///
 class TransportDelegate
 {
+    // FD977E25-CD36-48C5-B02E-B31420DCFF3B
+    using UdpardMemoryTypeIdType = cetl::
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+        type_id_type<0xFD, 0x97, 0x7E, 0x25, 0xCD, 0x36, 0x48, 0xC5, 0xB0, 0x2E, 0xB3, 0x14, 0x20, 0xDC, 0xFF, 0x3B>;
+
 public:
+    /// @brief RAII class to manage memory allocated by Udpard library.
+    ///
+    /// NOSONAR cpp:S4963 for below `class UdpardMemory` - we do directly handle resources here.
+    ///
+    class UdpardMemory final  // NOSONAR cpp:S4963
+        : public cetl::rtti_helper<UdpardMemoryTypeIdType, ScatteredBuffer::IStorage>
+    {
+    public:
+        UdpardMemory(TransportDelegate& delegate, UdpardRxTransfer& transfer)
+            : delegate_{delegate}
+            , payload_size_{std::exchange(transfer.payload_size, 0)}
+            , payload_{std::exchange(transfer.payload, {})}
+        {
+        }
+        UdpardMemory(UdpardMemory&& other) noexcept
+            : delegate_{other.delegate_}
+            , payload_size_{std::exchange(other.payload_size_, 0)}
+            , payload_{std::exchange(other.payload_, {})}
+        {
+        }
+        UdpardMemory(const UdpardMemory&) = delete;
+
+        ~UdpardMemory() override
+        {
+            if ((payload_.origin.data != nullptr) || (payload_.next != nullptr))
+            {
+                ::udpardRxFragmentFree(payload_,
+                                       delegate_.memoryResources().fragment,
+                                       delegate_.memoryResources().payload);
+            }
+        }
+
+        UdpardMemory& operator=(const UdpardMemory&)     = delete;
+        UdpardMemory& operator=(UdpardMemory&&) noexcept = delete;
+
+        // MARK: ScatteredBuffer::IStorage
+
+        CETL_NODISCARD std::size_t size() const noexcept override
+        {
+            return payload_size_;
+        }
+
+        CETL_NODISCARD std::size_t copy(const std::size_t /* offset_bytes */,
+                                        cetl::byte* const /* destination */,
+                                        const std::size_t /* length_bytes */) const override
+        {
+            // TODO: Implement!
+            return 0;
+        }
+
+    private:
+        // MARK: Data members:
+
+        TransportDelegate& delegate_;
+        std::size_t        payload_size_;
+        UdpardFragment     payload_;
+
+    };  // UdpardMemory
+
     TransportDelegate(const TransportDelegate&)                = delete;
     TransportDelegate(TransportDelegate&&) noexcept            = delete;
     TransportDelegate& operator=(const TransportDelegate&)     = delete;
@@ -88,21 +157,21 @@ public:
     static cetl::optional<AnyError> optAnyErrorFromUdpard(const std::int32_t result)
     {
         // Udpard error results are negative, so we need to negate them to get the error code.
-        const std::int32_t canard_error = -result;
+        const std::int32_t udpard_error = -result;
 
-        if (canard_error == UDPARD_ERROR_ARGUMENT)
+        if (udpard_error == UDPARD_ERROR_ARGUMENT)
         {
             return ArgumentError{};
         }
-        if (canard_error == UDPARD_ERROR_MEMORY)
+        if (udpard_error == UDPARD_ERROR_MEMORY)
         {
             return MemoryError{};
         }
-        if (canard_error == UDPARD_ERROR_CAPACITY)
+        if (udpard_error == UDPARD_ERROR_CAPACITY)
         {
             return CapacityError{};
         }
-        if (canard_error == UDPARD_ERROR_ANONYMOUS)
+        if (udpard_error == UDPARD_ERROR_ANONYMOUS)
         {
             return AnonymousError{};
         }
@@ -243,7 +312,11 @@ public:
 
     /// @brief Accepts a received transfer from the transport dedicated to this RX session.
     ///
-    virtual void acceptRxTransfer(const UdpardRxTransfer& transfer) = 0;
+    /// @param transfer The received transfer to be accepted. An implementation is expected to take ownership
+    ///                 of the transfer payload, and to release it when it is no longer needed. On exit the original
+    ///                 transfer's `payload_size` and `payload` fields are set to zero.
+    ///
+    virtual void acceptRxTransfer(UdpardRxTransfer& inout_transfer) = 0;
 
 protected:
     IRxSessionDelegate()  = default;
