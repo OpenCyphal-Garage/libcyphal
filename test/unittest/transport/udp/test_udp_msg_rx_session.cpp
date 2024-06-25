@@ -3,15 +3,19 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include "../../cetl_gtest_helpers.hpp"
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
+#include "../../verification_utilities.hpp"
 #include "../../virtual_time_scheduler.hpp"
 #include "../multiplexer_mock.hpp"
 #include "media_mock.hpp"
+#include "tx_rx_sockets_mock.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
+#include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/media.hpp>
 #include <libcyphal/transport/udp/msg_rx_session.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
@@ -34,12 +38,18 @@ using namespace libcyphal::transport;       // NOLINT This our main concern here
 using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
 using cetl::byte;
+using libcyphal::verification_utilities::b;
 
 using testing::_;
+using testing::Eq;
+using testing::Invoke;
 using testing::Return;
+using testing::SizeIs;
 using testing::IsEmpty;
 using testing::NotNull;
+using testing::Optional;
 using testing::StrictMock;
+using testing::ElementsAre;
 using testing::VariantWith;
 
 // https://github.com/llvm/llvm-project/issues/53444
@@ -55,6 +65,15 @@ class TestUdpMsgRxSession : public testing::Test
 protected:
     void SetUp() override
     {
+        EXPECT_CALL(media_mock_, makeTxSocket()).WillRepeatedly(Invoke([this]() {
+            return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock_);
+        }));
+        EXPECT_CALL(tx_socket_mock_, getMtu()).WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
+
+        EXPECT_CALL(media_mock_, makeRxSocket(_)).WillRepeatedly(Invoke([this](auto& endpoint) {
+            rx_socket_mock_.setEndpoint(endpoint);
+            return libcyphal::detail::makeUniquePtr<RxSocketMock::ReferenceWrapper::Spec>(mr_, rx_socket_mock_);
+        }));
     }
 
     void TearDown() override
@@ -84,6 +103,8 @@ protected:
     TrackingMemoryResource          mr_;
     StrictMock<MultiplexerMock>     mux_mock_{};
     StrictMock<MediaMock>           media_mock_{};
+    StrictMock<RxSocketMock>        rx_socket_mock_{"RxS1"};
+    StrictMock<TxSocketMock>        tx_socket_mock_{"TxS1"};
     // NOLINTEND
 };
 
@@ -144,17 +165,8 @@ TEST_F(TestUdpMsgRxSession, run_and_receive)
         scheduler_.setNow(TimePoint{1s});
         const auto rx_timestamp = now();
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
+        EXPECT_CALL(rx_socket_mock_, receive()).WillOnce([&]() {
             EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(p.size(), UDPARD_MTU_DEFAULT);
-            p[0] = b('0');
-            p[1] = b('1');
-            p[2] = b(0b111'01101);
-            return RxMetadata{rx_timestamp, 0x0C'60'23'45, 3};
-        });
-        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
             return cetl::nullopt;
         });
 
@@ -182,9 +194,8 @@ TEST_F(TestUdpMsgRxSession, run_and_receive)
         scheduler_.setNow(TimePoint{2s});
         const auto rx_timestamp = now();
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
+        EXPECT_CALL(rx_socket_mock_, receive()).WillOnce([&]() {
             EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(p.size(), UDPARD_MTU_DEFAULT);
             return cetl::nullopt;
         });
 

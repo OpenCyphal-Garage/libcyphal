@@ -340,6 +340,12 @@ private:
         {
             return any_error.value();
         }
+        //
+        any_error = runMediaReceive();
+        if (any_error.has_value())
+        {
+            return any_error.value();
+        }
 
         return {};
     }
@@ -514,6 +520,28 @@ private:
         return media_array;
     }
 
+    cetl::optional<AnyError> runMediaReceive()
+    {
+        cetl::optional<AnyError> opt_any_error{};
+
+        for (const Media& media : media_array_)
+        {
+            opt_any_error = runSingleMediaReceive(media);
+            if (opt_any_error.has_value())
+            {
+                break;
+            }
+        }
+
+        return opt_any_error;
+    }
+
+    cetl::optional<AnyError> runSingleMediaReceive(const Media&)
+    {
+        // TODO: Implement!
+        return cetl::nullopt;
+    }
+
     /// @brief Tries to run an action with media and its TX socket (the latter one is made on demand if necessary).
     ///
     template <typename Action>
@@ -621,7 +649,7 @@ private:
             const std::array<PayloadFragment, 1> single_payload_fragment{
                 PayloadFragment{buffer, tx_item->datagram_payload.size}};
 
-            Expected<bool, cetl::variant<PlatformError, ArgumentError>> maybe_sent =
+            Expected<bool, ITxSocket::SendFailure> maybe_sent =
                 tx_socket.send(deadline,
                                {tx_item->destination.ip_address, tx_item->destination.udp_port},
                                tx_item->dscp,
@@ -633,7 +661,7 @@ private:
             // Note that socket not being ready/able to send a frame just yet (aka temporary)
             // is not reported as an error (see `is_sent` below).
             //
-            if (auto* const error = cetl::get_if<cetl::variant<PlatformError, ArgumentError>>(&maybe_sent))
+            if (auto* const failure = cetl::get_if<ITxSocket::SendFailure>(&maybe_sent))
             {
                 // Release whole problematic transfer from the TX queue,
                 // so that other transfers in TX queue have their chance.
@@ -642,7 +670,7 @@ private:
 
                 cetl::optional<AnyError> opt_any_error =
                     tryHandleTransientMediaError<TransientErrorReport::MediaTxSocketSend>(media,
-                                                                                          std::move(*error),
+                                                                                          std::move(*failure),
                                                                                           tx_socket);
                 if (opt_any_error.has_value())
                 {
