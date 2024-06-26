@@ -51,6 +51,15 @@ class Tree;
 template <typename Derived>
 class Node
 {
+    // Polyfill for C++17's std::invoke_result_t.
+    template <typename F, typename... Args>
+    using invoke_result =
+#if __cplusplus >= 201703L
+        std::invoke_result_t<F, Args...>;
+#else
+        std::result_of_t<F(Args...)>;
+#endif
+
 public:
     /// Helper aliases.
     using TreeType    = Tree<Derived>;
@@ -143,9 +152,9 @@ protected:
     /// traversal will stop when the first true value is returned, which is propagated back to the caller; if none
     /// of the calls returned true or the tree is empty, a default value is constructed and returned.
     /// The tree shall not be modified while traversal is in progress, otherwise bad memory access will likely occur.
-    template <typename Vis, typename R = std::invoke_result_t<Vis, Derived&>>
-    static auto traverse(Derived* const root, const Vis& visitor, const bool reverse = false)
-        -> std::enable_if_t<!std::is_void_v<R>, R>
+    template <typename Vis, typename R = invoke_result<Vis, Derived&>>
+    static auto traverse(Derived* const root, const Vis& visitor, const bool reverse = false)  //
+        -> std::enable_if_t<!std::is_void<R>::value, R>
     {
         if (Node* const n = root)
         {
@@ -163,7 +172,7 @@ protected:
     }
     template <typename Vis>
     static auto traverse(Derived* const root, const Vis& visitor, const bool reverse = false)
-        -> std::enable_if_t<std::is_void_v<std::invoke_result_t<Vis, Derived&>>>
+        -> std::enable_if_t<std::is_void<invoke_result<Vis, Derived&>>::value>
     {
         if (Node* const n = root)
         {
@@ -172,9 +181,9 @@ protected:
             Node::traverse<Vis>(down(n->lr[!reverse]), visitor, reverse);
         }
     }
-    template <typename Vis, typename R = std::invoke_result_t<Vis, const Derived&>>
-    static auto traverse(const Derived* const root, const Vis& visitor, const bool reverse = false)
-        -> std::enable_if_t<!std::is_void_v<R>, R>
+    template <typename Vis, typename R = invoke_result<Vis, const Derived&>>
+    static auto traverse(const Derived* const root, const Vis& visitor, const bool reverse = false)  //
+        -> std::enable_if_t<!std::is_void<R>::value, R>
     {
         if (const Node* const n = root)
         {
@@ -192,7 +201,7 @@ protected:
     }
     template <typename Vis>
     static auto traverse(const Derived* const root, const Vis& visitor, const bool reverse = false)
-        -> std::enable_if_t<std::is_void_v<std::invoke_result_t<Vis, const Derived&>>>
+        -> std::enable_if_t<std::is_void<invoke_result<Vis, const Derived&>>::value>
     {
         if (const Node* const n = root)
         {
@@ -565,13 +574,13 @@ public:
     template <typename Vis>
     auto traverse(const Vis& visitor, const bool reverse = false)
     {
-        TraversalIndicatorUpdater upd(*this);
+        const TraversalIndicatorUpdater upd(*this);
         return NodeType::template traverse<Vis>(*this, visitor, reverse);
     }
     template <typename Vis>
     auto traverse(const Vis& visitor, const bool reverse = false) const
     {
-        TraversalIndicatorUpdater upd(*this);
+        const TraversalIndicatorUpdater upd(*this);
         return NodeType::template traverse<Vis>(*this, visitor, reverse);
     }
 
@@ -603,8 +612,9 @@ public:
     auto empty() const noexcept { return root_ == nullptr; }
 
 private:
-    static_assert(!std::is_polymorphic_v<NodeType>);
-    static_assert(std::is_same_v<Tree<Derived>, typename NodeType::TreeType>);
+    static_assert(!std::is_polymorphic<NodeType>::value,
+                  "Internal check: The node type must not be a polymorphic type");
+    static_assert(std::is_same<Tree<Derived>, typename NodeType::TreeType>::value, "Internal check: Bad type alias");
 
     /// We use a simple boolean flag instead of a nesting counter to avoid race conditions on the counter update.
     /// This implies that in the case of concurrent or recursive traversal (more than one call to traverse() within

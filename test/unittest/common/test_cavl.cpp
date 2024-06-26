@@ -4,16 +4,32 @@
 #include <unity.h>
 #include <algorithm>
 #include <array>
+#include <cstdio>
 #include <cstdint>
 #include <cstdlib>
 #include <ctime>
-#include <optional>
+#include <string>
 #include <iostream>
 #include <sstream>
 #include <memory>
 #include <numeric>
+#include <limits>
 #include <vector>
+#include <type_traits>
 #include <functional>
+
+#if __cplusplus >= 201703L
+#    define NODISCARD [[nodiscard]]
+#    define UNUSED [[maybe_unused]]
+#else
+#    if defined(__GNUC__) || defined(__clang__) || defined(__CC_ARM)
+#        define NODISCARD __attribute__((warn_unused_result))
+#        define UNUSED __attribute__((unused))
+#    else
+#        define NODISCARD
+#        define UNUSED
+#    endif
+#endif
 
 void setUp() {}
 
@@ -40,7 +56,7 @@ public:
     using Self::min;
     using Self::max;
 
-    [[nodiscard]] auto getValue() const -> std::uint16_t { return value; }
+    NODISCARD auto getValue() const -> std::uint16_t { return value; }
 
 private:
     std::uint16_t value = 0;
@@ -49,23 +65,23 @@ private:
     // defined in the derived class. That would trigger compilation error in this case, but may be deadly in the field.
     using E = struct
     {};
-    [[maybe_unused]] E up;
-    [[maybe_unused]] E lr;
-    [[maybe_unused]] E bf;
+    UNUSED E up;
+    UNUSED E lr;
+    UNUSED E bf;
 };
 using MyTree = cavl::Tree<My>;
-static_assert(std::is_same_v<My::TreeType, MyTree>);
-static_assert(std::is_same_v<cavl::Node<My>, MyTree::NodeType>);
+static_assert(std::is_same<My::TreeType, MyTree>::value, "");
+static_assert(std::is_same<cavl::Node<My>, MyTree::NodeType>::value, "");
 
 template <typename T>
 using N = typename cavl::Node<T>::DerivedType;
-static_assert(std::is_same_v<My, N<My>>);
+static_assert(std::is_same<My, N<My>>::value, "");
 
 template <typename T>
-[[nodiscard]] bool checkLinkage(const N<T>* const           self,
-                                const N<T>* const           up,
-                                const std::array<N<T>*, 2>& lr,
-                                const std::int8_t           bf)
+NODISCARD bool checkLinkage(const N<T>* const           self,
+                            const N<T>* const           up,
+                            const std::array<N<T>*, 2>& lr,
+                            const std::int8_t           bf)
 {
     return (self->getParentNode() == up) &&                                                      //
            (self->getChildNode(false) == lr.at(0)) && (self->getChildNode(true) == lr.at(1)) &&  //
@@ -76,15 +92,16 @@ template <typename T>
 }
 
 template <typename T>
-[[nodiscard]] auto getHeight(const N<T>* const n) -> std::int8_t
+NODISCARD auto getHeight(const N<T>* const n) -> std::int8_t
 {
     return (n != nullptr) ? static_cast<std::int8_t>(1 + std::max(getHeight<T>(n->getChildNode(false)),  //
                                                                   getHeight<T>(n->getChildNode(true))))
                           : 0;
 }
 
+/// Returns the size if the tree is ordered correctly, otherwise SIZE_MAX.
 template <typename T>
-[[nodiscard]] std::optional<std::size_t> checkOrdering(const N<T>* const root)
+NODISCARD std::size_t checkOrdering(const N<T>* const root)
 {
     const N<T>* prev  = nullptr;
     bool        valid = true;
@@ -97,15 +114,15 @@ template <typename T>
         prev = &nd;
         size++;
     });
-    return valid ? std::optional<std::size_t>(size) : std::optional<std::size_t>{};
+    return valid ? size : std::numeric_limits<std::size_t>::max();
 }
 
 template <typename T>
-[[nodiscard]] const N<T>* findBrokenAncestry(const N<T>* const n, const N<T>* const parent = nullptr)
+NODISCARD const N<T>* findBrokenAncestry(const N<T>* const n, const N<T>* const parent = nullptr)
 {
     if ((n != nullptr) && (n->getParentNode() == parent))
     {
-        for (bool v : {true, false})
+        for (const bool v : {true, false})
         {
             if (const N<T>* p = findBrokenAncestry<T>(n->getChildNode(v), n))
             {
@@ -118,7 +135,7 @@ template <typename T>
 }
 
 template <typename T>
-[[nodiscard]] const N<T>* findBrokenBalanceFactor(const N<T>* const n)
+NODISCARD const N<T>* findBrokenBalanceFactor(const N<T>* const n)
 {
     if (n != nullptr)
     {
@@ -130,7 +147,7 @@ template <typename T>
         {
             return n;
         }
-        for (bool v : {true, false})
+        for (const bool v : {true, false})
         {
             if (auto* const ch = n->getChildNode(v))
             {
@@ -145,7 +162,7 @@ template <typename T>
 }
 
 template <typename T>
-[[nodiscard]] auto toGraphviz(const cavl::Tree<T>& tr) -> std::string
+NODISCARD auto toGraphviz(const cavl::Tree<T>& tr) -> std::string
 {
     std::ostringstream ss;
     ss << "// Feed the following text to Graphviz, or use an online UI like https://edotor.net/\n"
@@ -154,7 +171,7 @@ template <typename T>
        << "edge[arrowhead=none,penwidth=2];\n"
        << "nodesep=0.0;ranksep=0.3;splines=false;\n";
     tr.traverse([&](const typename cavl::Tree<T>::DerivedType& x) {
-        const char* const fill_color =
+        const char* const fill_color =  // NOLINTNEXTLINE(*-avoid-nested-conditional-operator)
             (x.getBalanceFactor() == 0) ? "black" : ((x.getBalanceFactor() > 0) ? "orange" : "blue");
         ss << x.getValue() << "[fillcolor=" << fill_color << "];";
     });
@@ -212,7 +229,7 @@ void testManual(const std::function<N*(std::uint8_t)>& factory)
         TEST_ASSERT(!tr.empty());
         TEST_ASSERT_NULL(findBrokenBalanceFactor<N>(tr));
         TEST_ASSERT_NULL(findBrokenAncestry<N>(tr));
-        TEST_ASSERT_TRUE(checkOrdering<N>(tr));
+        TEST_ASSERT_TRUE(checkOrdering<N>(tr) < std::numeric_limits<std::size_t>::max());
     };
     // Insert out of order to cover more branches in the insertion method.
     // We can't really go full random because we need perfectly balanced tree for the manual tests that follow.
@@ -798,25 +815,25 @@ public:
     V& operator=(const V&) = delete;
     V& operator=(V&&)      = delete;
 
-    [[nodiscard]] virtual auto getValue() const -> std::uint16_t = 0;
+    NODISCARD virtual auto getValue() const -> std::uint16_t = 0;
 
 private:
     using E = struct
     {};
-    [[maybe_unused]] E up;
-    [[maybe_unused]] E lr;
-    [[maybe_unused]] E bf;
+    UNUSED E up;
+    UNUSED E lr;
+    UNUSED E bf;
 };
 using VTree = cavl::Tree<V>;
-static_assert(std::is_same_v<V::TreeType, VTree>);
-static_assert(std::is_same_v<cavl::Node<V>, VTree::NodeType>);
+static_assert(std::is_same<V::TreeType, VTree>::value, "");
+static_assert(std::is_same<cavl::Node<V>, VTree::NodeType>::value, "");
 
 // Dummy polymorphism for testing purposes.
 template <std::uint8_t Value>
 class VValue : public VValue<static_cast<std::uint8_t>(Value - 1)>
 {
 public:
-    [[nodiscard]] auto getValue() const -> std::uint16_t override
+    NODISCARD auto getValue() const -> std::uint16_t override
     {
         return static_cast<std::uint16_t>(VValue<static_cast<std::uint8_t>(Value - 1)>::getValue() + 1);
     }
@@ -825,24 +842,33 @@ template <>
 class VValue<0> : public V
 {
 public:
-    [[nodiscard]] auto getValue() const -> std::uint16_t override { return 0; }
+    NODISCARD auto getValue() const -> std::uint16_t override { return 0; }
 };
+
+template <std::uint8_t Candidate, std::uint8_t Limit, std::enable_if_t<(Candidate >= Limit), int> = 0>
+auto makeV_impl(const std::uint8_t val) -> V*
+{
+    if (val == Candidate)
+    {
+        return new VValue<Candidate>();  // NOLINT(*-owning-memory)
+    }
+    return nullptr;
+}
+
+template <std::uint8_t Candidate, std::uint8_t Limit, std::enable_if_t<(Candidate < Limit), int> = 0>
+auto makeV_impl(const std::uint8_t val) -> V*
+{
+    if (val == Candidate)
+    {
+        return new VValue<Candidate>();  // NOLINT(*-owning-memory)
+    }
+    return makeV_impl<Candidate + 1, Limit>(val);
+}
 
 template <std::uint8_t Candidate = 0>
 auto makeV(const std::uint8_t val) -> V*
 {
-    if (val == Candidate)
-    {
-        return new VValue<Candidate>();  // NOLINT
-    }
-    if constexpr (Candidate < std::numeric_limits<std::uint8_t>::max())
-    {
-        return makeV<Candidate + 1>(val);
-    }
-    else
-    {
-        return nullptr;
-    }
+    return makeV_impl<Candidate, std::numeric_limits<std::uint8_t>::max()>(val);
 }
 
 void testManualV()
@@ -857,9 +883,11 @@ int main(const int argc, const char* const argv[])
     const auto seed = static_cast<unsigned>((argc > 1) ? std::atoll(argv[1]) : std::time(nullptr));  // NOLINT
     std::cout << "Randomness seed: " << seed << std::endl;
     std::srand(seed);
+    // NOLINTBEGIN(misc-include-cleaner)
     UNITY_BEGIN();
     RUN_TEST(testManualMy);
     RUN_TEST(testManualV);
     RUN_TEST(testRandomized);
     return UNITY_END();
+    // NOLINTEND(misc-include-cleaner)
 }
