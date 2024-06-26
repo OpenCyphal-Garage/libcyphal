@@ -3,8 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_TRANSPORT_CAN_MSG_TX_SESSION_HPP_INCLUDED
-#define LIBCYPHAL_TRANSPORT_CAN_MSG_TX_SESSION_HPP_INCLUDED
+#ifndef LIBCYPHAL_TRANSPORT_UDP_MSG_TX_SESSION_HPP_INCLUDED
+#define LIBCYPHAL_TRANSPORT_UDP_MSG_TX_SESSION_HPP_INCLUDED
 
 #include "delegate.hpp"
 
@@ -14,18 +14,20 @@
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
 
-#include <canard.h>
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
+#include <udpard.h>
+
+#include <chrono>
 
 namespace libcyphal
 {
 namespace transport
 {
-namespace can
+namespace udp
 {
 
-/// Internal implementation details of the CAN transport.
+/// Internal implementation details of the UDP transport.
 /// Not supposed to be used directly by the users of the library.
 ///
 namespace detail
@@ -43,15 +45,16 @@ class MessageTxSession final : public IMessageTxSession
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<IMessageTxSession>, AnyError> make(TransportDelegate&     delegate,
-                                                                                const MessageTxParams& params)
+    CETL_NODISCARD static Expected<UniquePtr<IMessageTxSession>, AnyError> make(cetl::pmr::memory_resource& memory,
+                                                                                TransportDelegate&          delegate,
+                                                                                const MessageTxParams&      params)
     {
-        if (params.subject_id > CANARD_SUBJECT_ID_MAX)
+        if (params.subject_id > UDPARD_SUBJECT_ID_MAX)
         {
             return ArgumentError{};
         }
 
-        auto session = libcyphal::detail::makeUniquePtr<Spec>(delegate.memory(), Spec{}, delegate, params);
+        auto session = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, delegate, params);
         if (session == nullptr)
         {
             return MemoryError{};
@@ -85,13 +88,15 @@ private:
     CETL_NODISCARD cetl::optional<AnyError> send(const TransferMetadata& metadata,
                                                  const PayloadFragments  payload_fragments) override
     {
-        const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.priority),
-                                                            CanardTransferKindMessage,
-                                                            params_.subject_id,
-                                                            CANARD_NODE_ID_UNSET,
-                                                            static_cast<CanardTransferID>(metadata.transfer_id)};
+        const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(
+            (metadata.timestamp + send_timeout_).time_since_epoch());
 
-        return delegate_.sendTransfer(metadata.timestamp + send_timeout_, canard_metadata, payload_fragments);
+        const auto tx_metadata = AnyUdpardTxMetadata::Publish{static_cast<UdpardMicrosecond>(deadline_us.count()),
+                                                              static_cast<UdpardPriority>(metadata.priority),
+                                                              params_.subject_id,
+                                                              metadata.transfer_id};
+
+        return delegate_.sendAnyTransfer(tx_metadata, payload_fragments);
     }
 
     // MARK: IRunnable
@@ -111,8 +116,8 @@ private:
 };  // MessageTxSession
 
 }  // namespace detail
-}  // namespace can
+}  // namespace udp
 }  // namespace transport
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_TRANSPORT_CAN_MSG_TX_SESSION_HPP_INCLUDED
+#endif  // LIBCYPHAL_TRANSPORT_UDP_MSG_TX_SESSION_HPP_INCLUDED

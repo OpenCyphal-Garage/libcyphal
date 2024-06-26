@@ -43,14 +43,11 @@ namespace detail
 ///
 class MessageRxSession final : private IRxSessionDelegate, public IMessageRxSession  // NOSONAR cpp:S4963
 {
-    /// @brief Defines specification for making interface unique ptr.
+    /// @brief Defines private specification for making interface unique ptr.
     ///
-    struct Spec
+    struct Spec : libcyphal::detail::UniquePtrSpec<IMessageRxSession, MessageRxSession>
     {
-        using Interface = IMessageRxSession;
-        using Concrete  = MessageRxSession;
-
-        // In use to disable public construction.
+        // `explicit` here is in use to disable public construction of derived private `Spec` structs.
         // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
         explicit Spec() = default;
     };
@@ -73,7 +70,7 @@ public:
         return session;
     }
 
-    MessageRxSession(Spec, TransportDelegate& delegate, const MessageRxParams& params)
+    MessageRxSession(const Spec, TransportDelegate& delegate, const MessageRxParams& params)
         : delegate_{delegate}
         , params_{params}
         , subscription_{}
@@ -88,9 +85,10 @@ public:
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "New subscription supposed to be made.");
 
-        subscription_.user_reference = static_cast<IRxSessionDelegate*>(this);
+        // No Sonar `cpp:S5356` b/c we integrate here with C libcanard API.
+        subscription_.user_reference = static_cast<IRxSessionDelegate*>(this);  // NOSONAR cpp:S5356
 
-        delegate_.triggerUpdateOfFilters(TransportDelegate::FiltersUpdateCondition::SubjectPortAdded);
+        delegate_.triggerUpdateOfFilters(TransportDelegate::FiltersUpdate::SubjectPort{true});
     }
 
     MessageRxSession(const MessageRxSession&)                = delete;
@@ -106,7 +104,7 @@ public:
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "Subscription supposed to be made at constructor.");
 
-        delegate_.triggerUpdateOfFilters(TransportDelegate::FiltersUpdateCondition::SubjectPortRemoved);
+        delegate_.triggerUpdateOfFilters(TransportDelegate::FiltersUpdate::SubjectPort{false});
     }
 
 private:
@@ -119,9 +117,7 @@ private:
 
     CETL_NODISCARD cetl::optional<MessageRxTransfer> receive() override
     {
-        cetl::optional<MessageRxTransfer> result{};
-        result.swap(last_rx_transfer_);
-        return result;
+        return std::exchange(last_rx_transfer_, cetl::nullopt);
     }
 
     // MARK: IRxSession
@@ -156,11 +152,11 @@ private:
                 ? cetl::nullopt
                 : cetl::make_optional<NodeId>(transfer.metadata.remote_node_id);
 
-        const MessageTransferMetadata   meta{transfer_id, timestamp, priority, publisher_node_id};
-        TransportDelegate::CanardMemory canard_memory{delegate_,
-                                                      static_cast<cetl::byte*>(transfer.payload),
-                                                      transfer.payload_size};
+        // No Sonar `cpp:S5356` and `cpp:S5357` b/c we need to pass raw data from C libcanard api.
+        auto* const buffer = static_cast<cetl::byte*>(transfer.payload);  // NOSONAR cpp:S5356 cpp:S5357
+        TransportDelegate::CanardMemory canard_memory{delegate_, buffer, transfer.payload_size};
 
+        const MessageTransferMetadata meta{transfer_id, timestamp, priority, publisher_node_id};
         (void) last_rx_transfer_.emplace(MessageRxTransfer{meta, ScatteredBuffer{std::move(canard_memory)}});
     }
 

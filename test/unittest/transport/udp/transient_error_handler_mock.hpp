@@ -7,7 +7,7 @@
 #define LIBCYPHAL_TRANSPORT_CAN_TRANSIENT_ERROR_HANDLER_MOCK_HPP_INCLUDED
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <libcyphal/transport/can/can_transport.hpp>
+#include <libcyphal/transport/udp/udp_transport.hpp>
 #include <libcyphal/transport/errors.hpp>
 
 #include <gmock/gmock.h>
@@ -16,21 +16,21 @@ namespace libcyphal
 {
 namespace transport
 {
-namespace can
+namespace udp
 {
 
 class TransientErrorHandlerMock
 {
 public:
-    cetl::optional<AnyError> operator()(ICanTransport::TransientErrorReport::Variant& report_var)
+    cetl::optional<AnyError> operator()(IUdpTransport::TransientErrorReport::Variant& report_var)
     {
         return invoke(report_var);
     }
 
-    MOCK_METHOD(cetl::optional<AnyError>, invoke, (ICanTransport::TransientErrorReport::Variant& report_var));
+    MOCK_METHOD(cetl::optional<AnyError>, invoke, (IUdpTransport::TransientErrorReport::Variant& report_var));
 };
 
-}  // namespace can
+}  // namespace udp
 }  // namespace transport
 }  // namespace libcyphal
 

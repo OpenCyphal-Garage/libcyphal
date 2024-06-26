@@ -103,20 +103,54 @@ private:
 namespace detail
 {
 
-template <typename T>
-using PmrAllocator = cetl::pmr::polymorphic_allocator<T>;
+template <typename Concrete>
+using PmrAllocator = cetl::pmr::polymorphic_allocator<Concrete>;
 
 template <typename T>
 using VarArray = cetl::VariableLengthArray<T, PmrAllocator<T>>;
 
-template <typename Spec, typename... Args>
-CETL_NODISCARD UniquePtr<typename Spec::Interface> makeUniquePtr(cetl::pmr::memory_resource& memory, Args&&... args)
+template <typename I, typename C>
+struct UniquePtrSpec
+{
+    using Interface = I;
+    using Concrete  = C;
+};
+
+template <typename UniquePtrSpec, typename... Args>
+CETL_NODISCARD UniquePtr<typename UniquePtrSpec::Interface> makeUniquePtr(cetl::pmr::memory_resource& memory,
+                                                                          Args&&... args)
 {
     return cetl::pmr::InterfaceFactory::make_unique<
-        typename Spec::Interface>(PmrAllocator<typename Spec::Concrete>{&memory}, std::forward<Args>(args)...);
+        typename UniquePtrSpec::Interface>(PmrAllocator<typename UniquePtrSpec::Concrete>{&memory},
+                                           std::forward<Args>(args)...);
 }
 
 }  // namespace detail
+
+/// @brief Helper function which creates a new `Concrete` type object in a dynamically allocated memory from the given
+/// Polymorphic Memory Resource (PMR). The object's pointer is wrapped into libcyphal compatible/expected `UniquePtr`.
+/// The result `Interface`-typed smart-pointer (aka `std::unique_ptr`) has the concrete-type-erased PMR deleter.
+///
+/// Internally it uses `cetl::pmr::InterfaceFactory` factory which in turn uses:
+/// - `PmrAllocator = cetl::pmr::polymorphic_allocator<Concrete>` as the PMR (de)allocator type;
+/// - `cetl::pmr::PmrInterfaceDeleter<Interface>` as the concrete-type-erased PMR deleter type.
+///
+/// @tparam Interface The interface template type - should be base of `Concrete` template type.
+///                   Such interface type could be without exposed destructor (protected or private).
+/// @tparam Concrete The concrete type the object to be created. Its `~Concrete()` destructor have to be public.
+///                  The result smart pointer deleter will use the destructor to de-initialize memory of the object.
+/// @tparam Args     The types of arguments to be passed to the constructor of the `Concrete` object.
+/// @param memory    The PMR resource to be used for memory allocation and de-allocation.
+///                  NB! It's captured by reference inside of the deleter, so smart pointer should not outlive
+///                  the PMR resource (or use `reset` to release the object earlier).
+/// @param args      The arguments to be forwarded to the constructor of the `Concrete` object.
+///
+template <typename Interface, typename Concrete, typename... Args>
+CETL_NODISCARD UniquePtr<Interface> makeUniquePtr(cetl::pmr::memory_resource& memory, Args&&... args)
+{
+    using Spec = detail::UniquePtrSpec<Interface, Concrete>;
+    return makeUniquePtr<Spec>(memory, std::forward<Args>(args)...);
+}
 
 }  // namespace libcyphal
 

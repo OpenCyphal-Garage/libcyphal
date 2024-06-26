@@ -15,6 +15,7 @@
 #include "svc_tx_sessions.hpp"
 
 #include "libcyphal/runnable.hpp"
+#include "libcyphal/transport/common/tools.hpp"
 #include "libcyphal/transport/contiguous_payload.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
@@ -51,23 +52,20 @@ namespace detail
 /// @brief Represents final implementation class of the CAN transport.
 ///
 /// NOSONAR cpp:S4963 for below `class TransportImpl` - we do directly handle resources here;
-/// namely: in destructor we have to unsubscribe, as well as let delegate to know this fact.
+/// namely: in destructor we have to flush TX queues (otherwise there will be memory leaks).
 ///
 class TransportImpl final : private TransportDelegate, public ICanTransport  // NOSONAR cpp:S4963
 {
-    /// @brief Defines specification for making interface unique ptr.
+    /// @brief Defines private specification for making interface unique ptr.
     ///
-    struct Spec
+    struct Spec : libcyphal::detail::UniquePtrSpec<ICanTransport, TransportImpl>
     {
-        using Interface = ICanTransport;
-        using Concrete  = TransportImpl;
-
-        // In use to disable public construction.
+        // `explicit` here is in use to disable public construction of derived private `Spec` structs.
         // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
         explicit Spec() = default;
     };
 
-    /// @brief Internal (private) storage of a media index, its interface and TX queue.
+    /// @brief Defines private storage of a media index, its interface and TX queue.
     ///
     struct Media final
     {
@@ -113,10 +111,9 @@ public:
     {
         // Verify input arguments:
         // - At least one media interface must be provided, but no more than the maximum allowed (255).
-        // - If a local node ID is provided, it must be within the valid range.
         //
-        const auto media_count =
-            static_cast<std::size_t>(std::count_if(media.begin(), media.end(), [](const IMedia* const media_ptr) {
+        const auto media_count = static_cast<std::size_t>(
+            std::count_if(media.begin(), media.end(), [](const IMedia* const media_ptr) -> bool {
                 return media_ptr != nullptr;
             }));
         if ((media_count == 0) || (media_count > std::numeric_limits<std::uint8_t>::max()))
@@ -124,13 +121,15 @@ public:
             return ArgumentError{};
         }
 
-        const MediaArray media_array{make_media_array(memory, media_count, media, tx_capacity)};
+        // False positive of clang-tidy - we move `media_array` to the `transport` instance, so can't make it const.
+        // NOLINTNEXTLINE(misc-const-correctness)
+        MediaArray media_array = makeMediaArray(memory, media_count, media, tx_capacity);
         if (media_array.size() != media_count)
         {
             return MemoryError{};
         }
 
-        auto transport = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, memory, media_array);
+        auto transport = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, memory, std::move(media_array));
         if (transport == nullptr)
         {
             return MemoryError{};
@@ -139,7 +138,7 @@ public:
         return transport;
     }
 
-    TransportImpl(Spec, cetl::pmr::memory_resource& memory, MediaArray media_array)
+    TransportImpl(const Spec, cetl::pmr::memory_resource& memory, MediaArray&& media_array)
         : TransportDelegate{memory}
         , media_array_{std::move(media_array)}
         , should_reconfigure_filters_{false}
@@ -176,34 +175,32 @@ private:
 
     CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
     {
-        if (canard_instance().node_id > CANARD_NODE_ID_MAX)
+        if (node_id() > CANARD_NODE_ID_MAX)
         {
             return cetl::nullopt;
         }
 
-        return cetl::make_optional(static_cast<NodeId>(canard_instance().node_id));
+        return cetl::make_optional(node_id());
     }
 
-    CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId node_id) noexcept override
+    CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId new_node_id) noexcept override
     {
-        if (node_id > CANARD_NODE_ID_MAX)
+        if (new_node_id > CANARD_NODE_ID_MAX)
         {
             return ArgumentError{};
         }
 
         // Allow setting the same node ID multiple times, but only once otherwise.
         //
-        CanardInstance& ins = canard_instance();
-        if (ins.node_id == node_id)
+        if (node_id() == new_node_id)
         {
             return cetl::nullopt;
         }
-        if (ins.node_id != CANARD_NODE_ID_UNSET)
+        if (node_id() != CANARD_NODE_ID_UNSET)
         {
             return ArgumentError{};
         }
-
-        ins.node_id = static_cast<CanardNodeID>(node_id);
+        canard_node_id() = static_cast<CanardNodeID>(new_node_id);
 
         // We just became non-anonymous node, so we might need to reconfigure media filters
         // in case we have at least one service RX port.
@@ -343,14 +340,15 @@ private:
         {
             media.propagateMtuToTxQueue();
 
+            // No Sonar `cpp:S5356` b/c we need to pass payload as a raw data to the libcanard.
             const std::int32_t result = ::canardTxPush(&media.canard_tx_queue(),
                                                        &canard_instance(),
                                                        static_cast<CanardMicrosecond>(deadline_us.count()),
                                                        &metadata,
                                                        payload.size(),
-                                                       payload.data());
+                                                       payload.data());  // NOSONAR cpp:S5356
 
-            opt_any_error = tryHandleTransientCanardResult<TransientErrorReport::CanardTxPush>(result, media);
+            opt_any_error = tryHandleTransientCanardResult<TransientErrorReport::CanardTxPush>(media, result);
             if (opt_any_error.has_value())
             {
                 // The handler (if any) just said that it's NOT fine to continue with pushing to other media TX queues,
@@ -362,53 +360,62 @@ private:
         return opt_any_error;
     }
 
-    void triggerUpdateOfFilters(const FiltersUpdateCondition condition) noexcept override
+    void triggerUpdateOfFilters(const FiltersUpdate::Variant& update_var) override
     {
-        switch (condition)
-        {
-        case FiltersUpdateCondition::SubjectPortAdded: {
-            ++total_message_ports_;
-            break;
-        }
-        case FiltersUpdateCondition::SubjectPortRemoved: {
-            // We are not going to allow negative number of ports.
-            CETL_DEBUG_ASSERT(total_message_ports_ > 0, "");
-            total_message_ports_ -= std::min(static_cast<std::size_t>(1), total_message_ports_);
-            break;
-        }
-        case FiltersUpdateCondition::ServicePortAdded: {
-            ++total_service_ports_;
-            break;
-        }
-        case FiltersUpdateCondition::ServicePortRemoved: {
-            // We are not going to allow negative number of ports.
-            CETL_DEBUG_ASSERT(total_service_ports_ > 0, "");
-            total_service_ports_ -= std::min(static_cast<std::size_t>(1), total_service_ports_);
-            break;
-        }
-        default: {
-            // NOLINTNEXTLINE(cert-dcl03-c,hicpp-static-assert,misc-static-assert)
-            CETL_DEBUG_ASSERT(false, "Unexpected condition.");
-            return;
-        }
-        }
+        FiltersUpdateHandler handler_with{*this};
+        cetl::visit(handler_with, update_var);
 
         should_reconfigure_filters_ = true;
     }
 
     // MARK: Privates:
 
-    template <typename ErrorVariant>
-    CETL_NODISCARD static AnyError anyErrorFromVariant(ErrorVariant&& other_error_var)
+    using Self = TransportImpl;
+
+    struct FiltersUpdateHandler
     {
-        return cetl::visit([](auto&& error) -> AnyError { return std::forward<decltype(error)>(error); },
-                           std::forward<ErrorVariant>(other_error_var));
-    }
+        explicit FiltersUpdateHandler(Self& self)
+            : self_{self}
+        {
+        }
+
+        void operator()(const FiltersUpdate::SubjectPort& port) const
+        {
+            if (port.is_added)
+            {
+                ++self_.total_message_ports_;
+            }
+            else
+            {
+                // We are not going to allow negative number of ports.
+                CETL_DEBUG_ASSERT(self_.total_message_ports_ > 0, "");
+                self_.total_message_ports_ -= std::min(static_cast<std::size_t>(1), self_.total_message_ports_);
+            }
+        }
+
+        void operator()(const FiltersUpdate::ServicePort& port) const
+        {
+            if (port.is_added)
+            {
+                ++self_.total_service_ports_;
+            }
+            else
+            {
+                // We are not going to allow negative number of ports.
+                CETL_DEBUG_ASSERT(self_.total_service_ports_ > 0, "");
+                self_.total_service_ports_ -= std::min(static_cast<std::size_t>(1), self_.total_service_ports_);
+            }
+        }
+
+    private:
+        Self& self_;
+
+    };  // FiltersUpdateHandler
 
     template <typename Report>
-    CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientMediaError(MediaError&& media_error, const Media& media)
+    CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientMediaError(const Media& media, MediaError&& error)
     {
-        AnyError any_error = anyErrorFromVariant(std::move(media_error));
+        AnyError any_error = common::detail::anyErrorFromVariant(std::move(error));
         if (!transient_error_handler_)
         {
             return any_error;
@@ -419,8 +426,8 @@ private:
     }
 
     template <typename Report>
-    CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientCanardResult(const std::int32_t result,
-                                                                           const Media&       media)
+    CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientCanardResult(const Media&       media,
+                                                                           const std::int32_t result)
     {
         cetl::optional<AnyError> opt_any_error = optAnyErrorFromCanard(result);
         if (opt_any_error.has_value() && transient_error_handler_)
@@ -446,10 +453,10 @@ private:
         return cetl::nullopt;
     }
 
-    CETL_NODISCARD static MediaArray make_media_array(cetl::pmr::memory_resource& memory,
-                                                      const std::size_t           media_count,
-                                                      const cetl::span<IMedia*>   media_interfaces,
-                                                      const std::size_t           tx_capacity)
+    CETL_NODISCARD static MediaArray makeMediaArray(cetl::pmr::memory_resource& memory,
+                                                    const std::size_t           media_count,
+                                                    const cetl::span<IMedia*>   media_interfaces,
+                                                    const std::size_t           tx_capacity)
     {
         MediaArray media_array{media_count, &memory};
 
@@ -475,12 +482,14 @@ private:
         return media_array;
     }
 
-    void flushCanardTxQueue(CanardTxQueue& canard_tx_queue)
+    void flushCanardTxQueue(CanardTxQueue& canard_tx_queue) const
     {
         while (const CanardTxQueueItem* const maybe_item = ::canardTxPeek(&canard_tx_queue))
         {
             CanardTxQueueItem* const item = ::canardTxPop(&canard_tx_queue, maybe_item);
-            freeCanardMemory(item);
+
+            // No Sonar `cpp:S5356` b/c we need to free tx item allocated by libcanard as a raw memory.
+            freeCanardMemory(item);  // NOSONAR cpp:S5356
         }
     }
 
@@ -505,17 +514,17 @@ private:
         std::array<cetl::byte, CANARD_MTU_MAX> payload{};
 
         Expected<cetl::optional<RxMetadata>, MediaError> pop_result = media.interface().pop(payload);
-        if (auto* media_error = cetl::get_if<MediaError>(&pop_result))
+        if (auto* const error = cetl::get_if<MediaError>(&pop_result))
         {
-            return tryHandleTransientMediaError<TransientErrorReport::MediaPop>(std::move(*media_error), media);
+            return tryHandleTransientMediaError<TransientErrorReport::MediaPop>(media, std::move(*error));
         }
-        const auto* const opt_rx_meta = cetl::get_if<cetl::optional<RxMetadata>>(&pop_result);
-        if ((opt_rx_meta == nullptr) || !opt_rx_meta->has_value())
+        const auto& opt_rx_meta = cetl::get<cetl::optional<RxMetadata>>(pop_result);
+        if (!opt_rx_meta.has_value())
         {
             return cetl::nullopt;
         }
 
-        const RxMetadata& rx_meta = opt_rx_meta->value();
+        const RxMetadata& rx_meta = opt_rx_meta.value();
 
         const auto timestamp_us =
             std::chrono::duration_cast<std::chrono::microseconds>(rx_meta.timestamp.time_since_epoch());
@@ -524,20 +533,24 @@ private:
         CanardRxTransfer      out_transfer{};
         CanardRxSubscription* out_subscription{};
 
-        const std::int8_t        result = ::canardRxAccept(&canard_instance(),
+        const std::int8_t result = ::canardRxAccept(&canard_instance(),
                                                     static_cast<CanardMicrosecond>(timestamp_us.count()),
                                                     &canard_frame,
                                                     media.index(),
                                                     &out_transfer,
                                                     &out_subscription);
+
         cetl::optional<AnyError> opt_any_error =
-            tryHandleTransientCanardResult<TransientErrorReport::CanardRxAccept>(result, media);
-        if (!opt_any_error.has_value() && (result > 0))
+            tryHandleTransientCanardResult<TransientErrorReport::CanardRxAccept>(media, result);
+        if ((!opt_any_error.has_value()) && (result > 0))
         {
             CETL_DEBUG_ASSERT(out_subscription != nullptr, "Expected subscription.");
             CETL_DEBUG_ASSERT(out_subscription->user_reference != nullptr, "Expected session delegate.");
 
-            auto* const delegate = static_cast<IRxSessionDelegate*>(out_subscription->user_reference);
+            // No Sonar `cpp:S5357` b/c the raw `user_reference` is part of libcanard api,
+            // and it was set by us at a RX session constructor (see f.e. `MessageRxSession` ctor).
+            auto* const delegate =
+                static_cast<IRxSessionDelegate*>(out_subscription->user_reference);  // NOSONAR cpp:S5357
             delegate->acceptRxTransfer(out_transfer);
         }
 
@@ -570,13 +583,6 @@ private:
     {
         while (const CanardTxQueueItem* const tx_item = ::canardTxPeek(&media.canard_tx_queue()))
         {
-            // Prepare a lambda to pop and free the TX queue item, but not just yet.
-            // In case of media not being ready to push this item, we will need to retry it on next `run`.
-            //
-            auto popAndFreeCanardTxQueueItem = [this, tx_queue = &media.canard_tx_queue(), tx_item]() {
-                freeCanardMemory(::canardTxPop(tx_queue, tx_item));
-            };
-
             // We are dropping any TX item that has expired.
             // Otherwise, we would send it to the media interface.
             // We use strictly `>=` (instead of `>`) to give this frame a chance (one extra 1us) at media level.
@@ -584,13 +590,20 @@ private:
             const auto deadline = TimePoint{std::chrono::microseconds{tx_item->tx_deadline_usec}};
             if (now >= deadline)
             {
-                popAndFreeCanardTxQueueItem();
-                continue;
+                // Release whole expired transfer b/c possible next frames of the same transfer are also expired.
+                popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, true /*whole transfer*/);
+
+                // No Sonar `cpp:S909` b/c it make sense to use `continue` statement here - the corner case of
+                // "early" (by deadline) transfer drop. Using `if` would make the code less readable and more nested.
+                continue;  // NOSONAR cpp:S909
             }
 
-            const cetl::span<const cetl::byte> payload{static_cast<const cetl::byte*>(tx_item->frame.payload),
-                                                       tx_item->frame.payload_size};
-            Expected<bool, MediaError>         maybe_pushed =
+            // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libcanard API.
+            const auto* const buffer =
+                static_cast<const cetl::byte*>(tx_item->frame.payload);  // NOSONAR cpp:S5356 cpp:S5357
+            const cetl::span<const cetl::byte> payload{buffer, tx_item->frame.payload_size};
+
+            Expected<bool, MediaError> maybe_pushed =
                 media.interface().push(deadline, tx_item->frame.extended_can_id, payload);
 
             // In case of media push error we are going to drop this problematic frame
@@ -599,34 +612,36 @@ private:
             // Note that media not being ready/able to push a frame just yet (aka temporary)
             // is not reported as an error (see `is_pushed` below).
             //
-            if (auto* media_error = cetl::get_if<MediaError>(&maybe_pushed))
+            if (auto* const error = cetl::get_if<MediaError>(&maybe_pushed))
             {
-                // Release problematic frame from the TX queue, so that other frames in TX queue have their chance.
+                // Release whole problematic transfer from the TX queue,
+                // so that other transfers in TX queue have their chance.
                 // Otherwise, we would be stuck in a run loop trying to push the same frame.
-                popAndFreeCanardTxQueueItem();
+                popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, true /*whole transfer*/);
 
                 cetl::optional<AnyError> opt_any_error =
-                    tryHandleTransientMediaError<TransientErrorReport::MediaPush>(std::move(*media_error), media);
-                if (!opt_any_error.has_value())
+                    tryHandleTransientMediaError<TransientErrorReport::MediaPush>(media, std::move(*error));
+                if (opt_any_error.has_value())
                 {
-                    // The handler (if any) just said that it's fine to continue with pushing other frames
-                    // and ignore such a transient media error (and don't propagate it outside).
-                    continue;
+                    return opt_any_error;
                 }
 
-                return opt_any_error;
+                // The handler just said that it's fine to continue with pushing other frames
+                // and ignore such a transient media error (and don't propagate it outside).
             }
-
-            const auto* const is_pushed = cetl::get_if<bool>(&maybe_pushed);
-            if ((is_pushed != nullptr) && !*is_pushed)
+            else
             {
-                // Media interface is busy, so we are done with this media for now,
-                // and will just try again with it later (on next `run`).
-                // Note, we are NOT releasing this item from the queue, so it will be retried on next `run`.
-                break;
-            }
+                const auto is_pushed = cetl::get<bool>(maybe_pushed);
+                if (!is_pushed)
+                {
+                    // Media interface is busy, so we are done with this media for now,
+                    // and will just try again with it later (on next `run`).
+                    // Note, we are NOT releasing this item from the queue, so it will be retried on next `run`.
+                    break;
+                }
 
-            popAndFreeCanardTxQueueItem();
+                popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, false /*single frame*/);
+            }
 
         }  // for each frame
 
@@ -667,14 +682,13 @@ private:
         bool was_error = false;
         for (const Media& media : media_array_)
         {
-            cetl::optional<MediaError> media_error = media.interface().setFilters({filters.data(), filters.size()});
-            if (media_error.has_value())
+            cetl::optional<MediaError> error = media.interface().setFilters({filters.data(), filters.size()});
+            if (error.has_value())
             {
                 was_error = true;
 
                 cetl::optional<AnyError> opt_any_error =
-                    tryHandleTransientMediaError<TransientErrorReport::MediaConfig>(std::move(media_error.value()),
-                                                                                    media);
+                    tryHandleTransientMediaError<TransientErrorReport::MediaConfig>(media, std::move(error.value()));
                 if (opt_any_error.has_value())
                 {
                     // The handler (if any) just said that it's NOT fine to continue with configuring other media,
@@ -704,7 +718,7 @@ private:
         // Total "active" RX ports depends on the local node ID. For anonymous nodes,
         // we don't account for service ports (b/c they don't work while being anonymous).
         //
-        const CanardNodeID local_node_id      = canard_instance().node_id;
+        const CanardNodeID local_node_id      = canard_node_id();
         const auto         is_anonymous       = local_node_id > CANARD_NODE_ID_MAX;
         const std::size_t  total_active_ports = total_message_ports_ + (is_anonymous ? 0 : total_service_ports_);
         if (total_active_ports == 0)
@@ -740,7 +754,7 @@ private:
 
         // No need to make service filters if we don't have a local node ID.
         //
-        if ((total_service_ports_ > 0) && !is_anonymous)
+        if ((total_service_ports_ > 0) && (!is_anonymous))
         {
             const auto svc_visitor = [&filters, local_node_id](RxSubscription& rx_subscription) {
                 // Make and store a single service filter.

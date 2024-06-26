@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 namespace libcyphal
 {
@@ -73,7 +74,8 @@ public:
         {
             if (buffer_ != nullptr)
             {
-                delegate_.freeCanardMemory(buffer_);
+                // No Sonar `cpp:S5356` b/c we integrate here with C libcanard memory management.
+                delegate_.freeCanardMemory(buffer_);  // NOSONAR cpp:S5356
             }
         }
 
@@ -101,8 +103,9 @@ public:
 
             const std::size_t bytes_to_copy = std::min(length_bytes, payload_size_ - offset_bytes);
             // Next nolint is unavoidable: we need offset from the beginning of the buffer.
+            // No Sonar `cpp:S5356` b/c we integrate here with libcanard raw C buffers.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            (void) std::memmove(destination, buffer_ + offset_bytes, bytes_to_copy);
+            (void) std::memmove(destination, buffer_ + offset_bytes, bytes_to_copy);  // NOSONAR cpp:S5356
             return bytes_to_copy;
         }
 
@@ -127,7 +130,8 @@ public:
         /// Recursion goes first to the left child, then to the current node, and finally to the right child.
         /// B/c AVL tree is balanced, the total complexity is `O(n)` and call stack depth should not be deeper than
         /// ~O(log(N)) (`ceil(1.44 * log2(N + 2) - 0.328)` to be precise, or 19 in case of 8192 ports),
-        /// where `N` is the total number of tree nodes. Hence, the `NOLINTNEXTLINE(misc-no-recursion)` exception.
+        /// where `N` is the total number of tree nodes. Hence, the `NOLINTNEXTLINE(misc-no-recursion)`
+        /// and `NOSONAR cpp:S925` exceptions.
         ///
         /// @tparam Visitor Type of the visitor callable.
         /// @param node (sub-)root node of the AVL tree. Could be `nullptr`.
@@ -146,45 +150,50 @@ public:
             // Initial `1` is for the current node.
             std::size_t count = 1;
 
-            count += visitCounting(node->lr[0], visitor);
+            count += visitCounting(node->lr[0], visitor);  // NOSONAR cpp:S925
 
             // Next nolint & NOSONAR are unavoidable: this is integration with low-level C code of Canard AVL trees.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
             visitor(*reinterpret_cast<Node*>(node));  // NOSONAR cpp:S3630
 
-            count += visitCounting(node->lr[1], visitor);
+            count += visitCounting(node->lr[1], visitor);  // NOSONAR cpp:S925
 
             return count;
         }
 
     };  // CanardConcreteTree
 
-    enum class FiltersUpdateCondition : std::uint8_t
+    struct FiltersUpdate
     {
-        SubjectPortAdded,
-        SubjectPortRemoved,
-        ServicePortAdded,
-        ServicePortRemoved
-    };
+        struct SubjectPort
+        {
+            bool is_added;
+        };
+        struct ServicePort
+        {
+            bool is_added;
+        };
 
-    explicit TransportDelegate(cetl::pmr::memory_resource& memory)
-        : memory_{memory}
-        , canard_instance_{::canardInit(allocateMemoryForCanard, freeCanardMemory)}
-    {
-        canard_instance().user_reference = this;
-    }
+        using Variant = cetl::variant<SubjectPort, ServicePort>;
+
+    };  // FiltersUpdate
 
     TransportDelegate(const TransportDelegate&)                = delete;
     TransportDelegate(TransportDelegate&&) noexcept            = delete;
     TransportDelegate& operator=(const TransportDelegate&)     = delete;
     TransportDelegate& operator=(TransportDelegate&&) noexcept = delete;
 
-    CETL_NODISCARD CanardInstance& canard_instance() noexcept
+    CETL_NODISCARD NodeId node_id() const noexcept
     {
-        return canard_instance_;
+        return canard_instance_.node_id;
     }
 
-    CETL_NODISCARD const CanardInstance& canard_instance() const noexcept
+    CETL_NODISCARD CanardNodeID& canard_node_id() noexcept
+    {
+        return canard_instance_.node_id;
+    }
+
+    CETL_NODISCARD CanardInstance& canard_instance() noexcept
     {
         return canard_instance_;
     }
@@ -213,21 +222,46 @@ public:
 
     /// @brief Releases memory allocated for canard (by previous `allocateMemoryForCanard` call).
     ///
-    /// NOSONAR cpp:S5008 b/s it is unavoidable: this is integration with low-level C code of Canard memory management.
+    /// No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable -
+    /// this is integration with low-level C code of Canard memory management.
     ///
-    void freeCanardMemory(void* const pointer)  // NOSONAR cpp:S5008
+    void freeCanardMemory(void* const pointer) const  // NOSONAR cpp:S5008
     {
         if (pointer == nullptr)
         {
             return;
         }
 
-        auto* memory_header = static_cast<CanardMemoryHeader*>(pointer);
+        auto* memory_header = static_cast<CanardMemoryHeader*>(pointer);  // NOSONAR cpp:S5356
         // Next nolint is unavoidable: this is integration with C code of Canard memory management.
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         --memory_header;
 
-        memory_.deallocate(memory_header, memory_header->size);
+        memory_.deallocate(memory_header, memory_header->size);  // NOSONAR cpp:S5356
+    }
+
+    /// Pops and frees Canard TX queue item(s).
+    ///
+    /// @param tx_queue The TX queue from which the item should be popped.
+    /// @param tx_item The TX queue item to be popped and freed.
+    /// @param whole_transfer If `true` then whole transfer should be released from the queue.
+    ///
+    void popAndFreeCanardTxQueueItem(CanardTxQueue* const     tx_queue,
+                                     const CanardTxQueueItem* tx_item,
+                                     const bool               whole_transfer) const
+    {
+        while (CanardTxQueueItem* const mut_tx_item = ::canardTxPop(tx_queue, tx_item))
+        {
+            tx_item = tx_item->next_in_transfer;
+
+            // No Sonar `cpp:S5356` b/c we need to free tx item allocated by libcanard as a raw memory.
+            freeCanardMemory(mut_tx_item);  // NOSONAR cpp:S5356
+
+            if (!whole_transfer)
+            {
+                break;
+            }
+        }
     }
 
     /// @brief Sends transfer to each media canard TX queue of the transport.
@@ -242,12 +276,20 @@ public:
     ///
     /// Actual update will be done on next `run` of transport.
     ///
-    /// @param condition Describes condition in which the RX ports change has happened. Allows to distinguish
-    ///                  between subject and service ports, and between adding and removing a port.
+    /// @param update_var Describes variant of which the RX ports update has happened.
+    ///                   Allows to distinguish between subject and service ports.
     ///
-    virtual void triggerUpdateOfFilters(const FiltersUpdateCondition condition) noexcept = 0;
+    virtual void triggerUpdateOfFilters(const FiltersUpdate::Variant& update_var) = 0;
 
 protected:
+    explicit TransportDelegate(cetl::pmr::memory_resource& memory)
+        : memory_{memory}
+        , canard_instance_{::canardInit(allocateMemoryForCanard, freeCanardMemory)}
+    {
+        // No Sonar `cpp:S5356` b/c we integrate here with C libcanard API.
+        canard_instance().user_reference = this;  // NOSONAR cpp:S5356
+    }
+
     ~TransportDelegate() = default;
 
 private:
@@ -270,7 +312,9 @@ private:
         CETL_DEBUG_ASSERT(ins != nullptr, "Expected canard instance.");
         CETL_DEBUG_ASSERT(ins->user_reference != nullptr, "Expected `this` transport as user reference.");
 
-        return *static_cast<TransportDelegate*>(ins->user_reference);
+        // No Sonar `cpp:S5357` b/c the raw `user_reference` is part of libcanard api,
+        // and it was set by us at this delegate constructor (see `TransportDelegate` ctor).
+        return *static_cast<TransportDelegate*>(ins->user_reference);  // NOSONAR cpp:S5357
     }
 
     /// @brief Allocates memory for canard instance.
@@ -285,8 +329,11 @@ private:
     {
         TransportDelegate& self = getSelfFrom(ins);
 
-        const std::size_t memory_size   = sizeof(CanardMemoryHeader) + amount;
-        auto*             memory_header = static_cast<CanardMemoryHeader*>(self.memory_.allocate(memory_size));
+        const std::size_t memory_size = sizeof(CanardMemoryHeader) + amount;
+
+        // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libcanard memory management.
+        auto* memory_header =
+            static_cast<CanardMemoryHeader*>(self.memory_.allocate(memory_size));  // NOSONAR cpp:S5356 cpp:S5357
         if (memory_header == nullptr)
         {
             return nullptr;
@@ -296,9 +343,10 @@ private:
         // The size is used in `canardMemoryFree` to deallocate the memory.
         //
         memory_header->size = memory_size;
-        // Next nolint is unavoidable: this is integration with C code of Canard memory management.
+        // Next nolint and no Sonar `cpp:S5356` are unavoidable -
+        // this is integration with C code of Canard memory management.
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        return ++memory_header;
+        return ++memory_header;  // NOSONAR cpp:S5356
     }
 
     /// @brief Releases memory allocated for canard instance (by previous `allocateMemoryForCanard` call).
@@ -309,7 +357,7 @@ private:
     static void freeCanardMemory(CanardInstance* ins,  // NOSONAR cpp:S995
                                  void*           pointer)        // NOSONAR cpp:S5008
     {
-        TransportDelegate& self = getSelfFrom(ins);
+        const TransportDelegate& self = getSelfFrom(ins);
         self.freeCanardMemory(pointer);
     }
 

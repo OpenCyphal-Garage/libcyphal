@@ -3,16 +3,17 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_HPP_INCLUDED
-#define LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_HPP_INCLUDED
+#ifndef LIBCYPHAL_TRANSPORT_UDP_TRANSPORT_HPP_INCLUDED
+#define LIBCYPHAL_TRANSPORT_UDP_TRANSPORT_HPP_INCLUDED
 
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/transport.hpp"
 #include "media.hpp"
+#include "tx_rx_sockets.hpp"
 
-#include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pmr/function.hpp>
+#include <udpard.h>
 
 #include <cstdint>
 
@@ -20,12 +21,12 @@ namespace libcyphal
 {
 namespace transport
 {
-namespace can
+namespace udp
 {
 
-/// @brief Defines interface of CAN transport layer.
+/// @brief Defines interface of UDP transport layer.
 ///
-class ICanTransport : public ITransport
+class IUdpTransport : public ITransport
 {
 public:
     /// Defines structure for reporting transient transport errors to the user's handler.
@@ -38,49 +39,50 @@ public:
     ///
     struct TransientErrorReport
     {
-        /// @brief Error report about pushing a message to a TX session.
-        struct CanardTxPush
+        /// @brief Error report about publishing a message to a TX session.
+        struct UdpardTxPublish
         {
-            AnyError        error;
-            std::uint8_t    media_index;
-            CanardInstance& culprit;
+            AnyError     error;
+            std::uint8_t media_index;
+            UdpardTx&    culprit;
         };
 
-        /// @brief Error report about accepting a frame for an RX session.
-        struct CanardRxAccept
+        /// @brief Error report about pushing a service request to a TX session.
+        struct UdpardTxRequest
         {
-            AnyError        error;
-            std::uint8_t    media_index;
-            CanardInstance& culprit;
+            AnyError     error;
+            std::uint8_t media_index;
+            UdpardTx&    culprit;
         };
 
-        /// @brief Error report about receiving frame from the media interface.
-        struct MediaPop
+        /// @brief Error report about pushing a service respond to a TX session.
+        struct UdpardTxRespond
+        {
+            AnyError     error;
+            std::uint8_t media_index;
+            UdpardTx&    culprit;
+        };
+
+        /// @brief Error report about making TX socket by the media interface.
+        struct MediaMakeTxSocket
         {
             AnyError     error;
             std::uint8_t media_index;
             IMedia&      culprit;
         };
 
-        /// @brief Error report about pushing a frame to the media interface.
-        struct MediaPush
+        /// @brief Error report about sending a frame to the media TX socket interface.
+        struct MediaTxSocketSend
         {
             AnyError     error;
             std::uint8_t media_index;
-            IMedia&      culprit;
-        };
-
-        /// @brief Error report about configuring the media interface (f.e. applying filters).
-        struct MediaConfig
-        {
-            AnyError     error;
-            std::uint8_t media_index;
-            IMedia&      culprit;
+            ITxSocket&   culprit;
         };
 
         /// Defines variant of all possible transient error reports.
         ///
-        using Variant = cetl::variant<CanardTxPush, CanardRxAccept, MediaPop, MediaPush, MediaConfig>;
+        using Variant =
+            cetl::variant<UdpardTxPublish, UdpardTxRequest, UdpardTxRespond, MediaMakeTxSocket, MediaTxSocketSend>;
 
     };  // TransientErrorReport
 
@@ -94,7 +96,7 @@ public:
     /// - it's not allowed to call a TX session `send` or RX session `receive` methods from within this handler;
     /// - main purpose of the handler:
     ///   - is to log/report/stat the error;
-    ///   - potentially modify state of some "culprit" media related component (f.e. reset HW CAN controller);
+    ///   - potentially modify state of some "culprit" media related component;
     ///   - return an optional (maybe different) error back to the transport.
     /// - result error from the handler affects:
     ///   - whether or not other redundant media of this transport will continue to be processed
@@ -113,10 +115,10 @@ public:
     using TransientErrorHandler =
         cetl::pmr::function<cetl::optional<AnyError>(TransientErrorReport::Variant& report_var), sizeof(void*) * 3>;
 
-    ICanTransport(const ICanTransport&)                = delete;
-    ICanTransport(ICanTransport&&) noexcept            = delete;
-    ICanTransport& operator=(const ICanTransport&)     = delete;
-    ICanTransport& operator=(ICanTransport&&) noexcept = delete;
+    IUdpTransport(const IUdpTransport&)                = delete;
+    IUdpTransport(IUdpTransport&&) noexcept            = delete;
+    IUdpTransport& operator=(const IUdpTransport&)     = delete;
+    IUdpTransport& operator=(IUdpTransport&&) noexcept = delete;
 
     /// Sets new transient error handler.
     ///
@@ -129,12 +131,41 @@ public:
     virtual void setTransientErrorHandler(TransientErrorHandler handler) = 0;
 
 protected:
-    ICanTransport()  = default;
-    ~ICanTransport() = default;
-};
+    IUdpTransport()  = default;
+    ~IUdpTransport() = default;
 
-}  // namespace can
+};  // IUdpTransport
+
+/// @brief Specifies set of memory resources used by the UDP transport.
+///
+struct MemoryResourcesSpec
+{
+    /// The general purpose memory resource is used to provide memory for the libcyphal library.
+    /// It is NOT used for any Udpard TX or RX transfers, payload (de)fragmentation or transient handles,
+    /// but only for the libcyphal internal needs (like `make*[Rx|Tx]Session` factory calls).
+    cetl::pmr::memory_resource& general;
+
+    /// The session memory resource is used to provide memory for the Udpard session instances.
+    /// Each instance is fixed-size, so a trivial zero-fragmentation block allocator is sufficient.
+    /// If `nullptr` then the `.general` memory resource will be used instead.
+    cetl::pmr::memory_resource* session{nullptr};
+
+    /// The fragment handles are allocated per payload fragment; each handle contains a pointer to its fragment.
+    /// Each instance is of a very small fixed size, so a trivial zero-fragmentation block allocator is sufficient.
+    /// If `nullptr` then the `.general` memory resource will be used instead.
+    cetl::pmr::memory_resource* fragment{nullptr};
+
+    /// The library never allocates payload buffers itself, as they are handed over by the application via
+    /// receive calls. Once a buffer is handed over, the library may choose to keep it if it is deemed to be
+    /// necessary to complete a transfer reassembly, or to discard it if it is deemed to be unnecessary.
+    /// Discarded payload buffers are freed using this memory resource.
+    /// If `nullptr` then the `.general` memory resource will be used instead.
+    cetl::pmr::memory_resource* payload{nullptr};
+
+};  // MemoryResourcesSpec
+
+}  // namespace udp
 }  // namespace transport
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_TRANSPORT_CAN_TRANSPORT_HPP_INCLUDED
+#endif  // LIBCYPHAL_TRANSPORT_UDP_TRANSPORT_HPP_INCLUDED

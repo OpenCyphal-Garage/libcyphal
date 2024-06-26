@@ -19,7 +19,6 @@
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
 #include <utility>
 
@@ -51,14 +50,11 @@ namespace detail
 template <typename Interface_, typename Params, CanardTransferKind TransferKind>
 class SvcRxSession final : private IRxSessionDelegate, public Interface_  // NOSONAR cpp:S4963
 {
-    /// @brief Defines specification for making interface unique ptr.
+    /// @brief Defines private specification for making interface unique ptr.
     ///
-    struct Spec
+    struct Spec : libcyphal::detail::UniquePtrSpec<Interface_, SvcRxSession>
     {
-        using Interface = Interface_;
-        using Concrete  = SvcRxSession;
-
-        // In use to disable public construction.
+        // `explicit` here is in use to disable public construction of derived private `Spec` structs.
         // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
         explicit Spec() = default;
     };
@@ -81,7 +77,7 @@ public:
         return session;
     }
 
-    SvcRxSession(Spec, TransportDelegate& delegate, const Params& params)
+    SvcRxSession(const Spec, TransportDelegate& delegate, const Params& params)
         : delegate_{delegate}
         , params_{params}
         , subscription_{}
@@ -96,9 +92,10 @@ public:
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "New subscription supposed to be made.");
 
-        subscription_.user_reference = static_cast<IRxSessionDelegate*>(this);
+        // No Sonar `cpp:S5356` b/c we integrate here with C libcanard API.
+        subscription_.user_reference = static_cast<IRxSessionDelegate*>(this);  // NOSONAR cpp:S5356
 
-        delegate_.triggerUpdateOfFilters(TransportDelegate::FiltersUpdateCondition::ServicePortAdded);
+        delegate_.triggerUpdateOfFilters(TransportDelegate::FiltersUpdate::ServicePort{true});
     }
 
     SvcRxSession(const SvcRxSession&)                = delete;
@@ -113,7 +110,7 @@ public:
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "Subscription supposed to be made at constructor.");
 
-        delegate_.triggerUpdateOfFilters(TransportDelegate::FiltersUpdateCondition::ServicePortRemoved);
+        delegate_.triggerUpdateOfFilters(TransportDelegate::FiltersUpdate::ServicePort{false});
     }
 
 private:
@@ -126,9 +123,7 @@ private:
 
     CETL_NODISCARD cetl::optional<ServiceRxTransfer> receive() override
     {
-        cetl::optional<ServiceRxTransfer> result{};
-        result.swap(last_rx_transfer_);
-        return result;
+        return std::exchange(last_rx_transfer_, cetl::nullopt);
     }
 
     // MARK: IRxSession
@@ -159,11 +154,11 @@ private:
         const auto transfer_id    = static_cast<TransferId>(transfer.metadata.transfer_id);
         const auto timestamp      = TimePoint{std::chrono::microseconds{transfer.timestamp_usec}};
 
-        const ServiceTransferMetadata   meta{transfer_id, timestamp, priority, remote_node_id};
-        TransportDelegate::CanardMemory canard_memory{delegate_,
-                                                      static_cast<cetl::byte*>(transfer.payload),
-                                                      transfer.payload_size};
+        // No Sonar `cpp:S5356` and `cpp:S5357` b/c we need to pass raw data from C libcanard api.
+        auto* const buffer = static_cast<cetl::byte*>(transfer.payload);  // NOSONAR cpp:S5356 cpp:S5357
+        TransportDelegate::CanardMemory canard_memory{delegate_, buffer, transfer.payload_size};
 
+        const ServiceTransferMetadata meta{transfer_id, timestamp, priority, remote_node_id};
         (void) last_rx_transfer_.emplace(ServiceRxTransfer{meta, ScatteredBuffer{std::move(canard_memory)}});
     }
 

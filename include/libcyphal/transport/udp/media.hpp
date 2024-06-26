@@ -6,7 +6,11 @@
 #ifndef LIBCYPHAL_TRANSPORT_UDP_MEDIA_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_UDP_MEDIA_HPP_INCLUDED
 
-#include <cstddef>
+#include "libcyphal/transport/errors.hpp"
+#include "libcyphal/types.hpp"
+#include "tx_rx_sockets.hpp"
+
+#include <cetl/pf17/cetlpf.hpp>
 
 namespace libcyphal
 {
@@ -27,12 +31,14 @@ public:
     IMedia& operator=(const IMedia&)     = delete;
     IMedia& operator=(IMedia&&) noexcept = delete;
 
-    /// @brief Get the maximum transmission unit (MTU) of the UDP media.
+    /// Constructs a new TX socket bound to this media.
     ///
-    /// This value may change arbitrarily at runtime. The transport implementation will query it before every
-    /// transmission on the port. This value has no effect on the reception pipeline as it can accept arbitrary MTU.
+    virtual Expected<UniquePtr<ITxSocket>, cetl::variant<MemoryError, PlatformError>> makeTxSocket() = 0;
+
+    /// Constructs a new RX socket bound to the specified multicast group endpoint.
     ///
-    virtual std::size_t getMtu() const noexcept = 0;
+    virtual Expected<UniquePtr<IRxSocket>, cetl::variant<MemoryError, PlatformError, ArgumentError>> makeRxSocket(
+        const IpEndpoint& multicast_endpoint) = 0;
 
 protected:
     IMedia()  = default;

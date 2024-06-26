@@ -58,14 +58,15 @@ protected:
         {
         }
 
+        // MARK: TransportDelegate
+
         MOCK_METHOD((cetl::optional<AnyError>),
                     sendTransfer,
                     (const libcyphal::TimePoint    deadline,
                      const CanardTransferMetadata& metadata,
                      const PayloadFragments        payload_fragments),
                     (override));
-        // NOLINTNEXTLINE(bugprone-exception-escape)
-        MOCK_METHOD(void, triggerUpdateOfFilters, (const FiltersUpdateCondition condition), (noexcept, override));
+        MOCK_METHOD(void, triggerUpdateOfFilters, (const FiltersUpdate::Variant& update_var), (override));
     };
 
     void TearDown() override

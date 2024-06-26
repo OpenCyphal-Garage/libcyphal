@@ -3,8 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_TRANSPORT_CAN_SVC_TX_SESSIONS_HPP_INCLUDED
-#define LIBCYPHAL_TRANSPORT_CAN_SVC_TX_SESSIONS_HPP_INCLUDED
+#ifndef LIBCYPHAL_TRANSPORT_UDP_SVC_TX_SESSIONS_HPP_INCLUDED
+#define LIBCYPHAL_TRANSPORT_UDP_SVC_TX_SESSIONS_HPP_INCLUDED
 
 #include "delegate.hpp"
 
@@ -14,18 +14,20 @@
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
 
-#include <canard.h>
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
+#include <udpard.h>
+
+#include <chrono>
 
 namespace libcyphal
 {
 namespace transport
 {
-namespace can
+namespace udp
 {
 
-/// Internal implementation details of the CAN transport.
+/// Internal implementation details of the UDP transport.
 /// Not supposed to be used directly by the users of the library.
 ///
 namespace detail
@@ -45,15 +47,16 @@ class SvcRequestTxSession final : public IRequestTxSession
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<IRequestTxSession>, AnyError> make(TransportDelegate&     delegate,
-                                                                                const RequestTxParams& params)
+    CETL_NODISCARD static Expected<UniquePtr<IRequestTxSession>, AnyError> make(cetl::pmr::memory_resource& memory,
+                                                                                TransportDelegate&          delegate,
+                                                                                const RequestTxParams&      params)
     {
-        if ((params.service_id > CANARD_SERVICE_ID_MAX) || (params.server_node_id > CANARD_NODE_ID_MAX))
+        if ((params.service_id > UDPARD_SERVICE_ID_MAX) || (params.server_node_id > UDPARD_NODE_ID_MAX))
         {
             return ArgumentError{};
         }
 
-        auto session = libcyphal::detail::makeUniquePtr<Spec>(delegate.memory(), Spec{}, delegate, params);
+        auto session = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, delegate, params);
         if (session == nullptr)
         {
             return MemoryError{};
@@ -91,18 +94,21 @@ private:
         // Otherwise, transport may do some work (like possible payload allocation/copying,
         // media enumeration and pushing into their TX queues) doomed to fail with argument error.
         //
-        if (delegate_.node_id() > CANARD_NODE_ID_MAX)
+        if (delegate_.node_id() > UDPARD_NODE_ID_MAX)
         {
             return ArgumentError{};
         }
 
-        const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.priority),
-                                                            CanardTransferKindRequest,
-                                                            params_.service_id,
-                                                            static_cast<CanardNodeID>(params_.server_node_id),
-                                                            static_cast<CanardTransferID>(metadata.transfer_id)};
+        const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(
+            (metadata.timestamp + send_timeout_).time_since_epoch());
 
-        return delegate_.sendTransfer(metadata.timestamp + send_timeout_, canard_metadata, payload_fragments);
+        const auto tx_metadata = AnyUdpardTxMetadata::Request{static_cast<UdpardMicrosecond>(deadline_us.count()),
+                                                              static_cast<UdpardPriority>(metadata.priority),
+                                                              params_.service_id,
+                                                              params_.server_node_id,
+                                                              metadata.transfer_id};
+
+        return delegate_.sendAnyTransfer(tx_metadata, payload_fragments);
     }
 
     // MARK: IRunnable
@@ -137,15 +143,16 @@ class SvcResponseTxSession final : public IResponseTxSession
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<IResponseTxSession>, AnyError> make(TransportDelegate&      delegate,
-                                                                                 const ResponseTxParams& params)
+    CETL_NODISCARD static Expected<UniquePtr<IResponseTxSession>, AnyError> make(cetl::pmr::memory_resource& memory,
+                                                                                 TransportDelegate&          delegate,
+                                                                                 const ResponseTxParams&     params)
     {
-        if (params.service_id > CANARD_SERVICE_ID_MAX)
+        if (params.service_id > UDPARD_SERVICE_ID_MAX)
         {
             return ArgumentError{};
         }
 
-        auto session = libcyphal::detail::makeUniquePtr<Spec>(delegate.memory(), Spec{}, delegate, params);
+        auto session = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, delegate, params);
         if (session == nullptr)
         {
             return MemoryError{};
@@ -183,18 +190,21 @@ private:
         // Otherwise, transport may do some work (like possible payload allocation/copying,
         // media enumeration and pushing into their TX queues) doomed to fail with argument error.
         //
-        if ((delegate_.node_id() > CANARD_NODE_ID_MAX) || (metadata.remote_node_id > CANARD_NODE_ID_MAX))
+        if ((delegate_.node_id() > UDPARD_NODE_ID_MAX) || (metadata.remote_node_id > UDPARD_NODE_ID_MAX))
         {
             return ArgumentError{};
         }
 
-        const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.priority),
-                                                            CanardTransferKindResponse,
-                                                            params_.service_id,
-                                                            static_cast<CanardNodeID>(metadata.remote_node_id),
-                                                            static_cast<CanardTransferID>(metadata.transfer_id)};
+        const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(
+            (metadata.timestamp + send_timeout_).time_since_epoch());
 
-        return delegate_.sendTransfer(metadata.timestamp + send_timeout_, canard_metadata, payload_fragments);
+        const auto tx_metadata = AnyUdpardTxMetadata::Respond{static_cast<UdpardMicrosecond>(deadline_us.count()),
+                                                              static_cast<UdpardPriority>(metadata.priority),
+                                                              params_.service_id,
+                                                              metadata.remote_node_id,
+                                                              metadata.transfer_id};
+
+        return delegate_.sendAnyTransfer(tx_metadata, payload_fragments);
     }
 
     // MARK: IRunnable
@@ -214,8 +224,8 @@ private:
 };  // SvcResponseTxSession
 
 }  // namespace detail
-}  // namespace can
+}  // namespace udp
 }  // namespace transport
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_TRANSPORT_CAN_SVC_TX_SESSIONS_HPP_INCLUDED
+#endif  // LIBCYPHAL_TRANSPORT_UDP_SVC_TX_SESSIONS_HPP_INCLUDED
