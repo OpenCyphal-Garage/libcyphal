@@ -222,7 +222,9 @@ void testManual(const std::function<N*(std::uint8_t)>& factory)
         const auto pred = [&](const N& v) { return t.at(i)->getValue() - v.getValue(); };
         TEST_ASSERT_NULL(tr.search(pred));
         TEST_ASSERT_NULL(static_cast<const TreeType&>(tr).search(pred));
-        TEST_ASSERT_EQUAL(t[i], tr.search(pred, [&]() { return t[i]; }));
+        auto result = tr.search(pred, [&]() { return t[i]; });
+        TEST_ASSERT_EQUAL(t[i], std::get<0>(result));
+        TEST_ASSERT_FALSE(std::get<1>(result));
         TEST_ASSERT_EQUAL(t[i], tr.search(pred));
         TEST_ASSERT_EQUAL(t[i], static_cast<const TreeType&>(tr).search(pred));
         // Validate the tree after every mutation.
@@ -718,26 +720,23 @@ void testRandomized()
         {
             TEST_ASSERT_TRUE(mask.at(x));
             TEST_ASSERT_EQUAL(x, existing->getValue());
-            TEST_ASSERT_EQUAL(x,
-                              root.search(predicate,
-                                          []() -> My* {
-                                              TEST_FAIL_MESSAGE(
-                                                  "Attempted to create a new node when there is one already");
-                                              return nullptr;
-                                          })
-                                  ->getValue());
+            auto result = root.search(predicate, []() -> My* {
+                TEST_FAIL_MESSAGE("Attempted to create a new node when there is one already");
+                return nullptr;
+            });
+            TEST_ASSERT_EQUAL(x, std::get<0>(result)->getValue());
+            TEST_ASSERT_TRUE(std::get<1>(result));
         }
         else
         {
             TEST_ASSERT_FALSE(mask.at(x));
             bool factory_called = false;
-            TEST_ASSERT_EQUAL(x,
-                              root.search(predicate,
-                                          [&]() -> My* {
-                                              factory_called = true;
-                                              return t.at(x).get();
-                                          })
-                                  ->getValue());
+            auto result         = root.search(predicate, [&]() -> My* {
+                factory_called = true;
+                return t.at(x).get();
+            });
+            TEST_ASSERT_EQUAL(x, std::get<0>(result)->getValue());
+            TEST_ASSERT_FALSE(std::get<1>(result));
             TEST_ASSERT(factory_called);
             size++;
             cnt_addition++;

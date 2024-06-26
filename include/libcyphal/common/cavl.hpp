@@ -25,6 +25,7 @@
 #pragma once
 
 #include <cstdint>
+#include <tuple>
 #include <type_traits>
 
 /// If CAVL is used in throughput-critical code, then it is recommended to disable assertion checks as they may
@@ -93,10 +94,10 @@ protected:
     template <typename Pre>
     static auto search(Node* const root, const Pre& predicate) noexcept -> Derived*
     {
-        Derived*       p   = down(root);
-        Derived* const out = search<Pre>(p, predicate, []() -> Derived* { return nullptr; });
+        Derived*                         p   = down(root);
+        std::tuple<Derived*, bool> const out = search<Pre>(p, predicate, []() -> Derived* { return nullptr; });
         CAVL_ASSERT(p == root);
-        return out;
+        return std::get<0>(out);
     }
 
     /// Same but const.
@@ -120,10 +121,12 @@ protected:
 
     /// This is like the regular search function except that if the node is missing, the factory will be invoked
     /// (without arguments) to construct a new one and insert it into the tree immediately.
-    /// The root node may be replaced in the process. If the factory returns true, the tree is not modified.
-    /// The factory does not need to be noexcept (may throw).
+    /// The root node may be replaced in the process. If this method returns true, the tree is not modified;
+    /// otherwise, the factory was (successfully!) invoked and a new node has been inserted into the tree.
+    /// The factory does not need to be noexcept (may throw). It may also return nullptr to indicate intentional
+    /// refusal to modify the tree, or f.e. in case of out of memory - result will be `(nullptr, true)` tuple.
     template <typename Pre, typename Fac>
-    static auto search(Derived*& root, const Pre& predicate, const Fac& factory) -> Derived*;
+    static auto search(Derived*& root, const Pre& predicate, const Fac& factory) -> std::tuple<Derived*, bool>;
 
     /// Remove the specified node from its tree. The root node may be replaced in the process.
     /// The function has no effect if the node pointer is nullptr.
@@ -279,7 +282,7 @@ private:
 
 template <typename Derived>
 template <typename Pre, typename Fac>
-auto Node<Derived>::search(Derived*& root, const Pre& predicate, const Fac& factory) -> Derived*
+auto Node<Derived>::search(Derived*& root, const Pre& predicate, const Fac& factory) -> std::tuple<Derived*, bool>
 {
     Node* out = nullptr;
     Node* up  = root;
@@ -298,29 +301,33 @@ auto Node<Derived>::search(Derived*& root, const Pre& predicate, const Fac& fact
         n  = n->lr[r];
         CAVL_ASSERT((nullptr == n) || (n->up == up));
     }
+    if (nullptr != out)
+    {
+        return std::make_tuple(down(out), true);
+    }
+
+    out = factory();
     if (nullptr == out)
     {
-        out = factory();
-        if (out != nullptr)
-        {
-            if (up != nullptr)
-            {
-                CAVL_ASSERT(up->lr[r] == nullptr);
-                up->lr[r] = out;
-            }
-            else
-            {
-                root = down(out);
-            }
-            out->unlink();
-            out->up = up;
-            if (Node* const rt = out->retraceOnGrowth())
-            {
-                root = down(rt);
-            }
-        }
+        return std::make_tuple(nullptr, true);
     }
-    return down(out);
+
+    if (up != nullptr)
+    {
+        CAVL_ASSERT(up->lr[r] == nullptr);
+        up->lr[r] = out;
+    }
+    else
+    {
+        root = down(out);
+    }
+    out->unlink();
+    out->up = up;
+    if (Node* const rt = out->retraceOnGrowth())
+    {
+        root = down(rt);
+    }
+    return std::make_tuple(down(out), false);
 }
 
 template <typename Derived>
@@ -546,7 +553,7 @@ public:
         return NodeType::template search<Pre>(*this, predicate);
     }
     template <typename Pre, typename Fac>
-    auto search(const Pre& predicate, const Fac& factory) -> Derived*
+    auto search(const Pre& predicate, const Fac& factory) -> std::tuple<Derived*, bool>
     {
         CAVL_ASSERT(!traversal_in_progress_);  // Cannot modify the tree while it is being traversed.
         return NodeType::template search<Pre, Fac>(root_, predicate, factory);
