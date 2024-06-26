@@ -61,6 +61,8 @@ protected:
                      const PayloadFragments                           payload_fragments),
                     (override));
 
+        MOCK_METHOD(void, onSessionEvent, (const OnSessionEvent::Variant& event_var), (override));
+
     };  // TransportDelegateImpl
 
     void TearDown() override

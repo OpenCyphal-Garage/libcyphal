@@ -10,6 +10,7 @@
 #include "media.hpp"
 #include "msg_rx_session.hpp"
 #include "msg_tx_session.hpp"
+#include "sessions_tree.hpp"
 #include "svc_rx_sessions.hpp"
 #include "svc_tx_sessions.hpp"
 #include "tx_rx_sockets.hpp"
@@ -175,6 +176,7 @@ public:
                   MediaArray&&           media_array)
         : TransportDelegate{memory_resources}
         , media_array_{std::move(media_array)}
+        , msg_rx_session_nodes_{memory_resources.general}
     {
         for (auto& media : media_array_)
         {
@@ -254,14 +256,18 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
         const MessageRxParams& params) override
     {
-        // TODO: Uncomment!
-        //        const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindMessage,
-        //        params.subject_id); if (any_error.has_value())
-        //        {
-        //            return any_error.value();
-        //        }
+        auto node_result = msg_rx_session_nodes_.ensureNewNodeFor(params.subject_id);
+        if (auto* any_error = cetl::get_if<AnyError>(&node_result))
+        {
+            return std::move(*any_error);
+        }
 
-        return MessageRxSession::make(memoryResources().general, asDelegate(), params);
+        auto session_result = MessageRxSession::make(memoryResources().general, asDelegate(), params);
+        if (nullptr != cetl::get_if<AnyError>(&session_result))
+        {
+            msg_rx_session_nodes_.removeNodeFor(params.subject_id);
+        }
+        return session_result;
     }
 
     CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(
@@ -394,6 +400,12 @@ private:
         return opt_any_error;
     }
 
+    void onSessionEvent(const OnSessionEvent::Variant& event_var) override
+    {
+        OnSessionEventHandler handler_with{*this};
+        cetl::visit(handler_with, event_var);
+    }
+
     // MARK: Privates:
 
     using Self              = TransportImpl;
@@ -456,6 +468,23 @@ private:
         const struct UdpardPayload payload_;
 
     };  // TxTransferHandler
+
+    struct OnSessionEventHandler
+    {
+        explicit OnSessionEventHandler(Self& self)
+            : self_{self}
+        {
+        }
+
+        void operator()(const OnSessionEvent::MsgSessionDestroyed& event) const
+        {
+            self_.msg_rx_session_nodes_.removeNodeFor(event.subject_id);
+        }
+
+    private:
+        Self& self_;
+
+    };  // OnSessionEventHandler
 
     template <typename Report, typename ErrorVariant, typename Culprit>
     CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientMediaError(const Media&   media,
@@ -704,8 +733,9 @@ private:
 
     // MARK: Data members:
 
-    MediaArray            media_array_;
-    TransientErrorHandler transient_error_handler_;
+    MediaArray                               media_array_;
+    TransientErrorHandler                    transient_error_handler_;
+    SessionsTree<RxSessionTreeNode::Message> msg_rx_session_nodes_;
 
 };  // TransportImpl
 

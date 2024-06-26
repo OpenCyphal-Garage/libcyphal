@@ -139,6 +139,17 @@ public:
 
     };  // UdpardMemory
 
+    struct OnSessionEvent
+    {
+        struct MsgSessionDestroyed
+        {
+            PortId subject_id;
+        };
+
+        using Variant = cetl::variant<MsgSessionDestroyed>;
+
+    };  // OnSessionEvent
+
     TransportDelegate(const TransportDelegate&)                = delete;
     TransportDelegate(TransportDelegate&&) noexcept            = delete;
     TransportDelegate& operator=(const TransportDelegate&)     = delete;
@@ -206,6 +217,12 @@ public:
     ///
     CETL_NODISCARD virtual cetl::optional<AnyError> sendAnyTransfer(const AnyUdpardTxMetadata::Variant& tx_metadata_var,
                                                                     const PayloadFragments payload_fragments) = 0;
+
+    /// @brief Called on a session event.
+    ///
+    /// @param event_var Describes variant of the session even has happened.
+    ///
+    virtual void onSessionEvent(const OnSessionEvent::Variant& event_var) = 0;
 
 protected:
     /// @brief Defines internal set of memory resources used by the UDP transport.

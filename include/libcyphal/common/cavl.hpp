@@ -81,11 +81,26 @@ protected:
     ~Node() = default;
 
     /// Accessors for advanced tree introspection. Not needed for typical usage.
-    auto getParentNode() noexcept -> Derived* { return down(up); }
-    auto getParentNode() const noexcept -> const Derived* { return down(up); }
-    auto getChildNode(const bool right) noexcept -> Derived* { return down(lr[right]); }
-    auto getChildNode(const bool right) const noexcept -> const Derived* { return down(lr[right]); }
-    auto getBalanceFactor() const noexcept { return bf; }
+    auto getParentNode() noexcept -> Derived*
+    {
+        return down(up);
+    }
+    auto getParentNode() const noexcept -> const Derived*
+    {
+        return down(up);
+    }
+    auto getChildNode(const bool right) noexcept -> Derived*
+    {
+        return down(lr[right]);
+    }
+    auto getChildNode(const bool right) const noexcept -> const Derived*
+    {
+        return down(lr[right]);
+    }
+    auto getBalanceFactor() const noexcept
+    {
+        return bf;
+    }
 
     /// Find a node for which the predicate returns zero, or nullptr if there is no such node or the tree is empty.
     /// The predicate is invoked with a single argument which is a constant reference to Derived.
@@ -144,10 +159,22 @@ protected:
 
     /// These methods provide very fast retrieval of min/max values, either const or mutable.
     /// They return nullptr iff the tree is empty.
-    static auto min(Node* const root) noexcept -> Derived* { return extremum(root, false); }
-    static auto max(Node* const root) noexcept -> Derived* { return extremum(root, true); }
-    static auto min(const Node* const root) noexcept -> const Derived* { return extremum(root, false); }
-    static auto max(const Node* const root) noexcept -> const Derived* { return extremum(root, true); }
+    static auto min(Node* const root) noexcept -> Derived*
+    {
+        return extremum(root, false);
+    }
+    static auto max(Node* const root) noexcept -> Derived*
+    {
+        return extremum(root, true);
+    }
+    static auto min(const Node* const root) noexcept -> const Derived*
+    {
+        return extremum(root, false);
+    }
+    static auto max(const Node* const root) noexcept -> const Derived*
+    {
+        return extremum(root, true);
+    }
 
     /// In-order or reverse-in-order traversal of the tree; the visitor is invoked with a reference to each node.
     /// Required stack depth is less than 2*log2(size).
@@ -269,8 +296,14 @@ private:
     }
 
     // This is MISRA-compliant as long as we are not polymorphic. The derived class may be polymorphic though.
-    static auto down(Node* x) noexcept -> Derived* { return static_cast<Derived*>(x); }
-    static auto down(const Node* x) noexcept -> const Derived* { return static_cast<const Derived*>(x); }
+    static auto down(Node* x) noexcept -> Derived*
+    {
+        return static_cast<Derived*>(x);
+    }
+    static auto down(const Node* x) noexcept -> const Derived*
+    {
+        return static_cast<const Derived*>(x);
+    }
 
     friend class Tree<Derived>;
 
@@ -519,7 +552,10 @@ public:
     using NodeType    = ::cavl::Node<Derived>;
     using DerivedType = Derived;
 
-    explicit Tree(Derived* const root) : root_(root) {}
+    explicit Tree(Derived* const root)
+        : root_(root)
+    {
+    }
     Tree()  = default;
     ~Tree() = default;
 
@@ -528,7 +564,8 @@ public:
     auto operator=(const Tree&) -> Tree& = delete;
 
     /// Trees can be easily moved in constant time. This does not actually affect the tree itself, only this object.
-    Tree(Tree&& other) noexcept : root_(other.root_)
+    Tree(Tree&& other) noexcept
+        : root_(other.root_)
     {
         CAVL_ASSERT(!traversal_in_progress_);  // Cannot modify the tree while it is being traversed.
         other.root_ = nullptr;
@@ -572,10 +609,22 @@ public:
     }
 
     /// Wraps NodeType<>::min/max().
-    auto min() noexcept -> Derived* { return NodeType::min(*this); }
-    auto max() noexcept -> Derived* { return NodeType::max(*this); }
-    auto min() const noexcept -> const Derived* { return NodeType::min(*this); }
-    auto max() const noexcept -> const Derived* { return NodeType::max(*this); }
+    auto min() noexcept -> Derived*
+    {
+        return NodeType::min(*this);
+    }
+    auto max() noexcept -> Derived*
+    {
+        return NodeType::max(*this);
+    }
+    auto min() const noexcept -> const Derived*
+    {
+        return NodeType::min(*this);
+    }
+    auto max() const noexcept -> const Derived*
+    {
+        return NodeType::max(*this);
+    }
 
     /// Wraps NodeType<>::traverse().
     template <typename Vis>
@@ -592,8 +641,14 @@ public:
     }
 
     /// Normally these are not needed except if advanced introspection is desired.
-    operator Derived*() noexcept { return root_; }              // NOLINT implicit conversion by design
-    operator const Derived*() const noexcept { return root_; }  // NOLINT ditto
+    operator Derived*() noexcept
+    {
+        return root_;
+    }  // NOLINT implicit conversion by design
+    operator const Derived*() const noexcept
+    {
+        return root_;
+    }  // NOLINT ditto
 
     /// Access i-th element of the tree in linear time. Returns nullptr if the index is out of bounds.
     auto operator[](const std::size_t index) -> Derived*
@@ -616,7 +671,10 @@ public:
     }
 
     /// Unlike size(), this one is constant-complexity.
-    auto empty() const noexcept { return root_ == nullptr; }
+    auto empty() const noexcept
+    {
+        return root_ == nullptr;
+    }
 
 private:
     static_assert(!std::is_polymorphic<NodeType>::value,
@@ -630,8 +688,15 @@ private:
     class TraversalIndicatorUpdater final
     {
     public:
-        explicit TraversalIndicatorUpdater(const Tree& sup) noexcept : that(sup) { that.traversal_in_progress_ = true; }
-        ~TraversalIndicatorUpdater() noexcept { that.traversal_in_progress_ = false; }
+        explicit TraversalIndicatorUpdater(const Tree& sup) noexcept
+            : that(sup)
+        {
+            that.traversal_in_progress_ = true;
+        }
+        ~TraversalIndicatorUpdater() noexcept
+        {
+            that.traversal_in_progress_ = false;
+        }
 
         TraversalIndicatorUpdater(const TraversalIndicatorUpdater&)                    = delete;
         TraversalIndicatorUpdater(TraversalIndicatorUpdater&&)                         = delete;

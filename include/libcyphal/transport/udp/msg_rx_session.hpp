@@ -84,8 +84,7 @@ public:
 
     ~MessageRxSession()
     {
-        // TODO: Implement!
-        (void) 0;
+        delegate_.onSessionEvent(TransportDelegate::OnSessionEvent::MsgSessionDestroyed{params_.subject_id});
     }
 
 private:
