@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <tuple>
 #include <type_traits>
@@ -154,7 +155,10 @@ protected:
     static void remove(Derived*& root, Node* const node) noexcept
     {
         remove(root, static_cast<const Node*>(node));
-        node->unlink();
+        if (nullptr != node)
+        {
+            node->unlink();
+        }
     }
 
     /// These methods provide very fast retrieval of min/max values, either const or mutable.
@@ -597,11 +601,6 @@ public:
     }
 
     /// Wraps NodeType<>::remove().
-    void remove(const NodeType* const node) const noexcept
-    {
-        CAVL_ASSERT(!traversal_in_progress_);  // Cannot modify the tree while it is being traversed.
-        return NodeType::remove(root_, node);
-    }
     void remove(NodeType* const node) noexcept
     {
         CAVL_ASSERT(!traversal_in_progress_);  // Cannot modify the tree while it is being traversed.
@@ -641,14 +640,18 @@ public:
     }
 
     /// Normally these are not needed except if advanced introspection is desired.
+    ///
+    /// No linting b/c implicit conversion by design.
+    /// NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions)
     operator Derived*() noexcept
     {
         return root_;
-    }  // NOLINT implicit conversion by design
+    }
+    /// NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions)
     operator const Derived*() const noexcept
     {
         return root_;
-    }  // NOLINT ditto
+    }
 
     /// Access i-th element of the tree in linear time. Returns nullptr if the index is out of bounds.
     auto operator[](const std::size_t index) -> Derived*

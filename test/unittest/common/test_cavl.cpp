@@ -44,7 +44,10 @@ constexpr auto Zzzzz = nullptr;
 class My : public cavl::Node<My>
 {
 public:
-    explicit My(const std::uint16_t v) : value(v) {}
+    explicit My(const std::uint16_t v)
+        : value(v)
+    {
+    }
     using Self = cavl::Node<My>;
     using Self::getChildNode;
     using Self::getParentNode;
@@ -55,7 +58,10 @@ public:
     using Self::min;
     using Self::max;
 
-    NODISCARD auto getValue() const -> std::uint16_t { return value; }
+    NODISCARD auto getValue() const -> std::uint16_t
+    {
+        return value;
+    }
 
 private:
     std::uint16_t value = 0;
@@ -671,26 +677,26 @@ void testManual(const std::function<N*(std::uint8_t)>& factory)
     // Check the move assignment and move constructor of the tree.
     TreeType tr2(std::move(tr));
     EXPECT_EQ(t.at(4), static_cast<N*>(tr2));  // Moved.
-    EXPECT_EQ(nullptr, static_cast<N*>(tr));             // NOLINT use after move is intentional.
+    EXPECT_EQ(nullptr, static_cast<N*>(tr));   // NOLINT use after move is intentional.
     TreeType tr3;
     EXPECT_EQ(nullptr, static_cast<N*>(tr3));
     tr3 = std::move(tr2);
     EXPECT_EQ(t.at(4), static_cast<N*>(tr3));  // Moved.
-    EXPECT_EQ(nullptr, static_cast<N*>(tr2));            // NOLINT use after move is intentional.
+    EXPECT_EQ(nullptr, static_cast<N*>(tr2));  // NOLINT use after move is intentional.
     EXPECT_EQ(1, tr3.size());
 
-    // Try various methods on empty tree.
+    // Try various methods on empty tree (including `const` one).
     //
     std::puts("REMOVE 4");
     tr3.remove(t[4]);
-    //tr3.remove(nullptr);
+    tr3.remove(nullptr);
     EXPECT_EQ(nullptr, tr3.min());
     EXPECT_EQ(nullptr, tr3.max());
-    const TreeType tr4{std::move(tr3)};
-    EXPECT_EQ(0, tr4.size());
-    EXPECT_EQ(nullptr, tr4.min());
-    EXPECT_EQ(nullptr, tr4.max());
-    EXPECT_EQ(0, tr4.traverse([](const N&) { return 1; }));
+    const TreeType tr4_const{std::move(tr3)};
+    EXPECT_EQ(0, tr4_const.size());
+    EXPECT_EQ(nullptr, tr4_const.min());
+    EXPECT_EQ(nullptr, tr4_const.max());
+    EXPECT_EQ(0, tr4_const.traverse([](const N&) { return 13; }));
 
     // Clean up manually to reduce boilerplate in the tests. This is super sloppy but OK for a basic test suite.
     for (auto* const x : t)
@@ -713,10 +719,9 @@ TEST(TestCavl, randomized)
     std::uint64_t         cnt_removal  = 0;
 
     const auto validate = [&]() {
-        EXPECT_EQ(size,
-                          std::accumulate(mask.begin(), mask.end(), 0U, [](const std::size_t a, const std::size_t b) {
-                              return a + b;
-                          }));
+        EXPECT_EQ(size, std::accumulate(mask.begin(), mask.end(), 0U, [](const std::size_t a, const std::size_t b) {
+                      return a + b;
+                  }));
         EXPECT_EQ(nullptr, findBrokenBalanceFactor<My>(root));
         EXPECT_EQ(nullptr, findBrokenAncestry<My>(root));
         EXPECT_EQ(size, checkOrdering<My>(root));
@@ -853,7 +858,10 @@ template <>
 class VValue<0> : public V
 {
 public:
-    NODISCARD auto getValue() const -> std::uint16_t override { return 0; }
+    NODISCARD auto getValue() const -> std::uint16_t override
+    {
+        return 0;
+    }
 };
 
 template <std::uint8_t Candidate, std::uint8_t Limit, std::enable_if_t<(Candidate >= Limit), int> = 0>
