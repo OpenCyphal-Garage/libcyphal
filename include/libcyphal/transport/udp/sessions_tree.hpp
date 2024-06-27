@@ -49,7 +49,7 @@ public:
 
     ~SessionsTree()
     {
-        deallocateNodes(nodes_);
+        releaseNodes(nodes_);
     }
 
     CETL_NODISCARD Expected<NodeRef, AnyError> ensureNewNodeFor(const PortId port_id)
@@ -90,12 +90,11 @@ private:
         if (nullptr != node)
         {
             nodes_.remove(node);
-            node->~Node();
-            allocator_.deallocate(node, 1);
+            destroyNode(node);
         }
     }
 
-    /// @brief Recursively deallocates each remaining node of the AVL tree.
+    /// @brief Recursively releases each remaining node of the AVL tree.
     ///
     /// Recursion goes first to the left child, then to the right child, and finally to the current node.
     /// In such order it is guaranteed that the current node have no children anymore, and so can be deallocated.
@@ -105,16 +104,24 @@ private:
     /// where `N` is the total number of tree nodes. Hence, the `NOLINT(misc-no-recursion)`
     /// and `NOSONAR cpp:S925` exceptions.
     ///
-    void deallocateNodes(Node* node)  // NOLINT(misc-no-recursion)
+    void releaseNodes(Node* node)  // NOLINT(misc-no-recursion)
     {
         if (nullptr != node)
         {
-            deallocateNodes(node->getChildNode(false));  // NOSONAR cpp:S925
-            deallocateNodes(node->getChildNode(true));   // NOSONAR cpp:S925
+            releaseNodes(node->getChildNode(false));  // NOSONAR cpp:S925
+            releaseNodes(node->getChildNode(true));   // NOSONAR cpp:S925
 
-            node->~Node();
-            allocator_.deallocate(node, 1);
+            destroyNode(node);
         }
+    }
+
+    void destroyNode(Node* node)
+    {
+        CETL_DEBUG_ASSERT(nullptr != node, "");
+
+        // No Sonar cpp:M23_329 b/c we do our own low-level PMR management here.
+        node->~Node();  // NOSONAR cpp:M23_329
+        allocator_.deallocate(node, 1);
     }
 
     // MARK: Data members:
