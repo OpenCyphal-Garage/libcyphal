@@ -155,12 +155,12 @@ protected:
     /// It is safe to pass the result of search() directly as the second argument:
     ///     Node<T>::remove(root, Node<T>::search(root, search_predicate));
     ///
-    /// No Sonar cpp:S6936 b/c the `remove` method name isolated inside `Node` type (don't conflict with C).
+    /// No Sonar cpp:S6936 b/c the `remove` method name isolated inside `Node` type (doesn't conflict with C).
     static void remove(Derived*& root, const Node* const node) noexcept;  // NOSONAR cpp:S6936
 
     /// This is like the const overload of remove() except that the node pointers are invalidated afterward for safety.
     ///
-    /// No Sonar cpp:S6936 b/c the `remove` method name isolated inside `Node` type (don't conflict with C).
+    /// No Sonar cpp:S6936 b/c the `remove` method name isolated inside `Node` type (doesn't conflict with C).
     static void remove(Derived*& root, Node* const node) noexcept  // NOSONAR cpp:S6936
     {
         remove(root, static_cast<const Node*>(node));
@@ -376,7 +376,7 @@ auto Node<Derived>::search(Derived*& root, const Pre& predicate, const Fac& fact
     return std::make_tuple(down(out), false);
 }
 
-// No Sonar cpp:S6936 b/c the `remove` method name isolated inside `Node` type (don't conflict with C).
+// No Sonar cpp:S6936 b/c the `remove` method name isolated inside `Node` type (doesn't conflict with C).
 // No Sonar cpp:S3776 cpp:S134 cpp:S5311 b/c this is the main removal tool - maintainability is not a concern here.
 template <typename Derived>
 void Node<Derived>::remove(Derived*& root, const Node* const node) noexcept  // NOSONAR cpp:S6936 cpp:S3776
@@ -412,8 +412,7 @@ void Node<Derived>::remove(Derived*& root, const Node* const node) noexcept  // 
             else  // In this case, we are reducing the height of the right subtree, so r=1.
             {
                 p = re;    // Retracing starts with the replacement node itself as we are deleting its parent.
-                r = true;  // The right child of the replacement node remains the same so we don't bother relinking
-                // it.
+                r = true;  // The right child of the replacement node remains the same, so we don't bother relinking it.
             }
             re->up = node->up;
             if (re->up != nullptr)
@@ -458,7 +457,7 @@ void Node<Derived>::remove(Derived*& root, const Node* const node) noexcept  // 
             {
                 c = p->adjustBalance(!r);
                 p = c->up;
-                if ((c->bf != 0) || (nullptr == p)) // NOSONAR cpp:S134
+                if ((c->bf != 0) || (nullptr == p))  // NOSONAR cpp:S134
                 {
                     // Reached the root or the height difference is absorbed by `c`.
                     break;
@@ -560,8 +559,11 @@ auto Node<Derived>::retraceOnGrowth() noexcept -> Node*
 /// defined in the Node<> template class, such that the node pointer kept in the instance of this class is passed
 /// as the first argument of the static methods of Node<>.
 /// Note that this type is implicitly convertible to Node<>* as the root node.
+///
+/// No Sonar cpp:S3624 b/c it's by design that ~Tree destructor is default one - resource management (allocation
+/// and de-allocation of nodes) is client responsibility.
 template <typename Derived>
-class Tree final
+class Tree final  // NOSONAR cpp:S3624
 {
 public:
     /// Helper alias of the compatible node type.
@@ -613,7 +615,9 @@ public:
     }
 
     /// Wraps NodeType<>::remove().
-    void remove(NodeType* const node) noexcept
+    ///
+    /// No Sonar cpp:S6936 b/c the `remove` method name isolated inside `Tree` type (doesn't conflict with C).
+    void remove(NodeType* const node) noexcept  // NOSONAR cpp:S6936
     {
         CAVL_ASSERT(!traversal_in_progress_);  // Cannot modify the tree while it is being traversed.
         return NodeType::remove(root_, node);
@@ -700,7 +704,9 @@ private:
     /// This implies that in the case of concurrent or recursive traversal (more than one call to traverse() within
     /// the same call stack) we may occasionally fail to detect a bona fide case of a race condition, but this is
     /// acceptable because the purpose of this feature is to provide a mere best-effort data race detection.
-    class TraversalIndicatorUpdater final
+    ///
+    /// No Sonar cpp:S4963 b/c of the RAII pattern.
+    class TraversalIndicatorUpdater final  // NOSONAR cpp:S4963
     {
     public:
         explicit TraversalIndicatorUpdater(const Tree& sup) noexcept
@@ -722,8 +728,10 @@ private:
         const Tree& that;
     };
 
-    Derived*              root_                  = nullptr;
-    mutable volatile bool traversal_in_progress_ = false;
+    Derived* root_ = nullptr;
+    // No Sonar cpp:S4963 b/c of implicit modification by the `TraversalIndicatorUpdater` RAII class,
+    // even for `const` instance of the `Tree` class (hence the `mutable volatile` keywords).
+    mutable volatile bool traversal_in_progress_ = false;  // NOSONAR cpp:S3687
 };
 
 }  // namespace cavl

@@ -108,7 +108,7 @@ private:
             deallocateNodes(node->getChildNode(false));  // NOSONAR cpp:S925
             deallocateNodes(node->getChildNode(true));   // NOSONAR cpp:S925
 
-            allocator_.destroy(node);
+            node->~Node();
             allocator_.deallocate(node, 1);
         }
     }

@@ -123,8 +123,8 @@ private:
 
     void acceptRxTransfer(UdpardRxTransfer& inout_transfer) override
     {
-        const auto priority    = static_cast<Priority>(inout_transfer.priority);
-        const auto timestamp   = TimePoint{std::chrono::microseconds{inout_transfer.timestamp_usec}};
+        const auto priority  = static_cast<Priority>(inout_transfer.priority);
+        const auto timestamp = TimePoint{std::chrono::microseconds{inout_transfer.timestamp_usec}};
 
         const cetl::optional<NodeId> publisher_node_id =
             inout_transfer.source_node_id > UDPARD_NODE_ID_MAX
