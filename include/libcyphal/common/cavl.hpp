@@ -642,13 +642,11 @@ public:
     /// Normally these are not needed except if advanced introspection is desired.
     ///
     /// No linting b/c implicit conversion by design.
-    /// NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions)
-    operator Derived*() noexcept
+    operator Derived*() noexcept  // NOLINT(google-explicit-constructor,hicpp-explicit-conversions)
     {
         return root_;
     }
-    /// NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions)
-    operator const Derived*() const noexcept
+    operator const Derived*() const noexcept  // NOLINT(google-explicit-constructor,hicpp-explicit-conversions)
     {
         return root_;
     }
