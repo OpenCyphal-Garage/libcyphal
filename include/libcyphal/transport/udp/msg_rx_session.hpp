@@ -124,7 +124,6 @@ private:
     void acceptRxTransfer(UdpardRxTransfer& inout_transfer) override
     {
         const auto priority    = static_cast<Priority>(inout_transfer.priority);
-        const auto transfer_id = static_cast<TransferId>(inout_transfer.transfer_id);
         const auto timestamp   = TimePoint{std::chrono::microseconds{inout_transfer.timestamp_usec}};
 
         const cetl::optional<NodeId> publisher_node_id =
@@ -134,7 +133,7 @@ private:
 
         TransportDelegate::UdpardMemory udpard_memory{delegate_, inout_transfer};
 
-        const MessageTransferMetadata meta{transfer_id, timestamp, priority, publisher_node_id};
+        const MessageTransferMetadata meta{inout_transfer.transfer_id, timestamp, priority, publisher_node_id};
         (void) last_rx_transfer_.emplace(MessageRxTransfer{meta, ScatteredBuffer{std::move(udpard_memory)}});
     }
 

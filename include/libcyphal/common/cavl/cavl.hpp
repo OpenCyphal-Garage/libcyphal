@@ -34,12 +34,12 @@
 /// be costly in terms of execution time.
 #ifndef CAVL_ASSERT
 #    if defined(CAVL_NO_ASSERT) && CAVL_NO_ASSERT
-#        // NOLINTNEXTLINE(cppcoreguidelines-macro-usage) function-like macro
-#        define CAVL_ASSERT(x) (void) 0
+#                                       // NOLINTNEXTLINE(cppcoreguidelines-macro-usage) function-like macro
+#        define CAVL_ASSERT(x) (void) 0 /* NOSONAR cpp:S960 */
 #    else
 #        include <cassert>
-#        // NOLINTNEXTLINE(cppcoreguidelines-macro-usage) function-like macro
-#        define CAVL_ASSERT(x) assert(x)
+#                                        // NOLINTNEXTLINE(cppcoreguidelines-macro-usage) function-like macro
+#        define CAVL_ASSERT(x) assert(x) /* NOSONAR cpp:S960 */
 #    endif
 #endif
 
@@ -154,10 +154,14 @@ protected:
     /// If the node is not in the tree, the behavior is undefined; it may create cycles in the tree which is deadly.
     /// It is safe to pass the result of search() directly as the second argument:
     ///     Node<T>::remove(root, Node<T>::search(root, search_predicate));
-    static void remove(Derived*& root, const Node* const node) noexcept;
+    ///
+    /// No Sonar cpp:S6936 b/c the `remove` method name isolated inside `Node` type (don't conflict with C).
+    static void remove(Derived*& root, const Node* const node) noexcept;  // NOSONAR cpp:S6936
 
     /// This is like the const overload of remove() except that the node pointers are invalidated afterward for safety.
-    static void remove(Derived*& root, Node* const node) noexcept
+    ///
+    /// No Sonar cpp:S6936 b/c the `remove` method name isolated inside `Node` type (don't conflict with C).
+    static void remove(Derived*& root, Node* const node) noexcept  // NOSONAR cpp:S6936
     {
         remove(root, static_cast<const Node*>(node));
         if (nullptr != node)
@@ -372,8 +376,10 @@ auto Node<Derived>::search(Derived*& root, const Pre& predicate, const Fac& fact
     return std::make_tuple(down(out), false);
 }
 
+// No Sonar cpp:S6936 b/c the `remove` method name isolated inside `Node` type (don't conflict with C).
+// No Sonar cpp:S3776 cpp:S134 cpp:S5311 b/c this is the main removal tool - maintainability is not a concern here.
 template <typename Derived>
-void Node<Derived>::remove(Derived*& root, const Node* const node) noexcept
+void Node<Derived>::remove(Derived*& root, const Node* const node) noexcept  // NOSONAR cpp:S6936 cpp:S3776
 {
     if (node != nullptr)
     {
@@ -382,7 +388,7 @@ void Node<Derived>::remove(Derived*& root, const Node* const node) noexcept
         Node* p = nullptr;  // The lowest parent node that suffered a shortening of its subtree.
         bool  r = false;    // Which side of the above was shortened.
         // The first step is to update the topology and remember the node where to start the retracing from later.
-        // Balancing is not performed yet so we may end up with an unbalanced tree.
+        // Balancing is not performed yet, so we may end up with an unbalanced tree.
         if ((node->lr[0] != nullptr) && (node->lr[1] != nullptr))
         {
             Node* const re = min(node->lr[1]);
@@ -394,8 +400,8 @@ void Node<Derived>::remove(Derived*& root, const Node* const node) noexcept
             {
                 p = re->up;  // Retracing starts with the ex-parent of our replacement node.
                 CAVL_ASSERT(p->lr[0] == re);
-                p->lr[0] = re->lr[1];  // Reducing the height of the left subtree here.
-                if (p->lr[0] != nullptr)
+                p->lr[0] = re->lr[1];     // Reducing the height of the left subtree here.
+                if (p->lr[0] != nullptr)  // NOSONAR cpp:S134
                 {
                     p->lr[0]->up = p;
                 }
@@ -431,7 +437,7 @@ void Node<Derived>::remove(Derived*& root, const Node* const node) noexcept
             {
                 r        = p->lr[1] == node;
                 p->lr[r] = node->lr[rr];
-                if (p->lr[r] != nullptr)
+                if (p->lr[r] != nullptr)  // NOSONAR cpp:S134
                 {
                     p->lr[r]->up = p;
                 }
@@ -448,12 +454,13 @@ void Node<Derived>::remove(Derived*& root, const Node* const node) noexcept
         if (p != nullptr)
         {
             Node* c = nullptr;
-            for (;;)
+            for (;;)  // NOSONAR cpp:S5311
             {
                 c = p->adjustBalance(!r);
                 p = c->up;
-                if ((c->bf != 0) || (nullptr == p))  // Reached the root or the height difference is absorbed by c.
+                if ((c->bf != 0) || (nullptr == p)) // NOSONAR cpp:S134
                 {
+                    // Reached the root or the height difference is absorbed by `c`.
                     break;
                 }
                 r = p->lr[1] == c;
@@ -647,11 +654,13 @@ public:
     /// Normally these are not needed except if advanced introspection is desired.
     ///
     /// No linting b/c implicit conversion by design.
-    operator Derived*() noexcept  // NOLINT(google-explicit-constructor,hicpp-explicit-conversions)
+    // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions)
+    operator Derived*() noexcept  // NOSONAR cpp:S1709
     {
         return root_;
     }
-    operator const Derived*() const noexcept  // NOLINT(google-explicit-constructor,hicpp-explicit-conversions)
+    // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions)
+    operator const Derived*() const noexcept  // NOSONAR cpp:S1709
     {
         return root_;
     }
