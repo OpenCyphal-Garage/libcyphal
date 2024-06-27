@@ -86,7 +86,7 @@ private:
         if (nullptr != node)
         {
             nodes_.remove(node);
-            allocator_.destroy(node);
+            node->~Node();
             allocator_.deallocate(node, 1);
         }
     }
