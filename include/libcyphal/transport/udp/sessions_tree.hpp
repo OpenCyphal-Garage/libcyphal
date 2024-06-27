@@ -45,7 +45,7 @@ public:
 
     ~SessionsTree()
     {
-        // TODO: Implement tree cleanup
+        deallocateNodes(nodes_);
     }
 
     CETL_NODISCARD Expected<NodeRef, AnyError> ensureNewNodeFor(const PortId port_id)
@@ -91,16 +91,45 @@ private:
         }
     }
 
+    /// @brief Recursively deallocates each remaining node of the AVL tree.
+    ///
+    /// Recursion goes first to the left child, then to the right child, and finally to the current node.
+    /// In such order it is guaranteed that the current node have no children anymore, and so can be deallocated.
+    ///
+    /// B/c AVL tree is balanced, the total complexity is `O(n)` and call stack depth should not be deeper than
+    /// ~O(log(N)) (`ceil(1.44 * log2(N + 2) - 0.328)` to be precise, or 19 in case of 8192 ports),
+    /// where `N` is the total number of tree nodes. Hence, the `NOLINT(misc-no-recursion)`
+    /// and `NOSONAR cpp:S925` exceptions.
+    ///
+    void deallocateNodes(Node* node)  // NOLINT(misc-no-recursion)
+    {
+        if (nullptr != node)
+        {
+            deallocateNodes(node->getChildNode(false));  // NOSONAR cpp:S925
+            deallocateNodes(node->getChildNode(true));   // NOSONAR cpp:S925
+
+            allocator_.destroy(node);
+            allocator_.deallocate(node, 1);
+        }
+    }
+
+    // MARK: Data members:
+
     cavl::Tree<Node>                      nodes_;
     libcyphal::detail::PmrAllocator<Node> allocator_;
 
 };  // SessionsTree
 
+// MARK: -
+
 struct RxSessionTreeNode
 {
     class Message final : public cavl::Node<Message>
     {
+        using Base = cavl::Node<Message>;
+
     public:
+        using Base::getChildNode;
         using ReferenceWrapper = std::reference_wrapper<Message>;
 
         explicit Message(const PortId port_id)

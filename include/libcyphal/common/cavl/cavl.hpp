@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <tuple>
@@ -33,12 +34,16 @@
 /// be costly in terms of execution time.
 #ifndef CAVL_ASSERT
 #    if defined(CAVL_NO_ASSERT) && CAVL_NO_ASSERT
+#        // NOLINTNEXTLINE(cppcoreguidelines-macro-usage) function-like macro
 #        define CAVL_ASSERT(x) (void) 0
 #    else
-#        include <cassert>  // NOLINTNEXTLINE function-like macro
+#        include <cassert>
+#        // NOLINTNEXTLINE(cppcoreguidelines-macro-usage) function-like macro
 #        define CAVL_ASSERT(x) assert(x)
 #    endif
 #endif
+
+// NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
 
 namespace cavl
 {
@@ -312,9 +317,9 @@ private:
     friend class Tree<Derived>;
 
     // The binary layout is compatible with the C version.
-    Node*       up = nullptr;
-    Node*       lr[2]{};
-    std::int8_t bf = 0;
+    Node*                up = nullptr;
+    std::array<Node*, 2> lr{};
+    std::int8_t          bf = 0;
 };
 
 template <typename Derived>
@@ -713,3 +718,5 @@ private:
 };
 
 }  // namespace cavl
+
+// NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)

@@ -3,10 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "../../cetl_gtest_helpers.hpp"
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
-#include "../../verification_utilities.hpp"
 #include "../../virtual_time_scheduler.hpp"
 #include "../multiplexer_mock.hpp"
 #include "media_mock.hpp"
@@ -15,7 +13,6 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
-#include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/media.hpp>
 #include <libcyphal/transport/udp/msg_rx_session.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
@@ -38,18 +35,13 @@ using namespace libcyphal::transport;       // NOLINT This our main concern here
 using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
 using cetl::byte;
-using libcyphal::verification_utilities::b;
 
 using testing::_;
-using testing::Eq;
 using testing::Invoke;
 using testing::Return;
-using testing::SizeIs;
 using testing::IsEmpty;
 using testing::NotNull;
-using testing::Optional;
 using testing::StrictMock;
-using testing::ElementsAre;
 using testing::VariantWith;
 
 // https://github.com/llvm/llvm-project/issues/53444

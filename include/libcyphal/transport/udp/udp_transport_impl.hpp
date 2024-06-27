@@ -346,12 +346,6 @@ private:
         {
             return any_error.value();
         }
-        //
-        any_error = runMediaReceive();
-        if (any_error.has_value())
-        {
-            return any_error.value();
-        }
 
         return {};
     }
@@ -547,28 +541,6 @@ private:
         }
 
         return media_array;
-    }
-
-    cetl::optional<AnyError> runMediaReceive()
-    {
-        cetl::optional<AnyError> opt_any_error{};
-
-        for (const Media& media : media_array_)
-        {
-            opt_any_error = runSingleMediaReceive(media);
-            if (opt_any_error.has_value())
-            {
-                break;
-            }
-        }
-
-        return opt_any_error;
-    }
-
-    cetl::optional<AnyError> runSingleMediaReceive(const Media&)
-    {
-        // TODO: Implement!
-        return cetl::nullopt;
     }
 
     /// @brief Tries to run an action with media and its TX socket (the latter one is made on demand if necessary).
