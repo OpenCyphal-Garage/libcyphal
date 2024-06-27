@@ -8,7 +8,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <ctime>
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -31,8 +30,6 @@
 #        define UNUSED
 #    endif
 #endif
-
-// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 namespace
 {
@@ -896,5 +893,3 @@ TEST(TestCavl, manualV)
 }
 
 }  // namespace
-
-// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
