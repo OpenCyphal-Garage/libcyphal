@@ -3,7 +3,7 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include <libcyphal/common/cavl.hpp>
+#include <libcyphal/common/cavl/cavl.hpp>
 #include <libcyphal/runnable.hpp>
 #include <libcyphal/transport/can/can_transport.hpp>
 #include <libcyphal/transport/can/can_transport_impl.hpp>
