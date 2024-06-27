@@ -27,8 +27,12 @@ namespace udp
 namespace detail
 {
 
+/// @brief Defines a tree of sessions for the UDP transport.
+///
+/// No Sonar cpp:S4963 b/c we do directly handle resources here.
+///
 template <typename Node>
-class SessionsTree final
+class SessionsTree final  // NOSONAR cpp:S4963
 {
 public:
     using NodeRef = typename Node::ReferenceWrapper;
@@ -124,6 +128,8 @@ private:
 
 struct RxSessionTreeNode
 {
+    /// @brief Represents a message RX session node.
+    ///
     class Message final : public cavl::Node<Message>
     {
         using Base = cavl::Node<Message>;

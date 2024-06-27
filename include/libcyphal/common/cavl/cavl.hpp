@@ -657,7 +657,7 @@ public:
 
     /// Normally these are not needed except if advanced introspection is desired.
     ///
-    /// No linting b/c implicit conversion by design.
+    /// No linting and Sonar cpp:S1709 b/c implicit conversion by design.
     // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions)
     operator Derived*() noexcept  // NOSONAR cpp:S1709
     {
@@ -673,12 +673,14 @@ public:
     auto operator[](const std::size_t index) -> Derived*
     {
         std::size_t i = index;
-        return traverse([&i](auto& x) { return (i-- == 0) ? &x : nullptr; });
+        // No Sonar cpp:S881 b/c this decrement is pretty much straightforward - no maintenance concerns.
+        return traverse([&i](auto& x) { return (i-- == 0) ? &x : nullptr; });  // NOSONAR cpp:S881
     }
     auto operator[](const std::size_t index) const -> const Derived*
     {
         std::size_t i = index;
-        return traverse([&i](const auto& x) { return (i-- == 0) ? &x : nullptr; });
+        // No Sonar cpp:S881 b/c this decrement is pretty much straightforward - no maintenance concerns.
+        return traverse([&i](const auto& x) { return (i-- == 0) ? &x : nullptr; });  // NOSONAR cpp:S881
     }
 
     /// Beware that this convenience method has linear complexity and uses recursion. Use responsibly.
