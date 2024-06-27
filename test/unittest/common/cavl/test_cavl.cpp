@@ -1,6 +1,6 @@
 /// Copyright (c) 2021 Pavel Kirienko <pavel@uavcan.org>
 
-#include <libcyphal/common/cavl.hpp>
+#include <libcyphal/common/cavl/cavl.hpp>
 
 #include <gtest/gtest.h>
 #include <algorithm>
@@ -9,7 +9,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
-#include <functional>
 #include <iostream>
 #include <limits>
 #include <memory>

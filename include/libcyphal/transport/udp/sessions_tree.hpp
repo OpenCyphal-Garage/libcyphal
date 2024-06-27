@@ -6,7 +6,7 @@
 #ifndef LIBCYPHAL_TRANSPORT_UDP_SESSIONS_TREE_HPP
 #define LIBCYPHAL_TRANSPORT_UDP_SESSIONS_TREE_HPP
 
-#include "libcyphal/common/cavl.hpp"
+#include "libcyphal/common/cavl/cavl.hpp"
 #include "libcyphal/transport/types.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
