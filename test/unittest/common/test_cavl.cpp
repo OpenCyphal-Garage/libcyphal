@@ -91,7 +91,7 @@ NODISCARD bool checkLinkage(const N<T>* const           self,
 }
 
 template <typename T>
-static NODISCARD auto getHeight(const N<T>* const n) -> std::int8_t
+NODISCARD auto getHeight(const N<T>* const n) -> std::int8_t
 {
     return (n != nullptr) ? static_cast<std::int8_t>(1 + std::max(getHeight<T>(n->getChildNode(false)),  //
                                                                   getHeight<T>(n->getChildNode(true))))
@@ -100,7 +100,7 @@ static NODISCARD auto getHeight(const N<T>* const n) -> std::int8_t
 
 /// Returns the size if the tree is ordered correctly, otherwise SIZE_MAX.
 template <typename T>
-static NODISCARD std::size_t checkOrdering(const N<T>* const root)
+NODISCARD std::size_t checkOrdering(const N<T>* const root)
 {
     const N<T>* prev  = nullptr;
     bool        valid = true;
@@ -117,7 +117,7 @@ static NODISCARD std::size_t checkOrdering(const N<T>* const root)
 }
 
 template <typename T>
-static NODISCARD const N<T>* findBrokenAncestry(const N<T>* const n, const N<T>* const parent = nullptr)
+NODISCARD const N<T>* findBrokenAncestry(const N<T>* const n, const N<T>* const parent = nullptr)
 {
     if ((n != nullptr) && (n->getParentNode() == parent))
     {
@@ -134,7 +134,7 @@ static NODISCARD const N<T>* findBrokenAncestry(const N<T>* const n, const N<T>*
 }
 
 template <typename T>
-static NODISCARD const N<T>* findBrokenBalanceFactor(const N<T>* const n)
+NODISCARD const N<T>* findBrokenBalanceFactor(const N<T>* const n)
 {
     if (n != nullptr)
     {
@@ -161,7 +161,7 @@ static NODISCARD const N<T>* findBrokenBalanceFactor(const N<T>* const n)
 }
 
 template <typename T>
-static NODISCARD auto toGraphviz(const cavl::Tree<T>& tr) -> std::string
+NODISCARD auto toGraphviz(const cavl::Tree<T>& tr) -> std::string
 {
     std::ostringstream ss;
     ss << "// Feed the following text to Graphviz, or use an online UI like https://edotor.net/\n"
@@ -195,7 +195,7 @@ auto getRandomByte()
 }
 
 template <typename N>
-static void testManual(const std::function<N*(std::uint8_t)>& factory)
+void testManual(const std::function<N*(std::uint8_t)>& factory)
 {
     using TreeType = typename N::TreeType;
     std::vector<N*> t;
@@ -678,6 +678,19 @@ static void testManual(const std::function<N*(std::uint8_t)>& factory)
     EXPECT_EQ(t.at(4), static_cast<N*>(tr3));  // Moved.
     EXPECT_EQ(nullptr, static_cast<N*>(tr2));            // NOLINT use after move is intentional.
     EXPECT_EQ(1, tr3.size());
+
+    // Try various methods on empty tree.
+    //
+    std::puts("REMOVE 4");
+    tr3.remove(t[4]);
+    //tr3.remove(nullptr);
+    EXPECT_EQ(nullptr, tr3.min());
+    EXPECT_EQ(nullptr, tr3.max());
+    const TreeType tr4{std::move(tr3)};
+    EXPECT_EQ(0, tr4.size());
+    EXPECT_EQ(nullptr, tr4.min());
+    EXPECT_EQ(nullptr, tr4.max());
+    EXPECT_EQ(0, tr4.traverse([](const N&) { return 1; }));
 
     // Clean up manually to reduce boilerplate in the tests. This is super sloppy but OK for a basic test suite.
     for (auto* const x : t)
