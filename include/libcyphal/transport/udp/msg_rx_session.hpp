@@ -84,10 +84,12 @@ public:
 
     ~MessageRxSession()
     {
-        delegate_.onSessionEvent(TransportDelegate::OnSessionEvent::MsgSessionDestroyed{params_.subject_id});
+        delegate_.onSessionEvent(SessionEvent::Destroyed{params_.subject_id});
     }
 
 private:
+    using SessionEvent = TransportDelegate::SessionEvent::Message;
+
     // MARK: IMessageRxSession
 
     CETL_NODISCARD MessageRxParams getParams() const noexcept override

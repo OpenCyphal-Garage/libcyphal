@@ -7,8 +7,11 @@
 #define LIBCYPHAL_TRANSPORT_UDP_SESSIONS_TREE_HPP
 
 #include "libcyphal/common/cavl/cavl.hpp"
+#include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/types.hpp"
+#include "libcyphal/types.hpp"
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <cstdint>
@@ -56,14 +59,15 @@ public:
     {
         auto const node_existing = nodes_.search([port_id](const Node& node) { return node.compareWith(port_id); },
                                                  [port_id, this]() { return constructNewNode(port_id); });
-        if (std::get<1>(node_existing))
-        {
-            return AlreadyExistsError{};
-        }
-        auto* node = std::get<0>(node_existing);
+
+        auto* const node = std::get<0>(node_existing);
         if (nullptr == node)
         {
             return MemoryError{};
+        }
+        if (std::get<1>(node_existing))
+        {
+            return AlreadyExistsError{};
         }
 
         return *node;
@@ -135,17 +139,14 @@ private:
 
 struct RxSessionTreeNode
 {
-    /// @brief Represents a message RX session node.
-    ///
-    class Message final : public cavl::Node<Message>
+    template <typename Derived>
+    class Base : public cavl::Node<Derived>
     {
-        using Base = cavl::Node<Message>;
-
     public:
-        using Base::getChildNode;
-        using ReferenceWrapper = std::reference_wrapper<Message>;
+        using cavl::Node<Derived>::getChildNode;
+        using ReferenceWrapper = std::reference_wrapper<Derived>;
 
-        explicit Message(const PortId port_id)
+        explicit Base(const PortId port_id)
             : port_id_{port_id}
         {
         }
@@ -158,9 +159,33 @@ struct RxSessionTreeNode
     private:
         // MARK: Data members:
 
-        PortId port_id_{};
+        PortId port_id_;
 
-    };  // Message
+    };  // Base
+
+    /// @brief Represents a message RX session node.
+    ///
+    class Message final : public Base<Message>
+    {
+    public:
+        using Base::Base;
+    };
+
+    /// @brief Represents a service request RX session node.
+    ///
+    class Request final : public Base<Request>
+    {
+    public:
+        using Base::Base;
+    };
+
+    /// @brief Represents a service response RX session node.
+    ///
+    class Response final : public Base<Response>
+    {
+    public:
+        using Base::Base;
+    };
 
 };  // RxSessionTreeNode
 

@@ -139,16 +139,41 @@ public:
 
     };  // UdpardMemory
 
-    struct OnSessionEvent
+    struct SessionEvent
     {
-        struct MsgSessionDestroyed
+        struct Message
         {
-            PortId subject_id;
+            struct Destroyed
+            {
+                PortId subject_id;
+            };
+
+            using Variant = cetl::variant<Destroyed>;
         };
 
-        using Variant = cetl::variant<MsgSessionDestroyed>;
+        struct Request
+        {
+            struct Destroyed
+            {
+                PortId service_id;
+            };
 
-    };  // OnSessionEvent
+            using Variant = cetl::variant<Destroyed>;
+        };
+
+        struct Response
+        {
+            struct Destroyed
+            {
+                PortId service_id;
+            };
+
+            using Variant = cetl::variant<Destroyed>;
+        };
+
+        using Variant = cetl::variant<Message::Variant, Request::Variant, Response::Variant>;
+
+    };  // SessionEvent
 
     TransportDelegate(const TransportDelegate&)                = delete;
     TransportDelegate(TransportDelegate&&) noexcept            = delete;
@@ -222,7 +247,7 @@ public:
     ///
     /// @param event_var Describes variant of the session even has happened.
     ///
-    virtual void onSessionEvent(const OnSessionEvent::Variant& event_var) = 0;
+    virtual void onSessionEvent(const SessionEvent::Variant& event_var) = 0;
 
 protected:
     /// @brief Defines internal set of memory resources used by the UDP transport.

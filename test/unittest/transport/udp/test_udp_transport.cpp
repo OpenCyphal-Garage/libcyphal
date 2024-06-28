@@ -17,6 +17,7 @@
 #include <cetl/rtti.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
+#include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/media.hpp>
 #include <libcyphal/transport/udp/tx_rx_sockets.hpp>
@@ -294,6 +295,108 @@ TEST_F(TestUpdTransport, getProtocolParams)
         EXPECT_CALL(tx_socket_mock2, getMtu()).WillRepeatedly(Return(UDPARD_MTU_DEFAULT - 256));
         EXPECT_THAT(transport->getProtocolParams().mtu_bytes, UDPARD_MTU_DEFAULT - 256);
     }
+}
+
+TEST_F(TestUpdTransport, makeMessageRxSession)
+{
+    auto transport = makeTransport({mr_});
+
+    auto maybe_rx_session = transport->makeMessageRxSession({42, 123});
+    ASSERT_THAT(maybe_rx_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+
+    auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_rx_session));
+    EXPECT_THAT(session->getParams().extent_bytes, 42);
+    EXPECT_THAT(session->getParams().subject_id, 123);
+}
+
+TEST_F(TestUpdTransport, makeMessageRxSession_invalid_subject_id)
+{
+    auto transport = makeTransport({mr_});
+
+    auto maybe_rx_session = transport->makeMessageRxSession({0, UDPARD_SUBJECT_ID_MAX + 1});
+    EXPECT_THAT(maybe_rx_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
+}
+
+TEST_F(TestUpdTransport, makeMessageRxSession_invalid_resubscription)
+{
+    auto transport = makeTransport({mr_});
+
+    const PortId test_subject_id = 111;
+
+    auto maybe_rx_session1 = transport->makeMessageRxSession({0, test_subject_id});
+    ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+
+    auto maybe_rx_session2 = transport->makeMessageRxSession({0, test_subject_id});
+    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
+
+    // Now release the first session and try to subscribe again - should succeed.
+    {
+        auto rx_session1 = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_rx_session1));
+        rx_session1.reset();
+
+        maybe_rx_session2 = transport->makeMessageRxSession({0, test_subject_id});
+        ASSERT_THAT(maybe_rx_session2, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+    }
+}
+
+TEST_F(TestUpdTransport, makeRequestRxSession_invalid_resubscription)
+{
+    auto transport = makeTransport({mr_});
+
+    const PortId test_subject_id = 111;
+
+    auto maybe_rx_session1 = transport->makeRequestRxSession({0, test_subject_id});
+    ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
+
+    auto maybe_rx_session2 = transport->makeRequestRxSession({0, test_subject_id});
+    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
+
+    // Now release the first session and try to subscribe again - should succeed.
+    {
+        auto rx_session1 = cetl::get<UniquePtr<IRequestRxSession>>(std::move(maybe_rx_session1));
+        rx_session1.reset();
+
+        maybe_rx_session2 = transport->makeRequestRxSession({0, test_subject_id});
+        ASSERT_THAT(maybe_rx_session2, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
+    }
+}
+
+TEST_F(TestUpdTransport, makeResponseRxSession_invalid_resubscription)
+{
+    auto transport = makeTransport({mr_});
+
+    const PortId test_subject_id = 111;
+
+    auto maybe_rx_session1 = transport->makeResponseRxSession({0, test_subject_id, 0x31});
+    ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
+
+    auto maybe_rx_session2 = transport->makeResponseRxSession({0, test_subject_id, 0x31});
+    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
+
+    // Now release the first session and try to subscribe again - should succeed.
+    {
+        auto rx_session1 = cetl::get<UniquePtr<IResponseRxSession>>(std::move(maybe_rx_session1));
+        rx_session1.reset();
+
+        maybe_rx_session2 = transport->makeResponseRxSession({0, test_subject_id, 0x31});
+        ASSERT_THAT(maybe_rx_session2, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
+    }
+}
+
+TEST_F(TestUpdTransport, makeXxxRxSession_all_with_same_port_id)
+{
+    auto transport = makeTransport({mr_});
+
+    const PortId test_port_id = 111;
+
+    auto maybe_svc_res_rx_session1 = transport->makeResponseRxSession({0, test_port_id, 0x31});
+    ASSERT_THAT(maybe_svc_res_rx_session1, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
+
+    auto maybe_svc_req_rx_session1 = transport->makeRequestRxSession({0, test_port_id});
+    ASSERT_THAT(maybe_svc_req_rx_session1, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
+
+    auto maybe_msg_rx_session = transport->makeMessageRxSession({42, test_port_id});
+    ASSERT_THAT(maybe_msg_rx_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
 }
 
 TEST_F(TestUpdTransport, makeMessageTxSession)

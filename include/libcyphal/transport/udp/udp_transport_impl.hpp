@@ -177,6 +177,8 @@ public:
         : TransportDelegate{memory_resources}
         , media_array_{std::move(media_array)}
         , msg_rx_session_nodes_{memory_resources.general}
+        , svc_request_rx_session_nodes_{memory_resources.general}
+        , svc_response_rx_session_nodes_{memory_resources.general}
     {
         for (auto& media : media_array_)
         {
@@ -256,18 +258,7 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
         const MessageRxParams& params) override
     {
-        auto node_result = msg_rx_session_nodes_.ensureNewNodeFor(params.subject_id);
-        if (auto* any_error = cetl::get_if<AnyError>(&node_result))
-        {
-            return std::move(*any_error);
-        }
-
-        auto session_result = MessageRxSession::make(memoryResources().general, asDelegate(), params);
-        if (nullptr != cetl::get_if<AnyError>(&session_result))
-        {
-            msg_rx_session_nodes_.removeNodeFor(params.subject_id);
-        }
-        return session_result;
+        return makeAnyRxSession<IMessageRxSession, MessageRxSession>(params.subject_id, params, msg_rx_session_nodes_);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(
@@ -285,14 +276,9 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(
         const RequestRxParams& params) override
     {
-        // TODO: Uncomment!
-        //        const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindRequest,
-        //        params.service_id); if (any_error.has_value())
-        //        {
-        //            return any_error.value();
-        //        }
-
-        return SvcRequestRxSession::make(memoryResources().general, asDelegate(), params);
+        return makeAnyRxSession<IRequestRxSession, SvcRequestRxSession>(params.service_id,
+                                                                        params,
+                                                                        svc_request_rx_session_nodes_);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(
@@ -310,14 +296,9 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(
         const ResponseRxParams& params) override
     {
-        // TODO: Uncomment!
-        //        const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindResponse,
-        //        params.service_id); if (any_error.has_value())
-        //        {
-        //            return any_error.value();
-        //        }
-
-        return SvcResponseRxSession::make(memoryResources().general, asDelegate(), params);
+        return makeAnyRxSession<IResponseRxSession, SvcResponseRxSession>(params.service_id,
+                                                                          params,
+                                                                          svc_response_rx_session_nodes_);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(
@@ -394,10 +375,14 @@ private:
         return opt_any_error;
     }
 
-    void onSessionEvent(const OnSessionEvent::Variant& event_var) override
+    void onSessionEvent(const SessionEvent::Variant& event_var) override
     {
-        OnSessionEventHandler handler_with{*this};
-        cetl::visit(handler_with, event_var);
+        cetl::visit(
+            [this](const auto& event) {
+                SessionEventHandler handler_with{*this};
+                cetl::visit(handler_with, event);
+            },
+            event_var);
     }
 
     // MARK: Privates:
@@ -463,22 +448,51 @@ private:
 
     };  // TxTransferHandler
 
-    struct OnSessionEventHandler
+    struct SessionEventHandler
     {
-        explicit OnSessionEventHandler(Self& self)
+        explicit SessionEventHandler(Self& self)
             : self_{self}
         {
         }
 
-        void operator()(const OnSessionEvent::MsgSessionDestroyed& event) const
+        void operator()(const SessionEvent::Message::Destroyed& event) &
         {
             self_.msg_rx_session_nodes_.removeNodeFor(event.subject_id);
+        }
+
+        void operator()(const SessionEvent::Request::Destroyed& event) &
+        {
+            self_.svc_request_rx_session_nodes_.removeNodeFor(event.service_id);
+        }
+
+        void operator()(const SessionEvent::Response::Destroyed& event) &
+        {
+            self_.svc_response_rx_session_nodes_.removeNodeFor(event.service_id);
         }
 
     private:
         Self& self_;
 
-    };  // OnSessionEventHandler
+    };  // SessionEventHandler
+
+    template <typename SessionInterface, typename Concrete, typename RxParams, typename Tree>
+    CETL_NODISCARD auto makeAnyRxSession(const PortId port_id, const RxParams& rx_params, Tree& tree_nodes)  //
+        -> Expected<UniquePtr<SessionInterface>, AnyError>
+    {
+        auto node_result = tree_nodes.ensureNewNodeFor(port_id);
+        if (auto* const any_error = cetl::get_if<AnyError>(&node_result))
+        {
+            return std::move(*any_error);
+        }
+
+        auto session_result = Concrete::make(memoryResources().general, asDelegate(), rx_params);
+        if (nullptr != cetl::get_if<AnyError>(&session_result))
+        {
+            tree_nodes.removeNodeFor(port_id);
+        }
+
+        return session_result;
+    }
 
     template <typename Report, typename ErrorVariant, typename Culprit>
     CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientMediaError(const Media&   media,
@@ -705,9 +719,11 @@ private:
 
     // MARK: Data members:
 
-    MediaArray                               media_array_;
-    TransientErrorHandler                    transient_error_handler_;
-    SessionsTree<RxSessionTreeNode::Message> msg_rx_session_nodes_;
+    MediaArray                                media_array_;
+    TransientErrorHandler                     transient_error_handler_;
+    SessionsTree<RxSessionTreeNode::Message>  msg_rx_session_nodes_;
+    SessionsTree<RxSessionTreeNode::Request>  svc_request_rx_session_nodes_;
+    SessionsTree<RxSessionTreeNode::Response> svc_response_rx_session_nodes_;
 
 };  // TransportImpl
 
