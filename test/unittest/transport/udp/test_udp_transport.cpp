@@ -70,6 +70,7 @@ using std::literals::chrono_literals::operator""us;
 // NOLINTEND(misc-unused-using-decls, misc-include-cleaner)
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+// NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
 class MyPlatformError final : public libcyphal::transport::IPlatformError
 {
@@ -630,6 +631,7 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
     }
 }
 
+// NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 }  // namespace

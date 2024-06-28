@@ -13,6 +13,7 @@
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
 #include <cetl/rtti.hpp>
 #include <udpard.h>
 
@@ -104,12 +105,7 @@ public:
 
         ~UdpardMemory() override
         {
-            if ((payload_.origin.data != nullptr) || (payload_.next != nullptr))
-            {
-                ::udpardRxFragmentFree(payload_,
-                                       delegate_.memoryResources().fragment,
-                                       delegate_.memoryResources().payload);
-            }
+            ::udpardRxFragmentFree(payload_, delegate_.memoryResources().fragment, delegate_.memoryResources().payload);
         }
 
         UdpardMemory& operator=(const UdpardMemory&)     = delete;
@@ -122,12 +118,60 @@ public:
             return payload_size_;
         }
 
-        CETL_NODISCARD std::size_t copy(const std::size_t /* offset_bytes */,
-                                        cetl::byte* const /* destination */,
-                                        const std::size_t /* length_bytes */) const override
+        CETL_NODISCARD std::size_t copy(const std::size_t offset_bytes,
+                                        cetl::byte* const destination,
+                                        const std::size_t length_bytes) const override
         {
-            // TODO: Implement!
-            return 0;
+            using FragSpan = const cetl::span<const cetl::byte>;
+
+            // TODO: Use `udpardGather` function when it will be available with offset support.
+
+            CETL_DEBUG_ASSERT((destination != nullptr) || (length_bytes == 0),
+                              "Destination could be null only with zero bytes ask.");
+
+            if ((destination == nullptr) || (payload_.view.data == nullptr) || (payload_size_ <= offset_bytes))
+            {
+                return 0;
+            }
+
+            // Find first fragment to start from (according to source `offset_bytes`).
+            //
+            std::size_t                  src_offset = 0;
+            const struct UdpardFragment* frag       = &payload_;
+            while ((nullptr != frag) && (offset_bytes >= (src_offset + frag->view.size)))
+            {
+                src_offset += frag->view.size;
+                frag = frag->next;
+            }
+
+            std::size_t dst_offset         = 0;
+            std::size_t total_bytes_copied = 0;
+
+            CETL_DEBUG_ASSERT(offset_bytes >= src_offset, "");
+            std::size_t view_offset = offset_bytes - src_offset;
+
+            while ((nullptr != frag) && (dst_offset < length_bytes))
+            {
+                CETL_DEBUG_ASSERT(nullptr != frag->view.data, "");
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                FragSpan frag_span{static_cast<const cetl::byte*>(frag->view.data) + view_offset,  // NOSONAR cpp:S5356
+                                   std::min(frag->view.size - view_offset, length_bytes - dst_offset)};
+                CETL_DEBUG_ASSERT(frag_span.size() <= (frag->view.size - view_offset), "");
+
+                // Next nolint is unavoidable: we need offset from the beginning of the buffer.
+                // No Sonar `cpp:S5356` b/c we integrate here with libcanard raw C buffers.
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                (void) std::memmove(destination + dst_offset, frag_span.data(), frag_span.size());  // NOSONAR cpp:S5356
+
+                src_offset += frag_span.size();
+                dst_offset += frag_span.size();
+                total_bytes_copied += frag_span.size();
+                CETL_DEBUG_ASSERT(dst_offset <= length_bytes, "");
+                frag        = frag->next;
+                view_offset = 0;
+            }
+
+            return total_bytes_copied;
         }
 
     private:
