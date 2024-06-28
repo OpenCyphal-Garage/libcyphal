@@ -34,11 +34,11 @@
 /// be costly in terms of execution time.
 #ifndef CAVL_ASSERT
 #    if defined(CAVL_NO_ASSERT) && CAVL_NO_ASSERT
-#                                       // NOLINTNEXTLINE(cppcoreguidelines-macro-usage) function-like macro
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage) function-like macro
 #        define CAVL_ASSERT(x) (void) 0 /* NOSONAR cpp:S960 */
 #    else
 #        include <cassert>
-#                                        // NOLINTNEXTLINE(cppcoreguidelines-macro-usage) function-like macro
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage) function-like macro
 #        define CAVL_ASSERT(x) assert(x) /* NOSONAR cpp:S960 */
 #    endif
 #endif
