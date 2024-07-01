@@ -153,13 +153,13 @@ public:
             while ((nullptr != frag) && (dst_offset < length_bytes))
             {
                 CETL_DEBUG_ASSERT(nullptr != frag->view.data, "");
+                // Next nolint-s are unavoidable: we need offset from the beginning of the buffer.
+                // No Sonar `cpp:S5356` b/c we integrate here with libcanard raw C buffers.
                 // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
                 FragSpan frag_span{static_cast<const cetl::byte*>(frag->view.data) + view_offset,  // NOSONAR cpp:S5356
                                    std::min(frag->view.size - view_offset, length_bytes - dst_offset)};
                 CETL_DEBUG_ASSERT(frag_span.size() <= (frag->view.size - view_offset), "");
 
-                // Next nolint is unavoidable: we need offset from the beginning of the buffer.
-                // No Sonar `cpp:S5356` b/c we integrate here with libcanard raw C buffers.
                 // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
                 (void) std::memmove(destination + dst_offset, frag_span.data(), frag_span.size());  // NOSONAR cpp:S5356
 
@@ -398,9 +398,9 @@ public:
 
     /// @brief Accepts a received transfer from the transport dedicated to this RX session.
     ///
-    /// @param transfer The received transfer to be accepted. An implementation is expected to take ownership
-    ///                 of the transfer payload, and to release it when it is no longer needed. On exit the original
-    ///                 transfer's `payload_size` and `payload` fields are set to zero.
+    /// @param inout_transfer The received transfer to be accepted. An implementation is expected to take ownership
+    ///                       of the transfer payload, and to release it when it is no longer needed.
+    ///                       On exit the original transfer's `payload_size` and `payload` fields are set to zero.
     ///
     virtual void acceptRxTransfer(UdpardRxTransfer& inout_transfer) = 0;
 
