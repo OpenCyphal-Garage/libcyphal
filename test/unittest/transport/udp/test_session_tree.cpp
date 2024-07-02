@@ -8,7 +8,7 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/transport/errors.hpp>
-#include <libcyphal/transport/udp/sessions_tree.hpp>
+#include <libcyphal/transport/udp/session_tree.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -31,7 +31,7 @@ using testing::VariantWith;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-class TestSessionsTree : public testing::Test
+class TestSessionTree : public testing::Test
 {
 protected:
     class MyNode final : public detail::RxSessionTreeNode::Base<MyNode>
@@ -73,18 +73,18 @@ protected:
     TrackingMemoryResource mr_;
     // NOLINTEND
 
-};  // TestSessionsTree
+};  // TestSessionTree
 
 // MARK: Tests:
 
-TEST_F(TestSessionsTree, constructor_destructor_empty_tree)
+TEST_F(TestSessionTree, constructor_destructor_empty_tree)
 {
-    const detail::SessionsTree<MyNode> tree{mr_};
+    const detail::SessionTree<MyNode> tree{mr_};
 }
 
-TEST_F(TestSessionsTree, ensureNewNodeFor)
+TEST_F(TestSessionTree, ensureNewNodeFor)
 {
-    detail::SessionsTree<MyNode> tree{mr_};
+    detail::SessionTree<MyNode> tree{mr_};
 
     EXPECT_THAT(tree.ensureNewNodeFor(0), VariantWith<MyNode::ReferenceWrapper>(_));
     EXPECT_THAT(tree.ensureNewNodeFor(1), VariantWith<MyNode::ReferenceWrapper>(_));
@@ -95,12 +95,12 @@ TEST_F(TestSessionsTree, ensureNewNodeFor)
     EXPECT_THAT(tree.ensureNewNodeFor(2), VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
 }
 
-TEST_F(TestSessionsTree, ensureNewNodeFor_no_memory)
+TEST_F(TestSessionTree, ensureNewNodeFor_no_memory)
 {
     StrictMock<MemoryResourceMock> mr_mock{};
     mr_mock.redirectExpectedCallsTo(mr_);
 
-    detail::SessionsTree<MyNode> tree{mr_mock};
+    detail::SessionTree<MyNode> tree{mr_mock};
 
     // Emulate that there is no memory available for the message session.
     EXPECT_CALL(mr_mock, do_allocate(sizeof(MyNode), _)).WillOnce(Return(nullptr));
@@ -108,9 +108,9 @@ TEST_F(TestSessionsTree, ensureNewNodeFor_no_memory)
     EXPECT_THAT(tree.ensureNewNodeFor(0), VariantWith<AnyError>(VariantWith<MemoryError>(_)));
 }
 
-TEST_F(TestSessionsTree, removeNodeFor)
+TEST_F(TestSessionTree, removeNodeFor)
 {
-    detail::SessionsTree<MyNode> tree{mr_};
+    detail::SessionTree<MyNode> tree{mr_};
 
     tree.removeNodeFor(13);
 

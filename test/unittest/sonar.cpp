@@ -27,7 +27,7 @@
 #include <libcyphal/transport/udp/media.hpp>
 #include <libcyphal/transport/udp/msg_rx_session.hpp>
 #include <libcyphal/transport/udp/msg_tx_session.hpp>
-#include <libcyphal/transport/udp/sessions_tree.hpp>
+#include <libcyphal/transport/udp/session_tree.hpp>
 #include <libcyphal/transport/udp/svc_rx_sessions.hpp>
 #include <libcyphal/transport/udp/svc_tx_sessions.hpp>
 #include <libcyphal/transport/udp/tx_rx_sockets.hpp>

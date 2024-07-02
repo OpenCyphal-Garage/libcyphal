@@ -3,8 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_TRANSPORT_UDP_SESSIONS_TREE_HPP
-#define LIBCYPHAL_TRANSPORT_UDP_SESSIONS_TREE_HPP
+#ifndef LIBCYPHAL_TRANSPORT_UDP_SESSION_TREE_HPP
+#define LIBCYPHAL_TRANSPORT_UDP_SESSION_TREE_HPP
 
 #include "libcyphal/common/cavl/cavl.hpp"
 #include "libcyphal/transport/errors.hpp"
@@ -35,22 +35,22 @@ namespace detail
 /// No Sonar cpp:S4963 b/c we do directly handle resources here.
 ///
 template <typename Node>
-class SessionsTree final  // NOSONAR cpp:S4963
+class SessionTree final  // NOSONAR cpp:S4963
 {
 public:
     using NodeRef = typename Node::ReferenceWrapper;
 
-    explicit SessionsTree(cetl::pmr::memory_resource& mr)
+    explicit SessionTree(cetl::pmr::memory_resource& mr)
         : allocator_{&mr}
     {
     }
 
-    SessionsTree(const SessionsTree&)                = delete;
-    SessionsTree(SessionsTree&&) noexcept            = delete;
-    SessionsTree& operator=(const SessionsTree&)     = delete;
-    SessionsTree& operator=(SessionsTree&&) noexcept = delete;
+    SessionTree(const SessionTree&)                = delete;
+    SessionTree(SessionTree&&) noexcept            = delete;
+    SessionTree& operator=(const SessionTree&)     = delete;
+    SessionTree& operator=(SessionTree&&) noexcept = delete;
 
-    ~SessionsTree()
+    ~SessionTree()
     {
         releaseNodes(nodes_);
     }
@@ -133,7 +133,7 @@ private:
     cavl::Tree<Node>                      nodes_;
     libcyphal::detail::PmrAllocator<Node> allocator_;
 
-};  // SessionsTree
+};  // SessionTree
 
 // MARK: -
 
@@ -194,4 +194,4 @@ struct RxSessionTreeNode
 }  // namespace transport
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_TRANSPORT_UDP_SESSIONS_TREE_HPP
+#endif  // LIBCYPHAL_TRANSPORT_UDP_SESSION_TREE_HPP
