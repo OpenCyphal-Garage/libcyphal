@@ -171,7 +171,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_requests)
             p[0] = b(42);
             p[1] = b(147);
             p[2] = b(0b111'11101);
-            return RxMetadata{rx_timestamp, 0b011'1'1'0'101111011'0110001'0010011, 3};
+            return IMedia::PopResult::Metadata{rx_timestamp, 0b011'1'1'0'101111011'0110001'0010011, 3};
         });
         EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
             EXPECT_THAT(now(), rx_timestamp + 10ms);
@@ -244,7 +244,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_two_frame)
             p[5] = b('5');
             p[6] = b('6');
             p[7] = b(0b101'11110);
-            return RxMetadata{rx_timestamp, 0b000'1'1'0'101111011'0110001'0010011, 8};
+            return IMedia::PopResult::Metadata{rx_timestamp, 0b000'1'1'0'101111011'0110001'0010011, 8};
         });
         EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
             EXPECT_THAT(now(), rx_timestamp + 10ms);
@@ -261,7 +261,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_two_frame)
             p[3] = b(0x7D);
             p[4] = b(0x61);  // expected 16-bit CRC
             p[5] = b(0b010'11110);
-            return RxMetadata{rx_timestamp, 0b000'1'1'0'101111011'0110001'0010011, 6};
+            return IMedia::PopResult::Metadata{rx_timestamp, 0b000'1'1'0'101111011'0110001'0010011, 6};
         });
     }
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });

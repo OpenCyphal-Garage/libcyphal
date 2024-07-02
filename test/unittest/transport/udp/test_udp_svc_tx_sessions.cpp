@@ -323,7 +323,7 @@ TEST_F(TestUdpSvcTxSessions, send_request)
             EXPECT_THAT(dscp, 0x0);
             EXPECT_THAT(fragments, SizeIs(1));
             EXPECT_THAT(fragments[0], SizeIs(24 + 4));
-            return true;
+            return ITxSocket::SendResult::Success{true /*is_accepted*/};
         });
 
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
@@ -374,7 +374,7 @@ TEST_F(TestUdpSvcTxSessions, send_request_with_argument_error)
             EXPECT_THAT(now(), send_time + 10ms);
             EXPECT_THAT(deadline, transfer_time + timeout);
             EXPECT_THAT(endpoint.ip_address, 0xEF01001F);
-            return true;
+            return ITxSocket::SendResult::Success{true /*is_accepted*/};
         });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
@@ -484,7 +484,7 @@ TEST_F(TestUdpSvcTxSessions, send_response)
             EXPECT_THAT(dscp, 0x0);
             EXPECT_THAT(fragments, SizeIs(1));
             EXPECT_THAT(fragments[0], SizeIs(24 + 4));
-            return true;
+            return ITxSocket::SendResult::Success{true /*is_accepted*/};
         });
 
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });

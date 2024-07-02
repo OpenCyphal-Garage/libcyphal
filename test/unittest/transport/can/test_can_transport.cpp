@@ -439,7 +439,7 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
 
             auto tbm = TailByteEq(metadata.transfer_id, true, false);
             EXPECT_THAT(payload, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm));
-            return true;
+            return IMedia::PushResult::Success{true /*is_accepted*/};
         });
         EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto payload) {
             EXPECT_THAT(now(), send_time + 10us);
@@ -449,7 +449,7 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
 
             auto tbm = TailByteEq(metadata.transfer_id, false, true, false);
             EXPECT_THAT(payload, ElementsAre(b('7'), _, _ /* CRC bytes */, tbm));
-            return true;
+            return IMedia::PushResult::Success{true /*is_accepted*/};
         });
     }
 
@@ -494,7 +494,7 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
 
                 auto tbm = TailByteEq(metadata.transfer_id, true, false);
                 EXPECT_THAT(payload, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm)) << ctx;
-                return true;
+                return IMedia::PushResult::Success{true /*is_accepted*/};
             });
             EXPECT_CALL(media_mock, push(_, _, _)).WillOnce([&, ctx, when](auto deadline, auto can_id, auto payload) {
                 EXPECT_THAT(now(), when) << ctx;
@@ -504,7 +504,7 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
 
                 auto tbm = TailByteEq(metadata.transfer_id, false, true, false);
                 EXPECT_THAT(payload, ElementsAre(b('7'), b('8'), b('9'), b(0x7D), b(0x61) /* CRC bytes */, tbm)) << ctx;
-                return true;
+                return IMedia::PushResult::Success{true /*is_accepted*/};
             });
         };
 
@@ -513,7 +513,7 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
         //
         EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto, auto, auto) {
             EXPECT_THAT(now(), send_time + 10us);
-            return false;
+            return IMedia::PushResult::Success{false /*is_accepted*/};
         });
         expectMediaCalls(media_mock2, "M#2", send_time + 10us);
         expectMediaCalls(media_mock_, "M#1", send_time + 20us);
@@ -596,7 +596,7 @@ TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
             .WillOnce(Return(cetl::nullopt));
 
         EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce(Return(CapacityError{}));
-        EXPECT_CALL(media_mock2, push(_, _, _)).WillOnce(Return(true));
+        EXPECT_CALL(media_mock2, push(_, _, _)).WillOnce(Return(IMedia::PushResult::Success{true /*is_accepted*/}));
 
         scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 
@@ -720,7 +720,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
             p[5] = b('5');
             p[6] = b('6');
             p[7] = b(0b101'11101);
-            return RxMetadata{rx1_timestamp, 0b111'1'0'0'101111011'0010011'0110001, 8};
+            return IMedia::PopResult::Metadata{rx1_timestamp, 0b111'1'0'0'101111011'0010011'0110001, 8};
         });
         EXPECT_CALL(media_mock2, pop(_)).WillOnce([&](auto) {
             EXPECT_THAT(now(), rx1_timestamp + 10ms);
@@ -743,7 +743,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
             p[5] = b('5');
             p[6] = b('6');
             p[7] = b(0b101'11110);
-            return RxMetadata{rx2_timestamp, 0b111'1'0'0'101111011'0010011'0110001, 8};
+            return IMedia::PopResult::Metadata{rx2_timestamp, 0b111'1'0'0'101111011'0010011'0110001, 8};
         });
         EXPECT_CALL(media_mock2, pop(_)).WillOnce([&](auto p) {
             EXPECT_THAT(now(), rx2_timestamp + 30ms);
@@ -754,7 +754,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
             p[3] = b(0x7D);
             p[4] = b(0x61);  // expected 16-bit CRC
             p[5] = b(0b010'11110);
-            return RxMetadata{rx2_timestamp + 1ms, 0b111'1'0'0'101111011'0010011'0110001, 6};
+            return IMedia::PopResult::Metadata{rx2_timestamp + 1ms, 0b111'1'0'0'101111011'0010011'0110001, 6};
         });
     }
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
@@ -902,7 +902,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_with_fallible_oom_canard)
         p[1] = b('1');
         p[2] = b('2');
         p[3] = b(0b111'11101);
-        return RxMetadata{now(), 0b111'1'0'0'101111011'0010011'0110001, 4};
+        return IMedia::PopResult::Metadata{now(), 0b111'1'0'0'101111011'0010011'0110001, 4};
     });
     EXPECT_CALL(mr_mock, do_allocate(_, _)).WillRepeatedly(Return(nullptr));
 

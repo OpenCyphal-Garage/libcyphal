@@ -31,21 +31,29 @@ public:
     IMedia& operator=(const IMedia&)     = delete;
     IMedia& operator=(IMedia&&) noexcept = delete;
 
-    /// @brief Defines the error types that may occur during the `makeTxSocket` operation.
-    ///
-    using MakeTxSocketFailure = cetl::variant<MemoryError, PlatformError>;
-
-    /// @brief Defines the error types that may occur during the `makeTxSocket` operation.
-    ///
-    using MakeRxSocketFailure = cetl::variant<MemoryError, PlatformError, ArgumentError>;
-
     /// Constructs a new TX socket bound to this media.
-    ///
-    virtual Expected<UniquePtr<ITxSocket>, MakeTxSocketFailure> makeTxSocket() = 0;
+    ///@{
+    struct MakeTxSocketResult
+    {
+        using Success = UniquePtr<ITxSocket>;
+        using Failure = cetl::variant<MemoryError, PlatformError>;
+
+        using Type = Expected<Success, Failure>;
+    };
+    virtual MakeTxSocketResult::Type makeTxSocket() = 0;
+    ///@}
 
     /// Constructs a new RX socket bound to the specified multicast group endpoint.
-    ///
-    virtual Expected<UniquePtr<IRxSocket>, MakeRxSocketFailure> makeRxSocket(const IpEndpoint& multicast_endpoint) = 0;
+    ///@{
+    struct MakeRxSocketResult
+    {
+        using Success = UniquePtr<IRxSocket>;
+        using Failure = cetl::variant<MemoryError, PlatformError, ArgumentError>;
+
+        using Type = Expected<Success, Failure>;
+    };
+    virtual MakeRxSocketResult::Type makeRxSocket(const IpEndpoint& multicast_endpoint) = 0;
+    ///@}
 
 protected:
     IMedia()  = default;

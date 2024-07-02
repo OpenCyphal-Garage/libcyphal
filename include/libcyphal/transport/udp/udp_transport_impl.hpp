@@ -600,13 +600,13 @@ private:
         {
             using ErrorReport = TransientErrorReport::MediaMakeTxSocket;
 
-            auto maybe_tx_socket = media.interface().makeTxSocket();
-            if (auto* const failure = cetl::get_if<IMedia::MakeTxSocketFailure>(&maybe_tx_socket))
+            auto tx_socket_result = media.interface().makeTxSocket();
+            if (auto* const failure = cetl::get_if<IMedia::MakeTxSocketResult::Failure>(&tx_socket_result))
             {
                 return tryHandleTransientMediaError<ErrorReport>(media, std::move(*failure), media.interface());
             }
 
-            media.tx_socket_ptr() = cetl::get<UniquePtr<ITxSocket>>(std::move(maybe_tx_socket));
+            media.tx_socket_ptr() = cetl::get<IMedia::MakeTxSocketResult::Success>(std::move(tx_socket_result));
             if (!media.tx_socket_ptr())
             {
                 return tryHandleTransientMediaError<ErrorReport, cetl::variant<MemoryError>>(media,
@@ -695,7 +695,7 @@ private:
             const std::array<PayloadFragment, 1> single_payload_fragment{
                 PayloadFragment{buffer, tx_item->datagram_payload.size}};
 
-            Expected<bool, ITxSocket::SendFailure> maybe_sent =
+            ITxSocket::SendResult::Type send_result =
                 tx_socket.send(deadline,
                                {tx_item->destination.ip_address, tx_item->destination.udp_port},
                                tx_item->dscp,
@@ -707,7 +707,7 @@ private:
             // Note that socket not being ready/able to send a frame just yet (aka temporary)
             // is not reported as an error (see `is_sent` below).
             //
-            if (auto* const send_failure = cetl::get_if<ITxSocket::SendFailure>(&maybe_sent))
+            if (auto* const send_failure = cetl::get_if<ITxSocket::SendResult::Failure>(&send_result))
             {
                 // Release whole problematic transfer from the TX queue,
                 // so that other transfers in TX queue have their chance.
@@ -728,8 +728,8 @@ private:
             }
             else
             {
-                const auto is_sent = cetl::get<bool>(maybe_sent);
-                if (!is_sent)
+                const auto sent = cetl::get<ITxSocket::SendResult::Success>(send_result);
+                if (!sent.is_accepted)
                 {
                     // TX socket interface is busy, so we are done with this media for now,
                     // and will just try again with it later (on next `run`).
@@ -765,13 +765,13 @@ private:
                 return cetl::nullopt;
             }
 
-            auto maybe_rx_socket = media.interface().makeRxSocket(svc_rx_sockets_endpoint_.value());
-            if (auto* const failure = cetl::get_if<IMedia::MakeRxSocketFailure>(&maybe_rx_socket))
+            auto rx_socket_result = media.interface().makeRxSocket(svc_rx_sockets_endpoint_.value());
+            if (auto* const failure = cetl::get_if<IMedia::MakeRxSocketResult::Failure>(&rx_socket_result))
             {
                 return tryHandleTransientMediaError<ErrorReport>(media, std::move(*failure), media.interface());
             }
 
-            media.rx_socket_ptr() = cetl::get<UniquePtr<IRxSocket>>(std::move(maybe_rx_socket));
+            media.rx_socket_ptr() = cetl::get<IMedia::MakeRxSocketResult::Success>(std::move(rx_socket_result));
             if (!media.rx_socket_ptr())
             {
                 return tryHandleTransientMediaError<ErrorReport, cetl::variant<MemoryError>>(media,
@@ -818,28 +818,25 @@ private:
 
     cetl::optional<AnyFailure> runSingleMediaReceive(Media& media, IRxSocket& rx_socket)
     {
-        using OptReceiveSuccess = cetl::optional<IRxSocket::ReceiveSuccess>;
-        using ReceiveResult     = Expected<OptReceiveSuccess, IRxSocket::ReceiveFailure>;
-
         // 1. Try to receive a frame from the media RX socket.
         //
-        ReceiveResult receive_result = rx_socket.receive();
-        if (auto* const failure = cetl::get_if<IRxSocket::ReceiveFailure>(&receive_result))
+        IRxSocket::ReceiveResult::Type receive_result = rx_socket.receive();
+        if (auto* const failure = cetl::get_if<IRxSocket::ReceiveResult::Failure>(&receive_result))
         {
             using RxSocketReport = TransientErrorReport::MediaRxSocketReceive;
             return tryHandleTransientMediaError<RxSocketReport>(media, std::move(*failure), rx_socket);
         }
-        const auto& opt_rx_success = cetl::get<OptReceiveSuccess>(receive_result);
-        if (!opt_rx_success.has_value())
+        auto rx_success = cetl::get<IRxSocket::ReceiveResult::Success>(std::move(receive_result));
+        if (!rx_success.has_value())
         {
             return cetl::nullopt;
         }
-        const IRxSocket::ReceiveSuccess& rx_success = opt_rx_success.value();
+        const IRxSocket::ReceiveResult::Metadata rx_meta = std::move(rx_success.value());
 
         // 2. We've got a new frame from the media RX socket, so let's try to pass it into libudpard.
 
         const auto timestamp_us =
-            std::chrono::duration_cast<std::chrono::microseconds>(rx_success.timestamp.time_since_epoch());
+            std::chrono::duration_cast<std::chrono::microseconds>(rx_meta.timestamp.time_since_epoch());
 
         // TODO: Fill it with data!
         const UdpardMutablePayload datagram_payload{};

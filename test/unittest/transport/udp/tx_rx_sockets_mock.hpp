@@ -60,10 +60,10 @@ public:
             return tx_socket_mock_.getMtu();
         }
 
-        Expected<bool, ITxSocket::SendFailure> send(const TimePoint        deadline,
-                                                    const IpEndpoint       multicast_endpoint,
-                                                    const std::uint8_t     dscp,
-                                                    const PayloadFragments payload_fragments) override
+        ITxSocket::SendResult::Type send(const TimePoint        deadline,
+                                         const IpEndpoint       multicast_endpoint,
+                                         const std::uint8_t     dscp,
+                                         const PayloadFragments payload_fragments) override
         {
             return tx_socket_mock_.send(deadline, multicast_endpoint, dscp, payload_fragments);
         }
@@ -99,7 +99,7 @@ public:
     // NOLINTNEXTLINE(bugprone-exception-escape)
     MOCK_METHOD(std::size_t, getMtu, (), (const, noexcept, override));
 
-    MOCK_METHOD((Expected<bool, ITxSocket::SendFailure>),
+    MOCK_METHOD(ITxSocket::SendResult::Type,
                 send,
                 (const TimePoint        deadline,
                  const IpEndpoint       multicast_endpoint,
@@ -143,7 +143,7 @@ public:
 
         // MARK: IRxSocket
 
-        Expected<cetl::optional<ReceiveSuccess>, ReceiveFailure> receive() override
+        ReceiveResult::Type receive() override
         {
             return rx_socket_mock_.receive();
         }
@@ -181,7 +181,7 @@ public:
 
     // MARK: IRxSocket
 
-    MOCK_METHOD((Expected<cetl::optional<ReceiveSuccess>, ReceiveFailure>), receive, (), (override));
+    MOCK_METHOD(ReceiveResult::Type, receive, (), (override));
 
 private:
     const std::string name_;

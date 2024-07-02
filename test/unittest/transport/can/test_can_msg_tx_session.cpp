@@ -182,7 +182,7 @@ TEST_F(TestCanMsgTxSession, send_empty_payload)
 
         auto tbm = TailByteEq(metadata.transfer_id);
         EXPECT_THAT(payload, ElementsAre(tbm));
-        return true;
+        return IMedia::PushResult::Success{true /*is_accepted*/};
     });
 
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
@@ -248,7 +248,7 @@ TEST_F(TestCanMsgTxSession, send_7bytes_payload_with_500ms_timeout)
 
         auto tbm = TailByteEq(metadata.transfer_id);
         EXPECT_THAT(payload, ElementsAre(b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), b('7'), tbm));
-        return true;
+        return IMedia::PushResult::Success{true /*is_accepted*/};
     });
     //
     scheduler_.runNow(timeout - 1us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });

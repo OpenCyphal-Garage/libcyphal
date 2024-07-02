@@ -468,7 +468,7 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)
                 EXPECT_THAT(endpoint.ip_address, 0xEF000007);
                 EXPECT_THAT(fragments, SizeIs(1));
                 EXPECT_THAT(fragments[0], SizeIs(24 + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 4));
-                return true;
+                return ITxSocket::SendResult::Success{true /*is_accepted*/};
             });
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto, auto fragments) {
@@ -478,7 +478,7 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)
                 EXPECT_THAT(fragments, SizeIs(1));
                 // NB! No `+4` here b/c CRC was in the start frame.
                 EXPECT_THAT(fragments[0], SizeIs(24 + 1));
-                return true;
+                return ITxSocket::SendResult::Success{true /*is_accepted*/};
             });
     }
 
@@ -529,7 +529,7 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
                     EXPECT_THAT(endpoint.ip_address, 0xEF000007);
                     EXPECT_THAT(fragments, SizeIs(1));
                     EXPECT_THAT(fragments[0], SizeIs(24 + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 4));
-                    return true;
+                    return ITxSocket::SendResult::Success{true /*is_accepted*/};
                 });
             EXPECT_CALL(tx_socket_mock, send(_, _, _, _))
                 .WillOnce([&, ctx, when](auto deadline, auto endpoint, auto, auto fragments) {
@@ -538,7 +538,7 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
                     EXPECT_THAT(endpoint.ip_address, 0xEF000007);
                     EXPECT_THAT(fragments, SizeIs(1));
                     EXPECT_THAT(fragments[0], SizeIs(24 + 4));
-                    return true;
+                    return ITxSocket::SendResult::Success{true /*is_accepted*/};
                 });
         };
 
@@ -547,7 +547,7 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _)).WillOnce([&](auto, auto, auto, auto) {
             EXPECT_THAT(now(), send_time + 10us);
-            return false;
+            return ITxSocket::SendResult::Success{false /*is_accepted*/};
         });
         expectSocketCalls(tx_socket_mock2, "M#2", send_time + 10us);
         expectSocketCalls(tx_socket_mock_, "M#1", send_time + 20us);
@@ -639,7 +639,8 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
             .WillOnce(Return(cetl::nullopt));
 
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _)).WillOnce(Return(ArgumentError{}));
-        EXPECT_CALL(tx_socket_mock2, send(_, _, _, _)).WillOnce(Return(true));
+        EXPECT_CALL(tx_socket_mock2, send(_, _, _, _))
+            .WillOnce(Return(ITxSocket::SendResult::Success{true /*is_accepted*/}));
 
         scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 

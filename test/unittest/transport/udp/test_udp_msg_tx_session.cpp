@@ -244,7 +244,7 @@ TEST_F(TestUdpMsgTxSession, send_empty_payload)
             EXPECT_THAT(dscp, 0x0);
             EXPECT_THAT(fragments, SizeIs(1));
             EXPECT_THAT(fragments[0], SizeIs(24 + 4));
-            return true;
+            return ITxSocket::SendResult::Success{true /*is_accepted*/};
         });
 
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
@@ -310,7 +310,7 @@ TEST_F(TestUdpMsgTxSession, send_single_frame_payload_with_500ms_timeout)
         EXPECT_THAT(fragments[0][24 + 1], b('2'));
         EXPECT_THAT(fragments[0][24 + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME - 1],
                     b(static_cast<std::uint8_t>('1' + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME - 1)));
-        return true;
+        return ITxSocket::SendResult::Success{true /*is_accepted*/};
     });
     //
     scheduler_.runNow(timeout - 1us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });

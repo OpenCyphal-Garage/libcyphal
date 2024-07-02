@@ -157,7 +157,7 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
             p[0] = b('0');
             p[1] = b('1');
             p[2] = b(0b111'01101);
-            return RxMetadata{rx_timestamp, 0x0C'60'23'45, 3};
+            return IMedia::PopResult::Metadata{rx_timestamp, 0x0C'60'23'45, 3};
         });
         EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
             EXPECT_THAT(now(), rx_timestamp + 10ms);
@@ -223,7 +223,7 @@ TEST_F(TestCanMsgRxSession, run_and_receive_one_anonymous_frame)
             p[0] = b('1');
             p[1] = b('2');
             p[2] = b(0b111'01110);
-            return RxMetadata{rx_timestamp, 0x01'60'23'13, 3};
+            return IMedia::PopResult::Metadata{rx_timestamp, 0x01'60'23'13, 3};
         });
         EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
             EXPECT_THAT(now(), rx_timestamp + 10ms);

@@ -173,7 +173,7 @@ TEST_F(TestCanSvcTxSessions, send_request)
 
         auto tbm = TailByteEq(metadata.transfer_id);
         EXPECT_THAT(payload, ElementsAre(tbm));
-        return true;
+        return IMedia::PushResult::Success{true /*is_accepted*/};
     });
 
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
@@ -231,7 +231,7 @@ TEST_F(TestCanSvcTxSessions, send_request_with_argument_error)
 
             auto tbm = TailByteEq(metadata.transfer_id);
             EXPECT_THAT(payload, ElementsAre(tbm));
-            return true;
+            return IMedia::PushResult::Success{true /*is_accepted*/};
         });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
@@ -305,7 +305,7 @@ TEST_F(TestCanSvcTxSessions, send_response)
 
         auto tbm = TailByteEq(metadata.transfer_id);
         EXPECT_THAT(payload, ElementsAre(tbm));
-        return true;
+        return IMedia::PushResult::Success{true /*is_accepted*/};
     });
 
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });

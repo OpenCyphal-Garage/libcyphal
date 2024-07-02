@@ -65,6 +65,9 @@ struct AlreadyExistsError final
 ///   The "Failure" suffix is used to denote such variant types; "Error" suffix denotes the "primitive" error types.
 /// - Some methods may have a limited set of expected error types (comparing f.e. with broader set of `AnyFailure`),
 ///   in which case a custom `cetl::variant` failure type is defined (see below `FactoryFailure` or `MediaFailure`).
+/// - For convenience, some interface methods might have their own `<MethodName>Result` umbrella result type defined
+///   within the interface. Such umbrella result types denoted with "Result" suffix, and typically contain their own
+///   `Success`, `Failure` and `Type` nested types/aliases (see f.e. `ITxSocket` or `IRxSocket` interfaces).
 ///
 using AnyFailure =  //
     cetl::variant<StateError,

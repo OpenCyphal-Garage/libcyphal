@@ -511,22 +511,22 @@ private:
     {
         std::array<cetl::byte, CANARD_MTU_MAX> payload{};
 
-        Expected<cetl::optional<RxMetadata>, MediaFailure> pop_result = media.interface().pop(payload);
+        IMedia::PopResult::Type pop_result = media.interface().pop(payload);
         if (auto* const failure = cetl::get_if<MediaFailure>(&pop_result))
         {
             return tryHandleTransientMediaError<TransientErrorReport::MediaPop>(media, std::move(*failure));
         }
-        const auto& opt_rx_meta = cetl::get<cetl::optional<RxMetadata>>(pop_result);
-        if (!opt_rx_meta.has_value())
+        const auto& pop_success = cetl::get<IMedia::PopResult::Success>(pop_result);
+        if (!pop_success.has_value())
         {
             return cetl::nullopt;
         }
 
-        const RxMetadata& rx_meta = opt_rx_meta.value();
+        const IMedia::PopResult::Metadata& pop_meta = pop_success.value();
 
         const auto timestamp_us =
-            std::chrono::duration_cast<std::chrono::microseconds>(rx_meta.timestamp.time_since_epoch());
-        const CanardFrame canard_frame{rx_meta.can_id, rx_meta.payload_size, payload.cbegin()};
+            std::chrono::duration_cast<std::chrono::microseconds>(pop_meta.timestamp.time_since_epoch());
+        const CanardFrame canard_frame{pop_meta.can_id, pop_meta.payload_size, payload.cbegin()};
 
         CanardRxTransfer      out_transfer{};
         CanardRxSubscription* out_subscription{};
@@ -599,7 +599,7 @@ private:
                 static_cast<const cetl::byte*>(tx_item->frame.payload);  // NOSONAR cpp:S5356 cpp:S5357
             const cetl::span<const cetl::byte> payload{buffer, tx_item->frame.payload_size};
 
-            Expected<bool, MediaFailure> maybe_pushed =
+            IMedia::PushResult::Type push_result =
                 media.interface().push(deadline, tx_item->frame.extended_can_id, payload);
 
             // In case of media push error we are going to drop this problematic frame
@@ -608,7 +608,7 @@ private:
             // Note that media not being ready/able to push a frame just yet (aka temporary)
             // is not reported as an error (see `is_pushed` below).
             //
-            if (auto* const media_failure = cetl::get_if<MediaFailure>(&maybe_pushed))
+            if (auto* const push_failure = cetl::get_if<IMedia::PushResult::Failure>(&push_result))
             {
                 // Release whole problematic transfer from the TX queue,
                 // so that other transfers in TX queue have their chance.
@@ -616,7 +616,7 @@ private:
                 popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, true /*whole transfer*/);
 
                 cetl::optional<AnyFailure> failure =
-                    tryHandleTransientMediaError<TransientErrorReport::MediaPush>(media, std::move(*media_failure));
+                    tryHandleTransientMediaError<TransientErrorReport::MediaPush>(media, std::move(*push_failure));
                 if (failure.has_value())
                 {
                     return failure;
@@ -627,8 +627,8 @@ private:
             }
             else
             {
-                const auto is_pushed = cetl::get<bool>(maybe_pushed);
-                if (!is_pushed)
+                const auto push_success = cetl::get<IMedia::PushResult::Success>(push_result);
+                if (!push_success.is_accepted)
                 {
                     // Media interface is busy, so we are done with this media for now,
                     // and will just try again with it later (on next `run`).

@@ -32,13 +32,6 @@ struct Filter final
 };
 using Filters = cetl::span<const Filter>;
 
-struct RxMetadata final
-{
-    TimePoint   timestamp;
-    CanId       can_id{};
-    std::size_t payload_size{};
-};
-
 /// @brief Defines interface to a custom CAN bus media implementation.
 ///
 /// Implementation is supposed to be provided by an user of the library.
@@ -78,10 +71,21 @@ public:
     /// @return `true` if the frame is accepted or already timed out;
     ///         `false` to try again later (f.e. b/c output TX queue is currently full).
     ///         If any media failure occurred, the frame will be dropped by transport.
-    ///
-    virtual Expected<bool, MediaFailure> push(const TimePoint                    deadline,
-                                              const CanId                        can_id,
-                                              const cetl::span<const cetl::byte> payload) noexcept = 0;
+    ///@{
+    struct PushResult
+    {
+        struct Success
+        {
+            bool is_accepted;
+        };
+        using Failure = MediaFailure;
+
+        using Type = Expected<Success, Failure>;
+    };
+    virtual PushResult::Type push(const TimePoint                    deadline,
+                                  const CanId                        can_id,
+                                  const cetl::span<const cetl::byte> payload) noexcept = 0;
+    ///@}
 
     /// @brief Takes the next payload fragment (aka CAN frame) from the reception queue unless it's empty.
     ///
@@ -89,9 +93,22 @@ public:
     /// @return Description of a received fragment if available; otherwise an empty optional is returned immediately.
     ///         `nodiscard` is used to prevent ignoring the return value, which contains not only possible media error,
     ///         but also important metadata (like `payload_size` field for further parsing of the result payload).
-    ///
-    CETL_NODISCARD virtual Expected<cetl::optional<RxMetadata>, MediaFailure> pop(
-        const cetl::span<cetl::byte> payload_buffer) noexcept = 0;
+    ///@{
+    struct PopResult
+    {
+        struct Metadata
+        {
+            TimePoint   timestamp;
+            CanId       can_id{};
+            std::size_t payload_size{};
+        };
+        using Success = cetl::optional<Metadata>;
+        using Failure = MediaFailure;
+
+        using Type = Expected<Success, Failure>;
+    };
+    CETL_NODISCARD virtual PopResult::Type pop(const cetl::span<cetl::byte> payload_buffer) noexcept = 0;
+    ///@}
 
 protected:
     IMedia()  = default;
