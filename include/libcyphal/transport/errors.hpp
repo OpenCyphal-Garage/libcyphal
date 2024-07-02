@@ -62,8 +62,8 @@ struct AlreadyExistsError final
 /// - A method returns (via `cetl::variant`) either an expected `Success` type, or a `Failure` type.
 /// - If the success result type is `void`, then `cetl::optional<Failure>` in in use (instead of `cetl::variant`).
 /// - The failure result type is a `cetl::variant` of all possible "primitive" error types that may occur in the method.
-///   The "Failure" suffix is used to denote such types; and "Error" suffix denotes the "primitive" error types.
-/// - Some methods may have a limited set of expected error types (comparing f.e. with broader `AnyFailure`),
+///   The "Failure" suffix is used to denote such variant types; "Error" suffix denotes the "primitive" error types.
+/// - Some methods may have a limited set of expected error types (comparing f.e. with broader set of `AnyFailure`),
 ///   in which case a custom `cetl::variant` failure type is defined (see below `FactoryFailure` or `MediaFailure`).
 ///
 using AnyFailure =  //
