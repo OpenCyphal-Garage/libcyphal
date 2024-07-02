@@ -90,9 +90,9 @@ TEST_F(TestSessionTree, ensureNewNodeFor)
     EXPECT_THAT(tree.ensureNewNodeFor(1), VariantWith<MyNode::ReferenceWrapper>(_));
     EXPECT_THAT(tree.ensureNewNodeFor(2), VariantWith<MyNode::ReferenceWrapper>(_));
 
-    EXPECT_THAT(tree.ensureNewNodeFor(0), VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
-    EXPECT_THAT(tree.ensureNewNodeFor(1), VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
-    EXPECT_THAT(tree.ensureNewNodeFor(2), VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
+    EXPECT_THAT(tree.ensureNewNodeFor(0), VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
+    EXPECT_THAT(tree.ensureNewNodeFor(1), VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
+    EXPECT_THAT(tree.ensureNewNodeFor(2), VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
 }
 
 TEST_F(TestSessionTree, ensureNewNodeFor_no_memory)
@@ -105,7 +105,7 @@ TEST_F(TestSessionTree, ensureNewNodeFor_no_memory)
     // Emulate that there is no memory available for the message session.
     EXPECT_CALL(mr_mock, do_allocate(sizeof(MyNode), _)).WillOnce(Return(nullptr));
 
-    EXPECT_THAT(tree.ensureNewNodeFor(0), VariantWith<AnyError>(VariantWith<MemoryError>(_)));
+    EXPECT_THAT(tree.ensureNewNodeFor(0), VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
 }
 
 TEST_F(TestSessionTree, removeNodeFor)

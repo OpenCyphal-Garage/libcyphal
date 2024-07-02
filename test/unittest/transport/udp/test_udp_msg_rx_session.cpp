@@ -128,7 +128,7 @@ TEST_F(TestUdpMsgRxSession, make_no_memory)
     auto transport = makeTransport({mr_mock});
 
     auto maybe_session = transport->makeMessageRxSession({64, 0x23});
-    EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
+    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
 }
 
 TEST_F(TestUdpMsgRxSession, make_fails_due_to_argument_error)
@@ -137,7 +137,7 @@ TEST_F(TestUdpMsgRxSession, make_fails_due_to_argument_error)
 
     // Try invalid subject id
     auto maybe_session = transport->makeMessageRxSession({64, UDPARD_SUBJECT_ID_MAX + 1});
-    EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
 }
 
 // TODO: Uncomment gradually as the implementation progresses.

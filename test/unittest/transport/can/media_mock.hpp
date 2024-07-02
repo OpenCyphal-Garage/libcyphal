@@ -35,12 +35,12 @@ public:
 
     // NOLINTNEXTLINE(bugprone-exception-escape)
     MOCK_METHOD(std::size_t, getMtu, (), (const, noexcept, override));
-    MOCK_METHOD(cetl::optional<MediaError>, setFilters, (const Filters filters), (noexcept, override));
-    MOCK_METHOD((Expected<bool, MediaError>),
+    MOCK_METHOD(cetl::optional<MediaFailure>, setFilters, (const Filters filters), (noexcept, override));
+    MOCK_METHOD((Expected<bool, MediaFailure>),
                 push,
                 (const TimePoint deadline, const CanId can_id, const cetl::span<const cetl::byte> payload),
                 (noexcept, override));
-    MOCK_METHOD((Expected<cetl::optional<RxMetadata>, MediaError>),
+    MOCK_METHOD((Expected<cetl::optional<RxMetadata>, MediaFailure>),
                 pop,
                 (const cetl::span<cetl::byte> payload_buffer),
                 (noexcept, override));

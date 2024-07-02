@@ -133,7 +133,7 @@ TEST_F(TestUdpMsgTxSession, make_no_memory)
     auto transport = makeTransport({mr_mock});
 
     auto maybe_session = transport->makeMessageTxSession({0x23});
-    EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
+    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
 }
 
 TEST_F(TestUdpMsgTxSession, make_fails_due_to_argument_error)
@@ -142,7 +142,7 @@ TEST_F(TestUdpMsgTxSession, make_fails_due_to_argument_error)
 
     // Try invalid subject id
     auto maybe_session = transport->makeMessageTxSession({UDPARD_SUBJECT_ID_MAX + 1});
-    EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
 }
 
 TEST_F(TestUdpMsgTxSession, make_fails_due_to_media_socket)
@@ -156,7 +156,7 @@ TEST_F(TestUdpMsgTxSession, make_fails_due_to_media_socket)
         EXPECT_CALL(media_mock_, makeTxSocket()).WillOnce(Return(MemoryError{}));
 
         auto maybe_tx_session = transport->makeMessageTxSession({123});
-        EXPECT_THAT(maybe_tx_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
+        EXPECT_THAT(maybe_tx_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
     }
 
     // 2. Transport will succeed to make TX session despite the media fails to create a TX socket.
@@ -167,7 +167,7 @@ TEST_F(TestUdpMsgTxSession, make_fails_due_to_media_socket)
         StrictMock<TransientErrorHandlerMock> handler_mock{};
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<MakeSocketReport>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.error, VariantWith<MemoryError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<MemoryError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         EXPECT_THAT(report.culprit, Ref(media_mock_));
                         return true;
@@ -207,8 +207,8 @@ TEST_F(TestUdpMsgTxSession, send_empty_payload_and_no_transport_run)
         .WillOnce(
             [&](void* p, std::size_t size_bytes, std::size_t alignment) { mr_.deallocate(p, size_bytes, alignment); });
 
-    auto maybe_error = session->send(metadata, empty_payload);
-    EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+    auto failure = session->send(metadata, empty_payload);
+    EXPECT_THAT(failure, Eq(cetl::nullopt));
 
     scheduler_.runNow(+10ms, [&] { session->run(scheduler_.now()); });
 
@@ -232,8 +232,8 @@ TEST_F(TestUdpMsgTxSession, send_empty_payload)
     const PayloadFragments empty_payload{};
     const TransferMetadata metadata{0x3AF52, send_time, Priority::Low};
 
-    auto maybe_error = session->send(metadata, empty_payload);
-    EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+    auto failure = session->send(metadata, empty_payload);
+    EXPECT_THAT(failure, Eq(cetl::nullopt));
 
     EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
         .WillOnce([&](auto deadline, auto endpoint, auto dscp, auto fragments) {
@@ -266,8 +266,8 @@ TEST_F(TestUdpMsgTxSession, send_empty_expired_payload)
     const PayloadFragments empty_payload{};
     const TransferMetadata metadata{0x11, send_time, Priority::Low};
 
-    auto maybe_error = session->send(metadata, empty_payload);
-    EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+    auto failure = session->send(metadata, empty_payload);
+    EXPECT_THAT(failure, Eq(cetl::nullopt));
 
     // Emulate run calls just on the very edge of the default 1s timeout (exactly at the deadline).
     // Payload should NOT be sent but dropped instead.
@@ -293,8 +293,8 @@ TEST_F(TestUdpMsgTxSession, send_single_frame_payload_with_500ms_timeout)
     const auto             payload = makeIotaArray<UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME>(b('1'));
     const TransferMetadata metadata{0x03, send_time, Priority::High};
 
-    auto maybe_error = session->send(metadata, makeSpansFrom(payload));
-    EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+    auto failure = session->send(metadata, makeSpansFrom(payload));
+    EXPECT_THAT(failure, Eq(cetl::nullopt));
 
     // Emulate run calls just on the very edge of the 500ms deadline.
     // Payload should be sent successfully.
@@ -338,8 +338,8 @@ TEST_F(TestUdpMsgTxSession, send_when_no_memory_for_contiguous_payload)
 
     const TransferMetadata metadata{0x03, send_time, Priority::Optional};
 
-    auto maybe_error = session->send(metadata, makeSpansFrom(payload1, payload2));
-    EXPECT_THAT(maybe_error, Optional(VariantWith<MemoryError>(_)));
+    auto failure = session->send(metadata, makeSpansFrom(payload1, payload2));
+    EXPECT_THAT(failure, Optional(VariantWith<MemoryError>(_)));
 
     scheduler_.runNow(+10ms, [&] { transport->run(scheduler_.now()); });
 }

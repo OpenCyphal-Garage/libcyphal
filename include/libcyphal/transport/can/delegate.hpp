@@ -37,7 +37,7 @@ namespace detail
 
 /// This internal transport delegate class serves the following purposes:
 /// 1. It provides memory management functions for the Canard library.
-/// 2. It provides a way to convert Canard error codes to `AnyError` type.
+/// 2. It provides a way to convert Canard error codes to `AnyFailure` type.
 /// 3. It provides an interface to access the transport from various session classes.
 ///
 class TransportDelegate
@@ -188,9 +188,9 @@ public:
         return canard_instance_.node_id;
     }
 
-    CETL_NODISCARD CanardNodeID& canard_node_id() noexcept
+    void setNodeId(const NodeId node_id) noexcept
     {
-        return canard_instance_.node_id;
+        canard_instance_.node_id = static_cast<CanardNodeID>(node_id);
     }
 
     CETL_NODISCARD CanardInstance& canard_instance() noexcept
@@ -203,7 +203,7 @@ public:
         return memory_;
     }
 
-    static cetl::optional<AnyError> optAnyErrorFromCanard(const std::int32_t result)
+    static cetl::optional<AnyFailure> optAnyFailureFromCanard(const std::int32_t result)
     {
         // Canard error results are negative, so we need to negate them to get the error code.
         const std::int32_t canard_error = -result;
@@ -268,9 +268,9 @@ public:
     ///
     /// Internal method which is in use by TX session implementations to delegate actual sending to transport.
     ///
-    CETL_NODISCARD virtual cetl::optional<AnyError> sendTransfer(const TimePoint               deadline,
-                                                                 const CanardTransferMetadata& metadata,
-                                                                 const PayloadFragments        payload_fragments) = 0;
+    CETL_NODISCARD virtual cetl::optional<AnyFailure> sendTransfer(const TimePoint               deadline,
+                                                                   const CanardTransferMetadata& metadata,
+                                                                   const PayloadFragments        payload_fragments) = 0;
 
     /// @brief Triggers update of media filters due to a change of RX ports.
     ///

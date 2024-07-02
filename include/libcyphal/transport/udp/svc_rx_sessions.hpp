@@ -19,6 +19,7 @@
 #include <udpard.h>
 
 #include <chrono>
+#include <cstdint>
 #include <utility>
 
 namespace libcyphal
@@ -44,7 +45,7 @@ namespace detail
 /// NOSONAR cpp:S4963 for below `class SvcRxSession` - we do directly handle resources here;
 /// namely: in destructor we have to unsubscribe, as well as let delegate to know this fact.
 ///
-template <typename Interface_, typename Params, typename SessionEvent>
+template <typename Interface_, typename Params, typename SessionEvent, bool IsRequest>
 class SvcRxSession final : private IRxSessionDelegate, public Interface_  // NOSONAR cpp:S4963
 {
     /// @brief Defines private specification for making interface unique ptr.
@@ -57,9 +58,9 @@ class SvcRxSession final : private IRxSessionDelegate, public Interface_  // NOS
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<Interface_>, AnyError> make(cetl::pmr::memory_resource& memory,
-                                                                         TransportDelegate&          delegate,
-                                                                         const Params&               params)
+    CETL_NODISCARD static Expected<UniquePtr<Interface_>, AnyFailure> make(cetl::pmr::memory_resource& memory,
+                                                                           TransportDelegate&          delegate,
+                                                                           const Params&               params)
     {
         if (params.service_id > UDPARD_SERVICE_ID_MAX)
         {
@@ -78,9 +79,16 @@ public:
     SvcRxSession(const Spec, TransportDelegate& delegate, const Params& params)
         : delegate_{delegate}
         , params_{params}
+        , rpc_port_{}
     {
-        // TODO: Implement!
-        (void) delegate_;
+        const std::int8_t result = ::udpardRxRPCDispatcherListen(&delegate.getUdpardRpcDispatcher(),
+                                                                 &rpc_port_,
+                                                                 params.service_id,
+                                                                 IsRequest,
+                                                                 params.extent_bytes);
+        (void) result;
+        CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
+        CETL_DEBUG_ASSERT(result == 1, "A new registration has been expected to be created.");
     }
 
     SvcRxSession(const SvcRxSession&)                = delete;
@@ -90,6 +98,12 @@ public:
 
     ~SvcRxSession()
     {
+        const std::int8_t result =
+            ::udpardRxRPCDispatcherCancel(&delegate_.getUdpardRpcDispatcher(), params_.service_id, IsRequest);
+        (void) result;
+        CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
+        CETL_DEBUG_ASSERT(result == 1, "Existing registration has been expected to be cancelled.");
+
         delegate_.onSessionEvent(typename SessionEvent::Destroyed{params_.service_id});
     }
 
@@ -113,13 +127,13 @@ private:
         const auto timeout_us = std::chrono::duration_cast<std::chrono::microseconds>(timeout);
         if (timeout_us.count() > 0)
         {
-            // TODO: Implement!
+            rpc_port_.port.transfer_id_timeout_usec = static_cast<UdpardMicrosecond>(timeout_us.count());
         }
     }
 
     // MARK: IRunnable
 
-    IRunnable::MaybeError run(const TimePoint) override
+    IRunnable::MaybeFailure run(const TimePoint) override
     {
         // Nothing to do here currently.
         return {};
@@ -127,15 +141,25 @@ private:
 
     // MARK: IRxSessionDelegate
 
-    void acceptRxTransfer(UdpardRxTransfer&) override
+    void acceptRxTransfer(UdpardRxTransfer& inout_transfer) override
     {
-        // TODO: Implement!
+        const auto priority  = static_cast<Priority>(inout_transfer.priority);
+        const auto timestamp = TimePoint{std::chrono::microseconds{inout_transfer.timestamp_usec}};
+
+        TransportDelegate::UdpardMemory udpard_memory{delegate_, inout_transfer};
+
+        const ServiceTransferMetadata meta{inout_transfer.transfer_id,
+                                           timestamp,
+                                           priority,
+                                           inout_transfer.source_node_id};
+        (void) last_rx_transfer_.emplace(ServiceRxTransfer{meta, ScatteredBuffer{std::move(udpard_memory)}});
     }
 
     // MARK: Data members:
 
     TransportDelegate&                delegate_;
     const Params                      params_;
+    UdpardRxRPCPort                   rpc_port_;
     cetl::optional<ServiceRxTransfer> last_rx_transfer_;
 
 };  // SvcRxSession
@@ -144,12 +168,13 @@ private:
 
 /// @brief A concrete class to represent a service request RX session (aka server side).
 ///
-using SvcRequestRxSession = SvcRxSession<IRequestRxSession, RequestRxParams, TransportDelegate::SessionEvent::Request>;
+using SvcRequestRxSession =
+    SvcRxSession<IRequestRxSession, RequestRxParams, TransportDelegate::SessionEvent::Request, true /*IsRequest*/>;
 
 /// @brief A concrete class to represent a service response RX session (aka client side).
 ///
 using SvcResponseRxSession =
-    SvcRxSession<IResponseRxSession, ResponseRxParams, TransportDelegate::SessionEvent::Response>;
+    SvcRxSession<IResponseRxSession, ResponseRxParams, TransportDelegate::SessionEvent::Response, false /*IsRequest*/>;
 
 }  // namespace detail
 }  // namespace udp

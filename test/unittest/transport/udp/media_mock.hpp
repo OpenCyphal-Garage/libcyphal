@@ -39,7 +39,7 @@ public:
                 (),
                 (override));
 
-    MOCK_METHOD((Expected<UniquePtr<IRxSocket>, cetl::variant<MemoryError, PlatformError, ArgumentError>>),
+    MOCK_METHOD((Expected<UniquePtr<IRxSocket>, MakeRxSocketFailure>),
                 makeRxSocket,
                 (const IpEndpoint& multicast_endpoint),
                 (override));

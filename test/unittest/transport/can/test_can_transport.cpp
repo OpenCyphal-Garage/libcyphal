@@ -151,7 +151,7 @@ TEST_F(TestCanTransport, makeTransport_no_memory_at_all)
 
     std::array<IMedia*, 1> media_array{&media_mock_};
     auto                   maybe_transport = can::makeTransport(mr_mock, media_array, 0);
-    EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<MemoryError>(_)));
+    EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<MemoryError>(_)));
 }
 
 TEST_F(TestCanTransport, makeTransport_no_memory_for_impl)
@@ -164,7 +164,7 @@ TEST_F(TestCanTransport, makeTransport_no_memory_for_impl)
 
     std::array<IMedia*, 1> media_array{&media_mock_};
     auto                   maybe_transport = can::makeTransport(mr_mock, media_array, 0);
-    EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<MemoryError>(_)));
+    EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<MemoryError>(_)));
 }
 
 TEST_F(TestCanTransport, makeTransport_too_many_media)
@@ -174,7 +174,7 @@ TEST_F(TestCanTransport, makeTransport_too_many_media)
     std::fill(media_array.begin(), media_array.end(), &media_mock_);
 
     auto maybe_transport = can::makeTransport(mr_, media_array, 0);
-    EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<ArgumentError>(_)));
 }
 
 TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
@@ -255,7 +255,7 @@ TEST_F(TestCanTransport, makeTransport_with_invalid_arguments)
 {
     // No media
     const auto maybe_transport = can::makeTransport(mr_, {}, 0);
-    EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<ArgumentError>(_)));
 }
 
 TEST_F(TestCanTransport, getProtocolParams)
@@ -304,7 +304,7 @@ TEST_F(TestCanTransport, makeMessageRxSession_invalid_subject_id)
     auto transport = makeTransport(mr_);
 
     auto maybe_rx_session = transport->makeMessageRxSession({0, CANARD_SUBJECT_ID_MAX + 1});
-    EXPECT_THAT(maybe_rx_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_rx_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
 }
 
 TEST_F(TestCanTransport, makeMessageRxSession_invalid_resubscription)
@@ -317,7 +317,7 @@ TEST_F(TestCanTransport, makeMessageRxSession_invalid_resubscription)
     ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
 
     auto maybe_rx_session2 = transport->makeMessageRxSession({0, test_subject_id});
-    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
+    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
 
     // Now release the first session and try to subscribe again - should succeed.
     {
@@ -339,7 +339,7 @@ TEST_F(TestCanTransport, makeRequestRxSession_invalid_resubscription)
     ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
 
     auto maybe_rx_session2 = transport->makeRequestRxSession({0, test_subject_id});
-    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
+    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
 
     // Now release the first session and try to subscribe again - should succeed.
     {
@@ -361,7 +361,7 @@ TEST_F(TestCanTransport, makeResponseRxSession_invalid_resubscription)
     ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
 
     auto maybe_rx_session2 = transport->makeResponseRxSession({0, test_subject_id, 0x31});
-    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
+    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
 
     // Now release the first session and try to subscribe again - should succeed.
     {
@@ -400,8 +400,8 @@ TEST_F(TestCanTransport, sending_multiframe_payload_should_fail_for_anonymous)
     const auto             payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC>(b('0'));
     const TransferMetadata metadata{0x13, send_time, Priority::Nominal};
 
-    auto maybe_error = session->send(metadata, makeSpansFrom(payload));
-    EXPECT_THAT(maybe_error, Optional(VariantWith<ArgumentError>(_)));
+    auto failure = session->send(metadata, makeSpansFrom(payload));
+    EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
 
     scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     scheduler_.runNow(10us, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
@@ -425,8 +425,8 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
     const auto             payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC>(b('0'));
     const TransferMetadata metadata{0x13, send_time, Priority::Nominal};
 
-    auto maybe_error = session->send(metadata, makeSpansFrom(payload));
-    EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+    auto failure = session->send(metadata, makeSpansFrom(payload));
+    EXPECT_THAT(failure, Eq(cetl::nullopt));
 
     {
         const InSequence s;
@@ -479,8 +479,8 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
     const auto             payload = makeIotaArray<10>(b('0'));
     const TransferMetadata metadata{0x13, send_time, Priority::Nominal};
 
-    auto maybe_error = session->send(metadata, makeSpansFrom(payload));
-    EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+    auto failure = session->send(metadata, makeSpansFrom(payload));
+    EXPECT_THAT(failure, Eq(cetl::nullopt));
 
     {
         const InSequence s;
@@ -547,15 +547,15 @@ TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
     const TransferMetadata metadata{0x13, send_time, Priority::Nominal};
 
     // First attempt to send payload.
-    auto maybe_error = session->send(metadata, makeSpansFrom(payload));
-    EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+    auto failure = session->send(metadata, makeSpansFrom(payload));
+    EXPECT_THAT(failure, Eq(cetl::nullopt));
 
     // 1st run: media #0 and there is no transient error handler; its frame should be dropped.
     {
         EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce(Return(CapacityError{}));
 
         scheduler_.runNow(+10us, [&] {
-            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<CapacityError>(_)));
+            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<CapacityError>(_)));
         });
     }
     // 2nd run: media #1 and transient error handler have failed; its frame should be dropped.
@@ -563,7 +563,7 @@ TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
         StrictMock<TransientErrorHandlerMock> handler_mock{};
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<MediaPushReport>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.error, VariantWith<CapacityError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<CapacityError>(_));
                         EXPECT_THAT(report.media_index, 1);
                         EXPECT_THAT(report.culprit, Ref(media_mock2));
                         return true;
@@ -573,7 +573,7 @@ TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
         EXPECT_CALL(media_mock2, push(_, _, _)).WillOnce(Return(CapacityError{}));
 
         scheduler_.runNow(+10us, [&] {
-            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<CapacityError>(_)));
+            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<CapacityError>(_)));
         });
 
         // No frames should be left in the session.
@@ -588,7 +588,7 @@ TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
         StrictMock<TransientErrorHandlerMock> handler_mock{};
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<MediaPushReport>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.error, VariantWith<CapacityError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<CapacityError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         EXPECT_THAT(report.culprit, Ref(media_mock_));
                         return true;
@@ -629,7 +629,7 @@ TEST_F(TestCanTransport, send_payload_to_out_of_capacity_canard_tx)
         StrictMock<TransientErrorHandlerMock> handler_mock{};
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<CanardTxPushReport>(Truly([](auto& report) {
-                        EXPECT_THAT(report.error, VariantWith<MemoryError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<MemoryError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         EXPECT_THAT(report.culprit, Truly([](auto& canard_ins) {
                                         EXPECT_THAT(canard_ins.node_id, 0x45);
@@ -639,26 +639,26 @@ TEST_F(TestCanTransport, send_payload_to_out_of_capacity_canard_tx)
                     }))))
             .WillOnce(Return(StateError{}));
 
-        auto opt_any_error = session->send(metadata, makeSpansFrom(payload));
-        EXPECT_THAT(opt_any_error, Optional(VariantWith<StateError>(_)));
+        auto failure = session->send(metadata, makeSpansFrom(payload));
+        EXPECT_THAT(failure, Optional(VariantWith<StateError>(_)));
     }
     // 2nd. Try to send a frame with "succeeding" handler - both media indices will be used.
     {
         StrictMock<TransientErrorHandlerMock> handler_mock{};
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<CanardTxPushReport>(Truly([](auto& report) {
-                        EXPECT_THAT(report.error, VariantWith<MemoryError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<MemoryError>(_));
                         return report.media_index == 0;
                     }))))
             .WillOnce(Return(cetl::nullopt));
         EXPECT_CALL(handler_mock, invoke(VariantWith<CanardTxPushReport>(Truly([](auto& report) {
-                        EXPECT_THAT(report.error, VariantWith<MemoryError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<MemoryError>(_));
                         return report.media_index == 1;
                     }))))
             .WillOnce(Return(cetl::nullopt));
 
-        auto opt_any_error = session->send(metadata, makeSpansFrom(payload));
-        EXPECT_THAT(opt_any_error, Eq(cetl::nullopt));
+        auto failure = session->send(metadata, makeSpansFrom(payload));
+        EXPECT_THAT(failure, Eq(cetl::nullopt));
     }
 }
 
@@ -834,7 +834,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_fallible_m
         EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(ArgumentError{}));
 
         scheduler_.runNow(+1s, [&] {
-            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<ArgumentError>(_)));
+            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
         });
     }
     // 2nd run: media #0 pop and transient error handler have failed.
@@ -842,7 +842,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_fallible_m
         StrictMock<TransientErrorHandlerMock> handler_mock{};
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<MediaPopReport>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.error, VariantWith<ArgumentError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<ArgumentError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         EXPECT_THAT(report.culprit, Ref(media_mock_));
                         return true;
@@ -852,7 +852,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_fallible_m
         EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(ArgumentError{}));
 
         scheduler_.runNow(+1s, [&] {
-            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<CapacityError>(_)));
+            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<CapacityError>(_)));
         });
     }
     // 3rd run: media #0 pop failed but transient error handler succeeded.
@@ -860,7 +860,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_fallible_m
         StrictMock<TransientErrorHandlerMock> handler_mock{};
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<MediaPopReport>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.error, VariantWith<ArgumentError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<ArgumentError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         EXPECT_THAT(report.culprit, Ref(media_mock_));
                         return true;
@@ -909,7 +909,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_with_fallible_oom_canard)
     // 1st run: canard RX has failed to accept frame and there is no transient error handler.
     {
         scheduler_.runNow(+1s, [&] {
-            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<MemoryError>(_)));
+            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
         });
         EXPECT_THAT(session->receive(), Eq(cetl::nullopt));
     }
@@ -920,7 +920,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_with_fallible_oom_canard)
         EXPECT_CALL(handler_mock, invoke(_)).WillOnce(Return(StateError{}));
 
         scheduler_.runNow(+1s, [&] {
-            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<StateError>(_)));
+            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<StateError>(_)));
         });
         EXPECT_THAT(session->receive(), Eq(cetl::nullopt));
     }
@@ -1027,10 +1027,10 @@ TEST_F(TestCanTransport, run_setFilters_no_memory)
     EXPECT_CALL(mr_mock, do_reallocate(nullptr, 0, _, _)).Times(2).WillRepeatedly(Return(nullptr));
 #endif
     scheduler_.runNow(+1s, [&] {
-        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<MemoryError>(_)));
+        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
     });
     scheduler_.runNow(+1s, [&] {
-        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<MemoryError>(_)));
+        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
     });
 
     // Restore normal memory operation, but make media fail to accept filters.
@@ -1039,14 +1039,14 @@ TEST_F(TestCanTransport, run_setFilters_no_memory)
     EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).Times(2).WillRepeatedly(Return(PlatformError{MyPlatformError{13}}));
     //
     scheduler_.runNow(+1s, [&] {
-        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<PlatformError>(Truly([](auto err) {
+        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<PlatformError>(Truly([](auto err) {
                         EXPECT_THAT(err->code(), 13);
                         return true;
                     }))));
     });
     scheduler_.runNow(+1s, [&] {
         EXPECT_THAT(transport->run(now()),
-                    UbVariantWith<AnyError>(VariantWith<PlatformError>(Truly([](const auto& err) {
+                    UbVariantWith<AnyFailure>(VariantWith<PlatformError>(Truly([](const auto& err) {
                         EXPECT_THAT(err->code(), 13);
                         return true;
                     }))));
@@ -1080,7 +1080,7 @@ TEST_F(TestCanTransport, run_setFilters_no_transient_handler)
     EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(CapacityError{}));
     //
     scheduler_.runNow(+1s, [&] {
-        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<CapacityError>(_)));
+        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<CapacityError>(_)));
     });
 
     // 2nd `run`: Now `media_mock_.setFilters` succeeds,
@@ -1114,7 +1114,7 @@ TEST_F(TestCanTransport, run_setFilters_with_transient_handler)
     //
     transport->setTransientErrorHandler([&](Report::Variant& report_var) {
         EXPECT_THAT(report_var, VariantWith<Report::MediaConfig>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.error, VariantWith<CapacityError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<CapacityError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         EXPECT_THAT(report.culprit, Ref(media_mock_));
                         return true;
@@ -1123,15 +1123,16 @@ TEST_F(TestCanTransport, run_setFilters_with_transient_handler)
     });
     EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(CapacityError{}));
     //
-    scheduler_.runNow(+1s,
-                      [&] { EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<StateError>(_))); });
+    scheduler_.runNow(+1s, [&] {
+        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<StateError>(_)));
+    });
 
     // 2nd `run`: `media_mock_.setFilters` will fail again but now handler will handle the error,
     //            and so redundant `media_mock2` will be called as well.
     //
     transport->setTransientErrorHandler([&](Report::Variant& report_var) {
         EXPECT_THAT(report_var, VariantWith<Report::MediaConfig>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.error, VariantWith<CapacityError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<CapacityError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         EXPECT_THAT(report.culprit, Ref(media_mock_));
                         return true;

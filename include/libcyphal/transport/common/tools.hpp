@@ -20,13 +20,13 @@ namespace common
 namespace detail
 {
 
-/// @brief Converts a compatible (aka subset) error variant to transport's `AnyError` one.
+/// @brief Converts a compatible (aka subset) failure variant to transport's `AnyFailure` one.
 ///
-template <typename ErrorVariant>
-CETL_NODISCARD static AnyError anyErrorFromVariant(ErrorVariant&& error_var)
+template <typename Failure>
+CETL_NODISCARD static AnyFailure anyFailureFromVariant(Failure&& failure)
 {
-    return cetl::visit([](auto&& error) -> AnyError { return std::forward<decltype(error)>(error); },
-                       std::forward<ErrorVariant>(error_var));
+    return cetl::visit([](auto&& failure) -> AnyFailure { return std::forward<decltype(failure)>(failure); },
+                       std::forward<Failure>(failure));
 }
 
 }  // namespace detail

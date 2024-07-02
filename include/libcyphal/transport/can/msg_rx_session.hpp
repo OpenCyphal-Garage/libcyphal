@@ -53,8 +53,8 @@ class MessageRxSession final : private IRxSessionDelegate, public IMessageRxSess
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<IMessageRxSession>, AnyError> make(TransportDelegate&     delegate,
-                                                                                const MessageRxParams& params)
+    CETL_NODISCARD static Expected<UniquePtr<IMessageRxSession>, AnyFailure> make(TransportDelegate&     delegate,
+                                                                                  const MessageRxParams& params)
     {
         if (params.subject_id > CANARD_SUBJECT_ID_MAX)
         {
@@ -133,7 +133,7 @@ private:
 
     // MARK: IRunnable
 
-    IRunnable::MaybeError run(const TimePoint) override
+    IRunnable::MaybeFailure run(const TimePoint) override
     {
         // Nothing to do here currently.
         return {};

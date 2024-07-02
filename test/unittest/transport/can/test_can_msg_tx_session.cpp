@@ -121,7 +121,7 @@ TEST_F(TestCanMsgTxSession, make_no_memory)
     auto transport = makeTransport(mr_mock);
 
     auto maybe_session = transport->makeMessageTxSession({0x23});
-    EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
+    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
 }
 
 TEST_F(TestCanMsgTxSession, make_fails_due_to_argument_error)
@@ -130,7 +130,7 @@ TEST_F(TestCanMsgTxSession, make_fails_due_to_argument_error)
 
     // Try invalid subject id
     auto maybe_session = transport->makeMessageTxSession({CANARD_SUBJECT_ID_MAX + 1});
-    EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
 }
 
 TEST_F(TestCanMsgTxSession, send_empty_payload_and_no_transport_run)
@@ -144,8 +144,8 @@ TEST_F(TestCanMsgTxSession, send_empty_payload_and_no_transport_run)
     const PayloadFragments empty_payload{};
     const TransferMetadata metadata{0x1AF52, {}, Priority::Low};
 
-    auto maybe_error = session->send(metadata, empty_payload);
-    EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+    auto failure = session->send(metadata, empty_payload);
+    EXPECT_THAT(failure, Eq(cetl::nullopt));
 
     scheduler_.runNow(+10ms, [&] { session->run(scheduler_.now()); });
 
@@ -171,8 +171,8 @@ TEST_F(TestCanMsgTxSession, send_empty_payload)
     const PayloadFragments empty_payload{};
     const TransferMetadata metadata{0x3AF52, send_time, Priority::Low};
 
-    auto maybe_error = session->send(metadata, empty_payload);
-    EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+    auto failure = session->send(metadata, empty_payload);
+    EXPECT_THAT(failure, Eq(cetl::nullopt));
 
     EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto payload) {
         EXPECT_THAT(now(), send_time + 10ms);
@@ -206,8 +206,8 @@ TEST_F(TestCanMsgTxSession, send_empty_expired_payload)
     const PayloadFragments empty_payload{};
     const TransferMetadata metadata{0x11, send_time, Priority::Low};
 
-    auto maybe_error = session->send(metadata, empty_payload);
-    EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+    auto failure = session->send(metadata, empty_payload);
+    EXPECT_THAT(failure, Eq(cetl::nullopt));
 
     // Emulate run calls just on the very edge of the default 1s timeout (exactly at the deadline).
     // Payload should NOT be sent but dropped instead.
@@ -235,8 +235,8 @@ TEST_F(TestCanMsgTxSession, send_7bytes_payload_with_500ms_timeout)
     const auto             payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC - 1>(b('1'));
     const TransferMetadata metadata{0x03, send_time, Priority::High};
 
-    auto maybe_error = session->send(metadata, makeSpansFrom(payload));
-    EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+    auto failure = session->send(metadata, makeSpansFrom(payload));
+    EXPECT_THAT(failure, Eq(cetl::nullopt));
 
     // Emulate run calls just on the very edge of the 500ms deadline (just 1us before it).
     // Payload should be sent successfully.
@@ -278,8 +278,8 @@ TEST_F(TestCanMsgTxSession, send_when_no_memory_for_contiguous_payload)
 
     const TransferMetadata metadata{0x03, send_time, Priority::Optional};
 
-    auto maybe_error = session->send(metadata, makeSpansFrom(payload1, payload2));
-    EXPECT_THAT(maybe_error, Optional(VariantWith<MemoryError>(_)));
+    auto failure = session->send(metadata, makeSpansFrom(payload1, payload2));
+    EXPECT_THAT(failure, Optional(VariantWith<MemoryError>(_)));
 
     scheduler_.runNow(+10ms, [&] { transport->run(scheduler_.now()); });
 }

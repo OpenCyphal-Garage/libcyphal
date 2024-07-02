@@ -55,7 +55,7 @@ public:
         releaseNodes(nodes_);
     }
 
-    CETL_NODISCARD Expected<NodeRef, AnyError> ensureNewNodeFor(const PortId port_id)
+    CETL_NODISCARD Expected<NodeRef, AnyFailure> ensureNewNodeFor(const PortId port_id)
     {
         auto const node_existing = nodes_.search([port_id](const Node& node) { return node.compareWith(port_id); },
                                                  [port_id, this]() { return constructNewNode(port_id); });

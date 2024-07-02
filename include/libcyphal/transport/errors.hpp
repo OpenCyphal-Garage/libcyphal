@@ -19,8 +19,6 @@ namespace libcyphal
 namespace transport
 {
 
-// TODO: Add docs about taxonomy of results, successes, failures, and primitive errors.
-
 struct StateError final
 {};
 
@@ -58,28 +56,32 @@ using PlatformError = ImplementationCell<IPlatformError, cetl::unbounded_variant
 struct AlreadyExistsError final
 {};
 
-// TODO: Delete it when everything is implemented.
-struct NotImplementedError final
-{};
-
 /// @brief Defines any possible error at Cyphal transport layer.
 ///
-using AnyError = cetl::variant<StateError,
-                               AnonymousError,
-                               ArgumentError,
-                               MemoryError,
-                               CapacityError,
-                               PlatformError,
-                               AlreadyExistsError,
-                               NotImplementedError>;
+/// General taxonomy of results of transport layer methods is such that:
+/// - A method returns (via `cetl::variant`) either an expected `Success` type, or a `Failure` type.
+/// - If the success result type is `void`, then `cetl::optional<Failure>` in in use (instead of `cetl::variant`).
+/// - The failure result type is a `cetl::variant` of all possible "primitive" error types that may occur in the method.
+///   The "Failure" suffix is used to denote such types; and "Error" suffix denotes the "primitive" error types.
+/// - Some methods may have a limited set of expected error types (comparing f.e. with broader `AnyFailure`),
+///   in which case a custom `cetl::variant` failure type is defined (see below `FactoryFailure` or `MediaFailure`).
+///
+using AnyFailure =  //
+    cetl::variant<StateError,
+                  AnonymousError,
+                  ArgumentError,
+                  MemoryError,
+                  CapacityError,
+                  PlatformError,
+                  AlreadyExistsError>;
 
 /// @brief Defines any possible factory error at Cyphal transport layer.
 ///
-using FactoryError = cetl::variant<ArgumentError, MemoryError, NotImplementedError>;
+using FactoryFailure = cetl::variant<ArgumentError, MemoryError>;
 
 /// @brief Defines any possible error at Cyphal media layer.
 ///
-using MediaError = cetl::variant<ArgumentError, PlatformError, CapacityError>;
+using MediaFailure = cetl::variant<ArgumentError, PlatformError, CapacityError>;
 
 }  // namespace transport
 }  // namespace libcyphal
@@ -89,7 +91,7 @@ namespace cetl
 
 // C6271889-BCF8-43A9-8D79-FA64FC3EFD93
 template <>
-constexpr type_id type_id_getter<libcyphal::transport::AnyError>() noexcept
+constexpr type_id type_id_getter<libcyphal::transport::AnyFailure>() noexcept
 {
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
     return {0xC6, 0x27, 0x18, 0x89, 0xBC, 0xF8, 0x43, 0xA9, 0x8D, 0x79, 0xFA, 0x64, 0xFC, 0x3E, 0xFD, 0x93};

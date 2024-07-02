@@ -37,9 +37,16 @@ protected:
     class MyConcrete final : public cetl::rtti_helper<MyConcreteTypeIdType, MyInterface>
     {
     public:
-        explicit MyConcrete(std::string name) : name_{std::move(name)} {}
+        explicit MyConcrete(std::string name)
+            : name_{std::move(name)}
+        {
+        }
+
     private:
-        std::string what() const override { return "MyConcrete " + name_; }
+        std::string what() const override
+        {
+            return "MyConcrete " + name_;
+        }
         std::string name_;
     };
 };
@@ -51,7 +58,7 @@ TEST_F(TestTypes, ImplementationCell)
     using ub_var = cetl::unbounded_variant<sizeof(MyConcrete)>;
     using MyCell = libcyphal::ImplementationCell<MyInterface, ub_var>;
 
-    const MyConcrete my_concrete{"A"};
+    const MyConcrete                                         my_concrete{"A"};
     const libcyphal::ImplementationCell<MyInterface, ub_var> my_cell0{my_concrete};
     EXPECT_THAT(!!my_cell0, true);
     EXPECT_THAT(my_cell0->what(), "MyConcrete A");

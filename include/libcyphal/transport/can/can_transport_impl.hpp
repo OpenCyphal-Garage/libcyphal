@@ -105,9 +105,9 @@ class TransportImpl final : private TransportDelegate, public ICanTransport  // 
     using MediaArray = libcyphal::detail::VarArray<Media>;
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<ICanTransport>, FactoryError> make(cetl::pmr::memory_resource& memory,
-                                                                                const cetl::span<IMedia*>   media,
-                                                                                const std::size_t           tx_capacity)
+    CETL_NODISCARD static Expected<UniquePtr<ICanTransport>, FactoryFailure> make(cetl::pmr::memory_resource& memory,
+                                                                                  const cetl::span<IMedia*>   media,
+                                                                                  const std::size_t tx_capacity)
     {
         // Verify input arguments:
         // - At least one media interface must be provided, but no more than the maximum allowed (255).
@@ -200,7 +200,7 @@ private:
         {
             return ArgumentError{};
         }
-        canard_node_id() = static_cast<CanardNodeID>(new_node_id);
+        setNodeId(new_node_id);
 
         // We just became non-anonymous node, so we might need to reconfigure media filters
         // in case we have at least one service RX port.
@@ -228,55 +228,55 @@ private:
                               CANARD_NODE_ID_MAX + 1};
     }
 
-    CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
+    CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyFailure> makeMessageRxSession(
         const MessageRxParams& params) override
     {
-        const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindMessage, params.subject_id);
-        if (any_error.has_value())
+        const cetl::optional<AnyFailure> failure = ensureNewSessionFor(CanardTransferKindMessage, params.subject_id);
+        if (failure.has_value())
         {
-            return any_error.value();
+            return failure.value();
         }
 
         return MessageRxSession::make(asDelegate(), params);
     }
 
-    CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(
+    CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyFailure> makeMessageTxSession(
         const MessageTxParams& params) override
     {
         return MessageTxSession::make(asDelegate(), params);
     }
 
-    CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(
+    CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyFailure> makeRequestRxSession(
         const RequestRxParams& params) override
     {
-        const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindRequest, params.service_id);
-        if (any_error.has_value())
+        const cetl::optional<AnyFailure> failure = ensureNewSessionFor(CanardTransferKindRequest, params.service_id);
+        if (failure.has_value())
         {
-            return any_error.value();
+            return failure.value();
         }
 
         return SvcRequestRxSession::make(asDelegate(), params);
     }
 
-    CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(
+    CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyFailure> makeRequestTxSession(
         const RequestTxParams& params) override
     {
         return SvcRequestTxSession::make(asDelegate(), params);
     }
 
-    CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(
+    CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyFailure> makeResponseRxSession(
         const ResponseRxParams& params) override
     {
-        const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindResponse, params.service_id);
-        if (any_error.has_value())
+        const cetl::optional<AnyFailure> failure = ensureNewSessionFor(CanardTransferKindResponse, params.service_id);
+        if (failure.has_value())
         {
-            return any_error.value();
+            return failure.value();
         }
 
         return SvcResponseRxSession::make(asDelegate(), params);
     }
 
-    CETL_NODISCARD Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(
+    CETL_NODISCARD Expected<UniquePtr<IResponseTxSession>, AnyFailure> makeResponseTxSession(
         const ResponseTxParams& params) override
     {
         return SvcResponseTxSession::make(asDelegate(), params);
@@ -284,29 +284,29 @@ private:
 
     // MARK: IRunnable
 
-    CETL_NODISCARD IRunnable::MaybeError run(const TimePoint now) override
+    CETL_NODISCARD IRunnable::MaybeFailure run(const TimePoint now) override
     {
-        cetl::optional<AnyError> any_error{};
+        cetl::optional<AnyFailure> failure{};
 
         // We deliberately first run TX as much as possible, and only then running RX -
         // transmission will release resources (like TX queue items) and make room for new incoming frames.
         //
-        any_error = runMediaTransmit(now);
-        if (any_error.has_value())
+        failure = runMediaTransmit(now);
+        if (failure.has_value())
         {
-            return any_error.value();
+            return failure.value();
         }
         //
-        any_error = runMediaReceive();
-        if (any_error.has_value())
+        failure = runMediaReceive();
+        if (failure.has_value())
         {
-            return any_error.value();
+            return failure.value();
         }
 
-        any_error = runMediaFilters();
-        if (any_error.has_value())
+        failure = runMediaFilters();
+        if (failure.has_value())
         {
-            return any_error.value();
+            return failure.value();
         }
 
         return {};
@@ -319,9 +319,9 @@ private:
         return *this;
     }
 
-    CETL_NODISCARD cetl::optional<AnyError> sendTransfer(const TimePoint               deadline,
-                                                         const CanardTransferMetadata& metadata,
-                                                         const PayloadFragments        payload_fragments) override
+    CETL_NODISCARD cetl::optional<AnyFailure> sendTransfer(const TimePoint               deadline,
+                                                           const CanardTransferMetadata& metadata,
+                                                           const PayloadFragments        payload_fragments) override
     {
         // libcanard currently does not support fragmented payloads (at `canardTxPush`).
         // so we need to concatenate them when there are more than one non-empty fragment.
@@ -333,7 +333,6 @@ private:
             return MemoryError{};
         }
 
-        cetl::optional<AnyError> opt_any_error;
         const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(deadline.time_since_epoch());
 
         for (Media& media : media_array_)
@@ -348,16 +347,17 @@ private:
                                                        payload.size(),
                                                        payload.data());  // NOSONAR cpp:S5356
 
-            opt_any_error = tryHandleTransientCanardResult<TransientErrorReport::CanardTxPush>(media, result);
-            if (opt_any_error.has_value())
+            cetl::optional<AnyFailure> failure =
+                tryHandleTransientCanardResult<TransientErrorReport::CanardTxPush>(media, result);
+            if (failure.has_value())
             {
                 // The handler (if any) just said that it's NOT fine to continue with pushing to other media TX queues,
-                // and the error should not be ignored but propagated outside.
-                break;
+                // and the failure should not be ignored but propagated outside.
+                return failure;
             }
         }
 
-        return opt_any_error;
+        return cetl::nullopt;
     }
 
     void triggerUpdateOfFilters(const FiltersUpdate::Variant& update_var) override
@@ -413,35 +413,35 @@ private:
     };  // FiltersUpdateHandler
 
     template <typename Report>
-    CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientMediaError(const Media& media, MediaError&& error)
+    CETL_NODISCARD cetl::optional<AnyFailure> tryHandleTransientMediaError(const Media& media, MediaFailure&& error)
     {
-        AnyError any_error = common::detail::anyErrorFromVariant(std::move(error));
+        AnyFailure failure = common::detail::anyFailureFromVariant(std::move(error));
         if (!transient_error_handler_)
         {
-            return any_error;
+            return failure;
         }
 
-        TransientErrorReport::Variant report_var{Report{std::move(any_error), media.index(), media.interface()}};
+        TransientErrorReport::Variant report_var{Report{std::move(failure), media.index(), media.interface()}};
         return transient_error_handler_(report_var);
     }
 
     template <typename Report>
-    CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientCanardResult(const Media&       media,
-                                                                           const std::int32_t result)
+    CETL_NODISCARD cetl::optional<AnyFailure> tryHandleTransientCanardResult(const Media&       media,
+                                                                             const std::int32_t result)
     {
-        cetl::optional<AnyError> opt_any_error = optAnyErrorFromCanard(result);
-        if (opt_any_error.has_value() && transient_error_handler_)
+        cetl::optional<AnyFailure> failure = optAnyFailureFromCanard(result);
+        if (failure.has_value() && transient_error_handler_)
         {
             TransientErrorReport::Variant report_var{
-                Report{std::move(opt_any_error.value()), media.index(), canard_instance()}};
+                Report{std::move(failure.value()), media.index(), canard_instance()}};
 
-            opt_any_error = transient_error_handler_(report_var);
+            failure = transient_error_handler_(report_var);
         }
-        return opt_any_error;
+        return failure;
     }
 
-    CETL_NODISCARD cetl::optional<AnyError> ensureNewSessionFor(const CanardTransferKind transfer_kind,
-                                                                const PortId             port_id) noexcept
+    CETL_NODISCARD cetl::optional<AnyFailure> ensureNewSessionFor(const CanardTransferKind transfer_kind,
+                                                                  const PortId             port_id) noexcept
     {
         const std::int8_t has_port = ::canardRxGetSubscription(&canard_instance(), transfer_kind, port_id, nullptr);
         CETL_DEBUG_ASSERT(has_port >= 0, "There is no way currently to get an error here.");
@@ -493,30 +493,28 @@ private:
         }
     }
 
-    cetl::optional<AnyError> runMediaReceive()
+    cetl::optional<AnyFailure> runMediaReceive()
     {
-        cetl::optional<AnyError> opt_any_error{};
-
         for (const Media& media : media_array_)
         {
-            opt_any_error = runSingleMediaReceive(media);
-            if (opt_any_error.has_value())
+            cetl::optional<AnyFailure> failure = runSingleMediaReceive(media);
+            if (failure.has_value())
             {
-                break;
+                return failure;
             }
         }
 
-        return opt_any_error;
+        return cetl::nullopt;
     }
 
-    cetl::optional<AnyError> runSingleMediaReceive(const Media& media)
+    cetl::optional<AnyFailure> runSingleMediaReceive(const Media& media)
     {
         std::array<cetl::byte, CANARD_MTU_MAX> payload{};
 
-        Expected<cetl::optional<RxMetadata>, MediaError> pop_result = media.interface().pop(payload);
-        if (auto* const error = cetl::get_if<MediaError>(&pop_result))
+        Expected<cetl::optional<RxMetadata>, MediaFailure> pop_result = media.interface().pop(payload);
+        if (auto* const failure = cetl::get_if<MediaFailure>(&pop_result))
         {
-            return tryHandleTransientMediaError<TransientErrorReport::MediaPop>(media, std::move(*error));
+            return tryHandleTransientMediaError<TransientErrorReport::MediaPop>(media, std::move(*failure));
         }
         const auto& opt_rx_meta = cetl::get<cetl::optional<RxMetadata>>(pop_result);
         if (!opt_rx_meta.has_value())
@@ -540,9 +538,9 @@ private:
                                                     &out_transfer,
                                                     &out_subscription);
 
-        cetl::optional<AnyError> opt_any_error =
+        cetl::optional<AnyFailure> failure =
             tryHandleTransientCanardResult<TransientErrorReport::CanardRxAccept>(media, result);
-        if ((!opt_any_error.has_value()) && (result > 0))
+        if ((!failure.has_value()) && (result > 0))
         {
             CETL_DEBUG_ASSERT(out_subscription != nullptr, "Expected subscription.");
             CETL_DEBUG_ASSERT(out_subscription->user_reference != nullptr, "Expected session delegate.");
@@ -554,32 +552,30 @@ private:
             delegate->acceptRxTransfer(out_transfer);
         }
 
-        return opt_any_error;
+        return failure;
     }
 
     /// @brief Runs transmission loop for each redundant media interface.
     ///
-    CETL_NODISCARD cetl::optional<AnyError> runMediaTransmit(const TimePoint now)
+    CETL_NODISCARD cetl::optional<AnyFailure> runMediaTransmit(const TimePoint now)
     {
-        cetl::optional<AnyError> opt_any_error{};
-
         for (Media& media : media_array_)
         {
-            opt_any_error = runSingleMediaTransmit(media, now);
-            if (opt_any_error.has_value())
+            cetl::optional<AnyFailure> failure = runSingleMediaTransmit(media, now);
+            if (failure.has_value())
             {
-                break;
+                return failure;
             }
         }
 
-        return opt_any_error;
+        return cetl::nullopt;
     }
 
     /// @brief Runs transmission loop for a single media interface.
     ///
     /// Transmits as much as possible frames that are ready to be sent by the media interface.
     ///
-    CETL_NODISCARD cetl::optional<AnyError> runSingleMediaTransmit(Media& media, const TimePoint now)
+    CETL_NODISCARD cetl::optional<AnyFailure> runSingleMediaTransmit(Media& media, const TimePoint now)
     {
         while (const CanardTxQueueItem* const tx_item = ::canardTxPeek(&media.canard_tx_queue()))
         {
@@ -603,7 +599,7 @@ private:
                 static_cast<const cetl::byte*>(tx_item->frame.payload);  // NOSONAR cpp:S5356 cpp:S5357
             const cetl::span<const cetl::byte> payload{buffer, tx_item->frame.payload_size};
 
-            Expected<bool, MediaError> maybe_pushed =
+            Expected<bool, MediaFailure> maybe_pushed =
                 media.interface().push(deadline, tx_item->frame.extended_can_id, payload);
 
             // In case of media push error we are going to drop this problematic frame
@@ -612,18 +608,18 @@ private:
             // Note that media not being ready/able to push a frame just yet (aka temporary)
             // is not reported as an error (see `is_pushed` below).
             //
-            if (auto* const error = cetl::get_if<MediaError>(&maybe_pushed))
+            if (auto* const media_failure = cetl::get_if<MediaFailure>(&maybe_pushed))
             {
                 // Release whole problematic transfer from the TX queue,
                 // so that other transfers in TX queue have their chance.
                 // Otherwise, we would be stuck in a run loop trying to push the same frame.
                 popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, true /*whole transfer*/);
 
-                cetl::optional<AnyError> opt_any_error =
-                    tryHandleTransientMediaError<TransientErrorReport::MediaPush>(media, std::move(*error));
-                if (opt_any_error.has_value())
+                cetl::optional<AnyFailure> failure =
+                    tryHandleTransientMediaError<TransientErrorReport::MediaPush>(media, std::move(*media_failure));
+                if (failure.has_value())
                 {
-                    return opt_any_error;
+                    return failure;
                 }
 
                 // The handler just said that it's fine to continue with pushing other frames
@@ -662,7 +658,7 @@ private:
     /// But in case of any failure (memory allocation or media error),
     /// `should_reconfigure_filters_` will stay engaged (`true`), so that we will try again on next run.
     ///
-    CETL_NODISCARD cetl::optional<AnyError> runMediaFilters()
+    CETL_NODISCARD cetl::optional<AnyFailure> runMediaFilters()
     {
         if (!should_reconfigure_filters_)
         {
@@ -682,20 +678,21 @@ private:
         bool was_error = false;
         for (const Media& media : media_array_)
         {
-            cetl::optional<MediaError> error = media.interface().setFilters({filters.data(), filters.size()});
-            if (error.has_value())
+            cetl::optional<MediaFailure> media_failure = media.interface().setFilters({filters.data(), filters.size()});
+            if (media_failure.has_value())
             {
                 was_error = true;
 
-                cetl::optional<AnyError> opt_any_error =
-                    tryHandleTransientMediaError<TransientErrorReport::MediaConfig>(media, std::move(error.value()));
-                if (opt_any_error.has_value())
+                cetl::optional<AnyFailure> failure =
+                    tryHandleTransientMediaError<TransientErrorReport::MediaConfig>(media,
+                                                                                    std::move(media_failure.value()));
+                if (failure.has_value())
                 {
                     // The handler (if any) just said that it's NOT fine to continue with configuring other media,
                     // and the error should not be ignored but propagated outside.
                     // Note that `should_reconfigure_filters_` still stays engaged, so we will try again on next run.
                     //
-                    return opt_any_error;
+                    return failure;
                 }
             }
         }
@@ -718,9 +715,9 @@ private:
         // Total "active" RX ports depends on the local node ID. For anonymous nodes,
         // we don't account for service ports (b/c they don't work while being anonymous).
         //
-        const CanardNodeID local_node_id      = canard_node_id();
-        const auto         is_anonymous       = local_node_id > CANARD_NODE_ID_MAX;
-        const std::size_t  total_active_ports = total_message_ports_ + (is_anonymous ? 0 : total_service_ports_);
+        const auto        local_node_id      = static_cast<CanardNodeID>(node_id());
+        const auto        is_anonymous       = local_node_id > CANARD_NODE_ID_MAX;
+        const std::size_t total_active_ports = total_message_ports_ + (is_anonymous ? 0 : total_service_ports_);
         if (total_active_ports == 0)
         {
             // No need to allocate memory for zero filters.
@@ -791,9 +788,9 @@ private:
 /// @param tx_capacity Total number of frames that can be queued for transmission per `IMedia` instance.
 /// @return Unique pointer to the new CAN transport instance or an error.
 ///
-inline Expected<UniquePtr<ICanTransport>, FactoryError> makeTransport(cetl::pmr::memory_resource& memory,
-                                                                      const cetl::span<IMedia*>   media,
-                                                                      const std::size_t           tx_capacity)
+inline Expected<UniquePtr<ICanTransport>, FactoryFailure> makeTransport(cetl::pmr::memory_resource& memory,
+                                                                        const cetl::span<IMedia*>   media,
+                                                                        const std::size_t           tx_capacity)
 {
     return detail::TransportImpl::make(memory, media, tx_capacity);
 }

@@ -33,6 +33,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -101,6 +102,11 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
             return udpard_tx_;
         }
 
+        UniquePtr<IRxSocket>& rx_socket_ptr()
+        {
+            return rx_socket_ptr_;
+        }
+
         UniquePtr<ITxSocket>& tx_socket_ptr()
         {
             return tx_socket_ptr_;
@@ -115,15 +121,17 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
         const std::uint8_t   index_;
         IMedia&              interface_;
         UdpardTx             udpard_tx_;
+        UniquePtr<IRxSocket> rx_socket_ptr_;
         UniquePtr<ITxSocket> tx_socket_ptr_;
     };
     using MediaArray = libcyphal::detail::VarArray<Media>;
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<IUdpTransport>, FactoryError> make(const MemoryResourcesSpec& mem_res_spec,
-                                                                                IMultiplexer&              multiplexer,
-                                                                                const cetl::span<IMedia*>  media,
-                                                                                const std::size_t          tx_capacity)
+    CETL_NODISCARD static Expected<UniquePtr<IUdpTransport>, FactoryFailure> make(
+        const MemoryResourcesSpec& mem_res_spec,
+        IMultiplexer&              multiplexer,
+        const cetl::span<IMedia*>  media,
+        const std::size_t          tx_capacity)
     {
         // Verify input arguments:
         // - At least one media interface must be provided, but no more than the maximum allowed (3).
@@ -182,7 +190,7 @@ public:
     {
         for (auto& media : media_array_)
         {
-            media.udpard_tx().local_node_id = &udpard_node_id();
+            media.udpard_tx().local_node_id = &node_id();
         }
 
         // TODO: Use it!
@@ -239,7 +247,8 @@ private:
         {
             return ArgumentError{};
         }
-        udpard_node_id() = new_node_id;
+
+        svc_rx_sockets_endpoint_ = setNodeId(new_node_id);
 
         return cetl::nullopt;
     }
@@ -255,59 +264,71 @@ private:
         return ProtocolParams{std::numeric_limits<TransferId>::max(), min_mtu, UDPARD_NODE_ID_MAX + 1};
     }
 
-    CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
+    CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyFailure> makeMessageRxSession(
         const MessageRxParams& params) override
     {
         return makeAnyRxSession<IMessageRxSession, MessageRxSession>(params.subject_id, params, msg_rx_session_nodes_);
     }
 
-    CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(
+    CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyFailure> makeMessageTxSession(
         const MessageTxParams& params) override
     {
-        auto any_error = ensureMediaTxSockets();
-        if (any_error.has_value())
+        auto failure = ensureMediaTxSockets();
+        if (failure.has_value())
         {
-            return any_error.value();
+            return failure.value();
         }
 
         return MessageTxSession::make(memoryResources().general, asDelegate(), params);
     }
 
-    CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(
+    CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyFailure> makeRequestRxSession(
         const RequestRxParams& params) override
     {
+        auto failure = ensureMediaRxSockets();
+        if (failure.has_value())
+        {
+            return failure.value();
+        }
+
         return makeAnyRxSession<IRequestRxSession, SvcRequestRxSession>(params.service_id,
                                                                         params,
                                                                         svc_request_rx_session_nodes_);
     }
 
-    CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(
+    CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyFailure> makeRequestTxSession(
         const RequestTxParams& params) override
     {
-        auto any_error = ensureMediaTxSockets();
-        if (any_error.has_value())
+        auto failure = ensureMediaTxSockets();
+        if (failure.has_value())
         {
-            return any_error.value();
+            return failure.value();
         }
 
         return SvcRequestTxSession::make(memoryResources().general, asDelegate(), params);
     }
 
-    CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(
+    CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyFailure> makeResponseRxSession(
         const ResponseRxParams& params) override
     {
+        auto failure = ensureMediaRxSockets();
+        if (failure.has_value())
+        {
+            return failure.value();
+        }
+
         return makeAnyRxSession<IResponseRxSession, SvcResponseRxSession>(params.service_id,
                                                                           params,
                                                                           svc_response_rx_session_nodes_);
     }
 
-    CETL_NODISCARD Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(
+    CETL_NODISCARD Expected<UniquePtr<IResponseTxSession>, AnyFailure> makeResponseTxSession(
         const ResponseTxParams& params) override
     {
-        auto any_error = ensureMediaTxSockets();
-        if (any_error.has_value())
+        auto failure = ensureMediaTxSockets();
+        if (failure.has_value())
         {
-            return any_error.value();
+            return failure.value();
         }
 
         return SvcResponseTxSession::make(memoryResources().general, asDelegate(), params);
@@ -315,17 +336,23 @@ private:
 
     // MARK: IRunnable
 
-    CETL_NODISCARD IRunnable::MaybeError run(const TimePoint now) override
+    CETL_NODISCARD IRunnable::MaybeFailure run(const TimePoint now) override
     {
-        cetl::optional<AnyError> any_error{};
+        cetl::optional<AnyFailure> failure{};
 
         // We deliberately first run TX as much as possible, and only then running RX -
         // transmission will release resources (like TX queue items) and make room for new incoming frames.
         //
-        any_error = runMediaTransmit(now);
-        if (any_error.has_value())
+        failure = runMediaTransmit(now);
+        if (failure.has_value())
         {
-            return any_error.value();
+            return failure.value();
+        }
+        //
+        failure = runMediaReceive();
+        if (failure.has_value())
+        {
+            return failure.value();
         }
 
         return {};
@@ -338,8 +365,8 @@ private:
         return *this;
     }
 
-    CETL_NODISCARD cetl::optional<AnyError> sendAnyTransfer(const AnyUdpardTxMetadata::Variant& tx_metadata_var,
-                                                            const PayloadFragments payload_fragments) override
+    CETL_NODISCARD cetl::optional<AnyFailure> sendAnyTransfer(const AnyUdpardTxMetadata::Variant& tx_metadata_var,
+                                                              const PayloadFragments payload_fragments) override
     {
         // Udpard currently does not support fragmented payloads (at `udpardTx[Publish|Request|Respond]`).
         // so we need to concatenate them when there are more than one non-empty fragment.
@@ -352,27 +379,27 @@ private:
             return MemoryError{};
         }
 
-        cetl::optional<AnyError> opt_any_error;
-
         for (Media& some_media : media_array_)
         {
-            opt_any_error = withEnsureMediaTxSocket(some_media,
-                                                    [this, &tx_metadata_var, &payload](auto& media, auto& tx_socket)
-                                                        -> cetl::optional<AnyError> {
-                                                        media.udpard_tx().mtu = tx_socket.getMtu();
+            cetl::optional<AnyFailure> failure =
+                withEnsureMediaTxSocket(some_media,
+                                        [this,
+                                         &tx_metadata_var,
+                                         &payload](auto& media, auto& tx_socket) -> cetl::optional<AnyFailure> {
+                                            media.udpard_tx().mtu = tx_socket.getMtu();
 
-                                                        const TxTransferHandler transfer_handler{*this, media, payload};
-                                                        return cetl::visit(transfer_handler, tx_metadata_var);
-                                                    });
-            if (opt_any_error.has_value())
+                                            const TxTransferHandler transfer_handler{*this, media, payload};
+                                            return cetl::visit(transfer_handler, tx_metadata_var);
+                                        });
+            if (failure.has_value())
             {
                 // The handler (if any) just said that it's NOT fine to continue with transferring to
                 // other media TX queues, and the error should not be ignored but propagated outside.
-                break;
+                return failure;
             }
         }
 
-        return opt_any_error;
+        return cetl::nullopt;
     }
 
     void onSessionEvent(const SessionEvent::Variant& event_var) override
@@ -400,7 +427,7 @@ private:
         {
         }
 
-        cetl::optional<AnyError> operator()(const AnyUdpardTxMetadata::Publish& tx_metadata) const
+        cetl::optional<AnyFailure> operator()(const AnyUdpardTxMetadata::Publish& tx_metadata) const
         {
             const std::int32_t result = ::udpardTxPublish(&media_.udpard_tx(),
                                                           tx_metadata.deadline_us,
@@ -410,10 +437,12 @@ private:
                                                           payload_,
                                                           nullptr);
 
-            return self_.tryHandleTransientUdpardResult<TransientErrorReport::UdpardTxPublish>(media_, result);
+            return self_.tryHandleTransientUdpardResult<TransientErrorReport::UdpardTxPublish>(media_,
+                                                                                               result,
+                                                                                               media_.udpard_tx());
         }
 
-        cetl::optional<AnyError> operator()(const AnyUdpardTxMetadata::Request& tx_metadata) const
+        cetl::optional<AnyFailure> operator()(const AnyUdpardTxMetadata::Request& tx_metadata) const
         {
             const std::int32_t result = ::udpardTxRequest(&media_.udpard_tx(),
                                                           tx_metadata.deadline_us,
@@ -424,10 +453,12 @@ private:
                                                           payload_,
                                                           nullptr);
 
-            return self_.tryHandleTransientUdpardResult<TransientErrorReport::UdpardTxRequest>(media_, result);
+            return self_.tryHandleTransientUdpardResult<TransientErrorReport::UdpardTxRequest>(media_,
+                                                                                               result,
+                                                                                               media_.udpard_tx());
         }
 
-        cetl::optional<AnyError> operator()(const AnyUdpardTxMetadata::Respond& tx_metadata) const
+        cetl::optional<AnyFailure> operator()(const AnyUdpardTxMetadata::Respond& tx_metadata) const
         {
             const std::int32_t result = ::udpardTxRespond(&media_.udpard_tx(),
                                                           tx_metadata.deadline_us,
@@ -438,7 +469,9 @@ private:
                                                           payload_,
                                                           nullptr);
 
-            return self_.tryHandleTransientUdpardResult<TransientErrorReport::UdpardTxRespond>(media_, result);
+            return self_.tryHandleTransientUdpardResult<TransientErrorReport::UdpardTxRespond>(media_,
+                                                                                               result,
+                                                                                               media_.udpard_tx());
         }
 
     private:
@@ -477,16 +510,16 @@ private:
 
     template <typename SessionInterface, typename Concrete, typename RxParams, typename Tree>
     CETL_NODISCARD auto makeAnyRxSession(const PortId port_id, const RxParams& rx_params, Tree& tree_nodes)  //
-        -> Expected<UniquePtr<SessionInterface>, AnyError>
+        -> Expected<UniquePtr<SessionInterface>, AnyFailure>
     {
         auto node_result = tree_nodes.ensureNewNodeFor(port_id);
-        if (auto* const any_error = cetl::get_if<AnyError>(&node_result))
+        if (auto* const failure = cetl::get_if<AnyFailure>(&node_result))
         {
-            return std::move(*any_error);
+            return std::move(*failure);
         }
 
         auto session_result = Concrete::make(memoryResources().general, asDelegate(), rx_params);
-        if (nullptr != cetl::get_if<AnyError>(&session_result))
+        if (nullptr != cetl::get_if<AnyFailure>(&session_result))
         {
             tree_nodes.removeNodeFor(port_id);
         }
@@ -495,35 +528,36 @@ private:
     }
 
     template <typename Report, typename ErrorVariant, typename Culprit>
-    CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientMediaError(const Media&   media,
-                                                                         ErrorVariant&& error_var,
-                                                                         Culprit&&      culprit)
+    CETL_NODISCARD cetl::optional<AnyFailure> tryHandleTransientMediaError(const Media&   media,
+                                                                           ErrorVariant&& error_var,
+                                                                           Culprit&&      culprit)
     {
-        AnyError any_error = common::detail::anyErrorFromVariant(std::forward<ErrorVariant>(error_var));
+        AnyFailure failure = common::detail::anyFailureFromVariant(std::forward<ErrorVariant>(error_var));
         if (!transient_error_handler_)
         {
-            return any_error;
+            return failure;
         }
 
         TransientErrorReport::Variant report_var{
-            Report{std::move(any_error), media.index(), std::forward<Culprit>(culprit)}};
+            Report{std::move(failure), media.index(), std::forward<Culprit>(culprit)}};
 
         return transient_error_handler_(report_var);
     }
 
-    template <typename Report>
-    CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientUdpardResult(Media&             media,
-                                                                           const std::int32_t result) const
+    template <typename Report, typename Culprit>
+    CETL_NODISCARD cetl::optional<AnyFailure> tryHandleTransientUdpardResult(Media&             media,
+                                                                             const std::int32_t result,
+                                                                             Culprit&&          culprit) const
     {
-        cetl::optional<AnyError> opt_any_error = optAnyErrorFromUdpard(result);
-        if (opt_any_error.has_value() && transient_error_handler_)
+        cetl::optional<AnyFailure> failure = optAnyFailureFromUdpard(result);
+        if (failure.has_value() && transient_error_handler_)
         {
             TransientErrorReport::Variant report_var{
-                Report{std::move(opt_any_error.value()), media.index(), media.udpard_tx()}};
+                Report{std::move(failure.value()), media.index(), std::forward<Culprit>(culprit)}};
 
-            opt_any_error = transient_error_handler_(report_var);
+            failure = transient_error_handler_(report_var);
         }
-        return opt_any_error;
+        return failure;
     }
 
     CETL_NODISCARD static MediaArray makeMediaArray(cetl::pmr::memory_resource&       memory,
@@ -560,16 +594,16 @@ private:
     /// @brief Tries to run an action with media and its TX socket (the latter one is made on demand if necessary).
     ///
     template <typename Action>
-    CETL_NODISCARD cetl::optional<AnyError> withEnsureMediaTxSocket(Media& media, Action&& action)
+    CETL_NODISCARD cetl::optional<AnyFailure> withEnsureMediaTxSocket(Media& media, Action&& action)
     {
-        using ErrorReport = TransientErrorReport::MediaMakeTxSocket;
-
         if (!media.tx_socket_ptr())
         {
+            using ErrorReport = TransientErrorReport::MediaMakeTxSocket;
+
             auto maybe_tx_socket = media.interface().makeTxSocket();
-            if (auto* const error = cetl::get_if<cetl::variant<MemoryError, PlatformError>>(&maybe_tx_socket))
+            if (auto* const failure = cetl::get_if<IMedia::MakeTxSocketFailure>(&maybe_tx_socket))
             {
-                return tryHandleTransientMediaError<ErrorReport>(media, std::move(*error), media.interface());
+                return tryHandleTransientMediaError<ErrorReport>(media, std::move(*failure), media.interface());
             }
 
             media.tx_socket_ptr() = cetl::get<UniquePtr<ITxSocket>>(std::move(maybe_tx_socket));
@@ -584,15 +618,15 @@ private:
         return std::forward<Action>(action)(media, *media.tx_socket_ptr());
     }
 
-    CETL_NODISCARD cetl::optional<AnyError> ensureMediaTxSockets()
+    CETL_NODISCARD cetl::optional<AnyFailure> ensureMediaTxSockets()
     {
         for (Media& media : media_array_)
         {
-            cetl::optional<AnyError> any_error =
+            cetl::optional<AnyFailure> failure =
                 withEnsureMediaTxSocket(media, [](auto&, auto&) -> cetl::nullopt_t { return cetl::nullopt; });
-            if (any_error.has_value())
+            if (failure.has_value())
             {
-                return any_error;
+                return failure;
             }
         }
 
@@ -610,34 +644,31 @@ private:
 
     /// @brief Runs transmission loop for each redundant media interface.
     ///
-    CETL_NODISCARD cetl::optional<AnyError> runMediaTransmit(const TimePoint now)
+    CETL_NODISCARD cetl::optional<AnyFailure> runMediaTransmit(const TimePoint now)
     {
-        cetl::optional<AnyError> opt_any_error{};
-
         for (Media& some_media : media_array_)
         {
-            opt_any_error =
+            cetl::optional<AnyFailure> failure =
                 withEnsureMediaTxSocket(some_media,
-                                        [this, now](Media& media, ITxSocket& tx_socket) -> cetl::optional<AnyError> {
+                                        [this, now](Media& media, ITxSocket& tx_socket) -> cetl::optional<AnyFailure> {
                                             return runSingleMediaTransmit(media, tx_socket, now);
                                         });
-
-            if (opt_any_error.has_value())
+            if (failure.has_value())
             {
-                break;
+                return failure;
             }
         }
 
-        return opt_any_error;
+        return cetl::nullopt;
     }
 
     /// @brief Runs transmission loop for a single media interface and its TX socket.
     ///
     /// Transmits as much as possible frames that are ready to be sent by the media TX socket interface.
     ///
-    CETL_NODISCARD cetl::optional<AnyError> runSingleMediaTransmit(Media&          media,
-                                                                   ITxSocket&      tx_socket,
-                                                                   const TimePoint now)
+    CETL_NODISCARD cetl::optional<AnyFailure> runSingleMediaTransmit(Media&          media,
+                                                                     ITxSocket&      tx_socket,
+                                                                     const TimePoint now)
     {
         using PayloadFragment = cetl::span<const cetl::byte>;
 
@@ -676,20 +707,20 @@ private:
             // Note that socket not being ready/able to send a frame just yet (aka temporary)
             // is not reported as an error (see `is_sent` below).
             //
-            if (auto* const failure = cetl::get_if<ITxSocket::SendFailure>(&maybe_sent))
+            if (auto* const send_failure = cetl::get_if<ITxSocket::SendFailure>(&maybe_sent))
             {
                 // Release whole problematic transfer from the TX queue,
                 // so that other transfers in TX queue have their chance.
                 // Otherwise, we would be stuck in a run loop trying to send the same frame.
                 popAndFreeUdpardTxItem(&media.udpard_tx(), tx_item, true /*whole transfer*/);
 
-                cetl::optional<AnyError> opt_any_error =
+                cetl::optional<AnyFailure> failure =
                     tryHandleTransientMediaError<TransientErrorReport::MediaTxSocketSend>(media,
-                                                                                          std::move(*failure),
+                                                                                          std::move(*send_failure),
                                                                                           tx_socket);
-                if (opt_any_error.has_value())
+                if (failure.has_value())
                 {
-                    return opt_any_error;
+                    return failure;
                 }
 
                 // The handler just said that it's fine to continue with sending other frames
@@ -717,6 +748,132 @@ private:
         return cetl::nullopt;
     }
 
+    /// @brief Tries to run an action with media and its RX socket (the latter one is made on demand if necessary).
+    ///
+    template <typename Action>
+    CETL_NODISCARD cetl::optional<AnyFailure> withEnsureMediaRxSocket(Media& media, Action&& action)
+    {
+        if (!media.rx_socket_ptr())
+        {
+            using ErrorReport = TransientErrorReport::MediaMakeRxSocket;
+
+            // Missing RX sockets endpoint means that the local node ID is not set yet,
+            // So, node can't be as a destination for any incoming frames - hence nothing to receive.
+            //
+            if (!svc_rx_sockets_endpoint_.has_value())
+            {
+                return cetl::nullopt;
+            }
+
+            auto maybe_rx_socket = media.interface().makeRxSocket(svc_rx_sockets_endpoint_.value());
+            if (auto* const failure = cetl::get_if<IMedia::MakeRxSocketFailure>(&maybe_rx_socket))
+            {
+                return tryHandleTransientMediaError<ErrorReport>(media, std::move(*failure), media.interface());
+            }
+
+            media.rx_socket_ptr() = cetl::get<UniquePtr<IRxSocket>>(std::move(maybe_rx_socket));
+            if (!media.rx_socket_ptr())
+            {
+                return tryHandleTransientMediaError<ErrorReport, cetl::variant<MemoryError>>(media,
+                                                                                             MemoryError{},
+                                                                                             media.interface());
+            }
+        }
+
+        return std::forward<Action>(action)(media, *media.rx_socket_ptr());
+    }
+
+    CETL_NODISCARD cetl::optional<AnyFailure> ensureMediaRxSockets()
+    {
+        for (Media& media : media_array_)
+        {
+            cetl::optional<AnyFailure> failure =
+                withEnsureMediaRxSocket(media, [](auto&, auto&) -> cetl::nullopt_t { return cetl::nullopt; });
+            if (failure.has_value())
+            {
+                return failure;
+            }
+        }
+
+        return cetl::nullopt;
+    }
+
+    cetl::optional<AnyFailure> runMediaReceive()
+    {
+        for (Media& some_media : media_array_)
+        {
+            cetl::optional<AnyFailure> failure =
+                withEnsureMediaRxSocket(some_media,
+                                        [this](Media& media, IRxSocket& rx_socket) -> cetl::optional<AnyFailure> {
+                                            return runSingleMediaReceive(media, rx_socket);
+                                        });
+            if (failure.has_value())
+            {
+                return failure;
+            }
+        }
+
+        return cetl::nullopt;
+    }
+
+    cetl::optional<AnyFailure> runSingleMediaReceive(Media& media, IRxSocket& rx_socket)
+    {
+        using OptReceiveSuccess = cetl::optional<IRxSocket::ReceiveSuccess>;
+        using ReceiveResult     = Expected<OptReceiveSuccess, IRxSocket::ReceiveFailure>;
+
+        // 1. Try to receive a frame from the media RX socket.
+        //
+        ReceiveResult receive_result = rx_socket.receive();
+        if (auto* const failure = cetl::get_if<IRxSocket::ReceiveFailure>(&receive_result))
+        {
+            using RxSocketReport = TransientErrorReport::MediaRxSocketReceive;
+            return tryHandleTransientMediaError<RxSocketReport>(media, std::move(*failure), rx_socket);
+        }
+        const auto& opt_rx_success = cetl::get<OptReceiveSuccess>(receive_result);
+        if (!opt_rx_success.has_value())
+        {
+            return cetl::nullopt;
+        }
+        const IRxSocket::ReceiveSuccess& rx_success = opt_rx_success.value();
+
+        // 2. We've got a new frame from the media RX socket, so let's try to pass it into libudpard.
+
+        const auto timestamp_us =
+            std::chrono::duration_cast<std::chrono::microseconds>(rx_success.timestamp.time_since_epoch());
+
+        // TODO: Fill it with data!
+        const UdpardMutablePayload datagram_payload{};
+
+        UdpardRxRPCTransfer out_transfer{};
+        UdpardRxRPCPort*    out_port{nullptr};
+
+        const std::int8_t result = ::udpardRxRPCDispatcherReceive(&getUdpardRpcDispatcher(),
+                                                                  static_cast<UdpardMicrosecond>(timestamp_us.count()),
+                                                                  datagram_payload,
+                                                                  media.index(),
+                                                                  &out_port,
+                                                                  &out_transfer);
+
+        // 3. We might have result TX transfer (built from fragments by libudpard).
+        //    If so, we need to pass it to the session delegate for storing.
+        //
+        using DispatcherReport = TransientErrorReport::UdpardRxSvcReceive;
+        cetl::optional<AnyFailure> failure =
+            tryHandleTransientUdpardResult<DispatcherReport>(media, result, getUdpardRpcDispatcher());
+        if ((!failure.has_value()) && (result > 0))
+        {
+            CETL_DEBUG_ASSERT(out_port != nullptr, "Expected subscription.");
+            CETL_DEBUG_ASSERT(out_port->user_reference != nullptr, "Expected session delegate.");
+
+            // No Sonar `cpp:S5357` b/c the raw `user_reference` is part of libcanard api,
+            // and it was set by us at a RX session constructor (see f.e. `MessageRxSession` ctor).
+            auto* const delegate = static_cast<IRxSessionDelegate*>(out_port->user_reference);  // NOSONAR cpp:S5357
+            delegate->acceptRxTransfer(out_transfer.base);
+        }
+
+        return failure;
+    }
+
     // MARK: Data members:
 
     MediaArray                               media_array_;
@@ -724,6 +881,7 @@ private:
     SessionTree<RxSessionTreeNode::Message>  msg_rx_session_nodes_;
     SessionTree<RxSessionTreeNode::Request>  svc_request_rx_session_nodes_;
     SessionTree<RxSessionTreeNode::Response> svc_response_rx_session_nodes_;
+    cetl::optional<IpEndpoint>               svc_rx_sockets_endpoint_;
 
 };  // TransportImpl
 
@@ -737,12 +895,12 @@ private:
 /// @param multiplexer Interface of the multiplexer to use.
 /// @param media Collection of redundant media interfaces to use.
 /// @param tx_capacity Total number of frames that can be queued for transmission per `IMedia` instance.
-/// @return Unique pointer to the new UDP transport instance or an error.
+/// @return Unique pointer to the new UDP transport instance or a failure.
 ///
-inline Expected<UniquePtr<IUdpTransport>, FactoryError> makeTransport(const MemoryResourcesSpec& mem_res_spec,
-                                                                      IMultiplexer&              multiplexer,
-                                                                      const cetl::span<IMedia*>  media,
-                                                                      const std::size_t          tx_capacity)
+inline Expected<UniquePtr<IUdpTransport>, FactoryFailure> makeTransport(const MemoryResourcesSpec& mem_res_spec,
+                                                                        IMultiplexer&              multiplexer,
+                                                                        const cetl::span<IMedia*>  media,
+                                                                        const std::size_t          tx_capacity)
 {
     return detail::TransportImpl::make(mem_res_spec, multiplexer, media, tx_capacity);
 }

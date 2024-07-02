@@ -47,9 +47,9 @@ class SvcRequestTxSession final : public IRequestTxSession
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<IRequestTxSession>, AnyError> make(cetl::pmr::memory_resource& memory,
-                                                                                TransportDelegate&          delegate,
-                                                                                const RequestTxParams&      params)
+    CETL_NODISCARD static Expected<UniquePtr<IRequestTxSession>, AnyFailure> make(cetl::pmr::memory_resource& memory,
+                                                                                  TransportDelegate&          delegate,
+                                                                                  const RequestTxParams&      params)
     {
         if ((params.service_id > UDPARD_SERVICE_ID_MAX) || (params.server_node_id > UDPARD_NODE_ID_MAX))
         {
@@ -87,8 +87,8 @@ private:
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<AnyError> send(const TransferMetadata& metadata,
-                                                 const PayloadFragments  payload_fragments) override
+    CETL_NODISCARD cetl::optional<AnyFailure> send(const TransferMetadata& metadata,
+                                                   const PayloadFragments  payload_fragments) override
     {
         // Before delegating to transport it makes sense to do some sanity checks.
         // Otherwise, transport may do some work (like possible payload allocation/copying,
@@ -113,7 +113,7 @@ private:
 
     // MARK: IRunnable
 
-    IRunnable::MaybeError run(const TimePoint) override
+    IRunnable::MaybeFailure run(const TimePoint) override
     {
         // Nothing to do here currently.
         return {};
@@ -143,9 +143,9 @@ class SvcResponseTxSession final : public IResponseTxSession
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<IResponseTxSession>, AnyError> make(cetl::pmr::memory_resource& memory,
-                                                                                 TransportDelegate&          delegate,
-                                                                                 const ResponseTxParams&     params)
+    CETL_NODISCARD static Expected<UniquePtr<IResponseTxSession>, AnyFailure> make(cetl::pmr::memory_resource& memory,
+                                                                                   TransportDelegate&          delegate,
+                                                                                   const ResponseTxParams&     params)
     {
         if (params.service_id > UDPARD_SERVICE_ID_MAX)
         {
@@ -183,8 +183,8 @@ private:
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<AnyError> send(const ServiceTransferMetadata& metadata,
-                                                 const PayloadFragments         payload_fragments) override
+    CETL_NODISCARD cetl::optional<AnyFailure> send(const ServiceTransferMetadata& metadata,
+                                                   const PayloadFragments         payload_fragments) override
     {
         // Before delegating to transport it makes sense to do some sanity checks.
         // Otherwise, transport may do some work (like possible payload allocation/copying,
@@ -209,7 +209,7 @@ private:
 
     // MARK: IRunnable
 
-    IRunnable::MaybeError run(const TimePoint) override
+    IRunnable::MaybeFailure run(const TimePoint) override
     {
         // Nothing to do here currently.
         return {};

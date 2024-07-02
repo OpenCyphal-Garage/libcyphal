@@ -19,6 +19,7 @@
 #include <udpard.h>
 
 #include <chrono>
+#include <cstdint>
 #include <utility>
 
 namespace libcyphal
@@ -51,9 +52,9 @@ class MessageRxSession final : private IRxSessionDelegate, public IMessageRxSess
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<IMessageRxSession>, AnyError> make(cetl::pmr::memory_resource& memory,
-                                                                                TransportDelegate&          delegate,
-                                                                                const MessageRxParams&      params)
+    CETL_NODISCARD static Expected<UniquePtr<IMessageRxSession>, AnyFailure> make(cetl::pmr::memory_resource& memory,
+                                                                                  TransportDelegate&          delegate,
+                                                                                  const MessageRxParams&      params)
     {
         if (params.subject_id > UDPARD_SUBJECT_ID_MAX)
         {
@@ -72,9 +73,14 @@ public:
     MessageRxSession(const Spec, TransportDelegate& delegate, const MessageRxParams& params)
         : delegate_{delegate}
         , params_{params}
+        , subscription_{}
     {
-        // TODO: Implement!
-        (void) delegate_;
+        const std::int8_t result = ::udpardRxSubscriptionInit(&subscription_,
+                                                              params.subject_id,
+                                                              params.extent_bytes,
+                                                              delegate.makeUdpardRxMemoryResources());
+        (void) result;
+        CETL_DEBUG_ASSERT(result == 0, "There is no way currently to get an error here.");
     }
 
     MessageRxSession(const MessageRxSession&)                = delete;
@@ -84,6 +90,8 @@ public:
 
     ~MessageRxSession()
     {
+        ::udpardRxSubscriptionFree(&subscription_);
+
         delegate_.onSessionEvent(SessionEvent::Destroyed{params_.subject_id});
     }
 
@@ -109,13 +117,13 @@ private:
         const auto timeout_us = std::chrono::duration_cast<std::chrono::microseconds>(timeout);
         if (timeout_us.count() > 0)
         {
-            // TODO: Implement!
+            subscription_.port.transfer_id_timeout_usec = static_cast<UdpardMicrosecond>(timeout_us.count());
         }
     }
 
     // MARK: IRunnable
 
-    IRunnable::MaybeError run(const TimePoint) override
+    IRunnable::MaybeFailure run(const TimePoint) override
     {
         // Nothing to do here currently.
         return {};
@@ -143,6 +151,7 @@ private:
 
     TransportDelegate&                delegate_;
     const MessageRxParams             params_;
+    UdpardRxSubscription              subscription_;
     cetl::optional<MessageRxTransfer> last_rx_transfer_;
 
 };  // MessageRxSession

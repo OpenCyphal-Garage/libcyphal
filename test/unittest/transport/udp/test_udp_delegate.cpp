@@ -71,7 +71,7 @@ protected:
 
         // MARK: TransportDelegate
 
-        MOCK_METHOD((cetl::optional<AnyError>),
+        MOCK_METHOD((cetl::optional<AnyFailure>),
                     sendAnyTransfer,
                     (const udp::detail::AnyUdpardTxMetadata::Variant& tx_metadata_var,
                      const PayloadFragments                           payload_fragments),
@@ -326,23 +326,23 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy_empty)
     EXPECT_THAT(udpard_memory.copy(1, buffer.data(), 3), 0);
 }
 
-TEST_F(TestUdpDelegate, optAnyErrorFromUdpard)
+TEST_F(TestUdpDelegate, optAnyFailureFromUdpard)
 {
-    EXPECT_THAT(udp::detail::TransportDelegate::optAnyErrorFromUdpard(-UDPARD_ERROR_MEMORY),
+    EXPECT_THAT(udp::detail::TransportDelegate::optAnyFailureFromUdpard(-UDPARD_ERROR_MEMORY),
                 Optional(VariantWith<MemoryError>(_)));
 
-    EXPECT_THAT(udp::detail::TransportDelegate::optAnyErrorFromUdpard(-UDPARD_ERROR_ARGUMENT),
+    EXPECT_THAT(udp::detail::TransportDelegate::optAnyFailureFromUdpard(-UDPARD_ERROR_ARGUMENT),
                 Optional(VariantWith<ArgumentError>(_)));
 
-    EXPECT_THAT(udp::detail::TransportDelegate::optAnyErrorFromUdpard(-UDPARD_ERROR_CAPACITY),
+    EXPECT_THAT(udp::detail::TransportDelegate::optAnyFailureFromUdpard(-UDPARD_ERROR_CAPACITY),
                 Optional(VariantWith<CapacityError>(_)));
 
-    EXPECT_THAT(udp::detail::TransportDelegate::optAnyErrorFromUdpard(-UDPARD_ERROR_ANONYMOUS),
+    EXPECT_THAT(udp::detail::TransportDelegate::optAnyFailureFromUdpard(-UDPARD_ERROR_ANONYMOUS),
                 Optional(VariantWith<AnonymousError>(_)));
 
-    EXPECT_THAT(udp::detail::TransportDelegate::optAnyErrorFromUdpard(0), Eq(cetl::nullopt));
-    EXPECT_THAT(udp::detail::TransportDelegate::optAnyErrorFromUdpard(1), Eq(cetl::nullopt));
-    EXPECT_THAT(udp::detail::TransportDelegate::optAnyErrorFromUdpard(-1), Eq(cetl::nullopt));
+    EXPECT_THAT(udp::detail::TransportDelegate::optAnyFailureFromUdpard(0), Eq(cetl::nullopt));
+    EXPECT_THAT(udp::detail::TransportDelegate::optAnyFailureFromUdpard(1), Eq(cetl::nullopt));
+    EXPECT_THAT(udp::detail::TransportDelegate::optAnyFailureFromUdpard(-1), Eq(cetl::nullopt));
 }
 
 TEST_F(TestUdpDelegate, makeUdpardMemoryResource)

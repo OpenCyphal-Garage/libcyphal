@@ -22,12 +22,12 @@ namespace udp
 class TransientErrorHandlerMock
 {
 public:
-    cetl::optional<AnyError> operator()(IUdpTransport::TransientErrorReport::Variant& report_var)
+    cetl::optional<AnyFailure> operator()(IUdpTransport::TransientErrorReport::Variant& report_var)
     {
         return invoke(report_var);
     }
 
-    MOCK_METHOD(cetl::optional<AnyError>, invoke, (IUdpTransport::TransientErrorReport::Variant& report_var));
+    MOCK_METHOD(cetl::optional<AnyFailure>, invoke, (IUdpTransport::TransientErrorReport::Variant & report_var));
 };
 
 }  // namespace udp

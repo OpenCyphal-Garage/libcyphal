@@ -20,18 +20,18 @@ class IRunnable
     static constexpr std::size_t MaxErrorSize = sizeof(void*) * 14;
 
 public:
-    /// @brief Defines possible error for the runnable entity.
+    /// @brief Defines possible failure for the runnable entity.
     ///
     /// Empty unbounded_variant represents success (see `unbounded_variant::has_value`).
     ///
-    using MaybeError = cetl::unbounded_variant<MaxErrorSize>;
+    using MaybeFailure = cetl::unbounded_variant<MaxErrorSize>;
 
     IRunnable(const IRunnable&)                = delete;
     IRunnable(IRunnable&&) noexcept            = delete;
     IRunnable& operator=(const IRunnable&)     = delete;
     IRunnable& operator=(IRunnable&&) noexcept = delete;
 
-    virtual MaybeError run(const TimePoint now) = 0;
+    virtual MaybeFailure run(const TimePoint now) = 0;
 
 protected:
     IRunnable()  = default;

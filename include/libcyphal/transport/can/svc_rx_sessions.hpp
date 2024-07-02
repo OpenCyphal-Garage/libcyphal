@@ -60,8 +60,8 @@ class SvcRxSession final : private IRxSessionDelegate, public Interface_  // NOS
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<Interface_>, AnyError> make(TransportDelegate& delegate,
-                                                                         const Params&      params)
+    CETL_NODISCARD static Expected<UniquePtr<Interface_>, AnyFailure> make(TransportDelegate& delegate,
+                                                                           const Params&      params)
     {
         if (params.service_id > CANARD_SERVICE_ID_MAX)
         {
@@ -140,7 +140,7 @@ private:
 
     // MARK: IRunnable
 
-    IRunnable::MaybeError run(const TimePoint) override
+    IRunnable::MaybeFailure run(const TimePoint) override
     {
         // Nothing to do here currently.
         return {};

@@ -9,6 +9,7 @@
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
 #include "libcyphal/transport/types.hpp"
+#include "libcyphal/transport/udp/tx_rx_sockets.hpp"
 #include "libcyphal/types.hpp"
 
 #include <cetl/cetl.hpp>
@@ -70,7 +71,7 @@ struct AnyUdpardTxMetadata
 
 /// This internal transport delegate class serves the following purposes:
 /// 1. It provides memory management functions for the Udpard library.
-/// 2. It provides a way to convert Udpard error codes to `AnyError` type.
+/// 2. It provides a way to convert Udpard error codes to `AnyFailure` type.
 /// 3. It provides an interface to access the transport from various session classes.
 ///
 class TransportDelegate
@@ -224,17 +225,29 @@ public:
     TransportDelegate& operator=(const TransportDelegate&)     = delete;
     TransportDelegate& operator=(TransportDelegate&&) noexcept = delete;
 
-    CETL_NODISCARD NodeId node_id() const noexcept
+    CETL_NODISCARD const NodeId& node_id() const noexcept
     {
         return udpard_node_id_;
     }
 
-    CETL_NODISCARD UdpardNodeID& udpard_node_id() noexcept
+    CETL_NODISCARD IpEndpoint setNodeId(const NodeId node_id) noexcept
     {
-        return udpard_node_id_;
+        udpard_node_id_ = node_id;
+
+        UdpardUDPIPEndpoint endpoint{};
+        const std::int8_t   result = ::udpardRxRPCDispatcherStart(&rpc_dispatcher_, node_id, &endpoint);
+        (void) result;
+        CETL_DEBUG_ASSERT(result == 0, "There is no way currently to get an error here.");
+
+        return {endpoint.ip_address, endpoint.udp_port};
     }
 
-    static cetl::optional<AnyError> optAnyErrorFromUdpard(const std::int32_t result)
+    CETL_NODISCARD UdpardRxRPCDispatcher& getUdpardRpcDispatcher() noexcept
+    {
+        return rpc_dispatcher_;
+    }
+
+    static cetl::optional<AnyFailure> optAnyFailureFromUdpard(const std::int32_t result)
     {
         // Udpard error results are negative, so we need to negate them to get the error code.
         const std::int32_t udpard_error = -result;
@@ -257,6 +270,11 @@ public:
         }
 
         return cetl::nullopt;
+    }
+
+    UdpardRxMemoryResources makeUdpardRxMemoryResources() const
+    {
+        return {memoryResources().session, memoryResources().fragment, memoryResources().payload};
     }
 
     /// Pops and frees Udpard TX queue item(s).
@@ -284,8 +302,9 @@ public:
     ///
     /// Internal method which is in use by TX session implementations to delegate actual sending to transport.
     ///
-    CETL_NODISCARD virtual cetl::optional<AnyError> sendAnyTransfer(const AnyUdpardTxMetadata::Variant& tx_metadata_var,
-                                                                    const PayloadFragments payload_fragments) = 0;
+    CETL_NODISCARD virtual cetl::optional<AnyFailure> sendAnyTransfer(
+        const AnyUdpardTxMetadata::Variant& tx_metadata_var,
+        const PayloadFragments              payload_fragments) = 0;
 
     /// @brief Called on a session event.
     ///
@@ -321,7 +340,11 @@ protected:
     explicit TransportDelegate(const MemoryResources& memory_resources)
         : udpard_node_id_{UDPARD_NODE_ID_UNSET}
         , memory_resources_{memory_resources}
+        , rpc_dispatcher_{}
     {
+        const std::int8_t result = ::udpardRxRPCDispatcherInit(&rpc_dispatcher_, makeUdpardRxMemoryResources());
+        (void) result;
+        CETL_DEBUG_ASSERT(result == 0, "There is no way currently to get an error here.");
     }
 
     ~TransportDelegate() = default;
@@ -380,6 +403,7 @@ private:
 
     UdpardNodeID          udpard_node_id_;
     const MemoryResources memory_resources_;
+    UdpardRxRPCDispatcher rpc_dispatcher_;
 
 };  // TransportDelegate
 
