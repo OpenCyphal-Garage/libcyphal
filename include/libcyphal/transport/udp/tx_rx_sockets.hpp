@@ -121,8 +121,11 @@ public:
         {
             TimePoint   timestamp;
             std::size_t payload_size;
-            // TODO: Use CETL pmr instead of std::unique_ptr.
-            std::unique_ptr<cetl::byte[]> payload;  // NOLINT(*-avoid-c-arrays)
+
+            // TODO: Rework temporary defatult `std::unique_ptr` solution to use PMR.
+            // see https://github.com/OpenCyphal-Garage/libcyphal/issues/352
+            // No lint b/c fixed size `std::array` is not fitting to dynamic size payload.
+            std::unique_ptr<cetl::byte[]> payload_ptr;  // NOLINT(*-avoid-c-arrays)
         };
         using Success = cetl::optional<Metadata>;
         using Failure = cetl::variant<PlatformError, ArgumentError, MemoryError>;

@@ -127,10 +127,10 @@ TEST_F(TestUdpMsgTxSession, make_no_memory)
     StrictMock<MemoryResourceMock> mr_mock{};
     mr_mock.redirectExpectedCallsTo(mr_);
 
+    auto transport = makeTransport({mr_mock});
+
     // Emulate that there is no memory available for the message session.
     EXPECT_CALL(mr_mock, do_allocate(sizeof(udp::detail::MessageTxSession), _)).WillOnce(Return(nullptr));
-
-    auto transport = makeTransport({mr_mock});
 
     auto maybe_session = transport->makeMessageTxSession({0x23});
     EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
