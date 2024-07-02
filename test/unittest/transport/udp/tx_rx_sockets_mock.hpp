@@ -74,7 +74,7 @@ public:
     };  // ReferenceWrapper
 
     explicit TxSocketMock(std::string name)
-        : name_{std::move(name)} {};
+        : name_{std::move(name)} {}
 
     virtual ~TxSocketMock()                          = default;
     TxSocketMock(const TxSocketMock&)                = delete;
@@ -152,7 +152,7 @@ public:
     };  // ReferenceWrapper
 
     explicit RxSocketMock(std::string name)
-        : name_{std::move(name)} {};
+        : name_{std::move(name)} {}
 
     virtual ~RxSocketMock()                          = default;
     RxSocketMock(const RxSocketMock&)                = delete;

@@ -481,9 +481,9 @@ auto Node<Derived>::adjustBalance(const bool increment) noexcept -> Node*
     const auto new_bf = static_cast<std::int8_t>(bf + (increment ? +1 : -1));
     if ((new_bf < -1) || (new_bf > 1))
     {
-        const bool   r    = new_bf < 0;   // bf<0 if left-heavy --> right rotation is needed.
-        const int8_t sign = r ? +1 : -1;  // Positive if we are rotating right.
-        Node* const  z    = lr[!r];
+        const bool        r    = new_bf < 0;   // bf<0 if left-heavy --> right rotation is needed.
+        const std::int8_t sign = r ? +1 : -1;  // Positive if we are rotating right.
+        Node* const       z    = lr[!r];
         CAVL_ASSERT(z != nullptr);  // Heavy side cannot be empty. NOLINTNEXTLINE(clang-analyzer-core.NullDereference)
         if ((z->bf * sign) <= 0)    // Parent and child are heavy on the same side or the child is balanced.
         {
