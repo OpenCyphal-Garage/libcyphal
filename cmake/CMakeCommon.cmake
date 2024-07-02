@@ -100,6 +100,7 @@ cmake_path(APPEND LIBCYPHAL_ROOT "external" OUTPUT_VARIABLE CETLVAST_EXTERNAL_RO
 if (CETL_ENABLE_DEBUG_ASSERT)
     add_compile_definitions("CETL_ENABLE_DEBUG_ASSERT=1")
 else()
+    add_compile_definitions("CAVL_NO_ASSERT=1")
     set(CETL_ENABLE_DEBUG_ASSERT 0)
 endif()
 

@@ -13,8 +13,10 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <udpard.h>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <memory>  // TODO: use CETL pmr instead
 
 namespace libcyphal
 {
@@ -59,6 +61,10 @@ public:
     ///
     static constexpr std::size_t DefaultMtu = UDPARD_MTU_DEFAULT;
 
+    /// @brief Defines the error types that may occur during the `send` operation.
+    ///
+    using SendFailure = cetl::variant<PlatformError, ArgumentError>;
+
     /// @brief Sends payload fragments to this socket.
     ///
     /// The payload may be fragmented to minimize data copying in the user space,
@@ -72,11 +78,10 @@ public:
     /// @return `true` if the payload has been accepted successfully, `false` if the socket is not ready for writing.
     ///         In case of failure, an error is returned.
     ///
-    virtual Expected<bool, cetl::variant<PlatformError, ArgumentError>> send(
-        const TimePoint        deadline,
-        const IpEndpoint       multicast_endpoint,
-        const std::uint8_t     dscp,
-        const PayloadFragments payload_fragments) = 0;
+    virtual Expected<bool, SendFailure> send(const TimePoint        deadline,
+                                             const IpEndpoint       multicast_endpoint,
+                                             const std::uint8_t     dscp,
+                                             const PayloadFragments payload_fragments) = 0;
 
 protected:
     ITxSocket()  = default;
@@ -95,6 +100,27 @@ public:
     IRxSocket(IRxSocket&&) noexcept            = delete;
     IRxSocket& operator=(const IRxSocket&)     = delete;
     IRxSocket& operator=(IRxSocket&&) noexcept = delete;
+
+    /// @brief Defines the error types that may occur during the `receive` operation.
+    ///
+    using ReceiveFailure = cetl::variant<PlatformError, ArgumentError, MemoryError>;
+
+    struct ReceiveSuccess
+    {
+        TimePoint   timestamp;
+        std::size_t payload_size;
+        // TODO: Use CETL pmr instead of std::unique_ptr.
+        std::unique_ptr<cetl::byte[]> payload;  // NOLINT(*-avoid-c-arrays)
+    };
+
+    /// @brief Takes the next payload fragment (aka UDP datagram) from the reception queue unless it's empty.
+    ///
+    /// @param payload_buffer The payload of the frame will be written into the mutable `payload_buffer` (aka span).
+    /// @return Description of a received fragment if available; otherwise an empty optional is returned immediately.
+    ///         `nodiscard` is used to prevent ignoring the return value, which contains not only possible media error,
+    ///         but also important metadata (like `payload_size` field for further parsing of the result payload).
+    ///
+    CETL_NODISCARD virtual Expected<cetl::optional<ReceiveSuccess>, ReceiveFailure> receive() = 0;
 
 protected:
     IRxSocket()  = default;

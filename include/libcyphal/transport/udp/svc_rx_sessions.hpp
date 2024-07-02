@@ -44,7 +44,7 @@ namespace detail
 /// NOSONAR cpp:S4963 for below `class SvcRxSession` - we do directly handle resources here;
 /// namely: in destructor we have to unsubscribe, as well as let delegate to know this fact.
 ///
-template <typename Interface_, typename Params>
+template <typename Interface_, typename Params, typename SessionEvent>
 class SvcRxSession final : private IRxSessionDelegate, public Interface_  // NOSONAR cpp:S4963
 {
     /// @brief Defines private specification for making interface unique ptr.
@@ -90,8 +90,7 @@ public:
 
     ~SvcRxSession()
     {
-        // TODO: Implement!
-        (void) 0;
+        delegate_.onSessionEvent(typename SessionEvent::Destroyed{params_.service_id});
     }
 
 private:
@@ -128,7 +127,7 @@ private:
 
     // MARK: IRxSessionDelegate
 
-    void acceptRxTransfer(const UdpardRxTransfer&) override
+    void acceptRxTransfer(UdpardRxTransfer&) override
     {
         // TODO: Implement!
     }
@@ -145,11 +144,12 @@ private:
 
 /// @brief A concrete class to represent a service request RX session (aka server side).
 ///
-using SvcRequestRxSession = SvcRxSession<IRequestRxSession, RequestRxParams>;
+using SvcRequestRxSession = SvcRxSession<IRequestRxSession, RequestRxParams, TransportDelegate::SessionEvent::Request>;
 
 /// @brief A concrete class to represent a service response RX session (aka client side).
 ///
-using SvcResponseRxSession = SvcRxSession<IResponseRxSession, ResponseRxParams>;
+using SvcResponseRxSession =
+    SvcRxSession<IResponseRxSession, ResponseRxParams, TransportDelegate::SessionEvent::Response>;
 
 }  // namespace detail
 }  // namespace udp

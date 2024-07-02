@@ -19,6 +19,8 @@ namespace libcyphal
 namespace transport
 {
 
+// TODO: Add docs about taxonomy of results, successes, failures, and primitive errors.
+
 struct StateError final
 {};
 

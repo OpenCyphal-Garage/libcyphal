@@ -84,11 +84,12 @@ public:
 
     ~MessageRxSession()
     {
-        // TODO: Implement!
-        (void) 0;
+        delegate_.onSessionEvent(SessionEvent::Destroyed{params_.subject_id});
     }
 
 private:
+    using SessionEvent = TransportDelegate::SessionEvent::Message;
+
     // MARK: IMessageRxSession
 
     CETL_NODISCARD MessageRxParams getParams() const noexcept override
@@ -122,9 +123,20 @@ private:
 
     // MARK: IRxSessionDelegate
 
-    void acceptRxTransfer(const UdpardRxTransfer&) override
+    void acceptRxTransfer(UdpardRxTransfer& inout_transfer) override
     {
-        // TODO: Implement!
+        const auto priority  = static_cast<Priority>(inout_transfer.priority);
+        const auto timestamp = TimePoint{std::chrono::microseconds{inout_transfer.timestamp_usec}};
+
+        const cetl::optional<NodeId> publisher_node_id =
+            inout_transfer.source_node_id > UDPARD_NODE_ID_MAX
+                ? cetl::nullopt
+                : cetl::make_optional<NodeId>(inout_transfer.source_node_id);
+
+        TransportDelegate::UdpardMemory udpard_memory{delegate_, inout_transfer};
+
+        const MessageTransferMetadata meta{inout_transfer.transfer_id, timestamp, priority, publisher_node_id};
+        (void) last_rx_transfer_.emplace(MessageRxTransfer{meta, ScatteredBuffer{std::move(udpard_memory)}});
     }
 
     // MARK: Data members:
