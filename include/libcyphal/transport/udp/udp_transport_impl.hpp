@@ -29,6 +29,7 @@
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
+#include <cetl/visit_helpers.hpp>
 #include <udpard.h>
 
 #include <algorithm>
@@ -406,8 +407,17 @@ private:
     {
         cetl::visit(
             [this](const auto& event) {
-                SessionEventHandler handler_with{*this};
-                cetl::visit(handler_with, event);
+                cetl::visit(cetl::make_overloaded(
+                                [this](const SessionEvent::Message::Destroyed& msg_session_destroyed) {
+                                    msg_rx_session_nodes_.removeNodeFor(msg_session_destroyed.subject_id);
+                                },
+                                [this](const SessionEvent::Request::Destroyed& req_session_destroyed) {
+                                    svc_request_rx_session_nodes_.removeNodeFor(req_session_destroyed.service_id);
+                                },
+                                [this](const SessionEvent::Response::Destroyed& res_session_destroyed) {
+                                    svc_response_rx_session_nodes_.removeNodeFor(res_session_destroyed.service_id);
+                                }),
+                            event);
             },
             event_var);
     }
@@ -480,33 +490,6 @@ private:
         const struct UdpardPayload payload_;
 
     };  // TxTransferHandler
-
-    struct SessionEventHandler
-    {
-        explicit SessionEventHandler(Self& self)
-            : self_{self}
-        {
-        }
-
-        void operator()(const SessionEvent::Message::Destroyed& event) &
-        {
-            self_.msg_rx_session_nodes_.removeNodeFor(event.subject_id);
-        }
-
-        void operator()(const SessionEvent::Request::Destroyed& event) &
-        {
-            self_.svc_request_rx_session_nodes_.removeNodeFor(event.service_id);
-        }
-
-        void operator()(const SessionEvent::Response::Destroyed& event) &
-        {
-            self_.svc_response_rx_session_nodes_.removeNodeFor(event.service_id);
-        }
-
-    private:
-        Self& self_;
-
-    };  // SessionEventHandler
 
     template <typename SessionInterface, typename Concrete, typename RxParams, typename Tree>
     CETL_NODISCARD auto makeAnyRxSession(const PortId port_id, const RxParams& rx_params, Tree& tree_nodes)  //
