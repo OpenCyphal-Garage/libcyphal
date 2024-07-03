@@ -89,6 +89,9 @@ public:
         (void) result;
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result == 1, "A new registration has been expected to be created.");
+
+        // No Sonar `cpp:S5356` b/c we integrate here with C libudpard API.
+        rpc_port_.user_reference = static_cast<IRxSessionDelegate*>(this);  // NOSONAR cpp:S5356
     }
 
     SvcRxSession(const SvcRxSession&)                = delete;

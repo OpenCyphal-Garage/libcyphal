@@ -528,7 +528,7 @@ private:
     }
 
     template <typename Report, typename Culprit>
-    CETL_NODISCARD cetl::optional<AnyFailure> tryHandleTransientUdpardResult(Media&             media,
+    CETL_NODISCARD cetl::optional<AnyFailure> tryHandleTransientUdpardResult(const Media&       media,
                                                                              const std::int32_t result,
                                                                              Culprit&&          culprit) const
     {

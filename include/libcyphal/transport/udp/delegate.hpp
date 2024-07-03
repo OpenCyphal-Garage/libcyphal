@@ -392,6 +392,12 @@ private:
                                           const size_t size,
                                           void* const  pointer)  // NOSONAR cpp:S5008
     {
+        CETL_DEBUG_ASSERT((pointer != nullptr) || (size == 0), "");
+        if (nullptr == pointer)
+        {
+            return;
+        }
+
         // No Sonar `cpp:S5356` and `cpp:S5357` b/c the raw `user_reference` is part of libudpard api,
         // and it was set by us at `makeUdpardMemoryResource` call.
         auto* const mr = static_cast<cetl::pmr::memory_resource*>(user_reference);  // NOSONAR cpp:S5356 cpp:S5357

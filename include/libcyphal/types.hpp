@@ -182,7 +182,7 @@ struct PmrRawBytesDeleter final
     ///                      The buffer size is expected to be the same as the size passed to the constructor.
     ///                      If `nullptr` is passed, no action is taken.
     ///
-    void operator()(cetl::byte* raw_bytes_ptr) const
+    void operator()(cetl::byte* const raw_bytes_ptr) const
     {
         CETL_DEBUG_ASSERT((nullptr != memory_resource_) || (nullptr == raw_bytes_ptr),
                           "Memory resource should not be `nullptr` in case of non-`nullptr` buffer.");
@@ -196,11 +196,12 @@ struct PmrRawBytesDeleter final
     }
 
 private:
+    // No Sonar `cpp:S5356` b/c we check here low level PMR alignment expectation.
     static bool isAligned(cetl::byte* const raw_bytes_ptr, const std::size_t size)
     {
         std::size_t space = size;
-        void*       ptr   = static_cast<void*>(raw_bytes_ptr);
-        return raw_bytes_ptr == std::align(alignof(std::max_align_t), size, ptr, space);
+        auto*       ptr   = static_cast<void*>(raw_bytes_ptr);                            // NOSONAR:cpp:S5356
+        return raw_bytes_ptr == std::align(alignof(std::max_align_t), size, ptr, space);  // NOSONAR:cpp:S5356
     }
 
     // MARK: Data members:

@@ -22,11 +22,11 @@ namespace detail
 
 /// @brief Converts a compatible (aka subset) failure variant to transport's `AnyFailure` one.
 ///
-template <typename Failure>
-CETL_NODISCARD static AnyFailure anyFailureFromVariant(Failure&& failure)
+template <typename FailureVar>
+CETL_NODISCARD static AnyFailure anyFailureFromVariant(FailureVar&& failure_var)
 {
     return cetl::visit([](auto&& failure) -> AnyFailure { return std::forward<decltype(failure)>(failure); },
-                       std::forward<Failure>(failure));
+                       std::forward<FailureVar>(failure_var));
 }
 
 }  // namespace detail
