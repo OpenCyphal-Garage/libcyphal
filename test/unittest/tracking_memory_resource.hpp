@@ -7,8 +7,10 @@
 #define LIBCYPHAL_TRACKING_MEMORY_RESOURCE_HPP_INCLUDED
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <cetl/pmr/memory.hpp>
 
+#include <algorithm>
+#include <cstddef>
+#include <ios>
 #include <ostream>
 #include <vector>
 
@@ -27,9 +29,10 @@ public:
     };
 
     // NOLINTBEGIN
-    std::vector<Allocation> allocations{};
-    std::size_t             total_allocated_bytes   = 0;
-    std::size_t             total_deallocated_bytes = 0;
+    std::vector<Allocation>     allocations{};
+    std::size_t                 total_allocated_bytes   = 0;
+    std::size_t                 total_deallocated_bytes = 0;
+    cetl::pmr::memory_resource* memory_{cetl::pmr::get_default_resource()};
     // NOLINTEND
 
 private:
@@ -45,7 +48,7 @@ private:
             return nullptr;
         }
 
-        auto ptr = std::malloc(size_bytes);
+        void* ptr = memory_->allocate(size_bytes, alignment);
 
         total_allocated_bytes += size_bytes;
         allocations.push_back({size_bytes, ptr});
@@ -53,7 +56,7 @@ private:
         return ptr;
     }
 
-    void do_deallocate(void* ptr, std::size_t size_bytes, std::size_t) override
+    void do_deallocate(void* ptr, std::size_t size_bytes, std::size_t alignment) override
     {
         auto prev_alloc = std::find_if(allocations.cbegin(), allocations.cend(), [ptr](const auto& alloc) {
             return alloc.pointer == ptr;
@@ -64,22 +67,25 @@ private:
         }
         total_deallocated_bytes += size_bytes;
 
-        std::free(ptr);
+        memory_->deallocate(ptr, size_bytes, alignment);
     }
 
 #if (__cplusplus < CETL_CPP_STANDARD_17)
 
-    void* do_reallocate(void* ptr, std::size_t old_size_bytes, std::size_t new_size_bytes, std::size_t) override
+    void* do_reallocate(void*       ptr,
+                        std::size_t old_size_bytes,
+                        std::size_t new_size_bytes,
+                        std::size_t alignment) override
     {
         total_allocated_bytes -= old_size_bytes;
         total_allocated_bytes += new_size_bytes;
 
-        return std::realloc(ptr, new_size_bytes);
+        return memory_->reallocate(ptr, old_size_bytes, new_size_bytes, alignment);
     }
 
 #endif
 
-    bool do_is_equal(const memory_resource& rhs) const noexcept override
+    bool do_is_equal(const cetl::pmr::memory_resource& rhs) const noexcept override
     {
         return (&rhs == this);
     }

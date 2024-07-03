@@ -119,13 +119,11 @@ public:
     {
         struct Metadata
         {
-            TimePoint   timestamp;
-            std::size_t payload_size;
+            /// Holds time point when payload was originally received by this RX socket.
+            TimePoint timestamp;
 
-            // TODO: Rework temporary defatult `std::unique_ptr` solution to use PMR.
-            // see https://github.com/OpenCyphal-Garage/libcyphal/issues/352
-            // No lint b/c fixed size `std::array` is not fitting to dynamic size payload.
-            std::unique_ptr<cetl::byte[]> payload_ptr;  // NOLINT(*-avoid-c-arrays)
+            /// Holds smart pointer to payload raw buffer, as well as its size and PMR (inside of the deleter).
+            std::unique_ptr<cetl::byte, PmrRawBytesDeleter> payload_ptr;
         };
         using Success = cetl::optional<Metadata>;
         using Failure = cetl::variant<PlatformError, ArgumentError, MemoryError>;

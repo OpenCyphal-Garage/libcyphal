@@ -3,17 +3,30 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include "tracking_memory_resource.hpp"
+
+#include <cetl/pf17/cetlpf.hpp>
 #include <cetl/rtti.hpp>
 #include <cetl/unbounded_variant.hpp>
 #include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#include <cstddef>
+#include <memory>
 #include <string>
 #include <utility>
 
 namespace
 {
+
+using cetl::byte;
+
+using testing::IsNull;
+using testing::IsEmpty;
+
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 class TestTypes : public testing::Test
 {
@@ -49,6 +62,18 @@ protected:
         }
         std::string name_;
     };
+
+    void TearDown() override
+    {
+        EXPECT_THAT(mr_.allocations, IsEmpty());
+        EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+    }
+
+    // MARK: Data members:
+
+    // NOLINTBEGIN
+    TrackingMemoryResource mr_;
+    // NOLINTEND
 };
 
 // MARK: Tests:
@@ -73,5 +98,49 @@ TEST_F(TestTypes, ImplementationCell)
     EXPECT_THAT(!!my_cell2, true);
     EXPECT_THAT(my_cell2->what(), "MyConcrete B");
 }
+
+TEST_F(TestTypes, PmrRawBytesDeleter)
+{
+    using RawBytesUniquePtr = std::unique_ptr<byte, libcyphal::PmrRawBytesDeleter>;
+
+    constexpr std::size_t size_bytes = 13;
+
+    const libcyphal::PmrRawBytesDeleter deleter(size_bytes, &mr_);
+    EXPECT_THAT(deleter.size(), size_bytes);
+    EXPECT_THAT(deleter.resource(), &mr_);
+
+    RawBytesUniquePtr buffer_ptr{};
+    EXPECT_THAT(buffer_ptr.get_deleter().size(), 0);
+    EXPECT_THAT(buffer_ptr.get_deleter().resource(), IsNull());
+
+    buffer_ptr = RawBytesUniquePtr(static_cast<byte*>(mr_.allocate(size_bytes)), deleter);
+    buffer_ptr.reset();
+
+    const auto deleter_copy = buffer_ptr.get_deleter();
+    EXPECT_THAT(deleter_copy.size(), size_bytes);
+    EXPECT_THAT(deleter_copy.resource(), &mr_);
+
+    byte* const raw_buffer = static_cast<byte*>(mr_.allocate(size_bytes));
+    deleter_copy(raw_buffer);
+}
+
+TEST_F(TestTypes, PmrRawBytesDeleter_corner_cases)
+{
+    using RawBytesUniquePtr = std::unique_ptr<byte, libcyphal::PmrRawBytesDeleter>;
+
+    // Try zero size buffer.
+    RawBytesUniquePtr zero_buffer_ptr{static_cast<byte*>(mr_.allocate(0)), libcyphal::PmrRawBytesDeleter{0, &mr_}};
+    zero_buffer_ptr.reset();
+
+    // It's ok to invoke PMR deleter with `nullptr` buffer.
+    RawBytesUniquePtr no_buffer_ptr{nullptr, libcyphal::PmrRawBytesDeleter{42, &mr_}};
+    no_buffer_ptr.get_deleter()(nullptr);
+
+    // It's ok to invoke default `nullptr` PMR deleter with `nullptr` buffer.
+    RawBytesUniquePtr buffer_ptr{};
+    buffer_ptr.get_deleter()(nullptr);
+}
+
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 }  // namespace

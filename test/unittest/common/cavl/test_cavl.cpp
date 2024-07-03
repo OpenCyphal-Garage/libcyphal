@@ -3,6 +3,7 @@
 #include <libcyphal/common/cavl/cavl.hpp>
 
 #include <gtest/gtest.h>
+
 #include <algorithm>
 #include <array>
 #include <cstdint>

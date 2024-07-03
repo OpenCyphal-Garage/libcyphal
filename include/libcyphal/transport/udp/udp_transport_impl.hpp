@@ -814,25 +814,34 @@ private:
         {
             return cetl::nullopt;
         }
-        const IRxSocket::ReceiveResult::Metadata rx_meta = std::move(rx_success.value());
+        IRxSocket::ReceiveResult::Metadata rx_meta = std::move(rx_success.value());
 
         // 2. We've got a new frame from the media RX socket, so let's try to pass it into libudpard.
 
         const auto timestamp_us =
             std::chrono::duration_cast<std::chrono::microseconds>(rx_meta.timestamp.time_since_epoch());
 
-        // TODO: Fill it with data!
-        const UdpardMutablePayload datagram_payload{};
+        const auto payload_deleter = rx_meta.payload_ptr.get_deleter();
+
+        // TODO: Currently we expect that user allocates payload memory from the specific PMR (the "payload" one).
+        //       Later we will pass users deleter into lizards (along with moved buffer),
+        //       so such requirement will be lifted (see https://github.com/OpenCyphal-Garage/libcyphal/issues/352).
+        //
+        CETL_DEBUG_ASSERT(payload_deleter.resource() == memoryResources().payload.user_reference,
+                          "PMR of deleter is expected to be the same as the payload memory resource.");
 
         UdpardRxRPCTransfer out_transfer{};
         UdpardRxRPCPort*    out_port{nullptr};
 
-        const std::int8_t result = ::udpardRxRPCDispatcherReceive(&getUdpardRpcDispatcher(),
-                                                                  static_cast<UdpardMicrosecond>(timestamp_us.count()),
-                                                                  datagram_payload,
-                                                                  media.index(),
-                                                                  &out_port,
-                                                                  &out_transfer);
+        const std::int8_t result =
+            ::udpardRxRPCDispatcherReceive(&getUdpardRpcDispatcher(),
+                                           static_cast<UdpardMicrosecond>(timestamp_us.count()),
+                                           // Udpard takes ownership of the payload buffer,
+                                           // regardless of the result of the operation - hence the `.release()`.
+                                           {payload_deleter.size(), rx_meta.payload_ptr.release()},
+                                           media.index(),
+                                           &out_port,
+                                           &out_transfer);
 
         // 3. We might have result TX transfer (built from fragments by libudpard).
         //    If so, we need to pass it to the session delegate for storing.
