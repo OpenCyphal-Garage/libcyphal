@@ -164,7 +164,7 @@ TEST_F(TestUdpSvcRxSessions, make_request_fails_due_to_argument_error)
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST_F(TestUdpSvcRxSessions, run_and_receive_requests)
+TEST_F(TestUdpSvcRxSessions, run_and_receive_request)
 {
     StrictMock<MemoryResourceMock> payload_mr_mock{};
 
@@ -218,6 +218,92 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_requests)
         EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x1D);
         EXPECT_THAT(rx_transfer.metadata.priority, Priority::High);
         EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x13);
+
+        std::array<std::uint8_t, 2> buffer{};
+        ASSERT_THAT(rx_transfer.payload.size(), payload_size);
+        EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), payload_size);
+        EXPECT_THAT(buffer, ElementsAre(42, 147));
+
+        EXPECT_CALL(payload_mr_mock, do_deallocate(_, frame_size, alignof(std::max_align_t)))
+            .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+                payload_mr_.deallocate(p, size_bytes, alignment);
+            });
+    }
+    {
+        SCOPED_TRACE("2-nd iteration: no frames available @ 2s");
+
+        scheduler_.setNow(TimePoint{2s});
+        const auto rx_timestamp = now();
+
+        EXPECT_CALL(rx_socket_mock_, receive()).WillOnce([&]() {
+            EXPECT_THAT(now(), rx_timestamp + 10ms);
+            return cetl::nullopt;
+        });
+
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
+
+        const auto maybe_rx_transfer = session->receive();
+        EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
+    }
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST_F(TestUdpSvcRxSessions, run_and_receive_response)
+{
+    StrictMock<MemoryResourceMock> payload_mr_mock{};
+
+    auto transport = makeTransport({mr_, nullptr, nullptr, &payload_mr_mock}, NodeId{0x13});
+
+    const std::size_t extent_bytes  = 8;
+    auto              maybe_session = transport->makeResponseRxSession({extent_bytes, 0x17B, 0x31});
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
+    auto session = cetl::get<UniquePtr<IResponseRxSession>>(std::move(maybe_session));
+
+    const auto params = session->getParams();
+    EXPECT_THAT(params.extent_bytes, extent_bytes);
+    EXPECT_THAT(params.service_id, 0x17B);
+    EXPECT_THAT(params.server_node_id, 0x31);
+
+    const auto timeout = 200ms;
+    session->setTransferIdTimeout(timeout);
+
+    {
+        SCOPED_TRACE("1-st iteration: one frame available @ 1s");
+
+        scheduler_.setNow(TimePoint{1s});
+        const auto rx_timestamp = now();
+
+        const std::size_t payload_size = 2;
+        const std::size_t frame_size   = UdpardFrame::SizeOfHeaderAndTxCrc + payload_size;
+
+        EXPECT_CALL(payload_mr_mock, do_allocate(frame_size, alignof(std::max_align_t)))
+            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
+                return payload_mr_.allocate(size_bytes, alignment);
+            });
+
+        EXPECT_CALL(rx_socket_mock_, receive()).WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
+            EXPECT_THAT(now(), rx_timestamp + 10ms);
+            auto frame         = UdpardFrame(0x31, 0x13, 0x1D, payload_size, &payload_mr_mock, Priority::High);
+            frame.payload()[0] = b(42);
+            frame.payload()[1] = b(147);
+            frame.setPortId(0x17B, true /*is_service*/, false /*is_request*/);
+            std::uint32_t tx_crc = UdpardFrame::InitialTxCrc;
+            return {rx_timestamp, std::move(frame).release(tx_crc)};
+        });
+
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
+
+        const auto maybe_rx_transfer = session->receive();
+        ASSERT_THAT(maybe_rx_transfer, Optional(_));
+        // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+        const auto& rx_transfer = maybe_rx_transfer.value();
+
+        EXPECT_THAT(rx_transfer.metadata.timestamp, rx_timestamp);
+        EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x1D);
+        EXPECT_THAT(rx_transfer.metadata.priority, Priority::High);
+        EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x31);
 
         std::array<std::uint8_t, 2> buffer{};
         ASSERT_THAT(rx_transfer.payload.size(), payload_size);

@@ -787,7 +787,7 @@ private:
         {
             cetl::optional<AnyFailure> failure =
                 withEnsureMediaRxSocket(some_media,
-                                        [this](Media& media, IRxSocket& rx_socket) -> cetl::optional<AnyFailure> {
+                                        [this](const Media& media, IRxSocket& rx_socket) -> cetl::optional<AnyFailure> {
                                             return runSingleMediaReceive(media, rx_socket);
                                         });
             if (failure.has_value())
