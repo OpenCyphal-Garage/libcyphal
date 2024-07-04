@@ -799,7 +799,7 @@ private:
         return cetl::nullopt;
     }
 
-    cetl::optional<AnyFailure> runSingleMediaReceive(Media& media, IRxSocket& rx_socket)
+    cetl::optional<AnyFailure> runSingleMediaReceive(const Media& media, IRxSocket& rx_socket)
     {
         // 1. Try to receive a frame from the media RX socket.
         //
