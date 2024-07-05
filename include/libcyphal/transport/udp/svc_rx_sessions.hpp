@@ -43,7 +43,7 @@ namespace detail
 ///                Could be either `RequestRxParams` or `ResponseRxParams`.
 ///
 /// NOSONAR cpp:S4963 for below `class SvcRxSession` - we do directly handle resources here;
-/// namely: in destructor we have to unsubscribe, as well as let delegate to know this fact.
+/// namely: in destructor we have to unsubscribe, as well as let transport delegate to know this fact.
 ///
 template <typename Interface_, typename Params, typename SessionEvent, bool IsRequest>
 class SvcRxSession final : private IRxSessionDelegate, public Interface_  // NOSONAR cpp:S4963

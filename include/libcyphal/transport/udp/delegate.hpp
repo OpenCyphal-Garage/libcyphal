@@ -247,7 +247,7 @@ public:
         return rpc_dispatcher_;
     }
 
-    static cetl::optional<AnyFailure> optAnyFailureFromUdpard(const std::int32_t result)
+    static CETL_NODISCARD cetl::optional<AnyFailure> optAnyFailureFromUdpard(const std::int32_t result)
     {
         // Udpard error results are negative, so we need to negate them to get the error code.
         const std::int32_t udpard_error = -result;
@@ -272,7 +272,7 @@ public:
         return cetl::nullopt;
     }
 
-    UdpardRxMemoryResources makeUdpardRxMemoryResources() const
+    CETL_NODISCARD UdpardRxMemoryResources makeUdpardRxMemoryResources() const
     {
         return {memoryResources().session, memoryResources().fragment, memoryResources().payload};
     }
@@ -354,16 +354,16 @@ protected:
         return memory_resources_;
     }
 
-    static UdpardMemoryResource makeUdpardMemoryResource(cetl::pmr::memory_resource* const custom,
-                                                         cetl::pmr::memory_resource&       general)
+    CETL_NODISCARD static UdpardMemoryResource makeUdpardMemoryResource(cetl::pmr::memory_resource* const custom,
+                                                                        cetl::pmr::memory_resource&       general)
     {
         // No Sonar `cpp:S5356` b/c the raw `user_reference` is part of libudpard api.
         void* const user_reference = (custom != nullptr) ? custom : &general;  // NOSONAR cpp:S5356
         return UdpardMemoryResource{user_reference, deallocateMemoryForUdpard, allocateMemoryForUdpard};
     }
 
-    static UdpardMemoryDeleter makeUdpardMemoryDeleter(cetl::pmr::memory_resource* const custom,
-                                                       cetl::pmr::memory_resource&       general)
+    CETL_NODISCARD static UdpardMemoryDeleter makeUdpardMemoryDeleter(cetl::pmr::memory_resource* const custom,
+                                                                      cetl::pmr::memory_resource&       general)
     {
         // No Sonar `cpp:S5356` b/c the raw `user_reference` is part of libudpard api.
         void* const user_reference = (custom != nullptr) ? custom : &general;  // NOSONAR cpp:S5356
@@ -439,6 +439,25 @@ protected:
     ~IRxSessionDelegate() = default;
 
 };  // IRxSessionDelegate
+
+/// This internal session delegate class serves the following purpose:
+/// it provides an interface (aka gateway) to access Message RX session from transport.
+///
+class IMsgRxSessionDelegate : public IRxSessionDelegate
+{
+public:
+    IMsgRxSessionDelegate(const IMsgRxSessionDelegate&)                = delete;
+    IMsgRxSessionDelegate(IMsgRxSessionDelegate&&) noexcept            = delete;
+    IMsgRxSessionDelegate& operator=(const IMsgRxSessionDelegate&)     = delete;
+    IMsgRxSessionDelegate& operator=(IMsgRxSessionDelegate&&) noexcept = delete;
+
+    CETL_NODISCARD virtual UdpardRxSubscription& getUdpardRxSubscription() = 0;
+
+protected:
+    IMsgRxSessionDelegate()  = default;
+    ~IMsgRxSessionDelegate() = default;
+
+};  // IMsgRxSessionDelegate
 
 }  // namespace detail
 }  // namespace udp

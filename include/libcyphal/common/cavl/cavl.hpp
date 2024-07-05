@@ -189,8 +189,11 @@ protected:
         return extremum(root, true);
     }
 
+    // NOLINTBEGIN(misc-no-recursion)
+
     /// In-order or reverse-in-order traversal of the tree; the visitor is invoked with a reference to each node.
-    /// Required stack depth is less than 2*log2(size).
+    /// Required stack depth is bounded by less than 2*log2(size),
+    /// hence no Sonar cpp:S925 and `NOLINT(misc-no-recursion)` exceptions.
     /// If the return type is non-void, then it shall be default-constructable and convertible to bool; in this case,
     /// traversal will stop when the first true value is returned, which is propagated back to the caller; if none
     /// of the calls returned true or the tree is empty, a default value is constructed and returned.
@@ -201,15 +204,16 @@ protected:
     {
         if (Node* const n = root)
         {
-            if (auto t = Node::traverse<Vis>(down(n->lr[reverse]), visitor, reverse))  // NOLINT qualified-auto
+            // NOLINTNEXTLINE(*-qualified-auto)
+            if (auto t = Node::traverse<Vis>(down(n->lr[reverse]), visitor, reverse))  // NOSONAR cpp:S925
             {
                 return t;
             }
-            if (auto t = visitor(*root))  // NOLINT qualified-auto
+            if (auto t = visitor(*root))  // NOLINT(*-qualified-auto)
             {
                 return t;
             }
-            return Node::traverse<Vis>(down(n->lr[!reverse]), visitor, reverse);
+            return Node::traverse<Vis>(down(n->lr[!reverse]), visitor, reverse);  // NOSONAR cpp:S925
         }
         return R{};
     }
@@ -219,9 +223,9 @@ protected:
     {
         if (Node* const n = root)
         {
-            Node::traverse<Vis>(down(n->lr[reverse]), visitor, reverse);
+            Node::traverse<Vis>(down(n->lr[reverse]), visitor, reverse);  // NOSONAR cpp:S925
             visitor(*root);
-            Node::traverse<Vis>(down(n->lr[!reverse]), visitor, reverse);
+            Node::traverse<Vis>(down(n->lr[!reverse]), visitor, reverse);  // NOSONAR cpp:S925
         }
     }
     template <typename Vis, typename R = invoke_result<Vis, const Derived&>>
@@ -230,15 +234,16 @@ protected:
     {
         if (const Node* const n = root)
         {
-            if (auto t = Node::traverse<Vis>(down(n->lr[reverse]), visitor, reverse))  // NOLINT qualified-auto
+            // NOLINTNEXTLINE(*-qualified-auto)
+            if (auto t = Node::traverse<Vis>(down(n->lr[reverse]), visitor, reverse))  // NOSONAR cpp:S925
             {
                 return t;
             }
-            if (auto t = visitor(*root))  // NOLINT qualified-auto
+            if (auto t = visitor(*root))  // NOLINT(*-qualified-auto)
             {
                 return t;
             }
-            return Node::traverse<Vis>(down(n->lr[!reverse]), visitor, reverse);
+            return Node::traverse<Vis>(down(n->lr[!reverse]), visitor, reverse);  // NOSONAR cpp:S925
         }
         return R{};
     }
@@ -248,11 +253,12 @@ protected:
     {
         if (const Node* const n = root)
         {
-            Node::traverse<Vis>(down(n->lr[reverse]), visitor, reverse);
+            Node::traverse<Vis>(down(n->lr[reverse]), visitor, reverse);  // NOSONAR cpp:S925
             visitor(*root);
-            Node::traverse<Vis>(down(n->lr[!reverse]), visitor, reverse);
+            Node::traverse<Vis>(down(n->lr[!reverse]), visitor, reverse);  // NOSONAR cpp:S925
         }
     }
+    // NOLINTEND(misc-no-recursion)
 
 private:
     void rotate(const bool r) noexcept
