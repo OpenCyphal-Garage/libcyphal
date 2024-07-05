@@ -277,7 +277,7 @@ private:
         auto failure = ensureMediaTxSockets();
         if (failure.has_value())
         {
-            return failure.value();
+            return std::move(failure.value());
         }
 
         return MessageTxSession::make(memoryResources().general, asDelegate(), params);
@@ -297,7 +297,7 @@ private:
         auto failure = ensureMediaTxSockets();
         if (failure.has_value())
         {
-            return failure.value();
+            return std::move(failure.value());
         }
 
         return SvcRequestTxSession::make(memoryResources().general, asDelegate(), params);
@@ -317,7 +317,7 @@ private:
         auto failure = ensureMediaTxSockets();
         if (failure.has_value())
         {
-            return failure.value();
+            return std::move(failure.value());
         }
 
         return SvcResponseTxSession::make(memoryResources().general, asDelegate(), params);
@@ -335,13 +335,13 @@ private:
         failure = runMediaTransmit(now);
         if (failure.has_value())
         {
-            return failure.value();
+            return std::move(failure.value());
         }
         //
         failure = runMediaReceive();
         if (failure.has_value())
         {
-            return failure.value();
+            return std::move(failure.value());
         }
 
         return {};
@@ -425,7 +425,7 @@ private:
         {
         }
 
-        cetl::optional<AnyFailure> operator()(const AnyUdpardTxMetadata::Publish& tx_metadata) const
+        CETL_NODISCARD cetl::optional<AnyFailure> operator()(const AnyUdpardTxMetadata::Publish& tx_metadata) const
         {
             const std::int32_t result = ::udpardTxPublish(&media_.udpard_tx(),
                                                           tx_metadata.deadline_us,
@@ -440,7 +440,7 @@ private:
                                                                                                media_.udpard_tx());
         }
 
-        cetl::optional<AnyFailure> operator()(const AnyUdpardTxMetadata::Request& tx_metadata) const
+        CETL_NODISCARD cetl::optional<AnyFailure> operator()(const AnyUdpardTxMetadata::Request& tx_metadata) const
         {
             const std::int32_t result = ::udpardTxRequest(&media_.udpard_tx(),
                                                           tx_metadata.deadline_us,
@@ -456,7 +456,7 @@ private:
                                                                                                media_.udpard_tx());
         }
 
-        cetl::optional<AnyFailure> operator()(const AnyUdpardTxMetadata::Respond& tx_metadata) const
+        CETL_NODISCARD cetl::optional<AnyFailure> operator()(const AnyUdpardTxMetadata::Respond& tx_metadata) const
         {
             const std::int32_t result = ::udpardTxRespond(&media_.udpard_tx(),
                                                           tx_metadata.deadline_us,
@@ -479,7 +479,7 @@ private:
 
     };  // TxTransferHandler
 
-    static cetl::optional<AnyFailure> doNothingAndSucceed(const Media&, const IRxSocket&)
+    CETL_NODISCARD static cetl::optional<AnyFailure> doNothingAndSucceed(const Media&, const IRxSocket&)
     {
         return cetl::nullopt;
     }
@@ -838,7 +838,7 @@ private:
         return cetl::nullopt;
     }
 
-    cetl::optional<AnyFailure> runMediaReceive()
+    CETL_NODISCARD cetl::optional<AnyFailure> runMediaReceive()
     {
         // 1. First run all service RX sockets.
         //

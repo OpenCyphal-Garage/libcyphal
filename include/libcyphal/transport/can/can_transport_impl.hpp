@@ -231,10 +231,10 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyFailure> makeMessageRxSession(
         const MessageRxParams& params) override
     {
-        const cetl::optional<AnyFailure> failure = ensureNewSessionFor(CanardTransferKindMessage, params.subject_id);
+        cetl::optional<AnyFailure> failure = ensureNewSessionFor(CanardTransferKindMessage, params.subject_id);
         if (failure.has_value())
         {
-            return failure.value();
+            return std::move(failure.value());
         }
 
         return MessageRxSession::make(asDelegate(), params);
@@ -249,10 +249,10 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyFailure> makeRequestRxSession(
         const RequestRxParams& params) override
     {
-        const cetl::optional<AnyFailure> failure = ensureNewSessionFor(CanardTransferKindRequest, params.service_id);
+        cetl::optional<AnyFailure> failure = ensureNewSessionFor(CanardTransferKindRequest, params.service_id);
         if (failure.has_value())
         {
-            return failure.value();
+            return std::move(failure.value());
         }
 
         return SvcRequestRxSession::make(asDelegate(), params);
@@ -267,10 +267,10 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyFailure> makeResponseRxSession(
         const ResponseRxParams& params) override
     {
-        const cetl::optional<AnyFailure> failure = ensureNewSessionFor(CanardTransferKindResponse, params.service_id);
+        cetl::optional<AnyFailure> failure = ensureNewSessionFor(CanardTransferKindResponse, params.service_id);
         if (failure.has_value())
         {
-            return failure.value();
+            return std::move(failure.value());
         }
 
         return SvcResponseRxSession::make(asDelegate(), params);
@@ -294,19 +294,19 @@ private:
         failure = runMediaTransmit(now);
         if (failure.has_value())
         {
-            return failure.value();
+            return std::move(failure.value());
         }
         //
         failure = runMediaReceive();
         if (failure.has_value())
         {
-            return failure.value();
+            return std::move(failure.value());
         }
 
         failure = runMediaFilters();
         if (failure.has_value())
         {
-            return failure.value();
+            return std::move(failure.value());
         }
 
         return {};
@@ -493,7 +493,7 @@ private:
         }
     }
 
-    cetl::optional<AnyFailure> runMediaReceive()
+    CETL_NODISCARD cetl::optional<AnyFailure> runMediaReceive()
     {
         for (const Media& media : media_array_)
         {
@@ -507,7 +507,7 @@ private:
         return cetl::nullopt;
     }
 
-    cetl::optional<AnyFailure> runSingleMediaReceive(const Media& media)
+    CETL_NODISCARD cetl::optional<AnyFailure> runSingleMediaReceive(const Media& media)
     {
         std::array<cetl::byte, CANARD_MTU_MAX> payload{};
 

@@ -203,7 +203,7 @@ public:
         return memory_;
     }
 
-    static cetl::optional<AnyFailure> optAnyFailureFromCanard(const std::int32_t result)
+    CETL_NODISCARD static cetl::optional<AnyFailure> optAnyFailureFromCanard(const std::int32_t result)
     {
         // Canard error results are negative, so we need to negate them to get the error code.
         const std::int32_t canard_error = -result;
