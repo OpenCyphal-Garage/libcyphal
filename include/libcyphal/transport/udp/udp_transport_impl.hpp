@@ -517,12 +517,14 @@ private:
                                          const RxParams& rx_params,
                                          Tree&           tree_nodes) -> Expected<UniquePtr<Interface>, AnyFailure>
     {
+        // Try to create all (per each media) shared RX sockets for services.
         auto media_failure = withMediaServiceRxSockets(doNothingAndSucceed);
         if (media_failure.has_value())
         {
             return media_failure.value();
         }
 
+        // Make sure that session is unique per port.
         auto node_result = tree_nodes.ensureNewNodeFor(port_id);
         if (auto* const failure = cetl::get_if<AnyFailure>(&node_result))
         {
@@ -532,6 +534,8 @@ private:
         auto session_result = Concrete::make(memoryResources().general, asDelegate(), rx_params);
         if (nullptr != cetl::get_if<AnyFailure>(&session_result))
         {
+            // We failed to create the session, so we need to release the unique port id node.
+            // The sockets we made earlier will be released in the destructor of whole transport.
             tree_nodes.removeNodeFor(port_id);
         }
 
@@ -767,7 +771,7 @@ private:
     CETL_NODISCARD cetl::optional<AnyFailure> withEnsureMediaRxSocket(Media&                           media,
                                                                       const cetl::optional<IpEndpoint> endpoint,
                                                                       UniquePtr<IRxSocket>&            inout_socket_ptr,
-                                                                      Action&&                         action)
+                                                                      const Action&                    action)
     {
         if (nullptr == inout_socket_ptr)
         {
@@ -796,21 +800,19 @@ private:
             }
         }
 
-        return std::forward<Action>(action)(media, *inout_socket_ptr);
+        return action(media, *inout_socket_ptr);
     }
 
     template <typename Action>
     CETL_NODISCARD cetl::optional<AnyFailure> withMediaRxSocketsFor(RxSessionTreeNode::Message& msg_rx_node,
-                                                                    Action&&                    action)
+                                                                    const Action&               action)
     {
         const auto endpoint = msg_rx_node.getEndpoint();
 
         for (Media& media : media_array_)
         {
-            cetl::optional<AnyFailure> failure = withEnsureMediaRxSocket(media,
-                                                                         endpoint,
-                                                                         msg_rx_node.rx_sockets(media.index()),
-                                                                         std::forward<Action>(action));
+            cetl::optional<AnyFailure> failure =
+                withEnsureMediaRxSocket(media, endpoint, msg_rx_node.rx_sockets(media.index()), action);
             if (failure.has_value())
             {
                 return failure;
@@ -821,14 +823,12 @@ private:
     }
 
     template <typename Action>
-    CETL_NODISCARD cetl::optional<AnyFailure> withMediaServiceRxSockets(Action&& action)
+    CETL_NODISCARD cetl::optional<AnyFailure> withMediaServiceRxSockets(const Action& action)
     {
         for (Media& media : media_array_)
         {
-            cetl::optional<AnyFailure> failure = withEnsureMediaRxSocket(media,
-                                                                         svc_rx_sockets_endpoint_,
-                                                                         media.svc_rx_socket_ptr(),
-                                                                         std::forward<Action>(action));
+            cetl::optional<AnyFailure> failure =
+                withEnsureMediaRxSocket(media, svc_rx_sockets_endpoint_, media.svc_rx_socket_ptr(), action);
             if (failure.has_value())
             {
                 return failure;
