@@ -501,10 +501,10 @@ private:
         // Try to create all (per each media) RX sockets for message subscription.
         // For now, we're just creating them, without any attempt to use them yet - hence the "do nothing" action.
         //
-        auto media_failure =
-            withMediaRxSocketsFor(new_msg_node,
-                                  [](const Media&, const IRxSocket&, UdpardRxSubscription&, IRxSessionDelegate&)
-                                      -> cetl::optional<AnyFailure> { return cetl::nullopt; });
+        auto media_failure = withMediaRxSocketsFor(  //
+            new_msg_node,
+            [](const Media&, const IRxSocket&, const UdpardRxSubscription&, const IRxSessionDelegate&)
+                -> cetl::optional<AnyFailure> { return cetl::nullopt; });
         if (media_failure.has_value())
         {
             return std::move(media_failure.value());
@@ -813,14 +813,14 @@ private:
     CETL_NODISCARD cetl::optional<AnyFailure> withMediaRxSocketsFor(RxSessionTreeNode::Message& msg_rx_node,
                                                                     const Action&               action)
     {
-        IMsgRxSessionDelegate* session_delegate = msg_rx_node.delegate();
+        IMsgRxSessionDelegate* const session_delegate = msg_rx_node.delegate();
         if (nullptr == session_delegate)
         {
             return cetl::nullopt;
         }
 
-        UdpardRxSubscription&            subscription = session_delegate->getSubscription();
-        const cetl::optional<IpEndpoint> endpoint     = {IpEndpoint::fromUdpardEndpoint(subscription.udp_ip_endpoint)};
+        auto&      subscription = session_delegate->getSubscription();
+        const auto endpoint = cetl::optional<IpEndpoint>{IpEndpoint::fromUdpardEndpoint(subscription.udp_ip_endpoint)};
 
         for (Media& media : media_array_)
         {
@@ -916,7 +916,7 @@ private:
         // 1. Try to receive a frame from the media RX socket.
         //
         auto receive_result = tryReceiveFromRxSocket(media, rx_socket);
-        if (auto* const failure = cetl::get_if<cetl::optional<AnyFailure>>(&receive_result))
+        if (const auto* const failure = cetl::get_if<cetl::optional<AnyFailure>>(&receive_result))
         {
             return *failure;
         }
@@ -977,7 +977,7 @@ private:
         // 1. Try to receive a frame from the media RX socket.
         //
         auto receive_result = tryReceiveFromRxSocket(media, rx_socket);
-        if (auto* const failure = cetl::get_if<cetl::optional<AnyFailure>>(&receive_result))
+        if (const auto* const failure = cetl::get_if<cetl::optional<AnyFailure>>(&receive_result))
         {
             return *failure;
         }

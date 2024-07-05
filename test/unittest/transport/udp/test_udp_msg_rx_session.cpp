@@ -10,6 +10,7 @@
 #include "../../virtual_time_scheduler.hpp"
 #include "../multiplexer_mock.hpp"
 #include "media_mock.hpp"
+#include "transient_error_handler_mock.hpp"
 #include "tx_rx_sockets_mock.hpp"
 #include "udp_gtest_helpers.hpp"
 
@@ -31,6 +32,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <utility>
 
@@ -47,6 +49,7 @@ using libcyphal::verification_utilities::b;
 
 using testing::_;
 using testing::Eq;
+using testing::Truly;
 using testing::Invoke;
 using testing::Return;
 using testing::IsEmpty;
@@ -162,6 +165,39 @@ TEST_F(TestUdpMsgRxSession, make_fails_due_to_argument_error)
     // Try invalid subject id
     auto maybe_session = transport->makeMessageRxSession({64, UDPARD_SUBJECT_ID_MAX + 1});
     EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+}
+
+TEST_F(TestUdpMsgRxSession, make_fails_due_to_rx_socket_error)
+{
+    using MediaReport = IUdpTransport::TransientErrorReport::MediaMakeRxSocket;
+
+    auto transport = makeTransport({mr_});
+
+    // Emulate that RX socket creation fails due to a memory error.
+    {
+        EXPECT_CALL(media_mock_, makeRxSocket(_)).WillOnce(Return(MemoryError{}));
+
+        auto maybe_session = transport->makeMessageRxSession({64, 0x17B});
+        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
+    }
+
+    // Try again but with error handler.
+    {
+        EXPECT_CALL(media_mock_, makeRxSocket(_)).WillOnce(Return(nullptr));
+
+        StrictMock<TransientErrorHandlerMock> handler_mock{};
+        transport->setTransientErrorHandler(std::ref(handler_mock));
+        EXPECT_CALL(handler_mock, invoke(VariantWith<MediaReport>(Truly([&](auto& report) {
+                        EXPECT_THAT(report.failure, VariantWith<MemoryError>(_));
+                        EXPECT_THAT(report.media_index, 0);
+                        EXPECT_THAT(report.culprit, Ref(media_mock_));
+                        return true;
+                    }))))
+            .WillOnce(Return(CapacityError{}));
+
+        auto maybe_session = transport->makeMessageRxSession({64, 0x17B});
+        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<CapacityError>(_)));
+    }
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)

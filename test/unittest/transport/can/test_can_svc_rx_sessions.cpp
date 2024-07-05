@@ -119,7 +119,7 @@ TEST_F(TestCanSvcRxSessions, make_request_setTransferIdTimeout)
     session->setTransferIdTimeout(500ms);
 }
 
-TEST_F(TestCanSvcRxSessions, make_resposnse_no_memory)
+TEST_F(TestCanSvcRxSessions, make_response_no_memory)
 {
     StrictMock<MemoryResourceMock> mr_mock{};
     mr_mock.redirectExpectedCallsTo(mr_);

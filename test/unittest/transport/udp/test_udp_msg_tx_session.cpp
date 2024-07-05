@@ -157,6 +157,11 @@ TEST_F(TestUdpMsgTxSession, make_fails_due_to_media_socket)
 
         auto maybe_tx_session = transport->makeMessageTxSession({123});
         EXPECT_THAT(maybe_tx_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
+
+        EXPECT_CALL(media_mock_, makeTxSocket()).WillOnce(Return(nullptr));
+
+        maybe_tx_session = transport->makeMessageTxSession({123});
+        EXPECT_THAT(maybe_tx_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
     }
 
     // 2. Transport will succeed to make TX session despite the media fails to create a TX socket.
