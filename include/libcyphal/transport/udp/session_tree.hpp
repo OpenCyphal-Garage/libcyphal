@@ -60,6 +60,11 @@ public:
         releaseNodes(nodes_);
     }
 
+    CETL_NODISCARD bool isEmpty() const noexcept
+    {
+        return nodes_.empty();
+    }
+
     CETL_NODISCARD Expected<NodeRef, AnyFailure> ensureNewNodeFor(const PortId port_id)
     {
         auto const node_existing = nodes_.search([port_id](const Node& node) { return node.compareWith(port_id); },
@@ -181,20 +186,9 @@ struct RxSessionTreeNode
     public:
         using Base::Base;
 
-        void setMsgRxSessionDelegate(IMsgRxSessionDelegate* const delegate) noexcept
+        CETL_NODISCARD IMsgRxSessionDelegate*& delegate() noexcept
         {
-            delegate_ = delegate;
-        }
-
-        CETL_NODISCARD cetl::optional<IpEndpoint> getEndpoint() const noexcept
-        {
-            if (nullptr == delegate_)
-            {
-                return cetl::nullopt;
-            }
-
-            const auto& udpard_endpoint = delegate_->getUdpardRxSubscription().udp_ip_endpoint;
-            return {{udpard_endpoint.ip_address, udpard_endpoint.udp_port}};
+            return delegate_;
         }
 
         CETL_NODISCARD UniquePtr<IRxSocket>& rx_sockets(const std::uint8_t media_index) noexcept

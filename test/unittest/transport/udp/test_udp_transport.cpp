@@ -245,8 +245,8 @@ TEST_F(TestUpdTransport, setLocalNodeId)
     EXPECT_THAT(transport->getLocalNodeId(), Optional(UDPARD_NODE_ID_MAX));
 
     EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
-    EXPECT_THAT(rx_socket_mock_.getEndpoint().ip_address, 0xEF01FFFE);
-    EXPECT_THAT(rx_socket_mock_.getEndpoint().udp_port, 9382);
+    EXPECT_THAT(rx_socket_mock_.getEndpoint().ip_address, 0);
+    EXPECT_THAT(rx_socket_mock_.getEndpoint().udp_port, 0);
 
     EXPECT_THAT(transport->setLocalNodeId(UDPARD_NODE_ID_MAX), Eq(cetl::nullopt));
     EXPECT_THAT(transport->getLocalNodeId(), Optional(UDPARD_NODE_ID_MAX));

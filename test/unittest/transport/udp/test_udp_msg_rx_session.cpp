@@ -3,18 +3,23 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include "../../cetl_gtest_helpers.hpp"
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
+#include "../../verification_utilities.hpp"
 #include "../../virtual_time_scheduler.hpp"
 #include "../multiplexer_mock.hpp"
 #include "media_mock.hpp"
 #include "tx_rx_sockets_mock.hpp"
+#include "udp_gtest_helpers.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
+#include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/media.hpp>
 #include <libcyphal/transport/udp/msg_rx_session.hpp>
+#include <libcyphal/transport/udp/tx_rx_sockets.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
 #include <libcyphal/transport/udp/udp_transport_impl.hpp>
 #include <libcyphal/types.hpp>
@@ -24,6 +29,9 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <utility>
 
 namespace
@@ -35,13 +43,17 @@ using namespace libcyphal::transport;       // NOLINT This our main concern here
 using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
 using cetl::byte;
+using libcyphal::verification_utilities::b;
 
 using testing::_;
+using testing::Eq;
 using testing::Invoke;
 using testing::Return;
 using testing::IsEmpty;
 using testing::NotNull;
+using testing::Optional;
 using testing::StrictMock;
+using testing::ElementsAre;
 using testing::VariantWith;
 
 // https://github.com/llvm/llvm-project/issues/53444
@@ -72,6 +84,9 @@ protected:
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+
+        EXPECT_THAT(payload_mr_.allocations, IsEmpty());
+        EXPECT_THAT(payload_mr_.total_allocated_bytes, payload_mr_.total_deallocated_bytes);
     }
 
     TimePoint now() const
@@ -79,13 +94,21 @@ protected:
         return scheduler_.now();
     }
 
-    UniquePtr<IUdpTransport> makeTransport(const MemoryResourcesSpec& mem_res_spec)
+    UniquePtr<IUdpTransport> makeTransport(const MemoryResourcesSpec&   mem_res_spec,
+                                           const cetl::optional<NodeId> local_node_id = cetl::nullopt)
     {
         std::array<IMedia*, 1> media_array{&media_mock_};
 
         auto maybe_transport = udp::makeTransport(mem_res_spec, mux_mock_, media_array, 0);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<IUdpTransport>>(NotNull()));
-        return cetl::get<UniquePtr<IUdpTransport>>(std::move(maybe_transport));
+        auto transport = cetl::get<UniquePtr<IUdpTransport>>(std::move(maybe_transport));
+
+        if (local_node_id.has_value())
+        {
+            transport->setLocalNodeId(local_node_id.value());
+        }
+
+        return transport;
     }
 
     // MARK: Data members:
@@ -93,6 +116,7 @@ protected:
     // NOLINTBEGIN
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
+    TrackingMemoryResource          payload_mr_;
     StrictMock<MultiplexerMock>     mux_mock_{};
     StrictMock<MediaMock>           media_mock_{};
     StrictMock<RxSocketMock>        rx_socket_mock_{"RxS1"};
@@ -140,16 +164,23 @@ TEST_F(TestUdpMsgRxSession, make_fails_due_to_argument_error)
     EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
 }
 
-// TODO: Uncomment gradually as the implementation progresses.
-/*
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestUdpMsgRxSession, run_and_receive)
 {
-    auto transport = makeTransport({mr_});
+    StrictMock<MemoryResourceMock> payload_mr_mock{};
+
+    auto transport = makeTransport({mr_, nullptr, nullptr, &payload_mr_mock}, NodeId{0x31});
 
     auto maybe_session = transport->makeMessageRxSession({4, 0x23});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
+
+    const auto params = session->getParams();
+    EXPECT_THAT(params.extent_bytes, 4);
+    EXPECT_THAT(params.subject_id, 0x23);
+
+    const auto timeout = 200ms;
+    session->setTransferIdTimeout(timeout);
 
     {
         SCOPED_TRACE("1-st iteration: one frame available @ 1s");
@@ -157,9 +188,21 @@ TEST_F(TestUdpMsgRxSession, run_and_receive)
         scheduler_.setNow(TimePoint{1s});
         const auto rx_timestamp = now();
 
-        EXPECT_CALL(rx_socket_mock_, receive()).WillOnce([&]() {
+        const std::size_t payload_size = 2;
+        const std::size_t frame_size   = UdpardFrame::SizeOfHeaderAndTxCrc + payload_size;
+
+        EXPECT_CALL(payload_mr_mock, do_allocate(frame_size, alignof(std::max_align_t)))
+            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
+                return payload_mr_.allocate(size_bytes, alignment);
+            });
+        EXPECT_CALL(rx_socket_mock_, receive()).WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
             EXPECT_THAT(now(), rx_timestamp + 10ms);
-            return cetl::nullopt;
+            auto frame = UdpardFrame(0x13, UDPARD_NODE_ID_UNSET, 0x0D, payload_size, &payload_mr_mock, Priority::High);
+            frame.payload()[0] = b('0');
+            frame.payload()[1] = b('1');
+            frame.setPortId(0x23, false /*is_service*/);
+            std::uint32_t tx_crc = UdpardFrame::InitialTxCrc;
+            return {rx_timestamp, std::move(frame).release(tx_crc)};
         });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
@@ -173,12 +216,17 @@ TEST_F(TestUdpMsgRxSession, run_and_receive)
         EXPECT_THAT(rx_transfer.metadata.timestamp, rx_timestamp);
         EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x0D);
         EXPECT_THAT(rx_transfer.metadata.priority, Priority::High);
-        EXPECT_THAT(rx_transfer.metadata.publisher_node_id, Optional(0x45));
+        EXPECT_THAT(rx_transfer.metadata.publisher_node_id, Optional(0x13));
 
         std::array<char, 2> buffer{};
         ASSERT_THAT(rx_transfer.payload.size(), buffer.size());
         EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
         EXPECT_THAT(buffer, ElementsAre('0', '1'));
+
+        EXPECT_CALL(payload_mr_mock, do_deallocate(_, frame_size, alignof(std::max_align_t)))
+            .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+                payload_mr_.deallocate(p, size_bytes, alignment);
+            });
     }
     {
         SCOPED_TRACE("2-nd iteration: no frames available @ 2s");
@@ -201,32 +249,46 @@ TEST_F(TestUdpMsgRxSession, run_and_receive)
 
 TEST_F(TestUdpMsgRxSession, run_and_receive_one_anonymous_frame)
 {
-    auto transport = makeTransport({mr_});
+    StrictMock<MemoryResourceMock> payload_mr_mock{};
+
+    auto transport = makeTransport({mr_, nullptr, nullptr, &payload_mr_mock});
 
     auto maybe_session = transport->makeMessageRxSession({4, 0x23});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
 
+    const auto params = session->getParams();
+    EXPECT_THAT(params.extent_bytes, 4);
+    EXPECT_THAT(params.subject_id, 0x23);
+
+    const auto timeout = 200ms;
+    session->setTransferIdTimeout(timeout);
+
     scheduler_.setNow(TimePoint{1s});
     const auto rx_timestamp = now();
 
-    {
-        const InSequence seq;
+    const std::size_t payload_size = 2;
+    const std::size_t frame_size   = UdpardFrame::SizeOfHeaderAndTxCrc + payload_size;
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(p.size(), UDPARD_MTU_DEFAULT);
-            p[0] = b('1');
-            p[1] = b('2');
-            p[2] = b(0b111'01110);
-            return RxMetadata{rx_timestamp, 0x01'60'23'13, 3};
+    EXPECT_CALL(payload_mr_mock, do_allocate(frame_size, alignof(std::max_align_t)))
+        .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
+            return payload_mr_.allocate(size_bytes, alignment);
         });
-        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
-            return cetl::nullopt;
-        });
-    }
+    EXPECT_CALL(rx_socket_mock_, receive()).WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
+        EXPECT_THAT(now(), rx_timestamp + 10ms);
+        auto frame = UdpardFrame(UDPARD_NODE_ID_UNSET,
+                                 UDPARD_NODE_ID_UNSET,
+                                 0x0D,
+                                 payload_size,
+                                 &payload_mr_mock,
+                                 Priority::Low);
+
+        frame.payload()[0] = b('0');
+        frame.payload()[1] = b('1');
+        frame.setPortId(0x23, false /*is_service*/);
+        std::uint32_t tx_crc = UdpardFrame::InitialTxCrc;
+        return {rx_timestamp, std::move(frame).release(tx_crc)};
+    });
 
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
@@ -237,14 +299,19 @@ TEST_F(TestUdpMsgRxSession, run_and_receive_one_anonymous_frame)
     const auto& rx_transfer = maybe_rx_transfer.value();
 
     EXPECT_THAT(rx_transfer.metadata.timestamp, rx_timestamp);
-    EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x0E);
-    EXPECT_THAT(rx_transfer.metadata.priority, Priority::Exceptional);
+    EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x0D);
+    EXPECT_THAT(rx_transfer.metadata.priority, Priority::Low);
     EXPECT_THAT(rx_transfer.metadata.publisher_node_id, Eq(cetl::nullopt));
 
     std::array<char, 2> buffer{};
     ASSERT_THAT(rx_transfer.payload.size(), buffer.size());
     EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
-    EXPECT_THAT(buffer, ElementsAre('1', '2'));
+    EXPECT_THAT(buffer, ElementsAre('0', '1'));
+
+    EXPECT_CALL(payload_mr_mock, do_deallocate(_, frame_size, alignof(std::max_align_t)))
+        .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+            payload_mr_.deallocate(p, size_bytes, alignment);
+        });
 }
 
 TEST_F(TestUdpMsgRxSession, unsubscribe_and_run)
@@ -255,21 +322,14 @@ TEST_F(TestUdpMsgRxSession, unsubscribe_and_run)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
 
-    scheduler_.setNow(TimePoint{1s});
-    const auto reset_time = now();
-
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-    EXPECT_CALL(media_mock_, setFilters(IsEmpty())).WillOnce([&](Filters) {
-        EXPECT_THAT(now(), reset_time + 10ms);
-        return cetl::nullopt;
-    });
+    EXPECT_CALL(rx_socket_mock_, receive()).WillOnce([&]() { return cetl::nullopt; });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 
     session.reset();
 
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
-*/
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 

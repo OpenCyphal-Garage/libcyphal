@@ -88,7 +88,7 @@ public:
         (void) result;
         CETL_DEBUG_ASSERT(result == 0, "There is no way currently to get an error here.");
 
-        rx_session_node.setMsgRxSessionDelegate(this);
+        rx_session_node.delegate() = this;
     }
 
     MessageRxSession(const MessageRxSession&)                = delete;
@@ -157,7 +157,7 @@ private:
 
     // MARK: IMsgRxSessionDelegate
 
-    UdpardRxSubscription& getUdpardRxSubscription() override
+    UdpardRxSubscription& getSubscription() override
     {
         return subscription_;
     }

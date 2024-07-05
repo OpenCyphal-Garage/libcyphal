@@ -239,7 +239,7 @@ public:
         (void) result;
         CETL_DEBUG_ASSERT(result == 0, "There is no way currently to get an error here.");
 
-        return {endpoint.ip_address, endpoint.udp_port};
+        return IpEndpoint::fromUdpardEndpoint(endpoint);
     }
 
     CETL_NODISCARD UdpardRxRPCDispatcher& getUdpardRpcDispatcher() noexcept
@@ -451,7 +451,7 @@ public:
     IMsgRxSessionDelegate& operator=(const IMsgRxSessionDelegate&)     = delete;
     IMsgRxSessionDelegate& operator=(IMsgRxSessionDelegate&&) noexcept = delete;
 
-    CETL_NODISCARD virtual UdpardRxSubscription& getUdpardRxSubscription() = 0;
+    CETL_NODISCARD virtual UdpardRxSubscription& getSubscription() = 0;
 
 protected:
     IMsgRxSessionDelegate()  = default;

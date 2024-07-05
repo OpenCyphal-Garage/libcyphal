@@ -170,10 +170,16 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_request)
 
     auto transport = makeTransport({mr_, nullptr, nullptr, &payload_mr_mock}, NodeId{0x31});
 
+    EXPECT_THAT(rx_socket_mock_.getEndpoint().ip_address, 0);
+    EXPECT_THAT(rx_socket_mock_.getEndpoint().udp_port, 0);
+
     const std::size_t extent_bytes  = 8;
     auto              maybe_session = transport->makeRequestRxSession({extent_bytes, 0x17B});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IRequestRxSession>>(std::move(maybe_session));
+
+    EXPECT_THAT(rx_socket_mock_.getEndpoint().ip_address, 0xEF010031);
+    EXPECT_THAT(rx_socket_mock_.getEndpoint().udp_port, 9382);
 
     const auto params = session->getParams();
     EXPECT_THAT(params.extent_bytes, extent_bytes);
@@ -195,7 +201,6 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_request)
             .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
                 return payload_mr_.allocate(size_bytes, alignment);
             });
-
         EXPECT_CALL(rx_socket_mock_, receive()).WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
             EXPECT_THAT(now(), rx_timestamp + 10ms);
             auto frame         = UdpardFrame(0x13, 0x31, 0x1D, payload_size, &payload_mr_mock, Priority::High);
@@ -255,10 +260,16 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_response)
 
     auto transport = makeTransport({mr_, nullptr, nullptr, &payload_mr_mock}, NodeId{0x13});
 
+    EXPECT_THAT(rx_socket_mock_.getEndpoint().ip_address, 0);
+    EXPECT_THAT(rx_socket_mock_.getEndpoint().udp_port, 0);
+
     const std::size_t extent_bytes  = 8;
     auto              maybe_session = transport->makeResponseRxSession({extent_bytes, 0x17B, 0x31});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IResponseRxSession>>(std::move(maybe_session));
+
+    EXPECT_THAT(rx_socket_mock_.getEndpoint().ip_address, 0xEF010013);
+    EXPECT_THAT(rx_socket_mock_.getEndpoint().udp_port, 9382);
 
     const auto params = session->getParams();
     EXPECT_THAT(params.extent_bytes, extent_bytes);
@@ -281,7 +292,6 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_response)
             .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
                 return payload_mr_.allocate(size_bytes, alignment);
             });
-
         EXPECT_CALL(rx_socket_mock_, receive()).WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
             EXPECT_THAT(now(), rx_timestamp + 10ms);
             auto frame         = UdpardFrame(0x31, 0x13, 0x1D, payload_size, &payload_mr_mock, Priority::High);
@@ -337,7 +347,7 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_response)
 // TODO: Uncomment gradually as the implementation progresses.
 /*
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST_F(TestUdpSvcRxSessions, run_and_receive_two_frame)
+TEST_F(TestUdpSvcRxSessions, run_and_receive_two_frames)
 {
     auto transport = makeTransport({mr_}, 0x31);
 
@@ -402,31 +412,25 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_two_frame)
     EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
     EXPECT_THAT(buffer, ElementsAre('0', '1', '2', '3', '4', '5', '6', '7'));
 }
+*/
 
 TEST_F(TestUdpSvcRxSessions, unsubscribe_and_run)
 {
-    auto transport = makeTransport({mr_}, 0x31);
+    auto transport = makeTransport({mr_}, NodeId{0x31});
 
     const std::size_t extent_bytes  = 8;
     auto              maybe_session = transport->makeRequestRxSession({extent_bytes, 0x17B});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IRequestRxSession>>(std::move(maybe_session));
 
-    scheduler_.setNow(TimePoint{1s});
-    const auto reset_time = now();
-
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-    EXPECT_CALL(media_mock_, setFilters(IsEmpty())).WillOnce([&](Filters) {
-        EXPECT_THAT(now(), reset_time + 10ms);
-        return cetl::nullopt;
-    });
+    EXPECT_CALL(rx_socket_mock_, receive()).WillOnce([&]() { return cetl::nullopt; });
+    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 
     session.reset();
 
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
-*/
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 

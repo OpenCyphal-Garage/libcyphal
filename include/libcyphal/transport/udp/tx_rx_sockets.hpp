@@ -31,6 +31,11 @@ struct IpEndpoint final
 {
     std::uint32_t ip_address;
     std::uint16_t udp_port;
+
+    static IpEndpoint fromUdpardEndpoint(const UdpardUDPIPEndpoint& endpoint)
+    {
+        return IpEndpoint{endpoint.ip_address, endpoint.udp_port};
+    }
 };
 
 /// @brief Defines interface to a custom UDP media TX socket implementation.

@@ -63,6 +63,14 @@ public:
             UdpardTx&    culprit;
         };
 
+        /// @brief Error report about accepting a frame for a message RX session.
+        struct UdpardRxMsgReceive
+        {
+            AnyFailure            failure;
+            std::uint8_t          media_index;
+            UdpardRxSubscription& culprit;
+        };
+
         /// @brief Error report about accepting a frame for a service RX session.
         struct UdpardRxSvcReceive
         {
@@ -108,6 +116,7 @@ public:
         using Variant = cetl::variant<UdpardTxPublish,
                                       UdpardTxRequest,
                                       UdpardTxRespond,
+                                      UdpardRxMsgReceive,
                                       UdpardRxSvcReceive,
                                       MediaMakeRxSocket,
                                       MediaMakeTxSocket,

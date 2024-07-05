@@ -145,6 +145,13 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
 
+    const auto params = session->getParams();
+    EXPECT_THAT(params.extent_bytes, 4);
+    EXPECT_THAT(params.subject_id, 0x23);
+
+    const auto timeout = 200ms;
+    session->setTransferIdTimeout(timeout);
+
     {
         SCOPED_TRACE("1-st iteration: one frame available @ 1s");
 

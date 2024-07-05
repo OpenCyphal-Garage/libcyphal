@@ -296,7 +296,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_response)
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST_F(TestCanSvcRxSessions, run_and_receive_two_frame)
+TEST_F(TestCanSvcRxSessions, run_and_receive_two_frames)
 {
     auto transport = makeTransport(mr_, 0x31);
 
