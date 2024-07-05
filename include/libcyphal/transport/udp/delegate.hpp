@@ -247,7 +247,7 @@ public:
         return rpc_dispatcher_;
     }
 
-    static CETL_NODISCARD cetl::optional<AnyFailure> optAnyFailureFromUdpard(const std::int32_t result)
+    CETL_NODISCARD static cetl::optional<AnyFailure> optAnyFailureFromUdpard(const std::int32_t result)
     {
         // Udpard error results are negative, so we need to negate them to get the error code.
         const std::int32_t udpard_error = -result;
