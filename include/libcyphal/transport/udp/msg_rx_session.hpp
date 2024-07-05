@@ -41,7 +41,7 @@ namespace detail
 /// NOSONAR cpp:S4963 for below `class MessageRxSession` - we do directly handle resources here;
 /// namely: in destructor we have to unsubscribe, as well as let transport delegate to know this fact.
 ///
-class MessageRxSession final : public IMsgRxSessionDelegate, public IMessageRxSession  // NOSONAR cpp:S4963
+class MessageRxSession final : private IMsgRxSessionDelegate, public IMessageRxSession  // NOSONAR cpp:S4963
 {
     /// @brief Defines private specification for making interface unique ptr.
     ///
