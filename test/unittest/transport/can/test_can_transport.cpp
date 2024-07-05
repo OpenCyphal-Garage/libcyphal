@@ -318,6 +318,15 @@ TEST_F(TestCanTransport, makeMessageRxSession_invalid_resubscription)
 
     auto maybe_rx_session2 = transport->makeMessageRxSession({0, test_subject_id});
     EXPECT_THAT(maybe_rx_session2, VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
+
+    // Now release the first session and try to subscribe again - should succeed.
+    {
+        auto rx_session1 = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_rx_session1));
+        rx_session1.reset();
+
+        maybe_rx_session2 = transport->makeMessageRxSession({0, test_subject_id});
+        ASSERT_THAT(maybe_rx_session2, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+    }
 }
 
 TEST_F(TestCanTransport, makeRequestRxSession_invalid_resubscription)
@@ -331,6 +340,15 @@ TEST_F(TestCanTransport, makeRequestRxSession_invalid_resubscription)
 
     auto maybe_rx_session2 = transport->makeRequestRxSession({0, test_subject_id});
     EXPECT_THAT(maybe_rx_session2, VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
+
+    // Now release the first session and try to subscribe again - should succeed.
+    {
+        auto rx_session1 = cetl::get<UniquePtr<IRequestRxSession>>(std::move(maybe_rx_session1));
+        rx_session1.reset();
+
+        maybe_rx_session2 = transport->makeRequestRxSession({0, test_subject_id});
+        ASSERT_THAT(maybe_rx_session2, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
+    }
 }
 
 TEST_F(TestCanTransport, makeResponseRxSession_invalid_resubscription)
@@ -344,6 +362,15 @@ TEST_F(TestCanTransport, makeResponseRxSession_invalid_resubscription)
 
     auto maybe_rx_session2 = transport->makeResponseRxSession({0, test_subject_id, 0x31});
     EXPECT_THAT(maybe_rx_session2, VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
+
+    // Now release the first session and try to subscribe again - should succeed.
+    {
+        auto rx_session1 = cetl::get<UniquePtr<IResponseRxSession>>(std::move(maybe_rx_session1));
+        rx_session1.reset();
+
+        maybe_rx_session2 = transport->makeResponseRxSession({0, test_subject_id, 0x31});
+        ASSERT_THAT(maybe_rx_session2, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
+    }
 }
 
 TEST_F(TestCanTransport, makeMessageTxSession)

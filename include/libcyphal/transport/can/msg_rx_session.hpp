@@ -98,7 +98,7 @@ public:
 
     ~MessageRxSession()
     {
-        const int8_t result =
+        const std::int8_t result =
             ::canardRxUnsubscribe(&delegate_.canard_instance(), CanardTransferKindMessage, params_.subject_id);
         (void) result;
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");

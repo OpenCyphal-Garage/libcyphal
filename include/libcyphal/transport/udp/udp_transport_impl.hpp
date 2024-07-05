@@ -10,6 +10,7 @@
 #include "media.hpp"
 #include "msg_rx_session.hpp"
 #include "msg_tx_session.hpp"
+#include "session_tree.hpp"
 #include "svc_rx_sessions.hpp"
 #include "svc_tx_sessions.hpp"
 #include "tx_rx_sockets.hpp"
@@ -175,6 +176,9 @@ public:
                   MediaArray&&           media_array)
         : TransportDelegate{memory_resources}
         , media_array_{std::move(media_array)}
+        , msg_rx_session_nodes_{memory_resources.general}
+        , svc_request_rx_session_nodes_{memory_resources.general}
+        , svc_response_rx_session_nodes_{memory_resources.general}
     {
         for (auto& media : media_array_)
         {
@@ -254,14 +258,7 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyError> makeMessageRxSession(
         const MessageRxParams& params) override
     {
-        // TODO: Uncomment!
-        //        const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindMessage,
-        //        params.subject_id); if (any_error.has_value())
-        //        {
-        //            return any_error.value();
-        //        }
-
-        return MessageRxSession::make(memoryResources().general, asDelegate(), params);
+        return makeAnyRxSession<IMessageRxSession, MessageRxSession>(params.subject_id, params, msg_rx_session_nodes_);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyError> makeMessageTxSession(
@@ -279,14 +276,9 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyError> makeRequestRxSession(
         const RequestRxParams& params) override
     {
-        // TODO: Uncomment!
-        //        const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindRequest,
-        //        params.service_id); if (any_error.has_value())
-        //        {
-        //            return any_error.value();
-        //        }
-
-        return SvcRequestRxSession::make(memoryResources().general, asDelegate(), params);
+        return makeAnyRxSession<IRequestRxSession, SvcRequestRxSession>(params.service_id,
+                                                                        params,
+                                                                        svc_request_rx_session_nodes_);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyError> makeRequestTxSession(
@@ -304,14 +296,9 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyError> makeResponseRxSession(
         const ResponseRxParams& params) override
     {
-        // TODO: Uncomment!
-        //        const cetl::optional<AnyError> any_error = ensureNewSessionFor(CanardTransferKindResponse,
-        //        params.service_id); if (any_error.has_value())
-        //        {
-        //            return any_error.value();
-        //        }
-
-        return SvcResponseRxSession::make(memoryResources().general, asDelegate(), params);
+        return makeAnyRxSession<IResponseRxSession, SvcResponseRxSession>(params.service_id,
+                                                                          params,
+                                                                          svc_response_rx_session_nodes_);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IResponseTxSession>, AnyError> makeResponseTxSession(
@@ -388,6 +375,16 @@ private:
         return opt_any_error;
     }
 
+    void onSessionEvent(const SessionEvent::Variant& event_var) override
+    {
+        cetl::visit(
+            [this](const auto& event) {
+                SessionEventHandler handler_with{*this};
+                cetl::visit(handler_with, event);
+            },
+            event_var);
+    }
+
     // MARK: Privates:
 
     using Self              = TransportImpl;
@@ -450,6 +447,52 @@ private:
         const struct UdpardPayload payload_;
 
     };  // TxTransferHandler
+
+    struct SessionEventHandler
+    {
+        explicit SessionEventHandler(Self& self)
+            : self_{self}
+        {
+        }
+
+        void operator()(const SessionEvent::Message::Destroyed& event) &
+        {
+            self_.msg_rx_session_nodes_.removeNodeFor(event.subject_id);
+        }
+
+        void operator()(const SessionEvent::Request::Destroyed& event) &
+        {
+            self_.svc_request_rx_session_nodes_.removeNodeFor(event.service_id);
+        }
+
+        void operator()(const SessionEvent::Response::Destroyed& event) &
+        {
+            self_.svc_response_rx_session_nodes_.removeNodeFor(event.service_id);
+        }
+
+    private:
+        Self& self_;
+
+    };  // SessionEventHandler
+
+    template <typename SessionInterface, typename Concrete, typename RxParams, typename Tree>
+    CETL_NODISCARD auto makeAnyRxSession(const PortId port_id, const RxParams& rx_params, Tree& tree_nodes)  //
+        -> Expected<UniquePtr<SessionInterface>, AnyError>
+    {
+        auto node_result = tree_nodes.ensureNewNodeFor(port_id);
+        if (auto* const any_error = cetl::get_if<AnyError>(&node_result))
+        {
+            return std::move(*any_error);
+        }
+
+        auto session_result = Concrete::make(memoryResources().general, asDelegate(), rx_params);
+        if (nullptr != cetl::get_if<AnyError>(&session_result))
+        {
+            tree_nodes.removeNodeFor(port_id);
+        }
+
+        return session_result;
+    }
 
     template <typename Report, typename ErrorVariant, typename Culprit>
     CETL_NODISCARD cetl::optional<AnyError> tryHandleTransientMediaError(const Media&   media,
@@ -621,7 +664,7 @@ private:
             const std::array<PayloadFragment, 1> single_payload_fragment{
                 PayloadFragment{buffer, tx_item->datagram_payload.size}};
 
-            Expected<bool, cetl::variant<PlatformError, ArgumentError>> maybe_sent =
+            Expected<bool, ITxSocket::SendFailure> maybe_sent =
                 tx_socket.send(deadline,
                                {tx_item->destination.ip_address, tx_item->destination.udp_port},
                                tx_item->dscp,
@@ -633,7 +676,7 @@ private:
             // Note that socket not being ready/able to send a frame just yet (aka temporary)
             // is not reported as an error (see `is_sent` below).
             //
-            if (auto* const error = cetl::get_if<cetl::variant<PlatformError, ArgumentError>>(&maybe_sent))
+            if (auto* const failure = cetl::get_if<ITxSocket::SendFailure>(&maybe_sent))
             {
                 // Release whole problematic transfer from the TX queue,
                 // so that other transfers in TX queue have their chance.
@@ -642,7 +685,7 @@ private:
 
                 cetl::optional<AnyError> opt_any_error =
                     tryHandleTransientMediaError<TransientErrorReport::MediaTxSocketSend>(media,
-                                                                                          std::move(*error),
+                                                                                          std::move(*failure),
                                                                                           tx_socket);
                 if (opt_any_error.has_value())
                 {
@@ -676,8 +719,11 @@ private:
 
     // MARK: Data members:
 
-    MediaArray            media_array_;
-    TransientErrorHandler transient_error_handler_;
+    MediaArray                               media_array_;
+    TransientErrorHandler                    transient_error_handler_;
+    SessionTree<RxSessionTreeNode::Message>  msg_rx_session_nodes_;
+    SessionTree<RxSessionTreeNode::Request>  svc_request_rx_session_nodes_;
+    SessionTree<RxSessionTreeNode::Response> svc_response_rx_session_nodes_;
 
 };  // TransportImpl
 

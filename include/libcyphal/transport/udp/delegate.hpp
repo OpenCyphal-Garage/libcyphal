@@ -7,15 +7,21 @@
 #define LIBCYPHAL_TRANSPORT_UDP_DELEGATE_HPP_INCLUDED
 
 #include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/scattered_buffer.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
+#include <cetl/rtti.hpp>
 #include <udpard.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <utility>
 
 namespace libcyphal
 {
@@ -69,7 +75,150 @@ struct AnyUdpardTxMetadata
 ///
 class TransportDelegate
 {
+    // FD977E25-CD36-48C5-B02E-B31420DCFF3B
+    using UdpardMemoryTypeIdType = cetl::
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+        type_id_type<0xFD, 0x97, 0x7E, 0x25, 0xCD, 0x36, 0x48, 0xC5, 0xB0, 0x2E, 0xB3, 0x14, 0x20, 0xDC, 0xFF, 0x3B>;
+
 public:
+    /// @brief RAII class to manage memory allocated by Udpard library.
+    ///
+    /// NOSONAR cpp:S4963 for below `class UdpardMemory` - we do directly handle resources here.
+    ///
+    class UdpardMemory final  // NOSONAR cpp:S4963
+        : public cetl::rtti_helper<UdpardMemoryTypeIdType, ScatteredBuffer::IStorage>
+    {
+    public:
+        UdpardMemory(TransportDelegate& delegate, UdpardRxTransfer& transfer)
+            : delegate_{delegate}
+            , payload_size_{std::exchange(transfer.payload_size, 0)}
+            , payload_{std::exchange(transfer.payload, {})}
+        {
+        }
+        UdpardMemory(UdpardMemory&& other) noexcept
+            : delegate_{other.delegate_}
+            , payload_size_{std::exchange(other.payload_size_, 0)}
+            , payload_{std::exchange(other.payload_, {})}
+        {
+        }
+        UdpardMemory(const UdpardMemory&) = delete;
+
+        ~UdpardMemory() override
+        {
+            ::udpardRxFragmentFree(payload_, delegate_.memoryResources().fragment, delegate_.memoryResources().payload);
+        }
+
+        UdpardMemory& operator=(const UdpardMemory&)     = delete;
+        UdpardMemory& operator=(UdpardMemory&&) noexcept = delete;
+
+        // MARK: ScatteredBuffer::IStorage
+
+        CETL_NODISCARD std::size_t size() const noexcept override
+        {
+            return payload_size_;
+        }
+
+        CETL_NODISCARD std::size_t copy(const std::size_t offset_bytes,
+                                        cetl::byte* const destination,
+                                        const std::size_t length_bytes) const override
+        {
+            using FragSpan = const cetl::span<const cetl::byte>;
+
+            // TODO: Use `udpardGather` function when it will be available with offset support.
+
+            CETL_DEBUG_ASSERT((destination != nullptr) || (length_bytes == 0),
+                              "Destination could be null only with zero bytes ask.");
+
+            if ((destination == nullptr) || (payload_.view.data == nullptr) || (payload_size_ <= offset_bytes))
+            {
+                return 0;
+            }
+
+            // Find first fragment to start from (according to source `offset_bytes`).
+            //
+            std::size_t                  src_offset = 0;
+            const struct UdpardFragment* frag       = &payload_;
+            while ((nullptr != frag) && (offset_bytes >= (src_offset + frag->view.size)))
+            {
+                src_offset += frag->view.size;
+                frag = frag->next;
+            }
+
+            std::size_t dst_offset         = 0;
+            std::size_t total_bytes_copied = 0;
+
+            CETL_DEBUG_ASSERT(offset_bytes >= src_offset, "");
+            std::size_t view_offset = offset_bytes - src_offset;
+
+            while ((nullptr != frag) && (dst_offset < length_bytes))
+            {
+                CETL_DEBUG_ASSERT(nullptr != frag->view.data, "");
+                // Next nolint-s are unavoidable: we need offset from the beginning of the buffer.
+                // No Sonar `cpp:S5356` b/c we integrate here with libcanard raw C buffers.
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                FragSpan frag_span{static_cast<const cetl::byte*>(frag->view.data) + view_offset,  // NOSONAR cpp:S5356
+                                   std::min(frag->view.size - view_offset, length_bytes - dst_offset)};
+                CETL_DEBUG_ASSERT(frag_span.size() <= (frag->view.size - view_offset), "");
+
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                (void) std::memmove(destination + dst_offset, frag_span.data(), frag_span.size());  // NOSONAR cpp:S5356
+
+                src_offset += frag_span.size();
+                dst_offset += frag_span.size();
+                total_bytes_copied += frag_span.size();
+                CETL_DEBUG_ASSERT(dst_offset <= length_bytes, "");
+                frag        = frag->next;
+                view_offset = 0;
+            }
+
+            return total_bytes_copied;
+        }
+
+    private:
+        // MARK: Data members:
+
+        TransportDelegate& delegate_;
+        std::size_t        payload_size_;
+        UdpardFragment     payload_;
+
+    };  // UdpardMemory
+
+    struct SessionEvent
+    {
+        struct Message
+        {
+            struct Destroyed
+            {
+                PortId subject_id;
+            };
+
+            using Variant = cetl::variant<Destroyed>;
+        };
+
+        struct Request
+        {
+            struct Destroyed
+            {
+                PortId service_id;
+            };
+
+            using Variant = cetl::variant<Destroyed>;
+        };
+
+        struct Response
+        {
+            struct Destroyed
+            {
+                PortId service_id;
+            };
+
+            using Variant = cetl::variant<Destroyed>;
+        };
+
+        using Variant = cetl::variant<Message::Variant, Request::Variant, Response::Variant>;
+
+    };  // SessionEvent
+
     TransportDelegate(const TransportDelegate&)                = delete;
     TransportDelegate(TransportDelegate&&) noexcept            = delete;
     TransportDelegate& operator=(const TransportDelegate&)     = delete;
@@ -88,21 +237,21 @@ public:
     static cetl::optional<AnyError> optAnyErrorFromUdpard(const std::int32_t result)
     {
         // Udpard error results are negative, so we need to negate them to get the error code.
-        const std::int32_t canard_error = -result;
+        const std::int32_t udpard_error = -result;
 
-        if (canard_error == UDPARD_ERROR_ARGUMENT)
+        if (udpard_error == UDPARD_ERROR_ARGUMENT)
         {
             return ArgumentError{};
         }
-        if (canard_error == UDPARD_ERROR_MEMORY)
+        if (udpard_error == UDPARD_ERROR_MEMORY)
         {
             return MemoryError{};
         }
-        if (canard_error == UDPARD_ERROR_CAPACITY)
+        if (udpard_error == UDPARD_ERROR_CAPACITY)
         {
             return CapacityError{};
         }
-        if (canard_error == UDPARD_ERROR_ANONYMOUS)
+        if (udpard_error == UDPARD_ERROR_ANONYMOUS)
         {
             return AnonymousError{};
         }
@@ -137,6 +286,12 @@ public:
     ///
     CETL_NODISCARD virtual cetl::optional<AnyError> sendAnyTransfer(const AnyUdpardTxMetadata::Variant& tx_metadata_var,
                                                                     const PayloadFragments payload_fragments) = 0;
+
+    /// @brief Called on a session event.
+    ///
+    /// @param event_var Describes variant of the session even has happened.
+    ///
+    virtual void onSessionEvent(const SessionEvent::Variant& event_var) = 0;
 
 protected:
     /// @brief Defines internal set of memory resources used by the UDP transport.
@@ -243,7 +398,11 @@ public:
 
     /// @brief Accepts a received transfer from the transport dedicated to this RX session.
     ///
-    virtual void acceptRxTransfer(const UdpardRxTransfer& transfer) = 0;
+    /// @param inout_transfer The received transfer to be accepted. An implementation is expected to take ownership
+    ///                       of the transfer payload, and to release it when it is no longer needed.
+    ///                       On exit the original transfer's `payload_size` and `payload` fields are set to zero.
+    ///
+    virtual void acceptRxTransfer(UdpardRxTransfer& inout_transfer) = 0;
 
 protected:
     IRxSessionDelegate()  = default;

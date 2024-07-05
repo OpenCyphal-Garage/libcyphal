@@ -60,11 +60,10 @@ public:
             return tx_socket_mock_.getMtu();
         }
 
-        libcyphal::Expected<bool, cetl::variant<PlatformError, ArgumentError>> send(
-            const TimePoint        deadline,
-            const IpEndpoint       multicast_endpoint,
-            const std::uint8_t     dscp,
-            const PayloadFragments payload_fragments) override
+        Expected<bool, ITxSocket::SendFailure> send(const TimePoint        deadline,
+                                                    const IpEndpoint       multicast_endpoint,
+                                                    const std::uint8_t     dscp,
+                                                    const PayloadFragments payload_fragments) override
         {
             return tx_socket_mock_.send(deadline, multicast_endpoint, dscp, payload_fragments);
         }
@@ -75,7 +74,7 @@ public:
     };  // ReferenceWrapper
 
     explicit TxSocketMock(std::string name)
-        : name_{std::move(name)} {};
+        : name_{std::move(name)} {}
 
     virtual ~TxSocketMock()                          = default;
     TxSocketMock(const TxSocketMock&)                = delete;
@@ -98,7 +97,7 @@ public:
     // NOLINTNEXTLINE(bugprone-exception-escape)
     MOCK_METHOD(std::size_t, getMtu, (), (const, noexcept, override));
 
-    MOCK_METHOD((Expected<bool, cetl::variant<PlatformError, ArgumentError>>),
+    MOCK_METHOD((Expected<bool, ITxSocket::SendFailure>),
                 send,
                 (const TimePoint        deadline,
                  const IpEndpoint       multicast_endpoint,
@@ -116,13 +115,73 @@ private:
 class RxSocketMock : public IRxSocket
 {
 public:
-    RxSocketMock()          = default;
-    virtual ~RxSocketMock() = default;
+    struct ReferenceWrapper : IRxSocket
+    {
+        struct Spec : libcyphal::detail::UniquePtrSpec<IRxSocket, ReferenceWrapper>
+        {};
 
+        explicit ReferenceWrapper(RxSocketMock& rx_socket_mock)
+            : rx_socket_mock_{rx_socket_mock}
+        {
+        }
+        ReferenceWrapper(const ReferenceWrapper& other)
+            : rx_socket_mock_{other.rx_socket_mock_}
+        {
+        }
+
+        virtual ~ReferenceWrapper()                              = default;
+        ReferenceWrapper(ReferenceWrapper&&) noexcept            = delete;
+        ReferenceWrapper& operator=(const ReferenceWrapper&)     = delete;
+        ReferenceWrapper& operator=(ReferenceWrapper&&) noexcept = delete;
+
+        RxSocketMock& rx_socket_mock()
+        {
+            return rx_socket_mock_;
+        }
+
+        // MARK: IRxSocket
+
+        Expected<cetl::optional<ReceiveSuccess>, ReceiveFailure> receive() override
+        {
+            return rx_socket_mock_.receive();
+        }
+
+    private:
+        RxSocketMock& rx_socket_mock_;
+
+    };  // ReferenceWrapper
+
+    explicit RxSocketMock(std::string name)
+        : name_{std::move(name)} {}
+
+    virtual ~RxSocketMock()                          = default;
     RxSocketMock(const RxSocketMock&)                = delete;
     RxSocketMock(RxSocketMock&&) noexcept            = delete;
     RxSocketMock& operator=(const RxSocketMock&)     = delete;
     RxSocketMock& operator=(RxSocketMock&&) noexcept = delete;
+
+    std::string getMockName() const
+    {
+        return name_;
+    }
+
+    IpEndpoint getEndpoint() const
+    {
+        return endpoint_;
+    }
+
+    void setEndpoint(const IpEndpoint& endpoint)
+    {
+        endpoint_ = endpoint;
+    }
+
+    // MARK: IRxSocket
+
+    MOCK_METHOD((Expected<cetl::optional<ReceiveSuccess>, ReceiveFailure>), receive, (), (override));
+
+private:
+    const std::string name_;
+    IpEndpoint        endpoint_{};
 
 };  // RxSocketMock
 
