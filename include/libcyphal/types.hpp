@@ -189,7 +189,7 @@ struct PmrRawBytesDeleter final
 
         if ((nullptr != memory_resource_) && (nullptr != raw_bytes_ptr))
         {
-            // CETL_DEBUG_ASSERT(isAligned(raw_bytes_ptr, size_bytes_), "Unexpected alignment of the memory buffer.");
+            CETL_DEBUG_ASSERT(isAligned(raw_bytes_ptr, size_bytes_), "Unexpected alignment of the memory buffer.");
 
             // No Sonar `cpp:S5356` b/c we integrate here with low level PMR management.
             memory_resource_->deallocate(raw_bytes_ptr, size_bytes_);  // NOSONAR:cpp:S5356

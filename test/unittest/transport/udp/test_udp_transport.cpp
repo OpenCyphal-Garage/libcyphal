@@ -649,6 +649,42 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
     }
 }
 
+/// Transport should not attempt to re-create any TX sockets if there is nothing to send,
+/// even if there is a "passive, never sending" TX session alive with "faulty" TX socket.
+///
+TEST_F(TestUpdTransport, no_adhoc_tx_sockets_creation_at_run_when_there_is_nothing_to_send)
+{
+    auto transport = makeTransport({mr_});
+    //EXPECT_THAT(transport->setLocalNodeId(0x45), Eq(cetl::nullopt));
+
+    // Ignore all transient errors.
+    StrictMock<TransientErrorHandlerMock> handler_mock{};
+    transport->setTransientErrorHandler(std::ref(handler_mock));
+    EXPECT_CALL(handler_mock, invoke(_)).WillRepeatedly(Return(cetl::nullopt));
+
+    // 1. Nothing to send, so no need to create any TX sockets.
+    {
+        EXPECT_CALL(media_mock_, makeTxSocket()).Times(0);
+
+        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    }
+    // 2. Still no need to create any TX sockets, even with a "passive, never sending" TX session alive
+    {
+        // One attempt still expected (b/c of the session creation), but not on every `transport::run`.
+        EXPECT_CALL(media_mock_, makeTxSocket()).WillOnce(Return(MemoryError{}));
+
+        auto maybe_session = transport->makeMessageTxSession({7});
+        ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
+        auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
+
+        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    }
+}
+
 // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 

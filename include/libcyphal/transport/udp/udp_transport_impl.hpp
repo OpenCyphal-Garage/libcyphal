@@ -668,14 +668,21 @@ private:
     {
         for (Media& some_media : media_array_)
         {
-            cetl::optional<AnyFailure> failure =
-                withEnsureMediaTxSocket(some_media,
-                                        [this, now](Media& media, ITxSocket& tx_socket) -> cetl::optional<AnyFailure> {
-                                            return runSingleMediaTransmit(media, tx_socket, now);
-                                        });
-            if (failure.has_value())
+            // Before running TX loop (and potentially trying to ensure TX socket),
+            // it makes sense to check if there is anything to send at all.
+            // This way we can avoid unnecessary TX socket creation.
+            //
+            if (nullptr != peekFirstValidUdpardTxItem(some_media.udpard_tx(), now))
             {
-                return failure;
+                cetl::optional<AnyFailure> failure = withEnsureMediaTxSocket(  //
+                    some_media,
+                    [this, now](Media& media, ITxSocket& tx_socket) -> cetl::optional<AnyFailure> {
+                        return runSingleMediaTransmit(media, tx_socket, now);
+                    });
+                if (failure.has_value())
+                {
+                    return failure;
+                }
             }
         }
 
@@ -692,22 +699,9 @@ private:
     {
         using PayloadFragment = cetl::span<const cetl::byte>;
 
-        while (const UdpardTxItem* const tx_item = ::udpardTxPeek(&media.udpard_tx()))
+        while (const UdpardTxItem* const tx_item = peekFirstValidUdpardTxItem(media.udpard_tx(), now))
         {
-            // We are dropping any TX item that has expired.
-            // Otherwise, we would send it to the media TX socket interface.
-            // We use strictly `>=` (instead of `>`) to give this frame a chance (one extra 1us) at the socket.
-            //
             const auto deadline = TimePoint{std::chrono::microseconds{tx_item->deadline_usec}};
-            if (now >= deadline)
-            {
-                // Release whole expired transfer b/c possible next frames of the same transfer are also expired.
-                popAndFreeUdpardTxItem(&media.udpard_tx(), tx_item, true /*whole transfer*/);
-
-                // No Sonar `cpp:S909` b/c it make sense to use `continue` statement here - the corner case of
-                // "early" (by deadline) transfer drop. Using `if` would make the code less readable and more nested.
-                continue;  // NOSONAR cpp:S909
-            }
 
             // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libudpard API.
             const auto* const buffer =
@@ -766,6 +760,31 @@ private:
         }  // for each frame
 
         return cetl::nullopt;
+    }
+
+    /// @brief Tries to peek the first TX item from the media TX queue which is not expired.
+    ///
+    /// While searching, any of already expired TX items are pop from the queue and freed (aka dropped).
+    /// If there is no still valid TX items in the queue, returns `nullptr`.
+    ///
+    CETL_NODISCARD static const UdpardTxItem* peekFirstValidUdpardTxItem(UdpardTx& udpard_tx, const TimePoint now)
+    {
+        while (const UdpardTxItem* const tx_item = ::udpardTxPeek(&udpard_tx))
+        {
+            // We are dropping any TX item that has expired.
+            // Otherwise, we would send it to the media TX socket interface.
+            // We use strictly `<` (instead of `<=`) to give this frame a chance (one extra 1us) at the socket.
+            //
+            const auto deadline = TimePoint{std::chrono::microseconds{tx_item->deadline_usec}};
+            if (now < deadline)
+            {
+                return tx_item;
+            }
+
+            // Release whole expired transfer b/c possible next frames of the same transfer are also expired.
+            popAndFreeUdpardTxItem(&udpard_tx, tx_item, true /*whole transfer*/);
+        }
+        return nullptr;
     }
 
     /// @brief Tries to call an action with a media and its RX socket.
