@@ -6,13 +6,15 @@
 #ifndef LIBCYPHAL_VIRTUAL_TIME_SCHEDULER_HPP
 #define LIBCYPHAL_VIRTUAL_TIME_SCHEDULER_HPP
 
+#include <libcyphal/executor.hpp>
 #include <libcyphal/types.hpp>
 
 namespace libcyphal
 {
 
-struct VirtualTimeScheduler final
+class VirtualTimeScheduler final : public IExecutor
 {
+public:
     explicit VirtualTimeScheduler(const TimePoint initial_now = {})
         : now_{initial_now}
     {
@@ -39,6 +41,8 @@ struct VirtualTimeScheduler final
         runNow(duration);
         action();
     }
+
+    // MARK: - IExecutor
 
 private:
     TimePoint now_;

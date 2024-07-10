@@ -4,11 +4,11 @@
 /// SPDX-License-Identifier: MIT
 
 #include "../../cetl_gtest_helpers.hpp"
+#include "../../executor_mock.hpp"
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
 #include "../../verification_utilities.hpp"
 #include "../../virtual_time_scheduler.hpp"
-#include "../multiplexer_mock.hpp"
 #include "media_mock.hpp"
 #include "transient_error_handler_mock.hpp"
 #include "tx_rx_sockets_mock.hpp"
@@ -93,7 +93,7 @@ protected:
     {
         std::array<IMedia*, 1> media_array{&media_mock_};
 
-        auto maybe_transport = udp::makeTransport(mem_res_spec, mux_mock_, media_array, 16);
+        auto maybe_transport = udp::makeTransport(mem_res_spec, executor_mock_, media_array, 16);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<IUdpTransport>>(NotNull()));
         return cetl::get<UniquePtr<IUdpTransport>>(std::move(maybe_transport));
     }
@@ -101,11 +101,11 @@ protected:
     // MARK: Data members:
 
     // NOLINTBEGIN
-    libcyphal::VirtualTimeScheduler scheduler_{};
-    TrackingMemoryResource          mr_;
-    StrictMock<MultiplexerMock>     mux_mock_{};
-    StrictMock<MediaMock>           media_mock_{};
-    StrictMock<TxSocketMock>        tx_socket_mock_{"S1"};
+    libcyphal::VirtualTimeScheduler     scheduler_{};
+    TrackingMemoryResource              mr_;
+    StrictMock<libcyphal::ExecutorMock> executor_mock_{};
+    StrictMock<MediaMock>               media_mock_{};
+    StrictMock<TxSocketMock>            tx_socket_mock_{"S1"};
     // NOLINTEND
 };
 

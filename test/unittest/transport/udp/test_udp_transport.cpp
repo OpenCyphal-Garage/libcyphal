@@ -4,11 +4,11 @@
 /// SPDX-License-Identifier: MIT
 
 #include "../../cetl_gtest_helpers.hpp"
+#include "../../executor_mock.hpp"
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
 #include "../../verification_utilities.hpp"
 #include "../../virtual_time_scheduler.hpp"
-#include "../multiplexer_mock.hpp"
 #include "media_mock.hpp"
 #include "transient_error_handler_mock.hpp"
 #include "tx_rx_sockets_mock.hpp"
@@ -131,7 +131,7 @@ protected:
     {
         std::array<IMedia*, 2> media_array{&media_mock_, extra_media};
 
-        auto maybe_transport = udp::makeTransport(mem_res_spec, mux_mock_, media_array, tx_capacity);
+        auto maybe_transport = udp::makeTransport(mem_res_spec, executor_mock_, media_array, tx_capacity);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<IUdpTransport>>(NotNull()));
         return cetl::get<UniquePtr<IUdpTransport>>(std::move(maybe_transport));
     }
@@ -139,12 +139,12 @@ protected:
     // MARK: Data members:
 
     // NOLINTBEGIN
-    libcyphal::VirtualTimeScheduler scheduler_{};
-    TrackingMemoryResource          mr_;
-    StrictMock<MultiplexerMock>     mux_mock_{};
-    StrictMock<MediaMock>           media_mock_{};
-    StrictMock<RxSocketMock>        rx_socket_mock_{"RxS1"};
-    StrictMock<TxSocketMock>        tx_socket_mock_{"TxS1"};
+    libcyphal::VirtualTimeScheduler     scheduler_{};
+    TrackingMemoryResource              mr_;
+    StrictMock<libcyphal::ExecutorMock> executor_mock_{};
+    StrictMock<MediaMock>               media_mock_{};
+    StrictMock<RxSocketMock>            rx_socket_mock_{"RxS1"};
+    StrictMock<TxSocketMock>            tx_socket_mock_{"TxS1"};
     // NOLINTEND
 };
 
@@ -162,7 +162,7 @@ TEST_F(TestUpdTransport, makeTransport_no_memory_at_all)
 #endif
 
     std::array<IMedia*, 1> media_array{&media_mock_};
-    auto                   maybe_transport = udp::makeTransport({mr_mock}, mux_mock_, media_array, 0);
+    auto                   maybe_transport = udp::makeTransport({mr_mock}, executor_mock_, media_array, 0);
     EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<MemoryError>(_)));
 }
 
@@ -175,7 +175,7 @@ TEST_F(TestUpdTransport, makeTransport_no_memory_for_impl)
     EXPECT_CALL(mr_mock, do_allocate(sizeof(udp::detail::TransportImpl), _)).WillOnce(Return(nullptr));
 
     std::array<IMedia*, 1> media_array{&media_mock_};
-    auto                   maybe_transport = udp::makeTransport({mr_mock}, mux_mock_, media_array, 0);
+    auto                   maybe_transport = udp::makeTransport({mr_mock}, executor_mock_, media_array, 0);
     EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<MemoryError>(_)));
 }
 
@@ -184,7 +184,7 @@ TEST_F(TestUpdTransport, makeTransport_too_many_media)
     std::array<IMedia*, UDPARD_NETWORK_INTERFACE_COUNT_MAX + 1> media_array{};
     std::fill(media_array.begin(), media_array.end(), &media_mock_);
 
-    auto maybe_transport = udp::makeTransport({mr_}, mux_mock_, media_array, 0);
+    auto maybe_transport = udp::makeTransport({mr_}, executor_mock_, media_array, 0);
     EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<ArgumentError>(_)));
 }
 
@@ -193,7 +193,7 @@ TEST_F(TestUpdTransport, makeTransport_getLocalNodeId)
     // Anonymous node
     {
         std::array<IMedia*, 1> media_array{&media_mock_};
-        auto                   maybe_transport = udp::makeTransport({mr_}, mux_mock_, media_array, 0);
+        auto                   maybe_transport = udp::makeTransport({mr_}, executor_mock_, media_array, 0);
         ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<IUdpTransport>>(NotNull()));
 
         auto transport = cetl::get<UniquePtr<IUdpTransport>>(std::move(maybe_transport));
@@ -203,7 +203,7 @@ TEST_F(TestUpdTransport, makeTransport_getLocalNodeId)
     // Node with ID
     {
         std::array<IMedia*, 1> media_array{&media_mock_};
-        auto                   maybe_transport = udp::makeTransport({mr_}, mux_mock_, media_array, 0);
+        auto                   maybe_transport = udp::makeTransport({mr_}, executor_mock_, media_array, 0);
         ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<IUdpTransport>>(NotNull()));
 
         auto transport = cetl::get<UniquePtr<IUdpTransport>>(std::move(maybe_transport));
@@ -217,7 +217,7 @@ TEST_F(TestUpdTransport, makeTransport_getLocalNodeId)
         StrictMock<MediaMock> media_mock2;
 
         std::array<IMedia*, 3> media_array{&media_mock_, nullptr, &media_mock2};
-        auto                   maybe_transport = udp::makeTransport({mr_}, mux_mock_, media_array, 0);
+        auto                   maybe_transport = udp::makeTransport({mr_}, executor_mock_, media_array, 0);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<IUdpTransport>>(NotNull()));
     }
 
@@ -227,7 +227,7 @@ TEST_F(TestUpdTransport, makeTransport_getLocalNodeId)
         StrictMock<MediaMock> media_mock3{};
 
         std::array<IMedia*, 3> media_array{&media_mock_, &media_mock2, &media_mock3};
-        auto                   maybe_transport = udp::makeTransport({mr_}, mux_mock_, media_array, 0);
+        auto                   maybe_transport = udp::makeTransport({mr_}, executor_mock_, media_array, 0);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<IUdpTransport>>(NotNull()));
     }
 }
@@ -262,7 +262,7 @@ TEST_F(TestUpdTransport, setLocalNodeId)
 TEST_F(TestUpdTransport, makeTransport_with_invalid_arguments)
 {
     // No media
-    const auto maybe_transport = udp::makeTransport({mr_}, mux_mock_, {}, 0);
+    const auto maybe_transport = udp::makeTransport({mr_}, executor_mock_, {}, 0);
     EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<ArgumentError>(_)));
 }
 
@@ -271,7 +271,7 @@ TEST_F(TestUpdTransport, getProtocolParams)
     StrictMock<MediaMock> media_mock2{};
 
     std::array<IMedia*, 2> media_array{&media_mock_, &media_mock2};
-    auto transport = cetl::get<UniquePtr<IUdpTransport>>(udp::makeTransport({mr_}, mux_mock_, media_array, 0));
+    auto transport = cetl::get<UniquePtr<IUdpTransport>>(udp::makeTransport({mr_}, executor_mock_, media_array, 0));
 
     const auto params = transport->getProtocolParams();
     EXPECT_THAT(params.transfer_id_modulo, std::numeric_limits<TransferId>::max());

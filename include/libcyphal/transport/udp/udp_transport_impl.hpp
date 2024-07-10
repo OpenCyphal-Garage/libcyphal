@@ -16,12 +16,12 @@
 #include "tx_rx_sockets.hpp"
 #include "udp_transport.hpp"
 
+#include "libcyphal/executor.hpp"
 #include "libcyphal/runnable.hpp"
 #include "libcyphal/transport/common/tools.hpp"
 #include "libcyphal/transport/contiguous_payload.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
-#include "libcyphal/transport/multiplexer.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
@@ -130,7 +130,7 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
 public:
     CETL_NODISCARD static Expected<UniquePtr<IUdpTransport>, FactoryFailure> make(
         const MemoryResourcesSpec& mem_res_spec,
-        IMultiplexer&              multiplexer,
+        IExecutor&                 executor,
         const cetl::span<IMedia*>  media,
         const std::size_t          tx_capacity)
     {
@@ -169,7 +169,7 @@ public:
         auto transport = libcyphal::detail::makeUniquePtr<Spec>(memory_resources.general,
                                                                 Spec{},
                                                                 memory_resources,
-                                                                multiplexer,
+                                                                executor,
                                                                 std::move(media_array));
         if (transport == nullptr)
         {
@@ -179,10 +179,7 @@ public:
         return transport;
     }
 
-    TransportImpl(const Spec,
-                  const MemoryResources& memory_resources,
-                  IMultiplexer&          multiplexer,
-                  MediaArray&&           media_array)
+    TransportImpl(const Spec, const MemoryResources& memory_resources, IExecutor& executor, MediaArray&& media_array)
         : TransportDelegate{memory_resources}
         , media_array_{std::move(media_array)}
         , msg_rx_session_nodes_{memory_resources.general}
@@ -195,7 +192,7 @@ public:
         }
 
         // TODO: Use it!
-        (void) multiplexer;
+        (void) executor;
     }
 
     TransportImpl(const TransportImpl&)                = delete;
@@ -1059,17 +1056,17 @@ private:
 /// NB! Lifetime of the transport instance must never outlive memory resources, `media` and `multiplexer` instances.
 ///
 /// @param mem_res_spec Specification of polymorphic memory resources to use for all allocations.
-/// @param multiplexer Interface of the multiplexer to use.
+/// @param executor Interface of the executor to use.
 /// @param media Collection of redundant media interfaces to use.
 /// @param tx_capacity Total number of frames that can be queued for transmission per `IMedia` instance.
 /// @return Unique pointer to the new UDP transport instance or a failure.
 ///
 inline Expected<UniquePtr<IUdpTransport>, FactoryFailure> makeTransport(const MemoryResourcesSpec& mem_res_spec,
-                                                                        IMultiplexer&              multiplexer,
+                                                                        IExecutor&                 executor,
                                                                         const cetl::span<IMedia*>  media,
                                                                         const std::size_t          tx_capacity)
 {
-    return detail::TransportImpl::make(mem_res_spec, multiplexer, media, tx_capacity);
+    return detail::TransportImpl::make(mem_res_spec, executor, media, tx_capacity);
 }
 
 }  // namespace udp
