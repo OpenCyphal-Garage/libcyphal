@@ -11,13 +11,20 @@
 
 #include <gmock/gmock.h>
 
+#include <cstddef>
+
 class MemoryResourceMock : public cetl::pmr::memory_resource
 {
 public:
+    cetl::pmr::memory_resource* resource() noexcept
+    {
+        return this;
+    }
+
     MOCK_METHOD(void*, do_allocate, (std::size_t, std::size_t), (override));
     MOCK_METHOD(void, do_deallocate, (void*, std::size_t, std::size_t));
     // NOLINTNEXTLINE(bugprone-exception-escape)
-    MOCK_METHOD(bool, do_is_equal, (const memory_resource&), (const, noexcept, override));
+    MOCK_METHOD(bool, do_is_equal, (const cetl::pmr::memory_resource&), (const, noexcept, override));
 
 #if (__cplusplus < CETL_CPP_STANDARD_17)
     // NOLINTNEXTLINE(bugprone-exception-escape)
@@ -37,7 +44,7 @@ public:
             .WillRepeatedly([&mr](void* p, std::size_t size_bytes, std::size_t alignment) {
                 mr.deallocate(p, size_bytes, alignment);
             });
-        EXPECT_CALL(*this, do_is_equal(_)).WillRepeatedly([&mr](const memory_resource& rhs) {
+        EXPECT_CALL(*this, do_is_equal(_)).WillRepeatedly([&mr](const cetl::pmr::memory_resource& rhs) {
             return mr.is_equal(rhs);
         });
 

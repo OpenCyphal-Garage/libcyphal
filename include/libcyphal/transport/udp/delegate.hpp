@@ -9,6 +9,7 @@
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
 #include "libcyphal/transport/types.hpp"
+#include "libcyphal/transport/udp/tx_rx_sockets.hpp"
 #include "libcyphal/types.hpp"
 
 #include <cetl/cetl.hpp>
@@ -70,7 +71,7 @@ struct AnyUdpardTxMetadata
 
 /// This internal transport delegate class serves the following purposes:
 /// 1. It provides memory management functions for the Udpard library.
-/// 2. It provides a way to convert Udpard error codes to `AnyError` type.
+/// 2. It provides a way to convert Udpard error codes to `AnyFailure` type.
 /// 3. It provides an interface to access the transport from various session classes.
 ///
 class TransportDelegate
@@ -224,17 +225,29 @@ public:
     TransportDelegate& operator=(const TransportDelegate&)     = delete;
     TransportDelegate& operator=(TransportDelegate&&) noexcept = delete;
 
-    CETL_NODISCARD NodeId node_id() const noexcept
+    CETL_NODISCARD const NodeId& node_id() const noexcept
     {
         return udpard_node_id_;
     }
 
-    CETL_NODISCARD UdpardNodeID& udpard_node_id() noexcept
+    CETL_NODISCARD IpEndpoint setNodeId(const NodeId node_id) noexcept
     {
-        return udpard_node_id_;
+        udpard_node_id_ = node_id;
+
+        UdpardUDPIPEndpoint endpoint{};
+        const std::int8_t   result = ::udpardRxRPCDispatcherStart(&rpc_dispatcher_, node_id, &endpoint);
+        (void) result;
+        CETL_DEBUG_ASSERT(result == 0, "There is no way currently to get an error here.");
+
+        return IpEndpoint::fromUdpardEndpoint(endpoint);
     }
 
-    static cetl::optional<AnyError> optAnyErrorFromUdpard(const std::int32_t result)
+    CETL_NODISCARD UdpardRxRPCDispatcher& getUdpardRpcDispatcher() noexcept
+    {
+        return rpc_dispatcher_;
+    }
+
+    CETL_NODISCARD static cetl::optional<AnyFailure> optAnyFailureFromUdpard(const std::int32_t result)
     {
         // Udpard error results are negative, so we need to negate them to get the error code.
         const std::int32_t udpard_error = -result;
@@ -257,6 +270,11 @@ public:
         }
 
         return cetl::nullopt;
+    }
+
+    CETL_NODISCARD UdpardRxMemoryResources makeUdpardRxMemoryResources() const
+    {
+        return {memoryResources().session, memoryResources().fragment, memoryResources().payload};
     }
 
     /// Pops and frees Udpard TX queue item(s).
@@ -284,8 +302,9 @@ public:
     ///
     /// Internal method which is in use by TX session implementations to delegate actual sending to transport.
     ///
-    CETL_NODISCARD virtual cetl::optional<AnyError> sendAnyTransfer(const AnyUdpardTxMetadata::Variant& tx_metadata_var,
-                                                                    const PayloadFragments payload_fragments) = 0;
+    CETL_NODISCARD virtual cetl::optional<AnyFailure> sendAnyTransfer(
+        const AnyUdpardTxMetadata::Variant& tx_metadata_var,
+        const PayloadFragments              payload_fragments) = 0;
 
     /// @brief Called on a session event.
     ///
@@ -321,7 +340,11 @@ protected:
     explicit TransportDelegate(const MemoryResources& memory_resources)
         : udpard_node_id_{UDPARD_NODE_ID_UNSET}
         , memory_resources_{memory_resources}
+        , rpc_dispatcher_{}
     {
+        const std::int8_t result = ::udpardRxRPCDispatcherInit(&rpc_dispatcher_, makeUdpardRxMemoryResources());
+        (void) result;
+        CETL_DEBUG_ASSERT(result == 0, "There is no way currently to get an error here.");
     }
 
     ~TransportDelegate() = default;
@@ -331,16 +354,16 @@ protected:
         return memory_resources_;
     }
 
-    static UdpardMemoryResource makeUdpardMemoryResource(cetl::pmr::memory_resource* const custom,
-                                                         cetl::pmr::memory_resource&       general)
+    CETL_NODISCARD static UdpardMemoryResource makeUdpardMemoryResource(cetl::pmr::memory_resource* const custom,
+                                                                        cetl::pmr::memory_resource&       general)
     {
         // No Sonar `cpp:S5356` b/c the raw `user_reference` is part of libudpard api.
         void* const user_reference = (custom != nullptr) ? custom : &general;  // NOSONAR cpp:S5356
         return UdpardMemoryResource{user_reference, deallocateMemoryForUdpard, allocateMemoryForUdpard};
     }
 
-    static UdpardMemoryDeleter makeUdpardMemoryDeleter(cetl::pmr::memory_resource* const custom,
-                                                       cetl::pmr::memory_resource&       general)
+    CETL_NODISCARD static UdpardMemoryDeleter makeUdpardMemoryDeleter(cetl::pmr::memory_resource* const custom,
+                                                                      cetl::pmr::memory_resource&       general)
     {
         // No Sonar `cpp:S5356` b/c the raw `user_reference` is part of libudpard api.
         void* const user_reference = (custom != nullptr) ? custom : &general;  // NOSONAR cpp:S5356
@@ -369,6 +392,12 @@ private:
                                           const size_t size,
                                           void* const  pointer)  // NOSONAR cpp:S5008
     {
+        CETL_DEBUG_ASSERT((pointer != nullptr) || (size == 0), "");
+        if (nullptr == pointer)
+        {
+            return;
+        }
+
         // No Sonar `cpp:S5356` and `cpp:S5357` b/c the raw `user_reference` is part of libudpard api,
         // and it was set by us at `makeUdpardMemoryResource` call.
         auto* const mr = static_cast<cetl::pmr::memory_resource*>(user_reference);  // NOSONAR cpp:S5356 cpp:S5357
@@ -380,6 +409,7 @@ private:
 
     UdpardNodeID          udpard_node_id_;
     const MemoryResources memory_resources_;
+    UdpardRxRPCDispatcher rpc_dispatcher_;
 
 };  // TransportDelegate
 
@@ -409,6 +439,25 @@ protected:
     ~IRxSessionDelegate() = default;
 
 };  // IRxSessionDelegate
+
+/// This internal session delegate class serves the following purpose:
+/// it provides an interface (aka gateway) to access Message RX session from transport.
+///
+class IMsgRxSessionDelegate : public IRxSessionDelegate
+{
+public:
+    IMsgRxSessionDelegate(const IMsgRxSessionDelegate&)                = delete;
+    IMsgRxSessionDelegate(IMsgRxSessionDelegate&&) noexcept            = delete;
+    IMsgRxSessionDelegate& operator=(const IMsgRxSessionDelegate&)     = delete;
+    IMsgRxSessionDelegate& operator=(IMsgRxSessionDelegate&&) noexcept = delete;
+
+    CETL_NODISCARD virtual UdpardRxSubscription& getSubscription() = 0;
+
+protected:
+    IMsgRxSessionDelegate()  = default;
+    ~IMsgRxSessionDelegate() = default;
+
+};  // IMsgRxSessionDelegate
 
 }  // namespace detail
 }  // namespace udp

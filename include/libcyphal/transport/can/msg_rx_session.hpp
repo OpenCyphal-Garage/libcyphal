@@ -39,7 +39,7 @@ namespace detail
 /// @brief A class to represent a message subscriber RX session.
 ///
 /// NOSONAR cpp:S4963 for below `class MessageRxSession` - we do directly handle resources here;
-/// namely: in destructor we have to unsubscribe, as well as let delegate to know this fact.
+/// namely: in destructor we have to unsubscribe, as well as let transport delegate to know this fact.
 ///
 class MessageRxSession final : private IRxSessionDelegate, public IMessageRxSession  // NOSONAR cpp:S4963
 {
@@ -53,8 +53,8 @@ class MessageRxSession final : private IRxSessionDelegate, public IMessageRxSess
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<IMessageRxSession>, AnyError> make(TransportDelegate&     delegate,
-                                                                                const MessageRxParams& params)
+    CETL_NODISCARD static Expected<UniquePtr<IMessageRxSession>, AnyFailure> make(TransportDelegate&     delegate,
+                                                                                  const MessageRxParams& params)
     {
         if (params.subject_id > CANARD_SUBJECT_ID_MAX)
         {
@@ -133,7 +133,7 @@ private:
 
     // MARK: IRunnable
 
-    IRunnable::MaybeError run(const TimePoint) override
+    IRunnable::MaybeFailure run(const TimePoint) override
     {
         // Nothing to do here currently.
         return {};

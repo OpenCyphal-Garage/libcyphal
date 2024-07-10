@@ -41,7 +41,7 @@ public:
         /// @brief Error report about pushing a message to a TX session.
         struct CanardTxPush
         {
-            AnyError        error;
+            AnyFailure      failure;
             std::uint8_t    media_index;
             CanardInstance& culprit;
         };
@@ -49,7 +49,7 @@ public:
         /// @brief Error report about accepting a frame for an RX session.
         struct CanardRxAccept
         {
-            AnyError        error;
+            AnyFailure      failure;
             std::uint8_t    media_index;
             CanardInstance& culprit;
         };
@@ -57,7 +57,7 @@ public:
         /// @brief Error report about receiving frame from the media interface.
         struct MediaPop
         {
-            AnyError     error;
+            AnyFailure   failure;
             std::uint8_t media_index;
             IMedia&      culprit;
         };
@@ -65,7 +65,7 @@ public:
         /// @brief Error report about pushing a frame to the media interface.
         struct MediaPush
         {
-            AnyError     error;
+            AnyFailure   failure;
             std::uint8_t media_index;
             IMedia&      culprit;
         };
@@ -73,7 +73,7 @@ public:
         /// @brief Error report about configuring the media interface (f.e. applying filters).
         struct MediaConfig
         {
-            AnyError     error;
+            AnyFailure   failure;
             std::uint8_t media_index;
             IMedia&      culprit;
         };
@@ -107,11 +107,11 @@ public:
     ///         - If `cetl::nullopt` is returned, the original error (in the `report`) is considered as handled
     ///           and insignificant for the transport. Transport will continue its current process (effectively
     ///           either ignoring such transient failure, or retrying the process later on its next run).
-    ///         - If an error is returned, the transport will immediately stop current process, won't process any
-    ///           other media (if any), and propagate the returned error to the user (as result of `run` or etc).
+    ///         - If a failure is returned, the transport will immediately stop current process, won't process any
+    ///           other media (if any), and propagate the returned failure to the user (as result of `run` or etc).
     ///
     using TransientErrorHandler =
-        cetl::pmr::function<cetl::optional<AnyError>(TransientErrorReport::Variant& report_var), sizeof(void*) * 3>;
+        cetl::pmr::function<cetl::optional<AnyFailure>(TransientErrorReport::Variant& report_var), sizeof(void*) * 3>;
 
     ICanTransport(const ICanTransport&)                = delete;
     ICanTransport(ICanTransport&&) noexcept            = delete;

@@ -80,6 +80,7 @@ protected:
 TEST_F(TestSessionTree, constructor_destructor_empty_tree)
 {
     const detail::SessionTree<MyNode> tree{mr_};
+    EXPECT_THAT(tree.isEmpty(), true);
 }
 
 TEST_F(TestSessionTree, ensureNewNodeFor)
@@ -87,12 +88,14 @@ TEST_F(TestSessionTree, ensureNewNodeFor)
     detail::SessionTree<MyNode> tree{mr_};
 
     EXPECT_THAT(tree.ensureNewNodeFor(0), VariantWith<MyNode::ReferenceWrapper>(_));
+    EXPECT_THAT(tree.isEmpty(), false);
+
     EXPECT_THAT(tree.ensureNewNodeFor(1), VariantWith<MyNode::ReferenceWrapper>(_));
     EXPECT_THAT(tree.ensureNewNodeFor(2), VariantWith<MyNode::ReferenceWrapper>(_));
 
-    EXPECT_THAT(tree.ensureNewNodeFor(0), VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
-    EXPECT_THAT(tree.ensureNewNodeFor(1), VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
-    EXPECT_THAT(tree.ensureNewNodeFor(2), VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
+    EXPECT_THAT(tree.ensureNewNodeFor(0), VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
+    EXPECT_THAT(tree.ensureNewNodeFor(1), VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
+    EXPECT_THAT(tree.ensureNewNodeFor(2), VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
 }
 
 TEST_F(TestSessionTree, ensureNewNodeFor_no_memory)
@@ -105,7 +108,7 @@ TEST_F(TestSessionTree, ensureNewNodeFor_no_memory)
     // Emulate that there is no memory available for the message session.
     EXPECT_CALL(mr_mock, do_allocate(sizeof(MyNode), _)).WillOnce(Return(nullptr));
 
-    EXPECT_THAT(tree.ensureNewNodeFor(0), VariantWith<AnyError>(VariantWith<MemoryError>(_)));
+    EXPECT_THAT(tree.ensureNewNodeFor(0), VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
 }
 
 TEST_F(TestSessionTree, removeNodeFor)
@@ -116,6 +119,7 @@ TEST_F(TestSessionTree, removeNodeFor)
 
     auto maybe_node = tree.ensureNewNodeFor(42);
     ASSERT_THAT(maybe_node, VariantWith<MyNode::ReferenceWrapper>(_));
+    EXPECT_THAT(tree.isEmpty(), false);
 
     auto node_ref = cetl::get<MyNode::ReferenceWrapper>(maybe_node);
 
@@ -124,6 +128,8 @@ TEST_F(TestSessionTree, removeNodeFor)
 
     tree.removeNodeFor(42);
     EXPECT_THAT(side_effects, "~");
+
+    EXPECT_THAT(tree.isEmpty(), true);
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

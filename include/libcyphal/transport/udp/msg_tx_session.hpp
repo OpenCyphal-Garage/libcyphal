@@ -45,9 +45,9 @@ class MessageTxSession final : public IMessageTxSession
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<IMessageTxSession>, AnyError> make(cetl::pmr::memory_resource& memory,
-                                                                                TransportDelegate&          delegate,
-                                                                                const MessageTxParams&      params)
+    CETL_NODISCARD static Expected<UniquePtr<IMessageTxSession>, AnyFailure> make(cetl::pmr::memory_resource& memory,
+                                                                                  TransportDelegate&          delegate,
+                                                                                  const MessageTxParams&      params)
     {
         if (params.subject_id > UDPARD_SUBJECT_ID_MAX)
         {
@@ -85,8 +85,8 @@ private:
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<AnyError> send(const TransferMetadata& metadata,
-                                                 const PayloadFragments  payload_fragments) override
+    CETL_NODISCARD cetl::optional<AnyFailure> send(const TransferMetadata& metadata,
+                                                   const PayloadFragments  payload_fragments) override
     {
         const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(
             (metadata.timestamp + send_timeout_).time_since_epoch());
@@ -101,7 +101,7 @@ private:
 
     // MARK: IRunnable
 
-    MaybeError run(const TimePoint) override
+    MaybeFailure run(const TimePoint) override
     {
         // Nothing to do here currently.
         return {};

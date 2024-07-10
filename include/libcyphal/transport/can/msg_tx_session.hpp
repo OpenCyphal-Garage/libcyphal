@@ -43,8 +43,8 @@ class MessageTxSession final : public IMessageTxSession
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<IMessageTxSession>, AnyError> make(TransportDelegate&     delegate,
-                                                                                const MessageTxParams& params)
+    CETL_NODISCARD static Expected<UniquePtr<IMessageTxSession>, AnyFailure> make(TransportDelegate&     delegate,
+                                                                                  const MessageTxParams& params)
     {
         if (params.subject_id > CANARD_SUBJECT_ID_MAX)
         {
@@ -82,8 +82,8 @@ private:
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<AnyError> send(const TransferMetadata& metadata,
-                                                 const PayloadFragments  payload_fragments) override
+    CETL_NODISCARD cetl::optional<AnyFailure> send(const TransferMetadata& metadata,
+                                                   const PayloadFragments  payload_fragments) override
     {
         const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.priority),
                                                             CanardTransferKindMessage,
@@ -96,7 +96,7 @@ private:
 
     // MARK: IRunnable
 
-    MaybeError run(const TimePoint) override
+    MaybeFailure run(const TimePoint) override
     {
         // Nothing to do here currently.
         return {};

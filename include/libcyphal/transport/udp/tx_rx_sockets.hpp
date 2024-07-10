@@ -31,6 +31,11 @@ struct IpEndpoint final
 {
     std::uint32_t ip_address;
     std::uint16_t udp_port;
+
+    static IpEndpoint fromUdpardEndpoint(const UdpardUDPIPEndpoint& endpoint)
+    {
+        return IpEndpoint{endpoint.ip_address, endpoint.udp_port};
+    }
 };
 
 /// @brief Defines interface to a custom UDP media TX socket implementation.
@@ -61,10 +66,6 @@ public:
     ///
     static constexpr std::size_t DefaultMtu = UDPARD_MTU_DEFAULT;
 
-    /// @brief Defines the error types that may occur during the `send` operation.
-    ///
-    using SendFailure = cetl::variant<PlatformError, ArgumentError>;
-
     /// @brief Sends payload fragments to this socket.
     ///
     /// The payload may be fragmented to minimize data copying in the user space,
@@ -77,11 +78,22 @@ public:
     /// @param payload_fragments Fragments of the payload to send.
     /// @return `true` if the payload has been accepted successfully, `false` if the socket is not ready for writing.
     ///         In case of failure, an error is returned.
-    ///
-    virtual Expected<bool, SendFailure> send(const TimePoint        deadline,
-                                             const IpEndpoint       multicast_endpoint,
-                                             const std::uint8_t     dscp,
-                                             const PayloadFragments payload_fragments) = 0;
+    ///@{
+    struct SendResult
+    {
+        struct Success
+        {
+            bool is_accepted;
+        };
+        using Failure = cetl::variant<PlatformError, ArgumentError>;
+
+        using Type = Expected<Success, Failure>;
+    };
+    virtual SendResult::Type send(const TimePoint        deadline,
+                                  const IpEndpoint       multicast_endpoint,
+                                  const std::uint8_t     dscp,
+                                  const PayloadFragments payload_fragments) = 0;
+    ///@}
 
 protected:
     ITxSocket()  = default;
@@ -101,26 +113,30 @@ public:
     IRxSocket& operator=(const IRxSocket&)     = delete;
     IRxSocket& operator=(IRxSocket&&) noexcept = delete;
 
-    /// @brief Defines the error types that may occur during the `receive` operation.
-    ///
-    using ReceiveFailure = cetl::variant<PlatformError, ArgumentError, MemoryError>;
-
-    struct ReceiveSuccess
-    {
-        TimePoint   timestamp;
-        std::size_t payload_size;
-        // TODO: Use CETL pmr instead of std::unique_ptr.
-        std::unique_ptr<cetl::byte[]> payload;  // NOLINT(*-avoid-c-arrays)
-    };
-
     /// @brief Takes the next payload fragment (aka UDP datagram) from the reception queue unless it's empty.
     ///
-    /// @param payload_buffer The payload of the frame will be written into the mutable `payload_buffer` (aka span).
     /// @return Description of a received fragment if available; otherwise an empty optional is returned immediately.
     ///         `nodiscard` is used to prevent ignoring the return value, which contains not only possible media error,
-    ///         but also important metadata (like `payload_size` field for further parsing of the result payload).
-    ///
-    CETL_NODISCARD virtual Expected<cetl::optional<ReceiveSuccess>, ReceiveFailure> receive() = 0;
+    ///         but also important metadata (like `payload_size` field for further parsing of the result payload),
+    ///         as well as fragment payload memory which is now owned by the caller (hence `std::unique_ptr`).
+    ///@{
+    struct ReceiveResult
+    {
+        struct Metadata
+        {
+            /// Holds time point when payload was originally received by this RX socket.
+            TimePoint timestamp;
+
+            /// Holds smart pointer to payload raw buffer, as well as its size and PMR (inside of the deleter).
+            std::unique_ptr<cetl::byte, PmrRawBytesDeleter> payload_ptr;
+        };
+        using Success = cetl::optional<Metadata>;
+        using Failure = cetl::variant<PlatformError, ArgumentError, MemoryError>;
+
+        using Type = Expected<Success, Failure>;
+    };
+    CETL_NODISCARD virtual ReceiveResult::Type receive() = 0;
+    ///@}
 
 protected:
     IRxSocket()  = default;

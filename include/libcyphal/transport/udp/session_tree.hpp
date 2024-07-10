@@ -6,6 +6,9 @@
 #ifndef LIBCYPHAL_TRANSPORT_UDP_SESSION_TREE_HPP
 #define LIBCYPHAL_TRANSPORT_UDP_SESSION_TREE_HPP
 
+#include "delegate.hpp"
+#include "tx_rx_sockets.hpp"
+
 #include "libcyphal/common/cavl/cavl.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -13,7 +16,9 @@
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
+#include <udpard.h>
 
+#include <array>
 #include <cstdint>
 #include <functional>
 
@@ -55,7 +60,12 @@ public:
         releaseNodes(nodes_);
     }
 
-    CETL_NODISCARD Expected<NodeRef, AnyError> ensureNewNodeFor(const PortId port_id)
+    CETL_NODISCARD bool isEmpty() const noexcept
+    {
+        return nodes_.empty();
+    }
+
+    CETL_NODISCARD Expected<NodeRef, AnyFailure> ensureNewNodeFor(const PortId port_id)
     {
         auto const node_existing = nodes_.search([port_id](const Node& node) { return node.compareWith(port_id); },
                                                  [port_id, this]() { return constructNewNode(port_id); });
@@ -78,8 +88,14 @@ public:
         removeAndDestroyNode(nodes_.search([port_id](const Node& node) { return node.compareWith(port_id); }));
     }
 
+    template <typename Action>
+    CETL_NODISCARD cetl::optional<AnyFailure> forEachNode(Action&& action)
+    {
+        return nodes_.traverse(std::forward<Action>(action));
+    }
+
 private:
-    Node* constructNewNode(const PortId port_id)
+    CETL_NODISCARD Node* constructNewNode(const PortId port_id)
     {
         Node* const node = allocator_.allocate(1);
         if (nullptr != node)
@@ -151,7 +167,7 @@ struct RxSessionTreeNode
         {
         }
 
-        std::int32_t compareWith(const PortId port_id) const
+        CETL_NODISCARD std::int32_t compareWith(const PortId port_id) const
         {
             return static_cast<std::int32_t>(port_id_) - static_cast<std::int32_t>(port_id);
         }
@@ -169,7 +185,25 @@ struct RxSessionTreeNode
     {
     public:
         using Base::Base;
-    };
+
+        CETL_NODISCARD IMsgRxSessionDelegate*& delegate() noexcept
+        {
+            return delegate_;
+        }
+
+        CETL_NODISCARD UniquePtr<IRxSocket>& rx_sockets(const std::uint8_t media_index) noexcept
+        {
+            CETL_DEBUG_ASSERT(media_index < rx_sockets_.size(), "");
+
+            // No lint b/c at transport constructor we made sure that number of media interfaces is bound.
+            return rx_sockets_[media_index];  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        }
+
+    private:
+        IMsgRxSessionDelegate*                                               delegate_{nullptr};
+        std::array<UniquePtr<IRxSocket>, UDPARD_NETWORK_INTERFACE_COUNT_MAX> rx_sockets_;
+
+    };  // Message
 
     /// @brief Represents a service request RX session node.
     ///

@@ -42,7 +42,7 @@ public:
         /// @brief Error report about publishing a message to a TX session.
         struct UdpardTxPublish
         {
-            AnyError     error;
+            AnyFailure   failure;
             std::uint8_t media_index;
             UdpardTx&    culprit;
         };
@@ -50,7 +50,7 @@ public:
         /// @brief Error report about pushing a service request to a TX session.
         struct UdpardTxRequest
         {
-            AnyError     error;
+            AnyFailure   failure;
             std::uint8_t media_index;
             UdpardTx&    culprit;
         };
@@ -58,15 +58,39 @@ public:
         /// @brief Error report about pushing a service respond to a TX session.
         struct UdpardTxRespond
         {
-            AnyError     error;
+            AnyFailure   failure;
             std::uint8_t media_index;
             UdpardTx&    culprit;
+        };
+
+        /// @brief Error report about accepting a frame for a message RX session.
+        struct UdpardRxMsgReceive
+        {
+            AnyFailure            failure;
+            std::uint8_t          media_index;
+            UdpardRxSubscription& culprit;
+        };
+
+        /// @brief Error report about accepting a frame for a service RX session.
+        struct UdpardRxSvcReceive
+        {
+            AnyFailure             failure;
+            std::uint8_t           media_index;
+            UdpardRxRPCDispatcher& culprit;
         };
 
         /// @brief Error report about making TX socket by the media interface.
         struct MediaMakeTxSocket
         {
-            AnyError     error;
+            AnyFailure   failure;
+            std::uint8_t media_index;
+            IMedia&      culprit;
+        };
+
+        /// @brief Error report about making RX socket by the media interface.
+        struct MediaMakeRxSocket
+        {
+            AnyFailure   failure;
             std::uint8_t media_index;
             IMedia&      culprit;
         };
@@ -74,15 +98,30 @@ public:
         /// @brief Error report about sending a frame to the media TX socket interface.
         struct MediaTxSocketSend
         {
-            AnyError     error;
+            AnyFailure   failure;
             std::uint8_t media_index;
             ITxSocket&   culprit;
         };
 
+        /// @brief Error report about receiving a frame to the media RX socket interface.
+        struct MediaRxSocketReceive
+        {
+            AnyFailure   failure;
+            std::uint8_t media_index;
+            IRxSocket&   culprit;
+        };
+
         /// Defines variant of all possible transient error reports.
         ///
-        using Variant =
-            cetl::variant<UdpardTxPublish, UdpardTxRequest, UdpardTxRespond, MediaMakeTxSocket, MediaTxSocketSend>;
+        using Variant = cetl::variant<UdpardTxPublish,
+                                      UdpardTxRequest,
+                                      UdpardTxRespond,
+                                      UdpardRxMsgReceive,
+                                      UdpardRxSvcReceive,
+                                      MediaMakeRxSocket,
+                                      MediaMakeTxSocket,
+                                      MediaTxSocketSend,
+                                      MediaRxSocketReceive>;
 
     };  // TransientErrorReport
 
@@ -109,11 +148,11 @@ public:
     ///         - If `cetl::nullopt` is returned, the original error (in the `report`) is considered as handled
     ///           and insignificant for the transport. Transport will continue its current process (effectively
     ///           either ignoring such transient failure, or retrying the process later on its next run).
-    ///         - If an error is returned, the transport will immediately stop current process, won't process any
-    ///           other media (if any), and propagate the returned error to the user (as result of `run` or etc).
+    ///         - If an failure is returned, the transport will immediately stop current process, won't process any
+    ///           other media (if any), and propagate the returned failure to the user (as result of `run` or etc).
     ///
     using TransientErrorHandler =
-        cetl::pmr::function<cetl::optional<AnyError>(TransientErrorReport::Variant& report_var), sizeof(void*) * 3>;
+        cetl::pmr::function<cetl::optional<AnyFailure>(TransientErrorReport::Variant& report_var), sizeof(void*) * 3>;
 
     IUdpTransport(const IUdpTransport&)                = delete;
     IUdpTransport(IUdpTransport&&) noexcept            = delete;

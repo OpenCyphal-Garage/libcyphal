@@ -118,13 +118,13 @@ TEST_F(TestCanMsgRxSession, make_no_memory)
     StrictMock<MemoryResourceMock> mr_mock{};
     mr_mock.redirectExpectedCallsTo(mr_);
 
+    auto transport = makeTransport(mr_mock);
+
     // Emulate that there is no memory available for the message session.
     EXPECT_CALL(mr_mock, do_allocate(sizeof(can::detail::MessageRxSession), _)).WillOnce(Return(nullptr));
 
-    auto transport = makeTransport(mr_mock);
-
     auto maybe_session = transport->makeMessageRxSession({64, 0x23});
-    EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
+    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
 }
 
 TEST_F(TestCanMsgRxSession, make_fails_due_to_argument_error)
@@ -133,7 +133,7 @@ TEST_F(TestCanMsgRxSession, make_fails_due_to_argument_error)
 
     // Try invalid subject id
     auto maybe_session = transport->makeMessageRxSession({64, CANARD_SUBJECT_ID_MAX + 1});
-    EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -144,6 +144,13 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
     auto maybe_session = transport->makeMessageRxSession({4, 0x23});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
+
+    const auto params = session->getParams();
+    EXPECT_THAT(params.extent_bytes, 4);
+    EXPECT_THAT(params.subject_id, 0x23);
+
+    const auto timeout = 200ms;
+    session->setTransferIdTimeout(timeout);
 
     {
         SCOPED_TRACE("1-st iteration: one frame available @ 1s");
@@ -157,7 +164,7 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
             p[0] = b('0');
             p[1] = b('1');
             p[2] = b(0b111'01101);
-            return RxMetadata{rx_timestamp, 0x0C'60'23'45, 3};
+            return IMedia::PopResult::Metadata{rx_timestamp, 0x0C'60'23'45, 3};
         });
         EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
             EXPECT_THAT(now(), rx_timestamp + 10ms);
@@ -223,7 +230,7 @@ TEST_F(TestCanMsgRxSession, run_and_receive_one_anonymous_frame)
             p[0] = b('1');
             p[1] = b('2');
             p[2] = b(0b111'01110);
-            return RxMetadata{rx_timestamp, 0x01'60'23'13, 3};
+            return IMedia::PopResult::Metadata{rx_timestamp, 0x01'60'23'13, 3};
         });
         EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
             EXPECT_THAT(now(), rx_timestamp + 10ms);

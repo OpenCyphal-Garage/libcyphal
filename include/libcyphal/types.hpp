@@ -13,7 +13,9 @@
 #include <cetl/variable_length_array.hpp>
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <ratio>
 #include <type_traits>
 
@@ -126,6 +128,89 @@ CETL_NODISCARD UniquePtr<typename UniquePtrSpec::Interface> makeUniquePtr(cetl::
 }
 
 }  // namespace detail
+
+/// @brief A deleter which uses Polymorphic Memory Resource (PMR) for de-allocation of raw bytes memory buffers.
+///
+/// Alignment of the memory buffers is expected to be the same as the PMR default (`alignof(std::max_align_t)`).
+///
+struct PmrRawBytesDeleter final
+{
+    /// @brief Constructs default deleter with zero size and no PMR resource attached.
+    ///
+    /// Suitable only as an initial "empty" state for the deleter, f.e. for a default-constructed `std::unique_ptr`.
+    ///
+    PmrRawBytesDeleter()
+        : size_bytes_{0}
+        , memory_resource_{nullptr}
+    {
+    }
+
+    /// @brief Constructs the deleter with the given size of a memory buffer and the PMR resource.
+    ///
+    /// The same instance of deleter can be used for multiple memory buffers with the same size and PMR resource.
+    ///
+    /// @param size_bytes Size of the memory buffer in bytes. Could be zero.
+    /// @param memory_resource PMR to be used for de-allocation of the memory buffer.
+    ///                        Should be the same PMR which is used for memory buffer allocation.
+    ///
+    PmrRawBytesDeleter(const std::size_t size_bytes, cetl::pmr::memory_resource* const memory_resource)
+        : size_bytes_{size_bytes}
+        , memory_resource_{memory_resource}
+    {
+        CETL_DEBUG_ASSERT(memory_resource != nullptr, "Memory resource should not be nullptr.");
+    }
+
+    /// @brief Gets size of a memory buffer (in bytes) to be de-allocated by this deleter.
+    ///
+    std::size_t size() const noexcept
+    {
+        return size_bytes_;
+    }
+
+    /// @brief Gets PMR to be used for a memory buffer de-allocation.
+    ///
+    cetl::pmr::memory_resource* resource() const noexcept
+    {
+        return memory_resource_;
+    }
+
+    /// @brief De-allocates the memory buffer (if any) using the PMR resource (if available).
+    ///
+    /// Alignment of the memory buffers is expected to be `alignof(std::max_align_t)`.
+    ///
+    /// @param raw_bytes_ptr Pointer to the memory buffer to be de-allocated.
+    ///                      The buffer size is expected to be the same as the size passed to the constructor.
+    ///                      If `nullptr` is passed, no action is taken.
+    ///
+    void operator()(cetl::byte* const raw_bytes_ptr) const
+    {
+        CETL_DEBUG_ASSERT((nullptr != memory_resource_) || (nullptr == raw_bytes_ptr),
+                          "Memory resource should not be `nullptr` in case of non-`nullptr` buffer.");
+
+        if ((nullptr != memory_resource_) && (nullptr != raw_bytes_ptr))
+        {
+            CETL_DEBUG_ASSERT(isAligned(raw_bytes_ptr, size_bytes_), "Unexpected alignment of the memory buffer.");
+
+            // No Sonar `cpp:S5356` b/c we integrate here with low level PMR management.
+            memory_resource_->deallocate(raw_bytes_ptr, size_bytes_);  // NOSONAR:cpp:S5356
+        }
+    }
+
+private:
+    // No Sonar `cpp:S5356` b/c we check here low level PMR alignment expectation.
+    static bool isAligned(cetl::byte* const raw_bytes_ptr, const std::size_t size)
+    {
+        std::size_t space = size;
+        auto*       ptr   = static_cast<void*>(raw_bytes_ptr);                            // NOSONAR:cpp:S5356
+        return raw_bytes_ptr == std::align(alignof(std::max_align_t), size, ptr, space);  // NOSONAR:cpp:S5356
+    }
+
+    // MARK: Data members:
+
+    std::size_t                 size_bytes_;
+    cetl::pmr::memory_resource* memory_resource_;
+
+};  // PmrRawBytesDeleter
 
 /// @brief Helper function which creates a new `Concrete` type object in a dynamically allocated memory from the given
 /// Polymorphic Memory Resource (PMR). The object's pointer is wrapped into libcyphal compatible/expected `UniquePtr`.

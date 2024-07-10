@@ -6,13 +6,12 @@
 #ifndef LIBCYPHAL_TRANSPORT_CAN_GTEST_HELPERS_HPP
 #define LIBCYPHAL_TRANSPORT_CAN_GTEST_HELPERS_HPP
 
+#include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/transport/can/can_transport_impl.hpp>
 #include <libcyphal/transport/can/media.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
-
-#include <canard.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest-matchers.h>

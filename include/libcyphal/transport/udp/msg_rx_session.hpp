@@ -7,6 +7,7 @@
 #define LIBCYPHAL_TRANSPORT_UDP_MSG_RX_SESSION_HPP_INCLUDED
 
 #include "delegate.hpp"
+#include "session_tree.hpp"
 
 #include "libcyphal/runnable.hpp"
 #include "libcyphal/transport/errors.hpp"
@@ -19,6 +20,7 @@
 #include <udpard.h>
 
 #include <chrono>
+#include <cstdint>
 #include <utility>
 
 namespace libcyphal
@@ -37,9 +39,9 @@ namespace detail
 /// @brief A class to represent a message subscriber RX session.
 ///
 /// NOSONAR cpp:S4963 for below `class MessageRxSession` - we do directly handle resources here;
-/// namely: in destructor we have to unsubscribe, as well as let delegate to know this fact.
+/// namely: in destructor we have to unsubscribe, as well as let transport delegate to know this fact.
 ///
-class MessageRxSession final : private IRxSessionDelegate, public IMessageRxSession  // NOSONAR cpp:S4963
+class MessageRxSession final : private IMsgRxSessionDelegate, public IMessageRxSession  // NOSONAR cpp:S4963
 {
     /// @brief Defines private specification for making interface unique ptr.
     ///
@@ -51,16 +53,18 @@ class MessageRxSession final : private IRxSessionDelegate, public IMessageRxSess
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<IMessageRxSession>, AnyError> make(cetl::pmr::memory_resource& memory,
-                                                                                TransportDelegate&          delegate,
-                                                                                const MessageRxParams&      params)
+    CETL_NODISCARD static Expected<UniquePtr<IMessageRxSession>, AnyFailure> make(
+        cetl::pmr::memory_resource& memory,
+        TransportDelegate&          delegate,
+        const MessageRxParams&      params,
+        RxSessionTreeNode::Message& rx_session_node)
     {
         if (params.subject_id > UDPARD_SUBJECT_ID_MAX)
         {
             return ArgumentError{};
         }
 
-        auto session = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, delegate, params);
+        auto session = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, delegate, params, rx_session_node);
         if (session == nullptr)
         {
             return MemoryError{};
@@ -69,12 +73,22 @@ public:
         return session;
     }
 
-    MessageRxSession(const Spec, TransportDelegate& delegate, const MessageRxParams& params)
+    MessageRxSession(const Spec,
+                     TransportDelegate&          delegate,
+                     const MessageRxParams&      params,
+                     RxSessionTreeNode::Message& rx_session_node)
         : delegate_{delegate}
         , params_{params}
+        , subscription_{}
     {
-        // TODO: Implement!
-        (void) delegate_;
+        const std::int8_t result = ::udpardRxSubscriptionInit(&subscription_,
+                                                              params.subject_id,
+                                                              params.extent_bytes,
+                                                              delegate.makeUdpardRxMemoryResources());
+        (void) result;
+        CETL_DEBUG_ASSERT(result == 0, "There is no way currently to get an error here.");
+
+        rx_session_node.delegate() = this;
     }
 
     MessageRxSession(const MessageRxSession&)                = delete;
@@ -84,6 +98,8 @@ public:
 
     ~MessageRxSession()
     {
+        ::udpardRxSubscriptionFree(&subscription_);
+
         delegate_.onSessionEvent(SessionEvent::Destroyed{params_.subject_id});
     }
 
@@ -109,13 +125,13 @@ private:
         const auto timeout_us = std::chrono::duration_cast<std::chrono::microseconds>(timeout);
         if (timeout_us.count() > 0)
         {
-            // TODO: Implement!
+            subscription_.port.transfer_id_timeout_usec = static_cast<UdpardMicrosecond>(timeout_us.count());
         }
     }
 
     // MARK: IRunnable
 
-    IRunnable::MaybeError run(const TimePoint) override
+    IRunnable::MaybeFailure run(const TimePoint) override
     {
         // Nothing to do here currently.
         return {};
@@ -139,10 +155,18 @@ private:
         (void) last_rx_transfer_.emplace(MessageRxTransfer{meta, ScatteredBuffer{std::move(udpard_memory)}});
     }
 
+    // MARK: IMsgRxSessionDelegate
+
+    UdpardRxSubscription& getSubscription() override
+    {
+        return subscription_;
+    }
+
     // MARK: Data members:
 
     TransportDelegate&                delegate_;
     const MessageRxParams             params_;
+    UdpardRxSubscription              subscription_;
     cetl::optional<MessageRxTransfer> last_rx_transfer_;
 
 };  // MessageRxSession

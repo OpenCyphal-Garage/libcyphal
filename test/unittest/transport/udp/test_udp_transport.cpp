@@ -105,7 +105,13 @@ protected:
         EXPECT_CALL(media_mock_, makeTxSocket()).WillRepeatedly(Invoke([this]() {
             return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock_);
         }));
+        EXPECT_CALL(media_mock_, makeRxSocket(_)).WillRepeatedly(Invoke([this](auto& endpoint) {
+            rx_socket_mock_.setEndpoint(endpoint);
+            return libcyphal::detail::makeUniquePtr<RxSocketMock::ReferenceWrapper::Spec>(mr_, rx_socket_mock_);
+        }));
+
         EXPECT_CALL(tx_socket_mock_, getMtu()).WillRepeatedly(Invoke(&tx_socket_mock_, &TxSocketMock::getBaseMtu));
+        EXPECT_CALL(rx_socket_mock_, receive()).WillRepeatedly(Invoke([]() { return cetl::nullopt; }));
     }
 
     void TearDown() override
@@ -137,7 +143,8 @@ protected:
     TrackingMemoryResource          mr_;
     StrictMock<MultiplexerMock>     mux_mock_{};
     StrictMock<MediaMock>           media_mock_{};
-    StrictMock<TxSocketMock>        tx_socket_mock_{"S1"};
+    StrictMock<RxSocketMock>        rx_socket_mock_{"RxS1"};
+    StrictMock<TxSocketMock>        tx_socket_mock_{"TxS1"};
     // NOLINTEND
 };
 
@@ -156,7 +163,7 @@ TEST_F(TestUpdTransport, makeTransport_no_memory_at_all)
 
     std::array<IMedia*, 1> media_array{&media_mock_};
     auto                   maybe_transport = udp::makeTransport({mr_mock}, mux_mock_, media_array, 0);
-    EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<MemoryError>(_)));
+    EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<MemoryError>(_)));
 }
 
 TEST_F(TestUpdTransport, makeTransport_no_memory_for_impl)
@@ -169,7 +176,7 @@ TEST_F(TestUpdTransport, makeTransport_no_memory_for_impl)
 
     std::array<IMedia*, 1> media_array{&media_mock_};
     auto                   maybe_transport = udp::makeTransport({mr_mock}, mux_mock_, media_array, 0);
-    EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<MemoryError>(_)));
+    EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<MemoryError>(_)));
 }
 
 TEST_F(TestUpdTransport, makeTransport_too_many_media)
@@ -178,7 +185,7 @@ TEST_F(TestUpdTransport, makeTransport_too_many_media)
     std::fill(media_array.begin(), media_array.end(), &media_mock_);
 
     auto maybe_transport = udp::makeTransport({mr_}, mux_mock_, media_array, 0);
-    EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<ArgumentError>(_)));
 }
 
 TEST_F(TestUpdTransport, makeTransport_getLocalNodeId)
@@ -227,8 +234,6 @@ TEST_F(TestUpdTransport, makeTransport_getLocalNodeId)
 
 TEST_F(TestUpdTransport, setLocalNodeId)
 {
-    // EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-
     auto transport = makeTransport({mr_});
 
     EXPECT_THAT(transport->setLocalNodeId(UDPARD_NODE_ID_MAX + 1), Optional(testing::A<ArgumentError>()));
@@ -240,6 +245,8 @@ TEST_F(TestUpdTransport, setLocalNodeId)
     EXPECT_THAT(transport->getLocalNodeId(), Optional(UDPARD_NODE_ID_MAX));
 
     EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
+    EXPECT_THAT(rx_socket_mock_.getEndpoint().ip_address, 0);
+    EXPECT_THAT(rx_socket_mock_.getEndpoint().udp_port, 0);
 
     EXPECT_THAT(transport->setLocalNodeId(UDPARD_NODE_ID_MAX), Eq(cetl::nullopt));
     EXPECT_THAT(transport->getLocalNodeId(), Optional(UDPARD_NODE_ID_MAX));
@@ -256,7 +263,7 @@ TEST_F(TestUpdTransport, makeTransport_with_invalid_arguments)
 {
     // No media
     const auto maybe_transport = udp::makeTransport({mr_}, mux_mock_, {}, 0);
-    EXPECT_THAT(maybe_transport, VariantWith<FactoryError>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<ArgumentError>(_)));
 }
 
 TEST_F(TestUpdTransport, getProtocolParams)
@@ -315,7 +322,7 @@ TEST_F(TestUpdTransport, makeMessageRxSession_invalid_subject_id)
     auto transport = makeTransport({mr_});
 
     auto maybe_rx_session = transport->makeMessageRxSession({0, UDPARD_SUBJECT_ID_MAX + 1});
-    EXPECT_THAT(maybe_rx_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_rx_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
 }
 
 TEST_F(TestUpdTransport, makeMessageRxSession_invalid_resubscription)
@@ -328,7 +335,7 @@ TEST_F(TestUpdTransport, makeMessageRxSession_invalid_resubscription)
     ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
 
     auto maybe_rx_session2 = transport->makeMessageRxSession({0, test_subject_id});
-    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
+    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
 
     // Now release the first session and try to subscribe again - should succeed.
     {
@@ -350,7 +357,7 @@ TEST_F(TestUpdTransport, makeRequestRxSession_invalid_resubscription)
     ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
 
     auto maybe_rx_session2 = transport->makeRequestRxSession({0, test_subject_id});
-    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
+    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
 
     // Now release the first session and try to subscribe again - should succeed.
     {
@@ -372,7 +379,7 @@ TEST_F(TestUpdTransport, makeResponseRxSession_invalid_resubscription)
     ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
 
     auto maybe_rx_session2 = transport->makeResponseRxSession({0, test_subject_id, 0x31});
-    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyError>(VariantWith<AlreadyExistsError>(_)));
+    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
 
     // Now release the first session and try to subscribe again - should succeed.
     {
@@ -425,8 +432,8 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_should_fail_for_anonymous)
     const auto             payload = makeIotaArray<UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 1>(b('0'));
     const TransferMetadata metadata{0x13, send_time, Priority::Nominal};
 
-    auto maybe_error = session->send(metadata, makeSpansFrom(payload));
-    EXPECT_THAT(maybe_error, Optional(VariantWith<AnonymousError>(_)));
+    auto failure = session->send(metadata, makeSpansFrom(payload));
+    EXPECT_THAT(failure, Optional(VariantWith<AnonymousError>(_)));
 
     scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     scheduler_.runNow(10us, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
@@ -448,8 +455,8 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)
     const auto             payload = makeIotaArray<UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 1>(b('0'));
     const TransferMetadata metadata{0x13, send_time, Priority::Nominal};
 
-    auto maybe_error = session->send(metadata, makeSpansFrom(payload));
-    EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+    auto failure = session->send(metadata, makeSpansFrom(payload));
+    EXPECT_THAT(failure, Eq(cetl::nullopt));
 
     {
         const InSequence s;
@@ -461,7 +468,7 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)
                 EXPECT_THAT(endpoint.ip_address, 0xEF000007);
                 EXPECT_THAT(fragments, SizeIs(1));
                 EXPECT_THAT(fragments[0], SizeIs(24 + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 4));
-                return true;
+                return ITxSocket::SendResult::Success{true /*is_accepted*/};
             });
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto, auto fragments) {
@@ -471,7 +478,7 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)
                 EXPECT_THAT(fragments, SizeIs(1));
                 // NB! No `+4` here b/c CRC was in the start frame.
                 EXPECT_THAT(fragments[0], SizeIs(24 + 1));
-                return true;
+                return ITxSocket::SendResult::Success{true /*is_accepted*/};
             });
     }
 
@@ -483,10 +490,15 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)
 TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
 {
     StrictMock<MediaMock>    media_mock2{};
-    StrictMock<TxSocketMock> tx_socket_mock2{"S2"};
+    StrictMock<TxSocketMock> tx_socket_mock2{"TxS2"};
+    StrictMock<RxSocketMock> rx_socket_mock2{"RxS2"};
     EXPECT_CALL(tx_socket_mock2, getMtu()).WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
+    EXPECT_CALL(rx_socket_mock2, receive()).WillRepeatedly(Invoke([]() { return cetl::nullopt; }));
     EXPECT_CALL(media_mock2, makeTxSocket()).WillRepeatedly(Invoke([this, &tx_socket_mock2]() {
         return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock2);
+    }));
+    EXPECT_CALL(media_mock2, makeRxSocket(_)).WillRepeatedly(Invoke([&](auto&) {
+        return libcyphal::detail::makeUniquePtr<RxSocketMock::ReferenceWrapper::Spec>(mr_, rx_socket_mock2);
     }));
 
     auto transport = makeTransport({mr_}, &media_mock2);
@@ -503,8 +515,8 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
     const auto             payload = makeIotaArray<UDPARD_MTU_DEFAULT>(b('0'));
     const TransferMetadata metadata{0x13, send_time, Priority::Nominal};
 
-    auto maybe_error = session->send(metadata, makeSpansFrom(payload));
-    EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+    auto failure = session->send(metadata, makeSpansFrom(payload));
+    EXPECT_THAT(failure, Eq(cetl::nullopt));
 
     {
         const InSequence s;
@@ -517,7 +529,7 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
                     EXPECT_THAT(endpoint.ip_address, 0xEF000007);
                     EXPECT_THAT(fragments, SizeIs(1));
                     EXPECT_THAT(fragments[0], SizeIs(24 + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 4));
-                    return true;
+                    return ITxSocket::SendResult::Success{true /*is_accepted*/};
                 });
             EXPECT_CALL(tx_socket_mock, send(_, _, _, _))
                 .WillOnce([&, ctx, when](auto deadline, auto endpoint, auto, auto fragments) {
@@ -526,7 +538,7 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
                     EXPECT_THAT(endpoint.ip_address, 0xEF000007);
                     EXPECT_THAT(fragments, SizeIs(1));
                     EXPECT_THAT(fragments[0], SizeIs(24 + 4));
-                    return true;
+                    return ITxSocket::SendResult::Success{true /*is_accepted*/};
                 });
         };
 
@@ -535,7 +547,7 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _)).WillOnce([&](auto, auto, auto, auto) {
             EXPECT_THAT(now(), send_time + 10us);
-            return false;
+            return ITxSocket::SendResult::Success{false /*is_accepted*/};
         });
         expectSocketCalls(tx_socket_mock2, "M#2", send_time + 10us);
         expectSocketCalls(tx_socket_mock_, "M#1", send_time + 20us);
@@ -552,9 +564,14 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
 
     StrictMock<MediaMock>    media_mock2{};
     StrictMock<TxSocketMock> tx_socket_mock2{"S2"};
+    StrictMock<RxSocketMock> rx_socket_mock2{"RxS2"};
     EXPECT_CALL(tx_socket_mock2, getMtu()).WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
+    EXPECT_CALL(rx_socket_mock2, receive()).WillRepeatedly(Invoke([]() { return cetl::nullopt; }));
     EXPECT_CALL(media_mock2, makeTxSocket()).WillRepeatedly(Invoke([&]() {
         return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock2);
+    }));
+    EXPECT_CALL(media_mock2, makeRxSocket(_)).WillRepeatedly(Invoke([&](auto&) {
+        return libcyphal::detail::makeUniquePtr<RxSocketMock::ReferenceWrapper::Spec>(mr_, rx_socket_mock2);
     }));
 
     auto transport = makeTransport({mr_}, &media_mock2);
@@ -571,15 +588,15 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
     const TransferMetadata metadata{0x13, send_time, Priority::Nominal};
 
     // First attempt to send payload.
-    auto maybe_error = session->send(metadata, makeSpansFrom(payload));
-    EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+    auto failure = session->send(metadata, makeSpansFrom(payload));
+    EXPECT_THAT(failure, Eq(cetl::nullopt));
 
     // 1st run: media #0 and there is no transient error handler; its frame should be dropped.
     {
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _)).WillOnce(Return(ArgumentError{}));
 
         scheduler_.runNow(+10us, [&] {
-            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<ArgumentError>(_)));
+            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
         });
     }
     // 2nd run: media #1 and transient error handler have failed; its frame should be dropped.
@@ -587,7 +604,7 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
         StrictMock<TransientErrorHandlerMock> handler_mock{};
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<SocketSendReport>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.error, VariantWith<ArgumentError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<ArgumentError>(_));
                         EXPECT_THAT(report.media_index, 1);
                         auto culprit = static_cast<TxSocketMock::ReferenceWrapper&>(report.culprit);
                         EXPECT_THAT(culprit.tx_socket_mock(), Ref(tx_socket_mock2));
@@ -598,7 +615,7 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
         EXPECT_CALL(tx_socket_mock2, send(_, _, _, _)).WillOnce(Return(ArgumentError{}));
 
         scheduler_.runNow(+10us, [&] {
-            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyError>(VariantWith<PlatformError>(_)));
+            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<PlatformError>(_)));
         });
 
         // No frames should be left in the session.
@@ -613,7 +630,7 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
         StrictMock<TransientErrorHandlerMock> handler_mock{};
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<SocketSendReport>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.error, VariantWith<ArgumentError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<ArgumentError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         auto culprit = static_cast<TxSocketMock::ReferenceWrapper&>(report.culprit);
                         EXPECT_THAT(culprit.tx_socket_mock(), Ref(tx_socket_mock_));
@@ -622,11 +639,47 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
             .WillOnce(Return(cetl::nullopt));
 
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _)).WillOnce(Return(ArgumentError{}));
-        EXPECT_CALL(tx_socket_mock2, send(_, _, _, _)).WillOnce(Return(true));
+        EXPECT_CALL(tx_socket_mock2, send(_, _, _, _))
+            .WillOnce(Return(ITxSocket::SendResult::Success{true /*is_accepted*/}));
 
         scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 
         // No frames should be left in the session.
+        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    }
+}
+
+/// Transport should not attempt to re-create any TX sockets if there is nothing to send,
+/// even if there is a "passive, never sending" TX session alive with "faulty" TX socket.
+///
+TEST_F(TestUpdTransport, no_adhoc_tx_sockets_creation_at_run_when_there_is_nothing_to_send)
+{
+    auto transport = makeTransport({mr_});
+
+    // Ignore all transient errors.
+    StrictMock<TransientErrorHandlerMock> handler_mock{};
+    transport->setTransientErrorHandler(std::ref(handler_mock));
+    EXPECT_CALL(handler_mock, invoke(_)).WillRepeatedly(Return(cetl::nullopt));
+
+    // 1. Nothing to send, so no need to create any TX sockets.
+    {
+        EXPECT_CALL(media_mock_, makeTxSocket()).Times(0);
+
+        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    }
+    // 2. Still no need to create any TX sockets, even with a "passive, never sending" TX session alive
+    {
+        // One attempt still expected (b/c of the session creation), but not on every `transport::run`.
+        EXPECT_CALL(media_mock_, makeTxSocket()).WillOnce(Return(MemoryError{}));
+
+        auto maybe_session = transport->makeMessageTxSession({7});
+        ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
+        auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
+
+        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
         scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     }
 }

@@ -28,7 +28,6 @@ Checks: >-
   -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
   -*-avoid-c-arrays,
   -*-no-malloc,
-  -misc-no-recursion,
   -cert-msc30-c,
   -cert-msc50-cpp,
 WarningsAsErrors: '*'

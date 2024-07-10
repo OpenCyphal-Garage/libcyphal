@@ -68,10 +68,10 @@ public:
     ///
     /// @param metadata Additional metadata associated with the message.
     /// @param payload_fragments Segments of the message payload.
-    /// @return `nullopt` in case of success; otherwise a transport error.
+    /// @return `nullopt` in case of success; otherwise a transport failure.
     ///
-    virtual cetl::optional<AnyError> send(const TransferMetadata& metadata,
-                                          const PayloadFragments  payload_fragments) = 0;
+    virtual cetl::optional<AnyFailure> send(const TransferMetadata& metadata,
+                                            const PayloadFragments  payload_fragments) = 0;
 
 protected:
     IMessageTxSession()  = default;

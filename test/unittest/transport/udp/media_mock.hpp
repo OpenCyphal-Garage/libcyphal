@@ -34,15 +34,8 @@ public:
     MediaMock& operator=(const MediaMock&)     = delete;
     MediaMock& operator=(MediaMock&&) noexcept = delete;
 
-    MOCK_METHOD((Expected<UniquePtr<ITxSocket>, cetl::variant<MemoryError, PlatformError>>),
-                makeTxSocket,
-                (),
-                (override));
-
-    MOCK_METHOD((Expected<UniquePtr<IRxSocket>, cetl::variant<MemoryError, PlatformError, ArgumentError>>),
-                makeRxSocket,
-                (const IpEndpoint& multicast_endpoint),
-                (override));
+    MOCK_METHOD(MakeTxSocketResult::Type, makeTxSocket, (), (override));
+    MOCK_METHOD(MakeRxSocketResult::Type, makeRxSocket, (const IpEndpoint& multicast_endpoint), (override));
 
 };  // MediaMock
 

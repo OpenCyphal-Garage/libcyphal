@@ -69,7 +69,13 @@ protected:
         EXPECT_CALL(media_mock_, makeTxSocket()).WillRepeatedly(Invoke([this]() {
             return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock_);
         }));
+        EXPECT_CALL(media_mock_, makeRxSocket(_)).WillRepeatedly(Invoke([this](auto& endpoint) {
+            rx_socket_mock_.setEndpoint(endpoint);
+            return libcyphal::detail::makeUniquePtr<RxSocketMock::ReferenceWrapper::Spec>(mr_, rx_socket_mock_);
+        }));
+
         EXPECT_CALL(tx_socket_mock_, getMtu()).WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
+        EXPECT_CALL(rx_socket_mock_, receive()).WillRepeatedly(Invoke([]() { return cetl::nullopt; }));
     }
 
     void TearDown() override
@@ -107,7 +113,8 @@ protected:
     TrackingMemoryResource          mr_;
     StrictMock<MultiplexerMock>     mux_mock_{};
     StrictMock<MediaMock>           media_mock_{};
-    StrictMock<TxSocketMock>        tx_socket_mock_{"S1"};
+    StrictMock<RxSocketMock>        rx_socket_mock_{"RxS1"};
+    StrictMock<TxSocketMock>        tx_socket_mock_{"TxS1"};
     // NOLINTEND
 };
 
@@ -134,13 +141,13 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_argument_error)
     // Try invalid service id
     {
         auto maybe_session = transport->makeRequestTxSession({UDPARD_SERVICE_ID_MAX + 1, 0});
-        EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
     }
 
     // Try invalid server node id
     {
         auto maybe_session = transport->makeRequestTxSession({0, UDPARD_NODE_ID_MAX + 1});
-        EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
     }
 }
 
@@ -155,7 +162,7 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_no_memory)
     auto transport = makeTransport({mr_mock}, static_cast<NodeId>(UDPARD_NODE_ID_MAX));
 
     auto maybe_session = transport->makeRequestTxSession({0x23, 0});
-    EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
+    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
 }
 
 TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_media_socket)
@@ -169,7 +176,7 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_media_socket)
         EXPECT_CALL(media_mock_, makeTxSocket()).WillOnce(Return(MemoryError{}));
 
         auto maybe_tx_session = transport->makeRequestTxSession({0x23, 0});
-        EXPECT_THAT(maybe_tx_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
+        EXPECT_THAT(maybe_tx_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
     }
 
     // 2. Transport will succeed to make TX session despite the media fails to create a TX socket.
@@ -180,7 +187,7 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_media_socket)
         StrictMock<TransientErrorHandlerMock> handler_mock{};
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<MakeSocketReport>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.error, VariantWith<MemoryError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<MemoryError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         EXPECT_THAT(report.culprit, Ref(media_mock_));
                         return true;
@@ -212,8 +219,8 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_request_and_no_transport_run)
 
     // 1st try anonymous node - should fail without even trying to allocate & send payload.
     {
-        auto maybe_error = session->send(metadata, empty_payload);
-        EXPECT_THAT(maybe_error, Optional(VariantWith<ArgumentError>(_)));
+        auto failure = session->send(metadata, empty_payload);
+        EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
     }
 
     // 2nd. Try again but now with a valid node id.
@@ -231,8 +238,8 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_request_and_no_transport_run)
                 mr_.deallocate(p, size_bytes, alignment);
             });
 
-        auto maybe_error = session->send(metadata, empty_payload);
-        EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+        auto failure = session->send(metadata, empty_payload);
+        EXPECT_THAT(failure, Eq(cetl::nullopt));
 
         scheduler_.runNow(+10ms, [&] { session->run(scheduler_.now()); });
     }
@@ -258,8 +265,8 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_responce_and_no_transport_run)
 
     // 1st try anonymous node - should fail without even trying to allocate & send payload.
     {
-        auto maybe_error = session->send(metadata, empty_payload);
-        EXPECT_THAT(maybe_error, Optional(VariantWith<ArgumentError>(_)));
+        auto failure = session->send(metadata, empty_payload);
+        EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
     }
 
     // 2nd. Try again but now with a valid node id.
@@ -277,8 +284,8 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_responce_and_no_transport_run)
                 mr_.deallocate(p, size_bytes, alignment);
             });
 
-        auto maybe_error = session->send(metadata, empty_payload);
-        EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+        auto failure = session->send(metadata, empty_payload);
+        EXPECT_THAT(failure, Eq(cetl::nullopt));
 
         scheduler_.runNow(+10ms, [&] { session->run(scheduler_.now()); });
     }
@@ -304,8 +311,8 @@ TEST_F(TestUdpSvcTxSessions, send_request)
     const PayloadFragments empty_payload{};
     const TransferMetadata metadata{0x66, send_time, Priority::Slow};
 
-    auto maybe_error = session->send(metadata, empty_payload);
-    EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+    auto failure = session->send(metadata, empty_payload);
+    EXPECT_THAT(failure, Eq(cetl::nullopt));
 
     EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
         .WillOnce([&](auto deadline, auto endpoint, auto dscp, auto fragments) {
@@ -316,7 +323,7 @@ TEST_F(TestUdpSvcTxSessions, send_request)
             EXPECT_THAT(dscp, 0x0);
             EXPECT_THAT(fragments, SizeIs(1));
             EXPECT_THAT(fragments[0], SizeIs(24 + 4));
-            return true;
+            return ITxSocket::SendResult::Success{true /*is_accepted*/};
         });
 
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
@@ -347,8 +354,8 @@ TEST_F(TestUdpSvcTxSessions, send_request_with_argument_error)
     {
         scheduler_.setNow(TimePoint{200ms});
 
-        const auto maybe_error = session->send(metadata, empty_payload);
-        EXPECT_THAT(maybe_error, Optional(VariantWith<ArgumentError>(_)));
+        const auto failure = session->send(metadata, empty_payload);
+        EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
@@ -360,14 +367,14 @@ TEST_F(TestUdpSvcTxSessions, send_request_with_argument_error)
         const auto send_time = now();
 
         EXPECT_THAT(transport->setLocalNodeId(13), Eq(cetl::nullopt));
-        const auto maybe_error = session->send(metadata, empty_payload);
-        EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+        const auto failure = session->send(metadata, empty_payload);
+        EXPECT_THAT(failure, Eq(cetl::nullopt));
 
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _)).WillOnce([&](auto deadline, auto endpoint, auto, auto) {
             EXPECT_THAT(now(), send_time + 10ms);
             EXPECT_THAT(deadline, transfer_time + timeout);
             EXPECT_THAT(endpoint.ip_address, 0xEF01001F);
-            return true;
+            return ITxSocket::SendResult::Success{true /*is_accepted*/};
         });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
@@ -394,7 +401,7 @@ TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_argument_error)
 
     // Try invalid service id
     auto maybe_session = transport->makeResponseTxSession({UDPARD_SERVICE_ID_MAX + 1});
-    EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
 }
 
 TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_no_memory)
@@ -408,7 +415,7 @@ TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_no_memory)
     auto transport = makeTransport({mr_mock}, NodeId{UDPARD_NODE_ID_MAX});
 
     auto maybe_session = transport->makeResponseTxSession({0x23});
-    EXPECT_THAT(maybe_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
+    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
 }
 
 TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_media_socket)
@@ -422,7 +429,7 @@ TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_media_socket)
         EXPECT_CALL(media_mock_, makeTxSocket()).WillOnce(Return(MemoryError{}));
 
         auto maybe_tx_session = transport->makeResponseTxSession({123});
-        EXPECT_THAT(maybe_tx_session, VariantWith<AnyError>(VariantWith<MemoryError>(_)));
+        EXPECT_THAT(maybe_tx_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
     }
 
     // 2. Transport will succeed to make TX session despite the media fails to create a TX socket.
@@ -433,7 +440,7 @@ TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_media_socket)
         StrictMock<TransientErrorHandlerMock> handler_mock{};
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<MakeSocketReport>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.error, VariantWith<MemoryError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<MemoryError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         EXPECT_THAT(report.culprit, Ref(media_mock_));
                         return true;
@@ -465,8 +472,8 @@ TEST_F(TestUdpSvcTxSessions, send_response)
     const PayloadFragments        empty_payload{};
     const ServiceTransferMetadata metadata{0x66, send_time, Priority::Fast, 0x0D};
 
-    auto maybe_error = session->send(metadata, empty_payload);
-    EXPECT_THAT(maybe_error, Eq(cetl::nullopt));
+    auto failure = session->send(metadata, empty_payload);
+    EXPECT_THAT(failure, Eq(cetl::nullopt));
 
     EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
         .WillOnce([&](auto deadline, auto endpoint, auto dscp, auto fragments) {
@@ -477,7 +484,7 @@ TEST_F(TestUdpSvcTxSessions, send_response)
             EXPECT_THAT(dscp, 0x0);
             EXPECT_THAT(fragments, SizeIs(1));
             EXPECT_THAT(fragments[0], SizeIs(24 + 4));
-            return true;
+            return ITxSocket::SendResult::Success{true /*is_accepted*/};
         });
 
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
@@ -504,8 +511,8 @@ TEST_F(TestUdpSvcTxSessions, send_response_with_argument_error)
     {
         scheduler_.setNow(TimePoint{100ms});
 
-        const auto maybe_error = session->send(metadata, empty_payload);
-        EXPECT_THAT(maybe_error, Optional(VariantWith<ArgumentError>(_)));
+        const auto failure = session->send(metadata, empty_payload);
+        EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });

@@ -45,7 +45,7 @@ namespace detail
 ///                      Could be either `CanardTransferKindRequest` or `CanardTransferKindResponse`.
 ///
 /// NOSONAR cpp:S4963 for below `class SvcRxSession` - we do directly handle resources here;
-/// namely: in destructor we have to unsubscribe, as well as let delegate to know this fact.
+/// namely: in destructor we have to unsubscribe, as well as let transport delegate to know this fact.
 ///
 template <typename Interface_, typename Params, CanardTransferKind TransferKind>
 class SvcRxSession final : private IRxSessionDelegate, public Interface_  // NOSONAR cpp:S4963
@@ -60,8 +60,8 @@ class SvcRxSession final : private IRxSessionDelegate, public Interface_  // NOS
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<Interface_>, AnyError> make(TransportDelegate& delegate,
-                                                                         const Params&      params)
+    CETL_NODISCARD static Expected<UniquePtr<Interface_>, AnyFailure> make(TransportDelegate& delegate,
+                                                                           const Params&      params)
     {
         if (params.service_id > CANARD_SERVICE_ID_MAX)
         {
@@ -140,7 +140,7 @@ private:
 
     // MARK: IRunnable
 
-    IRunnable::MaybeError run(const TimePoint) override
+    IRunnable::MaybeFailure run(const TimePoint) override
     {
         // Nothing to do here currently.
         return {};
