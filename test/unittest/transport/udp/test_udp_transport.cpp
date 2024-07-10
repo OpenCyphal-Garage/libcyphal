@@ -655,7 +655,6 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
 TEST_F(TestUpdTransport, no_adhoc_tx_sockets_creation_at_run_when_there_is_nothing_to_send)
 {
     auto transport = makeTransport({mr_});
-    //EXPECT_THAT(transport->setLocalNodeId(0x45), Eq(cetl::nullopt));
 
     // Ignore all transient errors.
     StrictMock<TransientErrorHandlerMock> handler_mock{};
