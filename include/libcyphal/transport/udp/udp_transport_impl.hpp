@@ -922,7 +922,7 @@ private:
         }
         auto rx_meta = cetl::get<IRxSocket::ReceiveResult::Metadata>(std::move(receive_result));
 
-        // 2. We've got a new frame from the media RX socket, so let's try to pass it into libudpard RPP dispatcher.
+        // 2. We've got a new frame from the media RX socket, so let's try to pass it into libudpard RPC dispatcher.
 
         const auto timestamp_us =
             std::chrono::duration_cast<std::chrono::microseconds>(rx_meta.timestamp.time_since_epoch());
@@ -949,7 +949,7 @@ private:
                                            &out_port,
                                            &out_transfer);
 
-        // 3. We might have result TX transfer (built from fragments by libudpard).
+        // 3. We might have result RX transfer (built from fragments by libudpard).
         //    If so, we need to pass it to the session delegate for storing.
         //
         using DispatcherReport = TransientErrorReport::UdpardRxSvcReceive;
@@ -960,7 +960,7 @@ private:
             CETL_DEBUG_ASSERT(out_port != nullptr, "Expected subscription.");
             CETL_DEBUG_ASSERT(out_port->user_reference != nullptr, "Expected session delegate.");
 
-            // No Sonar `cpp:S5357` b/c the raw `user_reference` is part of libcanard api,
+            // No Sonar `cpp:S5357` b/c the raw `user_reference` is part of libudpard api,
             // and it was set by us at a RX session constructor (see f.e. `MessageRxSession` ctor).
             auto* const delegate = static_cast<IRxSessionDelegate*>(out_port->user_reference);  // NOSONAR cpp:S5357
             delegate->acceptRxTransfer(out_transfer.base);
@@ -1008,7 +1008,7 @@ private:
                                           media.index(),
                                           &out_transfer);
 
-        // 3. We might have result TX transfer (built from fragments by libudpard).
+        // 3. We might have result RX transfer (built from fragments by libudpard).
         //    If so, we need to pass it to the session delegate for storing.
         //
         using SubscriptionReport = TransientErrorReport::UdpardRxMsgReceive;
