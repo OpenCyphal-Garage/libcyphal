@@ -175,7 +175,6 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
         });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -205,7 +204,6 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
         });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
@@ -242,7 +240,6 @@ TEST_F(TestCanMsgRxSession, run_and_receive_one_anonymous_frame)
     }
 
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
     const auto maybe_rx_transfer = session->receive();
     ASSERT_THAT(maybe_rx_transfer, Optional(_));

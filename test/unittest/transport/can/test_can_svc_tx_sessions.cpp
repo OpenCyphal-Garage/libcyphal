@@ -110,8 +110,6 @@ TEST_F(TestCanSvcTxSessions, make_request_session)
 
     EXPECT_THAT(session->getParams().service_id, 123);
     EXPECT_THAT(session->getParams().server_node_id, CANARD_NODE_ID_MAX);
-
-    EXPECT_THAT(session->run(now()), UbVariantWithoutValue());
 }
 
 TEST_F(TestCanSvcTxSessions, make_request_fails_due_to_argument_error)
@@ -250,8 +248,6 @@ TEST_F(TestCanSvcTxSessions, make_response_session)
     auto session = cetl::get<UniquePtr<IResponseTxSession>>(std::move(maybe_session));
 
     EXPECT_THAT(session->getParams().service_id, 123);
-
-    EXPECT_THAT(session->run(now()), UbVariantWithoutValue());
 }
 
 TEST_F(TestCanSvcTxSessions, make_response_fails_due_to_argument_error)

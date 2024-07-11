@@ -244,7 +244,6 @@ TEST_F(TestUdpMsgRxSession, run_and_receive)
         });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -288,7 +287,6 @@ TEST_F(TestUdpMsgRxSession, run_and_receive)
         scheduler_.runNow(+10ms, [&] {
             EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<CapacityError>(_)));
         });
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
@@ -319,7 +317,6 @@ TEST_F(TestUdpMsgRxSession, run_and_receive)
             });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
@@ -370,7 +367,6 @@ TEST_F(TestUdpMsgRxSession, run_and_receive_one_anonymous_frame)
     });
 
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
     const auto maybe_rx_transfer = session->receive();
     ASSERT_THAT(maybe_rx_transfer, Optional(_));

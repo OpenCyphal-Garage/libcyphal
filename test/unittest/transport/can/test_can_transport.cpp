@@ -406,7 +406,6 @@ TEST_F(TestCanTransport, sending_multiframe_payload_should_fail_for_anonymous)
     EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
 
     scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(10us, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 }
 
 TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
@@ -748,7 +747,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
             return IMedia::PopResult::Metadata{rx2_timestamp, 0b111'1'0'0'101111011'0010011'0110001, 8};
         });
         EXPECT_CALL(media_mock2, pop(_)).WillOnce([&](auto p) {
-            EXPECT_THAT(now(), rx2_timestamp + 30ms);
+            EXPECT_THAT(now(), rx2_timestamp + 20ms);
             EXPECT_THAT(p.size(), CANARD_MTU_MAX);
             p[0] = b('7');
             p[1] = b('8');
@@ -760,12 +759,9 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
         });
     }
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
     scheduler_.setNow(rx2_timestamp);
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
     const auto maybe_rx_transfer = session->receive();
     ASSERT_THAT(maybe_rx_transfer, Optional(_));

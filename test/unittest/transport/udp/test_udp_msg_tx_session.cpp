@@ -215,8 +215,6 @@ TEST_F(TestUdpMsgTxSession, send_empty_payload_and_no_transport_run)
     auto failure = session->send(metadata, empty_payload);
     EXPECT_THAT(failure, Eq(cetl::nullopt));
 
-    scheduler_.runNow(+10ms, [&] { session->run(scheduler_.now()); });
-
     // Payload still inside udpard TX queue (b/c there was no `transport->run` call deliberately),
     // but there will be no memory leak b/c we expect that it should be deallocated when the transport is destroyed.
     // See `EXPECT_THAT(mr_.allocations, IsEmpty());` at the `TearDown` method.

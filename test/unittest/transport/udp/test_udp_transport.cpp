@@ -436,7 +436,6 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_should_fail_for_anonymous)
     EXPECT_THAT(failure, Optional(VariantWith<AnonymousError>(_)));
 
     scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(10us, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 }
 
 TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)

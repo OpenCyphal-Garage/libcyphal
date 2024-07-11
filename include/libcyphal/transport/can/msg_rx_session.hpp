@@ -131,14 +131,6 @@ private:
         }
     }
 
-    // MARK: IRunnable
-
-    IRunnable::MaybeFailure run(const TimePoint) override
-    {
-        // Nothing to do here currently.
-        return {};
-    }
-
     // MARK: IRxSessionDelegate
 
     void acceptRxTransfer(const CanardRxTransfer& transfer) override

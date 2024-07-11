@@ -183,7 +183,6 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_request)
         });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -213,7 +212,6 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_request)
         });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
@@ -260,7 +258,6 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_response)
         });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -290,7 +287,6 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_response)
         });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
@@ -332,7 +328,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_two_frames)
             return cetl::nullopt;
         });
         EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
-            EXPECT_THAT(now(), rx_timestamp + 30ms);
+            EXPECT_THAT(now(), rx_timestamp + 20ms);
             EXPECT_THAT(p.size(), CANARD_MTU_MAX);
             p[0] = b('7');
             p[1] = b('8');
@@ -344,9 +340,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_two_frames)
         });
     }
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
     const auto maybe_rx_transfer = session->receive();
     ASSERT_THAT(maybe_rx_transfer, Optional(_));

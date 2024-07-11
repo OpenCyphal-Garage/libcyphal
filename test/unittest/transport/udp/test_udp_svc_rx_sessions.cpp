@@ -281,7 +281,6 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_request)
         });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -316,8 +315,6 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_request)
             EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
         });
 
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
-
         const auto maybe_rx_transfer = session->receive();
         EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
     }
@@ -347,7 +344,6 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_request)
             });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
@@ -404,7 +400,6 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_response)
         });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -440,7 +435,6 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_response)
         scheduler_.runNow(+10ms, [&] {
             EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
         });
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));

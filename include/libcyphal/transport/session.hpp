@@ -14,7 +14,7 @@ namespace libcyphal
 namespace transport
 {
 
-class ISession : public IRunnable
+class ISession
 {
 public:
     ISession(const ISession&)                = delete;
