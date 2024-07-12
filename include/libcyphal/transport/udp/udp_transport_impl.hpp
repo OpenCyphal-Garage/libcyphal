@@ -108,6 +108,11 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
             return tx_socket_ptr_;
         }
 
+        cetl::optional<IExecutor::Callback::Handle>& tx_callback_handle()
+        {
+            return tx_callback_handle_;
+        }
+
         UniquePtr<IRxSocket>& svc_rx_socket_ptr()
         {
             return svc_rx_socket_ptr_;
@@ -119,11 +124,12 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
         }
 
     private:
-        const std::uint8_t   index_;
-        IMedia&              interface_;
-        UdpardTx             udpard_tx_;
-        UniquePtr<ITxSocket> tx_socket_ptr_;
-        UniquePtr<IRxSocket> svc_rx_socket_ptr_;
+        const std::uint8_t                          index_;
+        IMedia&                                     interface_;
+        UdpardTx                                    udpard_tx_;
+        UniquePtr<ITxSocket>                        tx_socket_ptr_;
+        cetl::optional<IExecutor::Callback::Handle> tx_callback_handle_;
+        UniquePtr<IRxSocket>                        svc_rx_socket_ptr_;
     };
     using MediaArray = libcyphal::detail::VarArray<Media>;
 
@@ -181,6 +187,7 @@ public:
 
     TransportImpl(const Spec, const MemoryResources& memory_resources, IExecutor& executor, MediaArray&& media_array)
         : TransportDelegate{memory_resources}
+        , executor_{executor}
         , media_array_{std::move(media_array)}
         , msg_rx_session_nodes_{memory_resources.general}
         , svc_request_rx_session_nodes_{memory_resources.general}
@@ -190,9 +197,6 @@ public:
         {
             media.udpard_tx().local_node_id = &node_id();
         }
-
-        // TODO: Use it!
-        (void) executor;
     }
 
     TransportImpl(const TransportImpl&)                = delete;
@@ -322,19 +326,10 @@ private:
 
     // MARK: IRunnable
 
-    CETL_NODISCARD IRunnable::MaybeFailure run(const TimePoint now) override
+    CETL_NODISCARD IRunnable::MaybeFailure run(const TimePoint) override
     {
-        cetl::optional<AnyFailure> failure{};
+        cetl::optional<AnyFailure> failure;
 
-        // We deliberately first run TX as much as possible, and only then running RX -
-        // transmission will release resources (like TX queue items) and make room for new incoming frames.
-        //
-        failure = runMediaTransmit(now);
-        if (failure.has_value())
-        {
-            return std::move(failure.value());
-        }
-        //
         failure = runMediaReceive();
         if (failure.has_value())
         {
@@ -375,7 +370,15 @@ private:
                                             media.udpard_tx().mtu = tx_socket.getMtu();
 
                                             const TxTransferHandler transfer_handler{*this, media, payload};
-                                            return cetl::visit(transfer_handler, tx_metadata_var);
+                                            const auto tx_failure = cetl::visit(transfer_handler, tx_metadata_var);
+                                            if (!tx_failure.has_value())
+                                            {
+                                                if (!media.tx_callback_handle().has_value())
+                                                {
+                                                    sendNextFrameToMediaTxSocket(media, tx_socket);
+                                                }
+                                            }
+                                            return tx_failure;
                                         });
             if (failure.has_value())
             {
@@ -545,9 +548,9 @@ private:
     }
 
     template <typename Report, typename ErrorVariant, typename Culprit>
-    CETL_NODISCARD cetl::optional<AnyFailure> tryHandleTransientMediaError(const Media&   media,
-                                                                           ErrorVariant&& error_var,
-                                                                           Culprit&&      culprit)
+    cetl::optional<AnyFailure> tryHandleTransientMediaError(const Media&   media,
+                                                            ErrorVariant&& error_var,
+                                                            Culprit&&      culprit)
     {
         AnyFailure failure = common::detail::anyFailureFromVariant(std::forward<ErrorVariant>(error_var));
         if (!transient_error_handler_)
@@ -659,47 +662,15 @@ private:
         }
     }
 
-    /// @brief Runs transmission loop for each redundant media interface.
+    /// @brief Tries to send next frame from media TX queue to socket..
     ///
-    CETL_NODISCARD cetl::optional<AnyFailure> runMediaTransmit(const TimePoint now)
-    {
-        for (Media& some_media : media_array_)
-        {
-            // Before running TX loop (and potentially trying to ensure TX socket),
-            // it makes sense to check if there is anything to send at all.
-            // This way we can avoid unnecessary TX socket creation.
-            //
-            if (nullptr != peekFirstValidUdpardTxItem(some_media.udpard_tx(), now))
-            {
-                cetl::optional<AnyFailure> failure = withEnsureMediaTxSocket(  //
-                    some_media,
-                    [this, now](Media& media, ITxSocket& tx_socket) -> cetl::optional<AnyFailure> {
-                        return runSingleMediaTransmit(media, tx_socket, now);
-                    });
-                if (failure.has_value())
-                {
-                    return failure;
-                }
-            }
-        }
-
-        return cetl::nullopt;
-    }
-
-    /// @brief Runs transmission loop for a single media interface and its TX socket.
-    ///
-    /// Transmits as much as possible frames that are ready to be sent by the media TX socket interface.
-    ///
-    CETL_NODISCARD cetl::optional<AnyFailure> runSingleMediaTransmit(Media&          media,
-                                                                     ITxSocket&      tx_socket,
-                                                                     const TimePoint now)
+    void sendNextFrameToMediaTxSocket(Media& media, ITxSocket& tx_socket)
     {
         using PayloadFragment = cetl::span<const cetl::byte>;
 
-        while (const UdpardTxItem* const tx_item = peekFirstValidUdpardTxItem(media.udpard_tx(), now))
+        TimePoint tx_deadline;
+        while (const UdpardTxItem* const tx_item = peekFirstValidUdpardTxItem(media.udpard_tx(), tx_deadline))
         {
-            const auto deadline = TimePoint{std::chrono::microseconds{tx_item->deadline_usec}};
-
             // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libudpard API.
             const auto* const buffer =
                 static_cast<const cetl::byte*>(tx_item->datagram_payload.data);  // NOSONAR cpp:S5356 cpp:S5357
@@ -707,56 +678,51 @@ private:
                 PayloadFragment{buffer, tx_item->datagram_payload.size}};
 
             ITxSocket::SendResult::Type send_result =
-                tx_socket.send(deadline,
+                tx_socket.send(tx_deadline,
                                {tx_item->destination.ip_address, tx_item->destination.udp_port},
                                tx_item->dscp,
                                single_payload_fragment);
 
             // In case of socket send error we are going to drop this problematic frame
             // (b/c it looks like media TX socket can't handle this frame),
-            // but we will continue to process with other frames if transient error handler says so.
+            // but we will continue to try process other transfer frame.
             // Note that socket not being ready/able to send a frame just yet (aka temporary)
-            // is not reported as an error (see `is_sent` below).
+            // is not reported as an error (see `is_accepted` below).
             //
-            if (auto* const send_failure = cetl::get_if<ITxSocket::SendResult::Failure>(&send_result))
-            {
-                // Release whole problematic transfer from the TX queue,
-                // so that other transfers in TX queue have their chance.
-                // Otherwise, we would be stuck in a run loop trying to send the same frame.
-                popAndFreeUdpardTxItem(&media.udpard_tx(), tx_item, true /*whole transfer*/);
-
-                cetl::optional<AnyFailure> failure =
-                    tryHandleTransientMediaError<TransientErrorReport::MediaTxSocketSend>(media,
-                                                                                          std::move(*send_failure),
-                                                                                          tx_socket);
-                if (failure.has_value())
-                {
-                    return failure;
-                }
-
-                // The handler just said that it's fine to continue with sending other frames
-                // and ignore such a transient media error (and don't propagate it outside).
-            }
-            else
+            auto* const send_failure = cetl::get_if<ITxSocket::SendResult::Failure>(&send_result);
+            if (nullptr == send_failure)
             {
                 const auto sent = cetl::get<ITxSocket::SendResult::Success>(send_result);
-                if (!sent.is_accepted)
+                if (sent.is_accepted)
                 {
-                    // TX socket interface is busy, so we are done with this media for now,
-                    // and will just try again with it later (on next `run`).
-                    // Note, we are NOT releasing this item from the queue, so it will be retried on next `run`.
-                    break;
-
-                    // TODO: It seems that `Multiplexer` interface would be used here
-                    //       but it is not yet implemented, so for now just `break`.
+                    popAndFreeUdpardTxItem(&media.udpard_tx(), tx_item, false /* single frame */);
                 }
 
-                popAndFreeUdpardTxItem(&media.udpard_tx(), tx_item, false /*single frame*/);
+                // If needed schedule (recursively!) next frame for sending.
+                // Already existing callback will be called by executor when TX socket is ready to send more.
+                //
+                if (!media.tx_callback_handle().has_value())
+                {
+                    media.tx_callback_handle() =
+                        tx_socket.registerCallback(executor_, [this, &media, &tx_socket](const TimePoint) {  //
+                            sendNextFrameToMediaTxSocket(media, tx_socket);
+                        });
+                }
+                return;
             }
 
-        }  // for each frame
+            // Release whole problematic transfer from the TX queue,
+            // so that other transfers in TX queue have their chance.
+            // Otherwise, we would be stuck in a run loop trying to send the same frame.
+            popAndFreeUdpardTxItem(&media.udpard_tx(), tx_item, true /* whole transfer */);
 
-        return cetl::nullopt;
+            tryHandleTransientMediaError<TransientErrorReport::MediaTxSocketSend>(media,
+                                                                                  std::move(*send_failure),
+                                                                                  tx_socket);
+        }  // for a valid tx item
+
+        // There is nothing to send anymore, so we are done with this media TX socket - no more callbacks for now.
+        media.tx_callback_handle().reset();
     }
 
     /// @brief Tries to peek the first TX item from the media TX queue which is not expired.
@@ -764,16 +730,18 @@ private:
     /// While searching, any of already expired TX items are pop from the queue and freed (aka dropped).
     /// If there is no still valid TX items in the queue, returns `nullptr`.
     ///
-    CETL_NODISCARD static const UdpardTxItem* peekFirstValidUdpardTxItem(UdpardTx& udpard_tx, const TimePoint now)
+    CETL_NODISCARD const UdpardTxItem* peekFirstValidUdpardTxItem(UdpardTx& udpard_tx, TimePoint& out_deadline)
     {
+        const TimePoint now = executor_.now();
+
         while (const UdpardTxItem* const tx_item = ::udpardTxPeek(&udpard_tx))
         {
             // We are dropping any TX item that has expired.
             // Otherwise, we would send it to the media TX socket interface.
             // We use strictly `<` (instead of `<=`) to give this frame a chance (one extra 1us) at the socket.
             //
-            const auto deadline = TimePoint{std::chrono::microseconds{tx_item->deadline_usec}};
-            if (now < deadline)
+            out_deadline = TimePoint{std::chrono::microseconds{tx_item->deadline_usec}};
+            if (now < out_deadline)
             {
                 return tx_item;
             }
@@ -1040,6 +1008,7 @@ private:
 
     // MARK: Data members:
 
+    IExecutor&                               executor_;
     MediaArray                               media_array_;
     TransientErrorHandler                    transient_error_handler_;
     SessionTree<RxSessionTreeNode::Message>  msg_rx_session_nodes_;

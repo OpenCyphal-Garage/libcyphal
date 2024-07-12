@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_VIRTUAL_TIME_SCHEDULER_HPP
 #define LIBCYPHAL_VIRTUAL_TIME_SCHEDULER_HPP
 
+#include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/types.hpp>
 
@@ -24,11 +25,6 @@ public:
     explicit VirtualTimeScheduler(const TimePoint initial_now = {})
         : now_{initial_now}
     {
-    }
-
-    TimePoint now() const
-    {
-        return now_;
     }
 
     void setNow(const TimePoint now)
@@ -55,7 +51,12 @@ public:
 
     void scheduleAt(const TimePoint time_point, std::function<void()> action)
     {
-        actions_.emplace(time_point, std::move(action));
+        const auto callback_id =
+            appendCallback(true /*is_auto_remove*/, [action = std::move(action)](const TimePoint) { action(); });
+        if (callback_id.has_value())
+        {
+            scheduleCallbackByIdAt(callback_id.value(), time_point);
+        }
     }
 
     void scheduleAt(const Duration duration, std::function<void()> action)
@@ -63,16 +64,23 @@ public:
         scheduleAt(TimePoint{} + duration, std::move(action));
     }
 
-    void scheduleAfter(const Duration duration, std::function<void()> action)
+    cetl::optional<Callback::Handle> scheduleAfter(const Duration duration, IExecutor::Callback::Function function)
     {
-        scheduleAt(now_ + duration, std::move(action));
+        auto handle = registerCallback(std::move(function), true /*is_auto_remove*/);
+        if (handle.has_value())
+        {
+            scheduleCallbackByIdAt(handle.value().id(), now_ + duration);
+        }
+        return handle;
     }
 
     void spinFor(const Duration duration)
     {
         const auto end_time = now_ + duration;
 
-        for (auto next = actions_.begin(); next != actions_.end(); next = actions_.begin())
+        for (auto next = callbacks_to_execute_.begin();  //
+             next != callbacks_to_execute_.end();
+             next = callbacks_to_execute_.begin())
         {
             const auto next_time = next->first;
             if (next_time >= end_time)
@@ -80,18 +88,23 @@ public:
                 break;
             }
 
-            auto next_action = std::move(next->second);
-            actions_.erase(next);
+            const auto next_callback_id = next->second;
+            callbacks_to_execute_.erase(next);
 
-            now_ = next_time;
-            if (next_action)
+            const auto next_callback = callback_ids_to_funcs_.find(next_callback_id);
+            if (next_callback == callback_ids_to_funcs_.end())
             {
-                next_action();
+                continue;
+            }
+            CETL_DEBUG_ASSERT(next_callback->second.is_triggered, "Callback must be triggered.");
 
-                if (testing::Test::HasFatalFailure())
-                {
-                    return;
-                }
+            now_                               = next_time;
+            next_callback->second.is_triggered = false;
+
+            next_callback->second.function(next_time);
+            if (testing::Test::HasFatalFailure())
+            {
+                return;
             }
         }
 
@@ -101,15 +114,62 @@ public:
     void reset(const TimePoint initial_now = {})
     {
         now_ = initial_now;
-        actions_.clear();
+        callbacks_to_execute_.clear();
+        callback_ids_to_funcs_.clear();
     }
 
     // MARK: - IExecutor
 
+    TimePoint now() const noexcept override
+    {
+        return now_;
+    }
+
+    using IExecutor::registerCallback;
+
+    bool scheduleCallbackByIdAt(const Callback::Id callback_id, const TimePoint time_point) override
+    {
+        const auto it = callback_ids_to_funcs_.find(callback_id);
+        if (it == callback_ids_to_funcs_.end())
+        {
+            return false;
+        }
+
+        if (!it->second.is_triggered)
+        {
+            it->second.is_triggered = true;
+            callbacks_to_execute_.emplace(time_point, it->first);
+        }
+        return true;
+    }
+
+protected:
+    cetl::optional<Callback::Id> appendCallback(const bool is_auto_remove, Callback::Function function) override
+    {
+        const Callback::Id callback_id = next_callback_id_++;
+        callback_ids_to_funcs_.emplace(callback_id, CallbackState{std::move(function), false, is_auto_remove});
+        return cetl::optional<Callback::Id>{callback_id};
+    }
+
+    bool removeCallbackById(const Callback::Id callback_id) override
+    {
+        return 0 == callback_ids_to_funcs_.erase(callback_id);
+    }
+
 private:
-    TimePoint                                       now_;
-    std::multimap<TimePoint, std::function<void()>> actions_;
-};
+    struct CallbackState
+    {
+        Callback::Function function;
+        bool               is_triggered;
+        bool               is_auto_remove;
+    };
+
+    TimePoint                              now_;
+    Callback::Id                           next_callback_id_{0};
+    std::multimap<TimePoint, Callback::Id> callbacks_to_execute_;
+    std::map<Callback::Id, CallbackState>  callback_ids_to_funcs_;
+
+};  // VirtualTimeScheduler
 
 }  // namespace libcyphal
 

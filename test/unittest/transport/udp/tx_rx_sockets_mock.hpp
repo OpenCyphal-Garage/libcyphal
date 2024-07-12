@@ -7,6 +7,7 @@
 #define LIBCYPHAL_TRANSPORT_UDP_TX_RX_SOCKETS_MOCK_HPP_INCLUDED
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/executor.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/tx_rx_sockets.hpp>
@@ -68,6 +69,13 @@ public:
             return tx_socket_mock_.send(deadline, multicast_endpoint, dscp, payload_fragments);
         }
 
+        CETL_NODISCARD cetl::optional<IExecutor::Callback::Handle> registerCallback(
+            IExecutor&                    executor,
+            IExecutor::Callback::Function function) override
+        {
+            return tx_socket_mock_.registerCallback(executor, function);
+        }
+
     private:
         TxSocketMock& tx_socket_mock_;
 
@@ -105,6 +113,11 @@ public:
                  const IpEndpoint       multicast_endpoint,
                  const std::uint8_t     dscp,
                  const PayloadFragments payload_fragments),
+                (override));
+
+    MOCK_METHOD((cetl::optional<IExecutor::Callback::Handle>),
+                registerCallback,
+                (IExecutor & executor, IExecutor::Callback::Function function),
                 (override));
 
 private:

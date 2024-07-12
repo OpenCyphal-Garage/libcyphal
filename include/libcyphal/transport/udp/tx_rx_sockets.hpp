@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_TRANSPORT_UDP_TX_RX_SOCKETS_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_UDP_TX_RX_SOCKETS_HPP_INCLUDED
 
+#include "libcyphal/executor.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
@@ -94,6 +95,21 @@ public:
                                   const std::uint8_t     dscp,
                                   const PayloadFragments payload_fragments) = 0;
     ///@}
+
+    /// @brief Registers "ready to send" callback function at a given executor.
+    ///
+    /// The callback will be called by the executor when this socket will be ready to accept more data.
+    ///
+    /// For example, POSIX socket implementation may pass its OS handle to the executor implementation,
+    /// and executor will use `::epoll` POSIX api & `EPOLLOUT` event to schedule this callback for execution.
+    ///
+    /// @param executor The executor to register the callback at.
+    /// @param function The function to be called when the callback is executed.
+    /// @return Handle to the successfully registered callback; otherwise `nullopt`.
+    ///
+    CETL_NODISCARD virtual cetl::optional<IExecutor::Callback::Handle> registerCallback(
+        IExecutor&                    executor,
+        IExecutor::Callback::Function function) = 0;
 
 protected:
     ITxSocket()  = default;
