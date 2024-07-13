@@ -732,7 +732,7 @@ private:
     /// While searching, any of already expired TX items are pop from the queue and freed (aka dropped).
     /// If there is no still valid TX items in the queue, returns `nullptr`.
     ///
-    CETL_NODISCARD const UdpardTxItem* peekFirstValidUdpardTxItem(UdpardTx& udpard_tx, TimePoint& out_deadline)
+    CETL_NODISCARD const UdpardTxItem* peekFirstValidUdpardTxItem(UdpardTx& udpard_tx, TimePoint& out_deadline) const
     {
         const TimePoint now = executor_.now();
 

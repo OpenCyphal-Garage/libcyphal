@@ -30,7 +30,9 @@ public:
 
         /// @brief Defines move-only RAII type for automatic callback un-registration.
         ///
-        class Handle
+        /// NOSONAR cpp:S4963 for below `class Handle` - we do directly handle callback resource here.
+        ///
+        class Handle final  // NOSONAR cpp:S4963
         {
         public:
             Handle() = default;
@@ -61,7 +63,10 @@ public:
             {
                 if (nullptr != executor_)
                 {
-                    executor_->removeCallbackById(id_);
+                    const bool is_removed = executor_->removeCallbackById(id_);
+                    (void) is_removed;
+                    CETL_DEBUG_ASSERT(is_removed, "Unexpected failure to remove callback by id.");
+
                     executor_ = nullptr;
                 }
             }
@@ -69,7 +74,7 @@ public:
         private:
             friend class IExecutor;
 
-            Handle(Id id, IExecutor& executor)
+            Handle(const Id id, IExecutor& executor)
                 : id_(id)
                 , executor_(&executor)
             {
