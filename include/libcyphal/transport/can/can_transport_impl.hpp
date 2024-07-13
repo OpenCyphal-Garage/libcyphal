@@ -149,6 +149,8 @@ public:
         , total_message_ports_{0}
         , total_service_ports_{0}
     {
+        // TODO: Use executor.
+        (void) executor_;
     }
 
     TransportImpl(const TransportImpl&)                = delete;
