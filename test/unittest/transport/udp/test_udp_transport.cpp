@@ -615,6 +615,7 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
     scheduler_.spinFor(10s);
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
 {
     using SocketSendReport = IUdpTransport::TransientErrorReport::MediaTxSocketSend;

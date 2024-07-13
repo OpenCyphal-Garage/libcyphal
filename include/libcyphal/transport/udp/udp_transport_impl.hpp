@@ -369,7 +369,7 @@ private:
                     media.udpard_tx().mtu = tx_socket.getMtu();
 
                     const TxTransferHandler transfer_handler{*this, media, payload};
-                    const auto              tx_failure = cetl::visit(transfer_handler, tx_metadata_var);
+                    auto                    tx_failure = cetl::visit(transfer_handler, tx_metadata_var);
                     if (tx_failure.has_value())
                     {
                         return tx_failure;
