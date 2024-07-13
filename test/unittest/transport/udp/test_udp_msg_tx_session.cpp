@@ -176,7 +176,7 @@ TEST_F(TestUdpMsgTxSession, make_fails_due_to_media_socket)
     });
     // 2. Transport will succeed to make TX session despite the media fails to create a TX socket.
     //    This is b/c transient error handler will be set and will handle the error.
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(2s, [&] {
         //
         EXPECT_CALL(media_mock_, makeTxSocket()).WillOnce(Return(MemoryError{}));
 

@@ -347,6 +347,7 @@ TEST_F(TestUpdTransport, makeMessageRxSession_invalid_resubscription)
         EXPECT_THAT(maybe_rx_session2, VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
     });
     scheduler_.scheduleAt(2s, [&] {
+        //
         auto maybe_rx_session2 = transport->makeMessageRxSession({0, test_subject_id});
         ASSERT_THAT(maybe_rx_session2, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     });

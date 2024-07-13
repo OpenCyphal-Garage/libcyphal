@@ -362,24 +362,26 @@ private:
 
         for (Media& some_media : media_array_)
         {
-            cetl::optional<AnyFailure> failure =
-                withEnsureMediaTxSocket(some_media,
-                                        [this,
-                                         &tx_metadata_var,
-                                         &payload](auto& media, auto& tx_socket) -> cetl::optional<AnyFailure> {
-                                            media.udpard_tx().mtu = tx_socket.getMtu();
+            cetl::optional<AnyFailure> failure = withEnsureMediaTxSocket(  //
+                some_media,
+                [this, &tx_metadata_var, &payload](auto& media, auto& tx_socket) -> cetl::optional<AnyFailure> {
+                    //
+                    media.udpard_tx().mtu = tx_socket.getMtu();
 
-                                            const TxTransferHandler transfer_handler{*this, media, payload};
-                                            const auto tx_failure = cetl::visit(transfer_handler, tx_metadata_var);
-                                            if (!tx_failure.has_value())
-                                            {
-                                                if (!media.tx_callback_handle().has_value())
-                                                {
-                                                    sendNextFrameToMediaTxSocket(media, tx_socket);
-                                                }
-                                            }
-                                            return tx_failure;
-                                        });
+                    const TxTransferHandler transfer_handler{*this, media, payload};
+                    const auto              tx_failure = cetl::visit(transfer_handler, tx_metadata_var);
+                    if (tx_failure.has_value())
+                    {
+                        return tx_failure;
+                    }
+
+                    // No need to try send next frame when previous one hasn't finished yet.
+                    if (!media.tx_callback_handle().has_value())
+                    {
+                        sendNextFrameToMediaTxSocket(media, tx_socket);
+                    }
+                    return cetl::nullopt;
+                });
             if (failure.has_value())
             {
                 // The handler (if any) just said that it's NOT fine to continue with transferring to
@@ -662,7 +664,7 @@ private:
         }
     }
 
-    /// @brief Tries to send next frame from media TX queue to socket..
+    /// @brief Tries to send next frame from media TX queue to socket.
     ///
     void sendNextFrameToMediaTxSocket(Media& media, ITxSocket& tx_socket)
     {
@@ -713,7 +715,7 @@ private:
 
             // Release whole problematic transfer from the TX queue,
             // so that other transfers in TX queue have their chance.
-            // Otherwise, we would be stuck in a run loop trying to send the same frame.
+            // Otherwise, we would be stuck in a execution loop trying to send the same frame.
             popAndFreeUdpardTxItem(&media.udpard_tx(), tx_item, true /* whole transfer */);
 
             tryHandleTransientMediaError<TransientErrorReport::MediaTxSocketSend>(media,
@@ -740,9 +742,10 @@ private:
             // Otherwise, we would send it to the media TX socket interface.
             // We use strictly `<` (instead of `<=`) to give this frame a chance (one extra 1us) at the socket.
             //
-            out_deadline = TimePoint{std::chrono::microseconds{tx_item->deadline_usec}};
-            if (now < out_deadline)
+            const auto deadline = TimePoint{std::chrono::microseconds{tx_item->deadline_usec}};
+            if (now < deadline)
             {
+                out_deadline = deadline;
                 return tx_item;
             }
 

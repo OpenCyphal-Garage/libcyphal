@@ -143,13 +143,12 @@ public:
 
     TransportImpl(const Spec, cetl::pmr::memory_resource& memory, IExecutor& executor, MediaArray&& media_array)
         : TransportDelegate{memory}
+        , executor_{executor}
         , media_array_{std::move(media_array)}
         , should_reconfigure_filters_{false}
         , total_message_ports_{0}
         , total_service_ports_{0}
     {
-        // TODO: Use it!
-        (void) executor;
     }
 
     TransportImpl(const TransportImpl&)                = delete;
@@ -774,6 +773,7 @@ private:
 
     // MARK: Data members:
 
+    IExecutor&            executor_;
     MediaArray            media_array_;
     bool                  should_reconfigure_filters_;
     std::size_t           total_message_ports_;

@@ -6,7 +6,6 @@
 #ifndef LIBCYPHAL_EXECUTOR_HPP
 #define LIBCYPHAL_EXECUTOR_HPP
 
-#include "transport/errors.hpp"
 #include "types.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -34,7 +33,7 @@ public:
         class Handle
         {
         public:
-            Handle() noexcept = default;
+            Handle() = default;
             Handle(Handle&& other) noexcept
             {
                 moveFrom(other);
@@ -95,8 +94,8 @@ public:
 
         /// @brief Defines callback function signature.
         ///
-        /// The callback function is executed from the executor's spin context (not from context of an event
-        /// which has triggered callback. So, it's safe use any executor's API from a callback function.
+        /// The callback function is executed from the executor's spin context (not from context of the event
+        /// which has triggered callback). So, it's safe use any executor's API from a callback function.
         ///
         /// @param time_point The current time point (aka now) when the callback is executed. Depending on executor
         ///                   load, the actual time point could be a bit later than when it was originally triggered.
@@ -125,17 +124,13 @@ public:
     {
         CETL_DEBUG_ASSERT(function, "Callback function must be provided.");
 
-        cetl::optional<Callback::Handle> result;
-
-        // No "auto remove" b/c result `Handle` is expected to manage callback lifetime.
-        //
         auto callback_id = appendCallback(is_auto_remove, std::move(function));
-        if (callback_id.has_value())
+        if (!callback_id.has_value())
         {
-            result = Callback::Handle{callback_id.value(), *this};
+            return cetl::nullopt;
         }
 
-        return result;
+        return Callback::Handle{callback_id.value(), *this};
     }
 
 protected:
@@ -148,20 +143,22 @@ protected:
     /// @param A function to be called when the callback is scheduled for execution.
     /// @return A new unique identifier for the callback if successful.
     ///         Otherwise `nullopt` in case of out of memory error.
+    ///         No discard b/c it's expected to be used in conjunction with `scheduleCallbackByIdAt`
+    ///         or `removeCallbackById` methods.
     ///
-    virtual CETL_NODISCARD cetl::optional<Callback::Id> appendCallback(const bool         is_auto_remove,
+    CETL_NODISCARD virtual cetl::optional<Callback::Id> appendCallback(const bool         is_auto_remove,
                                                                        Callback::Function function) = 0;
 
     /// @brief Schedules previously appended callback (by its id) for execution at the desired absolute time.
     ///
     /// Actual execution of the callback's function will be done later (not from context of this method), when desired
-    /// time comes and executor is ready to execute the callbacks. It's ok to trigger the same callback multiple times
-    /// even before it was executed - it will be rescheduled, and then executed only once according to the last config.
+    /// time comes and executor is ready to execute the callbacks. It's ok to schedule the same callback multiple times
+    /// even before it was executed - it will be rescheduled, and then executed only once according to the last setup.
     ///
-    /// @param callback_id Unique identifier of the callback to be triggered.
+    /// @param callback_id Unique identifier of the callback to be scheduled.
     /// @param time_point Absolute time point when it's desired to execute it.
     ///                   Use current time (aka now) to schedule it for ASAP execution.
-    /// @return `true` if the callback was found and triggered.
+    /// @return `true` if the callback was found and scheduled.
     ///
     virtual bool scheduleCallbackByIdAt(const Callback::Id callback_id, const TimePoint time_point) = 0;
 
