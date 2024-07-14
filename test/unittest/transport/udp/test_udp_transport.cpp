@@ -479,7 +479,7 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)
             });
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //
-                return scheduler_.scheduleAfter(+10us, std::move(function));
+                return scheduler_.scheduleCallbackAfter(+10us, std::move(function));
             }));
 
         metadata.timestamp = now();
@@ -548,8 +548,8 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
             });
         EXPECT_CALL(tx_socket_mock_, registerCallback(Ref(scheduler_), _))  //
             .WillOnce(Invoke([&](auto&, auto function) {                    //
-                auto handle         = scheduler_.scheduleAfter(+20us, std::move(function));
-                socket1_callback_id = handle ? handle->id() : 0;
+                auto handle         = scheduler_.scheduleCallbackAfter(+20us, std::move(function));
+                socket1_callback_id = handle.id();
                 return handle;
             }));
         EXPECT_CALL(tx_socket_mock2, send(_, _, _, _))
@@ -563,8 +563,8 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
             });
         EXPECT_CALL(tx_socket_mock2, registerCallback(Ref(scheduler_), _))  //
             .WillOnce(Invoke([&](auto&, auto function) {                    //
-                auto handle         = scheduler_.scheduleAfter(+10us, std::move(function));
-                socket2_callback_id = handle ? handle->id() : 0;
+                auto handle         = scheduler_.scheduleCallbackAfter(+10us, std::move(function));
+                socket2_callback_id = handle.id();
                 return handle;
             }));
 
@@ -674,7 +674,7 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
             });
         EXPECT_CALL(tx_socket_mock2, registerCallback(Ref(scheduler_), _))  //
             .WillOnce(Invoke([&](auto&, auto function) {                    //
-                return scheduler_.scheduleAfter(+20us, std::move(function));
+                return scheduler_.scheduleCallbackAfter(+20us, std::move(function));
             }));
 
         metadata.timestamp = now();
@@ -689,7 +689,7 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
             .WillOnce(Return(ITxSocket::SendResult::Success{true /*is_accepted*/}));
         EXPECT_CALL(tx_socket_mock_, registerCallback(Ref(scheduler_), _))  //
             .WillOnce(Invoke([&](auto&, auto function) {                    //
-                return scheduler_.scheduleAfter(+5us, std::move(function));
+                return scheduler_.scheduleCallbackAfter(+5us, std::move(function));
             }));
         //
         EXPECT_CALL(tx_socket_mock2, send(_, _, _, _)).WillOnce(Return(PlatformError{MyPlatformError{13}}));

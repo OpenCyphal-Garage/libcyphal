@@ -11,6 +11,7 @@
 #include "tx_rx_sockets_mock.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/executor.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
@@ -252,7 +253,7 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_request)
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce(Return(ITxSocket::SendResult::Success{false /*is_accepted*/}));
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
-            .WillOnce(Invoke([](auto&, auto) { return cetl::nullopt; }));
+            .WillOnce(Invoke([](auto&, auto) { return libcyphal::IExecutor::Callback::Handle{}; }));
 
         metadata.timestamp = now();
         auto failure       = session->send(metadata, empty_payload);
@@ -307,7 +308,7 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_responce)
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce(Return(ITxSocket::SendResult::Success{false /*is_accepted*/}));
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
-            .WillOnce(Invoke([](auto&, auto) { return cetl::nullopt; }));
+            .WillOnce(Invoke([](auto&, auto) { return libcyphal::IExecutor::Callback::Handle{}; }));
 
         metadata.timestamp = now();
         auto failure       = session->send(metadata, empty_payload);
@@ -347,7 +348,7 @@ TEST_F(TestUdpSvcTxSessions, send_request)
             });
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //
-                return scheduler_.scheduleAfter(+10ms, std::move(function));
+                return scheduler_.scheduleCallbackAfter(+10ms, std::move(function));
             }));
 
         const PayloadFragments empty_payload{};
@@ -392,7 +393,7 @@ TEST_F(TestUdpSvcTxSessions, send_request_with_argument_error)
         });
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //
-                return scheduler_.scheduleAfter(+10ms, std::move(function));
+                return scheduler_.scheduleCallbackAfter(+10ms, std::move(function));
             }));
 
         const auto failure = session->send(metadata, empty_payload);
@@ -514,7 +515,7 @@ TEST_F(TestUdpSvcTxSessions, send_response)
             });
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //
-                return scheduler_.scheduleAfter(+10ms, std::move(function));
+                return scheduler_.scheduleCallbackAfter(+10ms, std::move(function));
             }));
 
         const PayloadFragments        empty_payload{};

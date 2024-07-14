@@ -12,6 +12,7 @@
 #include "tx_rx_sockets_mock.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/executor.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
@@ -231,7 +232,7 @@ TEST_F(TestUdpMsgTxSession, send_empty_payload)
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce(Return(ITxSocket::SendResult::Success{false /*is_accepted*/}));
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
-            .WillOnce(Invoke([](auto&, auto) { return cetl::nullopt; }));
+            .WillOnce(Invoke([](auto&, auto) { return libcyphal::IExecutor::Callback::Handle{}; }));
 
         metadata.timestamp = now();
         auto failure       = session->send(metadata, empty_payload);
@@ -264,7 +265,7 @@ TEST_F(TestUdpMsgTxSession, send_empty_expired_payload)
             .WillOnce(Return(ITxSocket::SendResult::Success{false /*is_accepted*/}));
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //
-                return scheduler_.scheduleAfter(+timeout, std::move(function));
+                return scheduler_.scheduleCallbackAfter(+timeout, std::move(function));
             }));
 
         metadata.timestamp = now();
@@ -295,7 +296,7 @@ TEST_F(TestUdpMsgTxSession, send_single_frame_payload_with_500ms_timeout)
             .WillOnce(Return(ITxSocket::SendResult::Success{false /*is_accepted*/}));
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //
-                return scheduler_.scheduleAfter(timeout - 1us, std::move(function));
+                return scheduler_.scheduleCallbackAfter(timeout - 1us, std::move(function));
             }));
 
         metadata.timestamp = now();

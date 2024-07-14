@@ -104,12 +104,12 @@ public:
     /// and executor will use `::epoll` POSIX api & `EPOLLOUT` event to schedule this callback for execution.
     ///
     /// @param executor The executor to register the callback at.
-    /// @param function The function to be called when the callback is executed.
-    /// @return Handle to the successfully registered callback; otherwise `nullopt`.
+    /// @param function The function to be called when TX socket became "ready to send".
+    /// @return Valid handle to the successfully appended callback;
+    ///         Otherwise invalid handle (see `Handle::isValid`) - in case of the appending failure.
     ///
-    CETL_NODISCARD virtual cetl::optional<IExecutor::Callback::Handle> registerCallback(
-        IExecutor&                    executor,
-        IExecutor::Callback::Function function) = 0;
+    CETL_NODISCARD virtual IExecutor::Callback::Handle registerCallback(IExecutor&                    executor,
+                                                                        IExecutor::Callback::Function function) = 0;
 
 protected:
     ITxSocket()  = default;

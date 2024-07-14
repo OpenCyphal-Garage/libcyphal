@@ -44,18 +44,13 @@ public:
         action();
     }
 
-    void schedule(std::function<void()> action)
-    {
-        scheduleAt(now_, std::move(action));
-    }
-
     void scheduleAt(const TimePoint time_point, std::function<void()> action)
     {
-        const auto callback_id =
+        const auto opt_callback_id =
             appendCallback(true /*is_auto_remove*/, [action = std::move(action)](const TimePoint) { action(); });
-        if (callback_id.has_value())
+        if (opt_callback_id)
         {
-            const bool is_scheduled = scheduleCallbackByIdAt(*callback_id, time_point);
+            const bool is_scheduled = scheduleCallbackByIdAt(*opt_callback_id, time_point);
             (void) is_scheduled;
             CETL_DEBUG_ASSERT(is_scheduled, "Unexpected failure to schedule callback by id.");
         }
@@ -66,15 +61,14 @@ public:
         scheduleAt(TimePoint{} + duration, std::move(action));
     }
 
-    cetl::optional<Callback::Handle> scheduleAfter(const Duration duration, IExecutor::Callback::Function function)
+    Callback::Handle scheduleCallbackAfter(const Duration duration, IExecutor::Callback::Function function)
     {
         auto handle = registerCallback(std::move(function), true /*is_auto_remove*/);
-        if (handle.has_value())
-        {
-            const bool is_scheduled = scheduleCallbackByIdAt(handle->id(), now_ + duration);
-            (void) is_scheduled;
-            CETL_DEBUG_ASSERT(is_scheduled, "Unexpected failure to schedule callback by id.");
-        }
+
+        const bool is_scheduled = handle.scheduleAt(now_ + duration);
+        (void) is_scheduled;
+        CETL_DEBUG_ASSERT(is_scheduled, "Unexpected failure to schedule callback by id.");
+
         return handle;
     }
 
@@ -155,9 +149,9 @@ protected:
         return cetl::optional<Callback::Id>{callback_id};
     }
 
-    bool removeCallbackById(const Callback::Id callback_id) override
+    void removeCallbackById(const Callback::Id callback_id) override
     {
-        return 0 == callback_ids_to_funcs_.erase(callback_id);
+        callback_ids_to_funcs_.erase(callback_id);
     }
 
 private:

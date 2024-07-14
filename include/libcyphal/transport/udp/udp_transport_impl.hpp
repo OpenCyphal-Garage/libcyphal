@@ -108,7 +108,7 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
             return tx_socket_ptr_;
         }
 
-        cetl::optional<IExecutor::Callback::Handle>& tx_callback_handle()
+        IExecutor::Callback::Handle& tx_callback_handle()
         {
             return tx_callback_handle_;
         }
@@ -124,12 +124,12 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
         }
 
     private:
-        const std::uint8_t                          index_;
-        IMedia&                                     interface_;
-        UdpardTx                                    udpard_tx_;
-        UniquePtr<ITxSocket>                        tx_socket_ptr_;
-        cetl::optional<IExecutor::Callback::Handle> tx_callback_handle_;
-        UniquePtr<IRxSocket>                        svc_rx_socket_ptr_;
+        const std::uint8_t          index_;
+        IMedia&                     interface_;
+        UdpardTx                    udpard_tx_;
+        UniquePtr<ITxSocket>        tx_socket_ptr_;
+        IExecutor::Callback::Handle tx_callback_handle_;
+        UniquePtr<IRxSocket>        svc_rx_socket_ptr_;
     };
     using MediaArray = libcyphal::detail::VarArray<Media>;
 
@@ -376,7 +376,7 @@ private:
                     }
 
                     // No need to try send next frame when previous one hasn't finished yet.
-                    if (!media.tx_callback_handle().has_value())
+                    if (!media.tx_callback_handle())
                     {
                         sendNextFrameToMediaTxSocket(media, tx_socket);
                     }
@@ -703,7 +703,7 @@ private:
                 // If needed schedule (recursively!) next frame for sending.
                 // Already existing callback will be called by executor when TX socket is ready to send more.
                 //
-                if (!media.tx_callback_handle().has_value())
+                if (!media.tx_callback_handle())
                 {
                     media.tx_callback_handle() =
                         tx_socket.registerCallback(executor_, [this, &media, &tx_socket](const TimePoint) {  //
