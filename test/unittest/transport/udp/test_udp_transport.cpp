@@ -35,7 +35,6 @@
 #include <cstdint>
 #include <functional>
 #include <limits>
-#include <string>
 #include <utility>
 
 namespace
@@ -452,6 +451,7 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_should_fail_for_anonymous)
     scheduler_.spinFor(10s);
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)
 {
     auto transport = makeTransport({mr_});
@@ -549,7 +549,7 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
         EXPECT_CALL(tx_socket_mock_, registerCallback(Ref(scheduler_), _))  //
             .WillOnce(Invoke([&](auto&, auto function) {                    //
                 auto handle         = scheduler_.scheduleAfter(+20us, std::move(function));
-                socket1_callback_id = handle.has_value() ? handle.value().id() : 0;
+                socket1_callback_id = handle ? handle->id() : 0;
                 return handle;
             }));
         EXPECT_CALL(tx_socket_mock2, send(_, _, _, _))
@@ -564,7 +564,7 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
         EXPECT_CALL(tx_socket_mock2, registerCallback(Ref(scheduler_), _))  //
             .WillOnce(Invoke([&](auto&, auto function) {                    //
                 auto handle         = scheduler_.scheduleAfter(+10us, std::move(function));
-                socket2_callback_id = handle.has_value() ? handle.value().id() : 0;
+                socket2_callback_id = handle ? handle->id() : 0;
                 return handle;
             }));
 

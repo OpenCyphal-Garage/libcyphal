@@ -104,9 +104,9 @@ protected:
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<IUdpTransport>>(NotNull()));
         auto transport = cetl::get<UniquePtr<IUdpTransport>>(std::move(maybe_transport));
 
-        if (local_node_id.has_value())
+        if (local_node_id)
         {
-            transport->setLocalNodeId(local_node_id.value());
+            transport->setLocalNodeId(*local_node_id);
         }
 
         return transport;

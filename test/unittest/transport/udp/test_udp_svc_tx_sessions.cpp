@@ -3,7 +3,6 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "../../cetl_gtest_helpers.hpp"
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
 #include "../../virtual_time_scheduler.hpp"
@@ -97,9 +96,9 @@ protected:
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<IUdpTransport>>(NotNull()));
         auto transport = cetl::get<UniquePtr<IUdpTransport>>(std::move(maybe_transport));
 
-        if (local_node_id.has_value())
+        if (local_node_id)
         {
-            transport->setLocalNodeId(local_node_id.value());
+            transport->setLocalNodeId(*local_node_id);
         }
 
         return transport;

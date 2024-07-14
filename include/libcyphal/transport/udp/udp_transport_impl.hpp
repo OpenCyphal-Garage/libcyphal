@@ -527,7 +527,7 @@ private:
             [](const Media&, const IRxSocket&) -> cetl::optional<AnyFailure> { return cetl::nullopt; });
         if (media_failure.has_value())
         {
-            return media_failure.value();
+            return std::move(media_failure.value());
         }
 
         // Make sure that session is unique per port.

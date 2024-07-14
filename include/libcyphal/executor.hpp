@@ -35,14 +35,21 @@ public:
         class Handle final  // NOSONAR cpp:S4963
         {
         public:
-            Handle() = default;
+            Handle()
+                : id_{0}
+                , executor_{nullptr} {};
+
             Handle(Handle&& other) noexcept
+                : id_{std::exchange(other.id_, 0)}
+                , executor_{std::exchange(other.executor_, nullptr)}
             {
-                moveFrom(other);
             }
+
             Handle& operator=(Handle&& other) noexcept
             {
-                moveFrom(other);
+                reset();
+                id_       = std::exchange(other.id_, 0);
+                executor_ = std::exchange(other.executor_, nullptr);
                 return *this;
             }
 
@@ -80,16 +87,8 @@ public:
             {
             }
 
-            void moveFrom(Handle& other) noexcept
-            {
-                reset();
-
-                id_       = other.id_;
-                executor_ = std::exchange(other.executor_, nullptr);
-            }
-
-            Id         id_{0};
-            IExecutor* executor_{nullptr};
+            Id         id_;
+            IExecutor* executor_;
 
         };  // Handle
 
@@ -130,12 +129,11 @@ public:
         CETL_DEBUG_ASSERT(function, "Callback function must be provided.");
 
         auto callback_id = appendCallback(is_auto_remove, std::move(function));
-        if (!callback_id.has_value())
+        if (callback_id.has_value())
         {
-            return cetl::nullopt;
+            return Callback::Handle{*callback_id, *this};
         }
-
-        return Callback::Handle{callback_id.value(), *this};
+        return cetl::nullopt;
     }
 
 protected:

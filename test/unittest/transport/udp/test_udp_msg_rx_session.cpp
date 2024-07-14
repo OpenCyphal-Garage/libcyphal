@@ -107,7 +107,7 @@ protected:
 
         if (local_node_id.has_value())
         {
-            transport->setLocalNodeId(local_node_id.value());
+            transport->setLocalNodeId(*local_node_id);
         }
 
         return transport;

@@ -55,7 +55,9 @@ public:
             appendCallback(true /*is_auto_remove*/, [action = std::move(action)](const TimePoint) { action(); });
         if (callback_id.has_value())
         {
-            scheduleCallbackByIdAt(callback_id.value(), time_point);
+            const bool is_scheduled = scheduleCallbackByIdAt(*callback_id, time_point);
+            (void) is_scheduled;
+            CETL_DEBUG_ASSERT(is_scheduled, "Unexpected failure to schedule callback by id.");
         }
     }
 
@@ -69,7 +71,9 @@ public:
         auto handle = registerCallback(std::move(function), true /*is_auto_remove*/);
         if (handle.has_value())
         {
-            scheduleCallbackByIdAt(handle.value().id(), now_ + duration);
+            const bool is_scheduled = scheduleCallbackByIdAt(handle->id(), now_ + duration);
+            (void) is_scheduled;
+            CETL_DEBUG_ASSERT(is_scheduled, "Unexpected failure to schedule callback by id.");
         }
         return handle;
     }
