@@ -50,13 +50,14 @@ using std::literals::chrono_literals::operator""us;
 class TestSingleThreadedExecutor : public testing::Test
 {
 protected:
-    class NowMock
-    {
-    public:
-        MOCK_METHOD(TimePoint, now, (), (const, noexcept));
-    };
     struct MySingleThreadedExecutor final : public SingleThreadedExecutor
     {
+        class NowMock
+        {
+        public:
+            MOCK_METHOD(TimePoint, now, (), (const, noexcept));  // NOLINT(bugprone-exception-escape)
+        };
+
         using SingleThreadedExecutor::SingleThreadedExecutor;
 
         TimePoint now() const noexcept override
@@ -67,7 +68,8 @@ protected:
         // NOLINTBEGIN
         StrictMock<NowMock> now_mock_;
         // NOLINTEND
-    };
+
+    };  // MySingleThreadedExecutor
 
     void TearDown() override
     {
@@ -293,6 +295,41 @@ TEST_F(TestSingleThreadedExecutor, schedule_multiple_with_same_exec_time)
                 ElementsAre(std::make_tuple("2", TimePoint{5ms}),
                             std::make_tuple("1", TimePoint{5ms}),
                             std::make_tuple("3", TimePoint{5ms})));
+}
+
+TEST_F(TestSingleThreadedExecutor, schedule_callback_recursively)
+{
+    MySingleThreadedExecutor executor{mr_};
+
+    std::vector<std::tuple<int, TimePoint>> calls;
+
+    int                                    counter = 0;
+    libcyphal::IExecutor::Callback::Handle handle;
+    handle = executor.registerCallback([&](auto now) {
+        //
+        ++counter;
+        calls.emplace_back(std::make_tuple(counter, now));
+
+        EXPECT_TRUE(handle.scheduleAt(now + 2ms));
+    });
+
+    auto virtual_now = TimePoint{};
+    EXPECT_TRUE(handle.scheduleAt(virtual_now + 5ms));
+
+    const auto deadline = virtual_now + 10ms;
+    EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
+
+    while (virtual_now < deadline)
+    {
+        executor.spinOnce();
+
+        virtual_now += 1ms;
+        EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
+    }
+    EXPECT_THAT(calls,
+                ElementsAre(std::make_tuple(1, TimePoint{5ms}),
+                            std::make_tuple(2, TimePoint{7ms}),
+                            std::make_tuple(3, TimePoint{9ms})));
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
