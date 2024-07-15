@@ -38,6 +38,46 @@ public:
     SingleThreadedExecutor& operator=(const SingleThreadedExecutor&)     = delete;
     SingleThreadedExecutor& operator=(SingleThreadedExecutor&&) noexcept = delete;
 
+    void spinOnce()
+    {
+        auto approx_now = TimePoint::min();
+        auto next_time  = TimePoint::max();
+
+        while (auto* const scheduled_node = scheduled_nodes_.min())
+        {
+            // No linting b/c we know for sure the type of the node.
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast)
+            auto& callback_node = static_cast<CallbackNode&>(*scheduled_node);
+            CETL_DEBUG_ASSERT(callback_node.isScheduled(), "");
+
+            next_time = callback_node.executionTime();
+            if (approx_now < next_time)
+            {
+                approx_now = now();
+                if (approx_now < next_time)
+                {
+                    break;
+                }
+            }
+
+            callback_node.isScheduled() = false;
+            scheduled_nodes_.remove(&callback_node);
+
+            if (callback_node.isAutoRemove())
+            {
+                registered_nodes_.remove(&callback_node);
+            }
+
+            callback_node(approx_now);
+
+            if (callback_node.isAutoRemove())
+            {
+                destroyCallbackNode(&callback_node);
+            }
+
+        }  // while there is node to execute
+    }
+
     // MARK: - IExecutor
 
     TimePoint now() const noexcept override
@@ -87,20 +127,24 @@ protected:
             return false;
         }
 
-        // Remove previous scheduling node (if any),
+        // Remove previously scheduled node (if any),
         // and then re/insert the node with updated/given execution time.
         //
-        scheduled_nodes_.remove(callback_node);
+        if (callback_node->isScheduled())
+        {
+            scheduled_nodes_.remove(callback_node);
+        }
+        callback_node->isScheduled()   = true;
         callback_node->executionTime() = time_point;
         //
-        const std::tuple<SchedulingNode*, bool> sched_node_existing = scheduled_nodes_.search(  //
-            [time_point](const SchedulingNode& scheduling_node) {                               // predicate
-                return scheduling_node.compareByExecutionTime(time_point);
+        const std::tuple<ScheduledNode*, bool> sched_node_existing = scheduled_nodes_.search(  //
+            [time_point](const ScheduledNode& scheduled_node) {                                // predicate
+                return scheduled_node.compareByExecutionTime(time_point);
             },
             [callback_node]() { return callback_node; });  // factory
 
         (void) sched_node_existing;
-        CETL_DEBUG_ASSERT(!std::get<1>(sched_node_existing), "Unexpected existing scheduling node.");
+        CETL_DEBUG_ASSERT(!std::get<1>(sched_node_existing), "Unexpected existing scheduled node.");
         CETL_DEBUG_ASSERT(callback_node == std::get<0>(sched_node_existing), "Unexpected callback node.");
 
         return true;
@@ -127,17 +171,22 @@ protected:
     }
 
 private:
-    class SchedulingNode : public cavl::Node<SchedulingNode>
+    class ScheduledNode : public cavl::Node<ScheduledNode>
     {
     public:
-        SchedulingNode(const SchedulingNode&)                = delete;
-        SchedulingNode(SchedulingNode&&) noexcept            = delete;
-        SchedulingNode& operator=(const SchedulingNode&)     = delete;
-        SchedulingNode& operator=(SchedulingNode&&) noexcept = delete;
+        ScheduledNode(const ScheduledNode&)                = delete;
+        ScheduledNode(ScheduledNode&&) noexcept            = delete;
+        ScheduledNode& operator=(const ScheduledNode&)     = delete;
+        ScheduledNode& operator=(ScheduledNode&&) noexcept = delete;
 
         bool isAutoRemove() const noexcept
         {
             return is_auto_remove_;
+        }
+
+        bool& isScheduled() noexcept
+        {
+            return is_scheduled_;
         }
 
         TimePoint& executionTime() noexcept
@@ -152,35 +201,39 @@ private:
 
         CETL_NODISCARD int compareByExecutionTime(const TimePoint execution_time) const noexcept
         {
-            return (execution_time_ <= execution_time) ? -1 : 1;
+            // No two execution times compare equal, which allows us to have multiple nodes
+            // with the same execution time in the tree. With two nodes sharing the same execution time,
+            // the one added later is considered to be later.
+            return (execution_time >= execution_time_) ? +1 : -1;
         }
 
     protected:
-        SchedulingNode(Callback::Function&& function, const bool is_auto_remove)
+        ScheduledNode(Callback::Function&& function, const bool is_auto_remove)
             : function_{std::move(function)}
             , is_auto_remove_{is_auto_remove}
+            , is_scheduled_{false}
         {
         }
-        ~SchedulingNode() = default;
+        ~ScheduledNode() = default;
 
     private:
         // MARK: Data members:
 
         const Callback::Function function_;
         const bool               is_auto_remove_;
+        bool                     is_scheduled_;
         TimePoint                execution_time_;
 
-    };  // SchedulingNode
+    };  // ScheduledNode
 
-    class CallbackNode final : public cavl::Node<CallbackNode>, public SchedulingNode
+    class CallbackNode final : public cavl::Node<CallbackNode>, public ScheduledNode
     {
     public:
         using CallbackId = IExecutor::Callback::Id;
 
         CallbackNode(Callback::Function&& function, const bool is_auto_remove)
-            : SchedulingNode{std::move(function), is_auto_remove}
+            : ScheduledNode{std::move(function), is_auto_remove}
             , callback_id_{0}
-            , is_scheduled_{false}
         {
         }
         ~CallbackNode() = default;
@@ -195,25 +248,19 @@ private:
             return callback_id_;
         }
 
-        bool& isScheduled() noexcept
-        {
-            return is_scheduled_;
-        }
-
         CETL_NODISCARD int compareByCallbackId(const CallbackId callback_id) const noexcept
         {
             if (callback_id_ == callback_id)
             {
                 return 0;
             }
-            return (callback_id_ < callback_id) ? -1 : 1;
+            return (callback_id > callback_id_) ? +1 : -1;
         }
 
     private:
         // MARK: Data members:
 
         CallbackId callback_id_;
-        bool       is_scheduled_;
 
     };  // CallbackNode
 
@@ -239,7 +286,7 @@ private:
     // MARK: - Data members:
 
     libcyphal::detail::PmrAllocator<CallbackNode> allocator_;
-    cavl::Tree<SchedulingNode>                    scheduled_nodes_;
+    cavl::Tree<ScheduledNode>                     scheduled_nodes_;
     cavl::Tree<CallbackNode>                      registered_nodes_;
     Callback::Id                                  last_callback_id_{0};
 
