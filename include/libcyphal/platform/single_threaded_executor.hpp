@@ -50,7 +50,7 @@ protected:
     CETL_NODISCARD cetl::optional<Callback::Id> appendCallback(const bool           is_auto_remove,
                                                                Callback::Function&& function) override
     {
-        CETL_DEBUG_ASSERT(function_, "");
+        CETL_DEBUG_ASSERT(function, "");
 
         auto* new_callback_node = makeCallbackNode(std::move(function), is_auto_remove);
         if (nullptr == new_callback_node)
@@ -68,7 +68,7 @@ protected:
 
         (void) reg_node_existing;
         CETL_DEBUG_ASSERT(!std::get<1>(reg_node_existing), "Callback id collision detected.");
-        CETL_DEBUG_ASSERT(callback_node == std::get<0>(reg_node_existing), "Unexpected not the new node.");
+        CETL_DEBUG_ASSERT(new_callback_node == std::get<0>(reg_node_existing), "Unexpected not the new node.");
 
         return cetl::optional<Callback::Id>{new_callback_id};
     }
