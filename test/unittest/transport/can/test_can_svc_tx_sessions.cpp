@@ -96,7 +96,7 @@ protected:
     // NOLINTEND
 };
 
-// MARK: Tests:
+// MARK: - Tests:
 
 TEST_F(TestCanSvcTxSessions, make_request_session)
 {

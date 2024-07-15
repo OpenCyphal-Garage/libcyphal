@@ -102,7 +102,7 @@ protected:
     // NOLINTEND
 };
 
-// MARK: Tests:
+// MARK: - Tests:
 
 TEST_F(TestCanSvcRxSessions, make_request_setTransferIdTimeout)
 {

@@ -136,7 +136,7 @@ protected:
     // NOLINTEND
 };
 
-// MARK: Tests:
+// MARK: - Tests:
 
 TEST_F(TestCanTransport, makeTransport_no_memory_at_all)
 {

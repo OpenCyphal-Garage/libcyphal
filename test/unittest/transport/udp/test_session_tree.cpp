@@ -75,7 +75,7 @@ protected:
 
 };  // TestSessionTree
 
-// MARK: Tests:
+// MARK: - Tests:
 
 TEST_F(TestSessionTree, constructor_destructor_empty_tree)
 {

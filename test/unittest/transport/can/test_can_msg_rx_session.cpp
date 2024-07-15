@@ -96,7 +96,7 @@ protected:
     // NOLINTEND
 };
 
-// MARK: Tests:
+// MARK: - Tests:
 
 TEST_F(TestCanMsgRxSession, make_setTransferIdTimeout)
 {

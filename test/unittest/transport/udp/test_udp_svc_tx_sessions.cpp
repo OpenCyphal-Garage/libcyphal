@@ -116,7 +116,7 @@ protected:
     // NOLINTEND
 };
 
-// MARK: Tests:
+// MARK: - Tests:
 
 TEST_F(TestUdpSvcTxSessions, make_request_session)
 {

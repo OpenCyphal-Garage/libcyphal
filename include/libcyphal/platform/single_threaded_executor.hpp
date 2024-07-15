@@ -46,6 +46,8 @@ public:
         return TimePoint{} + std::chrono::duration_cast<Duration>(duration);
     }
 
+    using IExecutor::registerCallback;
+
 protected:
     CETL_NODISCARD cetl::optional<Callback::Id> appendCallback(const bool           is_auto_remove,
                                                                Callback::Function&& function) override
@@ -58,7 +60,8 @@ protected:
             return cetl::nullopt;
         }
 
-        const auto new_callback_id = ++last_callback_id_;
+        const auto new_callback_id      = ++last_callback_id_;
+        new_callback_node->callbackId() = new_callback_id;
 
         const std::tuple<CallbackNode*, bool> reg_node_existing = registered_nodes_.search(  //
             [new_callback_id](const CallbackNode& node) {                                    // predicate
@@ -114,11 +117,13 @@ protected:
             return;
         }
 
-        // Cancel possible scheduling of the callback.
-        scheduled_nodes_.remove(callback_node);
+        if (callback_node->isScheduled())
+        {
+            scheduled_nodes_.remove(callback_node);
+        }
 
         registered_nodes_.remove(callback_node);
-        destroyNode(callback_node);
+        destroyCallbackNode(callback_node);
     }
 
 private:
@@ -175,6 +180,7 @@ private:
         CallbackNode(Callback::Function&& function, const bool is_auto_remove)
             : SchedulingNode{std::move(function), is_auto_remove}
             , callback_id_{0}
+            , is_scheduled_{false}
         {
         }
         ~CallbackNode() = default;
@@ -187,6 +193,11 @@ private:
         CallbackId& callbackId() noexcept
         {
             return callback_id_;
+        }
+
+        bool& isScheduled() noexcept
+        {
+            return is_scheduled_;
         }
 
         CETL_NODISCARD int compareByCallbackId(const CallbackId callback_id) const noexcept
@@ -202,6 +213,7 @@ private:
         // MARK: Data members:
 
         CallbackId callback_id_;
+        bool       is_scheduled_;
 
     };  // CallbackNode
 
@@ -215,7 +227,7 @@ private:
         return node;
     }
 
-    void destroyNode(CallbackNode* callback_node)
+    void destroyCallbackNode(CallbackNode* callback_node)
     {
         CETL_DEBUG_ASSERT(nullptr != callback_node, "");
 

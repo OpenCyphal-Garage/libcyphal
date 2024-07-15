@@ -124,7 +124,7 @@ protected:
     // NOLINTEND
 };
 
-// MARK: Tests:
+// MARK: - Tests:
 
 TEST_F(TestUdpSvcRxSessions, make_request_setTransferIdTimeout)
 {
