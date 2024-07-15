@@ -15,6 +15,7 @@
 #include <cetl/pf20/cetlpf.hpp>
 
 #include <chrono>
+#include <cstdint>
 #include <tuple>
 #include <utility>
 
@@ -94,13 +95,14 @@ protected:
     {
         CETL_DEBUG_ASSERT(function, "");
 
-        auto* new_callback_node = makeCallbackNode(std::move(function), is_auto_remove);
+        auto* const new_callback_node = makeCallbackNode(std::move(function), is_auto_remove);
         if (nullptr == new_callback_node)
         {
             return cetl::nullopt;
         }
 
-        const auto new_callback_id      = ++last_callback_id_;
+        ++last_callback_id_;
+        const auto new_callback_id      = last_callback_id_;
         new_callback_node->callbackId() = new_callback_id;
 
         const std::tuple<CallbackNode*, bool> reg_node_existing = registered_nodes_.search(  //
@@ -199,7 +201,7 @@ private:
             function_(time_point);
         }
 
-        CETL_NODISCARD int compareByExecutionTime(const TimePoint execution_time) const noexcept
+        CETL_NODISCARD std::int8_t compareByExecutionTime(const TimePoint execution_time) const noexcept
         {
             // No two execution times compare equal, which allows us to have multiple nodes
             // with the same execution time in the tree. With two nodes sharing the same execution time,
@@ -248,7 +250,7 @@ private:
             return callback_id_;
         }
 
-        CETL_NODISCARD int compareByCallbackId(const CallbackId callback_id) const noexcept
+        CETL_NODISCARD std::int8_t compareByCallbackId(const CallbackId callback_id) const noexcept
         {
             if (callback_id_ == callback_id)
             {
@@ -274,7 +276,7 @@ private:
         return node;
     }
 
-    void destroyCallbackNode(CallbackNode* callback_node)
+    void destroyCallbackNode(CallbackNode* const callback_node)
     {
         CETL_DEBUG_ASSERT(nullptr != callback_node, "");
 

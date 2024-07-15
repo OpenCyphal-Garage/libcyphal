@@ -626,7 +626,7 @@ public:
     void remove(NodeType* const node) noexcept  // NOSONAR cpp:S6936
     {
         CAVL_ASSERT(!traversal_in_progress_);  // Cannot modify the tree while it is being traversed.
-        return NodeType::remove(root_, node);
+        NodeType::remove(root_, node);
     }
 
     /// Wraps NodeType<>::min/max().
