@@ -11,7 +11,7 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pmr/function.hpp>
 
-#include <cstddef>
+#include <cstdint>
 #include <utility>
 
 namespace libcyphal
@@ -28,7 +28,10 @@ public:
     {
         /// @brief Defines low level unique identifier for a callback.
         ///
-        using Id = std::size_t;
+        /// 64 bits should be enough to ensure uniqueness of the callback identifier
+        /// by applying some simple rules (e.g. incrementing counter).
+        ///
+        using Id = std::uint64_t;
 
         /// @brief Defines move-only RAII type for automatic callback un-registration.
         ///
@@ -178,7 +181,7 @@ public:
     /// @return Valid handle to the successfully appended callback;
     ///         Otherwise invalid handle (see `Handle::isValid`) - in case of the appending failure.
     ///
-    CETL_NODISCARD Callback::Handle registerCallback(Callback::Function function, const bool is_auto_remove = false)
+    CETL_NODISCARD Callback::Handle registerCallback(Callback::Function&& function, const bool is_auto_remove = false)
     {
         CETL_DEBUG_ASSERT(function, "Callback function must be provided.");
 
@@ -203,8 +206,8 @@ protected:
     ///         No discard b/c it's expected to be used in conjunction with `scheduleCallbackByIdAt`
     ///         or `removeCallbackById` methods.
     ///
-    CETL_NODISCARD virtual cetl::optional<Callback::Id> appendCallback(const bool         is_auto_remove,
-                                                                       Callback::Function function) = 0;
+    CETL_NODISCARD virtual cetl::optional<Callback::Id> appendCallback(const bool           is_auto_remove,
+                                                                       Callback::Function&& function) = 0;
 
     /// @brief Schedules previously appended callback (by its id) for execution at the desired absolute time.
     ///

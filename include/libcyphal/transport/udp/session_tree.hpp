@@ -67,7 +67,7 @@ public:
 
     CETL_NODISCARD Expected<NodeRef, AnyFailure> ensureNewNodeFor(const PortId port_id)
     {
-        auto const node_existing = nodes_.search([port_id](const Node& node) { return node.compareWith(port_id); },
+        const auto node_existing = nodes_.search([port_id](const Node& node) { return node.compareWith(port_id); },
                                                  [port_id, this]() { return constructNewNode(port_id); });
 
         auto* const node = std::get<0>(node_existing);

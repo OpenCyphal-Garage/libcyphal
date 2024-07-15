@@ -142,7 +142,7 @@ public:
     }
 
 protected:
-    cetl::optional<Callback::Id> appendCallback(const bool is_auto_remove, Callback::Function function) override
+    cetl::optional<Callback::Id> appendCallback(const bool is_auto_remove, Callback::Function&& function) override
     {
         const Callback::Id callback_id = next_callback_id_++;
         callback_ids_to_funcs_.emplace(callback_id, CallbackState{std::move(function), false, is_auto_remove});

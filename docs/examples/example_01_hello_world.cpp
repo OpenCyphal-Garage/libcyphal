@@ -7,7 +7,7 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#include "libcyphal/types.hpp"
+#include <libcyphal/types.hpp>
 
 // TODO: Uncomment this when we have a real example to test.
 //
