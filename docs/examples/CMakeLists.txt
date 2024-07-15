@@ -66,6 +66,8 @@ add_dsdl_cpp_codegen(
 # | BUILD EXAMPLE CODE
 # +---------------------------------------------------------------------------+
 
+add_library(examples_platform "platform/posix/udp.c")
+
 file(GLOB NATIVE_EXAMPLES
     LIST_DIRECTORIES false
     CONFIGURE_DEPENDS
@@ -79,7 +81,7 @@ set(ALL_EXAMPLE_RUNS "")
 foreach(NATIVE_EXAMPLE ${NATIVE_EXAMPLES})
     define_native_gtest_unittest_targets(
         TEST_SOURCE ${NATIVE_EXAMPLE}
-        EXTRA_TEST_LIBS cyphal cetl dsdl_example_types
+        EXTRA_TEST_LIBS cyphal cetl dsdl_example_types examples_platform
         LINK_TO_MAIN
         OUT_TEST_LIB_VARIABLE LOCAL_TEST_LIB
         OUT_TEST_EXE_VARIABLE LOCAL_TEST_TARGET
