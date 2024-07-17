@@ -18,7 +18,9 @@
 #include <cetl/pf20/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/platform/single_threaded_executor.hpp>
+#include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
+#include <libcyphal/transport/transport.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/media.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
@@ -75,33 +77,71 @@ protected:
         return udp_transport;
     }
 
-    uavcan::node::Heartbeat_1_0 makeHeartbeat() const
-    {
-        auto uptime         = executor_.now().time_since_epoch();
-        auto uptime_in_secs = std::chrono::duration_cast<std::chrono::seconds>(uptime);
-        return {static_cast<std::uint32_t>(uptime_in_secs.count()),
-                {uavcan::node::Health_1_0::NOMINAL},
-                {uavcan::node::Mode_1_0::OPERATIONAL}};
-    }
-
     template <typename T, typename TxSession, typename TxMetadata>
-    cetl::optional<AnyFailure> serializeAndSend(const T& value, TxSession& tx_session, const TxMetadata& metadata)
+    static cetl::optional<AnyFailure> serializeAndSend(const T&          value,
+                                                       TxSession&        tx_session,
+                                                       const TxMetadata& metadata)
     {
         using traits = typename T::_traits_;
         std::array<std::uint8_t, traits::SerializationBufferSizeBytes> buffer{};
 
-        auto result = uavcan::node::serialize(value, buffer);
+        const auto data_size = uavcan::node::serialize(value, buffer);
 
         // NOLINTNEXTLINE
-        const cetl::span<const cetl::byte> fragment{reinterpret_cast<cetl::byte*>(buffer.data()), result.value()};
+        const cetl::span<const cetl::byte> fragment{reinterpret_cast<cetl::byte*>(buffer.data()), data_size};
         const std::array<const cetl::span<const cetl::byte>, 1> payload{fragment};
 
         return tx_session.send(metadata, payload);
     }
 
-    // MARK: Data members:
+    void publishHeartbeat(const libcyphal::TimePoint now)
+    {
+        state_.heartbeat_.transfer_id_ += 1;
 
+        const auto uptime         = now.time_since_epoch();
+        const auto uptime_in_secs = std::chrono::duration_cast<std::chrono::seconds>(uptime);
+
+        const uavcan::node::Heartbeat_1_0 heartbeat{static_cast<std::uint32_t>(uptime_in_secs.count()),
+                                                    {uavcan::node::Health_1_0::NOMINAL},
+                                                    {uavcan::node::Mode_1_0::OPERATIONAL}};
+
+        EXPECT_THAT(serializeAndSend(heartbeat,
+                                     *state_.heartbeat_.msg_tx_session_,
+                                     TransferMetadata{state_.heartbeat_.transfer_id_, now, Priority::Nominal}),
+                    Eq(cetl::nullopt))
+            << "Failed to publish heartbeat.";
+    }
+
+    // MARK: Data members:
     // NOLINTBEGIN
+
+    struct State
+    {
+        struct Heartbeat
+        {
+            TransferId          transfer_id_{0};
+            MessageTxSessionPtr msg_tx_session_;
+            CallbackHandle      cb_handle_;
+
+            bool makeTxSession(ITransport& transport)
+            {
+                auto maybe_msg_tx_session =
+                    transport.makeMessageTxSession({uavcan::node::Heartbeat_1_0::_traits_::FixedPortId});
+                EXPECT_THAT(maybe_msg_tx_session, VariantWith<MessageTxSessionPtr>(_))
+                    << "Failed to create Heartbeat tx session.";
+                if (auto* const session = cetl::get_if<MessageTxSessionPtr>(&maybe_msg_tx_session))
+                {
+                    msg_tx_session_ = std::move(*session);
+                }
+                return nullptr != msg_tx_session_;
+            }
+        };
+
+        Heartbeat heartbeat_;
+
+    };  // State
+
+    State                                       state_{};
     cetl::pmr::memory_resource&                 mr_{*cetl::pmr::new_delete_resource()};
     libcyphal::platform::SingleThreadedExecutor executor_{mr_};
     // NOLINTEND
@@ -119,29 +159,20 @@ TEST_F(Example_02_Transport, posix_udp)
     std::array<udp::IMedia*, 1>        media_array{&udp_media};
     auto                               udp_transport = makeUdpTransport(media_array, local_node_id);
 
-    // Make a message tx session for heartbeat port # 7509.
+    // Publish heartbeat periodically.
     //
-    auto maybe_msg_tx_session = udp_transport->makeMessageTxSession({7509});
-    ASSERT_THAT(maybe_msg_tx_session, VariantWith<MessageTxSessionPtr>(_)) << "Failed to create request tx session.";
-    auto msg_tx_session = cetl::get<MessageTxSessionPtr>(std::move(maybe_msg_tx_session));
-    msg_tx_session->setSendTimeout(1000s);  // for stepping in debugger
+    if (state_.heartbeat_.makeTxSession(*udp_transport))
+    {
+        state_.heartbeat_.msg_tx_session_->setSendTimeout(1000s);  // for stepping in debugger
+        state_.heartbeat_.cb_handle_ = executor_.registerCallback([&](const auto now) {
+            //
+            publishHeartbeat(now);
 
-    // Publish heartbeat every second.
-    //
-    TransferId                    heartbeat_transfer_id{0};
-    constexpr libcyphal::Duration HeartbeatPeriod = 1s;
-    //
-    CallbackHandle periodic = executor_.registerCallback([&](const auto now) {
-        //
-        heartbeat_transfer_id += 1;
-        EXPECT_THAT(serializeAndSend(makeHeartbeat(),
-                                     *msg_tx_session,
-                                     TransferMetadata{heartbeat_transfer_id, now, Priority::Nominal}),
-                    Eq(cetl::nullopt));
-
-        periodic.scheduleAt(now + HeartbeatPeriod);
-    });
-    periodic.scheduleAt(executor_.now());
+            constexpr auto period = uavcan::node::Heartbeat_1_0::MAX_PUBLICATION_PERIOD;
+            state_.heartbeat_.cb_handle_.scheduleAt(now + std::chrono::seconds{period});
+        });
+        state_.heartbeat_.cb_handle_.scheduleAt(executor_.now());
+    }
 
     // Main loop.
     //
