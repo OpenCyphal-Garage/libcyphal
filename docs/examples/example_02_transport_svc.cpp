@@ -9,7 +9,9 @@
 
 #include "platform/posix/udp_media.hpp"
 
+#include <cassert>  // NOLINT for NUNAVUT_ASSERT
 #include "nunavut/support/serialization.hpp"
+
 #include "uavcan/node/Health_1_0.hpp"
 #include "uavcan/node/Heartbeat_1_0.hpp"
 #include "uavcan/node/Mode_1_0.hpp"
@@ -31,7 +33,6 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <cassert>  // NOLINT for NUNAVUT_ASSERT
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
