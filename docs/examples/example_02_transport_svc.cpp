@@ -7,6 +7,7 @@
 /// SPDX-License-Identifier: MIT
 ///
 
+#include "platform/posix/posix_single_threaded_executor.hpp"
 #include "platform/posix/udp_media.hpp"
 
 #include <cassert>  // NOLINT for NUNAVUT_ASSERT
@@ -19,7 +20,6 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
-#include <libcyphal/platform/single_threaded_executor.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/transport.hpp>
@@ -145,9 +145,9 @@ protected:
 
     };  // State
 
-    State                                       state_{};
-    cetl::pmr::memory_resource&                 mr_{*cetl::pmr::new_delete_resource()};
-    libcyphal::platform::SingleThreadedExecutor executor_{mr_};
+    State                                                 state_{};
+    cetl::pmr::memory_resource&                           mr_{*cetl::pmr::new_delete_resource()};
+    example::platform::posix::PosixSingleThreadedExecutor executor_{mr_};
     // NOLINTEND
 };
 

@@ -32,7 +32,7 @@ public:
     {
     }
 
-    virtual ~SingleThreadedExecutor() = default;
+    ~SingleThreadedExecutor() override = default;
 
     SingleThreadedExecutor(const SingleThreadedExecutor&)                = delete;
     SingleThreadedExecutor(SingleThreadedExecutor&&) noexcept            = delete;

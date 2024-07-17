@@ -69,10 +69,10 @@ public:
             return tx_socket_mock_.send(deadline, multicast_endpoint, dscp, payload_fragments);
         }
 
-        CETL_NODISCARD IExecutor::Callback::Handle registerCallback(IExecutor&                    executor,
-                                                                    IExecutor::Callback::Function function) override
+        CETL_NODISCARD IExecutor::Callback::Handle registerCallback(IExecutor&                      executor,
+                                                                    IExecutor::Callback::Function&& function) override
         {
-            return tx_socket_mock_.registerCallback(executor, function);
+            return tx_socket_mock_.registerCallback(executor, std::move(function));
         }
 
     private:
@@ -116,7 +116,7 @@ public:
 
     MOCK_METHOD(IExecutor::Callback::Handle,
                 registerCallback,
-                (IExecutor & executor, IExecutor::Callback::Function function),
+                (IExecutor & executor, IExecutor::Callback::Function&& function),
                 (override));
 
 private:

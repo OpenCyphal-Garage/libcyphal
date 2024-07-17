@@ -108,8 +108,8 @@ public:
     /// @return Valid handle to the successfully appended callback;
     ///         Otherwise invalid handle (see `Handle::isValid`) - in case of the appending failure.
     ///
-    CETL_NODISCARD virtual IExecutor::Callback::Handle registerCallback(IExecutor&                    executor,
-                                                                        IExecutor::Callback::Function function) = 0;
+    CETL_NODISCARD virtual IExecutor::Callback::Handle registerCallback(IExecutor&                      executor,
+                                                                        IExecutor::Callback::Function&& function) = 0;
 
 protected:
     ITxSocket()  = default;

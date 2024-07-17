@@ -10,16 +10,23 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pmr/function.hpp>
+#include <cetl/rtti.hpp>
 
+#include <cstddef>
 #include <cstdint>
 #include <utility>
 
 namespace libcyphal
 {
 
+// EBAF7312-5CFE-45F5-89FF-D9B9FE45F8EB
+using IExecutorTypeIdType = cetl::
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+    type_id_type<0xEB, 0xAF, 0x73, 0x12, 0x5C, 0xFE, 0x45, 0xF5, 0x89, 0xFF, 0xD9, 0xB9, 0xFE, 0x45, 0xF8, 0xEB>;
+
 /// @brief Defines an abstract interface for a callback executor.
 ///
-class IExecutor
+class IExecutor : public cetl::rtti_helper<IExecutorTypeIdType>
 {
 public:
     /// @brief Defines a callback abstraction umbrella type.
@@ -164,6 +171,8 @@ public:
 
     };  // Callback
 
+    ~IExecutor() override = default;
+
     IExecutor(const IExecutor&)                = delete;
     IExecutor(IExecutor&&) noexcept            = delete;
     IExecutor& operator=(const IExecutor&)     = delete;
@@ -194,8 +203,7 @@ public:
     }
 
 protected:
-    IExecutor()  = default;
-    ~IExecutor() = default;
+    IExecutor() = default;
 
     /// @brief Appends a new callback to the executor if possible.
     ///

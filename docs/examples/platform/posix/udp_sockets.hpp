@@ -7,9 +7,12 @@
 #ifndef EXAMPLE_PLATFORM_POSIX_UDP_SOCKETS_HPP
 #define EXAMPLE_PLATFORM_POSIX_UDP_SOCKETS_HPP
 
+#include "posix_executor_extension.hpp"
 #include "udp.h"
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/rtti.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/types.hpp>
@@ -95,12 +98,16 @@ private:
 
     CETL_NODISCARD libcyphal::IExecutor::Callback::Handle registerCallback(
         libcyphal::IExecutor&                    executor,
-        libcyphal::IExecutor::Callback::Function function) override
+        libcyphal::IExecutor::Callback::Function&& function) override
     {
-        (void) executor;
-        (void) function;
+        auto callback_handle = executor.registerCallback(std::move(function));
 
-        return libcyphal::IExecutor::Callback::Handle{};
+        if (auto* const posix_extension = cetl::rtti_cast<IPosixExecutorExtension*>(&executor))
+        {
+            (void) posix_extension;
+        }
+
+        return callback_handle;
     }
 
     // MARK: Data members:
