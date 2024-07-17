@@ -97,15 +97,19 @@ private:
     }
 
     CETL_NODISCARD libcyphal::IExecutor::Callback::Handle registerCallback(
-        libcyphal::IExecutor&                    executor,
+        libcyphal::IExecutor&                      executor,
         libcyphal::IExecutor::Callback::Function&& function) override
     {
-        auto callback_handle = executor.registerCallback(std::move(function));
+        using WhenHandleWritable = IPosixExecutorExtension::WhenCondition::HandleWritable;
 
-        if (auto* const posix_extension = cetl::rtti_cast<IPosixExecutorExtension*>(&executor))
+        auto* const posix_extension = cetl::rtti_cast<IPosixExecutorExtension*>(&executor);
+        if (nullptr == posix_extension)
         {
-            (void) posix_extension;
+            return {};
         }
+
+        auto callback_handle = executor.registerCallback(std::move(function));
+        posix_extension->scheduleCallbackWhen(callback_handle.id(), WhenHandleWritable{handle_.fd});
 
         return callback_handle;
     }

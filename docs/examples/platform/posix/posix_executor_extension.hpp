@@ -7,7 +7,9 @@
 #ifndef EXAMPLE_PLATFORM_POSIX_EXECUTOR_HPP
 #define EXAMPLE_PLATFORM_POSIX_EXECUTOR_HPP
 
+#include <cetl/pf17/cetlpf.hpp>
 #include <cetl/rtti.hpp>
+#include <libcyphal/executor.hpp>
 
 namespace example
 {
@@ -24,10 +26,38 @@ class IPosixExecutorExtension
         type_id_type<0xFF, 0xE3, 0x77, 0x1E, 0x79, 0x62, 0x4C, 0xEA, 0xAC, 0xA6, 0xED, 0x78, 0x95, 0x69, 0x90, 0x80>;
 
 public:
+    IPosixExecutorExtension() = default;
+
+    IPosixExecutorExtension(const IPosixExecutorExtension&)                = delete;
+    IPosixExecutorExtension(IPosixExecutorExtension&&) noexcept            = delete;
+    IPosixExecutorExtension& operator=(const IPosixExecutorExtension&)     = delete;
+    IPosixExecutorExtension& operator=(IPosixExecutorExtension&&) noexcept = delete;
+
+    struct WhenCondition
+    {
+        struct HandleReadable
+        {
+            int fd;
+        };
+        struct HandleWritable
+        {
+            int fd;
+        };
+
+        using Variant = cetl::variant<HandleReadable, HandleWritable>;
+    };
+    virtual bool scheduleCallbackWhen(const libcyphal::IExecutor::Callback::Id callback_id,
+                                      const WhenCondition::Variant&            condition) = 0;
+
+    // MARK: - cetl::rtti
+
     static constexpr cetl::type_id _get_type_id_() noexcept
     {
         return cetl::type_id_type_value<IPosixExecutorExtensionTypeIdType>();
     }
+
+protected:
+    ~IPosixExecutorExtension() = default;
 
 };  // IPosixExecutorExtension
 

@@ -28,7 +28,7 @@ class SingleThreadedExecutor : public IExecutor
 {
 public:
     explicit SingleThreadedExecutor(cetl::pmr::memory_resource& memory_resource)
-        : allocator_{&memory_resource}
+        : nodes_allocator_{&memory_resource}
     {
     }
 
@@ -67,6 +67,7 @@ public:
             if (callback_node.isAutoRemove())
             {
                 registered_nodes_.remove(&callback_node);
+                didRemoveCallback(callback_node.id());
             }
 
             callback_node(approx_now);
@@ -102,12 +103,12 @@ protected:
         }
 
         ++last_callback_id_;
-        const auto new_callback_id      = last_callback_id_;
-        new_callback_node->callbackId() = new_callback_id;
+        const auto new_callback_id = last_callback_id_;
+        new_callback_node->id()    = new_callback_id;
 
         const std::tuple<CallbackNode*, bool> reg_node_existing = registered_nodes_.search(  //
             [new_callback_id](const CallbackNode& node) {                                    // predicate
-                return node.compareByCallbackId(new_callback_id);
+                return node.compareById(new_callback_id);
             },
             [new_callback_node]() { return new_callback_node; });  // factory
 
@@ -122,7 +123,7 @@ protected:
     {
         auto* const callback_node = registered_nodes_.search(  //
             [callback_id](const CallbackNode& node) {          // predicate
-                return node.compareByCallbackId(callback_id);
+                return node.compareById(callback_id);
             });
         if (nullptr == callback_node)
         {
@@ -156,7 +157,7 @@ protected:
     {
         auto* const callback_node = registered_nodes_.search(  //
             [callback_id](const CallbackNode& node) {          // predicate
-                return node.compareByCallbackId(callback_id);
+                return node.compareById(callback_id);
             });
         if (nullptr == callback_node)
         {
@@ -169,8 +170,12 @@ protected:
         }
 
         registered_nodes_.remove(callback_node);
+        didRemoveCallback(callback_id);
+
         destroyCallbackNode(callback_node);
     }
+
+    virtual void didRemoveCallback(const Callback::Id) {}
 
 private:
     class ScheduledNode : public cavl::Node<ScheduledNode>
@@ -231,11 +236,9 @@ private:
     class CallbackNode final : public cavl::Node<CallbackNode>, public ScheduledNode
     {
     public:
-        using CallbackId = IExecutor::Callback::Id;
-
         CallbackNode(Callback::Function&& function, const bool is_auto_remove)
             : ScheduledNode{std::move(function), is_auto_remove}
-            , callback_id_{0}
+            , id_{0}
         {
         }
         ~CallbackNode() = default;
@@ -245,33 +248,33 @@ private:
         CallbackNode& operator=(const CallbackNode&)     = delete;
         CallbackNode& operator=(CallbackNode&&) noexcept = delete;
 
-        CallbackId& callbackId() noexcept
+        Callback::Id& id() noexcept
         {
-            return callback_id_;
+            return id_;
         }
 
-        CETL_NODISCARD std::int8_t compareByCallbackId(const CallbackId callback_id) const noexcept
+        CETL_NODISCARD std::int8_t compareById(const Callback::Id id) const noexcept
         {
-            if (callback_id_ == callback_id)
+            if (id == id_)
             {
                 return 0;
             }
-            return (callback_id > callback_id_) ? +1 : -1;
+            return (id > id_) ? +1 : -1;
         }
 
     private:
         // MARK: Data members:
 
-        CallbackId callback_id_;
+        Callback::Id id_;
 
     };  // CallbackNode
 
     CETL_NODISCARD CallbackNode* makeCallbackNode(Callback::Function&& function, const bool is_auto_remove)
     {
-        CallbackNode* const node = allocator_.allocate(1);
+        CallbackNode* const node = nodes_allocator_.allocate(1);
         if (nullptr != node)
         {
-            allocator_.construct(node, std::move(function), is_auto_remove);
+            nodes_allocator_.construct(node, std::move(function), is_auto_remove);
         }
         return node;
     }
@@ -282,12 +285,12 @@ private:
 
         // No Sonar cpp:M23_329 b/c we do our own low-level PMR management here.
         callback_node->~CallbackNode();  // NOSONAR cpp:M23_329
-        allocator_.deallocate(callback_node, 1);
+        nodes_allocator_.deallocate(callback_node, 1);
     }
 
     // MARK: - Data members:
 
-    libcyphal::detail::PmrAllocator<CallbackNode> allocator_;
+    libcyphal::detail::PmrAllocator<CallbackNode> nodes_allocator_;
     cavl::Tree<ScheduledNode>                     scheduled_nodes_;
     cavl::Tree<CallbackNode>                      registered_nodes_;
     Callback::Id                                  last_callback_id_{0};

@@ -89,7 +89,7 @@ protected:
         using traits = typename T::_traits_;
         std::array<std::uint8_t, traits::SerializationBufferSizeBytes> buffer{};
 
-        const auto data_size = uavcan::node::serialize(value, buffer);
+        const auto data_size = uavcan::node::serialize(value, buffer).value();
 
         // NOLINTNEXTLINE
         const cetl::span<const cetl::byte> fragment{reinterpret_cast<cetl::byte*>(buffer.data()), data_size};
@@ -167,7 +167,8 @@ TEST_F(Example_02_Transport, posix_udp)
     //
     if (state_.heartbeat_.makeTxSession(*udp_transport))
     {
-        state_.heartbeat_.msg_tx_session_->setSendTimeout(1000s);  // for stepping in debugger
+        // state_.heartbeat_.msg_tx_session_->setSendTimeout(1000s);  // for stepping in debugger
+
         state_.heartbeat_.cb_handle_ = executor_.registerCallback([&](const auto now) {
             //
             publishHeartbeat(now);
@@ -184,9 +185,11 @@ TEST_F(Example_02_Transport, posix_udp)
     while (executor_.now() < deadline)
     {
         executor_.spinOnce();
-
-        std::this_thread::sleep_for(1ms);
+        executor_.pollAwaitables(10ms);
     }
+
+    state_.heartbeat_.cb_handle_.reset();
+    state_.heartbeat_.msg_tx_session_.reset();
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
