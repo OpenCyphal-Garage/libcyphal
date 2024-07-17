@@ -76,12 +76,14 @@ private:
                           const std::uint8_t                           dscp,
                           const libcyphal::transport::PayloadFragments payload_fragments) override
     {
+        CETL_DEBUG_ASSERT(payload_fragments.size() == 1, "");
+
         const std::int16_t result = ::udpTxSend(&handle_,
                                                 multicast_endpoint.ip_address,
                                                 multicast_endpoint.udp_port,
                                                 dscp,
-                                                payload_fragments.size(),
-                                                payload_fragments.data());
+                                                payload_fragments[0].size(),
+                                                payload_fragments[0].data());
         if (result < 0)
         {
             // TODO: make platform error
