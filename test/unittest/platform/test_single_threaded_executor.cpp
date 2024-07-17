@@ -266,7 +266,7 @@ TEST_F(TestSingleThreadedExecutor, schedule_multiple)
                             std::make_tuple("1", TimePoint{8ms})));
 }
 
-TEST_F(TestSingleThreadedExecutor, schedule_multiple_with_same_exec_time)
+TEST_F(TestSingleThreadedExecutor, schedule_multiple_with_the_same_exec_time)
 {
     MySingleThreadedExecutor executor{mr_};
 
@@ -330,6 +330,41 @@ TEST_F(TestSingleThreadedExecutor, schedule_callback_recursively)
                 ElementsAre(std::make_tuple(1, TimePoint{5ms}),
                             std::make_tuple(2, TimePoint{7ms}),
                             std::make_tuple(3, TimePoint{9ms})));
+}
+
+TEST_F(TestSingleThreadedExecutor, reset_self_scheduling_from_auto_remove_callback)
+{
+    MySingleThreadedExecutor executor{mr_};
+
+    std::vector<std::tuple<int, TimePoint>> calls;
+
+    int                                    counter = 0;
+    libcyphal::IExecutor::Callback::Handle handle;
+    handle = executor.registerCallback(
+        [&](auto now) {
+            //
+            ++counter;
+            calls.emplace_back(std::make_tuple(counter, now));
+
+            handle.reset();
+        },
+        true /* is_auto_remove */);
+
+    auto virtual_now = TimePoint{};
+    EXPECT_TRUE(handle.scheduleAt(virtual_now + 5ms));
+
+    const auto deadline = virtual_now + 10ms;
+    EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
+
+    while (virtual_now < deadline)
+    {
+        executor.spinOnce();
+
+        virtual_now += 1ms;
+        EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
+    }
+
+    EXPECT_THAT(calls, ElementsAre(std::make_tuple(1, TimePoint{5ms})));
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

@@ -31,6 +31,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cassert>  // NOLINT for NUNAVUT_ASSERT
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -47,9 +48,11 @@ using CallbackHandle      = libcyphal::IExecutor::Callback::Handle;
 using UdpTransportPtr     = libcyphal::UniquePtr<libcyphal::transport::udp::IUdpTransport>;
 using MessageTxSessionPtr = libcyphal::UniquePtr<libcyphal::transport::IMessageTxSession>;
 
+// https://github.com/llvm/llvm-project/issues/53444
+// NOLINTBEGIN(misc-unused-using-decls, misc-include-cleaner)
 using std::literals::chrono_literals::operator""s;
 using std::literals::chrono_literals::operator""ms;
-using std::literals::chrono_literals::operator""us;
+// NOLINTEND(misc-unused-using-decls, misc-include-cleaner)
 
 using testing::_;
 using testing::Eq;
