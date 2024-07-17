@@ -113,6 +113,9 @@ int16_t udpWait(const uint64_t        timeout_usec,
 /// Returns zero if the address is not recognized.
 uint32_t udpParseIfaceAddress(const char* const address);
 
+int udpGetSocketOptionInt(const int fd, const int option);
+int udpSetSocketOptionInt(const int fd, const int option, const int value);
+
 #ifdef __cplusplus
 }
 #endif

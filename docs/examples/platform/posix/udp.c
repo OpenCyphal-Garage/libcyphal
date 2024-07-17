@@ -8,7 +8,7 @@
 
 /// Enable SO_REUSEPORT.
 #ifndef _DEFAULT_SOURCE
-#define _DEFAULT_SOURCE  // NOLINT(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+#    define _DEFAULT_SOURCE  // NOLINT(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
 #endif
 
 #include <fcntl.h>
@@ -261,4 +261,40 @@ uint32_t udpParseIfaceAddress(const char* const address)
         }
     }
     return out;
+}
+
+int udpGetSocketOptionInt(const int fd, const int option)
+{
+    int res = -EINVAL;
+    if (fd >= 0)
+    {
+        int       value         = 0;
+        socklen_t option_length = sizeof(value);
+        if (getsockopt(fd, SOL_SOCKET, option, &value, &option_length) == 0)
+        {
+            res = value;
+        }
+        else
+        {
+            res = -errno;
+        }
+    }
+    return res;
+}
+
+int udpSetSocketOptionInt(const int fd, const int option, const int value)
+{
+    int res = -EINVAL;
+    if (fd >= 0)
+    {
+        if (setsockopt(fd, SOL_SOCKET, option, &value, sizeof(value)) == 0)
+        {
+            res = 0;
+        }
+        else
+        {
+            res = -errno;
+        }
+    }
+    return res;
 }
