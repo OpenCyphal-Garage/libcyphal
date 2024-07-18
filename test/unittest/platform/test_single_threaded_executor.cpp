@@ -30,6 +30,7 @@ using TimePoint = libcyphal::TimePoint;
 using namespace libcyphal::platform;  // NOLINT This our main concern here in the unit tests.
 
 using testing::_;
+using testing::Eq;
 using testing::Ge;
 using testing::Le;
 using testing::AllOf;
@@ -91,7 +92,7 @@ TEST_F(TestSingleThreadedExecutor, now)
     auto expected = TimePoint{std::chrono::duration_cast<Duration>(  //
         std::chrono::steady_clock::now().time_since_epoch())};
 
-    const auto epsilon = 100us;
+    const auto epsilon = 1ms;
 
     const SingleThreadedExecutor executor{mr_};
     TimePoint                    actual = executor.now();
@@ -175,7 +176,10 @@ TEST_F(TestSingleThreadedExecutor, scheduleAt_no_spin)
 TEST_F(TestSingleThreadedExecutor, spinOnce_no_callbacks)
 {
     MySingleThreadedExecutor executor{mr_};
-    executor.spinOnce();
+
+    const auto spin_result = executor.spinOnce();
+    EXPECT_THAT(spin_result.next_deadline, Eq(cetl::nullopt));
+    EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
 }
 
 TEST_F(TestSingleThreadedExecutor, spinOnce)
@@ -189,8 +193,10 @@ TEST_F(TestSingleThreadedExecutor, spinOnce)
     //
     auto virtual_now = TimePoint{};
     EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
-    executor.spinOnce();
+    auto spin_result = executor.spinOnce();
     EXPECT_THAT(called, 0);
+    EXPECT_THAT(spin_result.next_deadline, Eq(cetl::nullopt));
+    EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
 
     EXPECT_TRUE(handle.scheduleAt(virtual_now));
     EXPECT_TRUE(handle.scheduleAt(virtual_now + 4ms));
@@ -199,7 +205,8 @@ TEST_F(TestSingleThreadedExecutor, spinOnce)
 
     while (virtual_now < deadline)
     {
-        executor.spinOnce();
+        spin_result = executor.spinOnce();
+        EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
 
         virtual_now += 1ms;
         EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
@@ -224,7 +231,8 @@ TEST_F(TestSingleThreadedExecutor, spinOnce_auto_remove)
 
     while (virtual_now < deadline)
     {
-        executor.spinOnce();
+        const auto spin_result = executor.spinOnce();
+        EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
 
         virtual_now += 1ms;
         EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
@@ -255,7 +263,8 @@ TEST_F(TestSingleThreadedExecutor, schedule_multiple)
 
     while (virtual_now < deadline)
     {
-        executor.spinOnce();
+        const auto spin_result = executor.spinOnce();
+        EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
 
         virtual_now += 1ms;
         EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
@@ -286,7 +295,8 @@ TEST_F(TestSingleThreadedExecutor, schedule_multiple_with_the_same_exec_time)
 
     while (virtual_now < deadline)
     {
-        executor.spinOnce();
+        const auto spin_result = executor.spinOnce();
+        EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
 
         virtual_now += 1ms;
         EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
@@ -321,7 +331,8 @@ TEST_F(TestSingleThreadedExecutor, schedule_callback_recursively)
 
     while (virtual_now < deadline)
     {
-        executor.spinOnce();
+        const auto spin_result = executor.spinOnce();
+        EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
 
         virtual_now += 1ms;
         EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
@@ -358,13 +369,44 @@ TEST_F(TestSingleThreadedExecutor, reset_self_scheduling_from_auto_remove_callba
 
     while (virtual_now < deadline)
     {
-        executor.spinOnce();
+        const auto spin_result = executor.spinOnce();
+        EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
 
         virtual_now += 1ms;
         EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
     }
 
     EXPECT_THAT(calls, ElementsAre(std::make_tuple(1, TimePoint{5ms})));
+}
+
+TEST_F(TestSingleThreadedExecutor, spinOnce_worsth_lateness)
+{
+    MySingleThreadedExecutor executor{mr_};
+
+    std::vector<std::tuple<int, TimePoint>> calls;
+
+    auto handle1 = executor.registerCallback([&](auto now) {
+        //
+        calls.emplace_back(std::make_tuple(1, now));
+    });
+    auto handle2 = executor.registerCallback([&](auto now) {
+        //
+        calls.emplace_back(std::make_tuple(2, now));
+    });
+
+    auto virtual_now = TimePoint{};
+    EXPECT_TRUE(handle1.scheduleAt(virtual_now + 7ms));
+    EXPECT_TRUE(handle2.scheduleAt(virtual_now + 4ms));
+
+    // Emulate lateness by spinning at +10ms
+    virtual_now += 10ms;
+    EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
+
+    const auto spin_result = executor.spinOnce();
+    EXPECT_THAT(spin_result.next_deadline, Eq(cetl::nullopt));
+    EXPECT_THAT(spin_result.worst_lateness, 6ms);
+
+    EXPECT_THAT(calls, ElementsAre(std::make_tuple(2, TimePoint{10ms}), std::make_tuple(1, TimePoint{10ms})));
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

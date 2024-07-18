@@ -38,6 +38,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -201,8 +202,14 @@ TEST_F(Example_02_Transport, posix_udp)
     const auto deadline = executor_.now() + 10s;
     while (executor_.now() < deadline)
     {
-        executor_.spinOnce();
-        EXPECT_THAT(executor_.pollAwaitableResourcesFor(10ms), Eq(cetl::nullopt));
+        const auto spin_result = executor_.spinOnce();
+
+        cetl::optional<libcyphal::Duration> opt_timeout;
+        if (spin_result.next_deadline.has_value())
+        {
+            opt_timeout = spin_result.next_deadline.value() - executor_.now();
+        }
+        EXPECT_THAT(executor_.pollAwaitableResourcesFor(opt_timeout), Eq(cetl::nullopt));
     }
 
     state_.reset();

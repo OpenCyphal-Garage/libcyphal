@@ -14,6 +14,7 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <tuple>
@@ -50,10 +51,24 @@ public:
     SingleThreadedExecutor& operator=(const SingleThreadedExecutor&)     = delete;
     SingleThreadedExecutor& operator=(SingleThreadedExecutor&&) noexcept = delete;
 
-    void spinOnce()
+    struct SpinResult
     {
+        /// The deadline of the next scheduled callback to run,
+        /// or `cetl::nullopt` if there are no scheduled callbacks.
+        /// This can be used to let the application sleep/poll when there are no callbacks pending.
+        cetl::optional<TimePoint> next_deadline;
+
+        /// An approximation of the maximum lateness observed during the spin call
+        /// (the real slack may be worse than the approximation).
+        /// This is always non-negative.
+        Duration worst_lateness;
+    };
+
+    CETL_NODISCARD SpinResult spinOnce()
+    {
+        SpinResult spin_result{};
+
         auto approx_now = TimePoint::min();
-        auto next_time  = TimePoint::max();
 
         while (auto* const scheduled_node = scheduled_nodes_.min())
         {
@@ -62,15 +77,18 @@ public:
             auto& callback_node = static_cast<CallbackNode&>(*scheduled_node);
             CETL_DEBUG_ASSERT(callback_node.isScheduled(), "");
 
-            next_time = callback_node.executionTime();
-            if (approx_now < next_time)
+            const auto exec_time = callback_node.executionTime();
+            if (approx_now < exec_time)
             {
                 approx_now = now();
-                if (approx_now < next_time)
+                if (approx_now < exec_time)
                 {
+                    spin_result.next_deadline = exec_time;
                     break;
                 }
             }
+
+            spin_result.worst_lateness = std::max(approx_now - exec_time, spin_result.worst_lateness);
 
             callback_node.isScheduled() = false;
             scheduled_nodes_.remove(&callback_node);
@@ -88,7 +106,9 @@ public:
                 destroyCallbackNode(&callback_node);
             }
 
-        }  // while there is node to execute
+        }  // while there is pending callback to execute
+
+        return spin_result;
     }
 
     // MARK: - IExecutor

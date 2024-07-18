@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <limits>
 #include <sys/poll.h>
+#include <thread>
 #include <tuple>
 
 namespace example
@@ -64,10 +65,16 @@ public:
 
     using PollFailure = cetl::variant<libcyphal::transport::MemoryError, libcyphal::transport::PlatformError>;
 
-    cetl::optional<PollFailure> pollAwaitableResourcesFor(const libcyphal::Duration timeout)
+    cetl::optional<PollFailure> pollAwaitableResourcesFor(const cetl::optional<libcyphal::Duration> timeout)
     {
+        CETL_DEBUG_ASSERT(!awaitable_nodes_.empty() || timeout.has_value(), "");
+
         if (awaitable_nodes_.empty())
         {
+            if (timeout.has_value())
+            {
+                std::this_thread::sleep_for(timeout.value());
+            }
             return cetl::nullopt;
         }
 
@@ -91,13 +98,18 @@ public:
         }
 
         // Make sure that timeout is within the range of `::poll()`'s `int` timeout parameter.
-        // Any possible negative timeout will be treated as zero (return immediately from the poll).
+        // Any possible negative timeout will be treated as zero (return immediately from the `::poll`).
         //
-        using PollDuration = std::chrono::milliseconds;
-        const auto clamped_timeout_ms =
-            static_cast<int>(std::max(static_cast<PollDuration::rep>(0),
-                                      std::min(std::chrono::duration_cast<PollDuration>(timeout).count(),
-                                               static_cast<PollDuration::rep>(std::numeric_limits<int>::max()))));
+        int clamped_timeout_ms = -1;  // "infinite" timeout
+        if (timeout.has_value())
+        {
+            using PollDuration = std::chrono::milliseconds;
+
+            clamped_timeout_ms = static_cast<int>(  //
+                std::max(static_cast<PollDuration::rep>(0),
+                         std::min(std::chrono::duration_cast<PollDuration>(timeout.value()).count(),
+                                  static_cast<PollDuration::rep>(std::numeric_limits<int>::max()))));
+        }
 
         int poll_result = ::poll(poll_fds_.data(), static_cast<nfds_t>(poll_fds_.size()), clamped_timeout_ms);
         if (poll_result <= 0)
