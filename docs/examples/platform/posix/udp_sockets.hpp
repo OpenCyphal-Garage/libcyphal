@@ -8,6 +8,7 @@
 #define EXAMPLE_PLATFORM_POSIX_UDP_SOCKETS_HPP
 
 #include "posix_executor_extension.hpp"
+#include "posix_platform_error.hpp"
 #include "udp.h"
 
 #include <cetl/cetl.hpp>
@@ -42,8 +43,7 @@ public:
         const auto  result = ::udpTxInit(&handle, ::udpParseIfaceAddress(address.c_str()));
         if (result < 0)
         {
-            // TODO: make platform error
-            return libcyphal::transport::MemoryError{};
+            return libcyphal::transport::PlatformError{PosixPlatformError{-result}};
         }
 
         auto tx_socket = libcyphal::makeUniquePtr<libcyphal::transport::udp::ITxSocket, UdpTxSocket>(memory, handle);
@@ -59,6 +59,7 @@ public:
     explicit UdpTxSocket(UDPTxHandle handle)
         : handle_{handle}
     {
+        CETL_DEBUG_ASSERT(handle_.fd >= 0, "");
     }
 
     ~UdpTxSocket()
@@ -79,6 +80,7 @@ private:
                           const std::uint8_t                           dscp,
                           const libcyphal::transport::PayloadFragments payload_fragments) override
     {
+        CETL_DEBUG_ASSERT(handle_.fd >= 0, "");
         CETL_DEBUG_ASSERT(payload_fragments.size() == 1, "");
 
         const std::int16_t result = ::udpTxSend(&handle_,
@@ -89,8 +91,7 @@ private:
                                                 payload_fragments[0].data());
         if (result < 0)
         {
-            // TODO: make platform error
-            return SendResult::Failure{libcyphal::transport::ArgumentError{}};
+            return libcyphal::transport::PlatformError{PosixPlatformError{-result}};
         }
 
         return SendResult::Success{result == 1};
@@ -101,6 +102,8 @@ private:
         libcyphal::IExecutor::Callback::Function&& function) override
     {
         using WhenHandleWritable = IPosixExecutorExtension::WhenCondition::HandleWritable;
+
+        CETL_DEBUG_ASSERT(handle_.fd >= 0, "");
 
         auto* const posix_extension = cetl::rtti_cast<IPosixExecutorExtension*>(&executor);
         if (nullptr == posix_extension)
@@ -116,7 +119,7 @@ private:
 
     // MARK: Data members:
 
-    UDPTxHandle handle_{-1};
+    UDPTxHandle handle_;
 
 };  // UdpTxSocket
 
@@ -135,8 +138,7 @@ public:
             ::udpRxInit(&handle, ::udpParseIfaceAddress(address.c_str()), endpoint.ip_address, endpoint.udp_port);
         if (result < 0)
         {
-            // TODO: make platform error
-            return libcyphal::transport::MemoryError{};
+            return libcyphal::transport::PlatformError{PosixPlatformError{-result}};
         }
 
         auto rx_socket = libcyphal::makeUniquePtr<libcyphal::transport::udp::IRxSocket, UdpRxSocket>(memory, handle);
@@ -152,6 +154,7 @@ public:
     explicit UdpRxSocket(UDPRxHandle handle)
         : handle_{handle}
     {
+        CETL_DEBUG_ASSERT(handle_.fd >= 0, "");
     }
 
     ~UdpRxSocket()
@@ -169,12 +172,14 @@ private:
 
     CETL_NODISCARD ReceiveResult::Type receive() override
     {
+        CETL_DEBUG_ASSERT(handle_.fd >= 0, "");
+
         return ReceiveResult::Failure{libcyphal::transport::MemoryError{}};
     }
 
     // MARK: Data members:
 
-    UDPRxHandle handle_{-1};
+    UDPRxHandle handle_;
 
 };  // UdpRxSocket
 

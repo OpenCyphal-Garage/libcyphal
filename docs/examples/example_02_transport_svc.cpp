@@ -185,7 +185,7 @@ TEST_F(Example_02_Transport, posix_udp)
     while (executor_.now() < deadline)
     {
         executor_.spinOnce();
-        executor_.pollAwaitables(10ms);
+        EXPECT_THAT(executor_.pollAwaitableResourcesFor(10ms), Eq(cetl::nullopt));
     }
 
     state_.heartbeat_.cb_handle_.reset();

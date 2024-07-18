@@ -8,6 +8,7 @@
 #define EXAMPLE_PLATFORM_POSIX_SINGLE_THREADED_EXECUTOR_HPP
 
 #include "posix_executor_extension.hpp"
+#include "posix_platform_error.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/rtti.hpp>
@@ -15,11 +16,14 @@
 #include <libcyphal/common/cavl/cavl.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/platform/single_threaded_executor.hpp>
+#include <libcyphal/transport/errors.hpp>
+#include <libcyphal/types.hpp>
 
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <errno.h>
 #include <limits>
 #include <sys/poll.h>
 #include <tuple>
@@ -36,21 +40,29 @@ class PosixSingleThreadedExecutor : public libcyphal::platform::SingleThreadedEx
 public:
     explicit PosixSingleThreadedExecutor(cetl::pmr::memory_resource& memory_resource)
         : base{memory_resource}
+        , total_awaitables_{0}
         , awaitable_nodes_allocator_{&memory_resource}
         , poll_fds_{&memory_resource}
         , callback_ids_{&memory_resource}
     {
     }
 
-    void pollAwaitables(const libcyphal::Duration timeout)
+    using PollFailure = cetl::variant<  //
+        libcyphal::transport::MemoryError,
+        libcyphal::transport::PlatformError>;
+    cetl::optional<PollFailure> pollAwaitableResourcesFor(const libcyphal::Duration timeout)
     {
         if (awaitable_nodes_.empty())
         {
-            return;
+            return cetl::nullopt;
         }
 
-        callback_ids_.clear();
+        // (Re-)populate the poll file descriptors and the callback IDs into variable size arrays.
+        // Note, their `clear` doesn't deallocate the memory,
+        // so we can reuse them, and grow on demand (but never shrink).
+        //
         poll_fds_.clear();
+        callback_ids_.clear();
         awaitable_nodes_.traverse([this](AwaitableNode& node) {
             //
             CETL_DEBUG_ASSERT(node.fd() >= 0, "");
@@ -59,6 +71,10 @@ public:
             callback_ids_.push_back(node.callbackId());
             poll_fds_.push_back({node.fd(), static_cast<short int>(node.pollEvents()), 0});
         });
+        if ((total_awaitables_ != poll_fds_.size()) || (total_awaitables_ != callback_ids_.size()))
+        {
+            return libcyphal::transport::MemoryError{};
+        }
 
         // Make sure that timeout is within the range of `::poll()`'s `int` timeout parameter.
         // Any possible negative timeout will be treated as zero (return immediately from the poll).
@@ -69,10 +85,11 @@ public:
                                       std::min(std::chrono::duration_cast<PollDuration>(timeout).count(),
                                                static_cast<PollDuration::rep>(std::numeric_limits<int>::max()))));
 
-        int poll_result = ::poll(poll_fds_.data(), poll_fds_.size(), clamped_timeout_ms);
+        int poll_result = ::poll(poll_fds_.data(), static_cast<nfds_t>(poll_fds_.size()), clamped_timeout_ms);
         if (poll_result <= 0)
         {
-            return;
+            const auto err = errno;
+            return libcyphal::transport::PlatformError{PosixPlatformError{err}};
         }
 
         const auto now_time = now();
@@ -81,14 +98,20 @@ public:
             const pollfd& poll_fd = poll_fds_[index];
             if (poll_fd.revents != 0)
             {
+                // Allows to leave "earlier" from the loop if we have no more events to process.
                 --poll_result;
+
                 if (0 != (static_cast<PollEvents>(poll_fd.revents) & static_cast<PollEvents>(poll_fd.events)))
                 {
                     const Callback::Id callback_id = callback_ids_[index];
-                    scheduleCallbackByIdAt(callback_id, now_time);
+                    const bool is_scheduled = scheduleCallbackByIdAt(callback_id, now_time);
+                    (void) is_scheduled;
+                    CETL_DEBUG_ASSERT(is_scheduled, "");
                 }
             }
         }
+
+        return cetl::nullopt;
     }
 
 protected:
@@ -104,7 +127,7 @@ protected:
         }
 
         awaitable_nodes_.remove(awaitable_node);
-        destroyWaitableNode(awaitable_node);
+        destroyAwaitableNode(awaitable_node);
     }
 
     // MARK: - IPosixExecutorExtension
@@ -191,43 +214,56 @@ private:
 
     };  // AwaitableNode
 
-    CETL_NODISCARD AwaitableNode* ensureWaitableNode(const Callback::Id callback_id)
+    CETL_NODISCARD AwaitableNode* ensureAwaitableNode(const Callback::Id callback_id)
     {
         const std::tuple<AwaitableNode*, bool> node_existing = awaitable_nodes_.search(  //
             [callback_id](const AwaitableNode& node) {                                   // predicate
                 return node.compareByCallbackId(callback_id);
             },
             [this, callback_id]() {  // factory
-                return makeWaitableNode(callback_id);
+                return makeAwaitableNode(callback_id);
             });
 
         return std::get<0>(node_existing);
     }
 
-    CETL_NODISCARD AwaitableNode* makeWaitableNode(const Callback::Id callback_id)
+    CETL_NODISCARD AwaitableNode* makeAwaitableNode(const Callback::Id callback_id)
     {
+        // Stop allocations if we reach the maximum number of awaitables supported by `poll`.
+        CETL_DEBUG_ASSERT(total_awaitables_ < std::numeric_limits<int>::max(), "");
+        if (total_awaitables_ >= std::numeric_limits<int>::max())
+        {
+            return nullptr;
+        }
+
         AwaitableNode* const node = awaitable_nodes_allocator_.allocate(1);
         if (nullptr != node)
         {
             awaitable_nodes_allocator_.construct(node, callback_id);
         }
+
+        ++total_awaitables_;
         return node;
     }
 
-    void destroyWaitableNode(AwaitableNode* const awaitable_node)
+    void destroyAwaitableNode(AwaitableNode* const awaitable_node)
     {
         CETL_DEBUG_ASSERT(nullptr != awaitable_node, "");
+        if (nullptr != awaitable_node)
+        {
+            // No Sonar cpp:M23_329 b/c we do our own low-level PMR management here.
+            awaitable_node->~AwaitableNode();  // NOSONAR cpp:M23_329
+            awaitable_nodes_allocator_.deallocate(awaitable_node, 1);
 
-        // No Sonar cpp:M23_329 b/c we do our own low-level PMR management here.
-        awaitable_node->~AwaitableNode();  // NOSONAR cpp:M23_329
-        awaitable_nodes_allocator_.deallocate(awaitable_node, 1);
+            --total_awaitables_;
+        }
     }
 
     bool scheduleCallbackWhenImpl(const Callback::Id callback_id, const WhenCondition::HandleReadable& readable)
     {
         CETL_DEBUG_ASSERT(readable.fd >= 0, "");
 
-        auto* const awaitable_node = ensureWaitableNode(callback_id);
+        auto* const awaitable_node = ensureAwaitableNode(callback_id);
         if (nullptr == awaitable_node)
         {
             return false;
@@ -243,7 +279,7 @@ private:
     {
         CETL_DEBUG_ASSERT(writable.fd >= 0, "");
 
-        auto* const awaitable_node = ensureWaitableNode(callback_id);
+        auto* const awaitable_node = ensureAwaitableNode(callback_id);
         if (nullptr == awaitable_node)
         {
             return false;
@@ -260,6 +296,7 @@ private:
     using PollFds     = cetl::VariableLengthArray<pollfd, cetl::pmr::polymorphic_allocator<pollfd>>;
     using CallbackIds = cetl::VariableLengthArray<Callback::Id, cetl::pmr::polymorphic_allocator<Callback::Id>>;
 
+    std::size_t                                    total_awaitables_;
     cavl::Tree<AwaitableNode>                      awaitable_nodes_;
     libcyphal::detail::PmrAllocator<AwaitableNode> awaitable_nodes_allocator_;
     PollFds                                        poll_fds_;
