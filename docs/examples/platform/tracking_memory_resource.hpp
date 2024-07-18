@@ -3,9 +3,10 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_TRACKING_MEMORY_RESOURCE_HPP_INCLUDED
-#define LIBCYPHAL_TRACKING_MEMORY_RESOURCE_HPP_INCLUDED
+#ifndef EXAMPLE_PLATFORM_TRACKING_MEMORY_RESOURCE_HPP_INCLUDED
+#define EXAMPLE_PLATFORM_TRACKING_MEMORY_RESOURCE_HPP_INCLUDED
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <algorithm>
@@ -13,6 +14,11 @@
 #include <ios>
 #include <ostream>
 #include <vector>
+
+namespace example
+{
+namespace platform
+{
 
 class TrackingMemoryResource final : public cetl::pmr::memory_resource
 {
@@ -125,4 +131,7 @@ private:
 
 };  // TrackingMemoryResource
 
-#endif  // LIBCYPHAL_TRACKING_MEMORY_RESOURCE_HPP_INCLUDED
+}  // namespace platform
+}  // namespace example
+
+#endif  // EXAMPLE_PLATFORM_TRACKING_MEMORY_RESOURCE_HPP_INCLUDED

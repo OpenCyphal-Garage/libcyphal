@@ -4,8 +4,8 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#ifndef EXAMPLE_PLATFORM_POSIX_SINGLE_THREADED_EXECUTOR_HPP
-#define EXAMPLE_PLATFORM_POSIX_SINGLE_THREADED_EXECUTOR_HPP
+#ifndef EXAMPLE_PLATFORM_POSIX_SINGLE_THREADED_EXECUTOR_HPP_INCLUDED
+#define EXAMPLE_PLATFORM_POSIX_SINGLE_THREADED_EXECUTOR_HPP_INCLUDED
 
 #include "posix_executor_extension.hpp"
 #include "posix_platform_error.hpp"
@@ -103,8 +103,8 @@ public:
 
                 if (0 != (static_cast<PollEvents>(poll_fd.revents) & static_cast<PollEvents>(poll_fd.events)))
                 {
-                    const Callback::Id callback_id = callback_ids_[index];
-                    const bool is_scheduled = scheduleCallbackByIdAt(callback_id, now_time);
+                    const Callback::Id callback_id  = callback_ids_[index];
+                    const bool         is_scheduled = scheduleCallbackByIdAt(callback_id, now_time);
                     (void) is_scheduled;
                     CETL_DEBUG_ASSERT(is_scheduled, "");
                 }
@@ -112,6 +112,20 @@ public:
         }
 
         return cetl::nullopt;
+    }
+
+    /// @brief Releases temporary resources.
+    ///
+    /// In use for testing purposes only, namely so that tracking memory resource
+    /// won't report these temporary allocations as memory leaks.
+    ///
+    void releaseTemporaryResources()
+    {
+        poll_fds_.clear();
+        poll_fds_.shrink_to_fit();
+
+        callback_ids_.clear();
+        callback_ids_.shrink_to_fit();
     }
 
 protected:
@@ -308,4 +322,4 @@ private:
 }  // namespace platform
 }  // namespace example
 
-#endif  // EXAMPLE_PLATFORM_POSIX_SINGLE_THREADED_EXECUTOR_HPP
+#endif  // EXAMPLE_PLATFORM_POSIX_SINGLE_THREADED_EXECUTOR_HPP_INCLUDED

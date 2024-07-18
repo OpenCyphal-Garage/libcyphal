@@ -3,8 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_EXECUTOR_HPP
-#define LIBCYPHAL_EXECUTOR_HPP
+#ifndef LIBCYPHAL_EXECUTOR_HPP_INCLUDED
+#define LIBCYPHAL_EXECUTOR_HPP_INCLUDED
 
 #include "types.hpp"
 
@@ -243,4 +243,4 @@ protected:
 
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_EXECUTOR_HPP
+#endif  // LIBCYPHAL_EXECUTOR_HPP_INCLUDED

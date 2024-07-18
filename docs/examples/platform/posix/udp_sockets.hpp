@@ -4,8 +4,8 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#ifndef EXAMPLE_PLATFORM_POSIX_UDP_SOCKETS_HPP
-#define EXAMPLE_PLATFORM_POSIX_UDP_SOCKETS_HPP
+#ifndef EXAMPLE_PLATFORM_POSIX_UDP_SOCKETS_HPP_INCLUDED
+#define EXAMPLE_PLATFORM_POSIX_UDP_SOCKETS_HPP_INCLUDED
 
 #include "posix_executor_extension.hpp"
 #include "posix_platform_error.hpp"
@@ -187,4 +187,4 @@ private:
 }  // namespace platform
 }  // namespace example
 
-#endif  // EXAMPLE_PLATFORM_POSIX_UDP_SOCKETS_HPP
+#endif  // EXAMPLE_PLATFORM_POSIX_UDP_SOCKETS_HPP_INCLUDED

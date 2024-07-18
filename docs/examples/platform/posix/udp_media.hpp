@@ -4,8 +4,8 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#ifndef EXAMPLE_PLATFORM_POSIX_UPD_MEDIA_HPP
-#define EXAMPLE_PLATFORM_POSIX_UPD_MEDIA_HPP
+#ifndef EXAMPLE_PLATFORM_POSIX_UPD_MEDIA_HPP_INCLUDED
+#define EXAMPLE_PLATFORM_POSIX_UPD_MEDIA_HPP_INCLUDED
 
 #include "udp_sockets.hpp"
 
@@ -52,4 +52,4 @@ private:
 }  // namespace platform
 }  // namespace example
 
-#endif  // EXAMPLE_PLATFORM_POSIX_UPD_MEDIA_HPP
+#endif  // EXAMPLE_PLATFORM_POSIX_UPD_MEDIA_HPP_INCLUDED

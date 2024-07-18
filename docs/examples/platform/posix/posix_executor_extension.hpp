@@ -4,8 +4,8 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#ifndef EXAMPLE_PLATFORM_POSIX_EXECUTOR_HPP
-#define EXAMPLE_PLATFORM_POSIX_EXECUTOR_HPP
+#ifndef EXAMPLE_PLATFORM_POSIX_EXECUTOR_HPP_INCLUDED
+#define EXAMPLE_PLATFORM_POSIX_EXECUTOR_HPP_INCLUDED
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/rtti.hpp>
@@ -65,4 +65,4 @@ protected:
 }  // namespace platform
 }  // namespace example
 
-#endif  // EXAMPLE_PLATFORM_POSIX_EXECUTOR_HPP
+#endif  // EXAMPLE_PLATFORM_POSIX_EXECUTOR_HPP_INCLUDED

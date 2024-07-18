@@ -3,8 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_VIRTUAL_TIME_SCHEDULER_HPP
-#define LIBCYPHAL_VIRTUAL_TIME_SCHEDULER_HPP
+#ifndef LIBCYPHAL_VIRTUAL_TIME_SCHEDULER_HPP_INCLUDED
+#define LIBCYPHAL_VIRTUAL_TIME_SCHEDULER_HPP_INCLUDED
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
@@ -171,4 +171,4 @@ private:
 
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_VIRTUAL_TIME_SCHEDULER_HPP
+#endif  // LIBCYPHAL_VIRTUAL_TIME_SCHEDULER_HPP_INCLUDED

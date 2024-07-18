@@ -4,8 +4,8 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#ifndef EXAMPLE_PLATFORM_POSIX_PLATFORM_ERROR_HPP
-#define EXAMPLE_PLATFORM_POSIX_PLATFORM_ERROR_HPP
+#ifndef EXAMPLE_PLATFORM_POSIX_PLATFORM_ERROR_HPP_INCLUDED
+#define EXAMPLE_PLATFORM_POSIX_PLATFORM_ERROR_HPP_INCLUDED
 
 #include <cetl/cetl.hpp>
 #include <libcyphal/transport/errors.hpp>
@@ -62,4 +62,4 @@ constexpr type_id type_id_getter<example::platform::posix::PosixPlatformError>()
 
 }  // namespace cetl
 
-#endif  // EXAMPLE_PLATFORM_POSIX_PLATFORM_ERROR_HPP
+#endif  // EXAMPLE_PLATFORM_POSIX_PLATFORM_ERROR_HPP_INCLUDED

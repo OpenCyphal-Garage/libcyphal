@@ -3,8 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_TRANSPORT_UDP_SESSION_TREE_HPP
-#define LIBCYPHAL_TRANSPORT_UDP_SESSION_TREE_HPP
+#ifndef LIBCYPHAL_TRANSPORT_UDP_SESSION_TREE_HPP_INCLUDED
+#define LIBCYPHAL_TRANSPORT_UDP_SESSION_TREE_HPP_INCLUDED
 
 #include "delegate.hpp"
 #include "tx_rx_sockets.hpp"
@@ -228,4 +228,4 @@ struct RxSessionTreeNode
 }  // namespace transport
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_TRANSPORT_UDP_SESSION_TREE_HPP
+#endif  // LIBCYPHAL_TRANSPORT_UDP_SESSION_TREE_HPP_INCLUDED

@@ -3,8 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_CETL_GTEST_HELPERS_HPP
-#define LIBCYPHAL_CETL_GTEST_HELPERS_HPP
+#ifndef LIBCYPHAL_CETL_GTEST_HELPERS_HPP_INCLUDED
+#define LIBCYPHAL_CETL_GTEST_HELPERS_HPP_INCLUDED
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
@@ -216,4 +216,4 @@ inline testing::PolymorphicMatcher<UbVariantWithoutValueMatcher> UbVariantWithou
     return testing::MakePolymorphicMatcher(UbVariantWithoutValueMatcher());
 }
 
-#endif  // LIBCYPHAL_CETL_GTEST_HELPERS_HPP
+#endif  // LIBCYPHAL_CETL_GTEST_HELPERS_HPP_INCLUDED

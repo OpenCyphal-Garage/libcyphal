@@ -9,6 +9,7 @@
 
 #include "platform/posix/posix_single_threaded_executor.hpp"
 #include "platform/posix/udp_media.hpp"
+#include "platform/tracking_memory_resource.hpp"
 
 #include <cassert>  // NOLINT for NUNAVUT_ASSERT
 #include "nunavut/support/serialization.hpp"
@@ -36,7 +37,6 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <thread>
 #include <utility>
 
 namespace
@@ -65,7 +65,12 @@ using testing::VariantWith;
 class Example_02_Transport : public testing::Test
 {
 protected:
-    void TearDown() override {}
+    void TearDown() override
+    {
+        EXPECT_THAT(mr_.allocated_bytes, 0);
+        EXPECT_THAT(mr_.allocations, IsEmpty());
+        EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+    }
 
     template <std::size_t Redundancy>
     UdpTransportPtr makeUdpTransport(std::array<udp::IMedia*, Redundancy>& media_array, const NodeId local_node_id)
@@ -139,15 +144,27 @@ protected:
                 }
                 return nullptr != msg_tx_session_;
             }
-        };
+
+            void reset()
+            {
+                cb_handle_.reset();
+                msg_tx_session_.reset();
+            }
+
+        };  // Heartbeat
+
+        void reset()
+        {
+            heartbeat_.reset();
+        }
 
         Heartbeat heartbeat_;
 
     };  // State
 
-    State                                                 state_{};
-    cetl::pmr::memory_resource&                           mr_{*cetl::pmr::new_delete_resource()};
+    example::platform::TrackingMemoryResource             mr_;
     example::platform::posix::PosixSingleThreadedExecutor executor_{mr_};
+    State                                                 state_{};
     // NOLINTEND
 };
 
@@ -188,8 +205,9 @@ TEST_F(Example_02_Transport, posix_udp)
         EXPECT_THAT(executor_.pollAwaitableResourcesFor(10ms), Eq(cetl::nullopt));
     }
 
-    state_.heartbeat_.cb_handle_.reset();
-    state_.heartbeat_.msg_tx_session_.reset();
+    state_.reset();
+    udp_transport.reset();
+    executor_.releaseTemporaryResources();
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
