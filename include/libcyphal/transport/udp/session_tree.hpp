@@ -124,6 +124,8 @@ private:
     /// where `N` is the total number of tree nodes. Hence, the `NOLINT(misc-no-recursion)`
     /// and `NOSONAR cpp:S925` exceptions.
     ///
+    /// TODO: Add "post-order" traversal support to the AVL tree.
+    ///
     void releaseNodes(Node* node)  // NOLINT(misc-no-recursion)
     {
         if (nullptr != node)

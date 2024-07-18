@@ -35,7 +35,8 @@ namespace platform
 namespace posix
 {
 
-class PosixSingleThreadedExecutor : public libcyphal::platform::SingleThreadedExecutor, public IPosixExecutorExtension
+class PosixSingleThreadedExecutor final : public libcyphal::platform::SingleThreadedExecutor,
+                                          public IPosixExecutorExtension
 {
 public:
     explicit PosixSingleThreadedExecutor(cetl::pmr::memory_resource& memory_resource)
@@ -47,9 +48,22 @@ public:
     {
     }
 
-    using PollFailure = cetl::variant<  //
-        libcyphal::transport::MemoryError,
-        libcyphal::transport::PlatformError>;
+    PosixSingleThreadedExecutor(const PosixSingleThreadedExecutor&)                = delete;
+    PosixSingleThreadedExecutor(PosixSingleThreadedExecutor&&) noexcept            = delete;
+    PosixSingleThreadedExecutor& operator=(const PosixSingleThreadedExecutor&)     = delete;
+    PosixSingleThreadedExecutor& operator=(PosixSingleThreadedExecutor&&) noexcept = delete;
+
+    ~PosixSingleThreadedExecutor() override
+    {
+        // Just in case release whatever awaitable nodes left, but properly used `Callback::Handle`-s
+        // (aka "handle must not outlive executor") should have removed them all.
+        //
+        CETL_DEBUG_ASSERT(awaitable_nodes_.empty(), "");
+        releaseAwaitableNodes(awaitable_nodes_);
+    }
+
+    using PollFailure = cetl::variant<libcyphal::transport::MemoryError, libcyphal::transport::PlatformError>;
+
     cetl::optional<PollFailure> pollAwaitableResourcesFor(const libcyphal::Duration timeout)
     {
         if (awaitable_nodes_.empty())
@@ -181,6 +195,8 @@ private:
     class AwaitableNode final : public cavl::Node<AwaitableNode>
     {
     public:
+        using cavl::Node<AwaitableNode>::getChildNode;
+
         explicit AwaitableNode(const Callback::Id callback_id)
             : callback_id_{callback_id}
             , fd_{-1}
@@ -270,6 +286,23 @@ private:
             awaitable_nodes_allocator_.deallocate(awaitable_node, 1);
 
             --total_awaitables_;
+        }
+    }
+
+    /// @brief Recursively releases all awaitable nodes.
+    ///
+    /// AVL tree is balanced, hence the `NOLINT(misc-no-recursion)` and `NOSONAR cpp:S925` exceptions.
+    ///
+    /// TODO: Add "post-order" traversal support to the AVL tree.
+    ///
+    void releaseAwaitableNodes(AwaitableNode* node)  // NOLINT(misc-no-recursion)
+    {
+        if (nullptr != node)
+        {
+            releaseAwaitableNodes(node->getChildNode(false));  // NOSONAR cpp:S925
+            releaseAwaitableNodes(node->getChildNode(true));   // NOSONAR cpp:S925
+
+            destroyAwaitableNode(node);
         }
     }
 

@@ -32,7 +32,18 @@ public:
     {
     }
 
-    ~SingleThreadedExecutor() override = default;
+    ~SingleThreadedExecutor() override
+    {
+        // Just in case release whatever callback nodes left, but properly used `Callback::Handle`-s
+        // (aka "handle must not outlive executor") should have removed them all.
+        //
+        CETL_DEBUG_ASSERT(scheduled_nodes_.empty(), "");
+        CETL_DEBUG_ASSERT(registered_nodes_.empty(), "");
+        //
+        // Note, we release only `registered_nodes_` tree here b/c "helper" `scheduled_nodes_` tree
+        // is based on a subset of the same nodes allocated for the "master" `registered_nodes_` tree.
+        releaseCallbackNodes(registered_nodes_);
+    }
 
     SingleThreadedExecutor(const SingleThreadedExecutor&)                = delete;
     SingleThreadedExecutor(SingleThreadedExecutor&&) noexcept            = delete;
@@ -236,6 +247,8 @@ private:
     class CallbackNode final : public cavl::Node<CallbackNode>, public ScheduledNode
     {
     public:
+        using cavl::Node<CallbackNode>::getChildNode;
+
         CallbackNode(Callback::Function&& function, const bool is_auto_remove)
             : ScheduledNode{std::move(function), is_auto_remove}
             , id_{0}
@@ -286,6 +299,22 @@ private:
         // No Sonar cpp:M23_329 b/c we do our own low-level PMR management here.
         callback_node->~CallbackNode();  // NOSONAR cpp:M23_329
         nodes_allocator_.deallocate(callback_node, 1);
+    }
+
+    /// @brief Recursively releases all callback nodes.
+    ///
+    /// AVL tree is balanced, hence the `NOLINT(misc-no-recursion)` and `NOSONAR cpp:S925` exceptions.
+    /// TODO: Add "post-order" traversal support to the AVL tree.
+    ///
+    void releaseCallbackNodes(CallbackNode* node)  // NOLINT(misc-no-recursion)
+    {
+        if (nullptr != node)
+        {
+            releaseCallbackNodes(node->getChildNode(false));  // NOSONAR cpp:S925
+            releaseCallbackNodes(node->getChildNode(true));   // NOSONAR cpp:S925
+
+            destroyCallbackNode(node);
+        }
     }
 
     // MARK: - Data members:
