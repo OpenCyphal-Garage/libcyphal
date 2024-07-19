@@ -63,18 +63,23 @@ public:
         releaseAwaitableNodes(awaitable_nodes_);
     }
 
-    using PollFailure = cetl::variant<libcyphal::transport::MemoryError, libcyphal::transport::PlatformError>;
+    using PollFailure = cetl::variant<libcyphal::transport::MemoryError,
+                                      libcyphal::transport::PlatformError,
+                                      libcyphal::transport::ArgumentError>;
 
     cetl::optional<PollFailure> pollAwaitableResourcesFor(const cetl::optional<libcyphal::Duration> timeout)
     {
-        CETL_DEBUG_ASSERT(!awaitable_nodes_.empty() || timeout.has_value(), "");
+        CETL_DEBUG_ASSERT(!awaitable_nodes_.empty() || timeout,
+                          "Infinite timeout without awaitables means that we will sleep forever.");
 
         if (awaitable_nodes_.empty())
         {
-            if (timeout.has_value())
+            if (!timeout)
             {
-                std::this_thread::sleep_for(timeout.value());
+                return libcyphal::transport::ArgumentError{};
             }
+
+            std::this_thread::sleep_for(*timeout);
             return cetl::nullopt;
         }
 
@@ -101,13 +106,13 @@ public:
         // Any possible negative timeout will be treated as zero (return immediately from the `::poll`).
         //
         int clamped_timeout_ms = -1;  // "infinite" timeout
-        if (timeout.has_value())
+        if (timeout)
         {
             using PollDuration = std::chrono::milliseconds;
 
             clamped_timeout_ms = static_cast<int>(  //
                 std::max(static_cast<PollDuration::rep>(0),
-                         std::min(std::chrono::duration_cast<PollDuration>(timeout.value()).count(),
+                         std::min(std::chrono::duration_cast<PollDuration>(*timeout).count(),
                                   static_cast<PollDuration::rep>(std::numeric_limits<int>::max()))));
         }
 
@@ -129,8 +134,8 @@ public:
 
                 if (0 != (static_cast<PollEvents>(poll_fd.revents) & static_cast<PollEvents>(poll_fd.events)))
                 {
-                    const Callback::Id callback_id  = callback_ids_[index];
-                    const bool         is_scheduled = scheduleCallbackByIdAt(callback_id, now_time);
+                    const Callback::Id callback_id = callback_ids_[index];
+                    const bool is_scheduled = scheduleCallbackById(callback_id, now_time, Callback::Schedule::Once{});
                     (void) is_scheduled;
                     CETL_DEBUG_ASSERT(is_scheduled, "");
                 }

@@ -42,6 +42,7 @@ namespace
 
 using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
+using Schedule = libcyphal::IExecutor::Callback::Schedule;
 using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
 using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
@@ -582,7 +583,7 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
                 EXPECT_THAT(fragments, SizeIs(1));
                 EXPECT_THAT(fragments[0], SizeIs(24 + 4));  // 2nd frame
 
-                scheduler_.scheduleCallbackByIdAt(socket2_callback_id, now() + 7us);
+                scheduler_.scheduleCallbackById(socket2_callback_id, now() + 7us, Schedule::Once{});
                 return ITxSocket::SendResult::Success{true /*is_accepted*/};
             });
     });
@@ -596,7 +597,7 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
                 EXPECT_THAT(fragments, SizeIs(1));
                 EXPECT_THAT(fragments[0], SizeIs(24 + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 4));  // 1st frame again
 
-                scheduler_.scheduleCallbackByIdAt(socket1_callback_id, now() + 5us);
+                scheduler_.scheduleCallbackById(socket1_callback_id, now() + 5us, Schedule::Once{});
                 return ITxSocket::SendResult::Success{true /*is_accepted*/};
             });
     });

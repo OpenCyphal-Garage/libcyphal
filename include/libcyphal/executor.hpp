@@ -40,6 +40,32 @@ public:
         ///
         using Id = std::uint64_t;
 
+        /// @brief Defines possible variants of callback schedules.
+        ///
+        struct Schedule
+        {
+            /// @brief Defines schedule which will execute callback function at the specified execution time once.
+            ///
+            struct Once
+            {
+                /// If `true`, the corresponding callback will be automatically unregistered on its execution.
+                /// If `false`, the callback will stay registered and could be scheduled again.
+                bool is_auto_remove{false};
+            };
+
+            /// @brief Defines schedule which will execute callback function at the specified execution time, and
+            /// then repeatedly at `exec_time + (N * period)` with strict period advancement, no phase error growth.
+            ///
+            struct Repeat
+            {
+                /// @brief Positive (non-zero) period between each callback execution.
+                Duration period;
+            };
+
+            using Variant = cetl::variant<Once, Repeat>;
+
+        };  // Schedule
+
         /// @brief Defines move-only RAII type for automatic callback un-registration.
         ///
         /// NOSONAR cpp:S4963 for below `class Handle` - we do directly handle callback resource here.
@@ -98,21 +124,23 @@ public:
             /// Actual execution of the callback's function will be done later (not from context of this method),
             /// when desired time comes and executor is ready to execute the callbacks.
             /// It's ok to schedule the same callback multiple times, even before previous scheduling was executed -
-            /// it will be rescheduled, and then executed only once according to the last setup. Once it has been
+            /// it will be rescheduled, and then executed according to the last setup. Once it has been
             /// executed, the callback could be scheduled again (assuming it was not set up for auto-removal).
             ///
             /// @param callback_id Unique identifier of the callback to be scheduled.
-            /// @param time_point Absolute time point when it's desired to execute it.
-            ///                   Use current time (aka now) to schedule it for ASAP execution.
+            /// @param exec_time Absolute time point when it's desired to execute it.
+            ///                  Use current time (aka now) to schedule it for ASAP execution.
+            ///                  It could be in the past as well - callback will be also executed as ASAP.
+            /// @param schedule Contains specifics how callback will be scheduled (like once, repeatedly etc.).
             /// @return `true` if this handle is valid, and the callback was found (not removed yet) and scheduled.
             ///
-            bool scheduleAt(const TimePoint time_point) const
+            bool scheduleAt(const TimePoint exec_time, const Schedule::Variant& schedule) const
             {
                 if (nullptr == executor_)
                 {
                     return false;
                 }
-                return executor_->scheduleCallbackByIdAt(id_, time_point);
+                return executor_->scheduleCallbackById(id_, exec_time, schedule);
             }
 
             /// @brief Removes callback from the executor (if this handle is valid).
@@ -164,10 +192,11 @@ public:
         /// The callback function is executed from the executor's spin context (not from context of the event
         /// which has triggered callback). So, it's safe use any executor's API from a callback function.
         ///
-        /// @param time_point The current time point (aka now) when the callback is executed. Depending on executor
-        ///                   load, the actual time point could be a bit later than when it was originally triggered.
+        /// @param now_time The current time point (aka now) when the callback is really executed.
+        ///                 Depending on executor load, the actual time could be a bit later
+        ///                 than it was originally scheduled as desired execution time.
         ///
-        using Function = cetl::pmr::function<void(const TimePoint time_point), FunctionMaxSize>;
+        using Function = cetl::pmr::function<void(const TimePoint now_time), FunctionMaxSize>;
 
     };  // Callback
 
@@ -190,11 +219,11 @@ public:
     /// @return Valid handle to the successfully appended callback;
     ///         Otherwise invalid handle (see `Handle::isValid`) - in case of the appending failure.
     ///
-    CETL_NODISCARD Callback::Handle registerCallback(Callback::Function&& function, const bool is_auto_remove = false)
+    CETL_NODISCARD Callback::Handle registerCallback(Callback::Function&& function)
     {
         CETL_DEBUG_ASSERT(function, "Callback function must be provided.");
 
-        const auto opt_callback_id = appendCallback(is_auto_remove, std::move(function));
+        const auto opt_callback_id = appendCallback(std::move(function));
         if (opt_callback_id)
         {
             return Callback::Handle{*opt_callback_id, *this};
@@ -207,28 +236,30 @@ protected:
 
     /// @brief Appends a new callback to the executor if possible.
     ///
-    /// @param is_auto_remove If `true`, the callback will be automatically removed after its execution.
     /// @param A function to be called when the callback is scheduled for execution.
     /// @return A new unique identifier for the callback if successful.
     ///         Otherwise `nullopt` in case of out of memory error.
     ///         No discard b/c it's expected to be used in conjunction with `scheduleCallbackByIdAt`
     ///         or `removeCallbackById` methods.
     ///
-    CETL_NODISCARD virtual cetl::optional<Callback::Id> appendCallback(const bool           is_auto_remove,
-                                                                       Callback::Function&& function) = 0;
+    CETL_NODISCARD virtual cetl::optional<Callback::Id> appendCallback(Callback::Function&& function) = 0;
 
     /// @brief Schedules previously appended callback (by its id) for execution at the desired absolute time.
     ///
     /// Actual execution of the callback's function will be done later (not from context of this method), when desired
     /// time comes and executor is ready to execute the callbacks. It's ok to schedule the same callback multiple times
-    /// even before it was executed - it will be rescheduled, and then executed only once according to the last setup.
+    /// even before it was executed - it will be rescheduled, and then executed according to the last setup.
     ///
     /// @param callback_id Unique identifier of the callback to be scheduled.
     /// @param time_point Absolute time point when it's desired to execute it.
     ///                   Use current time (aka now) to schedule it for ASAP execution.
+    ///                   It could be in the past as well - callback will be executed as soon as possible.
+    /// @param schedule Contains specifics how callback will be scheduled (like once, repeatedly etc.).
     /// @return `true` if the callback was found and scheduled.
     ///
-    virtual bool scheduleCallbackByIdAt(const Callback::Id callback_id, const TimePoint time_point) = 0;
+    virtual bool scheduleCallbackById(const Callback::Id                 callback_id,
+                                      const TimePoint                    exec_time,
+                                      const Callback::Schedule::Variant& schedule) = 0;
 
     /// @brief Removes callback from this executor by unique identifier.
     ///

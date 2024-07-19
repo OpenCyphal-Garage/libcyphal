@@ -64,7 +64,6 @@ private:
     void do_deallocate(void* ptr, std::size_t size_bytes, std::size_t alignment) override
     {
         CETL_DEBUG_ASSERT(ptr, "");
-        CETL_DEBUG_ASSERT(size_bytes > 0, "");
 
         auto prev_alloc = std::find_if(allocations.cbegin(), allocations.cend(), [ptr](const auto& alloc) {
             return alloc.pointer == ptr;

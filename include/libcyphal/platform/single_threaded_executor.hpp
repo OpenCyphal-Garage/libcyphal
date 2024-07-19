@@ -53,10 +53,10 @@ public:
 
     struct SpinResult
     {
-        /// The deadline of the next scheduled callback to run,
+        /// Time of the next scheduled callback to execute,
         /// or `cetl::nullopt` if there are no scheduled callbacks.
         /// This can be used to let the application sleep/poll when there are no callbacks pending.
-        cetl::optional<TimePoint> next_deadline;
+        cetl::optional<TimePoint> next_exec_time;
 
         /// An approximation of the maximum lateness observed during the spin call
         /// (the real slack may be worse than the approximation).
@@ -75,7 +75,7 @@ public:
             // No linting b/c we know for sure the type of the node.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast)
             auto& callback_node = static_cast<CallbackNode&>(*scheduled_node);
-            CETL_DEBUG_ASSERT(callback_node.isScheduled(), "");
+            CETL_DEBUG_ASSERT(callback_node.schedule(), "");
 
             const auto exec_time = callback_node.executionTime();
             if (approx_now < exec_time)
@@ -83,25 +83,18 @@ public:
                 approx_now = now();
                 if (approx_now < exec_time)
                 {
-                    spin_result.next_deadline = exec_time;
+                    spin_result.next_exec_time = exec_time;
                     break;
                 }
             }
 
             spin_result.worst_lateness = std::max(approx_now - exec_time, spin_result.worst_lateness);
 
-            callback_node.isScheduled() = false;
-            scheduled_nodes_.remove(&callback_node);
-
-            if (callback_node.isAutoRemove())
-            {
-                registered_nodes_.remove(&callback_node);
-                didRemoveCallback(callback_node.id());
-            }
+            const bool is_removed = applyNextTimeSchedulingPolicy(callback_node, exec_time);
 
             callback_node(approx_now);
 
-            if (callback_node.isAutoRemove())
+            if (is_removed)
             {
                 destroyCallbackNode(&callback_node);
             }
@@ -122,12 +115,11 @@ public:
     using IExecutor::registerCallback;
 
 protected:
-    CETL_NODISCARD cetl::optional<Callback::Id> appendCallback(const bool           is_auto_remove,
-                                                               Callback::Function&& function) override
+    CETL_NODISCARD cetl::optional<Callback::Id> appendCallback(Callback::Function&& function) override
     {
         CETL_DEBUG_ASSERT(function, "");
 
-        auto* const new_callback_node = makeCallbackNode(std::move(function), is_auto_remove);
+        auto* const new_callback_node = makeCallbackNode(std::move(function));
         if (nullptr == new_callback_node)
         {
             return cetl::nullopt;
@@ -150,36 +142,26 @@ protected:
         return cetl::optional<Callback::Id>{new_callback_id};
     }
 
-    bool scheduleCallbackByIdAt(const Callback::Id callback_id, const TimePoint time_point) override
+    bool scheduleCallbackById(const Callback::Id                 callback_id,
+                              const TimePoint                    exec_time,
+                              const Callback::Schedule::Variant& schedule) override
     {
-        auto* const callback_node = registered_nodes_.search(  //
-            [callback_id](const CallbackNode& node) {          // predicate
+        auto* const callback_node_ptr = registered_nodes_.search(  //
+            [callback_id](const CallbackNode& node) {              // predicate
                 return node.compareById(callback_id);
             });
-        if (nullptr == callback_node)
+        if (nullptr == callback_node_ptr)
         {
             return false;
         }
+        CallbackNode& callback_node = *callback_node_ptr;
 
         // Remove previously scheduled node (if any),
-        // and then re/insert the node with updated/given execution time.
+        // and then re/insert the node with updated/given execution time and schedule.
         //
-        if (callback_node->isScheduled())
-        {
-            scheduled_nodes_.remove(callback_node);
-        }
-        callback_node->isScheduled()   = true;
-        callback_node->executionTime() = time_point;
-        //
-        const std::tuple<ScheduledNode*, bool> sched_node_existing = scheduled_nodes_.search(  //
-            [time_point](const ScheduledNode& scheduled_node) {                                // predicate
-                return scheduled_node.compareByExecutionTime(time_point);
-            },
-            [callback_node]() { return callback_node; });  // factory
-
-        (void) sched_node_existing;
-        CETL_DEBUG_ASSERT(!std::get<1>(sched_node_existing), "Unexpected existing scheduled node.");
-        CETL_DEBUG_ASSERT(callback_node == std::get<0>(sched_node_existing), "Unexpected callback node.");
+        removeIfScheduledNode(callback_node);
+        callback_node.schedule() = schedule;
+        insertScheduledNode(callback_node, exec_time);
 
         return true;
     }
@@ -195,10 +177,7 @@ protected:
             return;
         }
 
-        if (callback_node->isScheduled())
-        {
-            scheduled_nodes_.remove(callback_node);
-        }
+        removeIfScheduledNode(*callback_node);
 
         registered_nodes_.remove(callback_node);
         didRemoveCallback(callback_id);
@@ -217,39 +196,32 @@ private:
         ScheduledNode& operator=(const ScheduledNode&)     = delete;
         ScheduledNode& operator=(ScheduledNode&&) noexcept = delete;
 
-        bool isAutoRemove() const noexcept
+        cetl::optional<Callback::Schedule::Variant>& schedule() noexcept
         {
-            return is_auto_remove_;
-        }
-
-        bool& isScheduled() noexcept
-        {
-            return is_scheduled_;
+            return schedule_;
         }
 
         TimePoint& executionTime() noexcept
         {
-            return execution_time_;
+            return exec_time_;
         }
 
-        void operator()(const TimePoint time_point) const
+        void operator()(const TimePoint now_time) const
         {
-            function_(time_point);
+            function_(now_time);
         }
 
-        CETL_NODISCARD std::int8_t compareByExecutionTime(const TimePoint execution_time) const noexcept
+        CETL_NODISCARD std::int8_t compareByExecutionTime(const TimePoint exec_time) const noexcept
         {
             // No two execution times compare equal, which allows us to have multiple nodes
             // with the same execution time in the tree. With two nodes sharing the same execution time,
             // the one added later is considered to be later.
-            return (execution_time >= execution_time_) ? +1 : -1;
+            return (exec_time >= exec_time_) ? +1 : -1;
         }
 
     protected:
-        ScheduledNode(Callback::Function&& function, const bool is_auto_remove)
+        explicit ScheduledNode(Callback::Function&& function)
             : function_{std::move(function)}
-            , is_auto_remove_{is_auto_remove}
-            , is_scheduled_{false}
         {
         }
         ~ScheduledNode() = default;
@@ -257,10 +229,9 @@ private:
     private:
         // MARK: Data members:
 
-        const Callback::Function function_;
-        const bool               is_auto_remove_;
-        bool                     is_scheduled_;
-        TimePoint                execution_time_;
+        const Callback::Function                    function_;
+        TimePoint                                   exec_time_;
+        cetl::optional<Callback::Schedule::Variant> schedule_;
 
     };  // ScheduledNode
 
@@ -269,8 +240,8 @@ private:
     public:
         using cavl::Node<CallbackNode>::getChildNode;
 
-        CallbackNode(Callback::Function&& function, const bool is_auto_remove)
-            : ScheduledNode{std::move(function), is_auto_remove}
+        explicit CallbackNode(Callback::Function&& function)
+            : ScheduledNode{std::move(function)}
             , id_{0}
         {
         }
@@ -302,14 +273,73 @@ private:
 
     };  // CallbackNode
 
-    CETL_NODISCARD CallbackNode* makeCallbackNode(Callback::Function&& function, const bool is_auto_remove)
+    CETL_NODISCARD CallbackNode* makeCallbackNode(Callback::Function&& function)
     {
         CallbackNode* const node = nodes_allocator_.allocate(1);
         if (nullptr != node)
         {
-            nodes_allocator_.construct(node, std::move(function), is_auto_remove);
+            nodes_allocator_.construct(node, std::move(function));
         }
         return node;
+    }
+
+    void insertScheduledNode(ScheduledNode& scheduled_node, const TimePoint exec_time)
+    {
+        scheduled_node.executionTime() = exec_time;
+
+        const std::tuple<ScheduledNode*, bool> sched_node_existing = scheduled_nodes_.search(  //
+            [exec_time](const ScheduledNode& scheduled_node) {                                 // predicate
+                return scheduled_node.compareByExecutionTime(exec_time);
+            },
+            [&scheduled_node]() { return &scheduled_node; });  // factory
+
+        (void) sched_node_existing;
+        CETL_DEBUG_ASSERT(!std::get<1>(sched_node_existing), "Unexpected existing scheduled node.");
+        CETL_DEBUG_ASSERT(&scheduled_node == std::get<0>(sched_node_existing), "Unexpected scheduled node.");
+    }
+
+    void removeIfScheduledNode(ScheduledNode& scheduled_node)
+    {
+        if (scheduled_node.schedule())
+        {
+            scheduled_nodes_.remove(&scheduled_node);
+        }
+    }
+
+    bool applyNextTimeSchedulingPolicy(CallbackNode& callback_node, const TimePoint exec_time)
+    {
+        CETL_DEBUG_ASSERT(callback_node.schedule(), "");
+
+        return cetl::visit(
+            [this, &callback_node, exec_time](const auto schedule) {  //
+                return applyNextTimeSchedulingPolicy(callback_node, exec_time, schedule);
+            },
+            *callback_node.schedule());
+    }
+
+    bool applyNextTimeSchedulingPolicy(CallbackNode& callback_node,
+                                       const TimePoint,
+                                       const Callback::Schedule::Once& once_schedule)
+    {
+        removeIfScheduledNode(callback_node);
+        callback_node.schedule() = cetl::nullopt;
+
+        if (once_schedule.is_auto_remove)
+        {
+            registered_nodes_.remove(&callback_node);
+            didRemoveCallback(callback_node.id());
+        }
+
+        return once_schedule.is_auto_remove;
+    }
+
+    bool applyNextTimeSchedulingPolicy(CallbackNode&                     callback_node,
+                                       const TimePoint                   exec_time,
+                                       const Callback::Schedule::Repeat& repeat_schedule)
+    {
+        removeIfScheduledNode(callback_node);
+        insertScheduledNode(callback_node, exec_time + repeat_schedule.period);
+        return false;
     }
 
     void destroyCallbackNode(CallbackNode* const callback_node)

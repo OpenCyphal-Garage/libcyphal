@@ -44,13 +44,15 @@ public:
         action();
     }
 
-    void scheduleAt(const TimePoint time_point, std::function<void()> action)
+    void scheduleAt(const TimePoint exec_time, std::function<void()> action)
     {
-        const auto opt_callback_id =
-            appendCallback(true /*is_auto_remove*/, [action = std::move(action)](const TimePoint) { action(); });
+        const auto opt_callback_id = appendCallback([action = std::move(action)](const TimePoint) { action(); });
         if (opt_callback_id)
         {
-            const bool is_scheduled = scheduleCallbackByIdAt(*opt_callback_id, time_point);
+            const bool is_scheduled = scheduleCallbackById(  //
+                *opt_callback_id,
+                exec_time,
+                Callback::Schedule::Once{true /*is_auto_remove*/});
             (void) is_scheduled;
             CETL_DEBUG_ASSERT(is_scheduled, "Unexpected failure to schedule callback by id.");
         }
@@ -63,9 +65,9 @@ public:
 
     Callback::Handle scheduleCallbackAfter(const Duration duration, IExecutor::Callback::Function function)
     {
-        auto handle = registerCallback(std::move(function), true /*is_auto_remove*/);
+        auto handle = registerCallback(std::move(function));
 
-        const bool is_scheduled = handle.scheduleAt(now_ + duration);
+        const bool is_scheduled = handle.scheduleAt(now_ + duration, Callback::Schedule::Once{true /*is_auto_remove*/});
         (void) is_scheduled;
         CETL_DEBUG_ASSERT(is_scheduled, "Unexpected failure to schedule callback by id.");
 
@@ -89,8 +91,8 @@ public:
             const auto next_callback_id = next->second;
             callbacks_to_execute_.erase(next);
 
-            const auto next_callback = callback_ids_to_funcs_.find(next_callback_id);
-            if (next_callback == callback_ids_to_funcs_.end())
+            const auto next_callback = callback_id_to_state_.find(next_callback_id);
+            if (next_callback == callback_id_to_state_.end())
             {
                 continue;
             }
@@ -113,7 +115,7 @@ public:
     {
         now_ = initial_now;
         callbacks_to_execute_.clear();
-        callback_ids_to_funcs_.clear();
+        callback_id_to_state_.clear();
     }
 
     // MARK: - IExecutor
@@ -125,47 +127,51 @@ public:
 
     using IExecutor::registerCallback;
 
-    bool scheduleCallbackByIdAt(const Callback::Id callback_id, const TimePoint time_point) override
+    bool scheduleCallbackById(const Callback::Id                 callback_id,
+                              const TimePoint                    exec_time,
+                              const Callback::Schedule::Variant& schedule) override
     {
-        const auto it = callback_ids_to_funcs_.find(callback_id);
-        if (it == callback_ids_to_funcs_.end())
+        const auto it = callback_id_to_state_.find(callback_id);
+        if (it == callback_id_to_state_.end())
         {
             return false;
         }
 
+        it->second.schedule = schedule;
+
         if (!it->second.is_triggered)
         {
             it->second.is_triggered = true;
-            callbacks_to_execute_.emplace(time_point, it->first);
+            callbacks_to_execute_.emplace(exec_time, it->first);
         }
         return true;
     }
 
 protected:
-    cetl::optional<Callback::Id> appendCallback(const bool is_auto_remove, Callback::Function&& function) override
+    cetl::optional<Callback::Id> appendCallback(Callback::Function&& function) override
     {
         const Callback::Id callback_id = next_callback_id_++;
-        callback_ids_to_funcs_.emplace(callback_id, CallbackState{std::move(function), false, is_auto_remove});
+        callback_id_to_state_.emplace(callback_id, CallbackState{std::move(function), false, cetl::nullopt});
         return cetl::optional<Callback::Id>{callback_id};
     }
 
     void removeCallbackById(const Callback::Id callback_id) override
     {
-        callback_ids_to_funcs_.erase(callback_id);
+        callback_id_to_state_.erase(callback_id);
     }
 
 private:
     struct CallbackState
     {
-        Callback::Function function;
-        bool               is_triggered;
-        bool               is_auto_remove;
+        Callback::Function                          function;
+        bool                                        is_triggered;
+        cetl::optional<Callback::Schedule::Variant> schedule;
     };
 
     TimePoint                              now_;
     Callback::Id                           next_callback_id_{0};
     std::multimap<TimePoint, Callback::Id> callbacks_to_execute_;
-    std::map<Callback::Id, CallbackState>  callback_ids_to_funcs_;
+    std::map<Callback::Id, CallbackState>  callback_id_to_state_;
 
 };  // VirtualTimeScheduler
 

@@ -173,6 +173,8 @@ protected:
 
 TEST_F(Example_02_Transport, posix_udp)
 {
+    using Schedule = libcyphal::IExecutor::Callback::Schedule;
+
     const libcyphal::transport::NodeId local_node_id{2000};
 
     // Make UDP transport with a single media.
@@ -190,11 +192,9 @@ TEST_F(Example_02_Transport, posix_udp)
         state_.heartbeat_.cb_handle_ = executor_.registerCallback([&](const auto now) {
             //
             publishHeartbeat(now);
-
-            constexpr auto period = uavcan::node::Heartbeat_1_0::MAX_PUBLICATION_PERIOD;
-            state_.heartbeat_.cb_handle_.scheduleAt(now + std::chrono::seconds{period});
         });
-        state_.heartbeat_.cb_handle_.scheduleAt(executor_.now());
+        constexpr auto period = uavcan::node::Heartbeat_1_0::MAX_PUBLICATION_PERIOD;
+        state_.heartbeat_.cb_handle_.scheduleAt(executor_.now(), Schedule::Repeat{std::chrono::seconds{period}});
     }
 
     // Main loop.
@@ -205,9 +205,9 @@ TEST_F(Example_02_Transport, posix_udp)
         const auto spin_result = executor_.spinOnce();
 
         cetl::optional<libcyphal::Duration> opt_timeout;
-        if (spin_result.next_deadline.has_value())
+        if (spin_result.next_exec_time.has_value())
         {
-            opt_timeout = spin_result.next_deadline.value() - executor_.now();
+            opt_timeout = spin_result.next_exec_time.value() - executor_.now();
         }
         EXPECT_THAT(executor_.pollAwaitableResourcesFor(opt_timeout), Eq(cetl::nullopt));
     }
