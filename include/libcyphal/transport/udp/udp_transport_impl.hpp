@@ -103,33 +103,27 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
             return udpard_tx_;
         }
 
-        UniquePtr<ITxSocket>& tx_socket_ptr()
+        SocketState<ITxSocket>& txSocketState()
         {
-            return tx_socket_ptr_;
+            return tx_socket_state_;
         }
 
-        IExecutor::Callback::Handle& tx_callback_handle()
+        SocketState<IRxSocket>& svcRxSocketState()
         {
-            return tx_callback_handle_;
-        }
-
-        UniquePtr<IRxSocket>& svc_rx_socket_ptr()
-        {
-            return svc_rx_socket_ptr_;
+            return svc_rx_socket_state_;
         }
 
         std::size_t getTxSocketMtu() const noexcept
         {
-            return tx_socket_ptr_ ? tx_socket_ptr_->getMtu() : ITxSocket::DefaultMtu;
+            return tx_socket_state_.interface ? tx_socket_state_.interface->getMtu() : ITxSocket::DefaultMtu;
         }
 
     private:
-        const std::uint8_t          index_;
-        IMedia&                     interface_;
-        UdpardTx                    udpard_tx_;
-        UniquePtr<ITxSocket>        tx_socket_ptr_;
-        IExecutor::Callback::Handle tx_callback_handle_;
-        UniquePtr<IRxSocket>        svc_rx_socket_ptr_;
+        const std::uint8_t     index_;
+        IMedia&                interface_;
+        UdpardTx               udpard_tx_;
+        SocketState<ITxSocket> tx_socket_state_;
+        SocketState<IRxSocket> svc_rx_socket_state_;
     };
     using MediaArray = libcyphal::detail::VarArray<Media>;
 
@@ -375,8 +369,8 @@ private:
                         return tx_failure;
                     }
 
-                    // No need to try send next frame when previous one hasn't finished yet.
-                    if (!media.tx_callback_handle())
+                    // No need to try fo send next frame when previous one hasn't finished yet.
+                    if (!media.txSocketState().cb_handle)
                     {
                         sendNextFrameToMediaTxSocket(media, tx_socket);
                     }
@@ -505,8 +499,7 @@ private:
         //
         auto media_failure = withMediaRxSocketsFor(  //
             new_msg_node,
-            [](const Media&, const IRxSocket&, const UdpardRxSubscription&, const IRxSessionDelegate&)
-                -> cetl::optional<AnyFailure> { return cetl::nullopt; });
+            [](const auto&, auto&, auto&, auto&) -> cetl::optional<AnyFailure> { return cetl::nullopt; });
         if (media_failure.has_value())
         {
             return std::move(media_failure.value());
@@ -524,7 +517,7 @@ private:
         // For now, we're just creating them, without any attempt to use them yet - hence the "do nothing" action.
         //
         auto media_failure = withMediaServiceRxSockets(
-            [](const Media&, const IRxSocket&) -> cetl::optional<AnyFailure> { return cetl::nullopt; });
+            [](const auto&, const auto&) -> cetl::optional<AnyFailure> { return cetl::nullopt; });
         if (media_failure.has_value())
         {
             return std::move(media_failure.value());
@@ -618,7 +611,7 @@ private:
     template <typename Action>
     CETL_NODISCARD cetl::optional<AnyFailure> withEnsureMediaTxSocket(Media& media, Action&& action)
     {
-        if (!media.tx_socket_ptr())
+        if (!media.txSocketState().interface)
         {
             using ErrorReport = TransientErrorReport::MediaMakeTxSocket;
 
@@ -628,8 +621,9 @@ private:
                 return tryHandleTransientMediaError<ErrorReport>(media, std::move(*failure), media.interface());
             }
 
-            media.tx_socket_ptr() = cetl::get<IMedia::MakeTxSocketResult::Success>(std::move(tx_socket_result));
-            if (!media.tx_socket_ptr())
+            media.txSocketState().interface =
+                cetl::get<IMedia::MakeTxSocketResult::Success>(std::move(tx_socket_result));
+            if (!media.txSocketState().interface)
             {
                 return tryHandleTransientMediaError<ErrorReport, cetl::variant<MemoryError>>(media,
                                                                                              MemoryError{},
@@ -637,7 +631,7 @@ private:
             }
         }
 
-        return std::forward<Action>(action)(media, *media.tx_socket_ptr());
+        return std::forward<Action>(action)(media, *(media.txSocketState().interface));
     }
 
     CETL_NODISCARD cetl::optional<AnyFailure> ensureMediaTxSockets()
@@ -703,9 +697,9 @@ private:
                 // If needed schedule (recursively!) next frame for sending.
                 // Already existing callback will be called by executor when TX socket is ready to send more.
                 //
-                if (!media.tx_callback_handle())
+                if (!media.txSocketState().cb_handle)
                 {
-                    media.tx_callback_handle() =
+                    media.txSocketState().cb_handle =
                         tx_socket.registerCallback(executor_, [this, &media, &tx_socket](const TimePoint) {  //
                             sendNextFrameToMediaTxSocket(media, tx_socket);
                         });
@@ -724,7 +718,7 @@ private:
         }  // for a valid tx item
 
         // There is nothing to send anymore, so we are done with this media TX socket - no more callbacks for now.
-        media.tx_callback_handle().reset();
+        media.txSocketState().cb_handle.reset();
     }
 
     /// @brief Tries to peek the first TX item from the media TX queue which is not expired.
@@ -762,11 +756,11 @@ private:
     template <typename Action, typename... Args>
     CETL_NODISCARD cetl::optional<AnyFailure> withEnsureMediaRxSocket(Media&                           media,
                                                                       const cetl::optional<IpEndpoint> endpoint,
-                                                                      UniquePtr<IRxSocket>&            inout_socket_ptr,
+                                                                      SocketState<IRxSocket>&          socket_state,
                                                                       Action&&                         action,
                                                                       Args&&... args)
     {
-        if (nullptr == inout_socket_ptr)
+        if (nullptr == socket_state.interface)
         {
             // Missing endpoint for service RX sockets means that the local node ID is not set yet,
             // So, node can't be as a destination for any incoming frames - hence nothing to receive.
@@ -784,8 +778,8 @@ private:
                 return tryHandleTransientMediaError<ErrorReport>(media, std::move(*failure), media.interface());
             }
 
-            inout_socket_ptr = cetl::get<IMedia::MakeRxSocketResult::Success>(std::move(rx_socket_result));
-            if (nullptr == inout_socket_ptr)
+            socket_state.interface = cetl::get<IMedia::MakeRxSocketResult::Success>(std::move(rx_socket_result));
+            if (nullptr == socket_state.interface)
             {
                 return tryHandleTransientMediaError<ErrorReport, cetl::variant<MemoryError>>(media,
                                                                                              MemoryError{},
@@ -793,7 +787,7 @@ private:
             }
         }
 
-        return std::forward<Action>(action)(media, *inout_socket_ptr, std::forward<Args>(args)...);
+        return std::forward<Action>(action)(media, *(socket_state.interface), std::forward<Args>(args)...);
     }
 
     template <typename Action>
@@ -813,7 +807,7 @@ private:
         {
             cetl::optional<AnyFailure> failure = withEnsureMediaRxSocket(media,
                                                                          endpoint,
-                                                                         msg_rx_node.rx_sockets(media.index()),
+                                                                         msg_rx_node.socketState(media.index()),
                                                                          action,
                                                                          subscription,
                                                                          *session_delegate);
@@ -832,7 +826,7 @@ private:
         for (Media& media : media_array_)
         {
             cetl::optional<AnyFailure> failure =
-                withEnsureMediaRxSocket(media, svc_rx_sockets_endpoint_, media.svc_rx_socket_ptr(), action);
+                withEnsureMediaRxSocket(media, svc_rx_sockets_endpoint_, media.svcRxSocketState(), action);
             if (failure.has_value())
             {
                 return failure;
@@ -866,7 +860,7 @@ private:
                 [this](RxSessionTreeNode::Message& msg_rx_node) -> cetl::optional<AnyFailure> {
                     return withMediaRxSocketsFor(  //
                         msg_rx_node,
-                        [this](auto& media, auto& rx_socket, auto& subscription, auto& session_delegate)
+                        [this](const Media& media, auto& rx_socket, auto& subscription, auto& session_delegate)
                             -> cetl::optional<AnyFailure> {
                             return runRxForMessageMediaRxSocket(media, rx_socket, subscription, session_delegate);
                         });

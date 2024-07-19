@@ -10,6 +10,7 @@
 #include "tx_rx_sockets.hpp"
 
 #include "libcyphal/common/cavl/cavl.hpp"
+#include "libcyphal/executor.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
@@ -34,6 +35,14 @@ namespace udp
 ///
 namespace detail
 {
+
+template <typename SocketInterface>
+struct SocketState
+{
+    UniquePtr<SocketInterface>  interface;
+    IExecutor::Callback::Handle cb_handle;
+
+};  // SocketState
 
 /// @brief Defines a tree of sessions for the UDP transport.
 ///
@@ -193,17 +202,19 @@ struct RxSessionTreeNode
             return delegate_;
         }
 
-        CETL_NODISCARD UniquePtr<IRxSocket>& rx_sockets(const std::uint8_t media_index) noexcept
+        CETL_NODISCARD SocketState<IRxSocket>& socketState(const std::uint8_t media_index) noexcept
         {
-            CETL_DEBUG_ASSERT(media_index < rx_sockets_.size(), "");
+            CETL_DEBUG_ASSERT(media_index < socket_states_.size(), "");
 
             // No lint b/c at transport constructor we made sure that number of media interfaces is bound.
-            return rx_sockets_[media_index];  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            return socket_states_[media_index];  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         }
 
     private:
-        IMsgRxSessionDelegate*                                               delegate_{nullptr};
-        std::array<UniquePtr<IRxSocket>, UDPARD_NETWORK_INTERFACE_COUNT_MAX> rx_sockets_;
+        // MARK: Data members:
+
+        IMsgRxSessionDelegate*                                                 delegate_{nullptr};
+        std::array<SocketState<IRxSocket>, UDPARD_NETWORK_INTERFACE_COUNT_MAX> socket_states_;
 
     };  // Message
 
