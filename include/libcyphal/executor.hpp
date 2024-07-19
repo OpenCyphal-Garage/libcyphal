@@ -189,7 +189,7 @@ public:
 
         /// @brief Defines maximum size of callback function.
         ///
-        constexpr static std::size_t FunctionMaxSize = sizeof(void*) * 8;
+        static constexpr std::size_t FunctionMaxSize = sizeof(void*) * 8;
 
         /// @brief Defines callback function signature.
         ///

@@ -10,7 +10,7 @@
 #include "udp_sockets.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <libcyphal/transport/errors.hpp>
+#include <libcyphal/executor.hpp>
 #include <libcyphal/transport/udp/media.hpp>
 #include <libcyphal/transport/udp/tx_rx_sockets.hpp>
 
@@ -24,8 +24,9 @@ namespace posix
 class UdpMedia final : public libcyphal::transport::udp::IMedia
 {
 public:
-    explicit UdpMedia(cetl::pmr::memory_resource& memory)
+    explicit UdpMedia(cetl::pmr::memory_resource& memory, libcyphal::IExecutor& executor)
         : memory_{memory}
+        , executor_{executor}
     {
     }
 
@@ -39,12 +40,13 @@ private:
 
     MakeRxSocketResult::Type makeRxSocket(const libcyphal::transport::udp::IpEndpoint& multicast_endpoint) override
     {
-        return UdpRxSocket::make(memory_, "127.0.0.1", multicast_endpoint);
+        return UdpRxSocket::make(memory_, executor_, "127.0.0.1", multicast_endpoint);
     }
 
     // MARK: Data members:
 
     cetl::pmr::memory_resource& memory_;
+    libcyphal::IExecutor&       executor_;
 
 };  // UdpMedia
 

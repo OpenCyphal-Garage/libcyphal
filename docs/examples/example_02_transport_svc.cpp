@@ -179,7 +179,7 @@ TEST_F(Example_02_Transport, posix_udp)
 
     // Make UDP transport with a single media.
     //
-    example::platform::posix::UdpMedia udp_media{mr_};
+    example::platform::posix::UdpMedia udp_media{mr_, executor_};
     std::array<udp::IMedia*, 1>        media_array{&udp_media};
     auto                               udp_transport = makeUdpTransport(media_array, local_node_id);
 

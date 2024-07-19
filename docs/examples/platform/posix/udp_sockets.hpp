@@ -21,7 +21,10 @@
 #include <libcyphal/transport/udp/tx_rx_sockets.hpp>
 #include <libcyphal/types.hpp>
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <utility>
 
@@ -35,7 +38,7 @@ namespace posix
 class UdpSocketBase
 {
 protected:
-    CETL_NODISCARD libcyphal::IExecutor::Callback::Handle registerCallbackWithCondition(
+    CETL_NODISCARD static libcyphal::IExecutor::Callback::Handle registerCallbackWithCondition(
         libcyphal::IExecutor&                                  executor,
         libcyphal::IExecutor::Callback::Function&&             function,
         const IPosixExecutorExtension::WhenCondition::Variant& condition)
@@ -63,6 +66,8 @@ public:
         cetl::pmr::memory_resource& memory,
         const std::string&          address)
     {
+        using ITxSocket = libcyphal::transport::udp::ITxSocket;
+
         UDPTxHandle handle{-1};
         const auto  result = ::udpTxInit(&handle, ::udpParseIfaceAddress(address.c_str()));
         if (result < 0)
@@ -70,7 +75,7 @@ public:
             return libcyphal::transport::PlatformError{PosixPlatformError{-result}};
         }
 
-        auto tx_socket = libcyphal::makeUniquePtr<libcyphal::transport::udp::ITxSocket, UdpTxSocket>(memory, handle);
+        auto tx_socket = libcyphal::makeUniquePtr<ITxSocket, UdpTxSocket>(memory, handle);
         if (tx_socket == nullptr)
         {
             ::udpTxClose(&handle);
@@ -145,9 +150,12 @@ class UdpRxSocket final : public UdpSocketBase, public libcyphal::transport::udp
 public:
     CETL_NODISCARD static libcyphal::transport::udp::IMedia::MakeRxSocketResult::Type make(
         cetl::pmr::memory_resource&                  memory,
+        libcyphal::IExecutor&                        executor,
         const std::string&                           address,
         const libcyphal::transport::udp::IpEndpoint& endpoint)
     {
+        using IRxSocket = libcyphal::transport::udp::IRxSocket;
+
         UDPRxHandle handle{-1};
         const auto  result =
             ::udpRxInit(&handle, ::udpParseIfaceAddress(address.c_str()), endpoint.ip_address, endpoint.udp_port);
@@ -156,7 +164,7 @@ public:
             return libcyphal::transport::PlatformError{PosixPlatformError{-result}};
         }
 
-        auto rx_socket = libcyphal::makeUniquePtr<libcyphal::transport::udp::IRxSocket, UdpRxSocket>(memory, handle);
+        auto rx_socket = libcyphal::makeUniquePtr<IRxSocket, UdpRxSocket>(memory, handle, executor, memory);
         if (rx_socket == nullptr)
         {
             ::udpRxClose(&handle);
@@ -166,8 +174,10 @@ public:
         return rx_socket;
     }
 
-    explicit UdpRxSocket(UDPRxHandle handle)
+    explicit UdpRxSocket(UDPRxHandle handle, libcyphal::IExecutor& executor, cetl::pmr::memory_resource& memory)
         : handle_{handle}
+        , time_provider_{executor}
+        , memory_{memory}
     {
         CETL_DEBUG_ASSERT(handle_.fd >= 0, "");
     }
@@ -183,13 +193,40 @@ public:
     UdpRxSocket& operator=(UdpRxSocket&&) noexcept = delete;
 
 private:
+    static constexpr std::size_t BufferSize = 2000;
+
     // MARK: IRxSocket
 
     CETL_NODISCARD ReceiveResult::Type receive() override
     {
         CETL_DEBUG_ASSERT(handle_.fd >= 0, "");
 
-        return ReceiveResult::Failure{libcyphal::transport::MemoryError{}};
+        // Current Udpard api limitation is not allowing to pass bigger buffer than actual data size is.
+        // Hence, we need temp buffer on stack, and then memory copying.
+        // TODO: Eliminate tmp buffer and memmove when https://github.com/OpenCyphal/libudpard/issues/58 is resolved.
+        //
+        std::array<cetl::byte, BufferSize> buffer{};
+        std::size_t                        inout_size = buffer.size();
+        const std::int16_t                 result     = ::udpRxReceive(&handle_, &inout_size, buffer.data());
+        if (result < 0)
+        {
+            return libcyphal::transport::PlatformError{PosixPlatformError{-result}};
+        }
+        if (result == 0)
+        {
+            return cetl::nullopt;
+        }
+        //
+        auto* const allocated_buffer = memory_.allocate(inout_size);
+        if (nullptr == allocated_buffer)
+        {
+            return libcyphal::transport::MemoryError{};
+        }
+        (void) std::memmove(allocated_buffer, buffer.data(), inout_size);
+
+        return ReceiveResult::Metadata{time_provider_.now(),
+                                       {static_cast<cetl::byte*>(allocated_buffer),
+                                        libcyphal::PmrRawBytesDeleter{inout_size, &memory_}}};
     }
 
     CETL_NODISCARD libcyphal::IExecutor::Callback::Handle registerCallback(
@@ -205,7 +242,9 @@ private:
 
     // MARK: Data members:
 
-    UDPRxHandle handle_;
+    UDPRxHandle                 handle_;
+    libcyphal::IExecutor&       time_provider_;
+    cetl::pmr::memory_resource& memory_;
 
 };  // UdpRxSocket
 
