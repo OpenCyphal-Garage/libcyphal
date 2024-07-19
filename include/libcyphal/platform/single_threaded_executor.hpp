@@ -25,7 +25,12 @@ namespace libcyphal
 namespace platform
 {
 
-class SingleThreadedExecutor : public IExecutor
+/// @brief Defines platform agnostic single-threaded executor.
+///
+/// NOSONAR cpp:S4963 for below `class SingleThreadedExecutor` - we do directly handle resources here;
+/// namely: in destructor we de-allocation of any potentially left callback nodes we allocated previously.
+///
+class SingleThreadedExecutor : public IExecutor  // NOSONAR cpp:S4963
 {
 public:
     explicit SingleThreadedExecutor(cetl::pmr::memory_resource& memory_resource)
@@ -40,10 +45,7 @@ public:
         //
         CETL_DEBUG_ASSERT(scheduled_nodes_.empty(), "");
         CETL_DEBUG_ASSERT(registered_nodes_.empty(), "");
-        //
-        // Note, we release only `registered_nodes_` tree here b/c "helper" `scheduled_nodes_` tree
-        // is based on a subset of the same nodes allocated for the "master" `registered_nodes_` tree.
-        releaseCallbackNodes(registered_nodes_);
+        releaseAllCallbackNodes();
     }
 
     SingleThreadedExecutor(const SingleThreadedExecutor&)                = delete;
@@ -188,7 +190,19 @@ protected:
     ///
     /// Called on each callback removal.
     ///
-    virtual void didRemoveCallback(const Callback::Id) {}
+    virtual void didRemoveCallback(const Callback::Id)
+    {
+        // Nothing to do here, but subclasses may override this method.
+    }
+
+    void releaseAllCallbackNodes() noexcept
+    {
+        // Note, we release only `registered_nodes_` tree here b/c "helper" `scheduled_nodes_` tree
+        // is based on a subset of the same nodes allocated for the "master" `registered_nodes_` tree.
+        releaseCallbackNodes(registered_nodes_);
+        scheduled_nodes_  = {};
+        registered_nodes_ = {};
+    }
 
 private:
     class ScheduledNode : public cavl::Node<ScheduledNode>
@@ -291,8 +305,8 @@ private:
         scheduled_node.executionTime() = exec_time;
 
         const std::tuple<ScheduledNode*, bool> sched_node_existing = scheduled_nodes_.search(  //
-            [exec_time](const ScheduledNode& scheduled_node) {                                 // predicate
-                return scheduled_node.compareByExecutionTime(exec_time);
+            [exec_time](const ScheduledNode& node) {                                           // predicate
+                return node.compareByExecutionTime(exec_time);
             },
             [&scheduled_node]() { return &scheduled_node; });  // factory
 
@@ -318,14 +332,14 @@ private:
         //
         // No linting b/c we know for sure that the node was scheduled (inserted into the `scheduled_nodes_`).
         // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-        const Callback::Schedule::Variant schedule = *callback_node.schedule();
+        const Callback::Schedule::Variant schedule_var = *callback_node.schedule();
 
         return cetl::visit(
             [this, &callback_node, exec_time](const auto& schedule) {
                 //
                 return applyScheduleOnNextCallbackImpl(callback_node, exec_time, schedule);
             },
-            schedule);
+            schedule_var);
     }
 
     /// @brief Applies "Once" schedule for the next execution of a callback.
@@ -377,7 +391,7 @@ private:
     /// AVL tree is balanced, hence the `NOLINT(misc-no-recursion)` and `NOSONAR cpp:S925` exceptions.
     /// TODO: Add "post-order" traversal support to the AVL tree.
     ///
-    void releaseCallbackNodes(CallbackNode* node)  // NOLINT(misc-no-recursion)
+    void releaseCallbackNodes(CallbackNode* const node)  // NOLINT(misc-no-recursion)
     {
         if (nullptr != node)
         {

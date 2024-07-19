@@ -63,17 +63,20 @@ private:
 
     void do_deallocate(void* ptr, std::size_t size_bytes, std::size_t alignment) override
     {
-        CETL_DEBUG_ASSERT(ptr, "");
+        CETL_DEBUG_ASSERT((nullptr != ptr) || (0 == size_bytes), "");
 
-        auto prev_alloc = std::find_if(allocations.cbegin(), allocations.cend(), [ptr](const auto& alloc) {
-            return alloc.pointer == ptr;
-        });
-        CETL_DEBUG_ASSERT(prev_alloc != allocations.cend(), "");
-        if (prev_alloc != allocations.cend())
+        if (nullptr != ptr)
         {
-            allocations.erase(prev_alloc);
+            auto prev_alloc = std::find_if(allocations.cbegin(), allocations.cend(), [ptr](const auto& alloc) {
+                return alloc.pointer == ptr;
+            });
+            CETL_DEBUG_ASSERT(prev_alloc != allocations.cend(), "");
+            if (prev_alloc != allocations.cend())
+            {
+                allocations.erase(prev_alloc);
+            }
+            total_deallocated_bytes += size_bytes;
         }
-        total_deallocated_bytes += size_bytes;
 
         memory_->deallocate(ptr, size_bytes, alignment);
 
@@ -87,7 +90,6 @@ private:
                         std::size_t new_size_bytes,
                         std::size_t alignment) override
     {
-        CETL_DEBUG_ASSERT(new_size_bytes > 0, "");
         CETL_DEBUG_ASSERT((nullptr != ptr) || (0 == old_size_bytes), "");
 
         if (nullptr != ptr)

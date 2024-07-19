@@ -27,6 +27,7 @@ namespace
 
 using Duration  = libcyphal::Duration;
 using TimePoint = libcyphal::TimePoint;
+using Callback  = libcyphal::IExecutor::Callback;
 using Schedule  = libcyphal::IExecutor::Callback::Schedule;
 using namespace libcyphal::platform;  // NOLINT This our main concern here in the unit tests.
 
@@ -61,6 +62,7 @@ protected:
         };
 
         using SingleThreadedExecutor::SingleThreadedExecutor;
+        using SingleThreadedExecutor::releaseAllCallbackNodes;
 
         TimePoint now() const noexcept override
         {
@@ -116,7 +118,7 @@ TEST_F(TestSingleThreadedExecutor, registerCallback)
 
     auto nop = [](const TimePoint) { return; };
 
-    libcyphal::IExecutor::Callback::Handle handle1;
+    Callback::Handle handle1;
     EXPECT_FALSE(handle1);
 
     handle1 = executor.registerCallback(nop);
@@ -314,8 +316,8 @@ TEST_F(TestSingleThreadedExecutor, schedule_once_callback_recursively)
 
     std::vector<std::tuple<int, TimePoint>> calls;
 
-    int                                    counter = 0;
-    libcyphal::IExecutor::Callback::Handle handle;
+    int              counter = 0;
+    Callback::Handle handle;
     handle = executor.registerCallback([&](auto now) {
         //
         ++counter;
@@ -350,8 +352,8 @@ TEST_F(TestSingleThreadedExecutor, reset_once_scheduling_from_callback)
 
     std::vector<std::tuple<int, TimePoint>> calls;
 
-    int                                    counter = 0;
-    libcyphal::IExecutor::Callback::Handle handle;
+    int              counter = 0;
+    Callback::Handle handle;
     handle = executor.registerCallback([&](auto now) {
         //
         ++counter;
@@ -384,8 +386,8 @@ TEST_F(TestSingleThreadedExecutor, reset_once_scheduling_from_auto_remove_callba
 
     std::vector<std::tuple<int, TimePoint>> calls;
 
-    int                                    counter = 0;
-    libcyphal::IExecutor::Callback::Handle handle;
+    int              counter = 0;
+    Callback::Handle handle;
     handle = executor.registerCallback([&](auto now) {
         //
         ++counter;
@@ -410,6 +412,45 @@ TEST_F(TestSingleThreadedExecutor, reset_once_scheduling_from_auto_remove_callba
     }
 
     EXPECT_THAT(calls, ElementsAre(std::make_tuple(1, TimePoint{5ms})));
+}
+
+TEST_F(TestSingleThreadedExecutor, reset_repeat_scheduling_from_callback)
+{
+    MySingleThreadedExecutor executor{mr_};
+
+    std::vector<std::tuple<int, TimePoint>> calls;
+
+    int              counter = 0;
+    Callback::Handle handle  = executor.registerCallback([&](auto now) {
+        //
+        ++counter;
+        calls.emplace_back(std::make_tuple(counter, now));
+
+        if (counter == 3)
+        {
+            handle.reset();
+        }
+    });
+
+    auto virtual_now = TimePoint{};
+    EXPECT_TRUE(handle.scheduleAt(virtual_now + 20ms, Schedule::Repeat{5ms}));
+
+    const auto deadline = virtual_now + 100ms;
+    EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
+
+    while (virtual_now < deadline)
+    {
+        const auto spin_result = executor.spinOnce();
+        EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
+
+        virtual_now = spin_result.next_exec_time.value_or(virtual_now + 1ms);
+        EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
+    }
+
+    EXPECT_THAT(calls,
+                ElementsAre(std::make_tuple(1, TimePoint{20ms}),
+                            std::make_tuple(2, TimePoint{25ms}),
+                            std::make_tuple(3, TimePoint{30ms})));
 }
 
 TEST_F(TestSingleThreadedExecutor, spinOnce_worsth_lateness)
@@ -440,6 +481,15 @@ TEST_F(TestSingleThreadedExecutor, spinOnce_worsth_lateness)
     EXPECT_THAT(spin_result.worst_lateness, 6ms);
 
     EXPECT_THAT(calls, ElementsAre(std::make_tuple(2, TimePoint{10ms}), std::make_tuple(1, TimePoint{10ms})));
+}
+
+TEST_F(TestSingleThreadedExecutor, handle_invalidation)
+{
+    MySingleThreadedExecutor executor{mr_};
+
+    auto handle = executor.registerCallback([&](auto) {});
+    executor.releaseAllCallbackNodes();
+    EXPECT_FALSE(handle.scheduleAt({}, Schedule::Once{}));
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
