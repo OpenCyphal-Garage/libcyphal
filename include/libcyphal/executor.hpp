@@ -221,7 +221,7 @@ public:
     /// @param is_auto_remove If `true`, the callback will be automatically removed at execution.
     ///                       Useful for "one-time fire" callbacks, so that release resources as soon as fired.
     /// @return Valid handle to the successfully appended callback;
-    ///         Otherwise invalid handle (see `Handle::isValid`) - in case of the appending failure.
+    ///         Otherwise invalid handle (see `Handle::operator bool`) - in case of the appending failure.
     ///
     CETL_NODISCARD Callback::Handle registerCallback(Callback::Function&& function)
     {

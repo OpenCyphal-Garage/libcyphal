@@ -101,12 +101,12 @@ public:
     /// The callback will be called by the executor when this socket will be ready to accept more data.
     ///
     /// For example, POSIX socket implementation may pass its OS handle to the executor implementation,
-    /// and executor will use `::epoll` POSIX api & `EPOLLOUT` event to schedule this callback for execution.
+    /// and executor will use `::poll` POSIX api & `POLLOUT` event to schedule this callback for execution.
     ///
     /// @param executor The executor to register the callback at.
     /// @param function The function to be called when TX socket became "ready to send".
     /// @return Valid handle to the successfully appended callback;
-    ///         Otherwise invalid handle (see `Handle::isValid`) - in case of the appending failure.
+    ///         Otherwise invalid handle (see `Handle::operator bool`) - in case of the appending failure.
     ///
     CETL_NODISCARD virtual IExecutor::Callback::Handle registerCallback(IExecutor&                      executor,
                                                                         IExecutor::Callback::Function&& function) = 0;
@@ -153,6 +153,21 @@ public:
     };
     CETL_NODISCARD virtual ReceiveResult::Type receive() = 0;
     ///@}
+
+    /// @brief Registers "ready to receive" callback function at a given executor.
+    ///
+    /// The callback will be called by the executor when this socket will be ready to be read.
+    ///
+    /// For example, POSIX socket implementation may pass its OS handle to the executor implementation,
+    /// and executor will use `::poll` POSIX api & `POLLIN` event to schedule this callback for execution.
+    ///
+    /// @param executor The executor to register the callback at.
+    /// @param function The function to be called when TX socket became "ready to receive".
+    /// @return Valid handle to the successfully appended callback;
+    ///         Otherwise invalid handle (see `Handle::operator bool`) - in case of the appending failure.
+    ///
+    CETL_NODISCARD virtual IExecutor::Callback::Handle registerCallback(IExecutor&                      executor,
+                                                                        IExecutor::Callback::Function&& function) = 0;
 
 protected:
     IRxSocket()  = default;

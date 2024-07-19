@@ -160,6 +160,12 @@ public:
             return rx_socket_mock_.receive();
         }
 
+        CETL_NODISCARD IExecutor::Callback::Handle registerCallback(IExecutor&                      executor,
+                                                                    IExecutor::Callback::Function&& function) override
+        {
+            return rx_socket_mock_.registerCallback(executor, std::move(function));
+        }
+
     private:
         RxSocketMock& rx_socket_mock_;
 
@@ -194,6 +200,11 @@ public:
     // MARK: IRxSocket
 
     MOCK_METHOD(ReceiveResult::Type, receive, (), (override));
+
+    MOCK_METHOD(IExecutor::Callback::Handle,
+                registerCallback,
+                (IExecutor & executor, IExecutor::Callback::Function&& function),
+                (override));
 
 private:
     const std::string name_;

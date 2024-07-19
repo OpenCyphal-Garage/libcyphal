@@ -32,7 +32,31 @@ namespace platform
 namespace posix
 {
 
-class UdpTxSocket final : public libcyphal::transport::udp::ITxSocket
+class UdpSocketBase
+{
+protected:
+    CETL_NODISCARD libcyphal::IExecutor::Callback::Handle registerCallbackWithCondition(
+        libcyphal::IExecutor&                                  executor,
+        libcyphal::IExecutor::Callback::Function&&             function,
+        const IPosixExecutorExtension::WhenCondition::Variant& condition)
+    {
+        auto* const posix_extension = cetl::rtti_cast<IPosixExecutorExtension*>(&executor);
+        if (nullptr == posix_extension)
+        {
+            return {};
+        }
+
+        auto callback_handle = executor.registerCallback(std::move(function));
+        posix_extension->scheduleCallbackWhen(callback_handle.id(), condition);
+
+        return callback_handle;
+    }
+
+};  // UdpSocketBase
+
+// MARK: -
+
+class UdpTxSocket final : public UdpSocketBase, public libcyphal::transport::udp::ITxSocket
 {
 public:
     CETL_NODISCARD static libcyphal::transport::udp::IMedia::MakeTxSocketResult::Type make(
@@ -101,20 +125,11 @@ private:
         libcyphal::IExecutor&                      executor,
         libcyphal::IExecutor::Callback::Function&& function) override
     {
-        using WhenHandleWritable = IPosixExecutorExtension::WhenCondition::HandleWritable;
+        using HandleWritable = IPosixExecutorExtension::WhenCondition::HandleWritable;
 
         CETL_DEBUG_ASSERT(handle_.fd >= 0, "");
 
-        auto* const posix_extension = cetl::rtti_cast<IPosixExecutorExtension*>(&executor);
-        if (nullptr == posix_extension)
-        {
-            return {};
-        }
-
-        auto callback_handle = executor.registerCallback(std::move(function));
-        posix_extension->scheduleCallbackWhen(callback_handle.id(), WhenHandleWritable{handle_.fd});
-
-        return callback_handle;
+        return registerCallbackWithCondition(executor, std::move(function), HandleWritable{handle_.fd});
     }
 
     // MARK: Data members:
@@ -125,7 +140,7 @@ private:
 
 // MARK: -
 
-class UdpRxSocket final : public libcyphal::transport::udp::IRxSocket
+class UdpRxSocket final : public UdpSocketBase, public libcyphal::transport::udp::IRxSocket
 {
 public:
     CETL_NODISCARD static libcyphal::transport::udp::IMedia::MakeRxSocketResult::Type make(
@@ -175,6 +190,17 @@ private:
         CETL_DEBUG_ASSERT(handle_.fd >= 0, "");
 
         return ReceiveResult::Failure{libcyphal::transport::MemoryError{}};
+    }
+
+    CETL_NODISCARD libcyphal::IExecutor::Callback::Handle registerCallback(
+        libcyphal::IExecutor&                      executor,
+        libcyphal::IExecutor::Callback::Function&& function) override
+    {
+        using HandleReadable = IPosixExecutorExtension::WhenCondition::HandleReadable;
+
+        CETL_DEBUG_ASSERT(handle_.fd >= 0, "");
+
+        return registerCallbackWithCondition(executor, std::move(function), HandleReadable{handle_.fd});
     }
 
     // MARK: Data members:
