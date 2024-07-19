@@ -33,12 +33,14 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <iomanip>
+#include <iostream>
 #include <utility>
-#include <vector>
 
 namespace
 {
@@ -48,6 +50,7 @@ using namespace libcyphal::transport::udp;  // NOLINT This our main concern here
 
 using CallbackHandle      = libcyphal::IExecutor::Callback::Handle;
 using UdpTransportPtr     = libcyphal::UniquePtr<libcyphal::transport::udp::IUdpTransport>;
+using MessageRxSessionPtr = libcyphal::UniquePtr<libcyphal::transport::IMessageRxSession>;
 using MessageTxSessionPtr = libcyphal::UniquePtr<libcyphal::transport::IMessageTxSession>;
 
 // https://github.com/llvm/llvm-project/issues/53444
@@ -106,7 +109,7 @@ protected:
 
     void publishHeartbeat(const libcyphal::TimePoint now)
     {
-        state_.heartbeat_.transfer_id_ += 1;
+        state_.tx_heartbeat_.transfer_id_ += 1;
 
         const auto uptime         = now.time_since_epoch();
         const auto uptime_in_secs = std::chrono::duration_cast<std::chrono::seconds>(uptime);
@@ -116,8 +119,8 @@ protected:
                                                     {uavcan::node::Mode_1_0::OPERATIONAL}};
 
         EXPECT_THAT(serializeAndSend(heartbeat,
-                                     *state_.heartbeat_.msg_tx_session_,
-                                     TransferMetadata{state_.heartbeat_.transfer_id_, now, Priority::Nominal}),
+                                     *state_.tx_heartbeat_.msg_tx_session_,
+                                     TransferMetadata{state_.tx_heartbeat_.transfer_id_, now, Priority::Nominal}),
                     Eq(cetl::nullopt))
             << "Failed to publish heartbeat.";
     }
@@ -127,7 +130,32 @@ protected:
 
     struct State
     {
-        struct Heartbeat
+        struct RxHeartbeat
+        {
+            MessageRxSessionPtr msg_rx_session_;
+
+            bool makeRxSession(ITransport& transport)
+            {
+                auto maybe_msg_rx_session =
+                    transport.makeMessageRxSession({uavcan::node::Heartbeat_1_0::_traits_::ExtentBytes,
+                                                    uavcan::node::Heartbeat_1_0::_traits_::FixedPortId});
+                EXPECT_THAT(maybe_msg_rx_session, VariantWith<MessageRxSessionPtr>(_))
+                    << "Failed to create Heartbeat RX session.";
+                if (auto* const session = cetl::get_if<MessageRxSessionPtr>(&maybe_msg_rx_session))
+                {
+                    msg_rx_session_ = std::move(*session);
+                }
+                return nullptr != msg_rx_session_;
+            }
+
+            void reset()
+            {
+                msg_rx_session_.reset();
+            }
+
+        };  // RxHeartbeat
+
+        struct TxHeartbeat
         {
             TransferId          transfer_id_{0};
             MessageTxSessionPtr msg_tx_session_;
@@ -138,7 +166,7 @@ protected:
                 auto maybe_msg_tx_session =
                     transport.makeMessageTxSession({uavcan::node::Heartbeat_1_0::_traits_::FixedPortId});
                 EXPECT_THAT(maybe_msg_tx_session, VariantWith<MessageTxSessionPtr>(_))
-                    << "Failed to create Heartbeat tx session.";
+                    << "Failed to create Heartbeat TX session.";
                 if (auto* const session = cetl::get_if<MessageTxSessionPtr>(&maybe_msg_tx_session))
                 {
                     msg_tx_session_ = std::move(*session);
@@ -152,14 +180,16 @@ protected:
                 msg_tx_session_.reset();
             }
 
-        };  // Heartbeat
+        };  // TxHeartbeat
 
         void reset()
         {
-            heartbeat_.reset();
+            rx_heartbeat_.reset();
+            tx_heartbeat_.reset();
         }
 
-        Heartbeat heartbeat_;
+        RxHeartbeat rx_heartbeat_;
+        TxHeartbeat tx_heartbeat_;
 
     };  // State
 
@@ -175,6 +205,8 @@ TEST_F(Example_02_Transport, posix_udp)
 {
     using Schedule = libcyphal::IExecutor::Callback::Schedule;
 
+    std::cerr.imbue(std::locale("en_US.UTF-8"));
+
     const libcyphal::transport::NodeId local_node_id{2000};
 
     // Make UDP transport with a single media.
@@ -183,26 +215,50 @@ TEST_F(Example_02_Transport, posix_udp)
     std::array<udp::IMedia*, 1>        media_array{&udp_media};
     auto                               udp_transport = makeUdpTransport(media_array, local_node_id);
 
+    const auto startup = executor_.now();
+
+    // Subscribe for heartbeat messages.
+    //
+    state_.rx_heartbeat_.makeRxSession(*udp_transport);
+
     // Publish heartbeat periodically.
     //
-    if (state_.heartbeat_.makeTxSession(*udp_transport))
+    if (state_.tx_heartbeat_.makeTxSession(*udp_transport))
     {
         // state_.heartbeat_.msg_tx_session_->setSendTimeout(1000s);  // for stepping in debugger
 
-        state_.heartbeat_.cb_handle_ = executor_.registerCallback([&](const auto now) {
+        constexpr auto period = std::chrono::seconds{uavcan::node::Heartbeat_1_0::MAX_PUBLICATION_PERIOD};
+
+        state_.tx_heartbeat_.cb_handle_ = executor_.registerCallback([&](const auto now) {
             //
             publishHeartbeat(now);
         });
-        constexpr auto period = uavcan::node::Heartbeat_1_0::MAX_PUBLICATION_PERIOD;
-        state_.heartbeat_.cb_handle_.scheduleAt(executor_.now(), Schedule::Repeat{std::chrono::seconds{period}});
+        state_.tx_heartbeat_.cb_handle_.scheduleAt(startup, Schedule::Repeat{period});
     }
 
     // Main loop.
     //
-    const auto deadline = executor_.now() + 10s;
+    libcyphal::Duration worst_lateness{0};
+    const auto          deadline = startup + 20s;
+    //
     while (executor_.now() < deadline)
     {
         const auto spin_result = executor_.spinOnce();
+
+        worst_lateness = std::max(worst_lateness, spin_result.worst_lateness);
+
+        if (state_.rx_heartbeat_.msg_rx_session_)
+        {
+            auto rx_heartbeat = state_.rx_heartbeat_.msg_rx_session_->receive();
+            if (rx_heartbeat)
+            {
+                const auto rel_time = rx_heartbeat->metadata.timestamp - startup;
+                std::cerr << "Received heartbeat from node " << rx_heartbeat->metadata.publisher_node_id.value_or(0)
+                          << " @ " << std::setw(8)
+                          << std::chrono::duration_cast<std::chrono::milliseconds>(rel_time).count()
+                          << " ms, tx_id=" << rx_heartbeat->metadata.transfer_id << "\n";
+            }
+        }
 
         cetl::optional<libcyphal::Duration> opt_timeout;
         if (spin_result.next_exec_time.has_value())
@@ -211,6 +267,8 @@ TEST_F(Example_02_Transport, posix_udp)
         }
         EXPECT_THAT(executor_.pollAwaitableResourcesFor(opt_timeout), Eq(cetl::nullopt));
     }
+
+    std::cout << "worst_lateness = " << worst_lateness.count() << " us\n";
 
     state_.reset();
     udp_transport.reset();

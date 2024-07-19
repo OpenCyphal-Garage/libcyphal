@@ -310,12 +310,19 @@ TEST_F(TestUpdTransport, makeMessageRxSession)
 
     scheduler_.scheduleAt(1s, [&] {
         //
+        EXPECT_CALL(rx_socket_mock_, registerCallback(_, _))  //
+            .WillOnce(Invoke([&](auto&, auto function) {      //
+                return scheduler_.registerCallback(std::move(function));
+            }));
+
         auto maybe_rx_session = transport->makeMessageRxSession({42, 123});
         ASSERT_THAT(maybe_rx_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
 
         auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_rx_session));
         EXPECT_THAT(session->getParams().extent_bytes, 42);
         EXPECT_THAT(session->getParams().subject_id, 123);
+
+        session.reset();
     });
     scheduler_.spinFor(10s);
 }
@@ -340,6 +347,10 @@ TEST_F(TestUpdTransport, makeMessageRxSession_invalid_resubscription)
 
     scheduler_.scheduleAt(1s, [&] {
         //
+        EXPECT_CALL(rx_socket_mock_, registerCallback(_, _))  //
+            .WillOnce(Invoke([&](auto&, auto function) {      //
+                return scheduler_.registerCallback(std::move(function));
+            }));
         auto maybe_rx_session1 = transport->makeMessageRxSession({0, test_subject_id});
         ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
 
@@ -348,6 +359,10 @@ TEST_F(TestUpdTransport, makeMessageRxSession_invalid_resubscription)
     });
     scheduler_.scheduleAt(2s, [&] {
         //
+        EXPECT_CALL(rx_socket_mock_, registerCallback(_, _))  //
+            .WillOnce(Invoke([&](auto&, auto function) {      //
+                return scheduler_.registerCallback(std::move(function));
+            }));
         auto maybe_rx_session2 = transport->makeMessageRxSession({0, test_subject_id});
         ASSERT_THAT(maybe_rx_session2, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     });
@@ -404,6 +419,10 @@ TEST_F(TestUpdTransport, makeXxxRxSession_all_with_same_port_id)
 
     scheduler_.scheduleAt(1s, [&] {
         //
+        EXPECT_CALL(rx_socket_mock_, registerCallback(_, _))  //
+            .WillOnce(Invoke([&](auto&, auto function) {      //
+                return scheduler_.registerCallback(std::move(function));
+            }));
         const PortId test_port_id              = 111;
         auto         maybe_svc_res_rx_session1 = transport->makeResponseRxSession({0, test_port_id, 0x31});
         ASSERT_THAT(maybe_svc_res_rx_session1, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));

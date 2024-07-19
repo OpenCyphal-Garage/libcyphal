@@ -322,14 +322,6 @@ private:
 
     CETL_NODISCARD IRunnable::MaybeFailure run(const TimePoint) override
     {
-        cetl::optional<AnyFailure> failure;
-
-        failure = runMediaReceive();
-        if (failure.has_value())
-        {
-            return std::move(failure.value());
-        }
-
         return {};
     }
 
@@ -393,13 +385,18 @@ private:
             [this](const auto& event) {
                 cetl::visit(cetl::make_overloaded(
                                 [this](const SessionEvent::Message::Destroyed& msg_session_destroyed) {
+                                    //
                                     msg_rx_session_nodes_.removeNodeFor(msg_session_destroyed.subject_id);
                                 },
                                 [this](const SessionEvent::Request::Destroyed& req_session_destroyed) {
+                                    //
                                     svc_request_rx_session_nodes_.removeNodeFor(req_session_destroyed.service_id);
+                                    cancelSvcRxSocketCallbackIfNeeded();
                                 },
                                 [this](const SessionEvent::Response::Destroyed& res_session_destroyed) {
+                                    //
                                     svc_response_rx_session_nodes_.removeNodeFor(res_session_destroyed.service_id);
+                                    cancelSvcRxSocketCallbackIfNeeded();
                                 }),
                             event);
             },
@@ -497,9 +494,27 @@ private:
         // Try to create all (per each media) RX sockets for message subscription.
         // For now, we're just creating them, without any attempt to use them yet - hence the "do nothing" action.
         //
-        auto media_failure = withMediaRxSocketsFor(  //
+        auto media_failure = withMediaMsgRxSockets(  //
             new_msg_node,
-            [](const auto&, auto&, auto&, auto&) -> cetl::optional<AnyFailure> { return cetl::nullopt; });
+            [this](const auto& media, auto& socket_state, auto& subscription, auto& session_delegate)
+                -> cetl::optional<AnyFailure> {
+                //
+                if (!socket_state.cb_handle)
+                {
+                    socket_state.cb_handle = socket_state.interface->registerCallback(  //
+                        executor_,
+                        [this, &media, &socket_state, &subscription, &session_delegate](const TimePoint) {
+                            //
+                            receiveNextMsgFrameFromMediaSocket(media, socket_state, subscription, session_delegate);
+                        });
+
+                    if (!socket_state.cb_handle)
+                    {
+                        return MemoryError{};
+                    }
+                }
+                return cetl::nullopt;
+            });
         if (media_failure.has_value())
         {
             return std::move(media_failure.value());
@@ -516,8 +531,25 @@ private:
         // Try to create all (per each media) shared RX sockets for services.
         // For now, we're just creating them, without any attempt to use them yet - hence the "do nothing" action.
         //
-        auto media_failure = withMediaServiceRxSockets(
-            [](const auto&, const auto&) -> cetl::optional<AnyFailure> { return cetl::nullopt; });
+        auto media_failure = withMediaSvcRxSockets([this](auto& media,
+                                                          auto& socket_state) -> cetl::optional<AnyFailure> {  //
+            //
+            if (!socket_state.cb_handle)
+            {
+                socket_state.cb_handle = socket_state.interface->registerCallback(  //
+                    executor_,
+                    [this, &media, &socket_state](auto) {
+                        //
+                        receiveNextSvcFrameFromMediaSocket(media, socket_state);
+                    });
+
+                if (!socket_state.cb_handle)
+                {
+                    return MemoryError{};
+                }
+            }
+            return cetl::nullopt;
+        });
         if (media_failure.has_value())
         {
             return std::move(media_failure.value());
@@ -787,11 +819,11 @@ private:
             }
         }
 
-        return std::forward<Action>(action)(media, *(socket_state.interface), std::forward<Args>(args)...);
+        return std::forward<Action>(action)(media, socket_state, std::forward<Args>(args)...);
     }
 
     template <typename Action>
-    CETL_NODISCARD cetl::optional<AnyFailure> withMediaRxSocketsFor(RxSessionTreeNode::Message& msg_rx_node,
+    CETL_NODISCARD cetl::optional<AnyFailure> withMediaMsgRxSockets(RxSessionTreeNode::Message& msg_rx_node,
                                                                     const Action&               action)
     {
         IMsgRxSessionDelegate* const session_delegate = msg_rx_node.delegate();
@@ -821,7 +853,7 @@ private:
     }
 
     template <typename Action>
-    CETL_NODISCARD cetl::optional<AnyFailure> withMediaServiceRxSockets(const Action& action)
+    CETL_NODISCARD cetl::optional<AnyFailure> withMediaSvcRxSockets(const Action& action)
     {
         for (Media& media : media_array_)
         {
@@ -836,72 +868,35 @@ private:
         return cetl::nullopt;
     }
 
-    CETL_NODISCARD cetl::optional<AnyFailure> runMediaReceive()
+    CETL_NODISCARD IRxSocket::ReceiveResult::Success tryReceiveFromRxSocket(const Media&            media,
+                                                                            SocketState<IRxSocket>& socket_state)
     {
-        // 1. First run all service RX sockets, but only in case there is at least one service session.
-        //
-        if ((!svc_request_rx_session_nodes_.isEmpty()) || (!svc_response_rx_session_nodes_.isEmpty()))
+        if (!socket_state.interface)
         {
-            cetl::optional<AnyFailure> failure = withMediaServiceRxSockets(
-                [this](const Media& media, IRxSocket& rx_socket) -> cetl::optional<AnyFailure> {
-                    return runRxForServiceMediaRxSocket(media, rx_socket);
-                });
-            if (failure.has_value())
-            {
-                return failure;
-            }
+            return cetl::nullopt;
         }
+        auto& rx_socket = *socket_state.interface;
 
-        // 2. Next run all message subscription RX sockets, but only in case there is at least one message session.
-        //
-        if (!msg_rx_session_nodes_.isEmpty())
-        {
-            cetl::optional<AnyFailure> failure = msg_rx_session_nodes_.forEachNode(
-                [this](RxSessionTreeNode::Message& msg_rx_node) -> cetl::optional<AnyFailure> {
-                    return withMediaRxSocketsFor(  //
-                        msg_rx_node,
-                        [this](const Media& media, auto& rx_socket, auto& subscription, auto& session_delegate)
-                            -> cetl::optional<AnyFailure> {
-                            return runRxForMessageMediaRxSocket(media, rx_socket, subscription, session_delegate);
-                        });
-                });
-            if (failure.has_value())
-            {
-                return failure;
-            }
-        }
-
-        return cetl::nullopt;
-    }
-
-    CETL_NODISCARD Expected<IRxSocket::ReceiveResult::Metadata, cetl::optional<AnyFailure>> tryReceiveFromRxSocket(
-        const Media& media,
-        IRxSocket&   rx_socket)
-    {
         IRxSocket::ReceiveResult::Type receive_result = rx_socket.receive();
         if (auto* const failure = cetl::get_if<IRxSocket::ReceiveResult::Failure>(&receive_result))
         {
             using RxSocketReport = TransientErrorReport::MediaRxSocketReceive;
-            return tryHandleTransientMediaError<RxSocketReport>(media, std::move(*failure), rx_socket);
-        }
-        auto rx_success = cetl::get<IRxSocket::ReceiveResult::Success>(std::move(receive_result));
-        if (!rx_success.has_value())
-        {
+            tryHandleTransientMediaError<RxSocketReport>(media, std::move(*failure), rx_socket);
             return cetl::nullopt;
         }
-        return std::move(rx_success.value());
+        return cetl::get<IRxSocket::ReceiveResult::Success>(std::move(receive_result));
     }
 
-    CETL_NODISCARD cetl::optional<AnyFailure> runRxForServiceMediaRxSocket(const Media& media, IRxSocket& rx_socket)
+    void receiveNextSvcFrameFromMediaSocket(const Media& media, SocketState<IRxSocket>& socket_state)
     {
         // 1. Try to receive a frame from the media RX socket.
         //
-        auto receive_result = tryReceiveFromRxSocket(media, rx_socket);
-        if (const auto* const failure = cetl::get_if<cetl::optional<AnyFailure>>(&receive_result))
+        auto opt_rx_meta = tryReceiveFromRxSocket(media, socket_state);
+        if (!opt_rx_meta)
         {
-            return *failure;
+            return;
         }
-        auto rx_meta = cetl::get<IRxSocket::ReceiveResult::Metadata>(std::move(receive_result));
+        auto& rx_meta = *opt_rx_meta;
 
         // 2. We've got a new frame from the media RX socket, so let's try to pass it into libudpard RPC dispatcher.
 
@@ -934,8 +929,7 @@ private:
         //    If so, we need to pass it to the session delegate for storing.
         //
         using DispatcherReport = TransientErrorReport::UdpardRxSvcReceive;
-        cetl::optional<AnyFailure> failure =
-            tryHandleTransientUdpardResult<DispatcherReport>(media, result, getUdpardRpcDispatcher());
+        const auto failure = tryHandleTransientUdpardResult<DispatcherReport>(media, result, getUdpardRpcDispatcher());
         if ((!failure.has_value()) && (result > 0))
         {
             CETL_DEBUG_ASSERT(out_port != nullptr, "Expected subscription.");
@@ -946,23 +940,21 @@ private:
             auto* const delegate = static_cast<IRxSessionDelegate*>(out_port->user_reference);  // NOSONAR cpp:S5357
             delegate->acceptRxTransfer(out_transfer.base);
         }
-
-        return failure;
     }
 
-    CETL_NODISCARD cetl::optional<AnyFailure> runRxForMessageMediaRxSocket(const Media&          media,
-                                                                           IRxSocket&            rx_socket,
-                                                                           UdpardRxSubscription& subscription,
-                                                                           IRxSessionDelegate&   session_delegate)
+    void receiveNextMsgFrameFromMediaSocket(const Media&            media,
+                                            SocketState<IRxSocket>& socket_state,
+                                            UdpardRxSubscription&   subscription,
+                                            IRxSessionDelegate&     session_delegate)
     {
         // 1. Try to receive a frame from the media RX socket.
         //
-        auto receive_result = tryReceiveFromRxSocket(media, rx_socket);
-        if (const auto* const failure = cetl::get_if<cetl::optional<AnyFailure>>(&receive_result))
+        auto opt_rx_meta = tryReceiveFromRxSocket(media, socket_state);
+        if (!opt_rx_meta)
         {
-            return *failure;
+            return;
         }
-        auto rx_meta = cetl::get<IRxSocket::ReceiveResult::Metadata>(std::move(receive_result));
+        auto& rx_meta = *opt_rx_meta;
 
         // 2. We've got a new frame from the media RX socket, so let's try to pass it into libudpard subscription.
 
@@ -993,14 +985,22 @@ private:
         //    If so, we need to pass it to the session delegate for storing.
         //
         using SubscriptionReport = TransientErrorReport::UdpardRxMsgReceive;
-        cetl::optional<AnyFailure> failure =
-            tryHandleTransientUdpardResult<SubscriptionReport>(media, result, subscription);
+        const auto failure       = tryHandleTransientUdpardResult<SubscriptionReport>(media, result, subscription);
         if ((!failure.has_value()) && (result > 0))
         {
             session_delegate.acceptRxTransfer(out_transfer);
         }
+    }
 
-        return failure;
+    void cancelSvcRxSocketCallbackIfNeeded()
+    {
+        if (svc_request_rx_session_nodes_.isEmpty() && svc_response_rx_session_nodes_.isEmpty())
+        {
+            for (Media& media : media_array_)
+            {
+                media.svcRxSocketState().cb_handle.reset();
+            }
+        }
     }
 
     // MARK: Data members:

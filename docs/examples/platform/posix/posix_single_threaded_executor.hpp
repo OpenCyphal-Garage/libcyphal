@@ -117,10 +117,14 @@ public:
         }
 
         int poll_result = ::poll(poll_fds_.data(), static_cast<nfds_t>(poll_fds_.size()), clamped_timeout_ms);
-        if (poll_result <= 0)
+        if (poll_result < 0)
         {
             const auto err = errno;
             return libcyphal::transport::PlatformError{PosixPlatformError{err}};
+        }
+        if (poll_result == 0)
+        {
+            return cetl::nullopt;
         }
 
         const auto now_time = now();
