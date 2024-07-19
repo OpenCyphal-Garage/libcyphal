@@ -48,8 +48,10 @@ public:
             ///
             struct Once
             {
-                /// If `true`, the corresponding callback will be automatically unregistered on its execution.
-                /// If `false`, the callback will stay registered and could be scheduled again.
+                /// - If `false`, the callback will stay registered and could be rescheduled again.
+                /// - Otherwise, the corresponding callback will be automatically removed on its execution -
+                ///   essentially auto releasing all the associated/captured resources,
+                ///   and invalidating its handle (which can't be used anymore for further rescheduling).
                 bool is_auto_remove{false};
             };
 
@@ -132,7 +134,9 @@ public:
             ///                  Use current time (aka now) to schedule it for ASAP execution.
             ///                  It could be in the past as well - callback will be also executed as ASAP.
             /// @param schedule Contains specifics how callback will be scheduled (like once, repeatedly etc.).
-            /// @return `true` if this handle is valid, and the callback was found (not removed yet) and scheduled.
+            /// @return `true` if this handle is valid, and its callback was found and successfully scheduled.
+            ///         Otherwise `false` - in case the handle either has been reset, invalidated (f.e. by
+            ///         auto removal on execution), or there are no enough resources to schedule the callback.
             ///
             bool scheduleAt(const TimePoint exec_time, const Schedule::Variant& schedule) const
             {
@@ -255,7 +259,9 @@ protected:
     ///                   Use current time (aka now) to schedule it for ASAP execution.
     ///                   It could be in the past as well - callback will be executed as soon as possible.
     /// @param schedule Contains specifics how callback will be scheduled (like once, repeatedly etc.).
-    /// @return `true` if the callback was found and scheduled.
+    /// @return `true` if the callback was found and successfully scheduled.
+    ///         Otherwise, in case the callback has been removed already (f.e. by auto removal on execution),
+    ///         or there are not enough resources to schedule the callback.
     ///
     virtual bool scheduleCallbackById(const Callback::Id                 callback_id,
                                       const TimePoint                    exec_time,

@@ -75,7 +75,6 @@ public:
             // No linting b/c we know for sure the type of the node.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast)
             auto& callback_node = static_cast<CallbackNode&>(*scheduled_node);
-            CETL_DEBUG_ASSERT(callback_node.schedule(), "");
 
             const auto exec_time = callback_node.executionTime();
             if (approx_now < exec_time)
@@ -90,7 +89,7 @@ public:
 
             spin_result.worst_lateness = std::max(approx_now - exec_time, spin_result.worst_lateness);
 
-            const bool is_removed = applyNextTimeSchedulingPolicy(callback_node, exec_time);
+            const bool is_removed = applyScheduleOnNextCallback(callback_node, exec_time);
 
             callback_node(approx_now);
 
@@ -185,6 +184,10 @@ protected:
         destroyCallbackNode(callback_node);
     }
 
+    /// @brief Extension point for subclasses to handle callback removal.
+    ///
+    /// Called on each callback removal.
+    ///
     virtual void didRemoveCallback(const Callback::Id) {}
 
 private:
@@ -306,20 +309,36 @@ private:
         }
     }
 
-    bool applyNextTimeSchedulingPolicy(CallbackNode& callback_node, const TimePoint exec_time)
+    bool applyScheduleOnNextCallback(CallbackNode& callback_node, const TimePoint exec_time)
     {
         CETL_DEBUG_ASSERT(callback_node.schedule(), "");
 
+        // Make a copy of the schedule (instead of a reference),
+        // so that impl visitors could modify node's schedule at will.
+        //
+        // No linting b/c we know for sure that the node was scheduled (inserted into the `scheduled_nodes_`).
+        // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+        const Callback::Schedule::Variant schedule = *callback_node.schedule();
+
         return cetl::visit(
-            [this, &callback_node, exec_time](const auto schedule) {  //
-                return applyNextTimeSchedulingPolicy(callback_node, exec_time, schedule);
+            [this, &callback_node, exec_time](const auto& schedule) {
+                //
+                return applyScheduleOnNextCallbackImpl(callback_node, exec_time, schedule);
             },
-            *callback_node.schedule());
+            schedule);
     }
 
-    bool applyNextTimeSchedulingPolicy(CallbackNode& callback_node,
-                                       const TimePoint,
-                                       const Callback::Schedule::Once& once_schedule)
+    /// @brief Applies "Once" schedule for the next execution of a callback.
+    ///
+    /// There is no "next" execution b/c it's a "once" schedule, so we just remove the node
+    /// from the scheduled tree - it won't be executed anymore (until rescheduled).
+    /// If it's set for auto-removal, we also remove it from the registered tree, and destroy the node -
+    /// essentially auto releasing all the associated/captured resources,
+    /// and invalidating its handle (which can't be used anymore for further rescheduling).
+    ///
+    bool applyScheduleOnNextCallbackImpl(CallbackNode& callback_node,
+                                         const TimePoint,  // exec_time
+                                         const Callback::Schedule::Once& once_schedule)
     {
         removeIfScheduledNode(callback_node);
         callback_node.schedule() = cetl::nullopt;
@@ -333,9 +352,11 @@ private:
         return once_schedule.is_auto_remove;
     }
 
-    bool applyNextTimeSchedulingPolicy(CallbackNode&                     callback_node,
-                                       const TimePoint                   exec_time,
-                                       const Callback::Schedule::Repeat& repeat_schedule)
+    /// @brief Applies "Repeat" schedule for the next execution of a callback.
+    ///
+    bool applyScheduleOnNextCallbackImpl(CallbackNode&                     callback_node,
+                                         const TimePoint                   exec_time,
+                                         const Callback::Schedule::Repeat& repeat_schedule)
     {
         removeIfScheduledNode(callback_node);
         insertScheduledNode(callback_node, exec_time + repeat_schedule.period);
