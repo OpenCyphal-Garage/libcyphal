@@ -391,12 +391,12 @@ private:
                                 [this](const SessionEvent::Request::Destroyed& req_session_destroyed) {
                                     //
                                     svc_request_rx_session_nodes_.removeNodeFor(req_session_destroyed.service_id);
-                                    cancelSvcRxSocketCallbackIfNeeded();
+                                    cancelRxCallbacksIfNoSvcLeft();
                                 },
                                 [this](const SessionEvent::Response::Destroyed& res_session_destroyed) {
                                     //
                                     svc_response_rx_session_nodes_.removeNodeFor(res_session_destroyed.service_id);
-                                    cancelSvcRxSocketCallbackIfNeeded();
+                                    cancelRxCallbacksIfNoSvcLeft();
                                 }),
                             event);
             },
@@ -505,7 +505,7 @@ private:
                         executor_,
                         [this, &media, &socket_state, &subscription, &session_delegate](const TimePoint) {
                             //
-                            receiveNextMsgFrameFromMediaSocket(media, socket_state, subscription, session_delegate);
+                            receiveNextMessageFrame(media, socket_state, subscription, session_delegate);
                         });
 
                     if (!socket_state.cb_handle)
@@ -540,7 +540,7 @@ private:
                     executor_,
                     [this, &media, &socket_state](auto) {
                         //
-                        receiveNextSvcFrameFromMediaSocket(media, socket_state);
+                        receiveNextServiceFrame(media, socket_state);
                     });
 
                 if (!socket_state.cb_handle)
@@ -887,7 +887,7 @@ private:
         return cetl::get<IRxSocket::ReceiveResult::Success>(std::move(receive_result));
     }
 
-    void receiveNextSvcFrameFromMediaSocket(const Media& media, SocketState<IRxSocket>& socket_state)
+    void receiveNextServiceFrame(const Media& media, SocketState<IRxSocket>& socket_state)
     {
         // 1. Try to receive a frame from the media RX socket.
         //
@@ -942,10 +942,10 @@ private:
         }
     }
 
-    void receiveNextMsgFrameFromMediaSocket(const Media&            media,
-                                            SocketState<IRxSocket>& socket_state,
-                                            UdpardRxSubscription&   subscription,
-                                            IRxSessionDelegate&     session_delegate)
+    void receiveNextMessageFrame(const Media&            media,
+                                 SocketState<IRxSocket>& socket_state,
+                                 UdpardRxSubscription&   subscription,
+                                 IRxSessionDelegate&     session_delegate)
     {
         // 1. Try to receive a frame from the media RX socket.
         //
@@ -992,7 +992,7 @@ private:
         }
     }
 
-    void cancelSvcRxSocketCallbackIfNeeded()
+    void cancelRxCallbacksIfNoSvcLeft()
     {
         if (svc_request_rx_session_nodes_.isEmpty() && svc_response_rx_session_nodes_.isEmpty())
         {
