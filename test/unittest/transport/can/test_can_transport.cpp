@@ -681,7 +681,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
     EXPECT_THAT(params.service_id, 0x17B);
     EXPECT_THAT(params.server_node_id, 0x31);
 
-    const auto timeout = 200ms;
+    constexpr auto timeout = 200ms;
     session->setTransferIdTimeout(timeout);
 
     {

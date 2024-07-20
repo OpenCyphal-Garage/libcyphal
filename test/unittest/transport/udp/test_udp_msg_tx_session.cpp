@@ -253,7 +253,7 @@ TEST_F(TestUdpMsgTxSession, send_empty_expired_payload)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    const auto timeout = 1s;
+    constexpr auto timeout = 1s;
 
     const PayloadFragments empty_payload{};
     TransferMetadata       metadata{0x11, {}, Priority::Low};
@@ -283,7 +283,7 @@ TEST_F(TestUdpMsgTxSession, send_single_frame_payload_with_500ms_timeout)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    const auto timeout = 500ms;
+    constexpr auto timeout = 500ms;
     session->setSendTimeout(timeout);
 
     const auto       payload = makeIotaArray<UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME>(b('1'));

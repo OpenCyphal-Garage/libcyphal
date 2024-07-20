@@ -481,7 +481,7 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    const auto timeout = 1s;
+    constexpr auto timeout = 1s;
 
     const auto       payload = makeIotaArray<UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 1>(b('0'));
     TransferMetadata metadata{0x13, {}, Priority::Nominal};
@@ -544,7 +544,7 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    const auto timeout = 1s;
+    constexpr auto timeout = 1s;
 
     const auto       payload = makeIotaArray<UDPARD_MTU_DEFAULT>(b('0'));
     TransferMetadata metadata{0x13, {}, Priority::Nominal};
@@ -662,7 +662,7 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    const auto timeout = 1s;
+    constexpr auto timeout = 1s;
 
     const auto       payload = makeIotaArray<6>(b('0'));
     TransferMetadata metadata{0x13, {}, Priority::Nominal};

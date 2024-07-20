@@ -141,8 +141,8 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy)
     auto* const payload = allocateNewUdpardPayload(4);
     fillIotaBytes({payload, 4}, b('0'));
 
-    const std::size_t payload_size = 4;
-    UdpardRxTransfer  rx_transfer{};
+    constexpr std::size_t payload_size = 4;
+    UdpardRxTransfer      rx_transfer{};
     rx_transfer.payload_size = payload_size;
     rx_transfer.payload      = UdpardFragment{nullptr, {payload_size, payload}, {payload_size, payload}};
 
@@ -199,8 +199,8 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy_on_moved)
 
     TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
 
-    const std::size_t payload_size = 4;
-    auto* const       payload      = allocateNewUdpardPayload(payload_size);
+    constexpr std::size_t payload_size = 4;
+    auto* const           payload      = allocateNewUdpardPayload(payload_size);
     fillIotaBytes({payload, payload_size}, b('0'));
 
     UdpardRxTransfer rx_transfer{};

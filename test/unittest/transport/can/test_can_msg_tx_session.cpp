@@ -224,7 +224,7 @@ TEST_F(TestCanMsgTxSession, send_7bytes_payload_with_500ms_timeout)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    const auto timeout = 500ms;
+    constexpr auto timeout = 500ms;
     session->setSendTimeout(timeout);
 
     scheduler_.runNow(+10s);

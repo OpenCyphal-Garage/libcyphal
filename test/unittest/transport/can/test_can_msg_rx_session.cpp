@@ -149,7 +149,7 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
     EXPECT_THAT(params.extent_bytes, 4);
     EXPECT_THAT(params.subject_id, 0x23);
 
-    const auto timeout = 200ms;
+    constexpr auto timeout = 200ms;
     session->setTransferIdTimeout(timeout);
 
     {

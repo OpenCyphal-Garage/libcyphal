@@ -329,10 +329,12 @@ TEST_F(TestUdpSvcTxSessions, send_request)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IRequestTxSession>>(std::move(maybe_session));
 
+    TimePoint send_time;
+
     scheduler_.scheduleAt(1s, [&] {
         //
-        const auto send_time = now();
-        const auto timeout   = 100ms;
+        send_time = now();
+        constexpr auto timeout   = 100ms;
         session->setSendTimeout(timeout);
 
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
@@ -496,10 +498,12 @@ TEST_F(TestUdpSvcTxSessions, send_response)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IResponseTxSession>>(std::move(maybe_session));
 
+    TimePoint send_time;
+
     scheduler_.scheduleAt(1s, [&] {
         //
-        const auto send_time = now();
-        const auto timeout   = 100ms;
+        send_time = now();
+        constexpr auto timeout   = 100ms;
         session->setSendTimeout(timeout);
 
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))

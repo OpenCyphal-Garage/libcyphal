@@ -149,8 +149,8 @@ TEST_F(TestCanDelegate, CanardMemory_copy_on_moved)
     TransportDelegateImpl delegate{mr_};
     auto&                 canard_instance = delegate.canard_instance();
 
-    const std::size_t payload_size = 4;
-    auto* const       payload = static_cast<byte*>(canard_instance.memory_allocate(&canard_instance, payload_size));
+    constexpr std::size_t payload_size = 4;
+    auto* const           payload = static_cast<byte*>(canard_instance.memory_allocate(&canard_instance, payload_size));
     fillIotaBytes({payload, payload_size}, b('0'));
 
     CanardMemory old_canard_memory{delegate, payload, payload_size};
