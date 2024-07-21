@@ -83,6 +83,10 @@ protected:
         {
             local_node_id_ = static_cast<NodeId>(std::stoul(node_id_str));
         }
+        if (auto* const iface_address_str = std::getenv("UAVCAN__UDP__IFACE"))
+        {
+            iface_address_ = iface_address_str;
+        }
 
         startup_time_ = executor_.now();
     }
@@ -145,9 +149,8 @@ protected:
     void printHeartbeat(const MessageRxTransfer& rx_heartbeat)
     {
         const auto rel_time = rx_heartbeat.metadata.timestamp - startup_time_;
-        std::cerr << "Received heartbeat from node " << rx_heartbeat.metadata.publisher_node_id.value_or(0)
-                  << " @ " << std::setw(8)
-                  << std::chrono::duration_cast<std::chrono::milliseconds>(rel_time).count()
+        std::cerr << "Received heartbeat from node " << rx_heartbeat.metadata.publisher_node_id.value_or(0) << " @ "
+                  << std::setw(8) << std::chrono::duration_cast<std::chrono::milliseconds>(rel_time).count()
                   << " ms, tx_id=" << rx_heartbeat.metadata.transfer_id << "\n";
     }
 
@@ -224,6 +227,7 @@ protected:
     State                                                 state_{};
     NodeId                                                local_node_id_{42};
     TimePoint                                             startup_time_{};
+    std::string                                           iface_address_{"127.0.0.1"};
     // NOLINTEND
 };
 
@@ -235,13 +239,17 @@ TEST_F(Example_02_Transport, posix_udp)
 
     // Make UDP transport with a single media.
     //
-    example::platform::posix::UdpMedia udp_media{mr_, executor_};
+    example::platform::posix::UdpMedia udp_media{mr_, executor_, iface_address_};
     std::array<udp::IMedia*, 1>        media_array{&udp_media};
     auto                               udp_transport = makeUdpTransport(media_array, local_node_id_);
 
     // Subscribe for heartbeat messages.
     //
-    state_.rx_heartbeat_.makeRxSession(*udp_transport);
+    if (!state_.rx_heartbeat_.makeRxSession(*udp_transport))
+    {
+        FAIL() << "Failed to create Heartbeat RX session, can't continue.";
+        // unreachable due to FAIL above
+    }
 
     // Publish heartbeat periodically.
     //
@@ -253,7 +261,7 @@ TEST_F(Example_02_Transport, posix_udp)
             //
             publishHeartbeat(now);
         });
-        constexpr auto period = std::chrono::seconds{uavcan::node::Heartbeat_1_0::MAX_PUBLICATION_PERIOD};
+        constexpr auto period           = std::chrono::seconds{uavcan::node::Heartbeat_1_0::MAX_PUBLICATION_PERIOD};
         state_.tx_heartbeat_.cb_handle_.scheduleAt(startup_time_ + period, Schedule::Repeat{period});
     }
 

@@ -64,12 +64,12 @@ class UdpTxSocket final : public UdpSocketBase, public libcyphal::transport::udp
 public:
     CETL_NODISCARD static libcyphal::transport::udp::IMedia::MakeTxSocketResult::Type make(
         cetl::pmr::memory_resource& memory,
-        const std::string&          address)
+        const std::string&          iface_address)
     {
         using ITxSocket = libcyphal::transport::udp::ITxSocket;
 
         UDPTxHandle handle{-1};
-        const auto  result = ::udpTxInit(&handle, ::udpParseIfaceAddress(address.c_str()));
+        const auto  result = ::udpTxInit(&handle, ::udpParseIfaceAddress(iface_address.c_str()));
         if (result < 0)
         {
             return libcyphal::transport::PlatformError{PosixPlatformError{-result}};
