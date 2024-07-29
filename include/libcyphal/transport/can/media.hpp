@@ -110,6 +110,32 @@ public:
     CETL_NODISCARD virtual PopResult::Type pop(const cetl::span<cetl::byte> payload_buffer) noexcept = 0;
     ///@}
 
+    /// @brief Registers "ready to push" callback function at a given executor.
+    ///
+    /// The callback will be called by the executor when this CAN media will be ready to accept more data.
+    ///
+    /// @param executor The executor to register the callback at.
+    /// @param function The function to be called when CAN media became "ready to push".
+    /// @return Valid handle to the successfully appended callback;
+    ///         Otherwise invalid handle (see `Handle::operator bool`) - in case of the registration failure.
+    ///
+    CETL_NODISCARD virtual IExecutor::Callback::Handle registerPushCallback(
+        IExecutor&                      executor,
+        IExecutor::Callback::Function&& function) = 0;
+
+    /// @brief Registers "ready to pop" callback function at a given executor.
+    ///
+    /// The callback will be called by the executor when this CAN media has new data to read.
+    ///
+    /// @param executor The executor to register the callback at.
+    /// @param function The function to be called when CAN media became "ready to pop".
+    /// @return Valid handle to the successfully appended callback;
+    ///         Otherwise invalid handle (see `Handle::operator bool`) - in case of the registration failure.
+    ///
+    CETL_NODISCARD virtual IExecutor::Callback::Handle registerPopCallback(
+        IExecutor&                      executor,
+        IExecutor::Callback::Function&& function) = 0;
+
 protected:
     IMedia()  = default;
     ~IMedia() = default;

@@ -103,7 +103,9 @@ TEST(TestScatteredBuffer, move_ctor_assign_size)
     StrictMock<StorageMock> storage_mock{};
     EXPECT_CALL(storage_mock, deinit()).Times(1);
     EXPECT_CALL(storage_mock, moved()).Times(1 + 1 + 1);
-    EXPECT_CALL(storage_mock, size()).Times(3).WillRepeatedly(Return(42));
+    EXPECT_CALL(storage_mock, size())  //
+        .Times(3)
+        .WillRepeatedly(Return(42));
     {
         ScatteredBuffer src{StorageWrapper{&storage_mock}};  //< +1 move
         EXPECT_THAT(src.size(), 42);
@@ -127,7 +129,8 @@ TEST(TestScatteredBuffer, copy_reset)
     StrictMock<StorageMock> storage_mock{};
     EXPECT_CALL(storage_mock, deinit()).Times(1);
     EXPECT_CALL(storage_mock, moved()).Times(1);
-    EXPECT_CALL(storage_mock, copy(13, test_dst.data(), test_dst.size())).WillOnce(Return(7));
+    EXPECT_CALL(storage_mock, copy(13, test_dst.data(), test_dst.size()))  //
+        .WillOnce(Return(7));
     {
         ScatteredBuffer buffer{StorageWrapper{&storage_mock}};
 

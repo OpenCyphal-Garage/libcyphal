@@ -361,7 +361,7 @@ private:
                         return tx_failure;
                     }
 
-                    // No need to try fo send next frame when previous one hasn't finished yet.
+                    // No need to try to send next frame when previous one hasn't finished yet.
                     if (!media.txSocketState().cb_handle)
                     {
                         sendNextFrameToMediaTxSocket(media, tx_socket);
@@ -697,7 +697,7 @@ private:
         using PayloadFragment = cetl::span<const cetl::byte>;
 
         TimePoint tx_deadline;
-        while (const UdpardTxItem* const tx_item = peekFirstValidUdpardTxItem(media.udpard_tx(), tx_deadline))
+        while (const UdpardTxItem* const tx_item = peekFirstValidTxItem(media.udpard_tx(), tx_deadline))
         {
             // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libudpard API.
             const auto* const buffer =
@@ -741,12 +741,12 @@ private:
 
             // Release whole problematic transfer from the TX queue,
             // so that other transfers in TX queue have their chance.
-            // Otherwise, we would be stuck in a execution loop trying to send the same frame.
+            // Otherwise, we would be stuck in an execution loop trying to send the same frame.
             popAndFreeUdpardTxItem(&media.udpard_tx(), tx_item, true /* whole transfer */);
 
-            tryHandleTransientMediaError<TransientErrorReport::MediaTxSocketSend>(media,
-                                                                                  std::move(*send_failure),
-                                                                                  tx_socket);
+            using Report = TransientErrorReport::MediaTxSocketSend;
+            tryHandleTransientMediaError<Report>(media, std::move(*send_failure), tx_socket);
+
         }  // for a valid tx item
 
         // There is nothing to send anymore, so we are done with this media TX socket - no more callbacks for now.
@@ -758,7 +758,7 @@ private:
     /// While searching, any of already expired TX items are pop from the queue and freed (aka dropped).
     /// If there is no still valid TX items in the queue, returns `nullptr`.
     ///
-    CETL_NODISCARD const UdpardTxItem* peekFirstValidUdpardTxItem(UdpardTx& udpard_tx, TimePoint& out_deadline) const
+    CETL_NODISCARD const UdpardTxItem* peekFirstValidTxItem(UdpardTx& udpard_tx, TimePoint& out_deadline) const
     {
         const TimePoint now = executor_.now();
 
@@ -776,7 +776,7 @@ private:
             }
 
             // Release whole expired transfer b/c possible next frames of the same transfer are also expired.
-            popAndFreeUdpardTxItem(&udpard_tx, tx_item, true /*whole transfer*/);
+            popAndFreeUdpardTxItem(&udpard_tx, tx_item, true /* whole transfer */);
         }
         return nullptr;
     }

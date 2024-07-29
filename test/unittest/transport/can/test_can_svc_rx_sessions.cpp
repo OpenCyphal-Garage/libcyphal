@@ -66,7 +66,8 @@ class TestCanSvcRxSessions : public testing::Test
 protected:
     void SetUp() override
     {
-        EXPECT_CALL(media_mock_, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+        EXPECT_CALL(media_mock_, getMtu())  //
+            .WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
     }
 
     void TearDown() override
@@ -125,7 +126,8 @@ TEST_F(TestCanSvcRxSessions, make_response_no_memory)
     mr_mock.redirectExpectedCallsTo(mr_);
 
     // Emulate that there is no memory available for the message session.
-    EXPECT_CALL(mr_mock, do_allocate(sizeof(can::detail::SvcResponseRxSession), _)).WillOnce(Return(nullptr));
+    EXPECT_CALL(mr_mock, do_allocate(sizeof(can::detail::SvcResponseRxSession), _))  //
+        .WillOnce(Return(nullptr));
 
     auto transport = makeTransport(mr_mock, 0x13);
 
@@ -152,6 +154,13 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_request)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IRequestRxSession>>(std::move(maybe_session));
 
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1)))  //
+        .WillOnce([&](Filters filters) {
+            EXPECT_THAT(filters[0].id, 0b1'0'0'101111011'0110001'0000000);
+            EXPECT_THAT(filters[0].mask, 0b1'0'1'111111111'1111111'0000000);
+            return cetl::nullopt;
+        });
+
     const auto params = session->getParams();
     EXPECT_THAT(params.extent_bytes, extent_bytes);
     EXPECT_THAT(params.service_id, 0x17B);
@@ -159,61 +168,62 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_request)
     constexpr auto timeout = 200ms;
     session->setTransferIdTimeout(timeout);
 
-    {
+    TimePoint rx_timestamp;
+
+    scheduler_.scheduleAt(1s, [&] {
+        //
         SCOPED_TRACE("1-st iteration: one frame available @ 1s");
 
-        scheduler_.setNow(TimePoint{1s});
-        const auto rx_timestamp = now();
+        rx_timestamp = now() + 10ms;
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
-            p[0] = b(42);
-            p[1] = b(147);
-            p[2] = b(0b111'11101);
-            return IMedia::PopResult::Metadata{rx_timestamp, 0b011'1'1'0'101111011'0110001'0010011, 3};
+        EXPECT_CALL(media_mock_, pop(_))  //
+            .WillOnce([&](auto p) {
+                EXPECT_THAT(now(), rx_timestamp);
+                EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+                p[0] = b(42);
+                p[1] = b(147);
+                p[2] = b(0b111'11101);
+                return IMedia::PopResult::Metadata{rx_timestamp, 0b011'1'1'0'101111011'0110001'0010011, 3};
+            });
+
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&] {
+            //
+            const auto maybe_rx_transfer = session->receive();
+            ASSERT_THAT(maybe_rx_transfer, Optional(_));
+            // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+            const auto& rx_transfer = maybe_rx_transfer.value();
+
+            EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx_timestamp);
+            EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x1D);
+            EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::High);
+            EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x13);
+
+            std::array<std::uint8_t, 2> buffer{};
+            EXPECT_THAT(rx_transfer.payload.size(), 2);
+            EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), 2);
+            EXPECT_THAT(buffer, ElementsAre(42, 147));
         });
-        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(filters[0].id, 0b1'0'0'101111011'0110001'0000000);
-            EXPECT_THAT(filters[0].mask, 0b1'0'1'111111111'1111111'0000000);
-            return cetl::nullopt;
-        });
-
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-
-        const auto maybe_rx_transfer = session->receive();
-        ASSERT_THAT(maybe_rx_transfer, Optional(_));
-        // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-        const auto& rx_transfer = maybe_rx_transfer.value();
-
-        EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx_timestamp);
-        EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x1D);
-        EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::High);
-        EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x13);
-
-        std::array<std::uint8_t, 2> buffer{};
-        EXPECT_THAT(rx_transfer.payload.size(), 2);
-        EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), 2);
-        EXPECT_THAT(buffer, ElementsAre(42, 147));
-    }
-    {
+    });
+    scheduler_.scheduleAt(2s, [&] {
+        //
         SCOPED_TRACE("2-nd iteration: no frames available @ 2s");
 
-        scheduler_.setNow(TimePoint{2s});
-        const auto rx_timestamp = now();
+        rx_timestamp = now() + 10ms;
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto payload) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(payload.size(), CANARD_MTU_MAX);
-            return cetl::nullopt;
+        EXPECT_CALL(media_mock_, pop(_))  //
+            .WillOnce([&](auto payload) {
+                EXPECT_THAT(now(), rx_timestamp + 10ms);
+                EXPECT_THAT(payload.size(), CANARD_MTU_MAX);
+                return cetl::nullopt;
+            });
+
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&] {
+            //
+            const auto maybe_rx_transfer = session->receive();
+            EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
         });
-
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-
-        const auto maybe_rx_transfer = session->receive();
-        EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
-    }
+    });
+    scheduler_.spinFor(10s);
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -240,20 +250,22 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_response)
         scheduler_.setNow(TimePoint{1s});
         const auto rx_timestamp = now();
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
-            p[0] = b(42);
-            p[1] = b(147);
-            p[2] = b(0b111'11101);
-            return IMedia::PopResult::Metadata{rx_timestamp, 0b011'1'0'0'101111011'0010011'0110001, 3};
-        });
-        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(filters[0].id, 0b1'0'0'101111011'0010011'0000000);
-            EXPECT_THAT(filters[0].mask, 0b1'0'1'111111111'1111111'0000000);
-            return cetl::nullopt;
-        });
+        EXPECT_CALL(media_mock_, pop(_))  //
+            .WillOnce([&](auto p) {
+                EXPECT_THAT(now(), rx_timestamp + 10ms);
+                EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+                p[0] = b(42);
+                p[1] = b(147);
+                p[2] = b(0b111'11101);
+                return IMedia::PopResult::Metadata{rx_timestamp, 0b011'1'0'0'101111011'0010011'0110001, 3};
+            });
+        EXPECT_CALL(media_mock_, setFilters(SizeIs(1)))  //
+            .WillOnce([&](Filters filters) {
+                EXPECT_THAT(now(), rx_timestamp + 10ms);
+                EXPECT_THAT(filters[0].id, 0b1'0'0'101111011'0010011'0000000);
+                EXPECT_THAT(filters[0].mask, 0b1'0'1'111111111'1111111'0000000);
+                return cetl::nullopt;
+            });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 
@@ -278,11 +290,12 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_response)
         scheduler_.setNow(TimePoint{2s});
         const auto rx_timestamp = now();
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto payload) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(payload.size(), CANARD_MTU_MAX);
-            return cetl::nullopt;
-        });
+        EXPECT_CALL(media_mock_, pop(_))  //
+            .WillOnce([&](auto payload) {
+                EXPECT_THAT(now(), rx_timestamp + 10ms);
+                EXPECT_THAT(payload.size(), CANARD_MTU_MAX);
+                return cetl::nullopt;
+            });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 
@@ -306,36 +319,39 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_two_frames)
     {
         const InSequence seq;
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
-            p[0] = b('0');
-            p[1] = b('1');
-            p[2] = b('2');
-            p[3] = b('3');
-            p[4] = b('4');
-            p[5] = b('5');
-            p[6] = b('6');
-            p[7] = b(0b101'11110);
-            return IMedia::PopResult::Metadata{rx_timestamp, 0b000'1'1'0'101111011'0110001'0010011, 8};
-        });
-        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(filters[0].id, 0b1'0'0'101111011'0110001'0000000);
-            EXPECT_THAT(filters[0].mask, 0b1'0'1'111111111'1111111'0000000);
-            return cetl::nullopt;
-        });
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
-            EXPECT_THAT(now(), rx_timestamp + 20ms);
-            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
-            p[0] = b('7');
-            p[1] = b('8');
-            p[2] = b('9');
-            p[3] = b(0x7D);
-            p[4] = b(0x61);  // expected 16-bit CRC
-            p[5] = b(0b010'11110);
-            return IMedia::PopResult::Metadata{rx_timestamp, 0b000'1'1'0'101111011'0110001'0010011, 6};
-        });
+        EXPECT_CALL(media_mock_, pop(_))  //
+            .WillOnce([&](auto p) {
+                EXPECT_THAT(now(), rx_timestamp + 10ms);
+                EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+                p[0] = b('0');
+                p[1] = b('1');
+                p[2] = b('2');
+                p[3] = b('3');
+                p[4] = b('4');
+                p[5] = b('5');
+                p[6] = b('6');
+                p[7] = b(0b101'11110);
+                return IMedia::PopResult::Metadata{rx_timestamp, 0b000'1'1'0'101111011'0110001'0010011, 8};
+            });
+        EXPECT_CALL(media_mock_, setFilters(SizeIs(1)))  //
+            .WillOnce([&](Filters filters) {
+                EXPECT_THAT(now(), rx_timestamp + 10ms);
+                EXPECT_THAT(filters[0].id, 0b1'0'0'101111011'0110001'0000000);
+                EXPECT_THAT(filters[0].mask, 0b1'0'1'111111111'1111111'0000000);
+                return cetl::nullopt;
+            });
+        EXPECT_CALL(media_mock_, pop(_))  //
+            .WillOnce([&](auto p) {
+                EXPECT_THAT(now(), rx_timestamp + 20ms);
+                EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+                p[0] = b('7');
+                p[1] = b('8');
+                p[2] = b('9');
+                p[3] = b(0x7D);
+                p[4] = b(0x61);  // expected 16-bit CRC
+                p[5] = b(0b010'11110);
+                return IMedia::PopResult::Metadata{rx_timestamp, 0b000'1'1'0'101111011'0110001'0010011, 6};
+            });
     }
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
@@ -368,11 +384,13 @@ TEST_F(TestCanSvcRxSessions, unsubscribe_and_run)
     scheduler_.setNow(TimePoint{1s});
     const auto reset_time = now();
 
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-    EXPECT_CALL(media_mock_, setFilters(IsEmpty())).WillOnce([&](Filters) {
-        EXPECT_THAT(now(), reset_time + 10ms);
-        return cetl::nullopt;
-    });
+    EXPECT_CALL(media_mock_, pop(_))  //
+        .WillRepeatedly(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+        .WillOnce([&](Filters) {
+            EXPECT_THAT(now(), reset_time + 10ms);
+            return cetl::nullopt;
+        });
 
     session.reset();
 

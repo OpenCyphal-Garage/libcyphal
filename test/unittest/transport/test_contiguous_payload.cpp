@@ -136,7 +136,8 @@ TEST_F(TestContiguousPayload, ctor_no_memory_error)
     StrictMock<MemoryResourceMock> mr_mock{};
 
     // Emulate that there is no memory available for the transport.
-    EXPECT_CALL(mr_mock, do_allocate(_, _)).WillOnce(Return(nullptr));
+    EXPECT_CALL(mr_mock, do_allocate(_, _))  //
+        .WillOnce(Return(nullptr));
 
     const std::array<byte, 3>                   data123   = {b(1), b(2), b(3)};
     const std::array<byte, 2>                   data45    = {b(4), b(5)};

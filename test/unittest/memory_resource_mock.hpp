@@ -44,12 +44,14 @@ public:
             .WillRepeatedly([&mr](void* p, std::size_t size_bytes, std::size_t alignment) {
                 mr.deallocate(p, size_bytes, alignment);
             });
-        EXPECT_CALL(*this, do_is_equal(_)).WillRepeatedly([&mr](const cetl::pmr::memory_resource& rhs) {
-            return mr.is_equal(rhs);
-        });
+        EXPECT_CALL(*this, do_is_equal(_))                                  //
+            .WillRepeatedly([&mr](const cetl::pmr::memory_resource& rhs) {  //
+                return mr.is_equal(rhs);
+            });
 
 #if (__cplusplus < CETL_CPP_STANDARD_17)
-        EXPECT_CALL(*this, do_max_size()).WillRepeatedly([&mr]() { return mr.max_size(); });
+        EXPECT_CALL(*this, do_max_size())  //
+            .WillRepeatedly([&mr]() { return mr.max_size(); });
         EXPECT_CALL(*this, do_reallocate(_, _, _, _))
             .WillRepeatedly(
                 [&mr](void* ptr, std::size_t old_size_bytes, std::size_t new_size_bytes, std::size_t alignment) {

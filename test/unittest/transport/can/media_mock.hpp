@@ -8,8 +8,10 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
+#include <libcyphal/executor.hpp>
 #include <libcyphal/transport/can/media.hpp>
 #include <libcyphal/transport/errors.hpp>
+#include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>
 
@@ -35,12 +37,25 @@ public:
 
     // NOLINTNEXTLINE(bugprone-exception-escape)
     MOCK_METHOD(std::size_t, getMtu, (), (const, noexcept, override));
+
     MOCK_METHOD(cetl::optional<MediaFailure>, setFilters, (const Filters filters), (noexcept, override));
+
     MOCK_METHOD(PushResult::Type,
                 push,
                 (const TimePoint deadline, const CanId can_id, const cetl::span<const cetl::byte> payload),
                 (noexcept, override));
+
     MOCK_METHOD(PopResult::Type, pop, (const cetl::span<cetl::byte> payload_buffer), (noexcept, override));
+
+    MOCK_METHOD(IExecutor::Callback::Handle,
+                registerPushCallback,
+                (IExecutor & executor, IExecutor::Callback::Function&& function),
+                (override));
+
+    MOCK_METHOD(IExecutor::Callback::Handle,
+                registerPopCallback,
+                (IExecutor & executor, IExecutor::Callback::Function&& function),
+                (override));
 
 };  // MediaMock
 

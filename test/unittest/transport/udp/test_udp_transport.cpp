@@ -171,7 +171,8 @@ TEST_F(TestUpdTransport, makeTransport_no_memory_for_impl)
     mr_mock.redirectExpectedCallsTo(mr_);
 
     // Emulate that there is no memory available for the transport.
-    EXPECT_CALL(mr_mock, do_allocate(sizeof(udp::detail::TransportImpl), _)).WillOnce(Return(nullptr));
+    EXPECT_CALL(mr_mock, do_allocate(sizeof(udp::detail::TransportImpl), _))  //
+        .WillOnce(Return(nullptr));
 
     std::array<IMedia*, 1> media_array{&media_mock_};
     auto                   maybe_transport = udp::makeTransport({mr_mock}, scheduler_, media_array, 0);
@@ -712,7 +713,8 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
                 return scheduler_.scheduleCallbackAfter(+5us, std::move(function));
             }));
         //
-        EXPECT_CALL(tx_socket_mock2, send(_, _, _, _)).WillOnce(Return(PlatformError{MyPlatformError{13}}));
+        EXPECT_CALL(tx_socket_mock2, send(_, _, _, _))  //
+            .WillOnce(Return(PlatformError{MyPlatformError{13}}));
         EXPECT_CALL(handler_mock, invoke(VariantWith<SocketSendReport>(Truly([&](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<PlatformError>(_));
                         EXPECT_THAT(report.media_index, 1);
@@ -750,7 +752,8 @@ TEST_F(TestUpdTransport, no_adhoc_tx_sockets_creation_at_run_when_there_is_nothi
     scheduler_.scheduleAt(2s, [&] {
         //
         // One attempt still expected (b/c of the session creation), but not on every `transport::run`.
-        EXPECT_CALL(media_mock_, makeTxSocket()).WillOnce(Return(MemoryError{}));
+        EXPECT_CALL(media_mock_, makeTxSocket())  //
+            .WillOnce(Return(MemoryError{}));
 
         auto maybe_session = transport->makeMessageTxSession({7});
         ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));

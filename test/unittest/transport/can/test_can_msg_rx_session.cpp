@@ -64,7 +64,8 @@ class TestCanMsgRxSession : public testing::Test
 protected:
     void SetUp() override
     {
-        EXPECT_CALL(media_mock_, getMtu()).WillRepeatedly(Return(CANARD_MTU_MAX));
+        EXPECT_CALL(media_mock_, getMtu())  //
+            .WillRepeatedly(Return(CANARD_MTU_MAX));
     }
 
     void TearDown() override
@@ -121,7 +122,8 @@ TEST_F(TestCanMsgRxSession, make_no_memory)
     auto transport = makeTransport(mr_mock);
 
     // Emulate that there is no memory available for the message session.
-    EXPECT_CALL(mr_mock, do_allocate(sizeof(can::detail::MessageRxSession), _)).WillOnce(Return(nullptr));
+    EXPECT_CALL(mr_mock, do_allocate(sizeof(can::detail::MessageRxSession), _))  //
+        .WillOnce(Return(nullptr));
 
     auto maybe_session = transport->makeMessageRxSession({64, 0x23});
     EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
@@ -158,19 +160,21 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
         scheduler_.setNow(TimePoint{1s});
         const auto rx_timestamp = now();
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
-            p[0] = b('0');
-            p[1] = b('1');
-            p[2] = b(0b111'01101);
-            return IMedia::PopResult::Metadata{rx_timestamp, 0x0C'60'23'45, 3};
-        });
-        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
-            return cetl::nullopt;
-        });
+        EXPECT_CALL(media_mock_, pop(_))  //
+            .WillOnce([&](auto p) {
+                EXPECT_THAT(now(), rx_timestamp + 10ms);
+                EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+                p[0] = b('0');
+                p[1] = b('1');
+                p[2] = b(0b111'01101);
+                return IMedia::PopResult::Metadata{rx_timestamp, 0x0C'60'23'45, 3};
+            });
+        EXPECT_CALL(media_mock_, setFilters(SizeIs(1)))  //
+            .WillOnce([&](Filters filters) {
+                EXPECT_THAT(now(), rx_timestamp + 10ms);
+                EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
+                return cetl::nullopt;
+            });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 
@@ -195,11 +199,12 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
         scheduler_.setNow(TimePoint{2s});
         const auto rx_timestamp = now();
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
-            return cetl::nullopt;
-        });
+        EXPECT_CALL(media_mock_, pop(_))  //
+            .WillOnce([&](auto p) {
+                EXPECT_THAT(now(), rx_timestamp + 10ms);
+                EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+                return cetl::nullopt;
+            });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 
@@ -222,19 +227,21 @@ TEST_F(TestCanMsgRxSession, run_and_receive_one_anonymous_frame)
     {
         const InSequence seq;
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
-            p[0] = b('1');
-            p[1] = b('2');
-            p[2] = b(0b111'01110);
-            return IMedia::PopResult::Metadata{rx_timestamp, 0x01'60'23'13, 3};
-        });
-        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
-            return cetl::nullopt;
-        });
+        EXPECT_CALL(media_mock_, pop(_))  //
+            .WillOnce([&](auto p) {
+                EXPECT_THAT(now(), rx_timestamp + 10ms);
+                EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+                p[0] = b('1');
+                p[1] = b('2');
+                p[2] = b(0b111'01110);
+                return IMedia::PopResult::Metadata{rx_timestamp, 0x01'60'23'13, 3};
+            });
+        EXPECT_CALL(media_mock_, setFilters(SizeIs(1)))  //
+            .WillOnce([&](Filters filters) {
+                EXPECT_THAT(now(), rx_timestamp + 10ms);
+                EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
+                return cetl::nullopt;
+            });
     }
 
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
@@ -266,11 +273,13 @@ TEST_F(TestCanMsgRxSession, unsubscribe_and_run)
     scheduler_.setNow(TimePoint{1s});
     const auto reset_time = now();
 
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-    EXPECT_CALL(media_mock_, setFilters(IsEmpty())).WillOnce([&](Filters) {
-        EXPECT_THAT(now(), reset_time + 10ms);
-        return cetl::nullopt;
-    });
+    EXPECT_CALL(media_mock_, pop(_))  //
+        .WillRepeatedly(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+        .WillOnce([&](Filters) {
+            EXPECT_THAT(now(), reset_time + 10ms);
+            return cetl::nullopt;
+        });
 
     session.reset();
 

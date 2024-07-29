@@ -198,7 +198,8 @@ TEST_F(TestCanDelegate, canardMemoryAllocate_no_memory)
     auto&                 canard_instance = delegate.canard_instance();
 
     // Emulate that there is no memory at all.
-    EXPECT_CALL(mr_mock, do_allocate(_, _)).WillOnce(Return(nullptr));
+    EXPECT_CALL(mr_mock, do_allocate(_, _))  //
+        .WillOnce(Return(nullptr));
 
     EXPECT_THAT(canard_instance.memory_allocate(&canard_instance, 1), IsNull());
 }

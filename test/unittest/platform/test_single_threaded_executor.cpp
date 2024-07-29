@@ -144,7 +144,8 @@ TEST_F(TestSingleThreadedExecutor, registerCallback_no_memory)
 {
     StrictMock<MemoryResourceMock> mr_mock{};
 
-    EXPECT_CALL(mr_mock, do_allocate(_, _)).WillOnce(Return(nullptr));
+    EXPECT_CALL(mr_mock, do_allocate(_, _))  //
+        .WillOnce(Return(nullptr));
 
     MySingleThreadedExecutor executor{mr_mock};
 

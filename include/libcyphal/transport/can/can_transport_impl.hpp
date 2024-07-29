@@ -93,15 +93,21 @@ class TransportImpl final : private TransportDelegate, public ICanTransport  // 
             return canard_tx_queue_;
         }
 
+        IExecutor::Callback::Handle& tx_cb_handle()
+        {
+            return tx_cb_handle_;
+        }
+
         void propagateMtuToTxQueue()
         {
             canard_tx_queue_.mtu_bytes = interface_.getMtu();
         }
 
     private:
-        const std::uint8_t index_;
-        IMedia&            interface_;
-        CanardTxQueue      canard_tx_queue_;
+        const std::uint8_t          index_;
+        IMedia&                     interface_;
+        CanardTxQueue               canard_tx_queue_;
+        IExecutor::Callback::Handle tx_cb_handle_;
     };
     using MediaArray = libcyphal::detail::VarArray<Media>;
 
@@ -145,12 +151,10 @@ public:
         : TransportDelegate{memory}
         , executor_{executor}
         , media_array_{std::move(media_array)}
-        , should_reconfigure_filters_{false}
         , total_message_ports_{0}
         , total_service_ports_{0}
     {
-        // TODO: Use executor.
-        (void) executor_;
+        scheduleConfigOfFilters();
     }
 
     TransportImpl(const TransportImpl&)                = delete;
@@ -160,6 +164,8 @@ public:
 
     ~TransportImpl()
     {
+        configure_filters_cb_handle_.reset();
+
         for (Media& media : media_array_)
         {
             flushCanardTxQueue(media.canard_tx_queue());
@@ -170,6 +176,8 @@ public:
     }
 
 private:
+    using Callback = IExecutor::Callback;
+
     // MARK: ICanTransport
 
     void setTransientErrorHandler(TransientErrorHandler handler) override
@@ -215,7 +223,7 @@ private:
         //
         if (total_service_ports_ > 0)
         {
-            should_reconfigure_filters_ = true;
+            configure_filters_cb_handle_.scheduleAt(executor_.now(), Callback::Schedule::Once{});
         }
 
         return cetl::nullopt;
@@ -290,26 +298,11 @@ private:
 
     // MARK: IRunnable
 
-    CETL_NODISCARD IRunnable::MaybeFailure run(const TimePoint now) override
+    CETL_NODISCARD IRunnable::MaybeFailure run(const TimePoint) override
     {
         cetl::optional<AnyFailure> failure{};
 
-        // We deliberately first run TX as much as possible, and only then running RX -
-        // transmission will release resources (like TX queue items) and make room for new incoming frames.
-        //
-        failure = runMediaTransmit(now);
-        if (failure.has_value())
-        {
-            return std::move(failure.value());
-        }
-        //
         failure = runMediaReceive();
-        if (failure.has_value())
-        {
-            return std::move(failure.value());
-        }
-
-        failure = runMediaFilters();
         if (failure.has_value())
         {
             return std::move(failure.value());
@@ -361,6 +354,12 @@ private:
                 // and the failure should not be ignored but propagated outside.
                 return failure;
             }
+
+            // No need to try to push next frame when previous one hasn't finished yet.
+            if (!media.tx_cb_handle())
+            {
+                pushNextFrameToMedia(media);
+            }
         }
 
         return cetl::nullopt;
@@ -371,7 +370,17 @@ private:
         FiltersUpdateHandler handler_with{*this};
         cetl::visit(handler_with, update_var);
 
-        should_reconfigure_filters_ = true;
+        scheduleConfigOfFilters();
+    }
+
+    void scheduleConfigOfFilters()
+    {
+        if (!configure_filters_cb_handle_)
+        {
+            configure_filters_cb_handle_ =
+                executor_.registerCallback([this](const TimePoint) { configureMediaFilters(); });
+        }
+        configure_filters_cb_handle_.scheduleAt(executor_.now(), Callback::Schedule::Once{});
     }
 
     // MARK: Privates:
@@ -418,17 +427,23 @@ private:
 
     };  // FiltersUpdateHandler
 
-    template <typename Report>
-    CETL_NODISCARD cetl::optional<AnyFailure> tryHandleTransientMediaError(const Media& media, MediaFailure&& error)
+    template <typename Report, typename... Args>
+    cetl::optional<AnyFailure> tryHandleTransientFailure(AnyFailure&& failure, Args&&... args)
     {
-        AnyFailure failure = common::detail::anyFailureFromVariant(std::move(error));
-        if (!transient_error_handler_)
+        if (transient_error_handler_)
         {
-            return failure;
+            TransientErrorReport::Variant report_var{Report{std::move(failure), std::forward<Args>(args)...}};
+            return transient_error_handler_(report_var);
         }
 
-        TransientErrorReport::Variant report_var{Report{std::move(failure), media.index(), media.interface()}};
-        return transient_error_handler_(report_var);
+        return std::move(failure);
+    }
+
+    template <typename Report>
+    cetl::optional<AnyFailure> tryHandleTransientMediaFailure(const Media& media, MediaFailure&& media_failure)
+    {
+        AnyFailure failure = common::detail::anyFailureFromVariant(std::move(media_failure));
+        return tryHandleTransientFailure<Report>(std::move(failure), media.index(), media.interface());
     }
 
     template <typename Report>
@@ -436,14 +451,12 @@ private:
                                                                              const std::int32_t result)
     {
         cetl::optional<AnyFailure> failure = optAnyFailureFromCanard(result);
-        if (failure.has_value() && transient_error_handler_)
+        if (!failure)
         {
-            TransientErrorReport::Variant report_var{
-                Report{std::move(failure.value()), media.index(), canard_instance()}};
-
-            failure = transient_error_handler_(report_var);
+            return cetl::nullopt;
         }
-        return failure;
+
+        return tryHandleTransientFailure<Report>(std::move(*failure), media.index(), canard_instance());
     }
 
     CETL_NODISCARD cetl::optional<AnyFailure> ensureNewSessionFor(const CanardTransferKind transfer_kind,
@@ -520,7 +533,8 @@ private:
         IMedia::PopResult::Type pop_result = media.interface().pop(payload);
         if (auto* const failure = cetl::get_if<MediaFailure>(&pop_result))
         {
-            return tryHandleTransientMediaError<TransientErrorReport::MediaPop>(media, std::move(*failure));
+            using Report = TransientErrorReport::MediaPop;
+            return tryHandleTransientMediaFailure<Report>(media, std::move(*failure));
         }
         const auto& pop_success = cetl::get<IMedia::PopResult::Success>(pop_result);
         if (!pop_success.has_value())
@@ -561,96 +575,95 @@ private:
         return failure;
     }
 
-    /// @brief Runs transmission loop for each redundant media interface.
+    /// @brief Tries to push next frame from TX queue to media.
     ///
-    CETL_NODISCARD cetl::optional<AnyFailure> runMediaTransmit(const TimePoint now)
+    void pushNextFrameToMedia(Media& media)
     {
-        for (Media& media : media_array_)
+        using PayloadFragment = cetl::span<const cetl::byte>;
+
+        TimePoint tx_deadline;
+        while (const CanardTxQueueItem* const tx_item = peekFirstValidTxItem(media.canard_tx_queue(), tx_deadline))
         {
-            cetl::optional<AnyFailure> failure = runSingleMediaTransmit(media, now);
-            if (failure.has_value())
-            {
-                return failure;
-            }
-        }
-
-        return cetl::nullopt;
-    }
-
-    /// @brief Runs transmission loop for a single media interface.
-    ///
-    /// Transmits as much as possible frames that are ready to be sent by the media interface.
-    ///
-    CETL_NODISCARD cetl::optional<AnyFailure> runSingleMediaTransmit(Media& media, const TimePoint now)
-    {
-        while (const CanardTxQueueItem* const tx_item = ::canardTxPeek(&media.canard_tx_queue()))
-        {
-            // We are dropping any TX item that has expired.
-            // Otherwise, we would send it to the media interface.
-            // We use strictly `>=` (instead of `>`) to give this frame a chance (one extra 1us) at media level.
-            //
-            const auto deadline = TimePoint{std::chrono::microseconds{tx_item->tx_deadline_usec}};
-            if (now >= deadline)
-            {
-                // Release whole expired transfer b/c possible next frames of the same transfer are also expired.
-                popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, true /*whole transfer*/);
-
-                // No Sonar `cpp:S909` b/c it make sense to use `continue` statement here - the corner case of
-                // "early" (by deadline) transfer drop. Using `if` would make the code less readable and more nested.
-                continue;  // NOSONAR cpp:S909
-            }
-
             // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libcanard API.
             const auto* const buffer =
                 static_cast<const cetl::byte*>(tx_item->frame.payload);  // NOSONAR cpp:S5356 cpp:S5357
-            const cetl::span<const cetl::byte> payload{buffer, tx_item->frame.payload_size};
+            const PayloadFragment payload{buffer, tx_item->frame.payload_size};
 
             IMedia::PushResult::Type push_result =
-                media.interface().push(deadline, tx_item->frame.extended_can_id, payload);
+                media.interface().push(tx_deadline, tx_item->frame.extended_can_id, payload);
 
             // In case of media push error we are going to drop this problematic frame
             // (b/c it looks like media can't handle this frame),
-            // but we will continue to process with other frames if transient error handler says so.
+            // but we will continue to process with other transfer frame.
             // Note that media not being ready/able to push a frame just yet (aka temporary)
             // is not reported as an error (see `is_pushed` below).
             //
-            if (auto* const push_failure = cetl::get_if<IMedia::PushResult::Failure>(&push_result))
+            auto* const push_failure = cetl::get_if<IMedia::PushResult::Failure>(&push_result);
+            if (nullptr == push_failure)
             {
-                // Release whole problematic transfer from the TX queue,
-                // so that other transfers in TX queue have their chance.
-                // Otherwise, we would be stuck in a run loop trying to push the same frame.
-                popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, true /*whole transfer*/);
-
-                cetl::optional<AnyFailure> failure =
-                    tryHandleTransientMediaError<TransientErrorReport::MediaPush>(media, std::move(*push_failure));
-                if (failure.has_value())
+                const auto push = cetl::get<IMedia::PushResult::Success>(push_result);
+                if (push.is_accepted)
                 {
-                    return failure;
+                    popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, false /* single frame */);
                 }
 
-                // The handler just said that it's fine to continue with pushing other frames
-                // and ignore such a transient media error (and don't propagate it outside).
-            }
-            else
-            {
-                const auto push_success = cetl::get<IMedia::PushResult::Success>(push_result);
-                if (!push_success.is_accepted)
+                // If needed schedule (recursively!) next frame to push.
+                // Already existing callback will be called by executor when media TX is ready to push more.
+                //
+                if (!media.tx_cb_handle())
                 {
-                    // Media interface is busy, so we are done with this media for now,
-                    // and will just try again with it later (on next `run`).
-                    // Note, we are NOT releasing this item from the queue, so it will be retried on next `run`.
-                    break;
+                    media.tx_cb_handle() =
+                        media.interface().registerPushCallback(executor_, [this, &media](const TimePoint) {  //
+                            pushNextFrameToMedia(media);
+                        });
                 }
-
-                popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, false /*single frame*/);
+                return;
             }
 
-        }  // for each frame
+            // Release whole problematic transfer from the TX queue,
+            // so that other transfers in TX queue have their chance.
+            // Otherwise, we would be stuck in an execution loop trying to send the same frame.
+            popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, true /* whole transfer */);
 
-        return cetl::nullopt;
+            using Report = TransientErrorReport::MediaPush;
+            tryHandleTransientMediaFailure<Report>(media, std::move(*push_failure));
+
+        }  // for a valid tx item
+
+        // There is nothing to send anymore, so we are done with this media TX - no more callbacks for now.
+        media.tx_cb_handle().reset();
     }
 
-    /// @brief Runs (if needed) reconfiguration of media filters based on the currently active RX ports.
+    /// @brief Tries to peek the first TX item from the media TX queue which is not expired.
+    ///
+    /// While searching, any of already expired TX items are pop from the queue and freed (aka dropped).
+    /// If there is no still valid TX items in the queue, returns `nullptr`.
+    ///
+    CETL_NODISCARD const CanardTxQueueItem* peekFirstValidTxItem(CanardTxQueue& canard_tx,
+                                                                 TimePoint&     out_deadline) const
+    {
+        const TimePoint now = executor_.now();
+
+        while (const CanardTxQueueItem* const tx_item = ::canardTxPeek(&canard_tx))
+        {
+            // We are dropping any TX item that has expired.
+            // Otherwise, we would push it to the media interface.
+            // We use strictly `<` (instead of `<=`) to give this frame a chance (one extra 1us) at the media.
+            //
+            const auto deadline = TimePoint{std::chrono::microseconds{tx_item->tx_deadline_usec}};
+            if (now < deadline)
+            {
+                out_deadline = deadline;
+                return tx_item;
+            }
+
+            // Release whole expired transfer b/c possible next frames of the same transfer are also expired.
+            popAndFreeCanardTxQueueItem(&canard_tx, tx_item, true /* whole transfer */);
+        }
+        return nullptr;
+    }
+
+    /// @brief Configures media filters based on the currently active RX ports.
     ///
     /// Temporary allocates memory buffers for all filters, one per each active port (message or service).
     /// In case of redundant media, each media interface will be called with the same span of filters.
@@ -659,53 +672,27 @@ private:
     ///
     /// @note Service RX ports are not considered as active ones for \b anonymous nodes.
     ///
-    /// @note If \b whole reconfiguration process was successful,
-    /// `should_reconfigure_filters_` will be reset to `false`, so that next time the run won't do any work.
-    /// But in case of any failure (memory allocation or media error),
-    /// `should_reconfigure_filters_` will stay engaged (`true`), so that we will try again on next run.
-    ///
-    CETL_NODISCARD cetl::optional<AnyFailure> runMediaFilters()
+    cetl::optional<AnyFailure> configureMediaFilters()
     {
-        if (!should_reconfigure_filters_)
-        {
-            return cetl::nullopt;
-        }
-
         libcyphal::detail::VarArray<Filter> filters{&memory()};
         if (!fillMediaFiltersArray(filters))
         {
-            // This is out of memory situation. We will just leave this run,
-            // but `should_reconfigure_filters_` will stay engaged, so we will try again on next run.
-            return MemoryError{};
+            using Report = TransientErrorReport::ConfigureMedia;
+            return tryHandleTransientFailure<Report>(MemoryError{});
         }
 
-        // Let each media interface know about the new filters (tracking the fact of possible media error).
-        //
-        bool was_error = false;
         for (const Media& media : media_array_)
         {
-            cetl::optional<MediaFailure> media_failure = media.interface().setFilters({filters.data(), filters.size()});
-            if (media_failure.has_value())
+            auto media_failure = media.interface().setFilters({filters.data(), filters.size()});
+            if (media_failure)
             {
-                was_error = true;
-
-                cetl::optional<AnyFailure> failure =
-                    tryHandleTransientMediaError<TransientErrorReport::MediaConfig>(media,
-                                                                                    std::move(media_failure.value()));
-                if (failure.has_value())
+                using Report = TransientErrorReport::MediaConfig;
+                auto failure = tryHandleTransientMediaFailure<Report>(media, std::move(*media_failure));
+                if (failure)
                 {
-                    // The handler (if any) just said that it's NOT fine to continue with configuring other media,
-                    // and the error should not be ignored but propagated outside.
-                    // Note that `should_reconfigure_filters_` still stays engaged, so we will try again on next run.
-                    //
                     return failure;
                 }
             }
-        }
-
-        if (!was_error)
-        {
-            should_reconfigure_filters_ = false;
         }
 
         return cetl::nullopt;
@@ -777,10 +764,10 @@ private:
 
     IExecutor&            executor_;
     MediaArray            media_array_;
-    bool                  should_reconfigure_filters_;
     std::size_t           total_message_ports_;
     std::size_t           total_service_ports_;
     TransientErrorHandler transient_error_handler_;
+    Callback::Handle      configure_filters_cb_handle_;
 
 };  // TransportImpl
 

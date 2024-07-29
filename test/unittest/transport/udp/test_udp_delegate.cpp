@@ -395,7 +395,8 @@ TEST_F(TestUdpDelegate, allocateMemoryForUdpard_no_memory)
     const TransportDelegateImpl delegate{mr_mock};
 
     // Emulate that there is no memory at all.
-    EXPECT_CALL(mr_mock, do_allocate(1, _)).WillOnce(Return(nullptr));
+    EXPECT_CALL(mr_mock, do_allocate(1, _))  //
+        .WillOnce(Return(nullptr));
 
     const auto& session_mr = delegate.memoryResources().session;
     EXPECT_THAT(session_mr.allocate(session_mr.user_reference, 1), IsNull());

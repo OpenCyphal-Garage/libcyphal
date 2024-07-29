@@ -13,6 +13,7 @@
 
 #include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/executor.hpp>
 #include <libcyphal/transport/can/can_transport.hpp>
 #include <libcyphal/transport/can/can_transport_impl.hpp>
 #include <libcyphal/transport/can/media.hpp>
@@ -43,6 +44,7 @@ using libcyphal::verification_utilities::makeSpansFrom;
 
 using testing::_;
 using testing::Eq;
+using testing::Invoke;
 using testing::Return;
 using testing::IsEmpty;
 using testing::NotNull;
@@ -65,7 +67,10 @@ class TestCanMsgTxSession : public testing::Test
 protected:
     void SetUp() override
     {
-        EXPECT_CALL(media_mock_, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+        EXPECT_CALL(media_mock_, getMtu())  //
+            .WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+        EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+            .WillOnce(Return(cetl::nullopt));
     }
 
     void TearDown() override
@@ -103,11 +108,15 @@ TEST_F(TestCanMsgTxSession, make)
 {
     auto transport = makeTransport(mr_);
 
-    auto maybe_session = transport->makeMessageTxSession({123});
-    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
-    auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
+    scheduler_.scheduleAt(1s, [&] {
+        //
+        auto maybe_session = transport->makeMessageTxSession({123});
+        ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
+        auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    EXPECT_THAT(session->getParams().subject_id, 123);
+        EXPECT_THAT(session->getParams().subject_id, 123);
+    });
+    scheduler_.spinFor(10s);
 }
 
 TEST_F(TestCanMsgTxSession, make_no_memory)
@@ -117,11 +126,16 @@ TEST_F(TestCanMsgTxSession, make_no_memory)
 
     auto transport = makeTransport(mr_mock);
 
-    // Emulate that there is no memory available for the message session.
-    EXPECT_CALL(mr_mock, do_allocate(sizeof(can::detail::MessageTxSession), _)).WillOnce(Return(nullptr));
+    scheduler_.scheduleAt(1s, [&] {
+        //
+        // Emulate that there is no memory available for the message session.
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(can::detail::MessageTxSession), _))  //
+            .WillOnce(Return(nullptr));
 
-    auto maybe_session = transport->makeMessageTxSession({0x23});
-    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
+        auto maybe_session = transport->makeMessageTxSession({0x23});
+        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
+    });
+    scheduler_.spinFor(10s);
 }
 
 TEST_F(TestCanMsgTxSession, make_fails_due_to_argument_error)
@@ -129,95 +143,88 @@ TEST_F(TestCanMsgTxSession, make_fails_due_to_argument_error)
     auto transport = makeTransport(mr_);
 
     // Try invalid subject id
-    auto maybe_session = transport->makeMessageTxSession({CANARD_SUBJECT_ID_MAX + 1});
-    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
-}
-
-TEST_F(TestCanMsgTxSession, send_empty_payload_and_no_transport_run)
-{
-    auto transport = makeTransport(mr_);
-
-    auto maybe_session = transport->makeMessageTxSession({123});
-    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
-    auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
-
-    const PayloadFragments empty_payload{};
-    const TransferMetadata metadata{0x1AF52, {}, Priority::Low};
-
-    auto failure = session->send(metadata, empty_payload);
-    EXPECT_THAT(failure, Eq(cetl::nullopt));
-
-    // Payload still inside canard TX queue (b/c there was no `transport->run` call deliberately),
-    // but there will be no memory leak b/c we expect that it should be deallocated when the transport is destroyed.
-    // See `EXPECT_THAT(mr_.allocations, IsEmpty());` at the `TearDown` method.
+    scheduler_.scheduleAt(1s, [&] {
+        //
+        auto maybe_session = transport->makeMessageTxSession({CANARD_SUBJECT_ID_MAX + 1});
+        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+    });
+    scheduler_.spinFor(10s);
 }
 
 TEST_F(TestCanMsgTxSession, send_empty_payload)
 {
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-
     auto transport = makeTransport(mr_);
 
     auto maybe_session = transport->makeMessageTxSession({123});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    scheduler_.runNow(+10s);
-    const auto send_time = now();
-    const auto timeout   = 1s;
+    constexpr auto timeout = 1s;
 
     const PayloadFragments empty_payload{};
-    const TransferMetadata metadata{0x3AF52, send_time, Priority::Low};
+    TransferMetadata       metadata{0x1AF52, {}, Priority::Low};
 
-    auto failure = session->send(metadata, empty_payload);
-    EXPECT_THAT(failure, Eq(cetl::nullopt));
+    scheduler_.scheduleAt(1s, [&] {
+        //
+        // Emulate that media has not accepted the payload.
+        //
+        EXPECT_CALL(media_mock_, push(_, _, _))  //
+            .WillOnce([&](auto deadline, auto can_id, auto payload) {
+                EXPECT_THAT(now(), metadata.timestamp);
+                EXPECT_THAT(deadline, metadata.timestamp + timeout);
+                EXPECT_THAT(can_id, SubjectOfCanIdEq(123));
+                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
 
-    EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto payload) {
-        EXPECT_THAT(now(), send_time + 10ms);
-        EXPECT_THAT(deadline, send_time + timeout);
-        EXPECT_THAT(can_id, SubjectOfCanIdEq(123));
-        EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
+                auto tbm = TailByteEq(metadata.transfer_id);
+                EXPECT_THAT(payload, ElementsAre(tbm));
+                return IMedia::PushResult::Success{false /* is_accepted */};
+            });
+        EXPECT_CALL(media_mock_, registerPushCallback(_, _))  //
+            .WillOnce(Invoke([](auto&, auto) { return libcyphal::IExecutor::Callback::Handle{}; }));
 
-        auto tbm = TailByteEq(metadata.transfer_id);
-        EXPECT_THAT(payload, ElementsAre(tbm));
-        return IMedia::PushResult::Success{true /*is_accepted*/};
+        metadata.timestamp = now();
+        auto failure       = session->send(metadata, empty_payload);
+        EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
+    scheduler_.spinFor(10s);
 
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    // Payload still inside canard TX queue (b/c media did not accept the payload),
+    // but there will be no memory leak b/c we expect that it should be deallocated when the transport is destroyed.
+    // See `EXPECT_THAT(mr_.allocations, IsEmpty());` at the `TearDown` method.
 }
 
 TEST_F(TestCanMsgTxSession, send_empty_expired_payload)
 {
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-
     auto transport = makeTransport(mr_);
 
     auto maybe_session = transport->makeMessageTxSession({123});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    scheduler_.runNow(+10s);
-    const auto send_time = now();
-    const auto timeout   = 1s;
+    constexpr auto timeout = 1s;
 
     const PayloadFragments empty_payload{};
-    const TransferMetadata metadata{0x11, send_time, Priority::Low};
+    TransferMetadata       metadata{0x11, {}, Priority::Low};
 
-    auto failure = session->send(metadata, empty_payload);
-    EXPECT_THAT(failure, Eq(cetl::nullopt));
+    scheduler_.scheduleAt(1s, [&] {
+        //
+        // Emulate that media became ready on the very edge of the default 1s timeout (exactly at the deadline).
+        EXPECT_CALL(media_mock_, push(_, _, _))  //
+            .WillOnce(Return(IMedia::PushResult::Success{false /* is_accepted */}));
+        EXPECT_CALL(media_mock_, registerPushCallback(_, _))  //
+            .WillOnce(Invoke([&](auto&, auto function) {      //
+                return scheduler_.scheduleCallbackAfter(+timeout, std::move(function));
+            }));
 
-    // Emulate run calls just on the very edge of the default 1s timeout (exactly at the deadline).
-    // Payload should NOT be sent but dropped instead.
-    //
-    scheduler_.runNow(+timeout, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+1us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        metadata.timestamp = now();
+        auto failure       = session->send(metadata, empty_payload);
+        EXPECT_THAT(failure, Eq(cetl::nullopt));
+    });
+    scheduler_.spinFor(10s);
 }
 
 TEST_F(TestCanMsgTxSession, send_7bytes_payload_with_500ms_timeout)
 {
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-
     auto transport = makeTransport(mr_);
 
     auto maybe_session = transport->makeMessageTxSession({17});
@@ -227,36 +234,41 @@ TEST_F(TestCanMsgTxSession, send_7bytes_payload_with_500ms_timeout)
     constexpr auto timeout = 500ms;
     session->setSendTimeout(timeout);
 
-    scheduler_.runNow(+10s);
-    const auto send_time = now();
+    const auto       payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC - 1>(b('1'));
+    TransferMetadata metadata{0x03, {}, Priority::High};
 
-    const auto             payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC - 1>(b('1'));
-    const TransferMetadata metadata{0x03, send_time, Priority::High};
+    scheduler_.scheduleAt(1s, [&] {
+        //
+        // Emulate that socket became ready on the very edge of the 500ms timeout (just 1us before the deadline).
+        EXPECT_CALL(media_mock_, push(_, _, _))  //
+            .WillOnce(Return(IMedia::PushResult::Success{false /* is_accepted */}));
+        EXPECT_CALL(media_mock_, registerPushCallback(_, _))  //
+            .WillOnce(Invoke([&](auto&, auto function) {      //
+                return scheduler_.scheduleCallbackAfter(timeout - 1us, std::move(function));
+            }));
 
-    auto failure = session->send(metadata, makeSpansFrom(payload));
-    EXPECT_THAT(failure, Eq(cetl::nullopt));
-
-    // Emulate run calls just on the very edge of the 500ms deadline (just 1us before it).
-    // Payload should be sent successfully.
-    //
-    EXPECT_CALL(media_mock_, push(TimePoint{send_time + timeout}, _, _)).WillOnce([&](auto, auto can_id, auto payload) {
-        EXPECT_THAT(now(), send_time + timeout - 1us);
-        EXPECT_THAT(can_id, SubjectOfCanIdEq(17));
-        EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
-
-        auto tbm = TailByteEq(metadata.transfer_id);
-        EXPECT_THAT(payload, ElementsAre(b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), b('7'), tbm));
-        return IMedia::PushResult::Success{true /*is_accepted*/};
+        metadata.timestamp = now();
+        auto failure       = session->send(metadata, makeSpansFrom(payload));
+        EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
-    //
-    scheduler_.runNow(timeout - 1us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+0us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.scheduleAt(1s + timeout - 1us, [&] {
+        //
+        EXPECT_CALL(media_mock_, push(_, _, _))  //
+            .WillOnce([&](auto, auto can_id, auto payload) {
+                EXPECT_THAT(now(), metadata.timestamp + timeout - 1us);
+                EXPECT_THAT(can_id, SubjectOfCanIdEq(17));
+                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
+
+                auto tbm = TailByteEq(metadata.transfer_id);
+                EXPECT_THAT(payload, ElementsAre(b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), b('7'), tbm));
+                return IMedia::PushResult::Success{true /* is_accepted */};
+            });
+    });
+    scheduler_.spinFor(10s);
 }
 
 TEST_F(TestCanMsgTxSession, send_when_no_memory_for_contiguous_payload)
 {
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-
     StrictMock<MemoryResourceMock> mr_mock{};
     mr_mock.redirectExpectedCallsTo(mr_);
 
@@ -265,21 +277,22 @@ TEST_F(TestCanMsgTxSession, send_when_no_memory_for_contiguous_payload)
     // Emulate that there is no memory available for the expected contiguous payload.
     const auto payload1 = makeIotaArray<1>(b('0'));
     const auto payload2 = makeIotaArray<2>(b('1'));
-    EXPECT_CALL(mr_mock, do_allocate(sizeof(payload1) + sizeof(payload2), _)).WillOnce(Return(nullptr));
+    EXPECT_CALL(mr_mock, do_allocate(sizeof(payload1) + sizeof(payload2), _))  //
+        .WillOnce(Return(nullptr));
 
     auto maybe_session = transport->makeMessageTxSession({17});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    scheduler_.runNow(+10s);
-    const auto send_time = now();
+    TransferMetadata metadata{0x03, {}, Priority::Optional};
 
-    const TransferMetadata metadata{0x03, send_time, Priority::Optional};
-
-    auto failure = session->send(metadata, makeSpansFrom(payload1, payload2));
-    EXPECT_THAT(failure, Optional(VariantWith<MemoryError>(_)));
-
-    scheduler_.runNow(+10ms, [&] { transport->run(scheduler_.now()); });
+    scheduler_.scheduleAt(1s, [&] {
+        //
+        metadata.timestamp = now();
+        auto failure       = session->send(metadata, makeSpansFrom(payload1, payload2));
+        EXPECT_THAT(failure, Optional(VariantWith<MemoryError>(_)));
+    });
+    scheduler_.spinFor(10s);
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
