@@ -180,13 +180,13 @@ private:
             return ArgumentError{};
         }
 
-        const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.priority),
+        const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.base.priority),
                                                             CanardTransferKindResponse,
                                                             params_.service_id,
                                                             static_cast<CanardNodeID>(metadata.remote_node_id),
-                                                            static_cast<CanardTransferID>(metadata.transfer_id)};
+                                                            static_cast<CanardTransferID>(metadata.base.transfer_id)};
 
-        return delegate_.sendTransfer(metadata.timestamp + send_timeout_, canard_metadata, payload_fragments);
+        return delegate_.sendTransfer(metadata.base.timestamp + send_timeout_, canard_metadata, payload_fragments);
     }
 
     // MARK: Data members:

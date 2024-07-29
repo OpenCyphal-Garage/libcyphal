@@ -287,7 +287,7 @@ TEST_F(TestCanSvcTxSessions, send_response)
     session->setSendTimeout(timeout);
 
     const PayloadFragments        empty_payload{};
-    const ServiceTransferMetadata metadata{0x66, send_time, Priority::Fast, 13};
+    const ServiceTransferMetadata metadata{{0x66, send_time, Priority::Fast}, 13};
 
     auto failure = session->send(metadata, empty_payload);
     EXPECT_THAT(failure, Eq(cetl::nullopt));
@@ -297,9 +297,9 @@ TEST_F(TestCanSvcTxSessions, send_response)
         EXPECT_THAT(deadline, send_time + timeout);
         EXPECT_THAT(can_id, ServiceOfCanIdEq(123));
         EXPECT_THAT(can_id, AllOf(SourceNodeOfCanIdEq(31), DestinationNodeOfCanIdEq(13)));
-        EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsServiceCanId()));
+        EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsServiceCanId()));
 
-        auto tbm = TailByteEq(metadata.transfer_id);
+        auto tbm = TailByteEq(metadata.base.transfer_id);
         EXPECT_THAT(payload, ElementsAre(tbm));
         return IMedia::PushResult::Success{true /*is_accepted*/};
     });
@@ -324,7 +324,7 @@ TEST_F(TestCanSvcTxSessions, send_response_with_argument_error)
     auto session = cetl::get<UniquePtr<IResponseTxSession>>(std::move(maybe_session));
 
     const PayloadFragments  empty_payload{};
-    ServiceTransferMetadata metadata{0x66, now(), Priority::Immediate, 13};
+    ServiceTransferMetadata metadata{{0x66, now(), Priority::Immediate}, 13};
 
     // Should fail due to anonymous node.
     {

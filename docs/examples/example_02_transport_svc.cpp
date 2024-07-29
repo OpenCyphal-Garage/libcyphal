@@ -148,10 +148,10 @@ protected:
     }
     void printHeartbeat(const MessageRxTransfer& rx_heartbeat)
     {
-        const auto rel_time = rx_heartbeat.metadata.timestamp - startup_time_;
+        const auto rel_time = rx_heartbeat.metadata.base.timestamp - startup_time_;
         std::cerr << "Received heartbeat from node " << rx_heartbeat.metadata.publisher_node_id.value_or(0) << " @ "
                   << std::setw(8) << std::chrono::duration_cast<std::chrono::milliseconds>(rel_time).count()
-                  << " ms, tx_id=" << rx_heartbeat.metadata.transfer_id << "\n";
+                  << " ms, tx_id=" << rx_heartbeat.metadata.base.transfer_id << "\n";
     }
 
     // MARK: Data members:

@@ -278,13 +278,13 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_responce)
     auto session = cetl::get<UniquePtr<IResponseTxSession>>(std::move(maybe_session));
 
     const PayloadFragments  empty_payload{};
-    ServiceTransferMetadata metadata{0x1AF52, {}, Priority::Low, 0x31};
+    ServiceTransferMetadata metadata{{0x1AF52, {}, Priority::Low}, 0x31};
 
     // 1st try anonymous node - should fail without even trying to allocate & send payload.
     scheduler_.scheduleAt(1s, [&] {
         //
-        metadata.timestamp = now();
-        auto failure       = session->send(metadata, empty_payload);
+        metadata.base.timestamp = now();
+        auto failure            = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
     });
     // 2nd. Try again but now with a valid node id.
@@ -310,8 +310,8 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_responce)
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([](auto&, auto) { return libcyphal::IExecutor::Callback::Handle{}; }));
 
-        metadata.timestamp = now();
-        auto failure       = session->send(metadata, empty_payload);
+        metadata.base.timestamp = now();
+        auto failure            = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
     scheduler_.spinFor(10s);
@@ -333,8 +333,8 @@ TEST_F(TestUdpSvcTxSessions, send_request)
 
     scheduler_.scheduleAt(1s, [&] {
         //
-        send_time = now();
-        constexpr auto timeout   = 100ms;
+        send_time              = now();
+        constexpr auto timeout = 100ms;
         session->setSendTimeout(timeout);
 
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
@@ -502,8 +502,8 @@ TEST_F(TestUdpSvcTxSessions, send_response)
 
     scheduler_.scheduleAt(1s, [&] {
         //
-        send_time = now();
-        constexpr auto timeout   = 100ms;
+        send_time              = now();
+        constexpr auto timeout = 100ms;
         session->setSendTimeout(timeout);
 
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
@@ -523,7 +523,7 @@ TEST_F(TestUdpSvcTxSessions, send_response)
             }));
 
         const PayloadFragments        empty_payload{};
-        const ServiceTransferMetadata metadata{0x66, send_time, Priority::Fast, 0x0D};
+        const ServiceTransferMetadata metadata{{0x66, send_time, Priority::Fast}, 0x0D};
 
         auto failure = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
@@ -545,7 +545,7 @@ TEST_F(TestUdpSvcTxSessions, send_response_with_argument_error)
     auto session = cetl::get<UniquePtr<IResponseTxSession>>(std::move(maybe_session));
 
     const PayloadFragments  empty_payload{};
-    ServiceTransferMetadata metadata{0x66, now(), Priority::Immediate, 13};
+    ServiceTransferMetadata metadata{{0x66, now(), Priority::Immediate}, 13};
 
     // Should fail due to anonymous node.
     scheduler_.scheduleAt(100ms, [&] {

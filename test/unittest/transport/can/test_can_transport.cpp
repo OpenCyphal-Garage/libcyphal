@@ -766,9 +766,9 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
     // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     const auto& rx_transfer = maybe_rx_transfer.value();
 
-    EXPECT_THAT(rx_transfer.metadata.timestamp, rx2_timestamp);
-    EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x1E);
-    EXPECT_THAT(rx_transfer.metadata.priority, Priority::Optional);
+    EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx2_timestamp);
+    EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x1E);
+    EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::Optional);
     EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x31);
 
     std::array<char, 10> buffer{};
@@ -939,8 +939,8 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_with_fallible_oom_canard)
 
         scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
         EXPECT_THAT(session->receive(), Optional(Truly([](const auto& rx_transfer) {
-                        EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x1D);
-                        EXPECT_THAT(rx_transfer.metadata.priority, Priority::Optional);
+                        EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x1D);
+                        EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::Optional);
                         EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x31);
 
                         std::array<char, 3> buffer{};

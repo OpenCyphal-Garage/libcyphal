@@ -148,7 +148,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_request)
     auto transport = makeTransport(mr_, 0x31);
 
     constexpr std::size_t extent_bytes  = 8;
-    auto              maybe_session = transport->makeRequestRxSession({extent_bytes, 0x17B});
+    auto                  maybe_session = transport->makeRequestRxSession({extent_bytes, 0x17B});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IRequestRxSession>>(std::move(maybe_session));
 
@@ -187,9 +187,9 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_request)
         // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
         const auto& rx_transfer = maybe_rx_transfer.value();
 
-        EXPECT_THAT(rx_transfer.metadata.timestamp, rx_timestamp);
-        EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x1D);
-        EXPECT_THAT(rx_transfer.metadata.priority, Priority::High);
+        EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx_timestamp);
+        EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x1D);
+        EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::High);
         EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x13);
 
         std::array<std::uint8_t, 2> buffer{};
@@ -222,7 +222,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_response)
     auto transport = makeTransport(mr_, 0x13);
 
     constexpr std::size_t extent_bytes  = 8;
-    auto              maybe_session = transport->makeResponseRxSession({extent_bytes, 0x17B, 0x31});
+    auto                  maybe_session = transport->makeResponseRxSession({extent_bytes, 0x17B, 0x31});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IResponseRxSession>>(std::move(maybe_session));
 
@@ -262,9 +262,9 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_response)
         // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
         const auto& rx_transfer = maybe_rx_transfer.value();
 
-        EXPECT_THAT(rx_transfer.metadata.timestamp, rx_timestamp);
-        EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x1D);
-        EXPECT_THAT(rx_transfer.metadata.priority, Priority::High);
+        EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx_timestamp);
+        EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x1D);
+        EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::High);
         EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x31);
 
         std::array<std::uint8_t, 2> buffer{};
@@ -297,7 +297,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_two_frames)
     auto transport = makeTransport(mr_, 0x31);
 
     constexpr std::size_t extent_bytes  = 8;
-    auto              maybe_session = transport->makeRequestRxSession({extent_bytes, 0x17B});
+    auto                  maybe_session = transport->makeRequestRxSession({extent_bytes, 0x17B});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IRequestRxSession>>(std::move(maybe_session));
 
@@ -345,9 +345,9 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_two_frames)
     // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     const auto& rx_transfer = maybe_rx_transfer.value();
 
-    EXPECT_THAT(rx_transfer.metadata.timestamp, rx_timestamp);
-    EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x1E);
-    EXPECT_THAT(rx_transfer.metadata.priority, Priority::Exceptional);
+    EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx_timestamp);
+    EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x1E);
+    EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::Exceptional);
     EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x13);
 
     std::array<char, extent_bytes> buffer{};
@@ -361,7 +361,7 @@ TEST_F(TestCanSvcRxSessions, unsubscribe_and_run)
     auto transport = makeTransport(mr_, 0x31);
 
     constexpr std::size_t extent_bytes  = 8;
-    auto              maybe_session = transport->makeRequestRxSession({extent_bytes, 0x17B});
+    auto                  maybe_session = transport->makeRequestRxSession({extent_bytes, 0x17B});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IRequestRxSession>>(std::move(maybe_session));
 
