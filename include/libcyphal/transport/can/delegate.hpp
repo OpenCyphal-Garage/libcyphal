@@ -137,9 +137,9 @@ public:
         template <typename Visitor>
         static std::size_t visitCounting(CanardTreeNode* const root, const Visitor& visitor)
         {
-            std::size_t     count = 0;
-            CanardTreeNode* node  = root;
-            CanardTreeNode* prev  = nullptr;
+            std::size_t           count = 0;
+            CanardTreeNode*       node  = root;
+            const CanardTreeNode* prev  = nullptr;
 
             while (nullptr != node)
             {
