@@ -56,8 +56,9 @@ class Tree;
 /// The worst-case complexity of all operations is O(log n), unless specifically noted otherwise.
 /// Note that this class has no public members. The user type should re-export them if needed (usually it is not).
 /// The size of this type is 4x pointer size (16 bytes on a 32-bit platform).
+/// No Sonar cpp:S1448 b/c this is the main node entity without public members - maintainability is not a concern here.
 template <typename Derived>
-class Node
+class Node  // NOSONAR cpp:S1448
 {
     // Polyfill for C++17's std::invoke_result_t.
     template <typename F, typename... Args>
@@ -553,6 +554,7 @@ auto Node<Derived>::retraceOnGrowth() noexcept -> Node*
     return (nullptr == p) ? c : nullptr;  // New root or nothing.
 }
 
+// No Sonar cpp:S134 b/c this is the main in-order traversal tool - maintainability is not a concern here.
 template <typename Derived>
 template <typename NodeT, typename DerivedT, typename Vis>
 void Node<Derived>::inOrderTraverseImpl(DerivedT* const root, const Vis& visitor, const bool reverse)
@@ -568,7 +570,7 @@ void Node<Derived>::inOrderTraverseImpl(DerivedT* const root, const Vis& visitor
         {
             // We came down to this node from `prev`.
 
-            if (auto* left = node->lr[reverse])
+            if (auto* const left = node->lr[reverse])
             {
                 next = left;
             }
@@ -576,7 +578,7 @@ void Node<Derived>::inOrderTraverseImpl(DerivedT* const root, const Vis& visitor
             {
                 visitor(*down(node));
 
-                if (auto* right = node->lr[!reverse])
+                if (auto* const right = node->lr[!reverse])  // NOSONAR cpp:S134
                 {
                     next = right;
                 }
@@ -588,16 +590,21 @@ void Node<Derived>::inOrderTraverseImpl(DerivedT* const root, const Vis& visitor
 
             visitor(*down(node));
 
-            if (auto* right = node->lr[!reverse])
+            if (auto* const right = node->lr[!reverse])
             {
                 next = right;
             }
+        }
+        else
+        {
+            // next has already been set to the parent node.
         }
 
         prev = std::exchange(node, next);
     }
 }
 
+// No Sonar cpp:S134 b/c this is the main in-order returning traversal tool - maintainability is not a concern here.
 template <typename Derived>
 template <typename Result, typename NodeT, typename DerivedT, typename Vis>
 auto Node<Derived>::inOrderTraverseImpl(DerivedT* const root, const Vis& visitor, const bool reverse) -> Result
@@ -613,18 +620,19 @@ auto Node<Derived>::inOrderTraverseImpl(DerivedT* const root, const Vis& visitor
         {
             // We came down to this node from `prev`.
 
-            if (auto* left = node->lr[reverse])
+            if (auto* const left = node->lr[reverse])
             {
                 next = left;
             }
             else
             {
-                if (auto t = visitor(*down(node)))  // NOLINT(*-qualified-auto)
+                // NOLINTNEXTLINE(*-qualified-auto)
+                if (auto t = visitor(*down(node)))  // NOSONAR cpp:S134
                 {
                     return t;
                 }
 
-                if (auto* right = node->lr[!reverse])
+                if (auto* const right = node->lr[!reverse])  // NOSONAR cpp:S134
                 {
                     next = right;
                 }
@@ -639,10 +647,14 @@ auto Node<Derived>::inOrderTraverseImpl(DerivedT* const root, const Vis& visitor
                 return t;
             }
 
-            if (auto* right = node->lr[!reverse])
+            if (auto* const right = node->lr[!reverse])
             {
                 next = right;
             }
+        }
+        else
+        {
+            // next has already been set to the parent node.
         }
 
         prev = std::exchange(node, next);
@@ -665,11 +677,11 @@ void Node<Derived>::postOrderTraverseImpl(DerivedT* const root, const Vis& visit
         {
             // We came down to this node from `prev`.
 
-            if (auto* left = node->lr[reverse])
+            if (auto* const left = node->lr[reverse])
             {
                 next = left;
             }
-            else if (auto* right = node->lr[!reverse])
+            else if (auto* const right = node->lr[!reverse])
             {
                 next = right;
             }
@@ -682,7 +694,7 @@ void Node<Derived>::postOrderTraverseImpl(DerivedT* const root, const Vis& visit
         {
             // We came up to this node from the left child.
 
-            if (auto* right = node->lr[!reverse])
+            if (auto* const right = node->lr[!reverse])
             {
                 next = right;
             }
