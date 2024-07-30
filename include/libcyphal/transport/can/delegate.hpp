@@ -132,12 +132,14 @@ public:
         /// @param visitor The callable to be invoked for each non-null node.
         /// @return Total count of visited nodes (including the `root` one). `0` if `root` is `nullptr`.
         ///
+        /// No Sonar cpp:S134 b/c this is usual in-order traversal - maintainability is not a concern here.
+        ///
         template <typename Visitor>
         static std::size_t visitCounting(CanardTreeNode* const root, const Visitor& visitor)
         {
-            std::size_t     count = 0;
-            CanardTreeNode* node  = root;
-            CanardTreeNode* prev  = nullptr;
+            std::size_t           count = 0;
+            CanardTreeNode*       node  = root;
+            const CanardTreeNode* prev  = nullptr;
 
             while (nullptr != node)
             {
@@ -147,7 +149,7 @@ public:
                 {
                     // We came down to this node from `prev`.
 
-                    if (auto* left = node->lr[0])
+                    if (auto* const left = node->lr[0])
                     {
                         next = left;
                     }
@@ -156,7 +158,7 @@ public:
                         ++count;
                         visitor(down(*node));
 
-                        if (auto* right = node->lr[1])
+                        if (auto* const right = node->lr[1])  // NOSONAR cpp:S134
                         {
                             next = right;
                         }
@@ -169,10 +171,14 @@ public:
                     ++count;
                     visitor(down(*node));
 
-                    if (auto* right = node->lr[1])
+                    if (auto* const right = node->lr[1])
                     {
                         next = right;
                     }
+                }
+                else
+                {
+                    // next has already been set to the parent node.
                 }
 
                 prev = std::exchange(node, next);
