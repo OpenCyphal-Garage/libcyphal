@@ -30,6 +30,12 @@ struct MessageTxParams final
     PortId subject_id{};
 };
 
+/// @brief Defines an abstract interface of a transport layer receive session for message subscription.
+///
+/// Use transport's `makeMessageRxSession` factory function to create an instance of this interface.
+///
+/// @see IRxSession, ISession
+///
 class IMessageRxSession : public IRxSession
 {
 public:
@@ -54,6 +60,12 @@ protected:
 
 };  // IMessageRxSession
 
+/// @brief Defines an abstract interface of a transport layer transmit session for message publishing.
+///
+/// Use transport's `makeMessageTxSession` factory function to create an instance of this interface.
+///
+/// @see ITxSession, ISession
+///
 class IMessageTxSession : public ITxSession
 {
 public:
