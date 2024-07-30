@@ -97,7 +97,7 @@ public:
 
             if (is_removed)
             {
-                destroyCallbackNode(&callback_node);
+                destroyCallbackNode(callback_node);
             }
 
         }  // while there is pending callback to execute
@@ -169,18 +169,19 @@ protected:
 
     void removeCallbackById(const Callback::Id callback_id) override
     {
-        auto* const callback_node = registered_nodes_.search(  //
-            [callback_id](const CallbackNode& node) {          // predicate
+        auto* const callback_node_ptr = registered_nodes_.search(  //
+            [callback_id](const CallbackNode& node) {              // predicate
                 return node.compareById(callback_id);
             });
-        if (nullptr == callback_node)
+        if (nullptr == callback_node_ptr)
         {
             return;
         }
+        auto& callback_node = *callback_node_ptr;
 
-        removeIfScheduledNode(*callback_node);
+        removeIfScheduledNode(callback_node);
 
-        registered_nodes_.remove(callback_node);
+        registered_nodes_.remove(&callback_node);
         didRemoveCallback(callback_id);
 
         destroyCallbackNode(callback_node);
@@ -199,7 +200,7 @@ protected:
     {
         // Note, we release only `registered_nodes_` tree here b/c "helper" `scheduled_nodes_` tree
         // is based on a subset of the same nodes allocated for the "master" `registered_nodes_` tree.
-        releaseCallbackNodes(registered_nodes_);
+        registered_nodes_.postOrderTraverse([this](auto& node) { destroyCallbackNode(node); });
         scheduled_nodes_  = {};
         registered_nodes_ = {};
     }
@@ -377,29 +378,11 @@ private:
         return false;
     }
 
-    void destroyCallbackNode(CallbackNode* const callback_node)
+    void destroyCallbackNode(CallbackNode& callback_node)
     {
-        CETL_DEBUG_ASSERT(nullptr != callback_node, "");
-
         // No Sonar cpp:M23_329 b/c we do our own low-level PMR management here.
-        callback_node->~CallbackNode();  // NOSONAR cpp:M23_329
-        nodes_allocator_.deallocate(callback_node, 1);
-    }
-
-    /// @brief Recursively releases all callback nodes.
-    ///
-    /// AVL tree is balanced, hence the `NOLINT(misc-no-recursion)` and `NOSONAR cpp:S925` exceptions.
-    /// TODO: Add "post-order" traversal support to the AVL tree.
-    ///
-    void releaseCallbackNodes(CallbackNode* const node)  // NOLINT(misc-no-recursion)
-    {
-        if (nullptr != node)
-        {
-            releaseCallbackNodes(node->getChildNode(false));  // NOSONAR cpp:S925
-            releaseCallbackNodes(node->getChildNode(true));   // NOSONAR cpp:S925
-
-            destroyCallbackNode(node);
-        }
+        callback_node.~CallbackNode();  // NOSONAR cpp:M23_329
+        nodes_allocator_.deallocate(&callback_node, 1);
     }
 
     // MARK: - Data members:

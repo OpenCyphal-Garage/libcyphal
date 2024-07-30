@@ -29,6 +29,7 @@
 #include <cstdint>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 
 /// If CAVL is used in throughput-critical code, then it is recommended to disable assertion checks as they may
 /// be costly in terms of execution time.
@@ -189,11 +190,7 @@ protected:
         return extremum(root, true);
     }
 
-    // NOLINTBEGIN(misc-no-recursion)
-
     /// In-order or reverse-in-order traversal of the tree; the visitor is invoked with a reference to each node.
-    /// Required stack depth is bounded by less than 2*log2(size),
-    /// hence no Sonar cpp:S925 and `NOLINT(misc-no-recursion)` exceptions.
     /// If the return type is non-void, then it shall be default-constructable and convertible to bool; in this case,
     /// traversal will stop when the first true value is returned, which is propagated back to the caller; if none
     /// of the calls returned true or the tree is empty, a default value is constructed and returned.
@@ -202,63 +199,51 @@ protected:
     static auto traverse(Derived* const root, const Vis& visitor, const bool reverse = false)  //
         -> std::enable_if_t<!std::is_void<R>::value, R>
     {
-        if (Node* const n = root)
-        {
-            // NOLINTNEXTLINE(*-qualified-auto)
-            if (auto t = Node::traverse<Vis>(down(n->lr[reverse]), visitor, reverse))  // NOSONAR cpp:S925
-            {
-                return t;
-            }
-            if (auto t = visitor(*root))  // NOLINT(*-qualified-auto)
-            {
-                return t;
-            }
-            return Node::traverse<Vis>(down(n->lr[!reverse]), visitor, reverse);  // NOSONAR cpp:S925
-        }
-        return R{};
+        return inOrderTraverseImpl<R, Node>(root, visitor, reverse);
     }
     template <typename Vis>
-    static auto traverse(Derived* const root, const Vis& visitor, const bool reverse = false)
+    static auto traverse(Derived* const root, const Vis& visitor, const bool reverse = false)  //
         -> std::enable_if_t<std::is_void<invoke_result<Vis, Derived&>>::value>
     {
-        if (Node* const n = root)
-        {
-            Node::traverse<Vis>(down(n->lr[reverse]), visitor, reverse);  // NOSONAR cpp:S925
-            visitor(*root);
-            Node::traverse<Vis>(down(n->lr[!reverse]), visitor, reverse);  // NOSONAR cpp:S925
-        }
+        inOrderTraverseImpl<Node>(root, visitor, reverse);
     }
     template <typename Vis, typename R = invoke_result<Vis, const Derived&>>
     static auto traverse(const Derived* const root, const Vis& visitor, const bool reverse = false)  //
         -> std::enable_if_t<!std::is_void<R>::value, R>
     {
-        if (const Node* const n = root)
-        {
-            // NOLINTNEXTLINE(*-qualified-auto)
-            if (auto t = Node::traverse<Vis>(down(n->lr[reverse]), visitor, reverse))  // NOSONAR cpp:S925
-            {
-                return t;
-            }
-            if (auto t = visitor(*root))  // NOLINT(*-qualified-auto)
-            {
-                return t;
-            }
-            return Node::traverse<Vis>(down(n->lr[!reverse]), visitor, reverse);  // NOSONAR cpp:S925
-        }
-        return R{};
+        return inOrderTraverseImpl<R, const Node>(root, visitor, reverse);
     }
     template <typename Vis>
-    static auto traverse(const Derived* const root, const Vis& visitor, const bool reverse = false)
+    static auto traverse(const Derived* const root, const Vis& visitor, const bool reverse = false)  //
         -> std::enable_if_t<std::is_void<invoke_result<Vis, const Derived&>>::value>
     {
-        if (const Node* const n = root)
-        {
-            Node::traverse<Vis>(down(n->lr[reverse]), visitor, reverse);  // NOSONAR cpp:S925
-            visitor(*root);
-            Node::traverse<Vis>(down(n->lr[!reverse]), visitor, reverse);  // NOSONAR cpp:S925
-        }
+        inOrderTraverseImpl<const Node>(root, visitor, reverse);
     }
-    // NOLINTEND(misc-no-recursion)
+
+    /// @breaf Post-order (or reverse-post-order) traversal of the tree.
+    ///
+    /// "Post" nature of the traversal guarantees that, once a node reference is passed to the visitor,
+    /// traversal won't use or reference this node anymore, so it is safe to modify the node in the visitor -
+    /// f.e. deallocate node's memory for an efficient "release whole tree" scenario. But the tree itself
+    /// shall not be modified while traversal is in progress, otherwise bad memory access will likely occur.
+    ///
+    /// @param root The root node of the tree to traverse.
+    /// @param visitor The callable object to invoke for each node. The visitor is invoked with a reference
+    ///                to each node as a POST-action call, AFTER visiting all of its children.
+    /// @param reverse If `false`, the traversal visits first "left" children, then "right" children.
+    ///                If `true`, the traversal is performed in reverse order ("right" first, then "left").
+    ///                In either case, the current node is visited last (hence the post-order).
+    ///
+    template <typename Vis>
+    static void postOrderTraverse(Derived* const root, const Vis& visitor, const bool reverse = false)
+    {
+        postOrderTraverseImpl<Node>(root, visitor, reverse);
+    }
+    template <typename Vis>
+    static void postOrderTraverse(const Derived* const root, const Vis& visitor, const bool reverse = false)
+    {
+        postOrderTraverseImpl<const Node>(root, visitor, reverse);
+    }
 
 private:
     void rotate(const bool r) noexcept
@@ -282,6 +267,14 @@ private:
     auto adjustBalance(const bool increment) noexcept -> Node*;
 
     auto retraceOnGrowth() noexcept -> Node*;
+
+    template <typename NodeT, typename DerivedT, typename Vis>
+    static void inOrderTraverseImpl(DerivedT* const root, const Vis& visitor, const bool reverse);
+    template <typename Result, typename NodeT, typename DerivedT, typename Vis>
+    static auto inOrderTraverseImpl(DerivedT* const root, const Vis& visitor, const bool reverse) -> Result;
+
+    template <typename NodeT, typename DerivedT, typename Vis>
+    static void postOrderTraverseImpl(DerivedT* const root, const Vis& visitor, const bool reverse);
 
     void unlink() noexcept
     {
@@ -560,6 +553,155 @@ auto Node<Derived>::retraceOnGrowth() noexcept -> Node*
     return (nullptr == p) ? c : nullptr;  // New root or nothing.
 }
 
+template <typename Derived>
+template <typename NodeT, typename DerivedT, typename Vis>
+void Node<Derived>::inOrderTraverseImpl(DerivedT* const root, const Vis& visitor, const bool reverse)
+{
+    NodeT* node = root;
+    NodeT* prev = nullptr;
+
+    while (nullptr != node)
+    {
+        NodeT* next = node->up;
+
+        if (prev == node->up)
+        {
+            // We came down to this node from `prev`.
+
+            if (auto* left = node->lr[reverse])
+            {
+                next = left;
+            }
+            else
+            {
+                visitor(*down(node));
+
+                if (auto* right = node->lr[!reverse])
+                {
+                    next = right;
+                }
+            }
+        }
+        else if (prev == node->lr[reverse])
+        {
+            // We came up to this node from the left child.
+
+            visitor(*down(node));
+
+            if (auto* right = node->lr[!reverse])
+            {
+                next = right;
+            }
+        }
+
+        prev = std::exchange(node, next);
+    }
+}
+
+template <typename Derived>
+template <typename Result, typename NodeT, typename DerivedT, typename Vis>
+auto Node<Derived>::inOrderTraverseImpl(DerivedT* const root, const Vis& visitor, const bool reverse) -> Result
+{
+    NodeT* node = root;
+    NodeT* prev = nullptr;
+
+    while (nullptr != node)
+    {
+        NodeT* next = node->up;
+
+        if (prev == node->up)
+        {
+            // We came down to this node from `prev`.
+
+            if (auto* left = node->lr[reverse])
+            {
+                next = left;
+            }
+            else
+            {
+                if (auto t = visitor(*down(node)))  // NOLINT(*-qualified-auto)
+                {
+                    return t;
+                }
+
+                if (auto* right = node->lr[!reverse])
+                {
+                    next = right;
+                }
+            }
+        }
+        else if (prev == node->lr[reverse])
+        {
+            // We came up to this node from the left child.
+
+            if (auto t = visitor(*down(node)))  // NOLINT(*-qualified-auto)
+            {
+                return t;
+            }
+
+            if (auto* right = node->lr[!reverse])
+            {
+                next = right;
+            }
+        }
+
+        prev = std::exchange(node, next);
+    }
+    return Result{};
+}
+
+template <typename Derived>
+template <typename NodeT, typename DerivedT, typename Vis>
+void Node<Derived>::postOrderTraverseImpl(DerivedT* const root, const Vis& visitor, const bool reverse)
+{
+    NodeT* node = root;
+    NodeT* prev = nullptr;
+
+    while (nullptr != node)
+    {
+        NodeT* next = node->up;
+
+        if (prev == node->up)
+        {
+            // We came down to this node from `prev`.
+
+            if (auto* left = node->lr[reverse])
+            {
+                next = left;
+            }
+            else if (auto* right = node->lr[!reverse])
+            {
+                next = right;
+            }
+            else
+            {
+                visitor(*down(node));
+            }
+        }
+        else if (prev == node->lr[reverse])
+        {
+            // We came up to this node from the left child.
+
+            if (auto* right = node->lr[!reverse])
+            {
+                next = right;
+            }
+            else
+            {
+                visitor(*down(node));
+            }
+        }
+        else
+        {
+            // We came up to this node from the right child.
+
+            visitor(*down(node));
+        }
+
+        prev = std::exchange(node, next);
+    }
+}
+
 /// This is a very simple convenience wrapper that is entirely optional to use.
 /// It simply keeps a single root pointer of the tree. The methods are mere wrappers over the static methods
 /// defined in the Node<> template class, such that the node pointer kept in the instance of this class is passed
@@ -661,6 +803,20 @@ public:
         return NodeType::template traverse<Vis>(*this, visitor, reverse);
     }
 
+    /// Wraps NodeType<>::postOrderTraverse().
+    template <typename Vis>
+    void postOrderTraverse(const Vis& visitor, const bool reverse = false)
+    {
+        const TraversalIndicatorUpdater upd(*this);
+        NodeType::template postOrderTraverse<Vis>(*this, visitor, reverse);
+    }
+    template <typename Vis>
+    void postOrderTraverse(const Vis& visitor, const bool reverse = false) const
+    {
+        const TraversalIndicatorUpdater upd(*this);
+        NodeType::template postOrderTraverse<Vis>(*this, visitor, reverse);
+    }
+
     /// Normally these are not needed except if advanced introspection is desired.
     ///
     /// No linting and Sonar cpp:S1709 b/c implicit conversion by design.
@@ -689,7 +845,7 @@ public:
         return traverse([&i](const auto& x) { return (i-- == 0) ? &x : nullptr; });  // NOSONAR cpp:S881
     }
 
-    /// Beware that this convenience method has linear complexity and uses recursion. Use responsibly.
+    /// Beware that this convenience method has linear complexity. Use responsibly.
     auto size() const noexcept
     {
         auto i = 0UL;

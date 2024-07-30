@@ -66,7 +66,7 @@ public:
 
     ~SessionTree()
     {
-        releaseNodes(nodes_);
+        nodes_.postOrderTraverse([this](auto& node) { destroyNode(node); });
     }
 
     CETL_NODISCARD bool isEmpty() const noexcept
@@ -119,40 +119,15 @@ private:
         if (nullptr != node)
         {
             nodes_.remove(node);
-            destroyNode(node);
+            destroyNode(*node);
         }
     }
 
-    /// @brief Recursively releases each remaining node of the AVL tree.
-    ///
-    /// Recursion goes first to the left child, then to the right child, and finally to the current node.
-    /// In such order it is guaranteed that the current node have no children anymore, and so can be deallocated.
-    ///
-    /// B/c AVL tree is balanced, the total complexity is `O(n)` and call stack depth should not be deeper than
-    /// ~O(log(N)) (`ceil(1.44 * log2(N + 2) - 0.328)` to be precise, or 19 in case of 8192 ports),
-    /// where `N` is the total number of tree nodes. Hence, the `NOLINT(misc-no-recursion)`
-    /// and `NOSONAR cpp:S925` exceptions.
-    ///
-    /// TODO: Add "post-order" traversal support to the AVL tree.
-    ///
-    void releaseNodes(Node* node)  // NOLINT(misc-no-recursion)
+    void destroyNode(Node& node)
     {
-        if (nullptr != node)
-        {
-            releaseNodes(node->getChildNode(false));  // NOSONAR cpp:S925
-            releaseNodes(node->getChildNode(true));   // NOSONAR cpp:S925
-
-            destroyNode(node);
-        }
-    }
-
-    void destroyNode(Node* node)
-    {
-        CETL_DEBUG_ASSERT(nullptr != node, "");
-
         // No Sonar cpp:M23_329 b/c we do our own low-level PMR management here.
-        node->~Node();  // NOSONAR cpp:M23_329
-        allocator_.deallocate(node, 1);
+        node.~Node();  // NOSONAR cpp:M23_329
+        allocator_.deallocate(&node, 1);
     }
 
     // MARK: Data members:

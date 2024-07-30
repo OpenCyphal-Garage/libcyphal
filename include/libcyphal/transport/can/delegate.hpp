@@ -125,40 +125,68 @@ public:
     template <typename Node>
     struct CanardConcreteTree
     {
-        /// @brief Recursively visits each node of the AVL tree, counting total number of nodes visited.
-        ///
-        /// Recursion goes first to the left child, then to the current node, and finally to the right child.
-        /// B/c AVL tree is balanced, the total complexity is `O(n)` and call stack depth should not be deeper than
-        /// ~O(log(N)) (`ceil(1.44 * log2(N + 2) - 0.328)` to be precise, or 19 in case of 8192 ports),
-        /// where `N` is the total number of tree nodes. Hence, the `NOLINTNEXTLINE(misc-no-recursion)`
-        /// and `NOSONAR cpp:S925` exceptions.
+        /// @brief Visits in-order each node of the AVL tree, counting total number of nodes visited.
         ///
         /// @tparam Visitor Type of the visitor callable.
-        /// @param node (sub-)root node of the AVL tree. Could be `nullptr`.
+        /// @param root The root node of the AVL tree. Could be `nullptr`.
         /// @param visitor The callable to be invoked for each non-null node.
-        /// @return Total count of visited nodes (including the `node` one). `0` if `node` is `nullptr`.
+        /// @return Total count of visited nodes (including the `root` one). `0` if `root` is `nullptr`.
         ///
         template <typename Visitor>
-        // NOLINTNEXTLINE(misc-no-recursion)
-        static std::size_t visitCounting(CanardTreeNode* const node, const Visitor& visitor)
+        static std::size_t visitCounting(CanardTreeNode* const root, const Visitor& visitor)
         {
-            if (node == nullptr)
+            std::size_t     count = 0;
+            CanardTreeNode* node  = root;
+            CanardTreeNode* prev  = nullptr;
+
+            while (nullptr != node)
             {
-                return 0;
+                CanardTreeNode* next = node->up;
+
+                if (prev == node->up)
+                {
+                    // We came down to this node from `prev`.
+
+                    if (auto* left = node->lr[0])
+                    {
+                        next = left;
+                    }
+                    else
+                    {
+                        ++count;
+                        visitor(down(*node));
+
+                        if (auto* right = node->lr[1])
+                        {
+                            next = right;
+                        }
+                    }
+                }
+                else if (prev == node->lr[0])
+                {
+                    // We came up to this node from the left child.
+
+                    ++count;
+                    visitor(down(*node));
+
+                    if (auto* right = node->lr[1])
+                    {
+                        next = right;
+                    }
+                }
+
+                prev = std::exchange(node, next);
             }
 
-            // Initial `1` is for the current node.
-            std::size_t count = 1;
+            return count;
+        }
 
-            count += visitCounting(node->lr[0], visitor);  // NOSONAR cpp:S925
-
+    private:
+        static Node& down(CanardTreeNode& node)
+        {
             // Next nolint & NOSONAR are unavoidable: this is integration with low-level C code of Canard AVL trees.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-            visitor(*reinterpret_cast<Node*>(node));  // NOSONAR cpp:S3630
-
-            count += visitCounting(node->lr[1], visitor);  // NOSONAR cpp:S925
-
-            return count;
+            return reinterpret_cast<Node&>(node);  // NOSONAR cpp:S3630
         }
 
     };  // CanardConcreteTree
