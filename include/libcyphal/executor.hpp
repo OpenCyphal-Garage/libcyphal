@@ -189,6 +189,8 @@ public:
 
         /// @brief Defines maximum size of callback function.
         ///
+        /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
+        ///
         static constexpr std::size_t FunctionMaxSize = sizeof(void*) * 8;
 
         /// @brief Defines callback function signature.

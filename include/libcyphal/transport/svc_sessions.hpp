@@ -43,6 +43,10 @@ struct ResponseTxParams final
     PortId service_id{};
 };
 
+/// @brief Defines an abstract interface of a transport layer receive session for service.
+///
+/// @see IRxSession, ISession
+///
 class ISvcRxSession : public IRxSession
 {
 public:
@@ -64,6 +68,12 @@ protected:
     ~ISvcRxSession() = default;
 };
 
+/// @brief Defines an abstract interface of a transport layer receive session for service requests.
+///
+/// Use transport's `makeRequestRxSession` factory function to create an instance of this interface.
+///
+/// @see ISvcRxSession, IRxSession, ISession
+///
 class IRequestRxSession : public ISvcRxSession
 {
 public:
@@ -79,6 +89,12 @@ protected:
     ~IRequestRxSession() = default;
 };
 
+/// @brief Defines an abstract interface of a transport layer transmit session for service requests.
+///
+/// Use transport's `makeRequestTxSession` factory function to create an instance of this interface.
+///
+/// @see ITxSession, ISession
+///
 class IRequestTxSession : public ITxSession
 {
 public:
@@ -103,6 +119,12 @@ protected:
     ~IRequestTxSession() = default;
 };
 
+/// @brief Defines an abstract interface of a transport layer receive session for service responses.
+///
+/// Use transport's `makeResponseRxSession` factory function to create an instance of this interface.
+///
+/// @see ISvcRxSession, IRxSession, ISession
+///
 class IResponseRxSession : public ISvcRxSession
 {
 public:
@@ -118,6 +140,12 @@ protected:
     ~IResponseRxSession() = default;
 };
 
+/// @brief Defines an abstract interface of a transport layer transmit session for service responses.
+///
+/// Use transport's `makeResponseTxSession` factory function to create an instance of this interface.
+///
+/// @see ITxSession, ISession
+///
 class IResponseTxSession : public ITxSession
 {
 public:

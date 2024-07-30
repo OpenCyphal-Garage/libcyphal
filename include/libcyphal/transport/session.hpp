@@ -14,6 +14,14 @@ namespace libcyphal
 namespace transport
 {
 
+/// @brief Defines an abstract interface of a transport layer session.
+///
+/// A session is a logical connection between nodes in a network.
+/// The session is used to send and receive data between the nodes.
+/// The session is not responsible for the actual data transfer, but rather for the management of the data transfer.
+/// Actual data transfer is done by the transport entity, by means of user provided media and executor,
+/// as well as integration with corresponding to transport kind (CAN, UDP, etc) lizard library.
+///
 class ISession
 {
 public:
@@ -27,6 +35,10 @@ protected:
     ~ISession() = default;
 };
 
+/// @brief Defines an abstract interface of a transport layer receive (RX) session.
+///
+/// @see ISession
+///
 class IRxSession : public ISession
 {
 public:
@@ -35,6 +47,13 @@ public:
     IRxSession& operator=(const IRxSession&)     = delete;
     IRxSession& operator=(IRxSession&&) noexcept = delete;
 
+    /// @brief Sets the timeout for a transmission.
+    ///
+    /// See Cyphal specification about transfer-ID timeouts.
+    ///
+    /// @param timeout - Positive duration for the timeout. Default value is 2 second.
+    ///                  Zero or negative values are ignored.
+    ///
     virtual void setTransferIdTimeout(const Duration timeout) = 0;
 
 protected:
@@ -42,6 +61,10 @@ protected:
     ~IRxSession() = default;
 };
 
+/// @brief Defines an abstract interface of a transport layer transmit (TX) session.
+///
+/// @see ISession
+///
 class ITxSession : public ISession
 {
 public:
@@ -56,6 +79,7 @@ public:
     /// Any transfer that exceeded this deadline would be dropped.
     ///
     /// @param timeout - Positive duration for transmission timeout. Default value is 1 second.
+    ///                  Zero or negative values have no sense - TX will always expire.
     ///
     virtual void setSendTimeout(const Duration timeout) = 0;
 
