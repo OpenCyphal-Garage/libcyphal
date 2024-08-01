@@ -12,11 +12,10 @@
 #include "platform/tracking_memory_resource.hpp"
 
 #include <cassert>  // NOLINT for NUNAVUT_ASSERT
-#include "nunavut/support/serialization.hpp"
-
-#include "uavcan/node/Health_1_0.hpp"
-#include "uavcan/node/Heartbeat_1_0.hpp"
-#include "uavcan/node/Mode_1_0.hpp"
+#include <nunavut/support/serialization.hpp>
+#include <uavcan/node/Health_1_0.hpp>
+#include <uavcan/node/Heartbeat_1_0.hpp>
+#include <uavcan/node/Mode_1_0.hpp>
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
@@ -79,11 +78,11 @@ protected:
         std::cerr.imbue(std::locale("en_US.UTF-8"));
         std::cout.imbue(std::locale("en_US.UTF-8"));
 
-        if (auto* const node_id_str = std::getenv("UAVCAN__NODE__ID"))
+        if (const auto* const node_id_str = std::getenv("CYPHAL__NODE__ID"))
         {
             local_node_id_ = static_cast<NodeId>(std::stoul(node_id_str));
         }
-        if (auto* const iface_address_str = std::getenv("UAVCAN__UDP__IFACE"))
+        if (const auto* const iface_address_str = std::getenv("CYPHAL__UDP__IFACE"))
         {
             iface_address_ = iface_address_str;
         }
