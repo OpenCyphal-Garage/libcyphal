@@ -93,7 +93,7 @@ public:
         ///
         /// Size is chosen arbitrary, but it should be enough to store any callback implementation.
         ///
-        static constexpr std::size_t MaxSize = sizeof(void*) * 10 + sizeof(Function);
+        static constexpr std::size_t MaxSize = (sizeof(void*) * 10) + sizeof(Function);
 
         /// @brief Defines type-erased callback which is capable to store some internal implementation.
         ///

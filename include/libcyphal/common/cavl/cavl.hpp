@@ -55,8 +55,11 @@ class Tree;
 /// The worst-case complexity of all operations is O(log n), unless specifically noted otherwise.
 /// Note that this class has no public members. The user type should re-export them if needed (usually it is not).
 /// The size of this type is 4x pointer size (16 bytes on a 32-bit platform).
+///
+/// No Sonar cpp:S4963 b/c `Node` supports move operation.
+///
 template <typename Derived>
-class Node
+class Node  // NOSONAR cpp:S4963
 {
     // Polyfill for C++17's std::invoke_result_t.
     template <typename F, typename... Args>

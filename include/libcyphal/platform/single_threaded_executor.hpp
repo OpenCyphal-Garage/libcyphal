@@ -152,10 +152,12 @@ private:
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
         type_id_type<0x49, 0xE4, 0x0F, 0x04, 0x42, 0xDC, 0x48, 0x1D, 0x98, 0x1C, 0x46, 0x77, 0x56, 0x98, 0xEE, 0xD2>;
 
-    class CallbackNode final : public cavl::Node<CallbackNode>
+    /// No Sonar cpp:S4963 b/c `CallbackNode` supports move operation.
+    ///
+    class CallbackNode final : public cavl::Node<CallbackNode>  // NOSONAR cpp:S4963
     {
     public:
-        CallbackNode(SingleThreadedExecutor* executor, Callback::Function&& function)
+        CallbackNode(SingleThreadedExecutor* const executor, Callback::Function&& function)
             : executor_{executor}
             , function_{std::move(function)}
             , next_exec_time_{TimePoint::max()}
@@ -288,13 +290,16 @@ private:
             return cetl::type_id_type_value<CallbackNodeTypeIdType>();
         }
 
-        CETL_NODISCARD void* _cast_(const cetl::type_id& id) & noexcept
+        // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
+        CETL_NODISCARD void* _cast_(const cetl::type_id& id) & noexcept  // NOSONAR cpp:S5008
         {
-            return (id == _get_type_id_()) ? this : nullptr;
+            return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
         }
-        CETL_NODISCARD const void* _cast_(const cetl::type_id& id) const& noexcept
+
+        // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
+        CETL_NODISCARD const void* _cast_(const cetl::type_id& id) const& noexcept  // NOSONAR cpp:S5008
         {
-            return (id == _get_type_id_()) ? this : nullptr;
+            return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
         }
 
     private:
