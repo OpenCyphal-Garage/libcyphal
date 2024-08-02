@@ -29,30 +29,31 @@ using IExecutorTypeIdType = cetl::
 class IExecutor : public cetl::rtti_helper<IExecutorTypeIdType>
 {
 public:
-    /// @brief Defines a callback abstraction umbrella type.
+    /// NOSONAR cpp:S4963 - we do directly handle callback resource here.
     ///
-    struct Callback
+    class Callback
     {
-        /// @brief Defines low level unique identifier for a callback.
-        ///
-        /// 64 bits should be enough to ensure uniqueness of the callback identifier
-        /// by applying some simple rules (e.g. incrementing counter).
-        ///
-        using Id = std::uint64_t;
-
+    public:
         /// @brief Defines possible variants of callback schedules.
         ///
         struct Schedule
         {
+            /// @brief Defines schedule which will NOT execute callback function.
+            ///
+            /// Useful as a default value for a non-engaged callback schedule.
+            /// Also can be used to cancel previously scheduled callback.
+            ///
+            struct None
+            {};
+
             /// @brief Defines schedule which will execute callback function at the specified execution time once.
             ///
             struct Once
             {
-                /// - If `false`, the callback will stay registered and could be rescheduled again.
-                /// - Otherwise, the corresponding callback will be automatically removed on its execution -
-                ///   essentially auto releasing all the associated/captured resources,
-                ///   and invalidating its handle (which can't be used anymore for further rescheduling).
-                bool is_auto_remove{false};
+                /// Absolute time point when it's desired to execute it.
+                /// Use current time (aka now) to schedule it for ASAP execution.
+                /// It could be in the past as well - callback will be executed as soon as possible.
+                TimePoint exec_time;
             };
 
             /// @brief Defines schedule which will execute callback function at the specified execution time, and
@@ -60,132 +61,16 @@ public:
             ///
             struct Repeat
             {
-                /// @brief Positive (non-zero) period between each callback execution.
+                /// Absolute time point when it's desired to execute it first time.
+                TimePoint exec_time;
+
+                /// Positive (non-zero) period between each callback execution.
                 Duration period;
             };
 
-            using Variant = cetl::variant<Once, Repeat>;
+            using Variant = cetl::variant<None, Once, Repeat>;
 
         };  // Schedule
-
-        /// @brief Defines move-only RAII type for automatic callback un-registration.
-        ///
-        /// NOSONAR cpp:S4963 for below `class Handle` - we do directly handle callback resource here.
-        ///
-        class Handle final  // NOSONAR cpp:S4963
-        {
-        public:
-            /// @brief Creates default handler - it's considered as "invalid".
-            ///
-            /// Useful as initial value for a non-engaged callback handle.
-            ///
-            Handle()
-                : id_{0}
-                , executor_{nullptr} {};
-
-            Handle(Handle&& other) noexcept
-                : id_{std::exchange(other.id_, 0)}
-                , executor_{std::exchange(other.executor_, nullptr)}
-            {
-            }
-            Handle& operator=(Handle&& other) noexcept
-            {
-                reset();
-                id_       = std::exchange(other.id_, 0);
-                executor_ = std::exchange(other.executor_, nullptr);
-                return *this;
-            }
-
-            ~Handle()
-            {
-                reset();
-            }
-
-            Handle(const Handle&)            = delete;
-            Handle& operator=(const Handle&) = delete;
-
-            /// @brief Gets low level unique identifier for a callback.
-            ///
-            Id id() const noexcept
-            {
-                return id_;
-            }
-
-            /// @brief Checks if this handle is valid, i.e. can be used for callback scheduling.
-            ///
-            /// Default constructed handle is considered as invalid b/c it has been never appended to any executor (see
-            /// `IExecutor::registerCallback` method). Handle can also be invalid b/c of explicit `reset` invocation.
-            ///
-            constexpr explicit operator bool() const noexcept
-            {
-                return nullptr != executor_;
-            }
-
-            /// @brief Schedules callback (if this handle is valid) for execution at the desired absolute time.
-            ///
-            /// Actual execution of the callback's function will be done later (not from context of this method),
-            /// when desired time comes and executor is ready to execute the callbacks.
-            /// It's ok to schedule the same callback multiple times, even before previous scheduling was executed -
-            /// it will be rescheduled, and then executed according to the last setup. Once it has been
-            /// executed, the callback could be scheduled again (assuming it was not set up for auto-removal).
-            ///
-            /// @param callback_id Unique identifier of the callback to be scheduled.
-            /// @param exec_time Absolute time point when it's desired to execute it.
-            ///                  Use current time (aka now) to schedule it for ASAP execution.
-            ///                  It could be in the past as well - callback will be also executed as ASAP.
-            /// @param schedule Contains specifics how callback will be scheduled (like once, repeatedly etc.).
-            /// @return `true` if this handle is valid, and its callback was found and successfully scheduled.
-            ///         Otherwise `false` - in case the handle either has been reset, invalidated (f.e. by
-            ///         auto removal on execution), or there are no enough resources to schedule the callback.
-            ///
-            bool scheduleAt(const TimePoint exec_time, const Schedule::Variant& schedule) const
-            {
-                if (nullptr == executor_)
-                {
-                    return false;
-                }
-                return executor_->scheduleCallbackById(id_, exec_time, schedule);
-            }
-
-            /// @brief Removes callback from the executor (if this handle is valid).
-            ///
-            /// This method will cancel previous scheduled (if any) execution of the callback,
-            /// and also reset pointer to the executor inside - invaliding this handle.
-            ///
-            void reset() noexcept
-            {
-                if (nullptr != executor_)
-                {
-                    executor_->removeCallbackById(id_);
-                    executor_ = nullptr;
-                }
-            }
-
-        private:
-            /// @brief Private constructor of a new VALID handle with the given unique identifier and executor.
-            ///
-            /// It is private b/c it's expected to be used only by an `IExecutor` implementation -
-            /// hence the `friend class IExecutor;` below.
-            ///
-            /// @param id Unique identifier of the callback which was issued by the executor.
-            /// @param executor Reference to the executor which has appended the callback. Pointer to the executor
-            ///                 is stored inside - it will be used later for the callback scheduling and removal;
-            ///                 b/c of the storing, a still valid handle must not outlive the executor.
-            /// @{
-            friend class IExecutor;
-            ///
-            Handle(const Id id, IExecutor& executor)
-                : id_(id)
-                , executor_(&executor)
-            {
-            }
-            friend class IExecutor;
-            /// @}
-
-            Id         id_;
-            IExecutor* executor_;
-
-        };  // Handle
 
         /// @brief Defines maximum size of callback function.
         ///
@@ -204,6 +89,27 @@ public:
         ///
         using Function = cetl::pmr::function<void(const TimePoint now_time), FunctionMaxSize>;
 
+        /// @brief Defines maximum size of callback implementation.
+        ///
+        /// Size is chosen arbitrary, but it should be enough to store any callback implementation.
+        ///
+        static constexpr std::size_t MaxSize = sizeof(void*) * 10 + sizeof(Function);
+
+        /// @brief Defines type-erased callback which is capable to store some internal implementation.
+        ///
+        /// It is supposed to be used to hide callback implementation,
+        /// and to be passed to the executor for scheduling.
+        /// It also manages lifetime and ownership of the callback registration, so it's movable but not copyable.
+        ///
+        using Any = cetl::unbounded_variant<MaxSize, false /* Copyable */, true /* Movable */>;
+
+        /// @brief Defines opaque handle to a registered callback.
+        ///
+        /// It is supposed to be used internaly (by derived executors)
+        /// to identify/reference the callback in the executor.
+        ///
+        using Handle = std::uintptr_t;
+
     };  // Callback
 
     ~IExecutor() override = default;
@@ -219,64 +125,30 @@ public:
 
     /// @brief Registers a new callback by appending it to the executor.
     ///
-    /// @param function The function to be called when the callback is executed.
-    /// @param is_auto_remove If `true`, the callback will be automatically removed at execution.
-    ///                       Useful for "one-time fire" callbacks, so that release resources as soon as fired.
-    /// @return Valid handle to the successfully appended callback;
-    ///         Otherwise invalid handle (see `Handle::operator bool`) - in case of the appending failure.
+    /// Reference to the callback will be stored in the executor and will be ready for scheduling.
+    /// For scheduling, the very same executor instance must be used; otherwise, undefined behavior (UB).
     ///
-    CETL_NODISCARD Callback::Handle registerCallback(Callback::Function&& function)
-    {
-        CETL_DEBUG_ASSERT(function, "Callback function must be provided.");
+    /// @param function The function to be called when the callback is executed.
+    /// @return Type-erased instance of the registered callback. Instance must not outlive the executor,
+    ///         and must be used only with the same executor; otherwise undefined behavior.
+    ///
+    CETL_NODISCARD virtual Callback::Any registerCallback(Callback::Function&& function) = 0;
 
-        const auto opt_callback_id = appendCallback(std::move(function));
-        if (opt_callback_id)
-        {
-            return Callback::Handle{*opt_callback_id, *this};
-        }
-        return {};
-    }
+    /// @brief Schedules previously registered callback for execution according to a desired schedule.
+    ///
+    /// Actual execution of the callback's function will be done later (not from context of this method), when desired
+    /// time comes and executor is ready to execute callbacks. It's ok to schedule the same callback multiple times
+    /// even before it was executed - it will be rescheduled, and then executed according to the last setup.
+    ///
+    /// @param callback The callback instance (registered at this executor) to be scheduled.
+    ///                 There will be no scheduling if callback is not registered yet
+    ///                 (in its initial default value), or has been reset already.
+    /// @param schedule Contains specifics of how exactly callback will be scheduled (like once, repeatedly etc.).
+    ///
+    virtual void scheduleCallback(Callback::Any& callback, const Callback::Schedule::Variant& schedule) = 0;
 
 protected:
     IExecutor() = default;
-
-    /// @brief Appends a new callback to the executor if possible.
-    ///
-    /// @param A function to be called when the callback is scheduled for execution.
-    /// @return A new unique identifier for the callback if successful.
-    ///         Otherwise `nullopt` in case of out of memory error.
-    ///         No discard b/c it's expected to be used in conjunction with `scheduleCallbackByIdAt`
-    ///         or `removeCallbackById` methods.
-    ///
-    CETL_NODISCARD virtual cetl::optional<Callback::Id> appendCallback(Callback::Function&& function) = 0;
-
-    /// @brief Schedules previously appended callback (by its id) for execution at the desired absolute time.
-    ///
-    /// Actual execution of the callback's function will be done later (not from context of this method), when desired
-    /// time comes and executor is ready to execute the callbacks. It's ok to schedule the same callback multiple times
-    /// even before it was executed - it will be rescheduled, and then executed according to the last setup.
-    ///
-    /// @param callback_id Unique identifier of the callback to be scheduled.
-    /// @param time_point Absolute time point when it's desired to execute it.
-    ///                   Use current time (aka now) to schedule it for ASAP execution.
-    ///                   It could be in the past as well - callback will be executed as soon as possible.
-    /// @param schedule Contains specifics how callback will be scheduled (like once, repeatedly etc.).
-    /// @return `true` if the callback was found and successfully scheduled.
-    ///         Otherwise, in case the callback has been removed already (f.e. by auto removal on execution),
-    ///         or there are not enough resources to schedule the callback.
-    ///
-    virtual bool scheduleCallbackById(const Callback::Id                 callback_id,
-                                      const TimePoint                    exec_time,
-                                      const Callback::Schedule::Variant& schedule) = 0;
-
-    /// @brief Removes callback from this executor by unique identifier.
-    ///
-    /// Previously already scheduled callback will not be executed.
-    /// It's ok to remove already removed callback (f.e. in case of "auto removal) - it will be silently ignored.
-    ///
-    /// @param callback_id Unique identifier of the callback to be removed.
-    ///
-    virtual void removeCallbackById(const Callback::Id callback_id) = 0;
 
 };  // IExecutor
 

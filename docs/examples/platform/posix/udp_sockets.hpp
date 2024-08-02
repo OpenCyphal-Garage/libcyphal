@@ -38,7 +38,7 @@ namespace posix
 class UdpSocketBase
 {
 protected:
-    CETL_NODISCARD static libcyphal::IExecutor::Callback::Handle registerCallbackWithCondition(
+    CETL_NODISCARD static libcyphal::IExecutor::Callback::Any registerCallbackWithCondition(
         libcyphal::IExecutor&                                  executor,
         libcyphal::IExecutor::Callback::Function&&             function,
         const IPosixExecutorExtension::WhenCondition::Variant& condition)
@@ -49,10 +49,9 @@ protected:
             return {};
         }
 
-        auto callback_handle = executor.registerCallback(std::move(function));
-        posix_extension->scheduleCallbackWhen(callback_handle.id(), condition);
-
-        return callback_handle;
+        auto callback = executor.registerCallback(std::move(function));
+        posix_extension->scheduleCallbackWhen(callback, condition);
+        return callback;
     }
 
 };  // UdpSocketBase
@@ -85,15 +84,15 @@ public:
         return tx_socket;
     }
 
-    explicit UdpTxSocket(UDPTxHandle handle)
-        : handle_{handle}
+    explicit UdpTxSocket(UDPTxHandle udp_handle)
+        : udp_handle_{udp_handle}
     {
-        CETL_DEBUG_ASSERT(handle_.fd >= 0, "");
+        CETL_DEBUG_ASSERT(udp_handle_.fd >= 0, "");
     }
 
     ~UdpTxSocket()
     {
-        ::udpTxClose(&handle_);
+        ::udpTxClose(&udp_handle_);
     }
 
     UdpTxSocket(const UdpTxSocket&)                = delete;
@@ -109,10 +108,10 @@ private:
                           const std::uint8_t                           dscp,
                           const libcyphal::transport::PayloadFragments payload_fragments) override
     {
-        CETL_DEBUG_ASSERT(handle_.fd >= 0, "");
+        CETL_DEBUG_ASSERT(udp_handle_.fd >= 0, "");
         CETL_DEBUG_ASSERT(payload_fragments.size() == 1, "");
 
-        const std::int16_t result = ::udpTxSend(&handle_,
+        const std::int16_t result = ::udpTxSend(&udp_handle_,
                                                 multicast_endpoint.ip_address,
                                                 multicast_endpoint.udp_port,
                                                 dscp,
@@ -126,20 +125,20 @@ private:
         return SendResult::Success{result == 1};
     }
 
-    CETL_NODISCARD libcyphal::IExecutor::Callback::Handle registerCallback(
+    CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerCallback(
         libcyphal::IExecutor&                      executor,
         libcyphal::IExecutor::Callback::Function&& function) override
     {
         using HandleWritable = IPosixExecutorExtension::WhenCondition::HandleWritable;
 
-        CETL_DEBUG_ASSERT(handle_.fd >= 0, "");
+        CETL_DEBUG_ASSERT(udp_handle_.fd >= 0, "");
 
-        return registerCallbackWithCondition(executor, std::move(function), HandleWritable{handle_.fd});
+        return registerCallbackWithCondition(executor, std::move(function), HandleWritable{udp_handle_.fd});
     }
 
     // MARK: Data members:
 
-    UDPTxHandle handle_;
+    UDPTxHandle udp_handle_;
 
 };  // UdpTxSocket
 
@@ -174,17 +173,17 @@ public:
         return rx_socket;
     }
 
-    explicit UdpRxSocket(UDPRxHandle handle, libcyphal::IExecutor& executor, cetl::pmr::memory_resource& memory)
-        : handle_{handle}
+    explicit UdpRxSocket(UDPRxHandle udp_handle, libcyphal::IExecutor& executor, cetl::pmr::memory_resource& memory)
+        : udp_handle_{udp_handle}
         , time_provider_{executor}
         , memory_{memory}
     {
-        CETL_DEBUG_ASSERT(handle_.fd >= 0, "");
+        CETL_DEBUG_ASSERT(udp_handle_.fd >= 0, "");
     }
 
     ~UdpRxSocket()
     {
-        ::udpRxClose(&handle_);
+        ::udpRxClose(&udp_handle_);
     }
 
     UdpRxSocket(const UdpRxSocket&)                = delete;
@@ -199,7 +198,7 @@ private:
 
     CETL_NODISCARD ReceiveResult::Type receive() override
     {
-        CETL_DEBUG_ASSERT(handle_.fd >= 0, "");
+        CETL_DEBUG_ASSERT(udp_handle_.fd >= 0, "");
 
         // Current Udpard api limitation is not allowing to pass bigger buffer than actual data size is.
         // Hence, we need temp buffer on stack, and then memory copying.
@@ -207,7 +206,7 @@ private:
         //
         std::array<cetl::byte, BufferSize> buffer{};
         std::size_t                        inout_size = buffer.size();
-        const std::int16_t                 result     = ::udpRxReceive(&handle_, &inout_size, buffer.data());
+        const std::int16_t                 result     = ::udpRxReceive(&udp_handle_, &inout_size, buffer.data());
         if (result < 0)
         {
             return libcyphal::transport::PlatformError{PosixPlatformError{-result}};
@@ -229,20 +228,20 @@ private:
                                         libcyphal::PmrRawBytesDeleter{inout_size, &memory_}}};
     }
 
-    CETL_NODISCARD libcyphal::IExecutor::Callback::Handle registerCallback(
+    CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerCallback(
         libcyphal::IExecutor&                      executor,
         libcyphal::IExecutor::Callback::Function&& function) override
     {
         using HandleReadable = IPosixExecutorExtension::WhenCondition::HandleReadable;
 
-        CETL_DEBUG_ASSERT(handle_.fd >= 0, "");
+        CETL_DEBUG_ASSERT(udp_handle_.fd >= 0, "");
 
-        return registerCallbackWithCondition(executor, std::move(function), HandleReadable{handle_.fd});
+        return registerCallbackWithCondition(executor, std::move(function), HandleReadable{udp_handle_.fd});
     }
 
     // MARK: Data members:
 
-    UDPRxHandle                 handle_;
+    UDPRxHandle                 udp_handle_;
     libcyphal::IExecutor&       time_provider_;
     cetl::pmr::memory_resource& memory_;
 

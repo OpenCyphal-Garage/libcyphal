@@ -79,8 +79,15 @@ public:
     // They can't be moved either, but the reason is less obvious.
     // While we can trivially update the pointers in the adjacent nodes to keep the tree valid,
     // we can't update external references to the tree. This breaks the tree if one attempted to move its root node.
-    Node(Node&& other)                    = delete;
-    auto operator=(Node&& other) -> Node& = delete;
+    Node(Node&& other) noexcept
+    {
+        moveFrom(other);
+    }
+    auto operator=(Node&& other) noexcept -> Node&
+    {
+        moveFrom(other);
+        return *this;
+    }
 
 protected:
     Node()  = default;
@@ -106,6 +113,10 @@ protected:
     auto getBalanceFactor() const noexcept
     {
         return bf;
+    }
+    auto getRootNodePtr() noexcept -> Derived**
+    {
+        return root_ptr;
     }
 
     /// Find a node for which the predicate returns zero, or nullptr if there is no such node or the tree is empty.
@@ -163,9 +174,9 @@ protected:
     /// No Sonar cpp:S6936 b/c the `remove` method name isolated inside `Node` type (doesn't conflict with C).
     static void remove(Derived*& root, Node* const node) noexcept  // NOSONAR cpp:S6936
     {
-        remove(root, static_cast<const Node*>(node));
         if (nullptr != node)
         {
+            remove(root, static_cast<const Node*>(node));
             node->unlink();
         }
     }
@@ -261,6 +272,38 @@ protected:
     // NOLINTEND(misc-no-recursion)
 
 private:
+    void moveFrom(Node& other) noexcept
+    {
+        root_ptr = other.root_ptr;
+        up       = other.up;
+        lr[0]    = other.lr[0];
+        lr[1]    = other.lr[1];
+        bf       = other.bf;
+
+        if (nullptr != up)
+        {
+            up->lr[up->lr[1] == &other] = this;
+        }
+        else
+        {
+            if (nullptr != root_ptr)
+            {
+                *root_ptr = down(this);
+            }
+        }
+
+        if (nullptr != lr[0])
+        {
+            lr[0]->up = this;
+        }
+        if (nullptr != lr[1])
+        {
+            lr[1]->up = this;
+        }
+
+        other.unlink();
+    }
+
     void rotate(const bool r) noexcept
     {
         CAVL_ASSERT((lr[!r] != nullptr) && ((bf >= -1) && (bf <= +1)));
@@ -285,10 +328,11 @@ private:
 
     void unlink() noexcept
     {
-        up    = nullptr;
-        lr[0] = nullptr;
-        lr[1] = nullptr;
-        bf    = 0;
+        root_ptr = nullptr;
+        up       = nullptr;
+        lr[0]    = nullptr;
+        lr[1]    = nullptr;
+        bf       = 0;
     }
 
     static auto extremum(Node* const root, const bool maximum) noexcept -> Derived*
@@ -326,8 +370,8 @@ private:
 
     friend class Tree<Derived>;
 
-    // The binary layout is compatible with the C version.
-    Node*                up = nullptr;
+    Derived**            root_ptr = nullptr;
+    Node*                up       = nullptr;
     std::array<Node*, 2> lr{};
     std::int8_t          bf = 0;
 };
@@ -374,7 +418,8 @@ auto Node<Derived>::search(Derived*& root, const Pre& predicate, const Fac& fact
         root = down(out);
     }
     out->unlink();
-    out->up = up;
+    out->up       = up;
+    out->root_ptr = &root;
     if (Node* const rt = out->retraceOnGrowth())
     {
         root = down(rt);

@@ -4,8 +4,6 @@
 /// SPDX-License-Identifier: MIT
 
 #include "../gtest_helpers.hpp"  // NOLINT(misc-include-cleaner) `PrintTo`-s are implicitly in use by gtest.
-#include "../memory_resource_mock.hpp"
-#include "../tracking_memory_resource.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
@@ -31,14 +29,11 @@ using Callback  = libcyphal::IExecutor::Callback;
 using Schedule  = libcyphal::IExecutor::Callback::Schedule;
 using namespace libcyphal::platform;  // NOLINT This our main concern here in the unit tests.
 
-using testing::_;
 using testing::Eq;
 using testing::Ge;
 using testing::Le;
 using testing::AllOf;
 using testing::Return;
-using testing::IsEmpty;
-using testing::Optional;
 using testing::StrictMock;
 using testing::ElementsAre;
 
@@ -53,16 +48,14 @@ using std::literals::chrono_literals::operator""us;
 class TestSingleThreadedExecutor : public testing::Test
 {
 protected:
-    struct MySingleThreadedExecutor final : public SingleThreadedExecutor
+    class MySingleThreadedExecutor final : public SingleThreadedExecutor
     {
+    public:
         class NowMock
         {
         public:
             MOCK_METHOD(TimePoint, now, (), (const, noexcept));  // NOLINT(bugprone-exception-escape)
         };
-
-        using SingleThreadedExecutor::SingleThreadedExecutor;
-        using SingleThreadedExecutor::releaseAllCallbackNodes;
 
         TimePoint now() const noexcept override
         {
@@ -74,18 +67,6 @@ protected:
         // NOLINTEND
 
     };  // MySingleThreadedExecutor
-
-    void TearDown() override
-    {
-        EXPECT_THAT(mr_.allocations, IsEmpty());
-        EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
-    }
-
-    // MARK: Data members:
-
-    // NOLINTBEGIN
-    TrackingMemoryResource mr_;
-    // NOLINTEND
 };
 
 // MARK: - Tests:
@@ -97,7 +78,7 @@ TEST_F(TestSingleThreadedExecutor, now)
 
     const auto epsilon = 1ms;
 
-    const SingleThreadedExecutor executor{mr_};
+    const SingleThreadedExecutor executor;
     TimePoint                    actual = executor.now();
 
     EXPECT_THAT(actual, AllOf(Ge(expected), Le(expected + epsilon)));
@@ -114,71 +95,60 @@ TEST_F(TestSingleThreadedExecutor, now)
 
 TEST_F(TestSingleThreadedExecutor, registerCallback)
 {
-    MySingleThreadedExecutor executor{mr_};
+    MySingleThreadedExecutor executor;
 
     auto nop = [](const TimePoint) { return; };
 
-    Callback::Handle handle1;
-    EXPECT_FALSE(handle1);
+    Callback::Any cb1;
+    EXPECT_FALSE(cb1.has_value());
 
-    handle1 = executor.registerCallback(nop);
-    EXPECT_TRUE(handle1);
+    cb1 = executor.registerCallback(nop);
+    EXPECT_TRUE(cb1.has_value());
 
-    auto handle2a{executor.registerCallback(nop)};
-    EXPECT_TRUE(handle2a);
+    auto cb2a{executor.registerCallback(nop)};
+    EXPECT_TRUE(cb2a.has_value());
 
-    auto handle2b{std::move(handle2a)};
-    EXPECT_TRUE(handle2b);
+    auto cb2b{std::move(cb2a)};
+    EXPECT_TRUE(cb2b.has_value());
 
-    handle2b = executor.registerCallback(nop);
-    EXPECT_TRUE(handle2b);
+    cb2b = executor.registerCallback(nop);
+    EXPECT_TRUE(cb2b.has_value());
 
-    handle1 = {};
-    EXPECT_FALSE(handle1);
+    cb1 = {};
+    EXPECT_FALSE(cb1.has_value());
 
-    handle2b = std::move(handle1);
-    EXPECT_FALSE(handle2b);
-}
-
-TEST_F(TestSingleThreadedExecutor, registerCallback_no_memory)
-{
-    StrictMock<MemoryResourceMock> mr_mock{};
-
-    EXPECT_CALL(mr_mock, do_allocate(_, _)).WillOnce(Return(nullptr));
-
-    MySingleThreadedExecutor executor{mr_mock};
-
-    auto handle = executor.registerCallback([](auto) { return; });
-    EXPECT_FALSE(handle);
-    handle.reset();
+    cb2b = std::move(cb1);
+    EXPECT_FALSE(cb2b.has_value());
 }
 
 TEST_F(TestSingleThreadedExecutor, scheduleAt_no_spin)
 {
-    MySingleThreadedExecutor executor{mr_};
+    MySingleThreadedExecutor executor;
 
     auto virtual_now = TimePoint{};
 
     bool was_called = false;
-    auto handle     = executor.registerCallback([&](auto) { was_called = true; });
+    auto callback   = executor.registerCallback([&](auto) { was_called = true; });
+    EXPECT_TRUE(callback.has_value());
     EXPECT_FALSE(was_called);
 
-    EXPECT_TRUE(handle.scheduleAt(virtual_now, Schedule::Once{}));
+    executor.scheduleCallback(callback, Schedule::Once{});
     EXPECT_FALSE(was_called);
 
-    EXPECT_TRUE(handle.scheduleAt(virtual_now + 1ms, Schedule::Once{}));
+    executor.scheduleCallback(callback, Schedule::Once{virtual_now + 1ms});
     EXPECT_FALSE(was_called);
 
-    handle.reset();
+    callback.reset();
+    EXPECT_FALSE(callback.has_value());
     EXPECT_FALSE(was_called);
 
-    // b/c already reset
-    EXPECT_FALSE(handle.scheduleAt(virtual_now, Schedule::Once{}));
+    // callback is already reset
+    executor.scheduleCallback(callback, Schedule::Once{virtual_now});
 }
 
 TEST_F(TestSingleThreadedExecutor, spinOnce_no_callbacks)
 {
-    MySingleThreadedExecutor executor{mr_};
+    MySingleThreadedExecutor executor;
 
     const auto spin_result = executor.spinOnce();
     EXPECT_THAT(spin_result.next_exec_time, Eq(cetl::nullopt));
@@ -187,10 +157,10 @@ TEST_F(TestSingleThreadedExecutor, spinOnce_no_callbacks)
 
 TEST_F(TestSingleThreadedExecutor, spinOnce)
 {
-    MySingleThreadedExecutor executor{mr_};
+    MySingleThreadedExecutor executor;
 
-    int  called = 0;
-    auto handle = executor.registerCallback([&](auto) { ++called; });
+    int  called   = 0;
+    auto callback = executor.registerCallback([&](auto) { ++called; });
 
     // Registered but not scheduled yet.
     //
@@ -201,8 +171,8 @@ TEST_F(TestSingleThreadedExecutor, spinOnce)
     EXPECT_THAT(spin_result.next_exec_time, Eq(cetl::nullopt));
     EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
 
-    EXPECT_TRUE(handle.scheduleAt(virtual_now, Schedule::Once{}));
-    EXPECT_TRUE(handle.scheduleAt(virtual_now + 4ms, Schedule::Once{}));
+    executor.scheduleCallback(callback, Schedule::Once{virtual_now});
+    executor.scheduleCallback(callback, Schedule::Once{virtual_now + 4ms});
 
     const auto deadline = virtual_now + 10ms;
 
@@ -218,48 +188,19 @@ TEST_F(TestSingleThreadedExecutor, spinOnce)
     EXPECT_THAT(called, 1);
 }
 
-TEST_F(TestSingleThreadedExecutor, spinOnce_auto_remove)
-{
-    MySingleThreadedExecutor executor{mr_};
-
-    cetl::optional<TimePoint> called;
-    auto                      handle = executor.registerCallback([&](auto now) { called = now; });
-
-    auto virtual_now = TimePoint{};
-    EXPECT_TRUE(handle.scheduleAt(virtual_now, Schedule::Once{}));
-    EXPECT_TRUE(handle.scheduleAt(virtual_now + 4ms, Schedule::Once{true /* is_auto_remove */}));
-
-    const auto deadline = virtual_now + 10ms;
-    EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
-
-    while (virtual_now < deadline)
-    {
-        const auto spin_result = executor.spinOnce();
-        EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
-
-        virtual_now += 1ms;
-        EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
-    }
-    EXPECT_THAT(called, Optional(TimePoint{4ms}));
-
-    // release handle of auto-removed callback
-    EXPECT_FALSE(handle.scheduleAt(virtual_now, Schedule::Once{}));
-    handle.reset();
-}
-
 TEST_F(TestSingleThreadedExecutor, schedule_once_multiple)
 {
-    MySingleThreadedExecutor executor{mr_};
+    MySingleThreadedExecutor executor;
 
     std::vector<std::tuple<std::string, TimePoint>> calls;
-    auto handle1 = executor.registerCallback([&](auto now) { calls.emplace_back(std::make_tuple("1", now)); });
-    auto handle2 = executor.registerCallback([&](auto now) { calls.emplace_back(std::make_tuple("2", now)); });
-    auto handle3 = executor.registerCallback([&](auto now) { calls.emplace_back(std::make_tuple("3", now)); });
+    auto cb1 = executor.registerCallback([&](auto now) { calls.emplace_back(std::make_tuple("1", now)); });
+    auto cb2 = executor.registerCallback([&](auto now) { calls.emplace_back(std::make_tuple("2", now)); });
+    auto cb3 = executor.registerCallback([&](auto now) { calls.emplace_back(std::make_tuple("3", now)); });
 
     auto virtual_now = TimePoint{};
-    EXPECT_TRUE(handle1.scheduleAt(virtual_now + 8ms, Schedule::Once{}));
-    EXPECT_TRUE(handle2.scheduleAt(virtual_now + 3ms, Schedule::Once{}));
-    EXPECT_TRUE(handle3.scheduleAt(virtual_now + 5ms, Schedule::Once{}));
+    executor.scheduleCallback(cb1, Schedule::Once{virtual_now + 8ms});
+    executor.scheduleCallback(cb2, Schedule::Once{virtual_now + 3ms});
+    executor.scheduleCallback(cb3, Schedule::Once{virtual_now + 5ms});
 
     const auto deadline = virtual_now + 10ms;
     EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
@@ -280,18 +221,18 @@ TEST_F(TestSingleThreadedExecutor, schedule_once_multiple)
 
 TEST_F(TestSingleThreadedExecutor, schedule_once_multiple_with_the_same_exec_time)
 {
-    MySingleThreadedExecutor executor{mr_};
+    MySingleThreadedExecutor executor;
 
     std::vector<std::tuple<std::string, TimePoint>> calls;
-    auto handle1 = executor.registerCallback([&](auto now) { calls.emplace_back(std::make_tuple("1", now)); });
-    auto handle2 = executor.registerCallback([&](auto now) { calls.emplace_back(std::make_tuple("2", now)); });
-    auto handle3 = executor.registerCallback([&](auto now) { calls.emplace_back(std::make_tuple("3", now)); });
+    auto cb1 = executor.registerCallback([&](auto now) { calls.emplace_back(std::make_tuple("1", now)); });
+    auto cb2 = executor.registerCallback([&](auto now) { calls.emplace_back(std::make_tuple("2", now)); });
+    auto cb3 = executor.registerCallback([&](auto now) { calls.emplace_back(std::make_tuple("3", now)); });
 
     auto       virtual_now = TimePoint{};
     const auto exec_time   = virtual_now + 5ms;
-    EXPECT_TRUE(handle2.scheduleAt(exec_time, Schedule::Once{}));
-    EXPECT_TRUE(handle1.scheduleAt(exec_time, Schedule::Once{}));
-    EXPECT_TRUE(handle3.scheduleAt(exec_time, Schedule::Once{}));
+    executor.scheduleCallback(cb2, Schedule::Once{exec_time});
+    executor.scheduleCallback(cb1, Schedule::Once{exec_time});
+    executor.scheduleCallback(cb3, Schedule::Once{exec_time});
 
     const auto deadline = virtual_now + 10ms;
     EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
@@ -312,22 +253,22 @@ TEST_F(TestSingleThreadedExecutor, schedule_once_multiple_with_the_same_exec_tim
 
 TEST_F(TestSingleThreadedExecutor, schedule_once_callback_recursively)
 {
-    MySingleThreadedExecutor executor{mr_};
+    MySingleThreadedExecutor executor;
 
     std::vector<std::tuple<int, TimePoint>> calls;
 
-    int              counter = 0;
-    Callback::Handle handle;
-    handle = executor.registerCallback([&](auto now) {
+    int           counter = 0;
+    Callback::Any cb;
+    cb = executor.registerCallback([&](auto now) {
         //
         ++counter;
         calls.emplace_back(std::make_tuple(counter, now));
 
-        EXPECT_TRUE(handle.scheduleAt(now + 2ms, Schedule::Once{}));
+        executor.scheduleCallback(cb, Schedule::Once{now + 2ms});
     });
 
     auto virtual_now = TimePoint{};
-    EXPECT_TRUE(handle.scheduleAt(virtual_now + 5ms, Schedule::Once{}));
+    executor.scheduleCallback(cb, Schedule::Once{virtual_now + 5ms});
 
     const auto deadline = virtual_now + 10ms;
     EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
@@ -348,56 +289,22 @@ TEST_F(TestSingleThreadedExecutor, schedule_once_callback_recursively)
 
 TEST_F(TestSingleThreadedExecutor, reset_once_scheduling_from_callback)
 {
-    MySingleThreadedExecutor executor{mr_};
+    MySingleThreadedExecutor executor;
 
     std::vector<std::tuple<int, TimePoint>> calls;
 
-    int              counter = 0;
-    Callback::Handle handle;
-    handle = executor.registerCallback([&](auto now) {
+    int           counter = 0;
+    Callback::Any cb;
+    cb = executor.registerCallback([&](auto now) {
         //
         ++counter;
         calls.emplace_back(std::make_tuple(counter, now));
 
-        handle.reset();
+        cb.reset();
     });
 
     auto virtual_now = TimePoint{};
-    EXPECT_TRUE(handle.scheduleAt(virtual_now + 5ms, Schedule::Once{}));
-
-    const auto deadline = virtual_now + 10ms;
-    EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
-
-    while (virtual_now < deadline)
-    {
-        const auto spin_result = executor.spinOnce();
-        EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
-
-        virtual_now += 1ms;
-        EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
-    }
-
-    EXPECT_THAT(calls, ElementsAre(std::make_tuple(1, TimePoint{5ms})));
-}
-
-TEST_F(TestSingleThreadedExecutor, reset_once_scheduling_from_auto_remove_callback)
-{
-    MySingleThreadedExecutor executor{mr_};
-
-    std::vector<std::tuple<int, TimePoint>> calls;
-
-    int              counter = 0;
-    Callback::Handle handle;
-    handle = executor.registerCallback([&](auto now) {
-        //
-        ++counter;
-        calls.emplace_back(std::make_tuple(counter, now));
-
-        handle.reset();
-    });
-
-    auto virtual_now = TimePoint{};
-    EXPECT_TRUE(handle.scheduleAt(virtual_now + 5ms, Schedule::Once{true /* is_auto_remove */}));
+    executor.scheduleCallback(cb, Schedule::Once{virtual_now + 5ms});
 
     const auto deadline = virtual_now + 10ms;
     EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
@@ -416,24 +323,24 @@ TEST_F(TestSingleThreadedExecutor, reset_once_scheduling_from_auto_remove_callba
 
 TEST_F(TestSingleThreadedExecutor, reset_repeat_scheduling_from_callback)
 {
-    MySingleThreadedExecutor executor{mr_};
+    MySingleThreadedExecutor executor;
 
     std::vector<std::tuple<int, TimePoint>> calls;
 
-    int              counter = 0;
-    Callback::Handle handle  = executor.registerCallback([&](auto now) {
+    int           counter = 0;
+    Callback::Any cb      = executor.registerCallback([&](auto now) {
         //
         ++counter;
         calls.emplace_back(std::make_tuple(counter, now));
 
         if (counter == 3)
         {
-            handle.reset();
+            cb.reset();
         }
     });
 
     auto virtual_now = TimePoint{};
-    EXPECT_TRUE(handle.scheduleAt(virtual_now + 20ms, Schedule::Repeat{5ms}));
+    executor.scheduleCallback(cb, Schedule::Repeat{virtual_now + 20ms, 5ms});
 
     const auto deadline = virtual_now + 100ms;
     EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
@@ -455,22 +362,22 @@ TEST_F(TestSingleThreadedExecutor, reset_repeat_scheduling_from_callback)
 
 TEST_F(TestSingleThreadedExecutor, spinOnce_worsth_lateness)
 {
-    MySingleThreadedExecutor executor{mr_};
+    MySingleThreadedExecutor executor;
 
     std::vector<std::tuple<int, TimePoint>> calls;
 
-    auto handle1 = executor.registerCallback([&](auto now) {
+    auto cb1 = executor.registerCallback([&](auto now) {
         //
         calls.emplace_back(std::make_tuple(1, now));
     });
-    auto handle2 = executor.registerCallback([&](auto now) {
+    auto cb2 = executor.registerCallback([&](auto now) {
         //
         calls.emplace_back(std::make_tuple(2, now));
     });
 
     auto virtual_now = TimePoint{};
-    EXPECT_TRUE(handle1.scheduleAt(virtual_now + 7ms, Schedule::Once{}));
-    EXPECT_TRUE(handle2.scheduleAt(virtual_now + 4ms, Schedule::Once{}));
+    executor.scheduleCallback(cb1, Schedule::Once{virtual_now + 7ms});
+    executor.scheduleCallback(cb2, Schedule::Once{virtual_now + 4ms});
 
     // Emulate lateness by spinning at +10ms
     virtual_now += 10ms;
@@ -481,15 +388,6 @@ TEST_F(TestSingleThreadedExecutor, spinOnce_worsth_lateness)
     EXPECT_THAT(spin_result.worst_lateness, 6ms);
 
     EXPECT_THAT(calls, ElementsAre(std::make_tuple(2, TimePoint{10ms}), std::make_tuple(1, TimePoint{10ms})));
-}
-
-TEST_F(TestSingleThreadedExecutor, handle_invalidation)
-{
-    MySingleThreadedExecutor executor{mr_};
-
-    auto handle = executor.registerCallback([&](auto) {});
-    executor.releaseAllCallbackNodes();
-    EXPECT_FALSE(handle.scheduleAt({}, Schedule::Once{}));
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

@@ -39,8 +39,8 @@ namespace detail
 template <typename SocketInterface>
 struct SocketState
 {
-    UniquePtr<SocketInterface>  interface;
-    IExecutor::Callback::Handle cb_handle;
+    UniquePtr<SocketInterface> interface;
+    IExecutor::Callback::Any   callback;
 
 };  // SocketState
 
