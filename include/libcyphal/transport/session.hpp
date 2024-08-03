@@ -20,7 +20,7 @@ namespace transport
 /// The session is used to send and receive data between the nodes.
 /// The session is not responsible for the actual data transfer, but rather for the management of the data transfer.
 /// Actual data transfer is done by the transport entity, by means of user provided media and executor,
-/// as well as integration with corresponding to transport kind (CAN, UDP, etc) lizard library.
+/// as well as integration with corresponding transport kind (CAN, UDP, etc) lizard library.
 ///
 class ISession
 {
