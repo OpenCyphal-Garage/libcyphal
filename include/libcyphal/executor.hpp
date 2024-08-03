@@ -105,7 +105,7 @@ public:
 
         /// @brief Defines opaque handle to a registered callback.
         ///
-        /// It is supposed to be used internaly (by derived executors)
+        /// It is supposed to be used internally (by derived executors)
         /// to identify/reference the callback in the executor.
         ///
         using Handle = std::uintptr_t;

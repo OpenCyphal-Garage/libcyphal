@@ -205,7 +205,7 @@ private:
 
         explicit operator Callback::Handle() const noexcept
         {
-            // Next nolint & NOSONAR are unavoidable: this is opeque handle coversion code.
+            // Next nolint & NOSONAR are unavoidable: this is opaque handle conversion code.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
             return reinterpret_cast<Callback::Handle>(this);  // NOSONAR cpp:S3630
         }
@@ -213,7 +213,7 @@ private:
         {
             CETL_DEBUG_ASSERT(handle, "");
 
-            // Next nolint & NOSONAR are unavoidable: this is opeque handle coversion code.
+            // Next nolint & NOSONAR are unavoidable: this is opaque handle conversion code.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast, performance-no-int-to-ptr)
             return reinterpret_cast<CallbackNode*>(handle);  // NOSONAR cpp:S3630
         }
