@@ -1,5 +1,5 @@
 /// @file
-/// Example of creating a libcyphal node in your project.
+/// Example of creating a libcyphal node in your project using posix SOCKETCAN media and CAN transport.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -8,7 +8,7 @@
 ///
 
 #include "platform/posix/posix_single_threaded_executor.hpp"
-#include "platform/posix/udp_media.hpp"
+#include "platform/posix/can/can_media.hpp"
 #include "platform/tracking_memory_resource.hpp"
 
 #include <cassert>  // NOLINT for NUNAVUT_ASSERT
@@ -24,9 +24,9 @@
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/transport.hpp>
 #include <libcyphal/transport/types.hpp>
-#include <libcyphal/transport/udp/media.hpp>
-#include <libcyphal/transport/udp/udp_transport.hpp>
-#include <libcyphal/transport/udp/udp_transport_impl.hpp>
+#include <libcyphal/transport/can/media.hpp>
+#include <libcyphal/transport/can/can_transport.hpp>
+#include <libcyphal/transport/can/can_transport_impl.hpp>
 #include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>
@@ -48,12 +48,12 @@ namespace
 {
 
 using namespace libcyphal::transport;       // NOLINT This our main concern here in this test.
-using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in this test.
+using namespace libcyphal::transport::can;  // NOLINT This our main concern here in this test.
 
 using Duration            = libcyphal::Duration;
 using TimePoint           = libcyphal::TimePoint;
 using Callback            = libcyphal::IExecutor::Callback::Any;
-using UdpTransportPtr     = libcyphal::UniquePtr<IUdpTransport>;
+using CanTransportPtr     = libcyphal::UniquePtr<ICanTransport>;
 using MessageRxSessionPtr = libcyphal::UniquePtr<IMessageRxSession>;
 using MessageTxSessionPtr = libcyphal::UniquePtr<IMessageTxSession>;
 
@@ -70,7 +70,7 @@ using testing::VariantWith;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-class Example_02_Transport : public testing::Test
+class Example_03_CanTransport : public testing::Test
 {
 protected:
     void SetUp() override
@@ -82,7 +82,7 @@ protected:
         {
             local_node_id_ = static_cast<NodeId>(std::stoul(node_id_str));
         }
-        if (const auto* const iface_address_str = std::getenv("CYPHAL__UDP__IFACE"))
+        if (const auto* const iface_address_str = std::getenv("CYPHAL__CAN__IFACE"))
         {
             iface_address_ = iface_address_str;
         }
@@ -98,17 +98,18 @@ protected:
     }
 
     template <std::size_t Redundancy>
-    UdpTransportPtr makeUdpTransport(std::array<udp::IMedia*, Redundancy>& media_array, const NodeId local_node_id)
+    CanTransportPtr makeCanTransport(std::array<can::IMedia*, Redundancy>& media_array, const NodeId local_node_id)
     {
         const std::size_t tx_capacity = 16;
 
-        auto maybe_transport = udp::makeTransport({mr_}, executor_, media_array, tx_capacity);
-        EXPECT_THAT(maybe_transport, VariantWith<UdpTransportPtr>(_)) << "Failed to create transport.";
-        auto udp_transport = cetl::get<UdpTransportPtr>(std::move(maybe_transport));
-
-        udp_transport->setLocalNodeId(local_node_id);
-
-        return udp_transport;
+        auto maybe_transport = can::makeTransport({mr_}, executor_, media_array, tx_capacity);
+        EXPECT_THAT(maybe_transport, VariantWith<CanTransportPtr>(_)) << "Failed to create transport.";
+        auto can_transport = cetl::get<CanTransportPtr>(std::move(maybe_transport));
+        if (can_transport)
+        {
+            can_transport->setLocalNodeId(local_node_id);
+        }
+        return can_transport;
     }
 
     template <typename T, typename TxSession, typename TxMetadata>
@@ -226,25 +227,32 @@ protected:
     State                                                 state_{};
     NodeId                                                local_node_id_{42};
     TimePoint                                             startup_time_{};
-    std::string                                           iface_address_{"127.0.0.1"};
+    std::string                                           iface_address_{"vcan0"};
     // NOLINTEND
-};
+
+};  // Example_03_CanTransport
 
 // MARK: - Tests:
 
-TEST_F(Example_02_Transport, posix_udp)
+TEST_F(Example_03_CanTransport, heartbeat)
 {
     using Schedule = libcyphal::IExecutor::Callback::Schedule;
 
-    // Make UDP transport with a single media.
+    // Make CAN media.
     //
-    example::platform::posix::UdpMedia udp_media{mr_, executor_, iface_address_};
-    std::array<udp::IMedia*, 1>        media_array{&udp_media};
-    auto                               udp_transport = makeUdpTransport(media_array, local_node_id_);
+    using CanMedia   = example::platform::posix::CanMedia;
+    auto maybe_media = CanMedia::make(mr_, executor_, iface_address_);
+    ASSERT_THAT(maybe_media, VariantWith<CanMedia>(_)) << "Failed to create CAN media.";
+    auto can_media = cetl::get<CanMedia>(std::move(maybe_media));
+
+    // Make CAN transport with a single media.
+    //
+    std::array<can::IMedia*, 1> media_array{&can_media};
+    auto                        can_transport = makeCanTransport(media_array, local_node_id_);
 
     // Subscribe for heartbeat messages.
     //
-    if (!state_.rx_heartbeat_.makeRxSession(*udp_transport))
+    if (!state_.rx_heartbeat_.makeRxSession(*can_transport))
     {
         FAIL() << "Failed to create Heartbeat RX session, can't continue.";
         // unreachable due to FAIL above
@@ -252,7 +260,7 @@ TEST_F(Example_02_Transport, posix_udp)
 
     // Publish heartbeat periodically.
     //
-    if (state_.tx_heartbeat_.makeTxSession(*udp_transport))
+    if (state_.tx_heartbeat_.makeTxSession(*can_transport))
     {
         // state_.heartbeat_.msg_tx_session_->setSendTimeout(1000s);  // for stepping in debugger
 
@@ -295,7 +303,7 @@ TEST_F(Example_02_Transport, posix_udp)
     std::cout << "worst_lateness = " << worst_lateness.count() << " us\n";
 
     state_.reset();
-    udp_transport.reset();
+    can_transport.reset();
     executor_.releaseTemporaryResources();
 }
 

@@ -66,7 +66,11 @@ add_dsdl_cpp_codegen(
 # | BUILD EXAMPLE CODE
 # +---------------------------------------------------------------------------+
 
-add_library(examples_platform "platform/posix/udp.c")
+add_library(examples_platform
+    "platform/posix/can/socketcan.c"
+    "platform/posix/udp/udp.c"
+)
+target_link_libraries(examples_platform PUBLIC canard)
 
 file(GLOB NATIVE_EXAMPLES
     LIST_DIRECTORIES false

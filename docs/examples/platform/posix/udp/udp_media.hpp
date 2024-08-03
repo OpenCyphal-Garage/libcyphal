@@ -15,6 +15,7 @@
 #include <libcyphal/transport/udp/tx_rx_sockets.hpp>
 
 #include <utility>
+#include <string>
 
 namespace example
 {
@@ -26,7 +27,7 @@ namespace posix
 class UdpMedia final : public libcyphal::transport::udp::IMedia
 {
 public:
-    explicit UdpMedia(cetl::pmr::memory_resource& memory, libcyphal::IExecutor& executor, std::string iface_address)
+    UdpMedia(cetl::pmr::memory_resource& memory, libcyphal::IExecutor& executor, std::string iface_address)
         : memory_{memory}
         , executor_{executor}
         , iface_address_{std::move(iface_address)}
