@@ -183,7 +183,7 @@ protected:
         }
         else
         {
-            destroyAwaitableNode(awaitable_node);
+            destroyAwaitableNode(*awaitable_node);
         }
     }
 

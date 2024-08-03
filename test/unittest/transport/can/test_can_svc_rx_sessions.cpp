@@ -145,7 +145,7 @@ TEST_F(TestCanSvcRxSessions, make_request_fails_due_to_argument_error)
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST_F(TestCanSvcRxSessions, run_and_receive_request)
+TEST_F(TestCanSvcRxSessions, receive_request)
 {
     auto transport = makeTransport(mr_, 0x31);
 
@@ -170,7 +170,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_request)
 
     TimePoint rx_timestamp;
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         SCOPED_TRACE("1-st iteration: one frame available @ 1s");
 
@@ -186,7 +186,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_request)
                 return IMedia::PopResult::Metadata{rx_timestamp, 0b011'1'1'0'101111011'0110001'0010011, 3};
             });
 
-        scheduler_.scheduleAt(rx_timestamp + 1ms, [&] {
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
             //
             const auto maybe_rx_transfer = session->receive();
             ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -204,7 +204,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_request)
             EXPECT_THAT(buffer, ElementsAre(42, 147));
         });
     });
-    scheduler_.scheduleAt(2s, [&] {
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
         //
         SCOPED_TRACE("2-nd iteration: no frames available @ 2s");
 
@@ -217,7 +217,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_request)
                 return cetl::nullopt;
             });
 
-        scheduler_.scheduleAt(rx_timestamp + 1ms, [&] {
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
             //
             const auto maybe_rx_transfer = session->receive();
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
@@ -227,7 +227,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_request)
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST_F(TestCanSvcRxSessions, run_and_receive_response)
+TEST_F(TestCanSvcRxSessions, receive_response)
 {
     auto transport = makeTransport(mr_, 0x13);
 
@@ -305,7 +305,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_response)
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST_F(TestCanSvcRxSessions, run_and_receive_two_frames)
+TEST_F(TestCanSvcRxSessions, receive_two_frames)
 {
     auto transport = makeTransport(mr_, 0x31);
 

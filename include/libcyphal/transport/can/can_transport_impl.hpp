@@ -15,7 +15,6 @@
 #include "svc_tx_sessions.hpp"
 
 #include "libcyphal/executor.hpp"
-#include "libcyphal/runnable.hpp"
 #include "libcyphal/transport/common/tools.hpp"
 #include "libcyphal/transport/contiguous_payload.hpp"
 #include "libcyphal/transport/errors.hpp"
@@ -93,9 +92,9 @@ class TransportImpl final : private TransportDelegate, public ICanTransport  // 
             return canard_tx_queue_;
         }
 
-        IExecutor::Callback::Handle& tx_cb_handle()
+        IExecutor::Callback::Any& tx_callback()
         {
-            return tx_cb_handle_;
+            return tx_callback_;
         }
 
         void propagateMtuToTxQueue()
@@ -104,10 +103,10 @@ class TransportImpl final : private TransportDelegate, public ICanTransport  // 
         }
 
     private:
-        const std::uint8_t          index_;
-        IMedia&                     interface_;
-        CanardTxQueue               canard_tx_queue_;
-        IExecutor::Callback::Handle tx_cb_handle_;
+        const std::uint8_t       index_;
+        IMedia&                  interface_;
+        CanardTxQueue            canard_tx_queue_;
+        IExecutor::Callback::Any tx_callback_;
     };
     using MediaArray = libcyphal::detail::VarArray<Media>;
 
@@ -164,7 +163,7 @@ public:
 
     ~TransportImpl()
     {
-        configure_filters_cb_handle_.reset();
+        configure_filters_callback_.reset();
 
         for (Media& media : media_array_)
         {
@@ -223,7 +222,7 @@ private:
         //
         if (total_service_ports_ > 0)
         {
-            configure_filters_cb_handle_.scheduleAt(executor_.now(), Callback::Schedule::Once{});
+            executor_.scheduleCallback(configure_filters_callback_, Callback::Schedule::Once{executor_.now()});
         }
 
         return cetl::nullopt;
@@ -296,21 +295,6 @@ private:
         return SvcResponseTxSession::make(asDelegate(), params);
     }
 
-    // MARK: IRunnable
-
-    CETL_NODISCARD IRunnable::MaybeFailure run(const TimePoint) override
-    {
-        cetl::optional<AnyFailure> failure{};
-
-        failure = runMediaReceive();
-        if (failure.has_value())
-        {
-            return std::move(failure.value());
-        }
-
-        return {};
-    }
-
     // MARK: TransportDelegate
 
     CETL_NODISCARD TransportDelegate& asDelegate()
@@ -356,7 +340,7 @@ private:
             }
 
             // No need to try to push next frame when previous one hasn't finished yet.
-            if (!media.tx_cb_handle())
+            if (!media.tx_callback().has_value())
             {
                 pushNextFrameToMedia(media);
             }
@@ -375,12 +359,13 @@ private:
 
     void scheduleConfigOfFilters()
     {
-        if (!configure_filters_cb_handle_)
+        if (!configure_filters_callback_.has_value())
         {
-            configure_filters_cb_handle_ =
+            configure_filters_callback_ =
                 executor_.registerCallback([this](const TimePoint) { configureMediaFilters(); });
         }
-        configure_filters_cb_handle_.scheduleAt(executor_.now(), Callback::Schedule::Once{});
+
+        executor_.scheduleCallback(configure_filters_callback_, Callback::Schedule::Once{executor_.now()});
     }
 
     // MARK: Privates:
@@ -610,9 +595,9 @@ private:
                 // If needed schedule (recursively!) next frame to push.
                 // Already existing callback will be called by executor when media TX is ready to push more.
                 //
-                if (!media.tx_cb_handle())
+                if (!media.tx_callback().has_value())
                 {
-                    media.tx_cb_handle() =
+                    media.tx_callback() =
                         media.interface().registerPushCallback(executor_, [this, &media](const TimePoint) {  //
                             pushNextFrameToMedia(media);
                         });
@@ -631,7 +616,7 @@ private:
         }  // for a valid tx item
 
         // There is nothing to send anymore, so we are done with this media TX - no more callbacks for now.
-        media.tx_cb_handle().reset();
+        media.tx_callback().reset();
     }
 
     /// @brief Tries to peek the first TX item from the media TX queue which is not expired.
@@ -767,7 +752,7 @@ private:
     std::size_t           total_message_ports_;
     std::size_t           total_service_ports_;
     TransientErrorHandler transient_error_handler_;
-    Callback::Handle      configure_filters_cb_handle_;
+    Callback::Any         configure_filters_callback_;
 
 };  // TransportImpl
 

@@ -9,7 +9,6 @@
 #include "delegate.hpp"
 #include "session_tree.hpp"
 
-#include "libcyphal/runnable.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/types.hpp"

@@ -240,7 +240,7 @@ TEST_F(TestUdpSvcRxSessions, make_request_fails_due_to_rx_socket_error)
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST_F(TestUdpSvcRxSessions, run_and_receive_request)
+TEST_F(TestUdpSvcRxSessions, receive_request)
 {
     StrictMock<MemoryResourceMock> payload_mr_mock{};
 
@@ -373,7 +373,7 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_request)
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST_F(TestUdpSvcRxSessions, run_and_receive_response)
+TEST_F(TestUdpSvcRxSessions, receive_response)
 {
     StrictMock<MemoryResourceMock> payload_mr_mock{};
 

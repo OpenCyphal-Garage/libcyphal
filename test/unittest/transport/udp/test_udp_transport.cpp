@@ -725,7 +725,7 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
 /// Transport should not attempt to re-create any TX sockets if there is nothing to send,
 /// even if there is a "passive, never sending" TX session alive with "faulty" TX socket.
 ///
-TEST_F(TestUpdTransport, no_adhoc_tx_sockets_creation_at_run_when_there_is_nothing_to_send)
+TEST_F(TestUpdTransport, no_adhoc_tx_sockets_creation_when_there_is_nothing_to_send)
 {
     auto transport = makeTransport({mr_});
 

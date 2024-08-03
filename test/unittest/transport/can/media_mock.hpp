@@ -47,12 +47,12 @@ public:
 
     MOCK_METHOD(PopResult::Type, pop, (const cetl::span<cetl::byte> payload_buffer), (noexcept, override));
 
-    MOCK_METHOD(IExecutor::Callback::Handle,
+    MOCK_METHOD(IExecutor::Callback::Any,
                 registerPushCallback,
                 (IExecutor & executor, IExecutor::Callback::Function&& function),
                 (override));
 
-    MOCK_METHOD(IExecutor::Callback::Handle,
+    MOCK_METHOD(IExecutor::Callback::Any,
                 registerPopCallback,
                 (IExecutor & executor, IExecutor::Callback::Function&& function),
                 (override));

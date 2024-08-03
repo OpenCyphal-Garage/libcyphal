@@ -212,7 +212,7 @@ TEST_F(TestUdpMsgRxSession, make_fails_due_to_rx_socket_error)
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST_F(TestUdpMsgRxSession, run_and_receive)
+TEST_F(TestUdpMsgRxSession, receive)
 {
     StrictMock<MemoryResourceMock>        payload_mr_mock{};
     StrictMock<TransientErrorHandlerMock> handler_mock{};
@@ -291,7 +291,7 @@ TEST_F(TestUdpMsgRxSession, run_and_receive)
         //
         SCOPED_TRACE("2-nd iteration: invalid null frame available @ 2s");
 
-        using UdpardReport = IUdpTransport::TransientErrorReport::UdpardRxMsgReceive;
+        using Report = IUdpTransport::TransientErrorReport::UdpardRxMsgReceive;
 
         rx_timestamp = now() + 10ms;
 
@@ -299,7 +299,7 @@ TEST_F(TestUdpMsgRxSession, run_and_receive)
             .WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
                 return {rx_timestamp, {nullptr, libcyphal::PmrRawBytesDeleter{0, &payload_mr_mock}}};
             });
-        EXPECT_CALL(handler_mock, invoke(VariantWith<UdpardReport>(Truly([&](auto& report) {
+        EXPECT_CALL(handler_mock, invoke(VariantWith<Report>(Truly([&](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<ArgumentError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         EXPECT_THAT(report.culprit.udp_ip_endpoint.ip_address, 0xEF000023);
@@ -351,7 +351,7 @@ TEST_F(TestUdpMsgRxSession, run_and_receive)
     scheduler_.spinFor(10s);
 }
 
-TEST_F(TestUdpMsgRxSession, run_and_receive_one_anonymous_frame)
+TEST_F(TestUdpMsgRxSession, receive_one_anonymous_frame)
 {
     StrictMock<MemoryResourceMock> payload_mr_mock{};
 

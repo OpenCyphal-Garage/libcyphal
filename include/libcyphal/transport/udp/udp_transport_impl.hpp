@@ -17,7 +17,6 @@
 #include "udp_transport.hpp"
 
 #include "libcyphal/executor.hpp"
-#include "libcyphal/runnable.hpp"
 #include "libcyphal/transport/common/tools.hpp"
 #include "libcyphal/transport/contiguous_payload.hpp"
 #include "libcyphal/transport/errors.hpp"
@@ -316,13 +315,6 @@ private:
         }
 
         return SvcResponseTxSession::make(memoryResources().general, asDelegate(), params);
-    }
-
-    // MARK: IRunnable
-
-    CETL_NODISCARD IRunnable::MaybeFailure run(const TimePoint) override
-    {
-        return {};
     }
 
     // MARK: TransportDelegate

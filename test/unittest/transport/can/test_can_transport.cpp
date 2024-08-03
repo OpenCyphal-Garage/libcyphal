@@ -662,7 +662,7 @@ TEST_F(TestCanTransport, send_payload_to_out_of_capacity_canard_tx)
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
+TEST_F(TestCanTransport, receive_svc_responses_from_redundant_media)
 {
     StrictMock<MediaMock> media_mock2{};
     EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
@@ -800,7 +800,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
     }
 }
 
-TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_fallible_media)
+TEST_F(TestCanTransport, receive_svc_responses_from_redundant_fallible_media)
 {
     using MediaPopReport = ICanTransport::TransientErrorReport::MediaPop;
 
@@ -870,7 +870,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_fallible_m
     }
 }
 
-TEST_F(TestCanTransport, run_and_receive_svc_responses_with_fallible_oom_canard)
+TEST_F(TestCanTransport, receive_svc_responses_with_fallible_oom_canard)
 {
     StrictMock<MemoryResourceMock> mr_mock{};
     mr_mock.redirectExpectedCallsTo(mr_);
@@ -1004,7 +1004,7 @@ TEST_F(TestCanTransport, setLocalNodeId_when_svc_rx_subscription)
     scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
-TEST_F(TestCanTransport, run_setFilters_no_memory)
+TEST_F(TestCanTransport, setFilters_no_memory)
 {
     StrictMock<MemoryResourceMock> mr_mock{};
     mr_mock.redirectExpectedCallsTo(mr_);
@@ -1058,7 +1058,7 @@ TEST_F(TestCanTransport, run_setFilters_no_memory)
     scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
-TEST_F(TestCanTransport, run_setFilters_no_transient_handler)
+TEST_F(TestCanTransport, setFilters_no_transient_handler)
 {
     StrictMock<MediaMock> media_mock2{};
     EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
@@ -1091,7 +1091,7 @@ TEST_F(TestCanTransport, run_setFilters_no_transient_handler)
     scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 }
 
-TEST_F(TestCanTransport, run_setFilters_with_transient_handler)
+TEST_F(TestCanTransport, setFilters_with_transient_handler)
 {
     using Report = ICanTransport::TransientErrorReport;
 

@@ -105,8 +105,8 @@ public:
     ///
     /// @param executor The executor to register the callback at.
     /// @param function The function to be called when TX socket became "ready to send".
-    /// @return Valid handle to the successfully appended callback;
-    ///         Otherwise invalid handle (see `Handle::operator bool`) - in case of the registration failure.
+    /// @return Type-erased instance of the registered callback. Instance must not outlive the executor,
+    ///         and must be used only with the same executor; otherwise undefined behavior.
     ///
     CETL_NODISCARD virtual IExecutor::Callback::Any registerCallback(IExecutor&                      executor,
                                                                      IExecutor::Callback::Function&& function) = 0;
@@ -163,8 +163,8 @@ public:
     ///
     /// @param executor The executor to register the callback at.
     /// @param function The function to be called when TX socket became "ready to receive".
-    /// @return Valid handle to the successfully appended callback;
-    ///         Otherwise invalid handle (see `Handle::operator bool`) - in case of the registration failure.
+    /// @return Type-erased instance of the registered callback. Instance must not outlive the executor,
+    ///         and must be used only with the same executor; otherwise undefined behavior.
     ///
     CETL_NODISCARD virtual IExecutor::Callback::Any registerCallback(IExecutor&                      executor,
                                                                      IExecutor::Callback::Function&& function) = 0;
