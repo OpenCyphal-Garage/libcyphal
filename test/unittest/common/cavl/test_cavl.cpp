@@ -51,6 +51,7 @@ public:
     using Self::getChildNode;
     using Self::getParentNode;
     using Self::getBalanceFactor;
+    using Self::getRootNodePtr;
     using Self::search;
     using Self::remove;
     using Self::traverse;
@@ -241,7 +242,7 @@ auto getRandomByte()
 }
 
 template <typename N>
-void testManual(const std::function<N*(std::uint8_t)>& factory)
+void testManual(const std::function<N*(std::uint8_t)>& factory, const std::function<N*(N*)>& node_mover)
 {
     using TreeType = typename N::TreeType;
     std::vector<N*> t;
@@ -324,6 +325,11 @@ void testManual(const std::function<N*(std::uint8_t)>& factory)
                          {31, 29, 30, 27, 25, 26, 28, 23, 21, 22, 19, 17, 18, 20, 24, 15,
                           13, 14, 11, 9,  10, 12, 7,  5,  6,  3,  1,  2,  4,  8,  16},
                          true);
+
+    // MOVE 16, 18 & 23
+    t[16] = node_mover(t[16]);
+    t[18] = node_mover(t[18]);
+    t[23] = node_mover(t[23]);
 
     // REMOVE 24
     //                               16
@@ -881,9 +887,20 @@ TEST(TestCavl, randomized)
 
 TEST(TestCavl, manualMy)
 {
-    testManual<My>([](const std::uint16_t x) {
-        return new My(x);  // NOLINT
-    });
+    testManual<My>(
+        [](const std::uint16_t x) {
+            return new My(x);  // NOLINT
+        },
+        [](My* const old_node) {
+            const auto value    = old_node->getValue();
+            My** const root_ptr = old_node->getRootNodePtr();
+            My* const  new_node = new My(std::move(*old_node));  // NOLINT(*-owning-memory)
+            EXPECT_EQ(value, new_node->getValue());
+            EXPECT_EQ(root_ptr, new_node->getRootNodePtr());
+            EXPECT_EQ(nullptr, old_node->getRootNodePtr());
+            delete old_node;  // NOLINT(*-owning-memory)
+            return new_node;
+        });
 }
 
 /// Ensure that polymorphic types can be used with the tree. The tree node type itself is not polymorphic!
@@ -904,15 +921,18 @@ public:
     V()                    = default;
     virtual ~V()           = default;
     V(const V&)            = delete;
-    V(V&&)                 = delete;
     V& operator=(const V&) = delete;
-    V& operator=(V&&)      = delete;
 
+    V& operator=(V&&) noexcept = default;
+    V(V&&) noexcept            = default;
+
+    NODISCARD virtual V*   clone()                           = 0;
     NODISCARD virtual auto getValue() const -> std::uint16_t = 0;
 
 private:
     using E = struct
     {};
+    UNUSED E root_ptr;
     UNUSED E up;
     UNUSED E lr;
     UNUSED E bf;
@@ -926,6 +946,10 @@ template <std::uint8_t Value>
 class VValue : public VValue<static_cast<std::uint8_t>(Value - 1)>
 {
 public:
+    NODISCARD V* clone() override
+    {
+        return new VValue(std::move(*this));  // NOLINT(*-owning-memory)
+    }
     NODISCARD auto getValue() const -> std::uint16_t override
     {
         return static_cast<std::uint16_t>(VValue<static_cast<std::uint8_t>(Value - 1)>::getValue() + 1);
@@ -935,6 +959,10 @@ template <>
 class VValue<0> : public V
 {
 public:
+    NODISCARD V* clone() override
+    {
+        return new VValue(std::move(*this));  // NOLINT(*-owning-memory)
+    }
     NODISCARD auto getValue() const -> std::uint16_t override
     {
         return 0;
@@ -969,7 +997,11 @@ auto makeV(const std::uint8_t val) -> V*
 
 TEST(TestCavl, manualV)
 {
-    testManual<V>(&makeV<>);
+    testManual<V>(&makeV<>, [](V* const old_node) {  //
+        auto* const new_node = old_node->clone();
+        delete old_node;  // NOLINT(*-owning-memory)
+        return new_node;
+    });
 }
 
 }  // namespace

@@ -108,8 +108,8 @@ public:
     /// @return Valid handle to the successfully appended callback;
     ///         Otherwise invalid handle (see `Handle::operator bool`) - in case of the registration failure.
     ///
-    CETL_NODISCARD virtual IExecutor::Callback::Handle registerCallback(IExecutor&                      executor,
-                                                                        IExecutor::Callback::Function&& function) = 0;
+    CETL_NODISCARD virtual IExecutor::Callback::Any registerCallback(IExecutor&                      executor,
+                                                                     IExecutor::Callback::Function&& function) = 0;
 
 protected:
     ITxSocket()  = default;
@@ -166,8 +166,8 @@ public:
     /// @return Valid handle to the successfully appended callback;
     ///         Otherwise invalid handle (see `Handle::operator bool`) - in case of the registration failure.
     ///
-    CETL_NODISCARD virtual IExecutor::Callback::Handle registerCallback(IExecutor&                      executor,
-                                                                        IExecutor::Callback::Function&& function) = 0;
+    CETL_NODISCARD virtual IExecutor::Callback::Any registerCallback(IExecutor&                      executor,
+                                                                     IExecutor::Callback::Function&& function) = 0;
 
 protected:
     IRxSocket()  = default;

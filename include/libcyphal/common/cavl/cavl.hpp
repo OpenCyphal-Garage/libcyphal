@@ -56,9 +56,11 @@ class Tree;
 /// The worst-case complexity of all operations is O(log n), unless specifically noted otherwise.
 /// Note that this class has no public members. The user type should re-export them if needed (usually it is not).
 /// The size of this type is 4x pointer size (16 bytes on a 32-bit platform).
-/// No Sonar cpp:S1448 b/c this is the main node entity without public members - maintainability is not a concern here.
+///
+/// No Sonar cpp:S4963 b/c `Node` supports move operation.
+///
 template <typename Derived>
-class Node  // NOSONAR cpp:S1448
+class Node  // NOSONAR cpp:S4963
 {
     // Polyfill for C++17's std::invoke_result_t.
     template <typename F, typename... Args>
@@ -81,8 +83,15 @@ public:
     // They can't be moved either, but the reason is less obvious.
     // While we can trivially update the pointers in the adjacent nodes to keep the tree valid,
     // we can't update external references to the tree. This breaks the tree if one attempted to move its root node.
-    Node(Node&& other)                    = delete;
-    auto operator=(Node&& other) -> Node& = delete;
+    Node(Node&& other) noexcept
+    {
+        moveFrom(other);
+    }
+    auto operator=(Node&& other) noexcept -> Node&
+    {
+        moveFrom(other);
+        return *this;
+    }
 
 protected:
     Node()  = default;
@@ -108,6 +117,10 @@ protected:
     auto getBalanceFactor() const noexcept
     {
         return bf;
+    }
+    auto getRootNodePtr() noexcept -> Derived**
+    {
+        return root_ptr;
     }
 
     /// Find a node for which the predicate returns zero, or nullptr if there is no such node or the tree is empty.
@@ -247,6 +260,38 @@ protected:
     }
 
 private:
+    void moveFrom(Node& other) noexcept
+    {
+        root_ptr = other.root_ptr;
+        up       = other.up;
+        lr[0]    = other.lr[0];
+        lr[1]    = other.lr[1];
+        bf       = other.bf;
+
+        if (nullptr != up)
+        {
+            up->lr[up->lr[1] == &other] = this;
+        }
+        else
+        {
+            if (nullptr != root_ptr)
+            {
+                *root_ptr = down(this);
+            }
+        }
+
+        if (nullptr != lr[0])
+        {
+            lr[0]->up = this;
+        }
+        if (nullptr != lr[1])
+        {
+            lr[1]->up = this;
+        }
+
+        other.unlink();
+    }
+
     void rotate(const bool r) noexcept
     {
         CAVL_ASSERT((lr[!r] != nullptr) && ((bf >= -1) && (bf <= +1)));
@@ -279,10 +324,11 @@ private:
 
     void unlink() noexcept
     {
-        up    = nullptr;
-        lr[0] = nullptr;
-        lr[1] = nullptr;
-        bf    = 0;
+        root_ptr = nullptr;
+        up       = nullptr;
+        lr[0]    = nullptr;
+        lr[1]    = nullptr;
+        bf       = 0;
     }
 
     static auto extremum(Node* const root, const bool maximum) noexcept -> Derived*
@@ -320,8 +366,8 @@ private:
 
     friend class Tree<Derived>;
 
-    // The binary layout is compatible with the C version.
-    Node*                up = nullptr;
+    Derived**            root_ptr = nullptr;
+    Node*                up       = nullptr;
     std::array<Node*, 2> lr{};
     std::int8_t          bf = 0;
 };
@@ -368,7 +414,8 @@ auto Node<Derived>::search(Derived*& root, const Pre& predicate, const Fac& fact
         root = down(out);
     }
     out->unlink();
-    out->up = up;
+    out->up       = up;
+    out->root_ptr = &root;
     if (Node* const rt = out->retraceOnGrowth())
     {
         root = down(rt);
@@ -554,166 +601,6 @@ auto Node<Derived>::retraceOnGrowth() noexcept -> Node*
     return (nullptr == p) ? c : nullptr;  // New root or nothing.
 }
 
-// No Sonar cpp:S134 b/c this is the main in-order traversal tool - maintainability is not a concern here.
-template <typename Derived>
-template <typename NodeT, typename DerivedT, typename Vis>
-void Node<Derived>::inOrderTraverseImpl(DerivedT* const root, const Vis& visitor, const bool reverse)
-{
-    NodeT* node = root;
-    NodeT* prev = nullptr;
-
-    while (nullptr != node)
-    {
-        NodeT* next = node->up;
-
-        if (prev == node->up)
-        {
-            // We came down to this node from `prev`.
-
-            if (auto* const left = node->lr[reverse])
-            {
-                next = left;
-            }
-            else
-            {
-                visitor(*down(node));
-
-                if (auto* const right = node->lr[!reverse])  // NOSONAR cpp:S134
-                {
-                    next = right;
-                }
-            }
-        }
-        else if (prev == node->lr[reverse])
-        {
-            // We came up to this node from the left child.
-
-            visitor(*down(node));
-
-            if (auto* const right = node->lr[!reverse])
-            {
-                next = right;
-            }
-        }
-        else
-        {
-            // next has already been set to the parent node.
-        }
-
-        prev = std::exchange(node, next);
-    }
-}
-
-// No Sonar cpp:S134 b/c this is the main in-order returning traversal tool - maintainability is not a concern here.
-template <typename Derived>
-template <typename Result, typename NodeT, typename DerivedT, typename Vis>
-auto Node<Derived>::inOrderTraverseImpl(DerivedT* const root, const Vis& visitor, const bool reverse) -> Result
-{
-    NodeT* node = root;
-    NodeT* prev = nullptr;
-
-    while (nullptr != node)
-    {
-        NodeT* next = node->up;
-
-        if (prev == node->up)
-        {
-            // We came down to this node from `prev`.
-
-            if (auto* const left = node->lr[reverse])
-            {
-                next = left;
-            }
-            else
-            {
-                // NOLINTNEXTLINE(*-qualified-auto)
-                if (auto t = visitor(*down(node)))  // NOSONAR cpp:S134
-                {
-                    return t;
-                }
-
-                if (auto* const right = node->lr[!reverse])  // NOSONAR cpp:S134
-                {
-                    next = right;
-                }
-            }
-        }
-        else if (prev == node->lr[reverse])
-        {
-            // We came up to this node from the left child.
-
-            if (auto t = visitor(*down(node)))  // NOLINT(*-qualified-auto)
-            {
-                return t;
-            }
-
-            if (auto* const right = node->lr[!reverse])
-            {
-                next = right;
-            }
-        }
-        else
-        {
-            // next has already been set to the parent node.
-        }
-
-        prev = std::exchange(node, next);
-    }
-    return Result{};
-}
-
-template <typename Derived>
-template <typename NodeT, typename DerivedT, typename Vis>
-void Node<Derived>::postOrderTraverseImpl(DerivedT* const root, const Vis& visitor, const bool reverse)
-{
-    NodeT* node = root;
-    NodeT* prev = nullptr;
-
-    while (nullptr != node)
-    {
-        NodeT* next = node->up;
-
-        if (prev == node->up)
-        {
-            // We came down to this node from `prev`.
-
-            if (auto* const left = node->lr[reverse])
-            {
-                next = left;
-            }
-            else if (auto* const right = node->lr[!reverse])
-            {
-                next = right;
-            }
-            else
-            {
-                visitor(*down(node));
-            }
-        }
-        else if (prev == node->lr[reverse])
-        {
-            // We came up to this node from the left child.
-
-            if (auto* const right = node->lr[!reverse])
-            {
-                next = right;
-            }
-            else
-            {
-                visitor(*down(node));
-            }
-        }
-        else
-        {
-            // We came up to this node from the right child.
-
-            visitor(*down(node));
-        }
-
-        prev = std::exchange(node, next);
-    }
-}
-
 /// This is a very simple convenience wrapper that is entirely optional to use.
 /// It simply keeps a single root pointer of the tree. The methods are mere wrappers over the static methods
 /// defined in the Node<> template class, such that the node pointer kept in the instance of this class is passed
@@ -815,20 +702,6 @@ public:
         return NodeType::template traverse<Vis>(*this, visitor, reverse);
     }
 
-    /// Wraps NodeType<>::postOrderTraverse().
-    template <typename Vis>
-    void postOrderTraverse(const Vis& visitor, const bool reverse = false)
-    {
-        const TraversalIndicatorUpdater upd(*this);
-        NodeType::template postOrderTraverse<Vis>(*this, visitor, reverse);
-    }
-    template <typename Vis>
-    void postOrderTraverse(const Vis& visitor, const bool reverse = false) const
-    {
-        const TraversalIndicatorUpdater upd(*this);
-        NodeType::template postOrderTraverse<Vis>(*this, visitor, reverse);
-    }
-
     /// Normally these are not needed except if advanced introspection is desired.
     ///
     /// No linting and Sonar cpp:S1709 b/c implicit conversion by design.
@@ -857,7 +730,7 @@ public:
         return traverse([&i](const auto& x) { return (i-- == 0) ? &x : nullptr; });  // NOSONAR cpp:S881
     }
 
-    /// Beware that this convenience method has linear complexity. Use responsibly.
+    /// Beware that this convenience method has linear complexity and uses recursion. Use responsibly.
     auto size() const noexcept
     {
         auto i = 0UL;

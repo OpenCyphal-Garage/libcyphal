@@ -362,7 +362,7 @@ private:
                     }
 
                     // No need to try to send next frame when previous one hasn't finished yet.
-                    if (!media.txSocketState().cb_handle)
+                    if (!media.txSocketState().callback.has_value())
                     {
                         sendNextFrameToMediaTxSocket(media, tx_socket);
                     }
@@ -499,16 +499,16 @@ private:
             [this](const auto& media, auto& socket_state, auto& subscription, auto& session_delegate)
                 -> cetl::optional<AnyFailure> {
                 //
-                if (!socket_state.cb_handle)
+                if (!socket_state.callback.has_value())
                 {
-                    socket_state.cb_handle = socket_state.interface->registerCallback(  //
+                    socket_state.callback = socket_state.interface->registerCallback(  //
                         executor_,
                         [this, &media, &socket_state, &subscription, &session_delegate](const TimePoint) {
                             //
                             receiveNextMessageFrame(media, socket_state, subscription, session_delegate);
                         });
 
-                    if (!socket_state.cb_handle)
+                    if (!socket_state.callback.has_value())
                     {
                         return MemoryError{};
                     }
@@ -534,16 +534,16 @@ private:
         auto media_failure = withMediaSvcRxSockets([this](auto& media,
                                                           auto& socket_state) -> cetl::optional<AnyFailure> {  //
             //
-            if (!socket_state.cb_handle)
+            if (!socket_state.callback.has_value())
             {
-                socket_state.cb_handle = socket_state.interface->registerCallback(  //
+                socket_state.callback = socket_state.interface->registerCallback(  //
                     executor_,
                     [this, &media, &socket_state](auto) {
                         //
                         receiveNextServiceFrame(media, socket_state);
                     });
 
-                if (!socket_state.cb_handle)
+                if (!socket_state.callback.has_value())
                 {
                     return MemoryError{};
                 }
@@ -729,9 +729,9 @@ private:
                 // If needed schedule (recursively!) next frame for sending.
                 // Already existing callback will be called by executor when TX socket is ready to send more.
                 //
-                if (!media.txSocketState().cb_handle)
+                if (!media.txSocketState().callback.has_value())
                 {
-                    media.txSocketState().cb_handle =
+                    media.txSocketState().callback =
                         tx_socket.registerCallback(executor_, [this, &media, &tx_socket](const TimePoint) {  //
                             sendNextFrameToMediaTxSocket(media, tx_socket);
                         });
@@ -750,7 +750,7 @@ private:
         }  // for a valid tx item
 
         // There is nothing to send anymore, so we are done with this media TX socket - no more callbacks for now.
-        media.txSocketState().cb_handle.reset();
+        media.txSocketState().callback.reset();
     }
 
     /// @brief Tries to peek the first TX item from the media TX queue which is not expired.
@@ -998,7 +998,7 @@ private:
         {
             for (Media& media : media_array_)
             {
-                media.svcRxSocketState().cb_handle.reset();
+                media.svcRxSocketState().callback.reset();
             }
         }
     }

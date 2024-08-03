@@ -52,7 +52,7 @@ using namespace libcyphal::transport::udp;  // NOLINT This our main concern here
 
 using Duration            = libcyphal::Duration;
 using TimePoint           = libcyphal::TimePoint;
-using CallbackHandle      = libcyphal::IExecutor::Callback::Handle;
+using Callback            = libcyphal::IExecutor::Callback::Any;
 using UdpTransportPtr     = libcyphal::UniquePtr<IUdpTransport>;
 using MessageRxSessionPtr = libcyphal::UniquePtr<IMessageRxSession>;
 using MessageTxSessionPtr = libcyphal::UniquePtr<IMessageTxSession>;
@@ -187,7 +187,7 @@ protected:
         {
             TransferId          transfer_id_{0};
             MessageTxSessionPtr msg_tx_session_;
-            CallbackHandle      cb_handle_;
+            Callback            callback_;
 
             bool makeTxSession(ITransport& transport)
             {
@@ -204,7 +204,7 @@ protected:
 
             void reset()
             {
-                cb_handle_.reset();
+                callback_.reset();
                 msg_tx_session_.reset();
             }
 
@@ -256,12 +256,12 @@ TEST_F(Example_02_Transport, posix_udp)
     {
         // state_.heartbeat_.msg_tx_session_->setSendTimeout(1000s);  // for stepping in debugger
 
-        state_.tx_heartbeat_.cb_handle_ = executor_.registerCallback([&](const auto now) {
+        state_.tx_heartbeat_.callback_ = executor_.registerCallback([&](const auto now) {
             //
             publishHeartbeat(now);
         });
-        constexpr auto period           = std::chrono::seconds{uavcan::node::Heartbeat_1_0::MAX_PUBLICATION_PERIOD};
-        state_.tx_heartbeat_.cb_handle_.scheduleAt(startup_time_ + period, Schedule::Repeat{period});
+        constexpr auto period          = std::chrono::seconds{uavcan::node::Heartbeat_1_0::MAX_PUBLICATION_PERIOD};
+        executor_.scheduleCallback(state_.tx_heartbeat_.callback_, Schedule::Repeat{startup_time_ + period, period});
     }
 
     // Main loop.

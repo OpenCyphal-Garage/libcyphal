@@ -13,6 +13,8 @@
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
+#include <cetl/rtti.hpp>
+#include <cetl/visit_helpers.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -27,26 +29,11 @@ namespace platform
 
 /// @brief Defines platform agnostic single-threaded executor.
 ///
-/// NOSONAR cpp:S4963 for below `class SingleThreadedExecutor` - we do directly handle resources here;
-/// namely: in destructor we de-allocation of any potentially left callback nodes we allocated previously.
-///
-class SingleThreadedExecutor : public IExecutor  // NOSONAR cpp:S4963
+class SingleThreadedExecutor : public IExecutor
 {
 public:
-    explicit SingleThreadedExecutor(cetl::pmr::memory_resource& memory_resource)
-        : nodes_allocator_{&memory_resource}
-    {
-    }
-
-    ~SingleThreadedExecutor() override
-    {
-        // Just in case release whatever callback nodes left, but properly used `Callback::Handle`-s
-        // (aka "handle must not outlive executor") should have removed them all.
-        //
-        CETL_DEBUG_ASSERT(scheduled_nodes_.empty(), "");
-        CETL_DEBUG_ASSERT(registered_nodes_.empty(), "");
-        releaseAllCallbackNodes();
-    }
+    SingleThreadedExecutor()           = default;
+    ~SingleThreadedExecutor() override = default;
 
     SingleThreadedExecutor(const SingleThreadedExecutor&)                = delete;
     SingleThreadedExecutor(SingleThreadedExecutor&&) noexcept            = delete;
@@ -72,33 +59,31 @@ public:
 
         auto approx_now = TimePoint::min();
 
-        while (auto* const scheduled_node = scheduled_nodes_.min())
+        while (auto* const callback_node_ptr = callback_nodes_.min())
         {
-            // No linting b/c we know for sure the type of the node.
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast)
-            auto& callback_node = static_cast<CallbackNode&>(*scheduled_node);
+            auto& callback_node = *callback_node_ptr;
 
-            const auto exec_time = callback_node.executionTime();
+            const auto exec_time = callback_node.nextExecTime();
             if (approx_now < exec_time)
             {
                 approx_now = now();
                 if (approx_now < exec_time)
                 {
-                    spin_result.next_exec_time = exec_time;
+                    if (exec_time != TimePoint::max())
+                    {
+                        spin_result.next_exec_time = exec_time;
+                    }
                     break;
                 }
             }
 
             spin_result.worst_lateness = std::max(approx_now - exec_time, spin_result.worst_lateness);
 
-            const bool is_removed = applyScheduleOnNextCallback(callback_node, exec_time);
+            removeCallbackNode(callback_node);
+            callback_node.reschedule(exec_time);
+            insertCallbackNode(callback_node);
 
             callback_node(approx_now);
-
-            if (is_removed)
-            {
-                destroyCallbackNode(callback_node);
-            }
 
         }  // while there is pending callback to execute
 
@@ -113,115 +98,176 @@ public:
         return TimePoint{} + std::chrono::duration_cast<Duration>(duration);
     }
 
-    using IExecutor::registerCallback;
-
-protected:
-    CETL_NODISCARD cetl::optional<Callback::Id> appendCallback(Callback::Function&& function) override
+    CETL_NODISCARD Callback::Any registerCallback(Callback::Function&& function) override
     {
         CETL_DEBUG_ASSERT(function, "");
 
-        auto* const new_callback_node = makeCallbackNode(std::move(function));
-        if (nullptr == new_callback_node)
-        {
-            return cetl::nullopt;
-        }
+        CallbackNode new_callback_node{this, std::move(function)};
 
-        ++last_callback_id_;
-        const auto new_callback_id = last_callback_id_;
-        new_callback_node->id()    = new_callback_id;
+        insertCallbackNode(new_callback_node);
 
-        const std::tuple<CallbackNode*, bool> reg_node_existing = registered_nodes_.search(  //
-            [new_callback_id](const CallbackNode& node) {                                    // predicate
-                return node.compareById(new_callback_id);
-            },
-            [new_callback_node]() { return new_callback_node; });  // factory
-
-        (void) reg_node_existing;
-        CETL_DEBUG_ASSERT(!std::get<1>(reg_node_existing), "Callback id collision detected.");
-        CETL_DEBUG_ASSERT(new_callback_node == std::get<0>(reg_node_existing), "Unexpected not the new node.");
-
-        return cetl::optional<Callback::Id>{new_callback_id};
+        return {std::move(new_callback_node)};
     }
 
-    bool scheduleCallbackById(const Callback::Id                 callback_id,
-                              const TimePoint                    exec_time,
-                              const Callback::Schedule::Variant& schedule) override
+    void scheduleCallback(Callback::Any& callback, const Callback::Schedule::Variant& schedule) override
     {
-        auto* const callback_node_ptr = registered_nodes_.search(  //
-            [callback_id](const CallbackNode& node) {              // predicate
-                return node.compareById(callback_id);
-            });
-        if (nullptr == callback_node_ptr)
+        if (auto* const cb_node = callbackToNode(callback))
         {
-            return false;
+            CETL_DEBUG_ASSERT(this == cb_node->executor(), "");
+            scheduleCallbackNode(*cb_node, schedule);
         }
-        CallbackNode& callback_node = *callback_node_ptr;
-
-        // Remove previously scheduled node (if any),
-        // and then re/insert the node with updated/given execution time and schedule.
-        //
-        removeIfScheduledNode(callback_node);
-        callback_node.schedule() = schedule;
-        insertScheduledNode(callback_node, exec_time);
-
-        return true;
     }
 
-    void removeCallbackById(const Callback::Id callback_id) override
+protected:
+    static Callback::Handle callbackToHandle(Callback::Any& callback) noexcept
     {
-        auto* const callback_node_ptr = registered_nodes_.search(  //
-            [callback_id](const CallbackNode& node) {              // predicate
-                return node.compareById(callback_id);
-            });
-        if (nullptr == callback_node_ptr)
-        {
-            return;
-        }
-        auto& callback_node = *callback_node_ptr;
-
-        removeIfScheduledNode(callback_node);
-
-        registered_nodes_.remove(&callback_node);
-        didRemoveCallback(callback_id);
-
-        destroyCallbackNode(callback_node);
+        return static_cast<Callback::Handle>(*callbackToNode(callback));
     }
 
-    /// @brief Extension point for subclasses to handle callback removal.
+    void scheduleCallbackByHandle(const Callback::Handle cb_handle, const Callback::Schedule::Variant& schedule)
+    {
+        auto* const cb_node_ptr = CallbackNode::fromHandle(cb_handle);
+        scheduleCallbackNode(*cb_node_ptr, schedule);
+    }
+
+    /// @brief Extension point for subclasses to observe callback lifetime.
     ///
-    /// Called on each callback removal.
+    /// Called on callback node appending, movement and removal.
     ///
-    virtual void didRemoveCallback(const Callback::Id)
+    /// @param old_handle Handle of the callback node before callback change.
+    /// @param new_handle Handle of the callback node after callback change.
+    ///
+    /// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+    virtual void onCallbackHandling(const Callback::Handle old_handle, const Callback::Handle new_handle) noexcept
     {
-        // Nothing to do here, but subclasses may override this method.
-    }
-
-    void releaseAllCallbackNodes() noexcept
-    {
-        // Note, we release only `registered_nodes_` tree here b/c "helper" `scheduled_nodes_` tree
-        // is based on a subset of the same nodes allocated for the "master" `registered_nodes_` tree.
-        registered_nodes_.postOrderTraverse([this](auto& node) { destroyCallbackNode(node); });
-        scheduled_nodes_  = {};
-        registered_nodes_ = {};
+        // Nothing to do here b/c AVL node movement already updated its links,
+        // but subclasses may override this method to update their own references to callbacks.
+        (void) old_handle;
+        (void) new_handle;
     }
 
 private:
-    class ScheduledNode : public cavl::Node<ScheduledNode>
+    // 49E40F04-42DC-481D-981C-46775698EED2
+    using CallbackNodeTypeIdType = cetl::
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+        type_id_type<0x49, 0xE4, 0x0F, 0x04, 0x42, 0xDC, 0x48, 0x1D, 0x98, 0x1C, 0x46, 0x77, 0x56, 0x98, 0xEE, 0xD2>;
+
+    /// No Sonar cpp:S4963 b/c `CallbackNode` supports move operation.
+    ///
+    class CallbackNode final : public cavl::Node<CallbackNode>  // NOSONAR cpp:S4963
     {
     public:
-        ScheduledNode(const ScheduledNode&)                = delete;
-        ScheduledNode(ScheduledNode&&) noexcept            = delete;
-        ScheduledNode& operator=(const ScheduledNode&)     = delete;
-        ScheduledNode& operator=(ScheduledNode&&) noexcept = delete;
+        CallbackNode(SingleThreadedExecutor* const executor, Callback::Function&& function)
+            : executor_{executor}
+            , function_{std::move(function)}
+            , next_exec_time_{TimePoint::max()}
+            , schedule_{Callback::Schedule::None{}}
+        {
+            CETL_DEBUG_ASSERT(executor_, "");
+            CETL_DEBUG_ASSERT(function_, "");
+            executor_->onCallbackHandling({}, static_cast<Callback::Handle>(*this));
+        }
+        ~CallbackNode()
+        {
+            if (auto** const root_node_ptr = getRootNodePtr())
+            {
+                remove(*root_node_ptr, this);
+            }
+            executor_->onCallbackHandling(static_cast<Callback::Handle>(*this), {});
+        };
 
-        cetl::optional<Callback::Schedule::Variant>& schedule() noexcept
+        CallbackNode(CallbackNode&& other) noexcept
+            : Node(std::move(static_cast<Node&>(other)))
+            , executor_{other.executor_}
+            , function_{std::move(other.function_)}
+            , next_exec_time_{other.next_exec_time_}
+            , schedule_{other.schedule_}
+        {
+            executor_->onCallbackHandling(static_cast<Callback::Handle>(other), static_cast<Callback::Handle>(*this));
+        }
+
+        CallbackNode& operator=(CallbackNode&& other) noexcept
+        {
+            static_cast<Node&>(*this) = std::move(static_cast<Node&>(other));
+
+            executor_       = other.executor_;
+            function_       = std::move(other.function_);
+            next_exec_time_ = other.next_exec_time_;
+            schedule_       = other.schedule_;
+
+            executor_->onCallbackHandling(static_cast<Callback::Handle>(other), static_cast<Callback::Handle>(*this));
+
+            return *this;
+        }
+
+        CallbackNode(const CallbackNode&)            = delete;
+        CallbackNode& operator=(const CallbackNode&) = delete;
+
+        explicit operator Callback::Handle() const noexcept
+        {
+            // Next nolint & NOSONAR are unavoidable: this is opaque handle conversion code.
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+            return reinterpret_cast<Callback::Handle>(this);  // NOSONAR cpp:S3630
+        }
+        static CallbackNode* fromHandle(const Callback::Handle handle) noexcept
+        {
+            CETL_DEBUG_ASSERT(handle, "");
+
+            // Next nolint & NOSONAR are unavoidable: this is opaque handle conversion code.
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast, performance-no-int-to-ptr)
+            return reinterpret_cast<CallbackNode*>(handle);  // NOSONAR cpp:S3630
+        }
+
+        SingleThreadedExecutor* executor() const noexcept
+        {
+            return executor_;
+        }
+
+        const Callback::Schedule::Variant& getSchedule() const noexcept
         {
             return schedule_;
         }
 
-        TimePoint& executionTime() noexcept
+        void setSchedule(const Callback::Schedule::Variant& schedule)
         {
-            return exec_time_;
+            schedule_ = schedule;
+            cetl::visit(cetl::make_overloaded(
+                            [this](const Callback::Schedule::None&) {
+                                //
+                                next_exec_time_ = TimePoint::max();
+                            },
+                            [this](const Callback::Schedule::Once& once) {
+                                //
+                                next_exec_time_ = once.exec_time;
+                            },
+                            [this](const Callback::Schedule::Repeat& repeat) {
+                                //
+                                next_exec_time_ = repeat.exec_time;
+                            }),
+                        schedule);
+        }
+
+        void reschedule(const TimePoint exec_time)
+        {
+            cetl::visit(cetl::make_overloaded(
+                            [this](const Callback::Schedule::None&) {
+                                //
+                                next_exec_time_ = TimePoint::max();
+                            },
+                            [this](const Callback::Schedule::Once&) {
+                                //
+                                next_exec_time_ = TimePoint::max();
+                            },
+                            [this, exec_time](const Callback::Schedule::Repeat& repeat) {
+                                //
+                                next_exec_time_ = exec_time + repeat.period;
+                            }),
+                        schedule_);
+        }
+
+        TimePoint nextExecTime() const noexcept
+        {
+            return next_exec_time_;
         }
 
         void operator()(const TimePoint now_time) const
@@ -234,163 +280,73 @@ private:
             // No two execution times compare equal, which allows us to have multiple nodes
             // with the same execution time in the tree. With two nodes sharing the same execution time,
             // the one added later is considered to be later.
-            return (exec_time >= exec_time_) ? +1 : -1;
+            return (exec_time >= next_exec_time_) ? +1 : -1;
         }
 
-    protected:
-        explicit ScheduledNode(Callback::Function&& function)
-            : function_{std::move(function)}
+        // MARK: - cetl::rtti
+
+        static constexpr cetl::type_id _get_type_id_() noexcept
         {
-        }
-        ~ScheduledNode() = default;
-
-    private:
-        // MARK: Data members:
-
-        const Callback::Function                    function_;
-        TimePoint                                   exec_time_;
-        cetl::optional<Callback::Schedule::Variant> schedule_;
-
-    };  // ScheduledNode
-
-    class CallbackNode final : public cavl::Node<CallbackNode>, public ScheduledNode
-    {
-    public:
-        using cavl::Node<CallbackNode>::getChildNode;
-
-        explicit CallbackNode(Callback::Function&& function)
-            : ScheduledNode{std::move(function)}
-            , id_{0}
-        {
-        }
-        ~CallbackNode() = default;
-
-        CallbackNode(const CallbackNode&)                = delete;
-        CallbackNode(CallbackNode&&) noexcept            = delete;
-        CallbackNode& operator=(const CallbackNode&)     = delete;
-        CallbackNode& operator=(CallbackNode&&) noexcept = delete;
-
-        Callback::Id& id() noexcept
-        {
-            return id_;
+            return cetl::type_id_type_value<CallbackNodeTypeIdType>();
         }
 
-        CETL_NODISCARD std::int8_t compareById(const Callback::Id id) const noexcept
+        // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
+        CETL_NODISCARD void* _cast_(const cetl::type_id& id) & noexcept  // NOSONAR cpp:S5008
         {
-            if (id == id_)
-            {
-                return 0;
-            }
-            return (id > id_) ? +1 : -1;
+            return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
+        }
+
+        // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
+        CETL_NODISCARD const void* _cast_(const cetl::type_id& id) const& noexcept  // NOSONAR cpp:S5008
+        {
+            return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
         }
 
     private:
         // MARK: Data members:
 
-        Callback::Id id_;
+        SingleThreadedExecutor*     executor_;
+        Callback::Function          function_;
+        TimePoint                   next_exec_time_;
+        Callback::Schedule::Variant schedule_;
 
     };  // CallbackNode
 
-    CETL_NODISCARD CallbackNode* makeCallbackNode(Callback::Function&& function)
+    static CallbackNode* callbackToNode(Callback::Any& callback) noexcept
     {
-        CallbackNode* const node = nodes_allocator_.allocate(1);
-        if (nullptr != node)
-        {
-            nodes_allocator_.construct(node, std::move(function));
-        }
-        return node;
+        return cetl::get_if<CallbackNode>(&callback);
     }
 
-    void insertScheduledNode(ScheduledNode& scheduled_node, const TimePoint exec_time)
+    void insertCallbackNode(CallbackNode& callback_node)
     {
-        scheduled_node.executionTime() = exec_time;
+        const auto next_exec_time = callback_node.nextExecTime();
 
-        const std::tuple<ScheduledNode*, bool> sched_node_existing = scheduled_nodes_.search(  //
-            [exec_time](const ScheduledNode& node) {                                           // predicate
-                return node.compareByExecutionTime(exec_time);
+        const std::tuple<CallbackNode*, bool> cb_node_existing = callback_nodes_.search(  //
+            [next_exec_time](const CallbackNode& other_node) {                            // predicate
+                return other_node.compareByExecutionTime(next_exec_time);
             },
-            [&scheduled_node]() { return &scheduled_node; });  // factory
+            [&callback_node]() { return &callback_node; });  // factory
 
-        (void) sched_node_existing;
-        CETL_DEBUG_ASSERT(!std::get<1>(sched_node_existing), "Unexpected existing scheduled node.");
-        CETL_DEBUG_ASSERT(&scheduled_node == std::get<0>(sched_node_existing), "Unexpected scheduled node.");
+        (void) cb_node_existing;
+        CETL_DEBUG_ASSERT(!std::get<1>(cb_node_existing), "Unexpected existing callback node.");
+        CETL_DEBUG_ASSERT(&callback_node == std::get<0>(cb_node_existing), "Unexpected callback node.");
     }
 
-    void removeIfScheduledNode(ScheduledNode& scheduled_node)
+    void removeCallbackNode(CallbackNode& callback_node)
     {
-        if (scheduled_node.schedule())
-        {
-            scheduled_nodes_.remove(&scheduled_node);
-        }
+        callback_nodes_.remove(&callback_node);
     }
 
-    bool applyScheduleOnNextCallback(CallbackNode& callback_node, const TimePoint exec_time)
+    void scheduleCallbackNode(CallbackNode& callback_node, const Callback::Schedule::Variant& schedule)
     {
-        CETL_DEBUG_ASSERT(callback_node.schedule(), "");
-
-        // Make a copy of the schedule (instead of a reference),
-        // so that impl visitors could modify node's schedule at will.
-        //
-        // No linting b/c we know for sure that the node was scheduled (inserted into the `scheduled_nodes_`).
-        // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-        const Callback::Schedule::Variant schedule_var = *callback_node.schedule();
-
-        return cetl::visit(
-            [this, &callback_node, exec_time](const auto& schedule) {
-                //
-                return applyScheduleOnNextCallbackImpl(callback_node, exec_time, schedule);
-            },
-            schedule_var);
-    }
-
-    /// @brief Applies "Once" schedule for the next execution of a callback.
-    ///
-    /// There is no "next" execution b/c it's a "once" schedule, so we just remove the node
-    /// from the scheduled tree - it won't be executed anymore (until rescheduled).
-    /// If it's set for auto-removal, we also remove it from the registered tree, and destroy the node -
-    /// essentially auto releasing all the associated/captured resources,
-    /// and invalidating its handle (which can't be used anymore for further rescheduling).
-    ///
-    bool applyScheduleOnNextCallbackImpl(CallbackNode& callback_node,
-                                         const TimePoint,  // exec_time
-                                         const Callback::Schedule::Once& once_schedule)
-    {
-        removeIfScheduledNode(callback_node);
-        callback_node.schedule() = cetl::nullopt;
-
-        if (once_schedule.is_auto_remove)
-        {
-            registered_nodes_.remove(&callback_node);
-            didRemoveCallback(callback_node.id());
-        }
-
-        return once_schedule.is_auto_remove;
-    }
-
-    /// @brief Applies "Repeat" schedule for the next execution of a callback.
-    ///
-    bool applyScheduleOnNextCallbackImpl(CallbackNode&                     callback_node,
-                                         const TimePoint                   exec_time,
-                                         const Callback::Schedule::Repeat& repeat_schedule)
-    {
-        removeIfScheduledNode(callback_node);
-        insertScheduledNode(callback_node, exec_time + repeat_schedule.period);
-        return false;
-    }
-
-    void destroyCallbackNode(CallbackNode& callback_node)
-    {
-        // No Sonar cpp:M23_329 b/c we do our own low-level PMR management here.
-        callback_node.~CallbackNode();  // NOSONAR cpp:M23_329
-        nodes_allocator_.deallocate(&callback_node, 1);
+        removeCallbackNode(callback_node);
+        callback_node.setSchedule(schedule);
+        insertCallbackNode(callback_node);
     }
 
     // MARK: - Data members:
 
-    libcyphal::detail::PmrAllocator<CallbackNode> nodes_allocator_;
-    cavl::Tree<ScheduledNode>                     scheduled_nodes_;
-    cavl::Tree<CallbackNode>                      registered_nodes_;
-    Callback::Id                                  last_callback_id_{0};
+    cavl::Tree<CallbackNode> callback_nodes_;
 
 };  // SingleThreadedExecutor
 

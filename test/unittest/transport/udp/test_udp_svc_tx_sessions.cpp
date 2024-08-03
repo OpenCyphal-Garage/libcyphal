@@ -126,7 +126,7 @@ TEST_F(TestUdpSvcTxSessions, make_request_session)
 {
     auto transport = makeTransport({mr_}, static_cast<NodeId>(0));
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         auto maybe_session = transport->makeRequestTxSession({123, UDPARD_NODE_ID_MAX});
         ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestTxSession>>(NotNull()));
@@ -143,13 +143,13 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_argument_error)
     auto transport = makeTransport({mr_}, static_cast<NodeId>(0));
 
     // Try invalid service id
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         auto maybe_session = transport->makeRequestTxSession({UDPARD_SERVICE_ID_MAX + 1, 0});
         EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
     });
     // Try invalid server node id
-    scheduler_.scheduleAt(2s, [&] {
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
         //
         auto maybe_session = transport->makeRequestTxSession({0, UDPARD_NODE_ID_MAX + 1});
         EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
@@ -164,7 +164,7 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_no_memory)
 
     auto transport = makeTransport({mr_mock}, static_cast<NodeId>(UDPARD_NODE_ID_MAX));
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         // Emulate that there is no memory available for the message session.
         EXPECT_CALL(mr_mock, do_allocate(sizeof(udp::detail::SvcRequestTxSession), _))  //
@@ -183,7 +183,7 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_media_socket)
     auto transport = makeTransport({mr_});
 
     // 1. Transport will fail to make msg TX session b/c media fails to create a TX socket.
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         EXPECT_CALL(media_mock_, makeTxSocket())  //
             .WillOnce(Return(MemoryError{}));
@@ -193,7 +193,7 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_media_socket)
     });
     // 2. Transport will succeed to make TX session despite the media fails to create a TX socket.
     //    This is b/c transient error handler will be set and will handle the error.
-    scheduler_.scheduleAt(2s, [&] {
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
         //
         EXPECT_CALL(media_mock_, makeTxSocket())  //
             .WillOnce(Return(MemoryError{}));
@@ -233,14 +233,14 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_request)
     TransferMetadata       metadata{0x1AF52, {}, Priority::Low};
 
     // 1st try anonymous node - should fail without even trying to allocate & send payload.
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         metadata.timestamp = now();
         auto failure       = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
     });
     // 2nd. Try again but now with a valid node id.
-    scheduler_.scheduleAt(2s, [&] {
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
         //
         EXPECT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
 
@@ -260,7 +260,7 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_request)
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce(Return(ITxSocket::SendResult::Success{false /*is_accepted*/}));
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
-            .WillOnce(Invoke([](auto&, auto) { return libcyphal::IExecutor::Callback::Handle{}; }));
+            .WillOnce(Invoke([](auto&, auto) { return libcyphal::IExecutor::Callback::Any{}; }));
 
         metadata.timestamp = now();
         auto failure       = session->send(metadata, empty_payload);
@@ -288,14 +288,14 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_responce)
     ServiceTransferMetadata metadata{{0x1AF52, {}, Priority::Low}, 0x31};
 
     // 1st try anonymous node - should fail without even trying to allocate & send payload.
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         metadata.base.timestamp = now();
         auto failure            = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
     });
     // 2nd. Try again but now with a valid node id.
-    scheduler_.scheduleAt(2s, [&] {
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
         //
         EXPECT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
 
@@ -315,7 +315,7 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_responce)
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce(Return(ITxSocket::SendResult::Success{false /*is_accepted*/}));
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
-            .WillOnce(Invoke([](auto&, auto) { return libcyphal::IExecutor::Callback::Handle{}; }));
+            .WillOnce(Invoke([](auto&, auto) { return libcyphal::IExecutor::Callback::Any{}; }));
 
         metadata.base.timestamp = now();
         auto failure            = session->send(metadata, empty_payload);
@@ -342,7 +342,7 @@ TEST_F(TestUdpSvcTxSessions, send_request)
     const PayloadFragments empty_payload{};
     TransferMetadata       metadata{0x66, {}, Priority::Slow};
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto dscp, auto fragments) {
@@ -357,7 +357,7 @@ TEST_F(TestUdpSvcTxSessions, send_request)
             });
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //
-                return scheduler_.scheduleCallbackAfter(+10ms, std::move(function));
+                return scheduler_.registerAndScheduleNamedCallback("", now() + 10ms, std::move(function));
             }));
 
         metadata.timestamp = now();
@@ -384,14 +384,14 @@ TEST_F(TestUdpSvcTxSessions, send_request_with_argument_error)
     TransferMetadata metadata{0x66, {}, Priority::Immediate};
 
     // Should fail due to anonymous node.
-    scheduler_.scheduleAt(100ms, [&] {
+    scheduler_.scheduleAt(100ms, [&](const TimePoint) {
         //
         metadata.timestamp = now();
         const auto failure = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
     });
     // Fix anonymous node
-    scheduler_.scheduleAt(200ms, [&] {
+    scheduler_.scheduleAt(200ms, [&](const TimePoint) {
         //
         EXPECT_THAT(transport->setLocalNodeId(13), Eq(cetl::nullopt));
 
@@ -402,7 +402,7 @@ TEST_F(TestUdpSvcTxSessions, send_request_with_argument_error)
             });
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //
-                return scheduler_.scheduleCallbackAfter(+10ms, std::move(function));
+                return scheduler_.registerAndScheduleNamedCallback("", now() + 10ms, std::move(function));
             }));
 
         metadata.timestamp = now();
@@ -416,7 +416,7 @@ TEST_F(TestUdpSvcTxSessions, make_response_session)
 {
     auto transport = makeTransport({mr_}, NodeId{UDPARD_NODE_ID_MAX});
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         auto maybe_session = transport->makeResponseTxSession({123});
         ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseTxSession>>(NotNull()));
@@ -432,7 +432,7 @@ TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_argument_error)
     auto transport = makeTransport({mr_}, NodeId{0});
 
     // Try invalid service id
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         auto maybe_session = transport->makeResponseTxSession({UDPARD_SERVICE_ID_MAX + 1});
         EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
@@ -445,7 +445,7 @@ TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_no_memory)
     StrictMock<MemoryResourceMock> mr_mock{};
     mr_mock.redirectExpectedCallsTo(mr_);
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         // Emulate that there is no memory available for the message session.
         EXPECT_CALL(mr_mock, do_allocate(sizeof(udp::detail::SvcRequestTxSession), _))  //
@@ -466,7 +466,7 @@ TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_media_socket)
     auto transport = makeTransport({mr_});
 
     // 1. Transport will fail to make msg TX session b/c media fails to create a TX socket.
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         EXPECT_CALL(media_mock_, makeTxSocket())  //
             .WillOnce(Return(MemoryError{}));
@@ -476,7 +476,7 @@ TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_media_socket)
     });
     // 2. Transport will succeed to make TX session despite the media fails to create a TX socket.
     //    This is b/c transient error handler will be set and will handle the error.
-    scheduler_.scheduleAt(2s, [&] {
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
         //
         EXPECT_CALL(media_mock_, makeTxSocket())  //
             .WillOnce(Return(MemoryError{}));
@@ -515,7 +515,7 @@ TEST_F(TestUdpSvcTxSessions, send_response)
     const PayloadFragments  empty_payload{};
     ServiceTransferMetadata metadata{{0x66, {}, Priority::Fast}, 0x0D};
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto dscp, auto fragments) {
@@ -530,7 +530,7 @@ TEST_F(TestUdpSvcTxSessions, send_response)
             });
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //
-                return scheduler_.scheduleCallbackAfter(+10ms, std::move(function));
+                return scheduler_.registerAndScheduleNamedCallback("", now() + 10ms, std::move(function));
             }));
 
         metadata.base.timestamp = now();
@@ -557,14 +557,14 @@ TEST_F(TestUdpSvcTxSessions, send_response_with_argument_error)
     ServiceTransferMetadata metadata{{0x66, {}, Priority::Immediate}, 13};
 
     // Should fail due to anonymous node.
-    scheduler_.scheduleAt(100ms, [&] {
+    scheduler_.scheduleAt(100ms, [&](const TimePoint) {
         //
         metadata.base.timestamp = now();
         const auto failure = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
     });
     // Fix anonymous node, but break remote node id.
-    scheduler_.scheduleAt(200ms, [&] {
+    scheduler_.scheduleAt(200ms, [&](const TimePoint) {
         //
         EXPECT_THAT(transport->setLocalNodeId(31), Eq(cetl::nullopt));
 
