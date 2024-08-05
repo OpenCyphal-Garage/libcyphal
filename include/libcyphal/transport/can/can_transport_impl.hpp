@@ -97,6 +97,11 @@ class TransportImpl final : private TransportDelegate, public ICanTransport  // 
             return tx_callback_;
         }
 
+        IExecutor::Callback::Any& rx_callback()
+        {
+            return rx_callback_;
+        }
+
         void propagateMtuToTxQueue()
         {
             canard_tx_queue_.mtu_bytes = interface_.getMtu();
@@ -106,15 +111,17 @@ class TransportImpl final : private TransportDelegate, public ICanTransport  // 
         const std::uint8_t       index_;
         IMedia&                  interface_;
         CanardTxQueue            canard_tx_queue_;
+        IExecutor::Callback::Any rx_callback_;
         IExecutor::Callback::Any tx_callback_;
     };
     using MediaArray = libcyphal::detail::VarArray<Media>;
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<ICanTransport>, FactoryFailure> make(cetl::pmr::memory_resource& memory,
-                                                                                  IExecutor&                  executor,
-                                                                                  const cetl::span<IMedia*>   media,
-                                                                                  const std::size_t tx_capacity)
+    CETL_NODISCARD static Expected<UniquePtr<ICanTransport>, FactoryFailure> make(  //
+        cetl::pmr::memory_resource& memory,
+        IExecutor&                  executor,
+        const cetl::span<IMedia*>   media,
+        const std::size_t           tx_capacity)
     {
         // Verify input arguments:
         // - At least one media interface must be provided, but no more than the maximum allowed (255).
@@ -170,8 +177,10 @@ public:
             flushCanardTxQueue(media.canard_tx_queue());
         }
 
-        CETL_DEBUG_ASSERT(total_message_ports_ == 0, "Message sessions must be destroyed before transport.");
-        CETL_DEBUG_ASSERT(total_service_ports_ == 0, "Service sessions must be destroyed before transport.");
+        CETL_DEBUG_ASSERT(total_message_ports_ == 0,  //
+                          "Message sessions must be destroyed before transport.");
+        CETL_DEBUG_ASSERT(total_service_ports_ == 0,  //
+                          "Service sessions must be destroyed before transport.");
     }
 
 private:
@@ -218,7 +227,7 @@ private:
         // We just became non-anonymous node, so we might need to reconfigure media filters
         // in case we have at least one service RX port.
         //
-        // @see runMediaFilters
+        // @see scheduleConfigOfFilters
         //
         if (total_service_ports_ > 0)
         {
@@ -244,13 +253,7 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyFailure> makeMessageRxSession(
         const MessageRxParams& params) override
     {
-        cetl::optional<AnyFailure> failure = ensureNewSessionFor(CanardTransferKindMessage, params.subject_id);
-        if (failure.has_value())
-        {
-            return std::move(failure.value());
-        }
-
-        return MessageRxSession::make(asDelegate(), params);
+        return makeMsgRxSession(params);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyFailure> makeMessageTxSession(
@@ -354,6 +357,7 @@ private:
         FiltersUpdateHandler handler_with{*this};
         cetl::visit(handler_with, update_var);
 
+        cancelRxCallbacksIfNoSessionsLeft();
         scheduleConfigOfFilters();
     }
 
@@ -361,8 +365,9 @@ private:
     {
         if (!configure_filters_callback_.has_value())
         {
-            configure_filters_callback_ =
-                executor_.registerCallback([this](const TimePoint) { configureMediaFilters(); });
+            configure_filters_callback_ = executor_.registerCallback([this](const TimePoint) {  //
+                configureMediaFilters();
+            });
         }
 
         executor_.scheduleCallback(configure_filters_callback_, Callback::Schedule::Once{executor_.now()});
@@ -411,6 +416,37 @@ private:
         Self& self_;
 
     };  // FiltersUpdateHandler
+
+    CETL_NODISCARD auto makeMsgRxSession(const MessageRxParams& rx_params)
+        -> Expected<UniquePtr<IMessageRxSession>, AnyFailure>
+    {
+        cetl::optional<AnyFailure> failure = ensureNewSessionFor(CanardTransferKindMessage, rx_params.subject_id);
+        if (failure)
+        {
+            return std::move(*failure);
+        }
+
+        auto session_result = MessageRxSession::make(asDelegate(), rx_params);
+        if (auto* const make_failure = cetl::get_if<AnyFailure>(&session_result))
+        {
+            return std::move(*make_failure);
+        }
+
+        for (Media& media : media_array_)
+        {
+            if (!media.rx_callback().has_value())
+            {
+                media.rx_callback() = media.interface().registerPopCallback(  //
+                    executor_,
+                    [this, &media](const TimePoint) {  //
+                        //
+                        receiveNextFrame(media);
+                    });
+            }
+        }
+
+        return session_result;
+    }
 
     template <typename Report, typename... Args>
     cetl::optional<AnyFailure> tryHandleTransientFailure(AnyFailure&& failure, Args&&... args)
@@ -497,21 +533,7 @@ private:
         }
     }
 
-    CETL_NODISCARD cetl::optional<AnyFailure> runMediaReceive()
-    {
-        for (const Media& media : media_array_)
-        {
-            cetl::optional<AnyFailure> failure = runSingleMediaReceive(media);
-            if (failure.has_value())
-            {
-                return failure;
-            }
-        }
-
-        return cetl::nullopt;
-    }
-
-    CETL_NODISCARD cetl::optional<AnyFailure> runSingleMediaReceive(const Media& media)
+    void receiveNextFrame(const Media& media)
     {
         std::array<cetl::byte, CANARD_MTU_MAX> payload{};
 
@@ -519,12 +541,13 @@ private:
         if (auto* const failure = cetl::get_if<MediaFailure>(&pop_result))
         {
             using Report = TransientErrorReport::MediaPop;
-            return tryHandleTransientMediaFailure<Report>(media, std::move(*failure));
+            tryHandleTransientMediaFailure<Report>(media, std::move(*failure));
+            return;
         }
         const auto& pop_success = cetl::get<IMedia::PopResult::Success>(pop_result);
         if (!pop_success.has_value())
         {
-            return cetl::nullopt;
+            return;
         }
 
         const IMedia::PopResult::Metadata& pop_meta = pop_success.value();
@@ -543,8 +566,7 @@ private:
                                                     &out_transfer,
                                                     &out_subscription);
 
-        cetl::optional<AnyFailure> failure =
-            tryHandleTransientCanardResult<TransientErrorReport::CanardRxAccept>(media, result);
+        auto failure = tryHandleTransientCanardResult<TransientErrorReport::CanardRxAccept>(media, result);
         if ((!failure.has_value()) && (result > 0))
         {
             CETL_DEBUG_ASSERT(out_subscription != nullptr, "Expected subscription.");
@@ -556,8 +578,6 @@ private:
                 static_cast<IRxSessionDelegate*>(out_subscription->user_reference);  // NOSONAR cpp:S5357
             delegate->acceptRxTransfer(out_transfer);
         }
-
-        return failure;
     }
 
     /// @brief Tries to push next frame from TX queue to media.
@@ -743,6 +763,17 @@ private:
         (void) ports_count;
         CETL_DEBUG_ASSERT(ports_count == total_active_ports, "");
         return true;
+    }
+
+    void cancelRxCallbacksIfNoSessionsLeft()
+    {
+        if (0 == (total_message_ports_ + total_service_ports_))
+        {
+            for (Media& media : media_array_)
+            {
+                media.rx_callback().reset();
+            }
+        }
     }
 
     // MARK: Data members:

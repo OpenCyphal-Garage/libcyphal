@@ -96,6 +96,10 @@ public:
         scheduleCallback(callback, schedule);
         return callback;
     }
+    CETL_NODISCARD bool hasNamedCallback(const std::string& name)
+    {
+        return named_cb_handles_.find(name) != named_cb_handles_.end();
+    }
 
     // MARK: - IExecutor
 

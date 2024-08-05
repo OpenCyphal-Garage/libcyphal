@@ -127,7 +127,7 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
     using MediaArray = libcyphal::detail::VarArray<Media>;
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<IUdpTransport>, FactoryFailure> make(
+    CETL_NODISCARD static Expected<UniquePtr<IUdpTransport>, FactoryFailure> make(  //
         const MemoryResourcesSpec& mem_res_spec,
         IExecutor&                 executor,
         const cetl::span<IMedia*>  media,
@@ -203,6 +203,13 @@ public:
         {
             flushUdpardTxQueue(media.udpard_tx());
         }
+
+        CETL_DEBUG_ASSERT(msg_rx_session_nodes_.isEmpty(),  //
+                          "Message sessions must be destroyed before transport.");
+        CETL_DEBUG_ASSERT(svc_request_rx_session_nodes_.isEmpty(),
+                          "Service sessions must be destroyed before transport.");
+        CETL_DEBUG_ASSERT(svc_response_rx_session_nodes_.isEmpty(),
+                          "Service sessions must be destroyed before transport.");
     }
 
 private:
@@ -262,7 +269,7 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyFailure> makeMessageRxSession(
         const MessageRxParams& params) override
     {
-        return makeMsgRxSession(params.subject_id, params, msg_rx_session_nodes_);
+        return makeMsgRxSession(params, msg_rx_session_nodes_);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyFailure> makeMessageTxSession(
@@ -464,12 +471,11 @@ private:
 
     };  // TxTransferHandler
 
-    CETL_NODISCARD auto makeMsgRxSession(const PortId                             port_id,
-                                         const MessageRxParams&                   rx_params,
+    CETL_NODISCARD auto makeMsgRxSession(const MessageRxParams&                   rx_params,
                                          SessionTree<RxSessionTreeNode::Message>& tree_nodes)
         -> Expected<UniquePtr<IMessageRxSession>, AnyFailure>
     {
-        auto node_result = tree_nodes.ensureNewNodeFor(port_id);
+        auto node_result = tree_nodes.ensureNewNodeFor(rx_params.subject_id);
         if (auto* const failure = cetl::get_if<AnyFailure>(&node_result))
         {
             return std::move(*failure);
@@ -479,7 +485,7 @@ private:
         auto session_result = MessageRxSession::make(memoryResources().general, asDelegate(), rx_params, new_msg_node);
         if (auto* const failure = cetl::get_if<AnyFailure>(&session_result))
         {
-            tree_nodes.removeNodeFor(port_id);
+            tree_nodes.removeNodeFor(rx_params.subject_id);
             return std::move(*failure);
         }
 

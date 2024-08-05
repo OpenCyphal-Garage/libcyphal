@@ -138,7 +138,7 @@ TEST_F(TestUdpMsgRxSession, make_setTransferIdTimeout)
 
     EXPECT_CALL(rx_socket_mock_, registerCallback(Ref(scheduler_), _))  //
         .WillOnce(Invoke([&](auto&, auto function) {                    //
-            return scheduler_.registerCallback(std::move(function));
+            return scheduler_.registerNamedCallback("rx", std::move(function));
         }));
 
     auto maybe_session = transport->makeMessageRxSession({42, 123});
@@ -150,6 +150,10 @@ TEST_F(TestUdpMsgRxSession, make_setTransferIdTimeout)
 
     session->setTransferIdTimeout(0s);
     session->setTransferIdTimeout(500ms);
+
+    EXPECT_THAT(scheduler_.hasNamedCallback("rx"), true);
+    session.reset();
+    EXPECT_THAT(scheduler_.hasNamedCallback("rx"), false);
 }
 
 TEST_F(TestUdpMsgRxSession, make_no_memory)
