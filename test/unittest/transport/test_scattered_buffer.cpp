@@ -100,7 +100,7 @@ private:
 
 TEST(TestScatteredBuffer, move_ctor_assign_size)
 {
-    StrictMock<StorageMock> storage_mock{};
+    StrictMock<StorageMock> storage_mock;
     EXPECT_CALL(storage_mock, deinit()).Times(1);
     EXPECT_CALL(storage_mock, moved()).Times(1 + 1 + 1);
     EXPECT_CALL(storage_mock, size())  //
@@ -126,7 +126,7 @@ TEST(TestScatteredBuffer, copy_reset)
 {
     std::array<cetl::byte, 16> test_dst{};
 
-    StrictMock<StorageMock> storage_mock{};
+    StrictMock<StorageMock> storage_mock;
     EXPECT_CALL(storage_mock, deinit()).Times(1);
     EXPECT_CALL(storage_mock, moved()).Times(1);
     EXPECT_CALL(storage_mock, copy(13, test_dst.data(), test_dst.size()))  //

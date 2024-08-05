@@ -100,7 +100,7 @@ TEST_F(TestSessionTree, ensureNewNodeFor)
 
 TEST_F(TestSessionTree, ensureNewNodeFor_no_memory)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
     detail::SessionTree<MyNode> tree{mr_mock};

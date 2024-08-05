@@ -50,7 +50,6 @@ using testing::SizeIs;
 using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
-using testing::InSequence;
 using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
@@ -129,7 +128,7 @@ TEST_F(TestCanMsgRxSession, make_setTransferIdTimeout)
 
 TEST_F(TestCanMsgRxSession, make_no_memory)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
     auto transport = makeTransport(mr_mock);
@@ -154,16 +153,11 @@ TEST_F(TestCanMsgRxSession, make_fails_due_to_argument_error)
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestCanMsgRxSession, receive)
 {
-    StrictMock<TransientErrorHandlerMock> handler_mock{};
+    StrictMock<TransientErrorHandlerMock> handler_mock;
 
     auto transport = makeTransport(mr_);
     transport->setTransientErrorHandler(std::ref(handler_mock));
 
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(1)))  //
-        .WillOnce([&](Filters filters) {
-            EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
-            return cetl::nullopt;
-        });
     EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
         .WillOnce(Invoke([&](auto&, auto function) {                   //
             return scheduler_.registerNamedCallback("rx", std::move(function));
@@ -172,6 +166,12 @@ TEST_F(TestCanMsgRxSession, receive)
     auto maybe_session = transport->makeMessageRxSession({4, 0x23});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
+
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1)))  //
+        .WillOnce([&](Filters filters) {
+            EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
+            return cetl::nullopt;
+        });
 
     const auto params = session->getParams();
     EXPECT_THAT(params.extent_bytes, 4);
@@ -187,7 +187,6 @@ TEST_F(TestCanMsgRxSession, receive)
         SCOPED_TRACE("1-st iteration: one frame available @ 1s");
 
         rx_timestamp = now() + 10ms;
-
         EXPECT_CALL(media_mock_, pop(_))  //
             .WillOnce([&](auto p) {
                 EXPECT_THAT(now(), rx_timestamp);
@@ -222,7 +221,6 @@ TEST_F(TestCanMsgRxSession, receive)
         SCOPED_TRACE("2-nd iteration: no frames available @ 2s");
 
         rx_timestamp = now() + 10ms;
-
         EXPECT_CALL(media_mock_, pop(_))  //
             .WillOnce([&](auto p) {
                 EXPECT_THAT(now(), rx_timestamp);
@@ -244,11 +242,6 @@ TEST_F(TestCanMsgRxSession, receive_one_anonymous_frame)
 {
     auto transport = makeTransport(mr_);
 
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(1)))  //
-        .WillOnce([&](Filters filters) {
-            EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
-            return cetl::nullopt;
-        });
     EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
         .WillOnce(Invoke([&](auto&, auto function) {                   //
             return scheduler_.registerNamedCallback("rx", std::move(function));
@@ -258,12 +251,17 @@ TEST_F(TestCanMsgRxSession, receive_one_anonymous_frame)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
 
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1)))  //
+        .WillOnce([&](Filters filters) {
+            EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
+            return cetl::nullopt;
+        });
+
     TimePoint rx_timestamp;
 
     scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         rx_timestamp = now() + 10ms;
-
         EXPECT_CALL(media_mock_, pop(_))  //
             .WillOnce([&](auto p) {
                 EXPECT_THAT(now(), rx_timestamp);
@@ -296,15 +294,10 @@ TEST_F(TestCanMsgRxSession, receive_one_anonymous_frame)
     scheduler_.spinFor(10s);
 }
 
-TEST_F(TestCanMsgRxSession, unsubscribe_and_run)
+TEST_F(TestCanMsgRxSession, unsubscribe)
 {
     auto transport = makeTransport(mr_);
 
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(1)))  //
-        .WillOnce([&](Filters filters) {
-            EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
-            return cetl::nullopt;
-        });
     EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
         .WillOnce(Invoke([&](auto&, auto function) {                   //
             return scheduler_.registerNamedCallback("rx", std::move(function));
@@ -313,6 +306,12 @@ TEST_F(TestCanMsgRxSession, unsubscribe_and_run)
     auto maybe_session = transport->makeMessageRxSession({4, 0x23});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
+
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1)))  //
+        .WillOnce([&](Filters filters) {
+            EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
+            return cetl::nullopt;
+        });
 
     scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //

@@ -128,7 +128,7 @@ TEST_F(TestUdpMsgTxSession, make)
 
 TEST_F(TestUdpMsgTxSession, make_no_memory)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
     auto transport = makeTransport({mr_mock});
@@ -186,7 +186,7 @@ TEST_F(TestUdpMsgTxSession, make_fails_due_to_media_socket)
         EXPECT_CALL(media_mock_, makeTxSocket())  //
             .WillOnce(Return(MemoryError{}));
 
-        StrictMock<TransientErrorHandlerMock> handler_mock{};
+        StrictMock<TransientErrorHandlerMock> handler_mock;
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<MakeSocketReport>(Truly([&](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<MemoryError>(_));
@@ -208,7 +208,7 @@ TEST_F(TestUdpMsgTxSession, make_fails_due_to_media_socket)
 
 TEST_F(TestUdpMsgTxSession, send_empty_payload)
 {
-    StrictMock<MemoryResourceMock> fragment_mr_mock{};
+    StrictMock<MemoryResourceMock> fragment_mr_mock;
     fragment_mr_mock.redirectExpectedCallsTo(mr_);
 
     auto transport = makeTransport({mr_, nullptr, &fragment_mr_mock});
@@ -331,7 +331,7 @@ TEST_F(TestUdpMsgTxSession, send_single_frame_payload_with_500ms_timeout)
 
 TEST_F(TestUdpMsgTxSession, send_when_no_memory_for_contiguous_payload)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
     auto transport = makeTransport({mr_mock});

@@ -253,7 +253,7 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyFailure> makeMessageRxSession(
         const MessageRxParams& params) override
     {
-        return makeMsgRxSession(params);
+        return makeRxSession<IMessageRxSession, MessageRxSession>(CanardTransferKindMessage, params.subject_id, params);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyFailure> makeMessageTxSession(
@@ -265,13 +265,9 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyFailure> makeRequestRxSession(
         const RequestRxParams& params) override
     {
-        cetl::optional<AnyFailure> failure = ensureNewSessionFor(CanardTransferKindRequest, params.service_id);
-        if (failure.has_value())
-        {
-            return std::move(failure.value());
-        }
-
-        return SvcRequestRxSession::make(asDelegate(), params);
+        return makeRxSession<IRequestRxSession, SvcRequestRxSession>(CanardTransferKindRequest,
+                                                                     params.service_id,
+                                                                     params);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyFailure> makeRequestTxSession(
@@ -283,13 +279,9 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyFailure> makeResponseRxSession(
         const ResponseRxParams& params) override
     {
-        cetl::optional<AnyFailure> failure = ensureNewSessionFor(CanardTransferKindResponse, params.service_id);
-        if (failure.has_value())
-        {
-            return std::move(failure.value());
-        }
-
-        return SvcResponseRxSession::make(asDelegate(), params);
+        return makeRxSession<IResponseRxSession, SvcResponseRxSession>(CanardTransferKindResponse,
+                                                                       params.service_id,
+                                                                       params);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IResponseTxSession>, AnyFailure> makeResponseTxSession(
@@ -417,16 +409,19 @@ private:
 
     };  // FiltersUpdateHandler
 
-    CETL_NODISCARD auto makeMsgRxSession(const MessageRxParams& rx_params)
-        -> Expected<UniquePtr<IMessageRxSession>, AnyFailure>
+    template <typename Interface, typename Factory, typename RxParams>
+    CETL_NODISCARD auto makeRxSession(const CanardTransferKind transfer_kind,
+                                      const PortId             port_id,
+                                      const RxParams&          rx_params) -> Expected<UniquePtr<Interface>, AnyFailure>
     {
-        cetl::optional<AnyFailure> failure = ensureNewSessionFor(CanardTransferKindMessage, rx_params.subject_id);
-        if (failure)
+        const std::int8_t has_port = ::canardRxGetSubscription(&canard_instance(), transfer_kind, port_id, nullptr);
+        CETL_DEBUG_ASSERT(has_port >= 0, "There is no way currently to get an error here.");
+        if (has_port > 0)
         {
-            return std::move(*failure);
+            return AlreadyExistsError{};
         }
 
-        auto session_result = MessageRxSession::make(asDelegate(), rx_params);
+        auto session_result = Factory::make(asDelegate(), rx_params);
         if (auto* const make_failure = cetl::get_if<AnyFailure>(&session_result))
         {
             return std::move(*make_failure);
@@ -478,19 +473,6 @@ private:
         }
 
         return tryHandleTransientFailure<Report>(std::move(*failure), media.index(), canard_instance());
-    }
-
-    CETL_NODISCARD cetl::optional<AnyFailure> ensureNewSessionFor(const CanardTransferKind transfer_kind,
-                                                                  const PortId             port_id) noexcept
-    {
-        const std::int8_t has_port = ::canardRxGetSubscription(&canard_instance(), transfer_kind, port_id, nullptr);
-        CETL_DEBUG_ASSERT(has_port >= 0, "There is no way currently to get an error here.");
-        if (has_port > 0)
-        {
-            return AlreadyExistsError{};
-        }
-
-        return cetl::nullopt;
     }
 
     CETL_NODISCARD static MediaArray makeMediaArray(cetl::pmr::memory_resource& memory,

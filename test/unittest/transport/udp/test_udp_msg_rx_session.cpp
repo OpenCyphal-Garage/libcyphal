@@ -158,7 +158,7 @@ TEST_F(TestUdpMsgRxSession, make_setTransferIdTimeout)
 
 TEST_F(TestUdpMsgRxSession, make_no_memory)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
     auto transport = makeTransport({mr_mock});
@@ -200,7 +200,7 @@ TEST_F(TestUdpMsgRxSession, make_fails_due_to_rx_socket_error)
         EXPECT_CALL(media_mock_, makeRxSocket(_))  //
             .WillOnce(Return(nullptr));
 
-        StrictMock<TransientErrorHandlerMock> handler_mock{};
+        StrictMock<TransientErrorHandlerMock> handler_mock;
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<MediaReport>(Truly([&](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<MemoryError>(_));
@@ -218,10 +218,11 @@ TEST_F(TestUdpMsgRxSession, make_fails_due_to_rx_socket_error)
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestUdpMsgRxSession, receive)
 {
-    StrictMock<MemoryResourceMock>        payload_mr_mock{};
-    StrictMock<TransientErrorHandlerMock> handler_mock{};
+    StrictMock<MemoryResourceMock>        payload_mr_mock;
 
     auto transport = makeTransport({mr_, nullptr, nullptr, &payload_mr_mock}, NodeId{0x31});
+
+    StrictMock<TransientErrorHandlerMock> handler_mock;
     transport->setTransientErrorHandler(std::ref(handler_mock));
 
     EXPECT_CALL(rx_socket_mock_, registerCallback(Ref(scheduler_), _))  //
@@ -246,11 +247,10 @@ TEST_F(TestUdpMsgRxSession, receive)
         //
         SCOPED_TRACE("1-st iteration: one frame available @ 1s");
 
-        rx_timestamp = now() + 10ms;
-
         constexpr std::size_t payload_size = 2;
         constexpr std::size_t frame_size   = UdpardFrame::SizeOfHeaderAndTxCrc + payload_size;
 
+        rx_timestamp = now() + 10ms;
         EXPECT_CALL(rx_socket_mock_, receive())  //
             .WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
                 EXPECT_THAT(now(), rx_timestamp);
@@ -298,7 +298,6 @@ TEST_F(TestUdpMsgRxSession, receive)
         using Report = IUdpTransport::TransientErrorReport::UdpardRxMsgReceive;
 
         rx_timestamp = now() + 10ms;
-
         EXPECT_CALL(rx_socket_mock_, receive())  //
             .WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
                 return {rx_timestamp, {nullptr, libcyphal::PmrRawBytesDeleter{0, &payload_mr_mock}}};
@@ -322,11 +321,10 @@ TEST_F(TestUdpMsgRxSession, receive)
         //
         SCOPED_TRACE("3-rd iteration: malformed frame available @ 3s - no error, just drop");
 
-        rx_timestamp = now() + 10ms;
-
         constexpr std::size_t payload_size = 0;
         constexpr std::size_t frame_size   = UdpardFrame::SizeOfHeaderAndTxCrc + payload_size;
 
+        rx_timestamp = now() + 10ms;
         EXPECT_CALL(rx_socket_mock_, receive())  //
             .WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
                 EXPECT_THAT(now(), rx_timestamp);
@@ -357,7 +355,7 @@ TEST_F(TestUdpMsgRxSession, receive)
 
 TEST_F(TestUdpMsgRxSession, receive_one_anonymous_frame)
 {
-    StrictMock<MemoryResourceMock> payload_mr_mock{};
+    StrictMock<MemoryResourceMock> payload_mr_mock;
 
     auto transport = makeTransport({mr_, nullptr, nullptr, &payload_mr_mock});
 
@@ -381,11 +379,10 @@ TEST_F(TestUdpMsgRxSession, receive_one_anonymous_frame)
 
     scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
-        rx_timestamp = now() + 10ms;
-
         constexpr std::size_t payload_size = 2;
         constexpr std::size_t frame_size   = UdpardFrame::SizeOfHeaderAndTxCrc + payload_size;
 
+        rx_timestamp = now() + 10ms;
         EXPECT_CALL(rx_socket_mock_, receive())  //
             .WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
                 EXPECT_THAT(now(), rx_timestamp);
@@ -406,7 +403,6 @@ TEST_F(TestUdpMsgRxSession, receive_one_anonymous_frame)
             .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
                 return payload_mr_.allocate(size_bytes, alignment);
             });
-
         scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
 
         scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
@@ -435,7 +431,7 @@ TEST_F(TestUdpMsgRxSession, receive_one_anonymous_frame)
     scheduler_.spinFor(10s);
 }
 
-TEST_F(TestUdpMsgRxSession, unsubscribe_and_run)
+TEST_F(TestUdpMsgRxSession, unsubscribe)
 {
     auto transport = makeTransport({mr_});
 

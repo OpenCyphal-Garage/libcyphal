@@ -121,7 +121,7 @@ TEST_F(TestCanMsgTxSession, make)
 
 TEST_F(TestCanMsgTxSession, make_no_memory)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
     auto transport = makeTransport(mr_mock);
@@ -269,7 +269,7 @@ TEST_F(TestCanMsgTxSession, send_7bytes_payload_with_500ms_timeout)
 
 TEST_F(TestCanMsgTxSession, send_when_no_memory_for_contiguous_payload)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
     auto transport = makeTransport(mr_mock);

@@ -140,7 +140,7 @@ TEST_F(TestCanSvcTxSessions, make_request_fails_due_to_argument_error)
 
 TEST_F(TestCanSvcTxSessions, make_request_fails_due_to_no_memory)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
     auto transport = makeTransport(mr_mock, CANARD_NODE_ID_MAX);
@@ -183,7 +183,7 @@ TEST_F(TestCanSvcTxSessions, send_request)
 
                 auto tbm = TailByteEq(metadata.transfer_id);
                 EXPECT_THAT(payload, ElementsAre(tbm));
-                return IMedia::PushResult::Success{true /*is_accepted*/};
+                return IMedia::PushResult::Success{true /* is_accepted */};
             });
         EXPECT_CALL(media_mock_, registerPushCallback(_, _))  //
             .WillOnce(Invoke([](auto&, auto) { return libcyphal::IExecutor::Callback::Any{}; }));
@@ -277,7 +277,7 @@ TEST_F(TestCanSvcTxSessions, make_response_fails_due_to_argument_error)
 
 TEST_F(TestCanSvcTxSessions, make_response_fails_due_to_no_memory)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
     auto transport = makeTransport(mr_mock, CANARD_NODE_ID_MAX);
@@ -320,7 +320,7 @@ TEST_F(TestCanSvcTxSessions, send_response)
 
                 auto tbm = TailByteEq(metadata.base.transfer_id);
                 EXPECT_THAT(payload, ElementsAre(tbm));
-                return IMedia::PushResult::Success{true /*is_accepted*/};
+                return IMedia::PushResult::Success{true /* is_accepted */};
             });
         EXPECT_CALL(media_mock_, registerPushCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //

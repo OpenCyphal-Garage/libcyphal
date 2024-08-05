@@ -69,16 +69,9 @@ protected:
             .WillRepeatedly(Invoke([this]() {
                 return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock_);
             }));
-        EXPECT_CALL(media_mock_, makeRxSocket(_))  //
-            .WillRepeatedly(Invoke([this](auto& endpoint) {
-                rx_socket_mock_.setEndpoint(endpoint);
-                return libcyphal::detail::makeUniquePtr<RxSocketMock::ReferenceWrapper::Spec>(mr_, rx_socket_mock_);
-            }));
 
         EXPECT_CALL(tx_socket_mock_, getMtu())  //
             .WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
-        EXPECT_CALL(rx_socket_mock_, receive())  //
-            .WillRepeatedly(Invoke([]() { return cetl::nullopt; }));
     }
 
     void TearDown() override
@@ -115,7 +108,6 @@ protected:
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
     StrictMock<MediaMock>           media_mock_{};
-    StrictMock<RxSocketMock>        rx_socket_mock_{"RxS1"};
     StrictMock<TxSocketMock>        tx_socket_mock_{"TxS1"};
     // NOLINTEND
 };
@@ -159,7 +151,7 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_argument_error)
 
 TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_no_memory)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
     auto transport = makeTransport({mr_mock}, static_cast<NodeId>(UDPARD_NODE_ID_MAX));
@@ -198,7 +190,7 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_media_socket)
         EXPECT_CALL(media_mock_, makeTxSocket())  //
             .WillOnce(Return(MemoryError{}));
 
-        StrictMock<TransientErrorHandlerMock> handler_mock{};
+        StrictMock<TransientErrorHandlerMock> handler_mock;
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<MakeSocketReport>(Truly([&](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<MemoryError>(_));
@@ -220,7 +212,7 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_media_socket)
 
 TEST_F(TestUdpSvcTxSessions, send_empty_payload_request)
 {
-    StrictMock<MemoryResourceMock> fragment_mr_mock{};
+    StrictMock<MemoryResourceMock> fragment_mr_mock;
     fragment_mr_mock.redirectExpectedCallsTo(mr_);
 
     auto transport = makeTransport({mr_, nullptr, &fragment_mr_mock});
@@ -258,7 +250,7 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_request)
         // Emulate that TX socket has not accepted the payload.
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
-            .WillOnce(Return(ITxSocket::SendResult::Success{false /*is_accepted*/}));
+            .WillOnce(Return(ITxSocket::SendResult::Success{false /* is_accepted */}));
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([](auto&, auto) { return libcyphal::IExecutor::Callback::Any{}; }));
 
@@ -275,7 +267,7 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_request)
 
 TEST_F(TestUdpSvcTxSessions, send_empty_payload_responce)
 {
-    StrictMock<MemoryResourceMock> fragment_mr_mock{};
+    StrictMock<MemoryResourceMock> fragment_mr_mock;
     fragment_mr_mock.redirectExpectedCallsTo(mr_);
 
     auto transport = makeTransport({mr_, nullptr, &fragment_mr_mock});
@@ -313,7 +305,7 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_responce)
         // Emulate that TX socket has not accepted the payload.
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
-            .WillOnce(Return(ITxSocket::SendResult::Success{false /*is_accepted*/}));
+            .WillOnce(Return(ITxSocket::SendResult::Success{false /* is_accepted */}));
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([](auto&, auto) { return libcyphal::IExecutor::Callback::Any{}; }));
 
@@ -353,7 +345,7 @@ TEST_F(TestUdpSvcTxSessions, send_request)
                 EXPECT_THAT(dscp, 0x0);
                 EXPECT_THAT(fragments, SizeIs(1));
                 EXPECT_THAT(fragments[0], SizeIs(24 + 4));
-                return ITxSocket::SendResult::Success{true /*is_accepted*/};
+                return ITxSocket::SendResult::Success{true /* is_accepted */};
             });
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //
@@ -398,7 +390,7 @@ TEST_F(TestUdpSvcTxSessions, send_request_with_argument_error)
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))  //
             .WillOnce([&](auto, auto endpoint, auto, auto) {
                 EXPECT_THAT(endpoint.ip_address, 0xEF01001F);
-                return ITxSocket::SendResult::Success{true /*is_accepted*/};
+                return ITxSocket::SendResult::Success{true /* is_accepted */};
             });
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //
@@ -442,7 +434,7 @@ TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_argument_error)
 
 TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_no_memory)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
     scheduler_.scheduleAt(1s, [&](const TimePoint) {
@@ -481,7 +473,7 @@ TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_media_socket)
         EXPECT_CALL(media_mock_, makeTxSocket())  //
             .WillOnce(Return(MemoryError{}));
 
-        StrictMock<TransientErrorHandlerMock> handler_mock{};
+        StrictMock<TransientErrorHandlerMock> handler_mock;
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<MakeSocketReport>(Truly([&](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<MemoryError>(_));
@@ -526,7 +518,7 @@ TEST_F(TestUdpSvcTxSessions, send_response)
                 EXPECT_THAT(dscp, 0x0);
                 EXPECT_THAT(fragments, SizeIs(1));
                 EXPECT_THAT(fragments[0], SizeIs(24 + 4));
-                return ITxSocket::SendResult::Success{true /*is_accepted*/};
+                return ITxSocket::SendResult::Success{true /* is_accepted */};
             });
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //

@@ -192,7 +192,7 @@ TEST_F(TestCanDelegate, optAnyFailureFromCanard)
 
 TEST_F(TestCanDelegate, canardMemoryAllocate_no_memory)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
 
     TransportDelegateImpl delegate{mr_mock};
     auto&                 canard_instance = delegate.canard_instance();
