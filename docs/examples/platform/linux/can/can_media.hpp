@@ -33,7 +33,8 @@ namespace example
 {
 namespace platform
 {
-namespace linux
+// Can't use lowercased `linux` - gnuc++ defines it as macro.
+namespace Linux
 {
 
 class CanMedia final : public libcyphal::transport::can::IMedia
@@ -47,7 +48,7 @@ public:
         const SocketCANFD socket_can_fd = ::socketcanOpen(iface_address.c_str(), false);
         if (socket_can_fd < 0)
         {
-            return libcyphal::transport::PlatformError{PosixPlatformError{-socket_can_fd}};
+            return libcyphal::transport::PlatformError{posix::PosixPlatformError{-socket_can_fd}};
         }
 
         return CanMedia{memory, executor, socket_can_fd};
@@ -78,7 +79,6 @@ public:
     }
 
 private:
-    using IMedia  = libcyphal::transport::can::IMedia;
     using Filter  = libcyphal::transport::can::Filter;
     using Filters = libcyphal::transport::can::Filters;
 
@@ -90,11 +90,11 @@ private:
     }
 
     CETL_NODISCARD static libcyphal::IExecutor::Callback::Any registerCallbackWithCondition(
-        libcyphal::IExecutor&                                  executor,
-        libcyphal::IExecutor::Callback::Function&&             function,
-        const IPosixExecutorExtension::WhenCondition::Variant& condition)
+        libcyphal::IExecutor&                                         executor,
+        libcyphal::IExecutor::Callback::Function&&                    function,
+        const posix::IPosixExecutorExtension::WhenCondition::Variant& condition)
     {
-        auto* const posix_extension = cetl::rtti_cast<IPosixExecutorExtension*>(&executor);
+        auto* const posix_extension = cetl::rtti_cast<posix::IPosixExecutorExtension*>(&executor);
         if (nullptr == posix_extension)
         {
             return {};
@@ -123,59 +123,55 @@ private:
         const std::int16_t result = ::socketcanFilter(socket_can_fd_, can_filters.size(), can_filters.data());
         if (result < 0)
         {
-            return libcyphal::transport::PlatformError{PosixPlatformError{-result}};
+            return libcyphal::transport::PlatformError{posix::PosixPlatformError{-result}};
         }
         return cetl::nullopt;
     }
 
-    IMedia::PushResult::Type push(const libcyphal::TimePoint /* deadline */,
-                                  const libcyphal::transport::can::CanId can_id,
-                                  const cetl::span<const cetl::byte>     payload) noexcept override
+    PushResult::Type push(const libcyphal::TimePoint /* deadline */,
+                          const libcyphal::transport::can::CanId can_id,
+                          const cetl::span<const cetl::byte>     payload) noexcept override
     {
         const CanardFrame  canard_frame{can_id, payload.size(), payload.data()};
         const std::int16_t result = ::socketcanPush(socket_can_fd_, &canard_frame, 0);
         if (result < 0)
         {
-            return libcyphal::transport::PlatformError{PosixPlatformError{-result}};
+            return libcyphal::transport::PlatformError{posix::PosixPlatformError{-result}};
         }
 
         const bool is_accepted = result > 0;
-        return IMedia::PushResult::Success{is_accepted};
+        return PushResult::Success{is_accepted};
     }
 
-    CETL_NODISCARD IMedia::PopResult::Type pop(const cetl::span<cetl::byte> payload_buffer) noexcept override
+    CETL_NODISCARD PopResult::Type pop(const cetl::span<cetl::byte> payload_buffer) noexcept override
     {
-        CanardFrame       canard_frame{};
-        CanardMicrosecond timestamp_usec{0};
-        bool              is_loopback{false};
+        CanardFrame canard_frame{};
+        bool        is_loopback{false};
 
         const std::int16_t result = ::socketcanPop(socket_can_fd_,
                                                    &canard_frame,
-                                                   &timestamp_usec,
+                                                   nullptr,
                                                    payload_buffer.size(),
                                                    payload_buffer.data(),
                                                    0,
                                                    &is_loopback);
         if (result < 0)
         {
-            return libcyphal::transport::PlatformError{PosixPlatformError{-result}};
+            return libcyphal::transport::PlatformError{posix::PosixPlatformError{-result}};
         }
         if (result == 0)
         {
             return cetl::nullopt;
         }
 
-        const std::chrono::duration<std::int64_t, std::micro> timestamp{timestamp_usec};
-        return IMedia::PopResult::Metadata{libcyphal::TimePoint{timestamp},
-                                           canard_frame.extended_can_id,
-                                           canard_frame.payload_size};
+        return PopResult::Metadata{executor_.get().now(), canard_frame.extended_can_id, canard_frame.payload_size};
     }
 
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerPushCallback(
         libcyphal::IExecutor&                      executor,
         libcyphal::IExecutor::Callback::Function&& function) override
     {
-        using HandleWritable = IPosixExecutorExtension::WhenCondition::HandleWritable;
+        using HandleWritable = posix::IPosixExecutorExtension::WhenCondition::HandleWritable;
         return registerCallbackWithCondition(executor, std::move(function), HandleWritable{socket_can_fd_});
     }
 
@@ -183,7 +179,7 @@ private:
         libcyphal::IExecutor&                      executor,
         libcyphal::IExecutor::Callback::Function&& function) override
     {
-        using HandleReadable = IPosixExecutorExtension::WhenCondition::HandleReadable;
+        using HandleReadable = posix::IPosixExecutorExtension::WhenCondition::HandleReadable;
         return registerCallbackWithCondition(executor, std::move(function), HandleReadable{socket_can_fd_});
     }
 
@@ -195,7 +191,7 @@ private:
 
 };  // CanMedia
 
-}  // namespace linux
+}  // namespace Linux
 }  // namespace platform
 }  // namespace example
 

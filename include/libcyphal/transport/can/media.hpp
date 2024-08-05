@@ -119,9 +119,8 @@ public:
     /// @return Type-erased instance of the registered callback. Instance must not outlive the executor,
     ///         and must be used only with the same executor; otherwise undefined behavior.
     ///
-    CETL_NODISCARD virtual IExecutor::Callback::Any registerPushCallback(
-        IExecutor&                      executor,
-        IExecutor::Callback::Function&& function) = 0;
+    CETL_NODISCARD virtual IExecutor::Callback::Any registerPushCallback(IExecutor&                      executor,
+                                                                         IExecutor::Callback::Function&& function) = 0;
 
     /// @brief Registers "ready to pop" callback function at a given executor.
     ///
@@ -132,9 +131,8 @@ public:
     /// @return Type-erased instance of the registered callback. Instance must not outlive the executor,
     ///         and must be used only with the same executor; otherwise undefined behavior.
     ///
-    CETL_NODISCARD virtual IExecutor::Callback::Any registerPopCallback(
-        IExecutor&                      executor,
-        IExecutor::Callback::Function&& function) = 0;
+    CETL_NODISCARD virtual IExecutor::Callback::Any registerPopCallback(IExecutor&                      executor,
+                                                                        IExecutor::Callback::Function&& function) = 0;
 
 protected:
     IMedia()  = default;

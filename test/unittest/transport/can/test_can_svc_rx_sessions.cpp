@@ -3,8 +3,7 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "../../cetl_gtest_helpers.hpp"
-#include "../../gtest_helpers.hpp"
+#include "../../cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
 #include "../../verification_utilities.hpp"

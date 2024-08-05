@@ -3,8 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "../../cetl_gtest_helpers.hpp"
-#include "../../gtest_helpers.hpp"
+#include "../../cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
+#include "../../gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
 #include "../../verification_utilities.hpp"
@@ -60,7 +60,6 @@ using testing::IsEmpty;
 using testing::NotNull;
 using testing::Contains;
 using testing::Optional;
-using testing::InSequence;
 using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
@@ -500,6 +499,7 @@ TEST_F(TestCanTransport, sending_multiframe_payload_should_fail_for_anonymous)
     scheduler_.spinFor(10s);
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
 {
     auto transport = makeTransport(mr_);

@@ -243,8 +243,12 @@ TEST_F(Example_03_LinuxSocketCanTransport, heartbeat)
 
     // Make CAN media.
     //
-    using CanMedia   = example::platform::linux::CanMedia;
+    using CanMedia   = example::platform::Linux::CanMedia;
     auto maybe_media = CanMedia::make(mr_, executor_, iface_address_);
+    if (auto* const error = cetl::get_if<PlatformError>(&maybe_media))
+    {
+        GTEST_SKIP() << "Failed to create CAN media '"<< iface_address_ << "', errno=" << (*error)->code() << ".";
+    }
     ASSERT_THAT(maybe_media, VariantWith<CanMedia>(_)) << "Failed to create CAN media.";
     auto can_media = cetl::get<CanMedia>(std::move(maybe_media));
 
