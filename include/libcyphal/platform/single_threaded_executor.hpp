@@ -12,13 +12,14 @@
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
-#include <cetl/pf20/cetlpf.hpp>
 #include <cetl/rtti.hpp>
+#include <cetl/unbounded_variant.hpp>
 #include <cetl/visit_helpers.hpp>
 
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <tuple>
 #include <utility>
 
@@ -102,7 +103,7 @@ public:
     {
         CETL_DEBUG_ASSERT(function, "");
 
-        CallbackNode new_callback_node{this, std::move(function)};
+        CallbackNode new_callback_node{*this, std::move(function)};
 
         insertCallbackNode(new_callback_node);
 
@@ -113,7 +114,7 @@ public:
     {
         if (auto* const cb_node = callbackToNode(callback))
         {
-            CETL_DEBUG_ASSERT(this == cb_node->executor(), "");
+            CETL_DEBUG_ASSERT(this == &cb_node->executor(), "");
             scheduleCallbackNode(*cb_node, schedule);
         }
     }
@@ -157,15 +158,14 @@ private:
     class CallbackNode final : public cavl::Node<CallbackNode>  // NOSONAR cpp:S4963
     {
     public:
-        CallbackNode(SingleThreadedExecutor* const executor, Callback::Function&& function)
+        CallbackNode(SingleThreadedExecutor& executor, Callback::Function&& function)
             : executor_{executor}
             , function_{std::move(function)}
             , next_exec_time_{TimePoint::max()}
             , schedule_{Callback::Schedule::None{}}
         {
-            CETL_DEBUG_ASSERT(executor_, "");
             CETL_DEBUG_ASSERT(function_, "");
-            executor_->onCallbackHandling({}, static_cast<Callback::Handle>(*this));
+            executor.onCallbackHandling({}, static_cast<Callback::Handle>(*this));
         }
         ~CallbackNode()
         {
@@ -173,7 +173,7 @@ private:
             {
                 remove(*root_node_ptr, this);
             }
-            executor_->onCallbackHandling(static_cast<Callback::Handle>(*this), {});
+            executor().onCallbackHandling(static_cast<Callback::Handle>(*this), {});
         };
 
         CallbackNode(CallbackNode&& other) noexcept
@@ -183,7 +183,7 @@ private:
             , next_exec_time_{other.next_exec_time_}
             , schedule_{other.schedule_}
         {
-            executor_->onCallbackHandling(static_cast<Callback::Handle>(other), static_cast<Callback::Handle>(*this));
+            executor().onCallbackHandling(static_cast<Callback::Handle>(other), static_cast<Callback::Handle>(*this));
         }
 
         CallbackNode& operator=(CallbackNode&& other) noexcept
@@ -195,7 +195,7 @@ private:
             next_exec_time_ = other.next_exec_time_;
             schedule_       = other.schedule_;
 
-            executor_->onCallbackHandling(static_cast<Callback::Handle>(other), static_cast<Callback::Handle>(*this));
+            executor().onCallbackHandling(static_cast<Callback::Handle>(other), static_cast<Callback::Handle>(*this));
 
             return *this;
         }
@@ -218,9 +218,9 @@ private:
             return reinterpret_cast<CallbackNode*>(handle);  // NOSONAR cpp:S3630
         }
 
-        SingleThreadedExecutor* executor() const noexcept
+        SingleThreadedExecutor& executor() const noexcept
         {
-            return executor_;
+            return executor_.get();
         }
 
         const Callback::Schedule::Variant& getSchedule() const noexcept
@@ -305,10 +305,10 @@ private:
     private:
         // MARK: Data members:
 
-        SingleThreadedExecutor*     executor_;
-        Callback::Function          function_;
-        TimePoint                   next_exec_time_;
-        Callback::Schedule::Variant schedule_;
+        std::reference_wrapper<SingleThreadedExecutor> executor_;
+        Callback::Function                             function_;
+        TimePoint                                      next_exec_time_;
+        Callback::Schedule::Variant                    schedule_;
 
     };  // CallbackNode
 
