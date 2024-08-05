@@ -54,8 +54,8 @@ public:
     using Self::getRootNodePtr;
     using Self::search;
     using Self::remove;
-    using Self::traverse;
-    using Self::postOrderTraverse;
+    using Self::traverseInOrder;
+    using Self::traversePostOrder;
     using Self::min;
     using Self::max;
 
@@ -112,7 +112,7 @@ NODISCARD std::size_t checkNormalOrdering(const N<T>* const root)
     const N<T>* prev  = nullptr;
     bool        valid = true;
     std::size_t size  = 0;
-    T::traverse(root, [&](const N<T>& nd) {
+    T::traverseInOrder(root, [&](const N<T>& nd) {
         if (prev != nullptr)
         {
             valid = valid && (prev->getValue() < nd.getValue());
@@ -129,7 +129,7 @@ std::size_t checkReverseOrdering(const N<T>* const root)
     const N<T>* prev  = nullptr;
     bool        valid = true;
     std::size_t size  = 0;
-    T::traverse(
+    T::traverseInOrder(
         root,
         [&](const N<T>& nd) {
             if (prev != nullptr)
@@ -139,7 +139,7 @@ std::size_t checkReverseOrdering(const N<T>* const root)
             prev = &nd;
             size++;
 
-            // Fake `return` to cover other `traverse` overload (the returning one).
+            // Fake `return` to cover other `traverseInOrder` overload (the returning one).
             return false;
         },
         true /* reverse */);
@@ -158,7 +158,7 @@ template <typename T>
 void checkPostOrdering(const N<T>* const root, const std::vector<std::uint16_t>& expected, const bool reverse = false)
 {
     std::vector<std::uint16_t> order;
-    T::postOrderTraverse(root, [&](const N<T>& nd) { order.push_back(nd.getValue()); }, reverse);
+    T::traversePostOrder(root, [&](const N<T>& nd) { order.push_back(nd.getValue()); }, reverse);
     EXPECT_THAT(order, ::testing::ContainerEq(expected));
 }
 
@@ -216,13 +216,13 @@ NODISCARD auto toGraphviz(const cavl::Tree<T>& tr) -> std::string
        << "node[style=filled,shape=circle,fontcolor=white,penwidth=0,fontname=\"monospace\",fixedsize=1,fontsize=18];\n"
        << "edge[arrowhead=none,penwidth=2];\n"
        << "nodesep=0.0;ranksep=0.3;splines=false;\n";
-    tr.traverse([&](const typename cavl::Tree<T>::DerivedType& x) {
+    tr.traverseInOrder([&](const typename cavl::Tree<T>::DerivedType& x) {
         const char* const fill_color =  // NOLINTNEXTLINE(*-avoid-nested-conditional-operator)
             (x.getBalanceFactor() == 0) ? "black" : ((x.getBalanceFactor() > 0) ? "orange" : "blue");
         ss << x.getValue() << "[fillcolor=" << fill_color << "];";
     });
     ss << "\n";
-    tr.traverse([&](const typename cavl::Tree<T>::DerivedType& x) {
+    tr.traverseInOrder([&](const typename cavl::Tree<T>::DerivedType& x) {
         if (const auto* const ch = x.getChildNode(false))
         {
             ss << x.getValue() << ":sw->" << ch->getValue() << ":n;";
@@ -298,7 +298,7 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     // Check composition -- ensure that every element is in the tree and it is there exactly once.
     {
         bool seen[32]{};
-        tr.traverse([&](const N& n) {
+        tr.traverseInOrder([&](const N& n) {
             EXPECT_FALSE(seen[n.getValue()]);
             seen[n.getValue()] = true;
         });
@@ -776,7 +776,7 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(0, tr4_const.size());
     EXPECT_EQ(nullptr, tr4_const.min());
     EXPECT_EQ(nullptr, tr4_const.max());
-    EXPECT_EQ(0, tr4_const.traverse([](const N&) { return 13; }));
+    EXPECT_EQ(0, tr4_const.traverseInOrder([](const N&) { return 13; }));
     checkPostOrdering<N>(tr4_const, {});
     checkPostOrdering<N>(tr4_const, {}, true);
 
@@ -808,7 +808,7 @@ TEST(TestCavl, randomized)
         EXPECT_EQ(nullptr, findBrokenAncestry<My>(root));
         EXPECT_EQ(size, checkOrdering<My>(root));
         std::array<bool, 256> new_mask{};
-        root.traverse([&](const My& node) { new_mask.at(node.getValue()) = true; });
+        root.traverseInOrder([&](const My& node) { new_mask.at(node.getValue()) = true; });
         EXPECT_EQ(mask, new_mask);  // Otherwise, the contents of the tree does not match our expectations.
     };
     validate();
@@ -913,8 +913,8 @@ public:
     using Self::getBalanceFactor;
     using Self::search;
     using Self::remove;
-    using Self::traverse;
-    using Self::postOrderTraverse;
+    using Self::traverseInOrder;
+    using Self::traversePostOrder;
     using Self::min;
     using Self::max;
 

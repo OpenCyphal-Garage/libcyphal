@@ -59,7 +59,7 @@ public:
         // (aka "handle must not outlive executor") should have removed them all.
         //
         CETL_DEBUG_ASSERT(awaitable_nodes_.empty(), "");
-        awaitable_nodes_.postOrderTraverse([this](auto& node) { destroyAwaitableNode(node); });
+        awaitable_nodes_.traversePostOrder([this](auto& node) { destroyAwaitableNode(node); });
     }
 
     using PollFailure = cetl::variant<libcyphal::transport::MemoryError,
@@ -88,7 +88,7 @@ public:
         //
         poll_fds_.clear();
         callback_handles_.clear();
-        awaitable_nodes_.traverse([this](AwaitableNode& node) {
+        awaitable_nodes_.traverseInOrder([this](AwaitableNode& node) {
             //
             CETL_DEBUG_ASSERT(node.fd() >= 0, "");
             CETL_DEBUG_ASSERT(node.pollEvents() != 0, "");

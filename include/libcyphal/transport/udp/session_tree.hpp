@@ -66,7 +66,7 @@ public:
 
     ~SessionTree()
     {
-        nodes_.postOrderTraverse([this](auto& node) { destroyNode(node); });
+        nodes_.traversePostOrder([this](auto& node) { destroyNode(node); });
     }
 
     CETL_NODISCARD bool isEmpty() const noexcept
