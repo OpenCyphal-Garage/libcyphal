@@ -8,8 +8,11 @@
 ///
 
 #include "platform/posix/posix_single_threaded_executor.hpp"
-#include "platform/posix/can/can_media.hpp"
 #include "platform/tracking_memory_resource.hpp"
+
+#ifdef __linux__
+#    include "platform/linux/can/can_media.hpp"
+#endif
 
 #include <cassert>  // NOLINT for NUNAVUT_ASSERT
 #include <nunavut/support/serialization.hpp>
@@ -70,7 +73,7 @@ using testing::VariantWith;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-class Example_03_CanTransport : public testing::Test
+class Example_03_LinuxSocketCanTransport : public testing::Test
 {
 protected:
     void SetUp() override
@@ -230,17 +233,17 @@ protected:
     std::string                                           iface_address_{"vcan0"};
     // NOLINTEND
 
-};  // Example_03_CanTransport
+};  // Example_03_LinuxSocketCanTransport
 
 // MARK: - Tests:
 
-TEST_F(Example_03_CanTransport, heartbeat)
+TEST_F(Example_03_LinuxSocketCanTransport, heartbeat)
 {
     using Schedule = libcyphal::IExecutor::Callback::Schedule;
 
     // Make CAN media.
     //
-    using CanMedia   = example::platform::posix::CanMedia;
+    using CanMedia   = example::platform::linux::CanMedia;
     auto maybe_media = CanMedia::make(mr_, executor_, iface_address_);
     ASSERT_THAT(maybe_media, VariantWith<CanMedia>(_)) << "Failed to create CAN media.";
     auto can_media = cetl::get<CanMedia>(std::move(maybe_media));

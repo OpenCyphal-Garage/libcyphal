@@ -70,7 +70,7 @@ using testing::VariantWith;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-class Example_02_UdpTransport : public testing::Test
+class Example_02_PosixUdpTransport : public testing::Test
 {
 protected:
     void SetUp() override
@@ -230,11 +230,11 @@ protected:
     std::string                                           iface_address_{"127.0.0.1"};
     // NOLINTEND
 
-}; // Example_02_UdpTransport
+}; // Example_02_PosixUdpTransport
 
 // MARK: - Tests:
 
-TEST_F(Example_02_UdpTransport, heartbeat)
+TEST_F(Example_02_PosixUdpTransport, heartbeat)
 {
     using Schedule = libcyphal::IExecutor::Callback::Schedule;
 

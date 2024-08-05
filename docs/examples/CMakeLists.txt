@@ -66,11 +66,35 @@ add_dsdl_cpp_codegen(
 # | BUILD EXAMPLE CODE
 # +---------------------------------------------------------------------------+
 
-add_library(examples_platform
-    "platform/posix/can/socketcan.c"
-    "platform/posix/udp/udp.c"
-)
-target_link_libraries(examples_platform PUBLIC canard)
+if(UNIX AND NOT (CMAKE_SYSTEM_NAME STREQUAL "Windows"))
+    set(IS_POSIX TRUE)
+else ()
+    set(IS_POSIX FALSE)
+endif()
+if(UNIX AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(IS_LINUX TRUE)
+else ()
+    set(IS_LINUX FALSE)
+endif()
+message(STATUS "IS_POSIX=${IS_POSIX}")
+message(STATUS "IS_LINUX=${IS_LINUX}")
+
+set(EXAMPLES_PLATFORM_LIBS "")
+
+if(IS_POSIX)
+    add_library(examples_platform_posix
+        "platform/posix/udp/udp.c"
+    )
+    list(APPEND EXAMPLES_PLATFORM_LIBS "examples_platform_posix")
+endif()
+if(IS_LINUX)
+    add_library(examples_platform_linux
+        "platform/linux/can/socketcan.c"
+    )
+    target_link_libraries(examples_platform_linux PUBLIC canard)
+    list(APPEND EXAMPLES_PLATFORM_LIBS "examples_platform_linux")
+endif()
+message(STATUS "EXAMPLES_PLATFORM_LIBS=${EXAMPLES_PLATFORM_LIBS}")
 
 file(GLOB NATIVE_EXAMPLES
     LIST_DIRECTORIES false
@@ -83,9 +107,20 @@ set(ALL_EXAMPLES "")
 set(ALL_EXAMPLE_RUNS "")
 
 foreach(NATIVE_EXAMPLE ${NATIVE_EXAMPLES})
+
+    message(STATUS "Example: ${NATIVE_EXAMPLE}")
+
+    # Skip linux specific examples on non-linux platforms
+    #
+    string(FIND "${NATIVE_EXAMPLE}" "linux" LINUX_WORD_POSITION)
+    if((LINUX_WORD_POSITION GREATER -1) AND NOT IS_LINUX)
+        message(WARNING "skipping linux specific example: ${NATIVE_EXAMPLE}")
+        continue()
+    endif()
+
     define_native_gtest_unittest_targets(
         TEST_SOURCE ${NATIVE_EXAMPLE}
-        EXTRA_TEST_LIBS cyphal cetl dsdl_example_types examples_platform
+        EXTRA_TEST_LIBS cyphal cetl dsdl_example_types ${EXAMPLES_PLATFORM_LIBS}
         LINK_TO_MAIN
         OUT_TEST_LIB_VARIABLE LOCAL_TEST_LIB
         OUT_TEST_EXE_VARIABLE LOCAL_TEST_TARGET

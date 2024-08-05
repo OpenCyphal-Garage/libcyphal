@@ -33,7 +33,7 @@ namespace example
 {
 namespace platform
 {
-namespace posix
+namespace linux
 {
 
 class CanMedia final : public libcyphal::transport::can::IMedia
@@ -195,7 +195,7 @@ private:
 
 };  // CanMedia
 
-}  // namespace posix
+}  // namespace linux
 }  // namespace platform
 }  // namespace example
 
