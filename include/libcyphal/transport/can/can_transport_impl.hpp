@@ -456,14 +456,14 @@ private:
     }
 
     template <typename Report>
-    cetl::optional<AnyFailure> tryHandleTransientMediaFailure(const Media& media, MediaFailure&& media_failure)
+    void tryHandleTransientMediaFailure(const Media& media, MediaFailure&& media_failure)
     {
         AnyFailure failure = common::detail::anyFailureFromVariant(std::move(media_failure));
-        return tryHandleTransientFailure<Report>(std::move(failure), media.index(), media.interface());
+        (void) tryHandleTransientFailure<Report>(std::move(failure), media.index(), media.interface());
     }
 
     template <typename Report>
-    CETL_NODISCARD cetl::optional<AnyFailure> tryHandleTransientCanardResult(const Media&       media,
+    cetl::optional<AnyFailure> tryHandleTransientCanardResult(const Media&       media,
                                                                              const std::int32_t result)
     {
         cetl::optional<AnyFailure> failure = optAnyFailureFromCanard(result);
@@ -548,8 +548,8 @@ private:
                                                     &out_transfer,
                                                     &out_subscription);
 
-        auto failure = tryHandleTransientCanardResult<TransientErrorReport::CanardRxAccept>(media, result);
-        if ((!failure.has_value()) && (result > 0))
+        (void) tryHandleTransientCanardResult<TransientErrorReport::CanardRxAccept>(media, result);
+        if (result > 0)
         {
             CETL_DEBUG_ASSERT(out_subscription != nullptr, "Expected subscription.");
             CETL_DEBUG_ASSERT(out_subscription->user_reference != nullptr, "Expected session delegate.");
@@ -659,13 +659,14 @@ private:
     ///
     /// @note Service RX ports are not considered as active ones for \b anonymous nodes.
     ///
-    cetl::optional<AnyFailure> configureMediaFilters()
+    void configureMediaFilters()
     {
         libcyphal::detail::VarArray<Filter> filters{&memory()};
         if (!fillMediaFiltersArray(filters))
         {
             using Report = TransientErrorReport::ConfigureMedia;
-            return tryHandleTransientFailure<Report>(MemoryError{});
+            (void) tryHandleTransientFailure<Report>(MemoryError{});
+            return;
         }
 
         for (const Media& media : media_array_)
@@ -674,15 +675,9 @@ private:
             if (media_failure)
             {
                 using Report = TransientErrorReport::MediaConfig;
-                auto failure = tryHandleTransientMediaFailure<Report>(media, std::move(*media_failure));
-                if (failure)
-                {
-                    return failure;
-                }
+                tryHandleTransientMediaFailure<Report>(media, std::move(*media_failure));
             }
         }
-
-        return cetl::nullopt;
     }
 
     /// @brief Fills an array with filters for each active RX port.

@@ -1190,9 +1190,6 @@ TEST_F(TestCanTransport, setFilters_with_transient_handler)
     auto maybe_msg_session = transport->makeMessageRxSession({0, 0x42});
     ASSERT_THAT(maybe_msg_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
 
-    // 1st `run`: Transient handler for `setFilters` call will fail to handle the error,
-    //            so the handler's result error will be returned (and no call to `media_mock2`).
-    //
     transport->setTransientErrorHandler([&](Report::Variant& report_var) {
         EXPECT_THAT(report_var, VariantWith<Report::MediaConfig>(Truly([&](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<CapacityError>(_));
@@ -1203,26 +1200,8 @@ TEST_F(TestCanTransport, setFilters_with_transient_handler)
         return StateError{};
     });
     EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(CapacityError{}));
+    EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
 
-    scheduler_.scheduleAt(1s, [&](const TimePoint) {
-        //
-        // `media_mock_.setFilters` will fail again but now handler will handle the error,
-        // and so redundant `media_mock2` will be called as well.
-        //
-        transport->setTransientErrorHandler([&](Report::Variant& report_var) {
-            EXPECT_THAT(report_var, VariantWith<Report::MediaConfig>(Truly([&](auto& report) {
-                            EXPECT_THAT(report.failure, VariantWith<CapacityError>(_));
-                            EXPECT_THAT(report.media_index, 0);
-                            EXPECT_THAT(report.culprit, Ref(media_mock_));
-                            return true;
-                        })));
-            return cetl::nullopt;
-        });
-        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(CapacityError{}));
-        EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
-
-        maybe_msg_session = transport->makeMessageRxSession({0, 0x43});
-    });
     scheduler_.spinFor(10s);
 }
 
