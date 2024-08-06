@@ -40,7 +40,7 @@ namespace detail
 /// NOSONAR cpp:S4963 for below `class MessageRxSession` - we do directly handle resources here;
 /// namely: in destructor we have to unsubscribe, as well as let transport delegate to know this fact.
 ///
-class MessageRxSession final : private IMsgRxSessionDelegate, public IMessageRxSession  // NOSONAR cpp:S4963
+class MessageRxSession final : IMsgRxSessionDelegate, public IMessageRxSession  // NOSONAR cpp:S4963
 {
     /// @brief Defines private specification for making interface unique ptr.
     ///
@@ -99,12 +99,10 @@ public:
     {
         ::udpardRxSubscriptionFree(&subscription_);
 
-        delegate_.onSessionEvent(SessionEvent::Destroyed{params_.subject_id});
+        delegate_.onSessionEvent(TransportDelegate::SessionEvent::MsgDestroyed{params_.subject_id});
     }
 
 private:
-    using SessionEvent = TransportDelegate::SessionEvent::Message;
-
     // MARK: IMessageRxSession
 
     CETL_NODISCARD MessageRxParams getParams() const noexcept override

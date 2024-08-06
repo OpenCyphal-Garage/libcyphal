@@ -136,7 +136,7 @@ protected:
     {
         state_.tx_heartbeat_.transfer_id_ += 1;
 
-        const auto uptime         = now.time_since_epoch();
+        const auto uptime         = now - startup_time_;
         const auto uptime_in_secs = std::chrono::duration_cast<std::chrono::seconds>(uptime);
 
         const uavcan::node::Heartbeat_1_0 heartbeat{static_cast<std::uint32_t>(uptime_in_secs.count()),
@@ -149,7 +149,7 @@ protected:
                     Eq(cetl::nullopt))
             << "Failed to publish heartbeat.";
     }
-    void printHeartbeat(const MessageRxTransfer& rx_heartbeat)
+    void printHeartbeat(const MessageRxTransfer& rx_heartbeat) const
     {
         const auto rel_time = rx_heartbeat.metadata.base.timestamp - startup_time_;
         std::cerr << "Received heartbeat from node " << rx_heartbeat.metadata.publisher_node_id.value_or(0) << " @ "

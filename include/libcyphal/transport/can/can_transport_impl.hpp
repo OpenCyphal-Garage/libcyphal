@@ -157,8 +157,8 @@ public:
         : TransportDelegate{memory}
         , executor_{executor}
         , media_array_{std::move(media_array)}
-        , total_message_ports_{0}
-        , total_service_ports_{0}
+        , total_msg_rx_ports_{0}
+        , total_svc_rx_ports_{0}
     {
         scheduleConfigOfFilters();
     }
@@ -177,9 +177,9 @@ public:
             flushCanardTxQueue(media.canard_tx_queue());
         }
 
-        CETL_DEBUG_ASSERT(total_message_ports_ == 0,  //
+        CETL_DEBUG_ASSERT(total_msg_rx_ports_ == 0,  //
                           "Message sessions must be destroyed before transport.");
-        CETL_DEBUG_ASSERT(total_service_ports_ == 0,  //
+        CETL_DEBUG_ASSERT(total_svc_rx_ports_ == 0,  //
                           "Service sessions must be destroyed before transport.");
     }
 
@@ -229,7 +229,7 @@ private:
         //
         // @see scheduleConfigOfFilters
         //
-        if (total_service_ports_ > 0)
+        if (total_svc_rx_ports_ > 0)
         {
             executor_.scheduleCallback(configure_filters_callback_, Callback::Schedule::Once{executor_.now()});
         }
@@ -344,12 +344,12 @@ private:
         return cetl::nullopt;
     }
 
-    void triggerUpdateOfFilters(const FiltersUpdate::Variant& update_var) override
+    void onSessionEvent(const SessionEvent::Variant& event_var) override
     {
-        FiltersUpdateHandler handler_with{*this};
-        cetl::visit(handler_with, update_var);
+        SessionEventHandler handler_with{*this};
+        cetl::visit(handler_with, event_var);
 
-        cancelRxCallbacksIfNoSessionsLeft();
+        cancelRxCallbacksIfNoPortsLeft();
         scheduleConfigOfFilters();
     }
 
@@ -369,45 +369,45 @@ private:
 
     using Self = TransportImpl;
 
-    struct FiltersUpdateHandler
+    struct SessionEventHandler
     {
-        explicit FiltersUpdateHandler(Self& self)
+        explicit SessionEventHandler(Self& self)
             : self_{self}
         {
         }
 
-        void operator()(const FiltersUpdate::SubjectPort& port) const
+        void operator()(const SessionEvent::MsgRxLifetime& lifetime) const
         {
-            if (port.is_added)
+            if (lifetime.is_added)
             {
-                ++self_.total_message_ports_;
+                ++self_.total_msg_rx_ports_;
             }
             else
             {
                 // We are not going to allow negative number of ports.
-                CETL_DEBUG_ASSERT(self_.total_message_ports_ > 0, "");
-                self_.total_message_ports_ -= std::min(static_cast<std::size_t>(1), self_.total_message_ports_);
+                CETL_DEBUG_ASSERT(self_.total_msg_rx_ports_ > 0, "");
+                self_.total_msg_rx_ports_ -= std::min(static_cast<std::size_t>(1), self_.total_msg_rx_ports_);
             }
         }
 
-        void operator()(const FiltersUpdate::ServicePort& port) const
+        void operator()(const SessionEvent::SvcRxLifetime& lifetime) const
         {
-            if (port.is_added)
+            if (lifetime.is_added)
             {
-                ++self_.total_service_ports_;
+                ++self_.total_svc_rx_ports_;
             }
             else
             {
                 // We are not going to allow negative number of ports.
-                CETL_DEBUG_ASSERT(self_.total_service_ports_ > 0, "");
-                self_.total_service_ports_ -= std::min(static_cast<std::size_t>(1), self_.total_service_ports_);
+                CETL_DEBUG_ASSERT(self_.total_svc_rx_ports_ > 0, "");
+                self_.total_svc_rx_ports_ -= std::min(static_cast<std::size_t>(1), self_.total_svc_rx_ports_);
             }
         }
 
     private:
         Self& self_;
 
-    };  // FiltersUpdateHandler
+    };  // SessionEventHandler
 
     template <typename Interface, typename Factory, typename RxParams>
     CETL_NODISCARD auto makeRxSession(const CanardTransferKind transfer_kind,
@@ -697,7 +697,7 @@ private:
         //
         const auto        local_node_id      = static_cast<CanardNodeID>(node_id());
         const auto        is_anonymous       = local_node_id > CANARD_NODE_ID_MAX;
-        const std::size_t total_active_ports = total_message_ports_ + (is_anonymous ? 0 : total_service_ports_);
+        const std::size_t total_active_ports = total_msg_rx_ports_ + (is_anonymous ? 0 : total_svc_rx_ports_);
         if (total_active_ports == 0)
         {
             // No need to allocate memory for zero filters.
@@ -719,7 +719,7 @@ private:
 
         const auto& subs_trees = canard_instance().rx_subscriptions;
 
-        if (total_message_ports_ > 0)
+        if (total_msg_rx_ports_ > 0)
         {
             const auto msg_visitor = [&filters](RxSubscription& rx_subscription) {
                 // Make and store a single message filter.
@@ -731,7 +731,7 @@ private:
 
         // No need to make service filters if we don't have a local node ID.
         //
-        if ((total_service_ports_ > 0) && (!is_anonymous))
+        if ((total_svc_rx_ports_ > 0) && (!is_anonymous))
         {
             const auto svc_visitor = [&filters, local_node_id](RxSubscription& rx_subscription) {
                 // Make and store a single service filter.
@@ -747,9 +747,9 @@ private:
         return true;
     }
 
-    void cancelRxCallbacksIfNoSessionsLeft()
+    void cancelRxCallbacksIfNoPortsLeft()
     {
-        if (0 == (total_message_ports_ + total_service_ports_))
+        if (0 == (total_msg_rx_ports_ + total_svc_rx_ports_))
         {
             for (Media& media : media_array_)
             {
@@ -762,8 +762,8 @@ private:
 
     IExecutor&            executor_;
     MediaArray            media_array_;
-    std::size_t           total_message_ports_;
-    std::size_t           total_service_ports_;
+    std::size_t           total_msg_rx_ports_;
+    std::size_t           total_svc_rx_ports_;
     TransientErrorHandler transient_error_handler_;
     Callback::Any         configure_filters_callback_;
 

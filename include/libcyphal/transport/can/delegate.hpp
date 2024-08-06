@@ -197,20 +197,20 @@ public:
 
     };  // CanardConcreteTree
 
-    struct FiltersUpdate
+    struct SessionEvent
     {
-        struct SubjectPort
+        struct MsgRxLifetime
         {
             bool is_added;
         };
-        struct ServicePort
+        struct SvcRxLifetime
         {
             bool is_added;
         };
 
-        using Variant = cetl::variant<SubjectPort, ServicePort>;
+        using Variant = cetl::variant<MsgRxLifetime, SvcRxLifetime>;
 
-    };  // FiltersUpdate
+    };  // SessionEvent
 
     TransportDelegate(const TransportDelegate&)                = delete;
     TransportDelegate(TransportDelegate&&) noexcept            = delete;
@@ -306,14 +306,11 @@ public:
                                                                    const CanardTransferMetadata& metadata,
                                                                    const PayloadFragments        payload_fragments) = 0;
 
-    /// @brief Triggers update of media filters due to a change of RX ports.
+    /// @brief Called on a session event.
     ///
-    /// Actual update will be done on next `run` of transport.
+    /// @param event_var Describes variant of the session even has happened.
     ///
-    /// @param update_var Describes variant of which the RX ports update has happened.
-    ///                   Allows to distinguish between subject and service ports.
-    ///
-    virtual void triggerUpdateOfFilters(const FiltersUpdate::Variant& update_var) = 0;
+    virtual void onSessionEvent(const SessionEvent::Variant& event_var) = 0;
 
 protected:
     explicit TransportDelegate(cetl::pmr::memory_resource& memory)

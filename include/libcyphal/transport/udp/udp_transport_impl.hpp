@@ -380,26 +380,22 @@ private:
 
     void onSessionEvent(const SessionEvent::Variant& event_var) override
     {
-        cetl::visit(
-            [this](const auto& event) {
-                cetl::visit(cetl::make_overloaded(
-                                [this](const SessionEvent::Message::Destroyed& msg_session_destroyed) {
-                                    //
-                                    msg_rx_session_nodes_.removeNodeFor(msg_session_destroyed.subject_id);
-                                },
-                                [this](const SessionEvent::Request::Destroyed& req_session_destroyed) {
-                                    //
-                                    svc_request_rx_session_nodes_.removeNodeFor(req_session_destroyed.service_id);
-                                    cancelRxCallbacksIfNoSvcLeft();
-                                },
-                                [this](const SessionEvent::Response::Destroyed& res_session_destroyed) {
-                                    //
-                                    svc_response_rx_session_nodes_.removeNodeFor(res_session_destroyed.service_id);
-                                    cancelRxCallbacksIfNoSvcLeft();
-                                }),
-                            event);
-            },
-            event_var);
+        cetl::visit(cetl::make_overloaded(
+                        [this](const SessionEvent::MsgDestroyed& msg_session_destroyed) {
+                            //
+                            msg_rx_session_nodes_.removeNodeFor(msg_session_destroyed.subject_id);
+                        },
+                        [this](const SessionEvent::SvcRequestDestroyed& req_session_destroyed) {
+                            //
+                            svc_request_rx_session_nodes_.removeNodeFor(req_session_destroyed.service_id);
+                            cancelRxCallbacksIfNoSvcLeft();
+                        },
+                        [this](const SessionEvent::SvcResponseDestroyed& res_session_destroyed) {
+                            //
+                            svc_response_rx_session_nodes_.removeNodeFor(res_session_destroyed.service_id);
+                            cancelRxCallbacksIfNoSvcLeft();
+                        }),
+                    event_var);
     }
 
     // MARK: Privates:

@@ -52,41 +52,43 @@ public:
         /// (the real slack may be worse than the approximation).
         /// This is always non-negative.
         Duration worst_lateness;
+
+        /// An approximation of the current time such that (approx_now <= Clock::now()).
+        /// This is helpful because the time may be expensive to sample.
+        TimePoint approx_now;
     };
 
     CETL_NODISCARD SpinResult spinOnce()
     {
-        SpinResult spin_result{};
+        if (callback_nodes_.empty())
+        {
+            return {cetl::nullopt, {}, now()};
+        }
 
-        auto approx_now = TimePoint::min();
-
+        SpinResult spin_result{{}, {}, TimePoint::min()};
         while (auto* const callback_node_ptr = callback_nodes_.min())
         {
             auto& callback_node = *callback_node_ptr;
 
-            const auto exec_time = callback_node.nextExecTime();
-            if (approx_now < exec_time)
+            if (const auto exec_time = isNowTimeToExecute(callback_node.nextExecTime(), spin_result))
             {
-                approx_now = now();
-                if (approx_now < exec_time)
-                {
-                    if (exec_time != TimePoint::max())
-                    {
-                        spin_result.next_exec_time = exec_time;
-                    }
-                    break;
-                }
+                removeCallbackNode(callback_node);
+                callback_node.reschedule(*exec_time);
+                insertCallbackNode(callback_node);
+
+                callback_node(spin_result.approx_now);
+            }
+            else
+            {
+                // Nodes are sorted by execution time, so we can stop here b/c the rest of the nodes
+                // will have execution times later than the current node execution time.
+                break;
             }
 
-            spin_result.worst_lateness = std::max(approx_now - exec_time, spin_result.worst_lateness);
+        }  // while there is a pending callback to execute
 
-            removeCallbackNode(callback_node);
-            callback_node.reschedule(exec_time);
-            insertCallbackNode(callback_node);
-
-            callback_node(approx_now);
-
-        }  // while there is pending callback to execute
+        CETL_DEBUG_ASSERT(spin_result.approx_now > TimePoint::min(), "");
+        CETL_DEBUG_ASSERT(spin_result.worst_lateness >= Duration::zero(), "");
 
         return spin_result;
     }
@@ -283,8 +285,6 @@ private:
             return (exec_time >= next_exec_time_) ? +1 : -1;
         }
 
-        // MARK: - cetl::rtti
-
         static constexpr cetl::type_id _get_type_id_() noexcept
         {
             return cetl::type_id_type_value<CallbackNodeTypeIdType>();
@@ -315,6 +315,32 @@ private:
     static CallbackNode* callbackToNode(Callback::Any& callback) noexcept
     {
         return cetl::get_if<CallbackNode>(&callback);
+    }
+
+    CETL_NODISCARD cetl::optional<TimePoint> isNowTimeToExecute(const TimePoint next_exec_time,
+                                                                SpinResult&     inout_spin_result) const
+    {
+        if (inout_spin_result.approx_now < next_exec_time)
+        {
+            inout_spin_result.approx_now = now();
+            if (inout_spin_result.approx_now < next_exec_time)
+            {
+                // To simplify node sorting `max` is used like "never" (aka "infinity") but result of spin
+                // encodes this more explicitly as `cetl::nullopt` (aka "no next exec time").
+                if (next_exec_time != TimePoint::max())
+                {
+                    inout_spin_result.next_exec_time = next_exec_time;
+                }
+
+                return cetl::nullopt;
+            }
+        }
+
+        inout_spin_result.worst_lateness = std::max(  //
+            inout_spin_result.worst_lateness,
+            inout_spin_result.approx_now - next_exec_time);
+
+        return cetl::optional<TimePoint>{next_exec_time};
     }
 
     void insertCallbackNode(CallbackNode& callback_node)

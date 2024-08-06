@@ -200,8 +200,6 @@ protected:
             when_condition);
     }
 
-    // MARK: - cetl::rtti
-
     CETL_NODISCARD void* _cast_(const cetl::type_id& id) & noexcept override
     {
         if (id == IPosixExecutorExtension::_get_type_id_())

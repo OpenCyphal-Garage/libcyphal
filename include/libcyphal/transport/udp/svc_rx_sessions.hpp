@@ -45,7 +45,7 @@ namespace detail
 /// namely: in destructor we have to unsubscribe, as well as let transport delegate to know this fact.
 ///
 template <typename Interface_, typename Params, typename SessionEvent, bool IsRequest>
-class SvcRxSession final : private IRxSessionDelegate, public Interface_  // NOSONAR cpp:S4963
+class SvcRxSession final : IRxSessionDelegate, public Interface_  // NOSONAR cpp:S4963
 {
     /// @brief Defines private specification for making interface unique ptr.
     ///
@@ -106,7 +106,7 @@ public:
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result == 1, "Existing registration has been expected to be cancelled.");
 
-        delegate_.onSessionEvent(typename SessionEvent::Destroyed{params_.service_id});
+        delegate_.onSessionEvent(SessionEvent{params_.service_id});
     }
 
 private:
@@ -160,13 +160,17 @@ private:
 
 /// @brief A concrete class to represent a service request RX session (aka server side).
 ///
-using SvcRequestRxSession =
-    SvcRxSession<IRequestRxSession, RequestRxParams, TransportDelegate::SessionEvent::Request, true /*IsRequest*/>;
+using SvcRequestRxSession = SvcRxSession<IRequestRxSession,
+                                         RequestRxParams,
+                                         TransportDelegate::SessionEvent::SvcRequestDestroyed,
+                                         true /*IsRequest*/>;
 
 /// @brief A concrete class to represent a service response RX session (aka client side).
 ///
-using SvcResponseRxSession =
-    SvcRxSession<IResponseRxSession, ResponseRxParams, TransportDelegate::SessionEvent::Response, false /*IsRequest*/>;
+using SvcResponseRxSession = SvcRxSession<IResponseRxSession,
+                                          ResponseRxParams,
+                                          TransportDelegate::SessionEvent::SvcResponseDestroyed,
+                                          false /*IsRequest*/>;
 
 }  // namespace detail
 }  // namespace udp

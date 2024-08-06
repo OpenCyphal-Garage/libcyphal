@@ -51,21 +51,21 @@ using testing::VariantWith;
 class TestUdpDelegate : public testing::Test
 {
 protected:
-    class TransportDelegateImpl final : public udp::detail::TransportDelegate
+    class TransportDelegateImpl final : public detail::TransportDelegate
     {
     public:
-        using udp::detail::TransportDelegate::MemoryResources;
-        using udp::detail::TransportDelegate::memoryResources;
-        using udp::detail::TransportDelegate::makeUdpardMemoryDeleter;
-        using udp::detail::TransportDelegate::makeUdpardMemoryResource;
+        using TransportDelegate::MemoryResources;
+        using TransportDelegate::memoryResources;
+        using TransportDelegate::makeUdpardMemoryDeleter;
+        using TransportDelegate::makeUdpardMemoryResource;
 
         explicit TransportDelegateImpl(cetl::pmr::memory_resource& general_mr,
                                        cetl::pmr::memory_resource* fragment_mr = nullptr,
                                        cetl::pmr::memory_resource* payload_mr  = nullptr)
-            : udp::detail::TransportDelegate{MemoryResources{general_mr,
-                                                             makeUdpardMemoryResource(nullptr, general_mr),
-                                                             makeUdpardMemoryResource(fragment_mr, general_mr),
-                                                             makeUdpardMemoryDeleter(payload_mr, general_mr)}}
+            : TransportDelegate{MemoryResources{general_mr,
+                                                makeUdpardMemoryResource(nullptr, general_mr),
+                                                makeUdpardMemoryResource(fragment_mr, general_mr),
+                                                makeUdpardMemoryDeleter(payload_mr, general_mr)}}
         {
         }
 

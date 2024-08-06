@@ -1005,8 +1005,6 @@ TEST_F(TestCanTransport, receive_svc_responses_with_fallible_oom_canard)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IResponseRxSession>>(std::move(maybe_session));
 
-    EXPECT_CALL(media_mock_, setFilters(_)).WillOnce(Return(cetl::nullopt));
-
     // Emulate that there is constantly a new frame to receive, but the Canard RX has no memory to accept it.
     //
     EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly([&](auto p) {
@@ -1018,6 +1016,9 @@ TEST_F(TestCanTransport, receive_svc_responses_with_fallible_oom_canard)
         return IMedia::PopResult::Metadata{now(), 0b111'1'0'0'101111011'0010011'0110001, 4};
     });
     EXPECT_CALL(mr_mock, do_allocate(_, _)).WillRepeatedly(Return(nullptr));
+#if (__cplusplus < CETL_CPP_STANDARD_17)
+    EXPECT_CALL(mr_mock, do_reallocate(nullptr, 0, _, _)).WillRepeatedly(Return(nullptr));
+#endif
 
     // 1st run: canard RX has failed to accept frame and there is no transient error handler.
     scheduler_.scheduleAt(1s, [&](const TimePoint) {

@@ -50,11 +50,11 @@ using testing::VariantWith;
 class TestCanDelegate : public testing::Test
 {
 protected:
-    class TransportDelegateImpl final : public can::detail::TransportDelegate
+    class TransportDelegateImpl final : public detail::TransportDelegate
     {
     public:
         explicit TransportDelegateImpl(cetl::pmr::memory_resource& memory)
-            : can::detail::TransportDelegate{memory}
+            : TransportDelegate{memory}
         {
         }
 
@@ -66,7 +66,7 @@ protected:
                      const CanardTransferMetadata& metadata,
                      const PayloadFragments        payload_fragments),
                     (override));
-        MOCK_METHOD(void, triggerUpdateOfFilters, (const FiltersUpdate::Variant& update_var), (override));
+        MOCK_METHOD(void, onSessionEvent, (const SessionEvent::Variant& event_var), (override));
     };
 
     void TearDown() override
@@ -235,8 +235,8 @@ TEST_F(TestCanDelegate, CanardConcreteTree_visitCounting)
     right.lr[1] = &right_r;
     left.up = right.up = &root;
     right_l.up = right_r.up = &right;
-    right_rl.up = &right_r;
-    right_r.lr[0] = &right_rl;
+    right_rl.up             = &right_r;
+    right_r.lr[0]           = &right_rl;
 
     using MyTree = can::detail::TransportDelegate::CanardConcreteTree<const MyNode>;
     {
