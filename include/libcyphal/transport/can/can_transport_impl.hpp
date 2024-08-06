@@ -463,8 +463,7 @@ private:
     }
 
     template <typename Report>
-    cetl::optional<AnyFailure> tryHandleTransientCanardResult(const Media&       media,
-                                                                             const std::int32_t result)
+    cetl::optional<AnyFailure> tryHandleTransientCanardResult(const Media& media, const std::int32_t result)
     {
         cetl::optional<AnyFailure> failure = optAnyFailureFromCanard(result);
         if (!failure)
