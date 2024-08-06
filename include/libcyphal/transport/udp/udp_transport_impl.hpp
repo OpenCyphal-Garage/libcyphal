@@ -739,7 +739,7 @@ private:
             popAndFreeUdpardTxItem(&media.udpard_tx(), tx_item, true /* whole transfer */);
 
             using Report = TransientErrorReport::MediaTxSocketSend;
-            tryHandleTransientMediaError<Report>(media, std::move(*send_failure), tx_socket);
+            (void) tryHandleTransientMediaError<Report>(media, std::move(*send_failure), tx_socket);
 
         }  // for a valid tx item
 
@@ -875,7 +875,7 @@ private:
         if (auto* const failure = cetl::get_if<IRxSocket::ReceiveResult::Failure>(&receive_result))
         {
             using RxSocketReport = TransientErrorReport::MediaRxSocketReceive;
-            tryHandleTransientMediaError<RxSocketReport>(media, std::move(*failure), rx_socket);
+            (void) tryHandleTransientMediaError<RxSocketReport>(media, std::move(*failure), rx_socket);
             return cetl::nullopt;
         }
         return cetl::get<IRxSocket::ReceiveResult::Success>(std::move(receive_result));

@@ -73,10 +73,10 @@ using std::literals::chrono_literals::operator""us;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-class MyPlatformError final : public libcyphal::transport::IPlatformError
+class MyPlatformError final : public IPlatformError
 {
 public:
-    explicit MyPlatformError(std::uint32_t code)
+    explicit MyPlatformError(const std::uint32_t code)
         : code_{code}
     {
     }
@@ -1190,16 +1190,18 @@ TEST_F(TestCanTransport, setFilters_with_transient_handler)
     auto maybe_msg_session = transport->makeMessageRxSession({0, 0x42});
     ASSERT_THAT(maybe_msg_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
 
-    transport->setTransientErrorHandler([&](Report::Variant& report_var) {
+    const auto expected_error = PlatformError{MyPlatformError{13}};
+
+    transport->setTransientErrorHandler([&](const Report::Variant& report_var) {
         EXPECT_THAT(report_var, VariantWith<Report::MediaConfig>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.failure, VariantWith<CapacityError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<PlatformError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         EXPECT_THAT(report.culprit, Ref(media_mock_));
                         return true;
                     })));
         return StateError{};
     });
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(CapacityError{}));
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(expected_error));
     EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
 
     scheduler_.spinFor(10s);
