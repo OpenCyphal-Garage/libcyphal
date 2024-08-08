@@ -21,7 +21,6 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <iterator>
 #include <ratio>
 #include <string>
@@ -41,9 +40,8 @@ class CanMedia final : public libcyphal::transport::can::IMedia
 {
 public:
     CETL_NODISCARD static cetl::variant<CanMedia, libcyphal::transport::PlatformError> make(
-        cetl::pmr::memory_resource& memory,
-        libcyphal::IExecutor&       executor,
-        const std::string&          iface_address)
+        libcyphal::IExecutor& executor,
+        const std::string&    iface_address)
     {
         const SocketCANFD socket_can_fd = ::socketcanOpen(iface_address.c_str(), false);
         if (socket_can_fd < 0)
@@ -51,7 +49,7 @@ public:
             return libcyphal::transport::PlatformError{posix::PosixPlatformError{-socket_can_fd}};
         }
 
-        return CanMedia{memory, executor, socket_can_fd};
+        return CanMedia{executor, socket_can_fd};
     }
 
     ~CanMedia()
@@ -63,28 +61,18 @@ public:
     CanMedia& operator=(const CanMedia&) = delete;
 
     CanMedia(CanMedia&& other) noexcept
-        : memory_{other.memory_}
-        , executor_{other.executor_}
+        : executor_{other.executor_}
         , socket_can_fd_{std::exchange(other.socket_can_fd_, -1)}
     {
     }
-
-    CanMedia& operator=(CanMedia&& other) noexcept
-    {
-        memory_        = other.memory_;
-        executor_      = other.executor_;
-        socket_can_fd_ = std::exchange(other.socket_can_fd_, -1);
-
-        return *this;
-    }
+    CanMedia* operator=(CanMedia&&) noexcept = delete;
 
 private:
     using Filter  = libcyphal::transport::can::Filter;
     using Filters = libcyphal::transport::can::Filters;
 
-    CanMedia(cetl::pmr::memory_resource& memory, libcyphal::IExecutor& executor, SocketCANFD socket_can_fd)
-        : memory_{memory}
-        , executor_{executor}
+    CanMedia(libcyphal::IExecutor& executor, SocketCANFD socket_can_fd)
+        : executor_{executor}
         , socket_can_fd_{socket_can_fd}
     {
     }
@@ -164,7 +152,7 @@ private:
             return cetl::nullopt;
         }
 
-        return PopResult::Metadata{executor_.get().now(), canard_frame.extended_can_id, canard_frame.payload_size};
+        return PopResult::Metadata{executor_.now(), canard_frame.extended_can_id, canard_frame.payload_size};
     }
 
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerPushCallback(
@@ -185,9 +173,8 @@ private:
 
     // MARK: Data members:
 
-    cetl::pmr::memory_resource&                  memory_;
-    std::reference_wrapper<libcyphal::IExecutor> executor_;
-    SocketCANFD                                  socket_can_fd_;
+    libcyphal::IExecutor& executor_;
+    SocketCANFD           socket_can_fd_;
 
 };  // CanMedia
 

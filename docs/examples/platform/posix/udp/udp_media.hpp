@@ -33,6 +33,18 @@ public:
         , iface_address_{std::move(iface_address)}
     {
     }
+    ~UdpMedia() = default;
+
+    UdpMedia(const UdpMedia&)                = delete;
+    UdpMedia& operator=(const UdpMedia&)     = delete;
+    UdpMedia* operator=(UdpMedia&&) noexcept = delete;
+
+    UdpMedia(UdpMedia&& other) noexcept
+        : memory_{other.memory_}
+        , executor_{other.executor_}
+        , iface_address_{other.iface_address_}
+    {
+    }
 
 private:
     // MARK: - IMedia

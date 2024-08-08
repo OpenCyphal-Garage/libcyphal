@@ -23,13 +23,13 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
+#include <libcyphal/transport/can/can_transport.hpp>
+#include <libcyphal/transport/can/can_transport_impl.hpp>
+#include <libcyphal/transport/can/media.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/transport.hpp>
 #include <libcyphal/transport/types.hpp>
-#include <libcyphal/transport/can/media.hpp>
-#include <libcyphal/transport/can/can_transport.hpp>
-#include <libcyphal/transport/can/can_transport_impl.hpp>
 #include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>
@@ -44,8 +44,10 @@
 #include <iomanip>
 #include <iostream>
 #include <locale>
+#include <sstream>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -76,6 +78,8 @@ using testing::VariantWith;
 class Example_03_LinuxSocketCanTransport : public testing::Test
 {
 protected:
+    using CanMedia = example::platform::Linux::CanMedia;
+
     void SetUp() override
     {
         std::cerr.imbue(std::locale("en_US.UTF-8"));
@@ -85,9 +89,15 @@ protected:
         {
             local_node_id_ = static_cast<NodeId>(std::stoul(node_id_str));
         }
-        if (const auto* const iface_address_str = std::getenv("CYPHAL__CAN__IFACE"))
+        if (const auto* const iface_addresses_str = std::getenv("CYPHAL__CAN__IFACE"))
         {
-            iface_address_ = iface_address_str;
+            iface_addresses_.clear();
+            std::istringstream iss(iface_addresses_str);
+            std::string        str;
+            while (std::getline(iss, str, ' '))
+            {
+                iface_addresses_.push_back(str);
+            }
         }
 
         startup_time_ = executor_.now();
@@ -100,12 +110,17 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
-    template <std::size_t Redundancy>
-    CanTransportPtr makeCanTransport(std::array<can::IMedia*, Redundancy>& media_array, const NodeId local_node_id)
+    CanTransportPtr makeCanTransport(std::vector<CanMedia>& media_vector, const NodeId local_node_id)
     {
         const std::size_t tx_capacity = 16;
 
-        auto maybe_transport = can::makeTransport({mr_}, executor_, media_array, tx_capacity);
+        std::vector<IMedia*> mis;
+        for (auto& media : media_vector)
+        {
+            mis.push_back(&media);
+        }
+
+        auto maybe_transport = makeTransport({mr_}, executor_, {mis.data(), mis.size()}, tx_capacity);
         EXPECT_THAT(maybe_transport, VariantWith<CanTransportPtr>(_)) << "Failed to create transport.";
         auto can_transport = cetl::get<CanTransportPtr>(std::move(maybe_transport));
         if (can_transport)
@@ -230,7 +245,7 @@ protected:
     State                                                 state_{};
     NodeId                                                local_node_id_{42};
     TimePoint                                             startup_time_{};
-    std::string                                           iface_address_{"vcan0"};
+    std::vector<std::string>                              iface_addresses_{"vcan0"};
     // NOLINTEND
 
 };  // Example_03_LinuxSocketCanTransport
@@ -243,19 +258,21 @@ TEST_F(Example_03_LinuxSocketCanTransport, heartbeat)
 
     // Make CAN media.
     //
-    using CanMedia   = example::platform::Linux::CanMedia;
-    auto maybe_media = CanMedia::make(mr_, executor_, iface_address_);
-    if (auto* const error = cetl::get_if<PlatformError>(&maybe_media))
+    std::vector<CanMedia> media_vector;
+    for (const auto& iface_address : iface_addresses_)
     {
-        GTEST_SKIP() << "Failed to create CAN media '"<< iface_address_ << "', errno=" << (*error)->code() << ".";
+        auto maybe_media = CanMedia::make(executor_, iface_address);
+        if (auto* const error = cetl::get_if<PlatformError>(&maybe_media))
+        {
+            GTEST_SKIP() << "Failed to create CAN media '" << iface_address << "', errno=" << (*error)->code() << ".";
+        }
+        ASSERT_THAT(maybe_media, VariantWith<CanMedia>(_)) << "Failed to create CAN media.";
+        media_vector.emplace_back(cetl::get<CanMedia>(std::move(maybe_media)));
     }
-    ASSERT_THAT(maybe_media, VariantWith<CanMedia>(_)) << "Failed to create CAN media.";
-    auto can_media = cetl::get<CanMedia>(std::move(maybe_media));
 
-    // Make CAN transport with a single media.
+    // Make CAN transport with collection of media.
     //
-    std::array<can::IMedia*, 1> media_array{&can_media};
-    auto                        can_transport = makeCanTransport(media_array, local_node_id_);
+    auto can_transport = makeCanTransport(media_vector, local_node_id_);
 
     // Subscribe for heartbeat messages.
     //
@@ -311,6 +328,7 @@ TEST_F(Example_03_LinuxSocketCanTransport, heartbeat)
 
     state_.reset();
     can_transport.reset();
+    media_vector.clear();
     executor_.releaseTemporaryResources();
 }
 

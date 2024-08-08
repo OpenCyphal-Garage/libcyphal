@@ -41,8 +41,10 @@
 #include <iomanip>
 #include <iostream>
 #include <locale>
+#include <sstream>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -73,6 +75,8 @@ using testing::VariantWith;
 class Example_02_PosixUdpTransport : public testing::Test
 {
 protected:
+    using UdpMedia = example::platform::posix::UdpMedia;
+
     void SetUp() override
     {
         std::cerr.imbue(std::locale("en_US.UTF-8"));
@@ -82,9 +86,15 @@ protected:
         {
             local_node_id_ = static_cast<NodeId>(std::stoul(node_id_str));
         }
-        if (const auto* const iface_address_str = std::getenv("CYPHAL__UDP__IFACE"))
+        if (const auto* const iface_addresses_str = std::getenv("CYPHAL__UDP__IFACE"))
         {
-            iface_address_ = iface_address_str;
+            iface_addresses_.clear();
+            std::istringstream iss(iface_addresses_str);
+            std::string        str;
+            while (std::getline(iss, str, ' '))
+            {
+                iface_addresses_.push_back(str);
+            }
         }
 
         startup_time_ = executor_.now();
@@ -97,12 +107,17 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
-    template <std::size_t Redundancy>
-    UdpTransportPtr makeUdpTransport(std::array<udp::IMedia*, Redundancy>& media_array, const NodeId local_node_id)
+    UdpTransportPtr makeUdpTransport(std::vector<UdpMedia>& media_vector, const NodeId local_node_id)
     {
         const std::size_t tx_capacity = 16;
 
-        auto maybe_transport = udp::makeTransport({mr_}, executor_, media_array, tx_capacity);
+        std::vector<IMedia*> mis;
+        for (auto& media : media_vector)
+        {
+            mis.push_back(&media);
+        }
+
+        auto maybe_transport = makeTransport({mr_}, executor_, {mis.data(), mis.size()}, tx_capacity);
         EXPECT_THAT(maybe_transport, VariantWith<UdpTransportPtr>(_)) << "Failed to create transport.";
         auto udp_transport = cetl::get<UdpTransportPtr>(std::move(maybe_transport));
         if (udp_transport)
@@ -227,7 +242,7 @@ protected:
     State                                                 state_{};
     NodeId                                                local_node_id_{42};
     TimePoint                                             startup_time_{};
-    std::string                                           iface_address_{"127.0.0.1"};
+    std::vector<std::string>                              iface_addresses_{"127.0.0.1"};
     // NOLINTEND
 
 }; // Example_02_PosixUdpTransport
@@ -238,11 +253,17 @@ TEST_F(Example_02_PosixUdpTransport, heartbeat)
 {
     using Schedule = libcyphal::IExecutor::Callback::Schedule;
 
-    // Make UDP transport with a single media.
+    // Make UDP media.
     //
-    example::platform::posix::UdpMedia udp_media{mr_, executor_, iface_address_};
-    std::array<udp::IMedia*, 1>        media_array{&udp_media};
-    auto                               udp_transport = makeUdpTransport(media_array, local_node_id_);
+    std::vector<UdpMedia> media_vector;
+    for (const auto& iface_address : iface_addresses_)
+    {
+        media_vector.emplace_back(mr_, executor_, iface_address);
+    }
+
+    // Make UDP transport with collection of media.
+    //
+    auto udp_transport = makeUdpTransport(media_vector, local_node_id_);
 
     // Subscribe for heartbeat messages.
     //
@@ -298,6 +319,7 @@ TEST_F(Example_02_PosixUdpTransport, heartbeat)
 
     state_.reset();
     udp_transport.reset();
+    media_vector.clear();
     executor_.releaseTemporaryResources();
 }
 
