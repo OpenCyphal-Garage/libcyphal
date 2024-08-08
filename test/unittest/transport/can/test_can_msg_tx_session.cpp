@@ -83,7 +83,7 @@ protected:
     {
         std::array<IMedia*, 1> media_array{&media_mock_};
 
-        auto maybe_transport = can::makeTransport(mr, media_array, 16);
+        auto maybe_transport = can::makeTransport(mr, scheduler_, media_array, 16);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
         return cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
     }
@@ -97,7 +97,7 @@ protected:
     // NOLINTEND
 };
 
-// MARK: Tests:
+// MARK: - Tests:
 
 TEST_F(TestCanMsgTxSession, make)
 {
@@ -146,8 +146,6 @@ TEST_F(TestCanMsgTxSession, send_empty_payload_and_no_transport_run)
 
     auto failure = session->send(metadata, empty_payload);
     EXPECT_THAT(failure, Eq(cetl::nullopt));
-
-    scheduler_.runNow(+10ms, [&] { session->run(scheduler_.now()); });
 
     // Payload still inside canard TX queue (b/c there was no `transport->run` call deliberately),
     // but there will be no memory leak b/c we expect that it should be deallocated when the transport is destroyed.
@@ -226,7 +224,7 @@ TEST_F(TestCanMsgTxSession, send_7bytes_payload_with_500ms_timeout)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    const auto timeout = 500ms;
+    constexpr auto timeout = 500ms;
     session->setSendTimeout(timeout);
 
     scheduler_.runNow(+10s);

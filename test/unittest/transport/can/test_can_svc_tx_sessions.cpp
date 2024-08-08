@@ -78,7 +78,7 @@ protected:
     {
         std::array<IMedia*, 1> media_array{&media_mock_};
 
-        auto maybe_transport = can::makeTransport(mr, media_array, 16);
+        auto maybe_transport = can::makeTransport(mr, scheduler_, media_array, 16);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
         auto transport = cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
 
@@ -96,7 +96,7 @@ protected:
     // NOLINTEND
 };
 
-// MARK: Tests:
+// MARK: - Tests:
 
 TEST_F(TestCanSvcTxSessions, make_request_session)
 {
@@ -108,8 +108,6 @@ TEST_F(TestCanSvcTxSessions, make_request_session)
 
     EXPECT_THAT(session->getParams().service_id, 123);
     EXPECT_THAT(session->getParams().server_node_id, CANARD_NODE_ID_MAX);
-
-    EXPECT_THAT(session->run(now()), UbVariantWithoutValue());
 }
 
 TEST_F(TestCanSvcTxSessions, make_request_fails_due_to_argument_error)
@@ -187,7 +185,7 @@ TEST_F(TestCanSvcTxSessions, send_request_with_argument_error)
     // Make initially anonymous node transport.
     //
     std::array<IMedia*, 1> media_array{&media_mock_};
-    auto                   maybe_transport = can::makeTransport(mr_, media_array, 2);
+    auto                   maybe_transport = can::makeTransport(mr_, scheduler_, media_array, 2);
     ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
     auto transport = cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
 
@@ -248,8 +246,6 @@ TEST_F(TestCanSvcTxSessions, make_response_session)
     auto session = cetl::get<UniquePtr<IResponseTxSession>>(std::move(maybe_session));
 
     EXPECT_THAT(session->getParams().service_id, 123);
-
-    EXPECT_THAT(session->run(now()), UbVariantWithoutValue());
 }
 
 TEST_F(TestCanSvcTxSessions, make_response_fails_due_to_argument_error)
@@ -319,7 +315,7 @@ TEST_F(TestCanSvcTxSessions, send_response_with_argument_error)
     // Make initially anonymous node transport.
     //
     std::array<IMedia*, 1> media_array{&media_mock_};
-    auto                   maybe_transport = can::makeTransport(mr_, media_array, 2);
+    auto                   maybe_transport = can::makeTransport(mr_, scheduler_, media_array, 2);
     ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
     auto transport = cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
 

@@ -14,6 +14,7 @@
 #include "svc_rx_sessions.hpp"
 #include "svc_tx_sessions.hpp"
 
+#include "libcyphal/executor.hpp"
 #include "libcyphal/runnable.hpp"
 #include "libcyphal/transport/common/tools.hpp"
 #include "libcyphal/transport/contiguous_payload.hpp"
@@ -106,6 +107,7 @@ class TransportImpl final : private TransportDelegate, public ICanTransport  // 
 
 public:
     CETL_NODISCARD static Expected<UniquePtr<ICanTransport>, FactoryFailure> make(cetl::pmr::memory_resource& memory,
+                                                                                  IExecutor&                  executor,
                                                                                   const cetl::span<IMedia*>   media,
                                                                                   const std::size_t tx_capacity)
     {
@@ -129,7 +131,8 @@ public:
             return MemoryError{};
         }
 
-        auto transport = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, memory, std::move(media_array));
+        auto transport =
+            libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, memory, executor, std::move(media_array));
         if (transport == nullptr)
         {
             return MemoryError{};
@@ -138,13 +141,16 @@ public:
         return transport;
     }
 
-    TransportImpl(const Spec, cetl::pmr::memory_resource& memory, MediaArray&& media_array)
+    TransportImpl(const Spec, cetl::pmr::memory_resource& memory, IExecutor& executor, MediaArray&& media_array)
         : TransportDelegate{memory}
+        , executor_{executor}
         , media_array_{std::move(media_array)}
         , should_reconfigure_filters_{false}
         , total_message_ports_{0}
         , total_service_ports_{0}
     {
+        // TODO: Use executor.
+        (void) executor_;
     }
 
     TransportImpl(const TransportImpl&)                = delete;
@@ -769,6 +775,7 @@ private:
 
     // MARK: Data members:
 
+    IExecutor&            executor_;
     MediaArray            media_array_;
     bool                  should_reconfigure_filters_;
     std::size_t           total_message_ports_;
@@ -784,15 +791,17 @@ private:
 /// NB! Lifetime of the transport instance must never outlive `memory` and `media` instances.
 ///
 /// @param memory Reference to a polymorphic memory resource to use for all allocations.
+/// @param executor Interface of the executor to use.
 /// @param media Collection of redundant media interfaces to use.
 /// @param tx_capacity Total number of frames that can be queued for transmission per `IMedia` instance.
 /// @return Unique pointer to the new CAN transport instance or an error.
 ///
 inline Expected<UniquePtr<ICanTransport>, FactoryFailure> makeTransport(cetl::pmr::memory_resource& memory,
+                                                                        IExecutor&                  executor,
                                                                         const cetl::span<IMedia*>   media,
                                                                         const std::size_t           tx_capacity)
 {
-    return detail::TransportImpl::make(memory, media, tx_capacity);
+    return detail::TransportImpl::make(memory, executor, media, tx_capacity);
 }
 
 }  // namespace can

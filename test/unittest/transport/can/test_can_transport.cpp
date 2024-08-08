@@ -122,7 +122,7 @@ protected:
     {
         std::array<IMedia*, 2> media_array{&media_mock_, extra_media};
 
-        auto maybe_transport = can::makeTransport(mr, media_array, tx_capacity);
+        auto maybe_transport = can::makeTransport(mr, scheduler_, media_array, tx_capacity);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
         return cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
     }
@@ -136,7 +136,7 @@ protected:
     // NOLINTEND
 };
 
-// MARK: Tests:
+// MARK: - Tests:
 
 TEST_F(TestCanTransport, makeTransport_no_memory_at_all)
 {
@@ -150,7 +150,7 @@ TEST_F(TestCanTransport, makeTransport_no_memory_at_all)
 #endif
 
     std::array<IMedia*, 1> media_array{&media_mock_};
-    auto                   maybe_transport = can::makeTransport(mr_mock, media_array, 0);
+    auto                   maybe_transport = can::makeTransport(mr_mock, scheduler_, media_array, 0);
     EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<MemoryError>(_)));
 }
 
@@ -163,7 +163,7 @@ TEST_F(TestCanTransport, makeTransport_no_memory_for_impl)
     EXPECT_CALL(mr_mock, do_allocate(sizeof(can::detail::TransportImpl), _)).WillOnce(Return(nullptr));
 
     std::array<IMedia*, 1> media_array{&media_mock_};
-    auto                   maybe_transport = can::makeTransport(mr_mock, media_array, 0);
+    auto                   maybe_transport = can::makeTransport(mr_mock, scheduler_, media_array, 0);
     EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<MemoryError>(_)));
 }
 
@@ -173,7 +173,7 @@ TEST_F(TestCanTransport, makeTransport_too_many_media)
     std::array<IMedia*, std::numeric_limits<std::uint8_t>::max() + 1> media_array{};
     std::fill(media_array.begin(), media_array.end(), &media_mock_);
 
-    auto maybe_transport = can::makeTransport(mr_, media_array, 0);
+    auto maybe_transport = can::makeTransport(mr_, scheduler_, media_array, 0);
     EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<ArgumentError>(_)));
 }
 
@@ -182,7 +182,7 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
     // Anonymous node
     {
         std::array<IMedia*, 1> media_array{&media_mock_};
-        auto                   maybe_transport = can::makeTransport(mr_, media_array, 0);
+        auto                   maybe_transport = can::makeTransport(mr_, scheduler_, media_array, 0);
         ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
 
         auto transport = cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
@@ -192,7 +192,7 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
     // Node with ID
     {
         std::array<IMedia*, 1> media_array{&media_mock_};
-        auto                   maybe_transport = can::makeTransport(mr_, media_array, 0);
+        auto                   maybe_transport = can::makeTransport(mr_, scheduler_, media_array, 0);
         ASSERT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
 
         auto transport = cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
@@ -207,7 +207,7 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
         EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_MAX));
 
         std::array<IMedia*, 3> media_array{&media_mock_, nullptr, &media_mock2};
-        auto                   maybe_transport = can::makeTransport(mr_, media_array, 0);
+        auto                   maybe_transport = can::makeTransport(mr_, scheduler_, media_array, 0);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
     }
 
@@ -219,7 +219,7 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
         EXPECT_CALL(media_mock3, getMtu()).WillRepeatedly(Return(CANARD_MTU_MAX));
 
         std::array<IMedia*, 3> media_array{&media_mock_, &media_mock2, &media_mock3};
-        auto                   maybe_transport = can::makeTransport(mr_, media_array, 0);
+        auto                   maybe_transport = can::makeTransport(mr_, scheduler_, media_array, 0);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
     }
 }
@@ -254,7 +254,7 @@ TEST_F(TestCanTransport, setLocalNodeId)
 TEST_F(TestCanTransport, makeTransport_with_invalid_arguments)
 {
     // No media
-    const auto maybe_transport = can::makeTransport(mr_, {}, 0);
+    const auto maybe_transport = can::makeTransport(mr_, scheduler_, {}, 0);
     EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<ArgumentError>(_)));
 }
 
@@ -264,7 +264,7 @@ TEST_F(TestCanTransport, getProtocolParams)
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_MAX));
 
     std::array<IMedia*, 2> media_array{&media_mock_, &media_mock2};
-    auto                   transport = cetl::get<UniquePtr<ICanTransport>>(can::makeTransport(mr_, media_array, 0));
+    auto transport = cetl::get<UniquePtr<ICanTransport>>(can::makeTransport(mr_, scheduler_, media_array, 0));
 
     EXPECT_CALL(media_mock_, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_FD));
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
@@ -404,7 +404,6 @@ TEST_F(TestCanTransport, sending_multiframe_payload_should_fail_for_anonymous)
     EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
 
     scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(10us, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 }
 
 TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
@@ -682,7 +681,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
     EXPECT_THAT(params.service_id, 0x17B);
     EXPECT_THAT(params.server_node_id, 0x31);
 
-    const auto timeout = 200ms;
+    constexpr auto timeout = 200ms;
     session->setTransferIdTimeout(timeout);
 
     {
@@ -746,7 +745,7 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
             return IMedia::PopResult::Metadata{rx2_timestamp, 0b111'1'0'0'101111011'0010011'0110001, 8};
         });
         EXPECT_CALL(media_mock2, pop(_)).WillOnce([&](auto p) {
-            EXPECT_THAT(now(), rx2_timestamp + 30ms);
+            EXPECT_THAT(now(), rx2_timestamp + 20ms);
             EXPECT_THAT(p.size(), CANARD_MTU_MAX);
             p[0] = b('7');
             p[1] = b('8');
@@ -758,12 +757,9 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
         });
     }
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
     scheduler_.setNow(rx2_timestamp);
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
     const auto maybe_rx_transfer = session->receive();
     ASSERT_THAT(maybe_rx_transfer, Optional(_));

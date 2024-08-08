@@ -96,7 +96,7 @@ private:
 
 };  // StorageWrapper
 
-// MARK: Tests:
+// MARK: - Tests:
 
 TEST(TestScatteredBuffer, move_ctor_assign_size)
 {

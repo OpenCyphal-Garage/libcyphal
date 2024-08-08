@@ -76,7 +76,7 @@ protected:
     // NOLINTEND
 };
 
-// MARK: Tests:
+// MARK: - Tests:
 
 TEST_F(TestTypes, ImplementationCell)
 {

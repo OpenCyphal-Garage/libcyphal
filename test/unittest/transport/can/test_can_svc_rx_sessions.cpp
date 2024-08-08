@@ -84,7 +84,7 @@ protected:
     {
         std::array<IMedia*, 1> media_array{&media_mock_};
 
-        auto maybe_transport = can::makeTransport(mr, media_array, 0);
+        auto maybe_transport = can::makeTransport(mr, scheduler_, media_array, 0);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
         auto transport = cetl::get<UniquePtr<ICanTransport>>(std::move(maybe_transport));
 
@@ -102,7 +102,7 @@ protected:
     // NOLINTEND
 };
 
-// MARK: Tests:
+// MARK: - Tests:
 
 TEST_F(TestCanSvcRxSessions, make_request_setTransferIdTimeout)
 {
@@ -147,7 +147,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_request)
 {
     auto transport = makeTransport(mr_, 0x31);
 
-    const std::size_t extent_bytes  = 8;
+    constexpr std::size_t extent_bytes  = 8;
     auto              maybe_session = transport->makeRequestRxSession({extent_bytes, 0x17B});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IRequestRxSession>>(std::move(maybe_session));
@@ -156,7 +156,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_request)
     EXPECT_THAT(params.extent_bytes, extent_bytes);
     EXPECT_THAT(params.service_id, 0x17B);
 
-    const auto timeout = 200ms;
+    constexpr auto timeout = 200ms;
     session->setTransferIdTimeout(timeout);
 
     {
@@ -181,7 +181,6 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_request)
         });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -211,7 +210,6 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_request)
         });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
@@ -223,7 +221,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_response)
 {
     auto transport = makeTransport(mr_, 0x13);
 
-    const std::size_t extent_bytes  = 8;
+    constexpr std::size_t extent_bytes  = 8;
     auto              maybe_session = transport->makeResponseRxSession({extent_bytes, 0x17B, 0x31});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IResponseRxSession>>(std::move(maybe_session));
@@ -233,7 +231,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_response)
     EXPECT_THAT(params.service_id, 0x17B);
     EXPECT_THAT(params.server_node_id, 0x31);
 
-    const auto timeout = 200ms;
+    constexpr auto timeout = 200ms;
     session->setTransferIdTimeout(timeout);
 
     {
@@ -258,7 +256,6 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_response)
         });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -288,7 +285,6 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_response)
         });
 
         scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
         const auto maybe_rx_transfer = session->receive();
         EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
@@ -300,7 +296,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_two_frames)
 {
     auto transport = makeTransport(mr_, 0x31);
 
-    const std::size_t extent_bytes  = 8;
+    constexpr std::size_t extent_bytes  = 8;
     auto              maybe_session = transport->makeRequestRxSession({extent_bytes, 0x17B});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IRequestRxSession>>(std::move(maybe_session));
@@ -330,7 +326,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_two_frames)
             return cetl::nullopt;
         });
         EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
-            EXPECT_THAT(now(), rx_timestamp + 30ms);
+            EXPECT_THAT(now(), rx_timestamp + 20ms);
             EXPECT_THAT(p.size(), CANARD_MTU_MAX);
             p[0] = b('7');
             p[1] = b('8');
@@ -342,9 +338,7 @@ TEST_F(TestCanSvcRxSessions, run_and_receive_two_frames)
         });
     }
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
     scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(session->run(now()), UbVariantWithoutValue()); });
 
     const auto maybe_rx_transfer = session->receive();
     ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -366,7 +360,7 @@ TEST_F(TestCanSvcRxSessions, unsubscribe_and_run)
 {
     auto transport = makeTransport(mr_, 0x31);
 
-    const std::size_t extent_bytes  = 8;
+    constexpr std::size_t extent_bytes  = 8;
     auto              maybe_session = transport->makeRequestRxSession({extent_bytes, 0x17B});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IRequestRxSession>>(std::move(maybe_session));

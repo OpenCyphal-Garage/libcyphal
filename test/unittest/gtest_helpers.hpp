@@ -3,8 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_GTEST_HELPERS_HPP
-#define LIBCYPHAL_GTEST_HELPERS_HPP
+#ifndef LIBCYPHAL_GTEST_HELPERS_HPP_INCLUDED
+#define LIBCYPHAL_GTEST_HELPERS_HPP_INCLUDED
 
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
@@ -78,4 +78,4 @@ inline void PrintTo(const Priority priority, std::ostream* os)
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-#endif  // LIBCYPHAL_GTEST_HELPERS_HPP
+#endif  // LIBCYPHAL_GTEST_HELPERS_HPP_INCLUDED

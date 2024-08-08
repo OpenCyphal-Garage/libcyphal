@@ -105,14 +105,6 @@ private:
         return delegate_.sendTransfer(metadata.timestamp + send_timeout_, canard_metadata, payload_fragments);
     }
 
-    // MARK: IRunnable
-
-    IRunnable::MaybeFailure run(const TimePoint) override
-    {
-        // Nothing to do here currently.
-        return {};
-    }
-
     // MARK: Data members:
 
     TransportDelegate&    delegate_;
@@ -195,14 +187,6 @@ private:
                                                             static_cast<CanardTransferID>(metadata.transfer_id)};
 
         return delegate_.sendTransfer(metadata.timestamp + send_timeout_, canard_metadata, payload_fragments);
-    }
-
-    // MARK: IRunnable
-
-    IRunnable::MaybeFailure run(const TimePoint) override
-    {
-        // Nothing to do here currently.
-        return {};
     }
 
     // MARK: Data members:

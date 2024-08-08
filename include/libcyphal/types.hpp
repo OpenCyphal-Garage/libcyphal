@@ -233,8 +233,8 @@ private:
 template <typename Interface, typename Concrete, typename... Args>
 CETL_NODISCARD UniquePtr<Interface> makeUniquePtr(cetl::pmr::memory_resource& memory, Args&&... args)
 {
-    using Spec = detail::UniquePtrSpec<Interface, Concrete>;
-    return makeUniquePtr<Spec>(memory, std::forward<Args>(args)...);
+    return cetl::pmr::InterfaceFactory::make_unique<Interface>(detail::PmrAllocator<Concrete>{&memory},
+                                                               std::forward<Args>(args)...);
 }
 
 }  // namespace libcyphal

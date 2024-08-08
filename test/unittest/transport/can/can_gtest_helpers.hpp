@@ -3,8 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_TRANSPORT_CAN_GTEST_HELPERS_HPP
-#define LIBCYPHAL_TRANSPORT_CAN_GTEST_HELPERS_HPP
+#ifndef LIBCYPHAL_TRANSPORT_CAN_GTEST_HELPERS_HPP_INCLUDED
+#define LIBCYPHAL_TRANSPORT_CAN_GTEST_HELPERS_HPP_INCLUDED
 
 #include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>
@@ -367,4 +367,4 @@ inline testing::Matcher<const Filter&> FilterEq(const Filter& filter)
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-#endif  // LIBCYPHAL_TRANSPORT_CAN_GTEST_HELPERS_HPP
+#endif  // LIBCYPHAL_TRANSPORT_CAN_GTEST_HELPERS_HPP_INCLUDED

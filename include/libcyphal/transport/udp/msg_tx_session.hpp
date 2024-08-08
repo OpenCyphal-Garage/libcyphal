@@ -99,14 +99,6 @@ private:
         return delegate_.sendAnyTransfer(tx_metadata, payload_fragments);
     }
 
-    // MARK: IRunnable
-
-    MaybeFailure run(const TimePoint) override
-    {
-        // Nothing to do here currently.
-        return {};
-    }
-
     // MARK: Data members:
 
     TransportDelegate&    delegate_;
