@@ -171,11 +171,11 @@ private:
         }
         ~CallbackNode()
         {
-            if (auto** const root_node_ptr = getRootNodePtr())
+            if (isLinked())
             {
-                remove(*root_node_ptr, this);
+                executor().callback_nodes_.remove(this);
+                executor().onCallbackHandling(static_cast<Callback::Handle>(*this), {});
             }
-            executor().onCallbackHandling(static_cast<Callback::Handle>(*this), {});
         };
 
         CallbackNode(CallbackNode&& other) noexcept
