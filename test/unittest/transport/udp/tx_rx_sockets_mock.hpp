@@ -69,8 +69,8 @@ public:
             return tx_socket_mock_.send(deadline, multicast_endpoint, dscp, payload_fragments);
         }
 
-        CETL_NODISCARD IExecutor::Callback::Handle registerCallback(IExecutor&                      executor,
-                                                                    IExecutor::Callback::Function&& function) override
+        CETL_NODISCARD IExecutor::Callback::Any registerCallback(IExecutor&                      executor,
+                                                                 IExecutor::Callback::Function&& function) override
         {
             return tx_socket_mock_.registerCallback(executor, std::move(function));
         }
@@ -114,7 +114,7 @@ public:
                  const PayloadFragments payload_fragments),
                 (override));
 
-    MOCK_METHOD(IExecutor::Callback::Handle,
+    MOCK_METHOD(IExecutor::Callback::Any,
                 registerCallback,
                 (IExecutor & executor, IExecutor::Callback::Function&& function),
                 (override));
@@ -160,8 +160,8 @@ public:
             return rx_socket_mock_.receive();
         }
 
-        CETL_NODISCARD IExecutor::Callback::Handle registerCallback(IExecutor&                      executor,
-                                                                    IExecutor::Callback::Function&& function) override
+        CETL_NODISCARD IExecutor::Callback::Any registerCallback(IExecutor&                      executor,
+                                                                 IExecutor::Callback::Function&& function) override
         {
             return rx_socket_mock_.registerCallback(executor, std::move(function));
         }
@@ -201,7 +201,7 @@ public:
 
     MOCK_METHOD(ReceiveResult::Type, receive, (), (override));
 
-    MOCK_METHOD(IExecutor::Callback::Handle,
+    MOCK_METHOD(IExecutor::Callback::Any,
                 registerCallback,
                 (IExecutor & executor, IExecutor::Callback::Function&& function),
                 (override));

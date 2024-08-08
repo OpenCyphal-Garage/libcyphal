@@ -46,8 +46,8 @@ public:
 
         using Variant = cetl::variant<HandleReadable, HandleWritable>;
     };
-    virtual bool scheduleCallbackWhen(const libcyphal::IExecutor::Callback::Id callback_id,
-                                      const WhenCondition::Variant&            condition) = 0;
+    virtual bool scheduleCallbackWhen(libcyphal::IExecutor::Callback::Any& callback,
+                                      const WhenCondition::Variant&        condition) = 0;
 
     // MARK: - cetl::rtti
 

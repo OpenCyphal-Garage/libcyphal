@@ -308,7 +308,7 @@ TEST_F(TestUpdTransport, makeMessageRxSession)
 {
     auto transport = makeTransport({mr_});
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         EXPECT_CALL(rx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //
@@ -331,7 +331,7 @@ TEST_F(TestUpdTransport, makeMessageRxSession_invalid_subject_id)
 {
     auto transport = makeTransport({mr_});
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         auto maybe_rx_session = transport->makeMessageRxSession({0, UDPARD_SUBJECT_ID_MAX + 1});
         EXPECT_THAT(maybe_rx_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
@@ -345,7 +345,7 @@ TEST_F(TestUpdTransport, makeMessageRxSession_invalid_resubscription)
 
     const PortId test_subject_id = 111;
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         EXPECT_CALL(rx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //
@@ -357,7 +357,7 @@ TEST_F(TestUpdTransport, makeMessageRxSession_invalid_resubscription)
         auto maybe_rx_session2 = transport->makeMessageRxSession({0, test_subject_id});
         EXPECT_THAT(maybe_rx_session2, VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
     });
-    scheduler_.scheduleAt(2s, [&] {
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
         //
         EXPECT_CALL(rx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //
@@ -375,7 +375,7 @@ TEST_F(TestUpdTransport, makeRequestRxSession_invalid_resubscription)
 
     const PortId test_subject_id = 111;
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         auto maybe_rx_session1 = transport->makeRequestRxSession({0, test_subject_id});
         ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
@@ -383,7 +383,7 @@ TEST_F(TestUpdTransport, makeRequestRxSession_invalid_resubscription)
         auto maybe_rx_session2 = transport->makeRequestRxSession({0, test_subject_id});
         EXPECT_THAT(maybe_rx_session2, VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
     });
-    scheduler_.scheduleAt(2s, [&] {
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
         //
         auto maybe_rx_session2 = transport->makeRequestRxSession({0, test_subject_id});
         ASSERT_THAT(maybe_rx_session2, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
@@ -397,7 +397,7 @@ TEST_F(TestUpdTransport, makeResponseRxSession_invalid_resubscription)
 
     const PortId test_subject_id = 111;
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         auto maybe_rx_session1 = transport->makeResponseRxSession({0, test_subject_id, 0x31});
         ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
@@ -405,7 +405,7 @@ TEST_F(TestUpdTransport, makeResponseRxSession_invalid_resubscription)
         auto maybe_rx_session2 = transport->makeResponseRxSession({0, test_subject_id, 0x31});
         EXPECT_THAT(maybe_rx_session2, VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
     });
-    scheduler_.scheduleAt(2s, [&] {
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
         //
         auto maybe_rx_session2 = transport->makeResponseRxSession({0, test_subject_id, 0x31});
         ASSERT_THAT(maybe_rx_session2, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
@@ -417,7 +417,7 @@ TEST_F(TestUpdTransport, makeXxxRxSession_all_with_same_port_id)
 {
     auto transport = makeTransport({mr_});
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         EXPECT_CALL(rx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //
@@ -440,7 +440,7 @@ TEST_F(TestUpdTransport, makeMessageTxSession)
 {
     auto transport = makeTransport({mr_});
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         auto maybe_tx_session = transport->makeMessageTxSession({123});
         ASSERT_THAT(maybe_tx_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
@@ -462,7 +462,7 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_should_fail_for_anonymous)
     const auto       payload = makeIotaArray<UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 1>(b('0'));
     TransferMetadata metadata{0x13, {}, Priority::Nominal};
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         metadata.timestamp = now();
         auto failure       = session->send(metadata, makeSpansFrom(payload));
@@ -486,7 +486,7 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)
     const auto       payload = makeIotaArray<UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 1>(b('0'));
     TransferMetadata metadata{0x13, {}, Priority::Nominal};
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto, auto fragments) {
@@ -499,14 +499,14 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)
             });
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //
-                return scheduler_.scheduleCallbackAfter(+10us, std::move(function));
+                return scheduler_.registerAndScheduleNamedCallback("", now() + 10us, std::move(function));
             }));
 
         metadata.timestamp = now();
         auto failure       = session->send(metadata, makeSpansFrom(payload));
         EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
-    scheduler_.scheduleAt(1s + 10us, [&] {
+    scheduler_.scheduleAt(1s + 10us, [&](const TimePoint) {
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto, auto fragments) {
@@ -549,10 +549,7 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
     const auto       payload = makeIotaArray<UDPARD_MTU_DEFAULT>(b('0'));
     TransferMetadata metadata{0x13, {}, Priority::Nominal};
 
-    libcyphal::IExecutor::Callback::Id socket1_callback_id{};
-    libcyphal::IExecutor::Callback::Id socket2_callback_id{};
-
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         // Emulate once that the first media is not ready to send fragment. So transport will switch to
         // the second media, and will retry with the 1st only when its socket is ready @ +20us.
@@ -568,9 +565,7 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
             });
         EXPECT_CALL(tx_socket_mock_, registerCallback(Ref(scheduler_), _))  //
             .WillOnce(Invoke([&](auto&, auto function) {                    //
-                auto handle         = scheduler_.scheduleCallbackAfter(+20us, std::move(function));
-                socket1_callback_id = handle.id();
-                return handle;
+                return scheduler_.registerAndScheduleNamedCallback("tx1", now() + 20us, std::move(function));
             }));
         EXPECT_CALL(tx_socket_mock2, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto, auto fragments) {
@@ -583,16 +578,14 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
             });
         EXPECT_CALL(tx_socket_mock2, registerCallback(Ref(scheduler_), _))  //
             .WillOnce(Invoke([&](auto&, auto function) {                    //
-                auto handle         = scheduler_.scheduleCallbackAfter(+10us, std::move(function));
-                socket2_callback_id = handle.id();
-                return handle;
+                return scheduler_.registerAndScheduleNamedCallback("tx2", now() + 10us, std::move(function));
             }));
 
         metadata.timestamp = now();
         auto failure       = session->send(metadata, makeSpansFrom(payload));
         EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
-    scheduler_.scheduleAt(1s + 10us, [&] {
+    scheduler_.scheduleAt(1s + 10us, [&](const TimePoint) {
         //
         EXPECT_CALL(tx_socket_mock2, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto, auto fragments) {
@@ -602,11 +595,11 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
                 EXPECT_THAT(fragments, SizeIs(1));
                 EXPECT_THAT(fragments[0], SizeIs(24 + 4));  // 2nd frame
 
-                scheduler_.scheduleCallbackById(socket2_callback_id, now() + 7us, Schedule::Once{});
+                scheduler_.scheduleNamedCallback("tx2", now() + 7us);
                 return ITxSocket::SendResult::Success{true /*is_accepted*/};
             });
     });
-    scheduler_.scheduleAt(1s + 20us, [&] {
+    scheduler_.scheduleAt(1s + 20us, [&](const TimePoint) {
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto, auto fragments) {
@@ -616,11 +609,11 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
                 EXPECT_THAT(fragments, SizeIs(1));
                 EXPECT_THAT(fragments[0], SizeIs(24 + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 4));  // 1st frame again
 
-                scheduler_.scheduleCallbackById(socket1_callback_id, now() + 5us, Schedule::Once{});
+                scheduler_.scheduleNamedCallback("tx1", now() + 5us);
                 return ITxSocket::SendResult::Success{true /*is_accepted*/};
             });
     });
-    scheduler_.scheduleAt(1s + 20us + 5us, [&] {
+    scheduler_.scheduleAt(1s + 20us + 5us, [&](const TimePoint) {
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto, auto fragments) {
@@ -668,7 +661,7 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
     TransferMetadata metadata{0x13, {}, Priority::Nominal};
 
     // 1. First attempt to send payload.
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         // Socket #0 failed to send, but not socket #2 - its frame should be dropped (but not for #2).
         //
@@ -694,14 +687,14 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
             });
         EXPECT_CALL(tx_socket_mock2, registerCallback(Ref(scheduler_), _))  //
             .WillOnce(Invoke([&](auto&, auto function) {                    //
-                return scheduler_.scheduleCallbackAfter(+20us, std::move(function));
+                return scheduler_.registerAndScheduleNamedCallback("", now() + 20us, std::move(function));
             }));
 
         metadata.timestamp = now();
         EXPECT_THAT(session->send(metadata, makeSpansFrom(payload)), Eq(cetl::nullopt));
     });
     // 2. Second attempt to send payload (while 1st attempt still in progress for socket 2).
-    scheduler_.scheduleAt(1s + 10us, [&] {
+    scheduler_.scheduleAt(1s + 10us, [&](const TimePoint) {
         //
         // Socket #0 is fine but Socket #2 failed to send - its frame should be dropped (but not for #0).
         //
@@ -709,7 +702,7 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
             .WillOnce(Return(ITxSocket::SendResult::Success{true /*is_accepted*/}));
         EXPECT_CALL(tx_socket_mock_, registerCallback(Ref(scheduler_), _))  //
             .WillOnce(Invoke([&](auto&, auto function) {                    //
-                return scheduler_.scheduleCallbackAfter(+5us, std::move(function));
+                return scheduler_.registerAndScheduleNamedCallback("", now() + 5us, std::move(function));
             }));
         //
         EXPECT_CALL(tx_socket_mock2, send(_, _, _, _)).WillOnce(Return(PlatformError{MyPlatformError{13}}));
@@ -742,12 +735,12 @@ TEST_F(TestUpdTransport, no_adhoc_tx_sockets_creation_at_run_when_there_is_nothi
     UniquePtr<IMessageTxSession> tx_session;
 
     // 1. Nothing to send, so no need to create any TX sockets.
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         EXPECT_CALL(media_mock_, makeTxSocket()).Times(0);
     });
     // 2. Still no need to create any TX sockets, even with a "passive, never sending" TX session alive
-    scheduler_.scheduleAt(2s, [&] {
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
         //
         // One attempt still expected (b/c of the session creation), but not on every `transport::run`.
         EXPECT_CALL(media_mock_, makeTxSocket()).WillOnce(Return(MemoryError{}));

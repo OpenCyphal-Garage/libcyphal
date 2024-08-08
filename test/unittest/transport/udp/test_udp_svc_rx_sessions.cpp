@@ -242,16 +242,13 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_request)
     EXPECT_THAT(rx_socket_mock_.getEndpoint().ip_address, 0);
     EXPECT_THAT(rx_socket_mock_.getEndpoint().udp_port, 0);
 
-    Callback::Id socket_callback_id = 0;
     EXPECT_CALL(rx_socket_mock_, registerCallback(Ref(scheduler_), _))  //
         .WillOnce(Invoke([&](auto&, auto function) {                    //
-            auto handle        = scheduler_.registerCallback(std::move(function));
-            socket_callback_id = handle.id();
-            return handle;
+            return scheduler_.registerNamedCallback("rx_socket", std::move(function));
         }));
 
     constexpr std::size_t extent_bytes  = 8;
-    auto              maybe_session = transport->makeRequestRxSession({extent_bytes, 0x17B});
+    auto                  maybe_session = transport->makeRequestRxSession({extent_bytes, 0x17B});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IRequestRxSession>>(std::move(maybe_session));
 
@@ -267,7 +264,7 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_request)
 
     TimePoint rx_timestamp;
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         SCOPED_TRACE("1-st iteration: one frame available @ 1s");
 
@@ -289,9 +286,9 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_request)
             .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
                 return payload_mr_.allocate(size_bytes, alignment);
             });
-        scheduler_.scheduleCallbackById(socket_callback_id, rx_timestamp, Callback::Schedule::Once{});
+        scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
 
-        scheduler_.scheduleAt(rx_timestamp + 1ms, [&] {
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
             //
             const auto maybe_rx_transfer = session->receive();
             ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -314,7 +311,7 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_request)
                 });
         });
     });
-    scheduler_.scheduleAt(2s, [&] {
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
         //
         SCOPED_TRACE("2-nd iteration: invalid null frame available @ 2s");
 
@@ -323,15 +320,15 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_request)
         EXPECT_CALL(rx_socket_mock_, receive()).WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
             return {rx_timestamp, {nullptr, libcyphal::PmrRawBytesDeleter{0, &payload_mr_mock}}};
         });
-        scheduler_.scheduleCallbackById(socket_callback_id, rx_timestamp, Callback::Schedule::Once{});
+        scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
 
-        scheduler_.scheduleAt(rx_timestamp + 1ms, [&] {
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
             //
             const auto maybe_rx_transfer = session->receive();
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
         });
     });
-    scheduler_.scheduleAt(3s, [&] {
+    scheduler_.scheduleAt(3s, [&](const TimePoint) {
         //
         SCOPED_TRACE("3-rd iteration: malformed frame available @ 3s - no error, just drop");
 
@@ -355,9 +352,9 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_request)
             .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
                 payload_mr_.deallocate(p, size_bytes, alignment);
             });
-        scheduler_.scheduleCallbackById(socket_callback_id, rx_timestamp, Callback::Schedule::Once{});
+        scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
 
-        scheduler_.scheduleAt(rx_timestamp + 1ms, [&] {
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
             //
             const auto maybe_rx_transfer = session->receive();
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
@@ -376,16 +373,13 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_response)
     EXPECT_THAT(rx_socket_mock_.getEndpoint().ip_address, 0);
     EXPECT_THAT(rx_socket_mock_.getEndpoint().udp_port, 0);
 
-    Callback::Id socket_callback_id = 0;
     EXPECT_CALL(rx_socket_mock_, registerCallback(Ref(scheduler_), _))  //
         .WillOnce(Invoke([&](auto&, auto function) {                    //
-            auto handle        = scheduler_.registerCallback(std::move(function));
-            socket_callback_id = handle.id();
-            return handle;
+            return scheduler_.registerNamedCallback("rx_socket", std::move(function));
         }));
 
     constexpr std::size_t extent_bytes  = 8;
-    auto              maybe_session = transport->makeResponseRxSession({extent_bytes, 0x17B, 0x31});
+    auto                  maybe_session = transport->makeResponseRxSession({extent_bytes, 0x17B, 0x31});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IResponseRxSession>>(std::move(maybe_session));
 
@@ -402,7 +396,7 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_response)
 
     TimePoint rx_timestamp;
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         SCOPED_TRACE("1-st iteration: one frame available @ 1s");
 
@@ -424,9 +418,9 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_response)
             .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
                 return payload_mr_.allocate(size_bytes, alignment);
             });
-        scheduler_.scheduleCallbackById(socket_callback_id, rx_timestamp, Callback::Schedule::Once{});
+        scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
 
-        scheduler_.scheduleAt(rx_timestamp + 1ms, [&] {
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
             //
             const auto maybe_rx_transfer = session->receive();
             ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -449,7 +443,7 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_response)
                 });
         });
     });
-    scheduler_.scheduleAt(2s, [&] {
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
         //
         SCOPED_TRACE("2-nd iteration: media RX socket error @ 2s");
 
@@ -459,9 +453,9 @@ TEST_F(TestUdpSvcRxSessions, run_and_receive_response)
             EXPECT_THAT(now(), rx_timestamp);
             return ArgumentError{};
         });
-        scheduler_.scheduleCallbackById(socket_callback_id, rx_timestamp, Callback::Schedule::Once{});
+        scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
 
-        scheduler_.scheduleAt(rx_timestamp + 1ms, [&] {
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
             //
             const auto maybe_rx_transfer = session->receive();
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
@@ -480,11 +474,11 @@ TEST_F(TestUdpSvcRxSessions, unsubscribe_and_run)
         }));
 
     constexpr std::size_t extent_bytes  = 8;
-    auto              maybe_session = transport->makeRequestRxSession({extent_bytes, 0x17B});
+    auto                  maybe_session = transport->makeRequestRxSession({extent_bytes, 0x17B});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IRequestRxSession>>(std::move(maybe_session));
 
-    scheduler_.scheduleAt(1s, [&] {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         session.reset();
     });
