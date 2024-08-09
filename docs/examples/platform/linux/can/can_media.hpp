@@ -49,12 +49,15 @@ public:
             return libcyphal::transport::PlatformError{posix::PosixPlatformError{-socket_can_fd}};
         }
 
-        return CanMedia{executor, socket_can_fd};
+        return CanMedia{executor, socket_can_fd, iface_address};
     }
 
     ~CanMedia()
     {
-        (void) ::close(socket_can_fd_);
+        if (socket_can_fd_ >= 0)
+        {
+            (void) ::close(socket_can_fd_);
+        }
     }
 
     CanMedia(const CanMedia&)            = delete;
@@ -63,17 +66,34 @@ public:
     CanMedia(CanMedia&& other) noexcept
         : executor_{other.executor_}
         , socket_can_fd_{std::exchange(other.socket_can_fd_, -1)}
+        , iface_address_{other.iface_address_}
     {
     }
     CanMedia* operator=(CanMedia&&) noexcept = delete;
+
+    void tryReopen()
+    {
+        if (socket_can_fd_ >= 0)
+        {
+            (void) ::close(socket_can_fd_);
+            socket_can_fd_ = -1;
+        }
+
+        const SocketCANFD socket_can_fd = ::socketcanOpen(iface_address_.c_str(), false);
+        if (socket_can_fd >= 0)
+        {
+            socket_can_fd_ = socket_can_fd;
+        }
+    }
 
 private:
     using Filter  = libcyphal::transport::can::Filter;
     using Filters = libcyphal::transport::can::Filters;
 
-    CanMedia(libcyphal::IExecutor& executor, SocketCANFD socket_can_fd)
+    CanMedia(libcyphal::IExecutor& executor, SocketCANFD socket_can_fd, std::string iface_address)
         : executor_{executor}
         , socket_can_fd_{socket_can_fd}
+        , iface_address_{std::move(iface_address)}
     {
     }
 
@@ -175,6 +195,7 @@ private:
 
     libcyphal::IExecutor& executor_;
     SocketCANFD           socket_can_fd_;
+    const std::string     iface_address_;
 
 };  // CanMedia
 
