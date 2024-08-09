@@ -112,7 +112,7 @@ TEST_F(TestContiguousPayload, ctor_empty_cases)
 
 TEST_F(TestContiguousPayload, ctor_no_alloc_for_single_non_empty_fragment)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
 
     // 4 fragments, but only 1 is non-empty
     const std::array<byte, 0>                   data_empty0 = {};
@@ -133,10 +133,11 @@ TEST_F(TestContiguousPayload, ctor_no_alloc_for_single_non_empty_fragment)
 
 TEST_F(TestContiguousPayload, ctor_no_memory_error)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
 
     // Emulate that there is no memory available for the transport.
-    EXPECT_CALL(mr_mock, do_allocate(_, _)).WillOnce(Return(nullptr));
+    EXPECT_CALL(mr_mock, do_allocate(_, _))  //
+        .WillOnce(Return(nullptr));
 
     const std::array<byte, 3>                   data123   = {b(1), b(2), b(3)};
     const std::array<byte, 2>                   data45    = {b(4), b(5)};

@@ -73,15 +73,18 @@ class TestUdpMsgRxSession : public testing::Test
 protected:
     void SetUp() override
     {
-        EXPECT_CALL(media_mock_, makeTxSocket()).WillRepeatedly(Invoke([this]() {
-            return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock_);
-        }));
-        EXPECT_CALL(tx_socket_mock_, getMtu()).WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
+        EXPECT_CALL(media_mock_, makeTxSocket())  //
+            .WillRepeatedly(Invoke([this]() {
+                return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock_);
+            }));
+        EXPECT_CALL(tx_socket_mock_, getMtu())  //
+            .WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
 
-        EXPECT_CALL(media_mock_, makeRxSocket(_)).WillRepeatedly(Invoke([this](auto& endpoint) {
-            rx_socket_mock_.setEndpoint(endpoint);
-            return libcyphal::detail::makeUniquePtr<RxSocketMock::ReferenceWrapper::Spec>(mr_, rx_socket_mock_);
-        }));
+        EXPECT_CALL(media_mock_, makeRxSocket(_))  //
+            .WillRepeatedly(Invoke([this](auto& endpoint) {
+                rx_socket_mock_.setEndpoint(endpoint);
+                return libcyphal::detail::makeUniquePtr<RxSocketMock::ReferenceWrapper::Spec>(mr_, rx_socket_mock_);
+            }));
     }
 
     void TearDown() override
@@ -135,7 +138,7 @@ TEST_F(TestUdpMsgRxSession, make_setTransferIdTimeout)
 
     EXPECT_CALL(rx_socket_mock_, registerCallback(Ref(scheduler_), _))  //
         .WillOnce(Invoke([&](auto&, auto function) {                    //
-            return scheduler_.registerCallback(std::move(function));
+            return scheduler_.registerNamedCallback("rx", std::move(function));
         }));
 
     auto maybe_session = transport->makeMessageRxSession({42, 123});
@@ -147,17 +150,22 @@ TEST_F(TestUdpMsgRxSession, make_setTransferIdTimeout)
 
     session->setTransferIdTimeout(0s);
     session->setTransferIdTimeout(500ms);
+
+    EXPECT_THAT(scheduler_.hasNamedCallback("rx"), true);
+    session.reset();
+    EXPECT_THAT(scheduler_.hasNamedCallback("rx"), false);
 }
 
 TEST_F(TestUdpMsgRxSession, make_no_memory)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
     auto transport = makeTransport({mr_mock});
 
     // Emulate that there is no memory available for the message session.
-    EXPECT_CALL(mr_mock, do_allocate(sizeof(udp::detail::MessageRxSession), _)).WillOnce(Return(nullptr));
+    EXPECT_CALL(mr_mock, do_allocate(sizeof(udp::detail::MessageRxSession), _))  //
+        .WillOnce(Return(nullptr));
 
     auto maybe_session = transport->makeMessageRxSession({64, 0x23});
     EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
@@ -180,7 +188,8 @@ TEST_F(TestUdpMsgRxSession, make_fails_due_to_rx_socket_error)
 
     // Emulate that RX socket creation fails due to a memory error.
     {
-        EXPECT_CALL(media_mock_, makeRxSocket(_)).WillOnce(Return(MemoryError{}));
+        EXPECT_CALL(media_mock_, makeRxSocket(_))  //
+            .WillOnce(Return(MemoryError{}));
 
         auto maybe_session = transport->makeMessageRxSession({64, 0x17B});
         EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
@@ -188,9 +197,10 @@ TEST_F(TestUdpMsgRxSession, make_fails_due_to_rx_socket_error)
 
     // Try again but with error handler.
     {
-        EXPECT_CALL(media_mock_, makeRxSocket(_)).WillOnce(Return(nullptr));
+        EXPECT_CALL(media_mock_, makeRxSocket(_))  //
+            .WillOnce(Return(nullptr));
 
-        StrictMock<TransientErrorHandlerMock> handler_mock{};
+        StrictMock<TransientErrorHandlerMock> handler_mock;
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<MediaReport>(Truly([&](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<MemoryError>(_));
@@ -206,12 +216,13 @@ TEST_F(TestUdpMsgRxSession, make_fails_due_to_rx_socket_error)
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST_F(TestUdpMsgRxSession, run_and_receive)
+TEST_F(TestUdpMsgRxSession, receive)
 {
-    StrictMock<MemoryResourceMock>        payload_mr_mock{};
-    StrictMock<TransientErrorHandlerMock> handler_mock{};
+    StrictMock<MemoryResourceMock>        payload_mr_mock;
 
     auto transport = makeTransport({mr_, nullptr, nullptr, &payload_mr_mock}, NodeId{0x31});
+
+    StrictMock<TransientErrorHandlerMock> handler_mock;
     transport->setTransientErrorHandler(std::ref(handler_mock));
 
     EXPECT_CALL(rx_socket_mock_, registerCallback(Ref(scheduler_), _))  //
@@ -236,20 +247,21 @@ TEST_F(TestUdpMsgRxSession, run_and_receive)
         //
         SCOPED_TRACE("1-st iteration: one frame available @ 1s");
 
-        rx_timestamp = now() + 10ms;
-
         constexpr std::size_t payload_size = 2;
         constexpr std::size_t frame_size   = UdpardFrame::SizeOfHeaderAndTxCrc + payload_size;
 
-        EXPECT_CALL(rx_socket_mock_, receive()).WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
-            EXPECT_THAT(now(), rx_timestamp);
-            auto frame = UdpardFrame(0x13, UDPARD_NODE_ID_UNSET, 0x0D, payload_size, &payload_mr_mock, Priority::High);
-            frame.payload()[0] = b('0');
-            frame.payload()[1] = b('1');
-            frame.setPortId(0x23, false /*is_service*/);
-            std::uint32_t tx_crc = UdpardFrame::InitialTxCrc;
-            return {rx_timestamp, std::move(frame).release(tx_crc)};
-        });
+        rx_timestamp = now() + 10ms;
+        EXPECT_CALL(rx_socket_mock_, receive())  //
+            .WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
+                EXPECT_THAT(now(), rx_timestamp);
+                auto frame =
+                    UdpardFrame(0x13, UDPARD_NODE_ID_UNSET, 0x0D, payload_size, &payload_mr_mock, Priority::High);
+                frame.payload()[0] = b('0');
+                frame.payload()[1] = b('1');
+                frame.setPortId(0x23, false /*is_service*/);
+                std::uint32_t tx_crc = UdpardFrame::InitialTxCrc;
+                return {rx_timestamp, std::move(frame).release(tx_crc)};
+            });
         EXPECT_CALL(payload_mr_mock, do_allocate(frame_size, alignof(std::max_align_t)))
             .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
                 return payload_mr_.allocate(size_bytes, alignment);
@@ -263,9 +275,9 @@ TEST_F(TestUdpMsgRxSession, run_and_receive)
             // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
             const auto& rx_transfer = maybe_rx_transfer.value();
 
-            EXPECT_THAT(rx_transfer.metadata.timestamp, rx_timestamp);
-            EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x0D);
-            EXPECT_THAT(rx_transfer.metadata.priority, Priority::High);
+            EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx_timestamp);
+            EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x0D);
+            EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::High);
             EXPECT_THAT(rx_transfer.metadata.publisher_node_id, Optional(0x13));
 
             std::array<char, 2> buffer{};
@@ -283,14 +295,14 @@ TEST_F(TestUdpMsgRxSession, run_and_receive)
         //
         SCOPED_TRACE("2-nd iteration: invalid null frame available @ 2s");
 
-        using UdpardReport = IUdpTransport::TransientErrorReport::UdpardRxMsgReceive;
+        using Report = IUdpTransport::TransientErrorReport::UdpardRxMsgReceive;
 
         rx_timestamp = now() + 10ms;
-
-        EXPECT_CALL(rx_socket_mock_, receive()).WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
-            return {rx_timestamp, {nullptr, libcyphal::PmrRawBytesDeleter{0, &payload_mr_mock}}};
-        });
-        EXPECT_CALL(handler_mock, invoke(VariantWith<UdpardReport>(Truly([&](auto& report) {
+        EXPECT_CALL(rx_socket_mock_, receive())  //
+            .WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
+                return {rx_timestamp, {nullptr, libcyphal::PmrRawBytesDeleter{0, &payload_mr_mock}}};
+            });
+        EXPECT_CALL(handler_mock, invoke(VariantWith<Report>(Truly([&](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<ArgumentError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         EXPECT_THAT(report.culprit.udp_ip_endpoint.ip_address, 0xEF000023);
@@ -309,18 +321,19 @@ TEST_F(TestUdpMsgRxSession, run_and_receive)
         //
         SCOPED_TRACE("3-rd iteration: malformed frame available @ 3s - no error, just drop");
 
-        rx_timestamp = now() + 10ms;
-
         constexpr std::size_t payload_size = 0;
         constexpr std::size_t frame_size   = UdpardFrame::SizeOfHeaderAndTxCrc + payload_size;
 
-        EXPECT_CALL(rx_socket_mock_, receive()).WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
-            EXPECT_THAT(now(), rx_timestamp);
-            auto frame = UdpardFrame(0x13, UDPARD_NODE_ID_UNSET, 0x0D, payload_size, &payload_mr_mock, Priority::High);
-            frame.setPortId(0x23, true /*is_service*/);  // This makes it invalid (b/c we expect messages).
-            std::uint32_t tx_crc = UdpardFrame::InitialTxCrc;
-            return {rx_timestamp, std::move(frame).release(tx_crc)};
-        });
+        rx_timestamp = now() + 10ms;
+        EXPECT_CALL(rx_socket_mock_, receive())  //
+            .WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
+                EXPECT_THAT(now(), rx_timestamp);
+                auto frame =
+                    UdpardFrame(0x13, UDPARD_NODE_ID_UNSET, 0x0D, payload_size, &payload_mr_mock, Priority::High);
+                frame.setPortId(0x23, true /*is_service*/);  // This makes it invalid (b/c we expect messages).
+                std::uint32_t tx_crc = UdpardFrame::InitialTxCrc;
+                return {rx_timestamp, std::move(frame).release(tx_crc)};
+            });
         EXPECT_CALL(payload_mr_mock, do_allocate(frame_size, alignof(std::max_align_t)))
             .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
                 return payload_mr_.allocate(size_bytes, alignment);
@@ -340,9 +353,9 @@ TEST_F(TestUdpMsgRxSession, run_and_receive)
     scheduler_.spinFor(10s);
 }
 
-TEST_F(TestUdpMsgRxSession, run_and_receive_one_anonymous_frame)
+TEST_F(TestUdpMsgRxSession, receive_one_anonymous_frame)
 {
-    StrictMock<MemoryResourceMock> payload_mr_mock{};
+    StrictMock<MemoryResourceMock> payload_mr_mock;
 
     auto transport = makeTransport({mr_, nullptr, nullptr, &payload_mr_mock});
 
@@ -366,31 +379,30 @@ TEST_F(TestUdpMsgRxSession, run_and_receive_one_anonymous_frame)
 
     scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
-        rx_timestamp = now() + 10ms;
-
         constexpr std::size_t payload_size = 2;
         constexpr std::size_t frame_size   = UdpardFrame::SizeOfHeaderAndTxCrc + payload_size;
 
-        EXPECT_CALL(rx_socket_mock_, receive()).WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
-            EXPECT_THAT(now(), rx_timestamp);
-            auto frame = UdpardFrame(UDPARD_NODE_ID_UNSET,
-                                     UDPARD_NODE_ID_UNSET,
-                                     0x0D,
-                                     payload_size,
-                                     &payload_mr_mock,
-                                     Priority::Low);
+        rx_timestamp = now() + 10ms;
+        EXPECT_CALL(rx_socket_mock_, receive())  //
+            .WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
+                EXPECT_THAT(now(), rx_timestamp);
+                auto frame = UdpardFrame(UDPARD_NODE_ID_UNSET,
+                                         UDPARD_NODE_ID_UNSET,
+                                         0x0D,
+                                         payload_size,
+                                         &payload_mr_mock,
+                                         Priority::Low);
 
-            frame.payload()[0] = b('0');
-            frame.payload()[1] = b('1');
-            frame.setPortId(0x23, false /*is_service*/);
-            std::uint32_t tx_crc = UdpardFrame::InitialTxCrc;
-            return {rx_timestamp, std::move(frame).release(tx_crc)};
-        });
+                frame.payload()[0] = b('0');
+                frame.payload()[1] = b('1');
+                frame.setPortId(0x23, false /*is_service*/);
+                std::uint32_t tx_crc = UdpardFrame::InitialTxCrc;
+                return {rx_timestamp, std::move(frame).release(tx_crc)};
+            });
         EXPECT_CALL(payload_mr_mock, do_allocate(frame_size, alignof(std::max_align_t)))
             .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
                 return payload_mr_.allocate(size_bytes, alignment);
             });
-
         scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
 
         scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
@@ -400,9 +412,9 @@ TEST_F(TestUdpMsgRxSession, run_and_receive_one_anonymous_frame)
             // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
             const auto& rx_transfer = maybe_rx_transfer.value();
 
-            EXPECT_THAT(rx_transfer.metadata.timestamp, rx_timestamp);
-            EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x0D);
-            EXPECT_THAT(rx_transfer.metadata.priority, Priority::Low);
+            EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx_timestamp);
+            EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x0D);
+            EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::Low);
             EXPECT_THAT(rx_transfer.metadata.publisher_node_id, Eq(cetl::nullopt));
 
             std::array<char, 2> buffer{};
@@ -419,7 +431,7 @@ TEST_F(TestUdpMsgRxSession, run_and_receive_one_anonymous_frame)
     scheduler_.spinFor(10s);
 }
 
-TEST_F(TestUdpMsgRxSession, unsubscribe_and_run)
+TEST_F(TestUdpMsgRxSession, unsubscribe)
 {
     auto transport = makeTransport({mr_});
 

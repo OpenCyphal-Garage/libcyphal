@@ -11,7 +11,6 @@
 #include "svc_sessions.hpp"
 #include "types.hpp"
 
-#include "libcyphal/runnable.hpp"
 #include "libcyphal/types.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -23,7 +22,7 @@ namespace transport
 
 /// @brief Interface for a transport layer.
 ///
-class ITransport : public IRunnable
+class ITransport
 {
 public:
     ITransport(const ITransport&)                = delete;

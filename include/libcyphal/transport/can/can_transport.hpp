@@ -70,7 +70,13 @@ public:
             IMedia&      culprit;
         };
 
-        /// @brief Error report about configuring the media interface (f.e. applying filters).
+        /// @brief Error report about configuring media interfaces.
+        struct ConfigureMedia
+        {
+            AnyFailure failure;
+        };
+
+        /// @brief Error report about configuring specific media interface (f.e. applying filters).
         struct MediaConfig
         {
             AnyFailure   failure;
@@ -80,7 +86,7 @@ public:
 
         /// Defines variant of all possible transient error reports.
         ///
-        using Variant = cetl::variant<CanardTxPush, CanardRxAccept, MediaPop, MediaPush, MediaConfig>;
+        using Variant = cetl::variant<CanardTxPush, CanardRxAccept, MediaPop, MediaPush, ConfigureMedia, MediaConfig>;
 
     };  // TransientErrorReport
 

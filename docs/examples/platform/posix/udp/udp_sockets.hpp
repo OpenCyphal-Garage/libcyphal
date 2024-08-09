@@ -7,8 +7,8 @@
 #ifndef EXAMPLE_PLATFORM_POSIX_UDP_SOCKETS_HPP_INCLUDED
 #define EXAMPLE_PLATFORM_POSIX_UDP_SOCKETS_HPP_INCLUDED
 
-#include "posix_executor_extension.hpp"
-#include "posix_platform_error.hpp"
+#include "../posix_executor_extension.hpp"
+#include "../posix_platform_error.hpp"
 #include "udp.h"
 
 #include <cetl/cetl.hpp>

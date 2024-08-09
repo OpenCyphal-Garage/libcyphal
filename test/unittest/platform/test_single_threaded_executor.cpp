@@ -6,8 +6,10 @@
 #include "../gtest_helpers.hpp"  // NOLINT(misc-include-cleaner) `PrintTo`-s are implicitly in use by gtest.
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/unbounded_variant.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/platform/single_threaded_executor.hpp>
+#include <libcyphal/transport/errors.hpp>
 #include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>
@@ -33,7 +35,9 @@ using testing::Eq;
 using testing::Ge;
 using testing::Le;
 using testing::AllOf;
+using testing::IsNull;
 using testing::Return;
+using testing::IsEmpty;
 using testing::StrictMock;
 using testing::ElementsAre;
 
@@ -97,7 +101,7 @@ TEST_F(TestSingleThreadedExecutor, registerCallback)
 {
     MySingleThreadedExecutor executor;
 
-    auto nop = [](const TimePoint) { return; };
+    auto nop = [](const TimePoint) {};
 
     Callback::Any cb1;
     EXPECT_FALSE(cb1.has_value());
@@ -107,6 +111,9 @@ TEST_F(TestSingleThreadedExecutor, registerCallback)
 
     auto cb2a{executor.registerCallback(nop)};
     EXPECT_TRUE(cb2a.has_value());
+
+    // To cover RTTI non-const cast.
+    EXPECT_THAT(cetl::get_if<libcyphal::transport::AnyFailure>(&cb2a), IsNull());
 
     auto cb2b{std::move(cb2a)};
     EXPECT_TRUE(cb2b.has_value());
@@ -119,6 +126,10 @@ TEST_F(TestSingleThreadedExecutor, registerCallback)
 
     cb2b = std::move(cb1);
     EXPECT_FALSE(cb2b.has_value());
+
+    // To cover RTTI const cast.
+    const auto cb3 = executor.registerCallback(nop);
+    EXPECT_THAT(cetl::get_if<libcyphal::transport::AnyFailure>(&cb3), IsNull());
 }
 
 TEST_F(TestSingleThreadedExecutor, scheduleAt_no_spin)
@@ -150,9 +161,12 @@ TEST_F(TestSingleThreadedExecutor, spinOnce_no_callbacks)
 {
     MySingleThreadedExecutor executor;
 
+    EXPECT_CALL(executor.now_mock_, now()).WillOnce(Return(TimePoint{123us}));
+
     const auto spin_result = executor.spinOnce();
     EXPECT_THAT(spin_result.next_exec_time, Eq(cetl::nullopt));
     EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
+    EXPECT_THAT(spin_result.approx_now, TimePoint{123us});
 }
 
 TEST_F(TestSingleThreadedExecutor, spinOnce)
@@ -170,6 +184,7 @@ TEST_F(TestSingleThreadedExecutor, spinOnce)
     EXPECT_THAT(called, 0);
     EXPECT_THAT(spin_result.next_exec_time, Eq(cetl::nullopt));
     EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
+    EXPECT_THAT(spin_result.approx_now, virtual_now);
 
     executor.scheduleCallback(callback, Schedule::Once{virtual_now});
     executor.scheduleCallback(callback, Schedule::Once{virtual_now + 4ms});
@@ -180,12 +195,38 @@ TEST_F(TestSingleThreadedExecutor, spinOnce)
     {
         spin_result = executor.spinOnce();
         EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
+        EXPECT_THAT(spin_result.approx_now, virtual_now);
 
         virtual_now += 1ms;
         EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
     }
 
     EXPECT_THAT(called, 1);
+}
+
+TEST_F(TestSingleThreadedExecutor, schedule_none)
+{
+    MySingleThreadedExecutor executor;
+
+    std::vector<std::tuple<std::string, TimePoint>> calls;
+    auto cb1 = executor.registerCallback([&](auto now) { calls.emplace_back(std::make_tuple("1", now)); });
+
+    auto virtual_now = TimePoint{};
+    executor.scheduleCallback(cb1, Schedule::None{});
+
+    const auto deadline = virtual_now + 10ms;
+    EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
+
+    while (virtual_now < deadline)
+    {
+        const auto spin_result = executor.spinOnce();
+        EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
+        EXPECT_THAT(spin_result.approx_now, virtual_now);
+
+        virtual_now += 1ms;
+        EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
+    }
+    EXPECT_THAT(calls, IsEmpty());
 }
 
 TEST_F(TestSingleThreadedExecutor, schedule_once_multiple)
@@ -209,6 +250,7 @@ TEST_F(TestSingleThreadedExecutor, schedule_once_multiple)
     {
         const auto spin_result = executor.spinOnce();
         EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
+        EXPECT_THAT(spin_result.approx_now, virtual_now);
 
         virtual_now += 1ms;
         EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
@@ -241,6 +283,7 @@ TEST_F(TestSingleThreadedExecutor, schedule_once_multiple_with_the_same_exec_tim
     {
         const auto spin_result = executor.spinOnce();
         EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
+        EXPECT_THAT(spin_result.approx_now, virtual_now);
 
         virtual_now += 1ms;
         EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
@@ -277,6 +320,7 @@ TEST_F(TestSingleThreadedExecutor, schedule_once_callback_recursively)
     {
         const auto spin_result = executor.spinOnce();
         EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
+        EXPECT_THAT(spin_result.approx_now, virtual_now);
 
         virtual_now += 1ms;
         EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
@@ -313,6 +357,7 @@ TEST_F(TestSingleThreadedExecutor, reset_once_scheduling_from_callback)
     {
         const auto spin_result = executor.spinOnce();
         EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
+        EXPECT_THAT(spin_result.approx_now, virtual_now);
 
         virtual_now += 1ms;
         EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
@@ -349,6 +394,7 @@ TEST_F(TestSingleThreadedExecutor, reset_repeat_scheduling_from_callback)
     {
         const auto spin_result = executor.spinOnce();
         EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
+        EXPECT_THAT(spin_result.approx_now, virtual_now);
 
         virtual_now = spin_result.next_exec_time.value_or(virtual_now + 1ms);
         EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
@@ -386,6 +432,7 @@ TEST_F(TestSingleThreadedExecutor, spinOnce_worsth_lateness)
     const auto spin_result = executor.spinOnce();
     EXPECT_THAT(spin_result.next_exec_time, Eq(cetl::nullopt));
     EXPECT_THAT(spin_result.worst_lateness, 6ms);
+    EXPECT_THAT(spin_result.approx_now, virtual_now);
 
     EXPECT_THAT(calls, ElementsAre(std::make_tuple(2, TimePoint{10ms}), std::make_tuple(1, TimePoint{10ms})));
 }

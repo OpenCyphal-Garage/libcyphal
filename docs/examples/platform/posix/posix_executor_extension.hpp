@@ -49,8 +49,6 @@ public:
     virtual bool scheduleCallbackWhen(libcyphal::IExecutor::Callback::Any& callback,
                                       const WhenCondition::Variant&        condition) = 0;
 
-    // MARK: - cetl::rtti
-
     static constexpr cetl::type_id _get_type_id_() noexcept
     {
         return cetl::type_id_type_value<IPosixExecutorExtensionTypeIdType>();

@@ -6,7 +6,6 @@
 #include <libcyphal/common/cavl/cavl.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/platform/single_threaded_executor.hpp>
-#include <libcyphal/runnable.hpp>
 #include <libcyphal/transport/can/can_transport.hpp>
 #include <libcyphal/transport/can/can_transport_impl.hpp>
 #include <libcyphal/transport/can/delegate.hpp>

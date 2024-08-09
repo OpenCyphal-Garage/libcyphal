@@ -59,7 +59,7 @@ public:
         // (aka "handle must not outlive executor") should have removed them all.
         //
         CETL_DEBUG_ASSERT(awaitable_nodes_.empty(), "");
-        releaseAwaitableNodes(awaitable_nodes_);
+        awaitable_nodes_.traversePostOrder([this](auto& node) { destroyAwaitableNode(node); });
     }
 
     using PollFailure = cetl::variant<libcyphal::transport::MemoryError,
@@ -88,11 +88,8 @@ public:
         //
         poll_fds_.clear();
         callback_handles_.clear();
-        awaitable_nodes_.traverse([this](AwaitableNode& node) {
+        awaitable_nodes_.traverseInOrder([this](AwaitableNode& node) {
             //
-            CETL_DEBUG_ASSERT(node.fd() >= 0, "");
-            CETL_DEBUG_ASSERT(node.pollEvents() != 0, "");
-
             callback_handles_.push_back(node.handle());
             poll_fds_.push_back({node.fd(), static_cast<short int>(node.pollEvents()), 0});
         });
@@ -183,7 +180,7 @@ protected:
         }
         else
         {
-            destroyAwaitableNode(awaitable_node);
+            destroyAwaitableNode(*awaitable_node);
         }
     }
 
@@ -199,8 +196,6 @@ protected:
             },
             when_condition);
     }
-
-    // MARK: - cetl::rtti
 
     CETL_NODISCARD void* _cast_(const cetl::type_id& id) & noexcept override
     {
@@ -307,40 +302,17 @@ private:
         return node;
     }
 
-    void destroyAwaitableNode(AwaitableNode* const awaitable_node)
+    void destroyAwaitableNode(AwaitableNode& awaitable_node)
     {
-        CETL_DEBUG_ASSERT(nullptr != awaitable_node, "");
-        if (nullptr != awaitable_node)
-        {
-            // No Sonar cpp:M23_329 b/c we do our own low-level PMR management here.
-            awaitable_node->~AwaitableNode();  // NOSONAR cpp:M23_329
-            awaitable_nodes_allocator_.deallocate(awaitable_node, 1);
+        // No Sonar cpp:M23_329 b/c we do our own low-level PMR management here.
+        awaitable_node.~AwaitableNode();  // NOSONAR cpp:M23_329
+        awaitable_nodes_allocator_.deallocate(&awaitable_node, 1);
 
-            --total_awaitables_;
-        }
-    }
-
-    /// @brief Recursively releases all awaitable nodes.
-    ///
-    /// AVL tree is balanced, hence the `NOLINT(misc-no-recursion)` and `NOSONAR cpp:S925` exceptions.
-    ///
-    /// TODO: Add "post-order" traversal support to the AVL tree.
-    ///
-    void releaseAwaitableNodes(AwaitableNode* node)  // NOLINT(misc-no-recursion)
-    {
-        if (nullptr != node)
-        {
-            releaseAwaitableNodes(node->getChildNode(false));  // NOSONAR cpp:S925
-            releaseAwaitableNodes(node->getChildNode(true));   // NOSONAR cpp:S925
-
-            destroyAwaitableNode(node);
-        }
+        --total_awaitables_;
     }
 
     bool scheduleCallbackWhenImpl(const Callback::Handle cb_handle, const WhenCondition::HandleReadable& readable)
     {
-        CETL_DEBUG_ASSERT(readable.fd >= 0, "");
-
         auto* const awaitable_node = ensureAwaitableNode(cb_handle);
         if (nullptr == awaitable_node)
         {
@@ -355,8 +327,6 @@ private:
 
     bool scheduleCallbackWhenImpl(const Callback::Handle cb_handle, const WhenCondition::HandleWritable& writable)
     {
-        CETL_DEBUG_ASSERT(writable.fd >= 0, "");
-
         auto* const awaitable_node = ensureAwaitableNode(cb_handle);
         if (nullptr == awaitable_node)
         {

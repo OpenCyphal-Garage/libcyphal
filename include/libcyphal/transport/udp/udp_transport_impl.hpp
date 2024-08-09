@@ -17,7 +17,6 @@
 #include "udp_transport.hpp"
 
 #include "libcyphal/executor.hpp"
-#include "libcyphal/runnable.hpp"
 #include "libcyphal/transport/common/tools.hpp"
 #include "libcyphal/transport/contiguous_payload.hpp"
 #include "libcyphal/transport/errors.hpp"
@@ -128,7 +127,7 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
     using MediaArray = libcyphal::detail::VarArray<Media>;
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<IUdpTransport>, FactoryFailure> make(
+    CETL_NODISCARD static Expected<UniquePtr<IUdpTransport>, FactoryFailure> make(  //
         const MemoryResourcesSpec& mem_res_spec,
         IExecutor&                 executor,
         const cetl::span<IMedia*>  media,
@@ -204,6 +203,13 @@ public:
         {
             flushUdpardTxQueue(media.udpard_tx());
         }
+
+        CETL_DEBUG_ASSERT(msg_rx_session_nodes_.isEmpty(),  //
+                          "Message sessions must be destroyed before transport.");
+        CETL_DEBUG_ASSERT(svc_request_rx_session_nodes_.isEmpty(),
+                          "Service sessions must be destroyed before transport.");
+        CETL_DEBUG_ASSERT(svc_response_rx_session_nodes_.isEmpty(),
+                          "Service sessions must be destroyed before transport.");
     }
 
 private:
@@ -263,7 +269,7 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyFailure> makeMessageRxSession(
         const MessageRxParams& params) override
     {
-        return makeMsgRxSession(params.subject_id, params, msg_rx_session_nodes_);
+        return makeMsgRxSession(params, msg_rx_session_nodes_);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyFailure> makeMessageTxSession(
@@ -318,13 +324,6 @@ private:
         return SvcResponseTxSession::make(memoryResources().general, asDelegate(), params);
     }
 
-    // MARK: IRunnable
-
-    CETL_NODISCARD IRunnable::MaybeFailure run(const TimePoint) override
-    {
-        return {};
-    }
-
     // MARK: TransportDelegate
 
     CETL_NODISCARD TransportDelegate& asDelegate()
@@ -361,7 +360,7 @@ private:
                         return tx_failure;
                     }
 
-                    // No need to try fo send next frame when previous one hasn't finished yet.
+                    // No need to try to send next frame when previous one hasn't finished yet.
                     if (!media.txSocketState().callback.has_value())
                     {
                         sendNextFrameToMediaTxSocket(media, tx_socket);
@@ -381,26 +380,22 @@ private:
 
     void onSessionEvent(const SessionEvent::Variant& event_var) override
     {
-        cetl::visit(
-            [this](const auto& event) {
-                cetl::visit(cetl::make_overloaded(
-                                [this](const SessionEvent::Message::Destroyed& msg_session_destroyed) {
-                                    //
-                                    msg_rx_session_nodes_.removeNodeFor(msg_session_destroyed.subject_id);
-                                },
-                                [this](const SessionEvent::Request::Destroyed& req_session_destroyed) {
-                                    //
-                                    svc_request_rx_session_nodes_.removeNodeFor(req_session_destroyed.service_id);
-                                    cancelRxCallbacksIfNoSvcLeft();
-                                },
-                                [this](const SessionEvent::Response::Destroyed& res_session_destroyed) {
-                                    //
-                                    svc_response_rx_session_nodes_.removeNodeFor(res_session_destroyed.service_id);
-                                    cancelRxCallbacksIfNoSvcLeft();
-                                }),
-                            event);
-            },
-            event_var);
+        cetl::visit(cetl::make_overloaded(
+                        [this](const SessionEvent::MsgDestroyed& msg_session_destroyed) {
+                            //
+                            msg_rx_session_nodes_.removeNodeFor(msg_session_destroyed.subject_id);
+                        },
+                        [this](const SessionEvent::SvcRequestDestroyed& req_session_destroyed) {
+                            //
+                            svc_request_rx_session_nodes_.removeNodeFor(req_session_destroyed.service_id);
+                            cancelRxCallbacksIfNoSvcLeft();
+                        },
+                        [this](const SessionEvent::SvcResponseDestroyed& res_session_destroyed) {
+                            //
+                            svc_response_rx_session_nodes_.removeNodeFor(res_session_destroyed.service_id);
+                            cancelRxCallbacksIfNoSvcLeft();
+                        }),
+                    event_var);
     }
 
     // MARK: Privates:
@@ -472,12 +467,11 @@ private:
 
     };  // TxTransferHandler
 
-    CETL_NODISCARD auto makeMsgRxSession(const PortId                             port_id,
-                                         const MessageRxParams&                   rx_params,
+    CETL_NODISCARD auto makeMsgRxSession(const MessageRxParams&                   rx_params,
                                          SessionTree<RxSessionTreeNode::Message>& tree_nodes)
         -> Expected<UniquePtr<IMessageRxSession>, AnyFailure>
     {
-        auto node_result = tree_nodes.ensureNewNodeFor(port_id);
+        auto node_result = tree_nodes.ensureNewNodeFor(rx_params.subject_id);
         if (auto* const failure = cetl::get_if<AnyFailure>(&node_result))
         {
             return std::move(*failure);
@@ -487,7 +481,7 @@ private:
         auto session_result = MessageRxSession::make(memoryResources().general, asDelegate(), rx_params, new_msg_node);
         if (auto* const failure = cetl::get_if<AnyFailure>(&session_result))
         {
-            tree_nodes.removeNodeFor(port_id);
+            tree_nodes.removeNodeFor(rx_params.subject_id);
             return std::move(*failure);
         }
 
@@ -697,7 +691,7 @@ private:
         using PayloadFragment = cetl::span<const cetl::byte>;
 
         TimePoint tx_deadline;
-        while (const UdpardTxItem* const tx_item = peekFirstValidUdpardTxItem(media.udpard_tx(), tx_deadline))
+        while (const UdpardTxItem* const tx_item = peekFirstValidTxItem(media.udpard_tx(), tx_deadline))
         {
             // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libudpard API.
             const auto* const buffer =
@@ -741,12 +735,12 @@ private:
 
             // Release whole problematic transfer from the TX queue,
             // so that other transfers in TX queue have their chance.
-            // Otherwise, we would be stuck in a execution loop trying to send the same frame.
+            // Otherwise, we would be stuck in an execution loop trying to send the same frame.
             popAndFreeUdpardTxItem(&media.udpard_tx(), tx_item, true /* whole transfer */);
 
-            tryHandleTransientMediaError<TransientErrorReport::MediaTxSocketSend>(media,
-                                                                                  std::move(*send_failure),
-                                                                                  tx_socket);
+            using Report = TransientErrorReport::MediaTxSocketSend;
+            (void) tryHandleTransientMediaError<Report>(media, std::move(*send_failure), tx_socket);
+
         }  // for a valid tx item
 
         // There is nothing to send anymore, so we are done with this media TX socket - no more callbacks for now.
@@ -758,7 +752,7 @@ private:
     /// While searching, any of already expired TX items are pop from the queue and freed (aka dropped).
     /// If there is no still valid TX items in the queue, returns `nullptr`.
     ///
-    CETL_NODISCARD const UdpardTxItem* peekFirstValidUdpardTxItem(UdpardTx& udpard_tx, TimePoint& out_deadline) const
+    CETL_NODISCARD const UdpardTxItem* peekFirstValidTxItem(UdpardTx& udpard_tx, TimePoint& out_deadline) const
     {
         const TimePoint now = executor_.now();
 
@@ -776,7 +770,7 @@ private:
             }
 
             // Release whole expired transfer b/c possible next frames of the same transfer are also expired.
-            popAndFreeUdpardTxItem(&udpard_tx, tx_item, true /*whole transfer*/);
+            popAndFreeUdpardTxItem(&udpard_tx, tx_item, true /* whole transfer */);
         }
         return nullptr;
     }
@@ -881,7 +875,7 @@ private:
         if (auto* const failure = cetl::get_if<IRxSocket::ReceiveResult::Failure>(&receive_result))
         {
             using RxSocketReport = TransientErrorReport::MediaRxSocketReceive;
-            tryHandleTransientMediaError<RxSocketReport>(media, std::move(*failure), rx_socket);
+            (void) tryHandleTransientMediaError<RxSocketReport>(media, std::move(*failure), rx_socket);
             return cetl::nullopt;
         }
         return cetl::get<IRxSocket::ReceiveResult::Success>(std::move(receive_result));

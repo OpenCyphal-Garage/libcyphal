@@ -8,7 +8,6 @@
 
 #include "delegate.hpp"
 
-#include "libcyphal/runnable.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -188,13 +187,13 @@ private:
         }
 
         const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(
-            (metadata.timestamp + send_timeout_).time_since_epoch());
+            (metadata.base.timestamp + send_timeout_).time_since_epoch());
 
         const auto tx_metadata = AnyUdpardTxMetadata::Respond{static_cast<UdpardMicrosecond>(deadline_us.count()),
-                                                              static_cast<UdpardPriority>(metadata.priority),
+                                                              static_cast<UdpardPriority>(metadata.base.priority),
                                                               params_.service_id,
                                                               metadata.remote_node_id,
-                                                              metadata.transfer_id};
+                                                              metadata.base.transfer_id};
 
         return delegate_.sendAnyTransfer(tx_metadata, payload_fragments);
     }
