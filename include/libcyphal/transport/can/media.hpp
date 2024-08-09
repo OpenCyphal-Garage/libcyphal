@@ -112,7 +112,10 @@ public:
 
     /// @brief Registers "ready to push" callback function at a given executor.
     ///
-    /// The callback will be called by the executor when this CAN media will be ready to accept more data.
+    /// The callback will be called by the executor when this socket will be ready to accept more (MTU-worth) data.
+    ///
+    /// For example, Linux socketcan implementation may pass its OS handle to the executor implementation,
+    /// and executor will use `::poll` POSIX api & `POLLOUT` event to schedule this callback for execution.
     ///
     /// @param executor The executor to register the callback at.
     /// @param function The function to be called when CAN media became "ready to push".
@@ -124,7 +127,10 @@ public:
 
     /// @brief Registers "ready to pop" callback function at a given executor.
     ///
-    /// The callback will be called by the executor when this CAN media has new data to read.
+    /// The callback will be called by the executor when this socket will be ready to be read (MTU-worth data).
+    ///
+    /// For example, Linux socketcan implementation may pass its OS handle to the executor implementation,
+    /// and executor will use `::poll` POSIX api & `POLLIN` event to schedule this callback for execution.
     ///
     /// @param executor The executor to register the callback at.
     /// @param function The function to be called when CAN media became "ready to pop".

@@ -98,7 +98,7 @@ public:
 
     /// @brief Registers "ready to send" callback function at a given executor.
     ///
-    /// The callback will be called by the executor when this socket will be ready to accept more data.
+    /// The callback will be called by the executor when this socket will be ready to accept more (MTU-worth) data.
     ///
     /// For example, POSIX socket implementation may pass its OS handle to the executor implementation,
     /// and executor will use `::poll` POSIX api & `POLLOUT` event to schedule this callback for execution.
@@ -156,7 +156,7 @@ public:
 
     /// @brief Registers "ready to receive" callback function at a given executor.
     ///
-    /// The callback will be called by the executor when this socket will be ready to be read.
+    /// The callback will be called by the executor when this socket will be ready to be read (MTU-worth data).
     ///
     /// For example, POSIX socket implementation may pass its OS handle to the executor implementation,
     /// and executor will use `::poll` POSIX api & `POLLIN` event to schedule this callback for execution.
