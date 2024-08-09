@@ -109,7 +109,7 @@ public:
     }
 
 protected:
-    void onCallbackHandling(const Callback::Handle old_handle, const Callback::Handle new_handle) noexcept override
+    void onCallbackHandling(const CallbackHandle old_handle, const CallbackHandle new_handle) noexcept override
     {
         // Keep named callbacks up-to-date.
         //
@@ -133,9 +133,9 @@ protected:
     }
 
 private:
-    TimePoint                               now_;
-    std::vector<Callback::Any>              callbacks_bag_;
-    std::map<std::string, Callback::Handle> named_cb_handles_;
+    TimePoint                             now_;
+    std::vector<Callback::Any>            callbacks_bag_;
+    std::map<std::string, CallbackHandle> named_cb_handles_;
 
 };  // VirtualTimeScheduler
 

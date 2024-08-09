@@ -38,14 +38,6 @@ public:
         ///
         struct Schedule
         {
-            /// @brief Defines schedule which will NOT execute callback function.
-            ///
-            /// Useful as a default value for a non-engaged callback schedule.
-            /// Also can be used to cancel previously scheduled callback.
-            ///
-            struct None
-            {};
-
             /// @brief Defines schedule which will execute callback function at the specified execution time once.
             ///
             struct Once
@@ -68,7 +60,7 @@ public:
                 Duration period;
             };
 
-            using Variant = cetl::variant<None, Once, Repeat>;
+            using Variant = cetl::variant<Once, Repeat>;
 
         };  // Schedule
 
@@ -93,7 +85,7 @@ public:
         ///
         /// Size is chosen arbitrary, but it should be enough to store any callback implementation.
         ///
-        static constexpr std::size_t MaxSize = (sizeof(void*) * 10) + sizeof(Function);
+        static constexpr std::size_t MaxSize = (sizeof(void*) * 12) + sizeof(Function);
 
         /// @brief Defines type-erased callback which is capable to store some internal implementation.
         ///
@@ -102,13 +94,6 @@ public:
         /// It also manages lifetime and ownership of the callback registration, so it's movable but not copyable.
         ///
         using Any = cetl::unbounded_variant<MaxSize, false /* Copyable */, true /* Movable */>;
-
-        /// @brief Defines opaque handle to a registered callback.
-        ///
-        /// It is supposed to be used internally (by derived executors)
-        /// to identify/reference the callback in the executor.
-        ///
-        using Handle = std::uintptr_t;
 
     };  // Callback
 

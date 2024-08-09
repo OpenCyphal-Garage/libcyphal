@@ -204,31 +204,6 @@ TEST_F(TestSingleThreadedExecutor, spinOnce)
     EXPECT_THAT(called, 1);
 }
 
-TEST_F(TestSingleThreadedExecutor, schedule_none)
-{
-    MySingleThreadedExecutor executor;
-
-    std::vector<std::tuple<std::string, TimePoint>> calls;
-    auto cb1 = executor.registerCallback([&](auto now) { calls.emplace_back(std::make_tuple("1", now)); });
-
-    auto virtual_now = TimePoint{};
-    executor.scheduleCallback(cb1, Schedule::None{});
-
-    const auto deadline = virtual_now + 10ms;
-    EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
-
-    while (virtual_now < deadline)
-    {
-        const auto spin_result = executor.spinOnce();
-        EXPECT_THAT(spin_result.worst_lateness, Duration::zero());
-        EXPECT_THAT(spin_result.approx_now, virtual_now);
-
-        virtual_now += 1ms;
-        EXPECT_CALL(executor.now_mock_, now()).WillRepeatedly(Return(virtual_now));
-    }
-    EXPECT_THAT(calls, IsEmpty());
-}
-
 TEST_F(TestSingleThreadedExecutor, schedule_once_multiple)
 {
     MySingleThreadedExecutor executor;

@@ -122,12 +122,19 @@ public:
     }
 
 protected:
-    static Callback::Handle callbackToHandle(Callback::Any& callback) noexcept
+    /// @brief Defines opaque handle to a registered callback.
+    ///
+    /// It is supposed to be used internally (by derived executors)
+    /// to identify/reference the callback in the executor.
+    ///
+    using CallbackHandle = std::uintptr_t;
+
+    static CallbackHandle callbackToHandle(Callback::Any& callback) noexcept
     {
-        return static_cast<Callback::Handle>(*callbackToNode(callback));
+        return static_cast<CallbackHandle>(*callbackToNode(callback));
     }
 
-    void scheduleCallbackByHandle(const Callback::Handle cb_handle, const Callback::Schedule::Variant& schedule)
+    void scheduleCallbackByHandle(const CallbackHandle cb_handle, const Callback::Schedule::Variant& schedule)
     {
         auto* const cb_node_ptr = CallbackNode::fromHandle(cb_handle);
         scheduleCallbackNode(*cb_node_ptr, schedule);
@@ -141,7 +148,7 @@ protected:
     /// @param new_handle Handle of the callback node after callback change.
     ///
     /// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-    virtual void onCallbackHandling(const Callback::Handle old_handle, const Callback::Handle new_handle) noexcept
+    virtual void onCallbackHandling(const CallbackHandle old_handle, const CallbackHandle new_handle) noexcept
     {
         // Nothing to do here b/c AVL node movement already updated its links,
         // but subclasses may override this method to update their own references to callbacks.
@@ -164,17 +171,17 @@ private:
             : executor_{executor}
             , function_{std::move(function)}
             , next_exec_time_{TimePoint::max()}
-            , schedule_{Callback::Schedule::None{}}
+            , schedule_{cetl::nullopt}
         {
             CETL_DEBUG_ASSERT(function_, "");
-            executor.onCallbackHandling({}, static_cast<Callback::Handle>(*this));
+            executor.onCallbackHandling({}, static_cast<CallbackHandle>(*this));
         }
         ~CallbackNode()
         {
             if (isLinked())
             {
                 executor().callback_nodes_.remove(this);
-                executor().onCallbackHandling(static_cast<Callback::Handle>(*this), {});
+                executor().onCallbackHandling(static_cast<CallbackHandle>(*this), {});
             }
         };
 
@@ -185,7 +192,7 @@ private:
             , next_exec_time_{other.next_exec_time_}
             , schedule_{other.schedule_}
         {
-            executor().onCallbackHandling(static_cast<Callback::Handle>(other), static_cast<Callback::Handle>(*this));
+            executor().onCallbackHandling(static_cast<CallbackHandle>(other), static_cast<CallbackHandle>(*this));
         }
 
         CallbackNode& operator=(CallbackNode&& other) noexcept
@@ -197,7 +204,7 @@ private:
             next_exec_time_ = other.next_exec_time_;
             schedule_       = other.schedule_;
 
-            executor().onCallbackHandling(static_cast<Callback::Handle>(other), static_cast<Callback::Handle>(*this));
+            executor().onCallbackHandling(static_cast<CallbackHandle>(other), static_cast<CallbackHandle>(*this));
 
             return *this;
         }
@@ -205,13 +212,13 @@ private:
         CallbackNode(const CallbackNode&)            = delete;
         CallbackNode& operator=(const CallbackNode&) = delete;
 
-        explicit operator Callback::Handle() const noexcept
+        explicit operator CallbackHandle() const noexcept
         {
             // Next nolint & NOSONAR are unavoidable: this is opaque handle conversion code.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-            return reinterpret_cast<Callback::Handle>(this);  // NOSONAR cpp:S3630
+            return reinterpret_cast<CallbackHandle>(this);  // NOSONAR cpp:S3630
         }
-        static CallbackNode* fromHandle(const Callback::Handle handle) noexcept
+        static CallbackNode* fromHandle(const CallbackHandle handle) noexcept
         {
             CETL_DEBUG_ASSERT(handle, "");
 
@@ -225,46 +232,30 @@ private:
             return executor_.get();
         }
 
-        const Callback::Schedule::Variant& getSchedule() const noexcept
+        const cetl::optional<Callback::Schedule::Variant>& getSchedule() const noexcept
         {
             return schedule_;
         }
 
         void setSchedule(const Callback::Schedule::Variant& schedule)
         {
-            schedule_ = schedule;
-            cetl::visit(cetl::make_overloaded(
-                            [this](const Callback::Schedule::None&) {
-                                //
-                                next_exec_time_ = TimePoint::max();
-                            },
-                            [this](const Callback::Schedule::Once& once) {
-                                //
-                                next_exec_time_ = once.exec_time;
-                            },
-                            [this](const Callback::Schedule::Repeat& repeat) {
-                                //
-                                next_exec_time_ = repeat.exec_time;
-                            }),
-                        schedule);
+            schedule_       = schedule;
+            next_exec_time_ = cetl::visit(  //
+                cetl::make_overloaded(      //
+                    [](const Callback::Schedule::Once& once) { return once.exec_time; },
+                    [](const Callback::Schedule::Repeat& repeat) { return repeat.exec_time; }),
+                schedule);
         }
 
         void reschedule(const TimePoint exec_time)
         {
-            cetl::visit(cetl::make_overloaded(
-                            [this](const Callback::Schedule::None&) {
-                                //
-                                next_exec_time_ = TimePoint::max();
-                            },
-                            [this](const Callback::Schedule::Once&) {
-                                //
-                                next_exec_time_ = TimePoint::max();
-                            },
-                            [this, exec_time](const Callback::Schedule::Repeat& repeat) {
-                                //
-                                next_exec_time_ = exec_time + repeat.period;
-                            }),
-                        schedule_);
+            CETL_DEBUG_ASSERT(schedule_, "");
+
+            next_exec_time_ = cetl::visit(  //
+                cetl::make_overloaded(      //
+                    [](const Callback::Schedule::Once&) { return TimePoint::max(); },
+                    [exec_time](const Callback::Schedule::Repeat& repeat) { return exec_time + repeat.period; }),
+                *schedule_);
         }
 
         TimePoint nextExecTime() const noexcept
@@ -308,7 +299,7 @@ private:
         std::reference_wrapper<SingleThreadedExecutor> executor_;
         Callback::Function                             function_;
         TimePoint                                      next_exec_time_;
-        Callback::Schedule::Variant                    schedule_;
+        cetl::optional<Callback::Schedule::Variant>    schedule_;
 
     };  // CallbackNode
 

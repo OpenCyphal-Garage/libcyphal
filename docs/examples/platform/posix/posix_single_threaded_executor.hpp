@@ -134,7 +134,7 @@ public:
 
                 if (0 != (static_cast<PollEvents>(poll_fd.revents) & static_cast<PollEvents>(poll_fd.events)))
                 {
-                    const Callback::Handle cb_handle = callback_handles_[index];
+                    const CallbackHandle cb_handle = callback_handles_[index];
                     scheduleCallbackByHandle(cb_handle, Callback::Schedule::Once{now_time});
                 }
             }
@@ -158,7 +158,7 @@ public:
     }
 
 protected:
-    void onCallbackHandling(const Callback::Handle old_handle, const Callback::Handle new_handle) noexcept override
+    void onCallbackHandling(const CallbackHandle old_handle, const CallbackHandle new_handle) noexcept override
     {
         auto* const awaitable_node = awaitable_nodes_.search(  //
             [old_handle](const AwaitableNode& node) {          // predicate
@@ -188,7 +188,7 @@ protected:
 
     bool scheduleCallbackWhen(Callback::Any& callback, const WhenCondition::Variant& when_condition) override
     {
-        const Callback::Handle cb_handle = callbackToHandle(callback);
+        const CallbackHandle cb_handle = callbackToHandle(callback);
 
         return cetl::visit(
             [this, cb_handle](const auto& condition) {  //
@@ -223,7 +223,7 @@ private:
     public:
         using Node::getChildNode;
 
-        explicit AwaitableNode(const Callback::Handle cb_handle)
+        explicit AwaitableNode(const CallbackHandle cb_handle)
             : cb_handle_{cb_handle}
             , fd_{-1}
             , poll_events_{0}
@@ -237,7 +237,7 @@ private:
         AwaitableNode& operator=(const AwaitableNode&)     = delete;
         AwaitableNode& operator=(AwaitableNode&&) noexcept = delete;
 
-        Callback::Handle& handle() noexcept
+        CallbackHandle& handle() noexcept
         {
             return cb_handle_;
         }
@@ -252,7 +252,7 @@ private:
             return poll_events_;
         }
 
-        CETL_NODISCARD std::int8_t compareByHandle(const Callback::Handle cb_handle) const noexcept
+        CETL_NODISCARD std::int8_t compareByHandle(const CallbackHandle cb_handle) const noexcept
         {
             if (cb_handle == cb_handle_)
             {
@@ -264,13 +264,13 @@ private:
     private:
         // MARK: Data members:
 
-        Callback::Handle cb_handle_;
-        int              fd_;
-        PollEvents       poll_events_;
+        CallbackHandle cb_handle_;
+        int            fd_;
+        PollEvents     poll_events_;
 
     };  // AwaitableNode
 
-    CETL_NODISCARD AwaitableNode* ensureAwaitableNode(const Callback::Handle cb_handle)
+    CETL_NODISCARD AwaitableNode* ensureAwaitableNode(const CallbackHandle cb_handle)
     {
         const std::tuple<AwaitableNode*, bool> node_existing = awaitable_nodes_.search(  //
             [cb_handle](const AwaitableNode& node) {                                     // predicate
@@ -283,7 +283,7 @@ private:
         return std::get<0>(node_existing);
     }
 
-    CETL_NODISCARD AwaitableNode* makeAwaitableNode(const Callback::Handle cb_handle)
+    CETL_NODISCARD AwaitableNode* makeAwaitableNode(const CallbackHandle cb_handle)
     {
         // Stop allocations if we reach the maximum number of awaitables supported by `poll`.
         CETL_DEBUG_ASSERT(total_awaitables_ < std::numeric_limits<int>::max(), "");
@@ -311,7 +311,7 @@ private:
         --total_awaitables_;
     }
 
-    bool scheduleCallbackWhenImpl(const Callback::Handle cb_handle, const WhenCondition::HandleReadable& readable)
+    bool scheduleCallbackWhenImpl(const CallbackHandle cb_handle, const WhenCondition::HandleReadable& readable)
     {
         auto* const awaitable_node = ensureAwaitableNode(cb_handle);
         if (nullptr == awaitable_node)
@@ -325,7 +325,7 @@ private:
         return true;
     }
 
-    bool scheduleCallbackWhenImpl(const Callback::Handle cb_handle, const WhenCondition::HandleWritable& writable)
+    bool scheduleCallbackWhenImpl(const CallbackHandle cb_handle, const WhenCondition::HandleWritable& writable)
     {
         auto* const awaitable_node = ensureAwaitableNode(cb_handle);
         if (nullptr == awaitable_node)
@@ -341,9 +341,8 @@ private:
 
     // MARK: - Data members:
 
-    using PollFds = cetl::VariableLengthArray<pollfd, cetl::pmr::polymorphic_allocator<pollfd>>;
-    using CallbackHandles =
-        cetl::VariableLengthArray<Callback::Handle, cetl::pmr::polymorphic_allocator<Callback::Handle>>;
+    using PollFds         = cetl::VariableLengthArray<pollfd, cetl::pmr::polymorphic_allocator<pollfd>>;
+    using CallbackHandles = cetl::VariableLengthArray<CallbackHandle, cetl::pmr::polymorphic_allocator<CallbackHandle>>;
 
     std::size_t                                    total_awaitables_;
     cavl::Tree<AwaitableNode>                      awaitable_nodes_;
