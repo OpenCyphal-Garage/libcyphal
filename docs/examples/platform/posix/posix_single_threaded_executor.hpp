@@ -90,9 +90,6 @@ public:
         callback_handles_.clear();
         awaitable_nodes_.traverseInOrder([this](AwaitableNode& node) {
             //
-            CETL_DEBUG_ASSERT(node.fd() >= 0, "");
-            CETL_DEBUG_ASSERT(node.pollEvents() != 0, "");
-
             callback_handles_.push_back(node.handle());
             poll_fds_.push_back({node.fd(), static_cast<short int>(node.pollEvents()), 0});
         });
@@ -316,8 +313,6 @@ private:
 
     bool scheduleCallbackWhenImpl(const Callback::Handle cb_handle, const WhenCondition::HandleReadable& readable)
     {
-        CETL_DEBUG_ASSERT(readable.fd >= 0, "");
-
         auto* const awaitable_node = ensureAwaitableNode(cb_handle);
         if (nullptr == awaitable_node)
         {
@@ -332,8 +327,6 @@ private:
 
     bool scheduleCallbackWhenImpl(const Callback::Handle cb_handle, const WhenCondition::HandleWritable& writable)
     {
-        CETL_DEBUG_ASSERT(writable.fd >= 0, "");
-
         auto* const awaitable_node = ensureAwaitableNode(cb_handle);
         if (nullptr == awaitable_node)
         {
