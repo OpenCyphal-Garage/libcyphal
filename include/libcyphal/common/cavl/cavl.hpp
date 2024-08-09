@@ -104,7 +104,7 @@ protected:
     }
     bool isRoot() const noexcept
     {
-        return isLinked() && !up->isLinked();
+        return isLinked() && (!up->isLinked());
     }
     auto getParentNode() noexcept -> Derived*
     {
