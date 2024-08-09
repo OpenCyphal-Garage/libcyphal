@@ -104,28 +104,28 @@ TEST_F(TestSingleThreadedExecutor, registerCallback)
     auto nop = [](const TimePoint) {};
 
     Callback::Any cb1;
-    EXPECT_FALSE(cb1.has_value());
+    EXPECT_FALSE(cb1);
 
     cb1 = executor.registerCallback(nop);
-    EXPECT_TRUE(cb1.has_value());
+    EXPECT_TRUE(cb1);
 
     auto cb2a{executor.registerCallback(nop)};
-    EXPECT_TRUE(cb2a.has_value());
+    EXPECT_TRUE(cb2a);
 
     // To cover RTTI non-const cast.
     EXPECT_THAT(cetl::get_if<libcyphal::transport::AnyFailure>(&cb2a), IsNull());
 
     auto cb2b{std::move(cb2a)};
-    EXPECT_TRUE(cb2b.has_value());
+    EXPECT_TRUE(cb2b);
 
     cb2b = executor.registerCallback(nop);
-    EXPECT_TRUE(cb2b.has_value());
+    EXPECT_TRUE(cb2b);
 
     cb1 = {};
-    EXPECT_FALSE(cb1.has_value());
+    EXPECT_FALSE(cb1);
 
     cb2b = std::move(cb1);
-    EXPECT_FALSE(cb2b.has_value());
+    EXPECT_FALSE(cb2b);
 
     // To cover RTTI const cast.
     const auto cb3 = executor.registerCallback(nop);
@@ -140,7 +140,7 @@ TEST_F(TestSingleThreadedExecutor, scheduleAt_no_spin)
 
     bool was_called = false;
     auto callback   = executor.registerCallback([&](auto) { was_called = true; });
-    EXPECT_TRUE(callback.has_value());
+    EXPECT_TRUE(callback);
     EXPECT_FALSE(was_called);
 
     executor.scheduleCallback(callback, Schedule::Once{});
@@ -150,7 +150,7 @@ TEST_F(TestSingleThreadedExecutor, scheduleAt_no_spin)
     EXPECT_FALSE(was_called);
 
     callback.reset();
-    EXPECT_FALSE(callback.has_value());
+    EXPECT_FALSE(callback);
     EXPECT_FALSE(was_called);
 
     // callback is already reset

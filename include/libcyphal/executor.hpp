@@ -31,9 +31,8 @@ class IExecutor : public cetl::rtti_helper<IExecutorTypeIdType>
 public:
     /// NOSONAR cpp:S4963 - we do directly handle callback resource here.
     ///
-    class Callback
+    struct Callback
     {
-    public:
         /// @brief Defines possible variants of callback schedules.
         ///
         struct Schedule
@@ -87,20 +86,68 @@ public:
         ///
         static constexpr std::size_t MaxSize = (sizeof(void*) * 12) + sizeof(Function);
 
+        class Interface
+        {
+            // 49E40F04-42DC-481D-981C-46775698EED3
+            using TypeIdType = cetl::
+                // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+                type_id_type<0x49, 0xE4, 0x0F, 0x04, 0x42, 0xDC, 0x48, 0x1D, 0x98, 0x1C, 0x46, 0x77, 0x56, 0x98, 0xEE, 0xD3>;
+
+        public:
+                       Interface(const Interface&)     = delete;
+                       Interface(Interface&&) noexcept = delete;
+            Interface& operator=(const Interface&)     = delete;
+            Interface& operator=(Interface&&) noexcept = delete;
+
+            virtual bool schedule(const Schedule::Variant& schedule) = 0;
+
+            static constexpr cetl::type_id _get_type_id_() noexcept
+            {
+                return cetl::type_id_type_value<TypeIdType>();
+            }
+
+        protected:
+             Interface() = default;
+            ~Interface() = default;
+
+        };  // Interface
+
         /// @brief Defines type-erased callback which is capable to store some internal implementation.
         ///
         /// It is supposed to be used to hide callback implementation,
         /// and to be passed to the executor for scheduling.
         /// It also manages lifetime and ownership of the callback registration, so it's movable but not copyable.
         ///
-        using Any = cetl::unbounded_variant<MaxSize, false /* Copyable */, true /* Movable */>;
+        class Any final : public cetl::unbounded_variant<MaxSize, false /* Copyable */, true /* Movable */>
+        {
+        public:
+            using unbounded_variant::unbounded_variant;
+
+            explicit operator bool() const noexcept
+            {
+                return has_value();
+            }
+
+            Interface* getInterface() noexcept
+            {
+                return cetl::get_if<Interface>(this);
+            }
+
+            bool schedule(const Schedule::Variant& schedule)
+            {
+                if (auto* const interface = getInterface())
+                {
+                    return interface->schedule(schedule);
+                }
+                return false;
+            }
+
+        };  // Any
 
     };  // Callback
 
-    ~IExecutor() override = default;
-
-    IExecutor(const IExecutor&)                = delete;
-    IExecutor(IExecutor&&) noexcept            = delete;
+               IExecutor(const IExecutor&)     = delete;
+               IExecutor(IExecutor&&) noexcept = delete;
     IExecutor& operator=(const IExecutor&)     = delete;
     IExecutor& operator=(IExecutor&&) noexcept = delete;
 
@@ -133,7 +180,8 @@ public:
     virtual void scheduleCallback(Callback::Any& callback, const Callback::Schedule::Variant& schedule) = 0;
 
 protected:
-    IExecutor() = default;
+     IExecutor()          = default;
+    ~IExecutor() override = default;
 
 };  // IExecutor
 
