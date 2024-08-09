@@ -250,7 +250,7 @@ protected:
 private:
     void moveFrom(Node& other) noexcept
     {
-        CAVL_ASSERT(nullptr == up);  // Should not be part of any tree yet.
+        CAVL_ASSERT(!isLinked());  // Should not be part of any tree yet.
 
         up    = other.up;
         lr[0] = other.lr[0];
@@ -380,7 +380,7 @@ auto Node<Derived>::search(Node& origin, const Pre& predicate, const Fac& factor
     bool  r   = false;
     while (n != nullptr)
     {
-        CAVL_ASSERT(nullptr != n->up);
+        CAVL_ASSERT(n->isLinked());
 
         const auto cmp = predicate(*down(n));
         if (0 == cmp)
@@ -528,7 +528,7 @@ void Node<Derived>::remove(Node& origin, const Node* const node) noexcept  // NO
 template <typename Derived>
 auto Node<Derived>::adjustBalance(const bool increment) noexcept -> Node*
 {
-    CAVL_ASSERT(nullptr != up);
+    CAVL_ASSERT(isLinked());
     CAVL_ASSERT(((bf >= -1) && (bf <= +1)));
     Node*      out    = this;
     const auto new_bf = static_cast<std::int8_t>(bf + (increment ? +1 : -1));
@@ -776,15 +776,6 @@ public:
     using NodeType    = ::cavl::Node<Derived>;
     using DerivedType = Derived;
 
-    explicit Tree(Derived* const root)
-    {
-        if (nullptr != root)
-        {
-            CAVL_ASSERT(nullptr == root->up);  // Should not be part of any tree yet.
-            root->up           = this;
-            origin_node_.lr[0] = nullptr;
-        }
-    }
     Tree()  = default;
     ~Tree() = default;
 
