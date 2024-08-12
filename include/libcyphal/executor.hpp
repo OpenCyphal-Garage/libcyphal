@@ -129,7 +129,7 @@ public:
             /// @param schedule Contains specifics of how exactly callback will be scheduled.
             /// @return `true` if scheduling was successful, `false` otherwise (b/c callback has been reset).
             ///
-            CETL_NODISCARD virtual bool schedule(const Schedule::Variant& schedule) = 0;
+            virtual bool schedule(const Schedule::Variant& schedule) = 0;
 
             // MARK: RTTI
 
@@ -202,7 +202,7 @@ public:
             /// @param schedule Contains specifics of how exactly callback will be scheduled.
             /// @return `true` if scheduling was successful, `false` otherwise (b/c callback had been reset).
             ///
-            CETL_NODISCARD bool schedule(const Schedule::Variant& schedule)
+            bool schedule(const Schedule::Variant& schedule)
             {
                 if (auto* const interface = getInterface())
                 {

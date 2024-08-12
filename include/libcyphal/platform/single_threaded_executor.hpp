@@ -248,6 +248,8 @@ private:
 
         CETL_NODISCARD bool schedule(const Callback::Schedule::Variant& schedule) override
         {
+            CETL_DEBUG_ASSERT(isLinked(), "");
+
             schedule_ = schedule;
             executor_.adjustNextExecTimeOf(*this, [this, &schedule](auto&) {
                 //

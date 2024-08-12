@@ -32,11 +32,7 @@ public:
     void scheduleAt(const TimePoint exec_time, Callback::Function&& function)
     {
         auto callback = registerCallback(std::move(function));
-
-        const bool result = callback.schedule(Callback::Schedule::Once{exec_time});
-        (void) result;
-        CETL_DEBUG_ASSERT(result, "");
-
+        callback.schedule(Callback::Schedule::Once{exec_time});
         callbacks_bag_.emplace_back(std::move(callback));
     }
 
@@ -84,9 +80,7 @@ public:
     }
     void scheduleNamedCallback(const std::string& name, const Callback::Schedule::Variant& schedule)
     {
-        const bool result = named_cb_interfaces_.at(name)->schedule(schedule);
-        (void) result;
-        CETL_DEBUG_ASSERT(result, "");
+        named_cb_interfaces_.at(name)->schedule(schedule);
     }
     CETL_NODISCARD Callback::Any registerAndScheduleNamedCallback(const std::string&   name,
                                                                   const TimePoint      time_point,
@@ -99,11 +93,7 @@ public:
                                                                   Callback::Function&&               function)
     {
         auto callback = registerNamedCallback(name, std::move(function));
-
-        const bool result = callback.schedule(schedule);
-        (void) result;
-        CETL_DEBUG_ASSERT(result, "");
-
+        callback.schedule(schedule);
         return callback;
     }
     CETL_NODISCARD bool hasNamedCallback(const std::string& name)
