@@ -231,7 +231,9 @@ private:
         //
         if (total_svc_rx_ports_ > 0)
         {
-            configure_filters_callback_.schedule(Callback::Schedule::Once{executor_.now()});
+            const bool result = configure_filters_callback_.schedule(Callback::Schedule::Once{executor_.now()});
+            (void) result;
+            CETL_DEBUG_ASSERT(result, "Unexpected failure to schedule filter configuration.");
         }
 
         return cetl::nullopt;
@@ -363,7 +365,9 @@ private:
             });
         }
 
-        configure_filters_callback_.schedule(Callback::Schedule::Once{executor_.now()});
+        const bool result = configure_filters_callback_.schedule(Callback::Schedule::Once{executor_.now()});
+        (void) result;
+        CETL_DEBUG_ASSERT(result, "Unexpected failure to schedule filter configuration.");
     }
 
     // MARK: Privates:
