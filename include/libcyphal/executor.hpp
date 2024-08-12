@@ -32,7 +32,7 @@ class IExecutor
     // clang-format on
 
 public:
-    /// NOSONAR cpp:S4963 - we do directly handle callback resource here.
+    /// @brief Defines umbrella type for everything callback related.
     ///
     struct Callback
     {
@@ -114,8 +114,8 @@ public:
             // clang-format on
 
         public:
-            Interface(const Interface&)                = delete;
-            Interface(Interface&&) noexcept            = delete;
+                       Interface(const Interface&)     = delete;
+                       Interface(Interface&&) noexcept = delete;
             Interface& operator=(const Interface&)     = delete;
             Interface& operator=(Interface&&) noexcept = delete;
 
@@ -151,7 +151,7 @@ public:
             }
 
         protected:
-            Interface()  = default;
+             Interface() = default;
             ~Interface() = default;
 
         };  // Interface
@@ -215,8 +215,8 @@ public:
 
     };  // Callback
 
-    IExecutor(const IExecutor&)                = delete;
-    IExecutor(IExecutor&&) noexcept            = delete;
+               IExecutor(const IExecutor&)     = delete;
+               IExecutor(IExecutor&&) noexcept = delete;
     IExecutor& operator=(const IExecutor&)     = delete;
     IExecutor& operator=(IExecutor&&) noexcept = delete;
 
@@ -255,7 +255,7 @@ public:
     }
 
 protected:
-    IExecutor()  = default;
+     IExecutor() = default;
     ~IExecutor() = default;
 
 };  // IExecutor

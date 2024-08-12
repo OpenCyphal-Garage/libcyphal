@@ -33,13 +33,13 @@ namespace platform
 class SingleThreadedExecutor : public IExecutor
 {
 public:
-    SingleThreadedExecutor()          = default;
+             SingleThreadedExecutor() = default;
     virtual ~SingleThreadedExecutor() = default;
 
-    SingleThreadedExecutor(const SingleThreadedExecutor&)                = delete;
-    SingleThreadedExecutor(SingleThreadedExecutor&&) noexcept            = delete;
-    SingleThreadedExecutor& operator=(const SingleThreadedExecutor&)     = delete;
-    SingleThreadedExecutor& operator=(SingleThreadedExecutor&&) noexcept = delete;
+                            SingleThreadedExecutor(const SingleThreadedExecutor&)     = delete;
+                            SingleThreadedExecutor(SingleThreadedExecutor&&) noexcept = delete;
+    SingleThreadedExecutor& operator=(const SingleThreadedExecutor&)                  = delete;
+    SingleThreadedExecutor& operator=(SingleThreadedExecutor&&) noexcept              = delete;
 
     struct SpinResult
     {
@@ -195,8 +195,8 @@ private:
         {
             if (isLinked())
             {
-                executor().callback_nodes_.remove(this);
-                executor().onCallbackHandling(CallbackHandling::Removed{this});
+                executor_.callback_nodes_.remove(this);
+                executor_.onCallbackHandling(CallbackHandling::Removed{this});
             }
         };
 
@@ -207,10 +207,10 @@ private:
             , next_exec_time_{other.next_exec_time_}
             , schedule_{other.schedule_}
         {
-            executor().onCallbackHandling(CallbackHandling::Moved{&other, this});
+            executor_.onCallbackHandling(CallbackHandling::Moved{&other, this});
         }
 
-        CallbackNode(const CallbackNode&)                      = delete;
+                      CallbackNode(const CallbackNode&)        = delete;
         CallbackNode& operator=(const CallbackNode&)           = delete;
         CallbackNode& operator=(CallbackNode&& other) noexcept = delete;
 
@@ -244,17 +244,12 @@ private:
         }
 
     private:
-        SingleThreadedExecutor& executor() const noexcept
-        {
-            return executor_.get();
-        }
-
         // MARK: Callback::Interface
 
         CETL_NODISCARD bool schedule(const Callback::Schedule::Variant& schedule) override
         {
             schedule_ = schedule;
-            executor().adjustNextExecTimeOf(*this, [this, &schedule](auto&) {
+            executor_.adjustNextExecTimeOf(*this, [this, &schedule](auto&) {
                 //
                 next_exec_time_ = cetl::visit(  //
                     cetl::make_overloaded(      //
@@ -267,10 +262,10 @@ private:
 
         // MARK: Data members:
 
-        std::reference_wrapper<SingleThreadedExecutor> executor_;
-        Callback::Function                             function_;
-        TimePoint                                      next_exec_time_;
-        cetl::optional<Callback::Schedule::Variant>    schedule_;
+        SingleThreadedExecutor&                     executor_;
+        Callback::Function                          function_;
+        TimePoint                                   next_exec_time_;
+        cetl::optional<Callback::Schedule::Variant> schedule_;
 
     };  // CallbackNode
 

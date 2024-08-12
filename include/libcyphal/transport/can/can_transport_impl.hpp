@@ -163,10 +163,10 @@ public:
         scheduleConfigOfFilters();
     }
 
-    TransportImpl(const TransportImpl&)                = delete;
-    TransportImpl(TransportImpl&&) noexcept            = delete;
-    TransportImpl& operator=(const TransportImpl&)     = delete;
-    TransportImpl& operator=(TransportImpl&&) noexcept = delete;
+                   TransportImpl(const TransportImpl&)     = delete;
+                   TransportImpl(TransportImpl&&) noexcept = delete;
+    TransportImpl& operator=(const TransportImpl&)         = delete;
+    TransportImpl& operator=(TransportImpl&&) noexcept     = delete;
 
     ~TransportImpl()
     {
@@ -337,7 +337,7 @@ private:
             }
 
             // No need to try to push next frame when previous one hasn't finished yet.
-            if (!media.tx_callback().has_value())
+            if (!media.tx_callback())
             {
                 pushNextFrameToMedia(media);
             }
@@ -357,9 +357,10 @@ private:
 
     void scheduleConfigOfFilters()
     {
-        if (!configure_filters_callback_.has_value())
+        if (!configure_filters_callback_)
         {
-            configure_filters_callback_ = executor_.registerCallback([this](const auto&) {  //
+            configure_filters_callback_ = executor_.registerCallback([this](const auto&) {
+                //
                 configureMediaFilters();
             });
         }
@@ -433,7 +434,7 @@ private:
 
         for (Media& media : media_array_)
         {
-            if (!media.rx_callback().has_value())
+            if (!media.rx_callback())
             {
                 media.rx_callback() = media.interface().registerPopCallback([this, &media](const auto&) {  //
                     //
@@ -598,7 +599,7 @@ private:
                 // If needed schedule (recursively!) next frame to push.
                 // Already existing callback will be called by executor when media TX is ready to push more.
                 //
-                if (!media.tx_callback().has_value())
+                if (!media.tx_callback())
                 {
                     media.tx_callback() = media.interface().registerPushCallback([this, &media](const auto&) {
                         //
