@@ -163,10 +163,10 @@ public:
         scheduleConfigOfFilters();
     }
 
-                   TransportImpl(const TransportImpl&)     = delete;
-                   TransportImpl(TransportImpl&&) noexcept = delete;
-    TransportImpl& operator=(const TransportImpl&)         = delete;
-    TransportImpl& operator=(TransportImpl&&) noexcept     = delete;
+    TransportImpl(const TransportImpl&)                = delete;
+    TransportImpl(TransportImpl&&) noexcept            = delete;
+    TransportImpl& operator=(const TransportImpl&)     = delete;
+    TransportImpl& operator=(TransportImpl&&) noexcept = delete;
 
     ~TransportImpl()
     {

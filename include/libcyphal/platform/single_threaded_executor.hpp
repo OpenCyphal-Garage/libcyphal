@@ -33,13 +33,13 @@ namespace platform
 class SingleThreadedExecutor : public IExecutor
 {
 public:
-             SingleThreadedExecutor() = default;
+    SingleThreadedExecutor()          = default;
     virtual ~SingleThreadedExecutor() = default;
 
-                            SingleThreadedExecutor(const SingleThreadedExecutor&)     = delete;
-                            SingleThreadedExecutor(SingleThreadedExecutor&&) noexcept = delete;
-    SingleThreadedExecutor& operator=(const SingleThreadedExecutor&)                  = delete;
-    SingleThreadedExecutor& operator=(SingleThreadedExecutor&&) noexcept              = delete;
+    SingleThreadedExecutor(const SingleThreadedExecutor&)                = delete;
+    SingleThreadedExecutor(SingleThreadedExecutor&&) noexcept            = delete;
+    SingleThreadedExecutor& operator=(const SingleThreadedExecutor&)     = delete;
+    SingleThreadedExecutor& operator=(SingleThreadedExecutor&&) noexcept = delete;
 
     struct SpinResult
     {
@@ -210,7 +210,7 @@ private:
             executor_.onCallbackHandling(CallbackHandling::Moved{&other, this});
         }
 
-                      CallbackNode(const CallbackNode&)        = delete;
+        CallbackNode(const CallbackNode&)                      = delete;
         CallbackNode& operator=(const CallbackNode&)           = delete;
         CallbackNode& operator=(CallbackNode&& other) noexcept = delete;
 
