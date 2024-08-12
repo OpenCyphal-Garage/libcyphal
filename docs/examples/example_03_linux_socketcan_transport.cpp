@@ -119,8 +119,8 @@ protected:
                               << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
                 },
                 [](const Report::MediaConfig& report) {
-                    std::cerr << "Failed to configure media "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                    std::cerr << "Failed to configure media " << "(mediaIdx=" << static_cast<int>(report.media_index)
+                              << ").\n"
                               << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
                 },
                 [this](const Report::MediaPush& report) {

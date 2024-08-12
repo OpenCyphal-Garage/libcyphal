@@ -10,7 +10,6 @@
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/udp/media.hpp>
 #include <libcyphal/transport/udp/tx_rx_sockets.hpp>
-#include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>
 

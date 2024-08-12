@@ -270,7 +270,7 @@ private:
                     //
                     return node.compareByInterface(moved.new_interface);
                 },
-                [awaitable_node]() { return awaitable_node; });
+                [awaitable_node] { return awaitable_node; });
         }
     }
 
@@ -294,7 +294,7 @@ private:
                 //
                 return node.compareByInterface(cb_interface);
             },
-            [this, cb_interface]() {  // factory
+            [this, cb_interface] {  // factory
                 //
                 return makeAwaitableNode(cb_interface);
             });

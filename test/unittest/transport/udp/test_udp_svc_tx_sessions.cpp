@@ -66,8 +66,8 @@ protected:
     void SetUp() override
     {
         EXPECT_CALL(media_mock_, makeTxSocket())  //
-            .WillRepeatedly(Invoke([this]() {
-                return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock_);
+            .WillRepeatedly(Invoke([this] {
+                return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock_);
             }));
 
         EXPECT_CALL(tx_socket_mock_, getMtu())  //

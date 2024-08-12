@@ -41,7 +41,6 @@ namespace
 
 using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
-using Schedule = libcyphal::IExecutor::Callback::Schedule;
 using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
 using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
@@ -101,13 +100,15 @@ class TestUpdTransport : public testing::Test
 protected:
     void SetUp() override
     {
-        EXPECT_CALL(media_mock_, makeTxSocket()).WillRepeatedly(Invoke([this]() {
-            return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock_);
-        }));
-        EXPECT_CALL(media_mock_, makeRxSocket(_)).WillRepeatedly(Invoke([this](auto& endpoint) {
-            rx_socket_mock_.setEndpoint(endpoint);
-            return libcyphal::detail::makeUniquePtr<RxSocketMock::ReferenceWrapper::Spec>(mr_, rx_socket_mock_);
-        }));
+        EXPECT_CALL(media_mock_, makeTxSocket())  //
+            .WillRepeatedly(Invoke([this] {
+                return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock_);
+            }));
+        EXPECT_CALL(media_mock_, makeRxSocket(_))  //
+            .WillRepeatedly(Invoke([this](auto& endpoint) {
+                rx_socket_mock_.setEndpoint(endpoint);
+                return libcyphal::detail::makeUniquePtr<RxSocketMock::RefWrapper::Spec>(mr_, rx_socket_mock_);
+            }));
 
         EXPECT_CALL(tx_socket_mock_, getMtu()).WillRepeatedly(Invoke(&tx_socket_mock_, &TxSocketMock::getBaseMtu));
     }
@@ -280,9 +281,10 @@ TEST_F(TestUpdTransport, getProtocolParams)
     EXPECT_THAT(params.mtu_bytes, UDPARD_MTU_DEFAULT);
 
     StrictMock<TxSocketMock> tx_socket_mock2{"S2"};
-    EXPECT_CALL(media_mock2, makeTxSocket()).WillRepeatedly(Invoke([&]() {
-        return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock2);
-    }));
+    EXPECT_CALL(media_mock2, makeTxSocket())  //
+        .WillRepeatedly(Invoke([&] {          //
+            return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock2);
+        }));
     EXPECT_CALL(tx_socket_mock2, getMtu()).WillRepeatedly(Return(ITxSocket::DefaultMtu));
 
     auto maybe_tx_session = transport->makeMessageTxSession({123});
@@ -530,9 +532,10 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
     StrictMock<MediaMock>    media_mock2{};
     StrictMock<TxSocketMock> tx_socket_mock2{"TxS2"};
     EXPECT_CALL(tx_socket_mock2, getMtu()).WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
-    EXPECT_CALL(media_mock2, makeTxSocket()).WillRepeatedly(Invoke([this, &tx_socket_mock2]() {
-        return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock2);
-    }));
+    EXPECT_CALL(media_mock2, makeTxSocket())  //
+        .WillRepeatedly(Invoke([this, &tx_socket_mock2] {
+            return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock2);
+        }));
 
     auto transport = makeTransport({mr_}, &media_mock2);
     EXPECT_THAT(transport->setLocalNodeId(0x45), Eq(cetl::nullopt));
@@ -633,9 +636,10 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
     StrictMock<MediaMock>    media_mock2{};
     StrictMock<TxSocketMock> tx_socket_mock2{"S2"};
     EXPECT_CALL(tx_socket_mock2, getMtu()).WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
-    EXPECT_CALL(media_mock2, makeTxSocket()).WillRepeatedly(Invoke([&]() {
-        return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock2);
-    }));
+    EXPECT_CALL(media_mock2, makeTxSocket())  //
+        .WillRepeatedly(Invoke([&] {          //
+            return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock2);
+        }));
 
     auto transport = makeTransport({mr_}, &media_mock2);
 
@@ -663,8 +667,8 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
         EXPECT_CALL(handler_mock, invoke(VariantWith<SocketSendReport>(Truly([&](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<ArgumentError>(_));
                         EXPECT_THAT(report.media_index, 0);
-                        auto culprit = static_cast<TxSocketMock::ReferenceWrapper&>(report.culprit);
-                        EXPECT_THAT(culprit.tx_socket_mock(), Ref(tx_socket_mock_));
+                        auto culprit = static_cast<TxSocketMock::RefWrapper&>(report.culprit);
+                        EXPECT_THAT(culprit.reference(), Ref(tx_socket_mock_));
                         return true;
                     }))))
             .WillOnce(Return(cetl::nullopt));
@@ -703,8 +707,8 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
         EXPECT_CALL(handler_mock, invoke(VariantWith<SocketSendReport>(Truly([&](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<PlatformError>(_));
                         EXPECT_THAT(report.media_index, 1);
-                        auto culprit = static_cast<TxSocketMock::ReferenceWrapper&>(report.culprit);
-                        EXPECT_THAT(culprit.tx_socket_mock(), Ref(tx_socket_mock2));
+                        auto culprit = static_cast<TxSocketMock::RefWrapper&>(report.culprit);
+                        EXPECT_THAT(culprit.reference(), Ref(tx_socket_mock2));
                         return true;
                     }))))
             .WillOnce(Return(cetl::nullopt));

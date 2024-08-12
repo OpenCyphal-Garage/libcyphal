@@ -120,18 +120,18 @@ protected:
                               << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
                 },
                 [](const Report::MediaMakeRxSocket& report) {
-                    std::cerr << "Failed to make RX socket "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                    std::cerr << "Failed to make RX socket " << "(mediaIdx=" << static_cast<int>(report.media_index)
+                              << ").\n"
                               << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
                 },
                 [](const Report::MediaMakeTxSocket& report) {
-                    std::cerr << "Failed to make TX socket "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                    std::cerr << "Failed to make TX socket " << "(mediaIdx=" << static_cast<int>(report.media_index)
+                              << ").\n"
                               << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
                 },
                 [](const Report::MediaTxSocketSend& report) {
-                    std::cerr << "Failed to TX frame to socket "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                    std::cerr << "Failed to TX frame to socket " << "(mediaIdx=" << static_cast<int>(report.media_index)
+                              << ").\n"
                               << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
                 },
                 [](const Report::MediaRxSocketReceive& report) {

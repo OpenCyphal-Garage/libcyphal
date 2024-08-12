@@ -75,13 +75,13 @@ protected:
     void SetUp() override
     {
         EXPECT_CALL(media_mock_, makeTxSocket())  //
-            .WillRepeatedly(Invoke([this]() {
-                return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock_);
+            .WillRepeatedly(Invoke([this] {
+                return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock_);
             }));
         EXPECT_CALL(media_mock_, makeRxSocket(_))  //
             .WillRepeatedly(Invoke([this](auto& endpoint) {
                 rx_socket_mock_.setEndpoint(endpoint);
-                return libcyphal::detail::makeUniquePtr<RxSocketMock::ReferenceWrapper::Spec>(mr_, rx_socket_mock_);
+                return libcyphal::detail::makeUniquePtr<RxSocketMock::RefWrapper::Spec>(mr_, rx_socket_mock_);
             }));
     }
 

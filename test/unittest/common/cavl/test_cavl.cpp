@@ -270,7 +270,7 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
         EXPECT_EQ(nullptr, tr.search(pred));
         EXPECT_EQ(nullptr, static_cast<const TreeType&>(tr).search(pred));
         EXPECT_FALSE(t[i]->isLinked());
-        auto result = tr.search(pred, [&]() { return t[i]; });
+        auto result = tr.search(pred, [&] { return t[i]; });
         EXPECT_TRUE(t[i]->isLinked());
         EXPECT_EQ(t[i], std::get<0>(result));
         EXPECT_FALSE(std::get<1>(result));
@@ -866,7 +866,7 @@ TEST(TestCavl, randomized)
     std::uint64_t         cnt_addition = 0;
     std::uint64_t         cnt_removal  = 0;
 
-    const auto validate = [&]() {
+    const auto validate = [&] {
         EXPECT_EQ(size, std::accumulate(mask.begin(), mask.end(), 0U, [](const std::size_t a, const std::size_t b) {
                       return a + b;
                   }));
