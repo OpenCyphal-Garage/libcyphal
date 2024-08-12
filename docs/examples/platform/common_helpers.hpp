@@ -184,9 +184,7 @@ struct CommonHelpers
 
                     callback_             = executor.registerCallback([&](const auto now) { publish(now); });
                     constexpr auto period = std::chrono::seconds{uavcan::node::Heartbeat_1_0::MAX_PUBLICATION_PERIOD};
-                    const bool result = callback_.schedule(Callback::Schedule::Repeat{startup_time + period, period});
-                    (void) result;
-                    CETL_DEBUG_ASSERT(result, "Failed to schedule heartbeat callback.");
+                    callback_.schedule(Callback::Schedule::Repeat{startup_time + period, period});
                 }
             }
 

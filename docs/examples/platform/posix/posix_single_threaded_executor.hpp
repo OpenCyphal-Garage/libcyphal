@@ -136,9 +136,7 @@ public:
                 {
                     if (auto* const cb_interface = callback_interfaces_[index])
                     {
-                        const bool result = cb_interface->schedule(Callback::Schedule::Once{now_time});
-                        (void) result;
-                        CETL_DEBUG_ASSERT(result, "Failed to schedule callback.");
+                        cb_interface->schedule(Callback::Schedule::Once{now_time});
                     }
                 }
             }
