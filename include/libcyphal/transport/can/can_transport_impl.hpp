@@ -231,7 +231,9 @@ private:
         //
         if (total_svc_rx_ports_ > 0)
         {
-            executor_.scheduleCallback(configure_filters_callback_, Callback::Schedule::Once{executor_.now()});
+            const bool result = configure_filters_callback_.schedule(Callback::Schedule::Once{executor_.now()});
+            (void) result;
+            CETL_DEBUG_ASSERT(result, "Failed to schedule filter configuration.");
         }
 
         return cetl::nullopt;
@@ -357,12 +359,14 @@ private:
     {
         if (!configure_filters_callback_.has_value())
         {
-            configure_filters_callback_ = executor_.registerCallback([this](const TimePoint) {  //
+            configure_filters_callback_ = executor_.registerCallback([this](const auto&) {  //
                 configureMediaFilters();
             });
         }
 
-        executor_.scheduleCallback(configure_filters_callback_, Callback::Schedule::Once{executor_.now()});
+        const bool result = configure_filters_callback_.schedule(Callback::Schedule::Once{executor_.now()});
+        (void) result;
+        CETL_DEBUG_ASSERT(result, "Failed to schedule filter configuration.");
     }
 
     // MARK: Privates:
@@ -431,12 +435,10 @@ private:
         {
             if (!media.rx_callback().has_value())
             {
-                media.rx_callback() = media.interface().registerPopCallback(  //
-                    executor_,
-                    [this, &media](const TimePoint) {  //
-                        //
-                        receiveNextFrame(media);
-                    });
+                media.rx_callback() = media.interface().registerPopCallback([this, &media](const auto&) {  //
+                    //
+                    receiveNextFrame(media);
+                });
             }
         }
 
@@ -598,10 +600,10 @@ private:
                 //
                 if (!media.tx_callback().has_value())
                 {
-                    media.tx_callback() =
-                        media.interface().registerPushCallback(executor_, [this, &media](const TimePoint) {  //
-                            pushNextFrameToMedia(media);
-                        });
+                    media.tx_callback() = media.interface().registerPushCallback([this, &media](const auto&) {
+                        //
+                        pushNextFrameToMedia(media);
+                    });
                 }
                 return;
             }

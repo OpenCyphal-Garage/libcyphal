@@ -69,10 +69,9 @@ public:
             return tx_socket_mock_.send(deadline, multicast_endpoint, dscp, payload_fragments);
         }
 
-        CETL_NODISCARD IExecutor::Callback::Any registerCallback(IExecutor&                      executor,
-                                                                 IExecutor::Callback::Function&& function) override
+        CETL_NODISCARD IExecutor::Callback::Any registerCallback(IExecutor::Callback::Function&& function) override
         {
-            return tx_socket_mock_.registerCallback(executor, std::move(function));
+            return tx_socket_mock_.registerCallback(std::move(function));
         }
 
     private:
@@ -114,10 +113,7 @@ public:
                  const PayloadFragments payload_fragments),
                 (override));
 
-    MOCK_METHOD(IExecutor::Callback::Any,
-                registerCallback,
-                (IExecutor & executor, IExecutor::Callback::Function&& function),
-                (override));
+    MOCK_METHOD(IExecutor::Callback::Any, registerCallback, (IExecutor::Callback::Function && function), (override));
 
 private:
     const std::string name_;
@@ -160,10 +156,9 @@ public:
             return rx_socket_mock_.receive();
         }
 
-        CETL_NODISCARD IExecutor::Callback::Any registerCallback(IExecutor&                      executor,
-                                                                 IExecutor::Callback::Function&& function) override
+        CETL_NODISCARD IExecutor::Callback::Any registerCallback(IExecutor::Callback::Function&& function) override
         {
-            return rx_socket_mock_.registerCallback(executor, std::move(function));
+            return rx_socket_mock_.registerCallback(std::move(function));
         }
 
     private:
@@ -201,10 +196,7 @@ public:
 
     MOCK_METHOD(ReceiveResult::Type, receive, (), (override));
 
-    MOCK_METHOD(IExecutor::Callback::Any,
-                registerCallback,
-                (IExecutor & executor, IExecutor::Callback::Function&& function),
-                (override));
+    MOCK_METHOD(IExecutor::Callback::Any, registerCallback, (IExecutor::Callback::Function && function), (override));
 
 private:
     const std::string name_;

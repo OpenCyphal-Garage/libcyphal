@@ -42,18 +42,12 @@ namespace detail
 ///
 class TransportDelegate
 {
-    // 1141F5C0-2E61-44BF-9F0E-FA1C518CD517
-    using CanardMemoryTypeIdType = cetl::
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
-        type_id_type<0x11, 0x41, 0xF5, 0xC0, 0x2E, 0x61, 0x44, 0xBF, 0x9F, 0x0E, 0xFA, 0x1C, 0x51, 0x8C, 0xD5, 0x17>;
-
 public:
     /// @brief RAII class to manage memory allocated by Canard library.
     ///
     /// NOSONAR cpp:S4963 for below `class CanardMemory` - we do directly handle resources here.
     ///
-    class CanardMemory final  // NOSONAR cpp:S4963
-        : public cetl::rtti_helper<CanardMemoryTypeIdType, ScatteredBuffer::IStorage>
+    class CanardMemory final : public ScatteredBuffer::IStorage  // NOSONAR cpp:S4963
     {
     public:
         CanardMemory(TransportDelegate& delegate, cetl::byte* const buffer, const std::size_t payload_size)
@@ -70,7 +64,7 @@ public:
         }
         CanardMemory(const CanardMemory&) = delete;
 
-        ~CanardMemory() override
+        ~CanardMemory()
         {
             if (buffer_ != nullptr)
             {

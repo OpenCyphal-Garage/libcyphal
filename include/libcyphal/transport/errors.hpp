@@ -38,10 +38,24 @@ struct CapacityError final
 ///
 class IPlatformError
 {
+    // C6271889-BCF8-43A9-8D79-FA64FC3EFD93
+    // clang-format off
+    using TypeIdType = cetl::type_id_type<
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+        0xC6, 0x27, 0x18, 0x89, 0xBC, 0xF8, 0x43, 0xA9, 0x8D, 0x79, 0xFA, 0x64, 0xFC, 0x3E, 0xFD, 0x93>;
+    // clang-format on
+
 public:
     /// Gets platform-specific error code.
     ///
     virtual std::uint32_t code() const noexcept = 0;
+
+    // MARK: RTTI
+
+    static constexpr cetl::type_id _get_type_id_() noexcept
+    {
+        return cetl::type_id_type_value<TypeIdType>();
+    }
 
 protected:
     IPlatformError()                                     = default;

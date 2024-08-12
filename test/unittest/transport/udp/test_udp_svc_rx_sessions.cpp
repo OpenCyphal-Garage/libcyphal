@@ -249,8 +249,8 @@ TEST_F(TestUdpSvcRxSessions, receive_request)
     EXPECT_THAT(rx_socket_mock_.getEndpoint().ip_address, 0);
     EXPECT_THAT(rx_socket_mock_.getEndpoint().udp_port, 0);
 
-    EXPECT_CALL(rx_socket_mock_, registerCallback(Ref(scheduler_), _))  //
-        .WillOnce(Invoke([&](auto&, auto function) {                    //
+    EXPECT_CALL(rx_socket_mock_, registerCallback(_))  //
+        .WillOnce(Invoke([&](auto function) {          //
             return scheduler_.registerNamedCallback("rx_socket", std::move(function));
         }));
 
@@ -271,7 +271,7 @@ TEST_F(TestUdpSvcRxSessions, receive_request)
 
     TimePoint rx_timestamp;
 
-    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+    scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         SCOPED_TRACE("1-st iteration: one frame available @ 1s");
 
@@ -295,7 +295,7 @@ TEST_F(TestUdpSvcRxSessions, receive_request)
             });
         scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
 
-        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const auto&) {
             //
             const auto maybe_rx_transfer = session->receive();
             ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -318,7 +318,7 @@ TEST_F(TestUdpSvcRxSessions, receive_request)
                 });
         });
     });
-    scheduler_.scheduleAt(2s, [&](const TimePoint) {
+    scheduler_.scheduleAt(2s, [&](const auto&) {
         //
         SCOPED_TRACE("2-nd iteration: invalid null frame available @ 2s");
 
@@ -329,13 +329,13 @@ TEST_F(TestUdpSvcRxSessions, receive_request)
             });
         scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
 
-        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const auto&) {
             //
             const auto maybe_rx_transfer = session->receive();
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
         });
     });
-    scheduler_.scheduleAt(3s, [&](const TimePoint) {
+    scheduler_.scheduleAt(3s, [&](const auto&) {
         //
         SCOPED_TRACE("3-rd iteration: malformed frame available @ 3s - no error, just drop");
 
@@ -361,7 +361,7 @@ TEST_F(TestUdpSvcRxSessions, receive_request)
             });
         scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
 
-        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const auto&) {
             //
             const auto maybe_rx_transfer = session->receive();
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
@@ -380,8 +380,8 @@ TEST_F(TestUdpSvcRxSessions, receive_response)
     EXPECT_THAT(rx_socket_mock_.getEndpoint().ip_address, 0);
     EXPECT_THAT(rx_socket_mock_.getEndpoint().udp_port, 0);
 
-    EXPECT_CALL(rx_socket_mock_, registerCallback(Ref(scheduler_), _))  //
-        .WillOnce(Invoke([&](auto&, auto function) {                    //
+    EXPECT_CALL(rx_socket_mock_, registerCallback(_))  //
+        .WillOnce(Invoke([&](auto function) {          //
             return scheduler_.registerNamedCallback("rx_socket", std::move(function));
         }));
 
@@ -403,7 +403,7 @@ TEST_F(TestUdpSvcRxSessions, receive_response)
 
     TimePoint rx_timestamp;
 
-    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+    scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         SCOPED_TRACE("1-st iteration: one frame available @ 1s");
 
@@ -427,7 +427,7 @@ TEST_F(TestUdpSvcRxSessions, receive_response)
             });
         scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
 
-        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const auto&) {
             //
             const auto maybe_rx_transfer = session->receive();
             ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -450,7 +450,7 @@ TEST_F(TestUdpSvcRxSessions, receive_response)
                 });
         });
     });
-    scheduler_.scheduleAt(2s, [&](const TimePoint) {
+    scheduler_.scheduleAt(2s, [&](const auto&) {
         //
         SCOPED_TRACE("2-nd iteration: media RX socket error @ 2s");
 
@@ -462,7 +462,7 @@ TEST_F(TestUdpSvcRxSessions, receive_response)
             });
         scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
 
-        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const auto&) {
             //
             const auto maybe_rx_transfer = session->receive();
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
@@ -475,8 +475,8 @@ TEST_F(TestUdpSvcRxSessions, unsubscribe)
 {
     auto transport = makeTransport({mr_}, NodeId{0x31});
 
-    EXPECT_CALL(rx_socket_mock_, registerCallback(Ref(scheduler_), _))  //
-        .WillOnce(Invoke([&](auto&, auto function) {                    //
+    EXPECT_CALL(rx_socket_mock_, registerCallback(_))  //
+        .WillOnce(Invoke([&](auto function) {          //
             return scheduler_.registerCallback(std::move(function));
         }));
 
@@ -485,7 +485,7 @@ TEST_F(TestUdpSvcRxSessions, unsubscribe)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IRequestRxSession>>(std::move(maybe_session));
 
-    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+    scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         session.reset();
     });

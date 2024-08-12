@@ -33,8 +33,8 @@ namespace platform
 class SingleThreadedExecutor : public IExecutor
 {
 public:
-    SingleThreadedExecutor()           = default;
-    ~SingleThreadedExecutor() override = default;
+    SingleThreadedExecutor()          = default;
+    virtual ~SingleThreadedExecutor() = default;
 
     SingleThreadedExecutor(const SingleThreadedExecutor&)                = delete;
     SingleThreadedExecutor(SingleThreadedExecutor&&) noexcept            = delete;
@@ -72,11 +72,14 @@ public:
 
             if (const auto exec_time = isNowTimeToExecute(callback_node.nextExecTime(), spin_result))
             {
-                removeCallbackNode(callback_node);
-                callback_node.reschedule(*exec_time);
-                insertCallbackNode(callback_node);
+                const Callback::Arg arg{*exec_time, spin_result.approx_now};
 
-                callback_node(spin_result.approx_now);
+                adjustNextExecTimeOf(callback_node, [&arg](auto& cb_node) {
+                    //
+                    cb_node.reschedule(arg);
+                });
+
+                callback_node(arg);
             }
             else
             {
@@ -112,69 +115,88 @@ public:
         return {std::move(new_callback_node)};
     }
 
-    void scheduleCallback(Callback::Any& callback, const Callback::Schedule::Variant& schedule) override
-    {
-        if (auto* const cb_node = callbackToNode(callback))
-        {
-            CETL_DEBUG_ASSERT(this == &cb_node->executor(), "");
-            scheduleCallbackNode(*cb_node, schedule);
-        }
-    }
-
 protected:
-    static Callback::Handle callbackToHandle(Callback::Any& callback) noexcept
+    /// @brief Defines callback handling umbrella type.
+    ///
+    struct CallbackHandling
     {
-        return static_cast<Callback::Handle>(*callbackToNode(callback));
-    }
+        /// @brief Defines callback "moved" handling event.
+        ///
+        /// Sent when the callback instance is moved in memory.
+        ///
+        struct Moved
+        {
+            /// Interface of the callback before movement.
+            ///
+            /// Although the pointed memory still valid (it will be released after `onCallbackHandling` return),
+            /// interface is already removed from executor, so it should not be used other than for pointer comparison.
+            Callback::Interface* const old_interface;
 
-    void scheduleCallbackByHandle(const Callback::Handle cb_handle, const Callback::Schedule::Variant& schedule)
-    {
-        auto* const cb_node_ptr = CallbackNode::fromHandle(cb_handle);
-        scheduleCallbackNode(*cb_node_ptr, schedule);
-    }
+            /// Interface of the callback after movement.
+            ///
+            /// This is the new interface of the callback, which could be called or stored for further use.
+            /// It will stay valid until corresponding `Removed` event is sent.
+            Callback::Interface* const new_interface;
+        };
+
+        /// @brief Defines callback "removed" handling event.
+        ///
+        /// Sent when the callback is removed from the executor.
+        ///
+        struct Removed
+        {
+            /// Interface of the callback after removal.
+            ///
+            /// Although the pointed memory still valid (it will be released after `onCallbackHandling` return),
+            /// interface is already removed from executor, so it should not be used other than for pointer comparison.
+            Callback::Interface* const old_interface;
+        };
+
+        /// @brief Defines callback handling variant type.
+        using Variant = cetl::variant<Moved, Removed>;
+
+    };  // CallbackHandling
 
     /// @brief Extension point for subclasses to observe callback lifetime.
     ///
-    /// Called on callback node appending, movement and removal.
+    /// Called on callback node movement or removal.
+    /// Subclasses are not required to call this base class method.
     ///
-    /// @param old_handle Handle of the callback node before callback change.
-    /// @param new_handle Handle of the callback node after callback change.
+    /// @param event_var Variant of a callback handling event.
     ///
-    /// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-    virtual void onCallbackHandling(const Callback::Handle old_handle, const Callback::Handle new_handle) noexcept
+    virtual void onCallbackHandling(const CallbackHandling::Variant& event_var)
     {
-        // Nothing to do here b/c AVL node movement already updated its links,
-        // but subclasses may override this method to update their own references to callbacks.
-        (void) old_handle;
-        (void) new_handle;
+        // Nothing to do here b/c AVL `CallbackNode` movement (or destruction) has already updated its links,
+        // but subclasses may override this method to update their own references to callback interfaces.
+        (void) event_var;
     }
 
 private:
-    // 49E40F04-42DC-481D-981C-46775698EED2
-    using CallbackNodeTypeIdType = cetl::
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
-        type_id_type<0x49, 0xE4, 0x0F, 0x04, 0x42, 0xDC, 0x48, 0x1D, 0x98, 0x1C, 0x46, 0x77, 0x56, 0x98, 0xEE, 0xD2>;
+    /// We use distant future as "never" time point.
+    static constexpr TimePoint TimePointNever()
+    {
+        return TimePoint::max();
+    }
 
     /// No Sonar cpp:S4963 b/c `CallbackNode` supports move operation.
     ///
-    class CallbackNode final : public cavl::Node<CallbackNode>  // NOSONAR cpp:S4963
+    class CallbackNode final : public cavl::Node<CallbackNode>, public Callback::Interface  // NOSONAR cpp:S4963
     {
     public:
         CallbackNode(SingleThreadedExecutor& executor, Callback::Function&& function)
             : executor_{executor}
             , function_{std::move(function)}
-            , next_exec_time_{TimePoint::max()}
-            , schedule_{Callback::Schedule::None{}}
+            , next_exec_time_{TimePointNever()}
+            , schedule_{cetl::nullopt}
         {
             CETL_DEBUG_ASSERT(function_, "");
-            executor.onCallbackHandling({}, static_cast<Callback::Handle>(*this));
         }
         ~CallbackNode()
         {
             if (isLinked())
             {
                 executor().callback_nodes_.remove(this);
-                executor().onCallbackHandling(static_cast<Callback::Handle>(*this), {});
+                executor().onCallbackHandling(CallbackHandling::Removed{this});
             }
         };
 
@@ -185,86 +207,22 @@ private:
             , next_exec_time_{other.next_exec_time_}
             , schedule_{other.schedule_}
         {
-            executor().onCallbackHandling(static_cast<Callback::Handle>(other), static_cast<Callback::Handle>(*this));
+            executor().onCallbackHandling(CallbackHandling::Moved{&other, this});
         }
 
-        CallbackNode& operator=(CallbackNode&& other) noexcept
+        CallbackNode(const CallbackNode&)                      = delete;
+        CallbackNode& operator=(const CallbackNode&)           = delete;
+        CallbackNode& operator=(CallbackNode&& other) noexcept = delete;
+
+        void reschedule(const Callback::Arg& arg)
         {
-            static_cast<Node&>(*this) = std::move(static_cast<Node&>(other));
+            CETL_DEBUG_ASSERT(schedule_, "");
 
-            executor_       = other.executor_;
-            function_       = std::move(other.function_);
-            next_exec_time_ = other.next_exec_time_;
-            schedule_       = other.schedule_;
-
-            executor().onCallbackHandling(static_cast<Callback::Handle>(other), static_cast<Callback::Handle>(*this));
-
-            return *this;
-        }
-
-        CallbackNode(const CallbackNode&)            = delete;
-        CallbackNode& operator=(const CallbackNode&) = delete;
-
-        explicit operator Callback::Handle() const noexcept
-        {
-            // Next nolint & NOSONAR are unavoidable: this is opaque handle conversion code.
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-            return reinterpret_cast<Callback::Handle>(this);  // NOSONAR cpp:S3630
-        }
-        static CallbackNode* fromHandle(const Callback::Handle handle) noexcept
-        {
-            CETL_DEBUG_ASSERT(handle, "");
-
-            // Next nolint & NOSONAR are unavoidable: this is opaque handle conversion code.
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast, performance-no-int-to-ptr)
-            return reinterpret_cast<CallbackNode*>(handle);  // NOSONAR cpp:S3630
-        }
-
-        SingleThreadedExecutor& executor() const noexcept
-        {
-            return executor_.get();
-        }
-
-        const Callback::Schedule::Variant& getSchedule() const noexcept
-        {
-            return schedule_;
-        }
-
-        void setSchedule(const Callback::Schedule::Variant& schedule)
-        {
-            schedule_ = schedule;
-            cetl::visit(cetl::make_overloaded(
-                            [this](const Callback::Schedule::None&) {
-                                //
-                                next_exec_time_ = TimePoint::max();
-                            },
-                            [this](const Callback::Schedule::Once& once) {
-                                //
-                                next_exec_time_ = once.exec_time;
-                            },
-                            [this](const Callback::Schedule::Repeat& repeat) {
-                                //
-                                next_exec_time_ = repeat.exec_time;
-                            }),
-                        schedule);
-        }
-
-        void reschedule(const TimePoint exec_time)
-        {
-            cetl::visit(cetl::make_overloaded(
-                            [this](const Callback::Schedule::None&) {
-                                //
-                                next_exec_time_ = TimePoint::max();
-                            },
-                            [this](const Callback::Schedule::Once&) {
-                                //
-                                next_exec_time_ = TimePoint::max();
-                            },
-                            [this, exec_time](const Callback::Schedule::Repeat& repeat) {
-                                //
-                                next_exec_time_ = exec_time + repeat.period;
-                            }),
-                        schedule_);
+            next_exec_time_ = cetl::visit(  //
+                cetl::make_overloaded(      //
+                    [](const Callback::Schedule::Once&) { return TimePointNever(); },
+                    [&arg](const Callback::Schedule::Repeat& repeat) { return arg.exec_time + repeat.period; }),
+                *schedule_);  // NOLINT(bugprone-unchecked-optional-access)
         }
 
         TimePoint nextExecTime() const noexcept
@@ -272,9 +230,9 @@ private:
             return next_exec_time_;
         }
 
-        void operator()(const TimePoint now_time) const
+        void operator()(const Callback::Arg& arg) const
         {
-            function_(now_time);
+            function_(arg);
         }
 
         CETL_NODISCARD std::int8_t compareByExecutionTime(const TimePoint exec_time) const noexcept
@@ -285,37 +243,36 @@ private:
             return (exec_time >= next_exec_time_) ? +1 : -1;
         }
 
-        static constexpr cetl::type_id _get_type_id_() noexcept
-        {
-            return cetl::type_id_type_value<CallbackNodeTypeIdType>();
-        }
-
-        // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
-        CETL_NODISCARD void* _cast_(const cetl::type_id& id) & noexcept  // NOSONAR cpp:S5008
-        {
-            return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
-        }
-
-        // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
-        CETL_NODISCARD const void* _cast_(const cetl::type_id& id) const& noexcept  // NOSONAR cpp:S5008
-        {
-            return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
-        }
-
     private:
+        SingleThreadedExecutor& executor() const noexcept
+        {
+            return executor_.get();
+        }
+
+        // MARK: Callback::Interface
+
+        CETL_NODISCARD bool schedule(const Callback::Schedule::Variant& schedule) override
+        {
+            schedule_ = schedule;
+            executor().adjustNextExecTimeOf(*this, [this, &schedule](auto&) {
+                //
+                next_exec_time_ = cetl::visit(  //
+                    cetl::make_overloaded(      //
+                        [](const Callback::Schedule::Once& once) { return once.exec_time; },
+                        [](const Callback::Schedule::Repeat& repeat) { return repeat.exec_time; }),
+                    schedule);
+            });
+            return true;
+        }
+
         // MARK: Data members:
 
         std::reference_wrapper<SingleThreadedExecutor> executor_;
         Callback::Function                             function_;
         TimePoint                                      next_exec_time_;
-        Callback::Schedule::Variant                    schedule_;
+        cetl::optional<Callback::Schedule::Variant>    schedule_;
 
     };  // CallbackNode
-
-    static CallbackNode* callbackToNode(Callback::Any& callback) noexcept
-    {
-        return cetl::get_if<CallbackNode>(&callback);
-    }
 
     CETL_NODISCARD cetl::optional<TimePoint> isNowTimeToExecute(const TimePoint next_exec_time,
                                                                 SpinResult&     inout_spin_result) const
@@ -327,7 +284,7 @@ private:
             {
                 // To simplify node sorting `max` is used like "never" (aka "infinity") but result of spin
                 // encodes this more explicitly as `cetl::nullopt` (aka "no next exec time").
-                if (next_exec_time != TimePoint::max())
+                if (next_exec_time != TimePointNever())
                 {
                     inout_spin_result.next_exec_time = next_exec_time;
                 }
@@ -363,15 +320,19 @@ private:
         callback_nodes_.remove(&callback_node);
     }
 
-    void scheduleCallbackNode(CallbackNode& callback_node, const Callback::Schedule::Variant& schedule)
+    template <typename AdjustAction>
+    void adjustNextExecTimeOf(CallbackNode& callback_node, AdjustAction&& adjust_action)
     {
+        // Removal and immediate insertion of the same node has sense b/c it will be (most probably) inserted
+        // back at the different `callback_nodes_` tree position - according to the next exec time of the node.
         removeCallbackNode(callback_node);
-        callback_node.setSchedule(schedule);
+        std::forward<AdjustAction>(adjust_action)(callback_node);
         insertCallbackNode(callback_node);
     }
 
     // MARK: - Data members:
 
+    /// Holds AVL tree of registered callback node, sorted by the next execution time.
     cavl::Tree<CallbackNode> callback_nodes_;
 
 };  // SingleThreadedExecutor

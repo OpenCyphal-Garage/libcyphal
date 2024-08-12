@@ -361,7 +361,7 @@ private:
                     }
 
                     // No need to try to send next frame when previous one hasn't finished yet.
-                    if (!media.txSocketState().callback.has_value())
+                    if (!media.txSocketState().callback)
                     {
                         sendNextFrameToMediaTxSocket(media, tx_socket);
                     }
@@ -493,19 +493,13 @@ private:
             [this](const auto& media, auto& socket_state, auto& subscription, auto& session_delegate)
                 -> cetl::optional<AnyFailure> {
                 //
-                if (!socket_state.callback.has_value())
+                if (!socket_state.callback)
                 {
-                    socket_state.callback = socket_state.interface->registerCallback(  //
-                        executor_,
-                        [this, &media, &socket_state, &subscription, &session_delegate](const TimePoint) {
+                    socket_state.callback = socket_state.interface->registerCallback(
+                        [this, &media, &socket_state, &subscription, &session_delegate](const auto&) {
                             //
                             receiveNextMessageFrame(media, socket_state, subscription, session_delegate);
                         });
-
-                    if (!socket_state.callback.has_value())
-                    {
-                        return MemoryError{};
-                    }
                 }
                 return cetl::nullopt;
             });
@@ -527,20 +521,12 @@ private:
         //
         auto media_failure = withMediaSvcRxSockets([this](auto& media,
                                                           auto& socket_state) -> cetl::optional<AnyFailure> {  //
-            //
-            if (!socket_state.callback.has_value())
+            if (!socket_state.callback)
             {
-                socket_state.callback = socket_state.interface->registerCallback(  //
-                    executor_,
-                    [this, &media, &socket_state](auto) {
-                        //
-                        receiveNextServiceFrame(media, socket_state);
-                    });
-
-                if (!socket_state.callback.has_value())
-                {
-                    return MemoryError{};
-                }
+                socket_state.callback = socket_state.interface->registerCallback([this, &media, &socket_state](auto) {
+                    //
+                    receiveNextServiceFrame(media, socket_state);
+                });
             }
             return cetl::nullopt;
         });
@@ -723,10 +709,11 @@ private:
                 // If needed schedule (recursively!) next frame for sending.
                 // Already existing callback will be called by executor when TX socket is ready to send more.
                 //
-                if (!media.txSocketState().callback.has_value())
+                if (!media.txSocketState().callback)
                 {
                     media.txSocketState().callback =
-                        tx_socket.registerCallback(executor_, [this, &media, &tx_socket](const TimePoint) {  //
+                        tx_socket.registerCallback([this, &media, &tx_socket](const auto&) {
+                            //
                             sendNextFrameToMediaTxSocket(media, tx_socket);
                         });
                 }
@@ -821,25 +808,24 @@ private:
                                                                     const Action&               action)
     {
         IMsgRxSessionDelegate* const session_delegate = msg_rx_node.delegate();
-        if (nullptr == session_delegate)
+        if (nullptr != session_delegate)
         {
-            return cetl::nullopt;
-        }
+            auto&      subscription = session_delegate->getSubscription();
+            const auto endpoint =
+                cetl::optional<IpEndpoint>{IpEndpoint::fromUdpardEndpoint(subscription.udp_ip_endpoint)};
 
-        auto&      subscription = session_delegate->getSubscription();
-        const auto endpoint = cetl::optional<IpEndpoint>{IpEndpoint::fromUdpardEndpoint(subscription.udp_ip_endpoint)};
-
-        for (Media& media : media_array_)
-        {
-            cetl::optional<AnyFailure> failure = withEnsureMediaRxSocket(media,
-                                                                         endpoint,
-                                                                         msg_rx_node.socketState(media.index()),
-                                                                         action,
-                                                                         subscription,
-                                                                         *session_delegate);
-            if (failure.has_value())
+            for (Media& media : media_array_)
             {
-                return failure;
+                cetl::optional<AnyFailure> failure = withEnsureMediaRxSocket(media,
+                                                                             endpoint,
+                                                                             msg_rx_node.socketState(media.index()),
+                                                                             action,
+                                                                             subscription,
+                                                                             *session_delegate);
+                if (failure.has_value())
+                {
+                    return failure;
+                }
             }
         }
 

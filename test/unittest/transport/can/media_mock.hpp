@@ -49,12 +49,12 @@ public:
 
     MOCK_METHOD(IExecutor::Callback::Any,
                 registerPushCallback,
-                (IExecutor & executor, IExecutor::Callback::Function&& function),
+                (IExecutor::Callback::Function && function),
                 (override));
 
-    MOCK_METHOD(IExecutor::Callback::Any,
+    MOCK_METHOD(IExecutor::Callback::Any,  //
                 registerPopCallback,
-                (IExecutor & executor, IExecutor::Callback::Function&& function),
+                (IExecutor::Callback::Function && function),
                 (override));
 
 };  // MediaMock

@@ -176,19 +176,17 @@ private:
     }
 
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerPushCallback(
-        libcyphal::IExecutor&                      executor,
         libcyphal::IExecutor::Callback::Function&& function) override
     {
         using HandleWritable = posix::IPosixExecutorExtension::WhenCondition::HandleWritable;
-        return registerCallbackWithCondition(executor, std::move(function), HandleWritable{socket_can_fd_});
+        return registerCallbackWithCondition(executor_, std::move(function), HandleWritable{socket_can_fd_});
     }
 
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerPopCallback(
-        libcyphal::IExecutor&                      executor,
         libcyphal::IExecutor::Callback::Function&& function) override
     {
         using HandleReadable = posix::IPosixExecutorExtension::WhenCondition::HandleReadable;
-        return registerCallbackWithCondition(executor, std::move(function), HandleReadable{socket_can_fd_});
+        return registerCallbackWithCondition(executor_, std::move(function), HandleReadable{socket_can_fd_});
     }
 
     // MARK: Data members:
