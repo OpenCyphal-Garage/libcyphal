@@ -3,13 +3,14 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "../../cetl_gtest_helpers.hpp"
+#include "../../cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
 #include "../../verification_utilities.hpp"
 #include "../../virtual_time_scheduler.hpp"
 #include "can_gtest_helpers.hpp"
 #include "media_mock.hpp"
+#include "transient_error_handler_mock.hpp"
 
 #include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>
@@ -26,6 +27,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <functional>
 #include <utility>
 
 namespace
@@ -41,12 +43,13 @@ using libcyphal::verification_utilities::b;
 
 using testing::_;
 using testing::Eq;
+using testing::Ref;
+using testing::Invoke;
 using testing::Return;
 using testing::SizeIs;
 using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
-using testing::InSequence;
 using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
@@ -64,7 +67,8 @@ class TestCanMsgRxSession : public testing::Test
 protected:
     void SetUp() override
     {
-        EXPECT_CALL(media_mock_, getMtu()).WillRepeatedly(Return(CANARD_MTU_MAX));
+        EXPECT_CALL(media_mock_, getMtu())  //
+            .WillRepeatedly(Return(CANARD_MTU_MAX));
     }
 
     void TearDown() override
@@ -102,6 +106,11 @@ TEST_F(TestCanMsgRxSession, make_setTransferIdTimeout)
 {
     auto transport = makeTransport(mr_);
 
+    EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
+        .WillOnce(Invoke([&](auto&, auto function) {                   //
+            return scheduler_.registerNamedCallback("rx", std::move(function));
+        }));
+
     auto maybe_session = transport->makeMessageRxSession({42, 123});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
@@ -111,17 +120,22 @@ TEST_F(TestCanMsgRxSession, make_setTransferIdTimeout)
 
     session->setTransferIdTimeout(0s);
     session->setTransferIdTimeout(500ms);
+
+    EXPECT_THAT(scheduler_.hasNamedCallback("rx"), true);
+    session.reset();
+    EXPECT_THAT(scheduler_.hasNamedCallback("rx"), false);
 }
 
 TEST_F(TestCanMsgRxSession, make_no_memory)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
     auto transport = makeTransport(mr_mock);
 
     // Emulate that there is no memory available for the message session.
-    EXPECT_CALL(mr_mock, do_allocate(sizeof(can::detail::MessageRxSession), _)).WillOnce(Return(nullptr));
+    EXPECT_CALL(mr_mock, do_allocate(sizeof(can::detail::MessageRxSession), _))  //
+        .WillOnce(Return(nullptr));
 
     auto maybe_session = transport->makeMessageRxSession({64, 0x23});
     EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
@@ -137,13 +151,27 @@ TEST_F(TestCanMsgRxSession, make_fails_due_to_argument_error)
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST_F(TestCanMsgRxSession, run_and_receive)
+TEST_F(TestCanMsgRxSession, receive)
 {
+    StrictMock<TransientErrorHandlerMock> handler_mock;
+
     auto transport = makeTransport(mr_);
+    transport->setTransientErrorHandler(std::ref(handler_mock));
+
+    EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
+        .WillOnce(Invoke([&](auto&, auto function) {                   //
+            return scheduler_.registerNamedCallback("rx", std::move(function));
+        }));
 
     auto maybe_session = transport->makeMessageRxSession({4, 0x23});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
+
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1)))  //
+        .WillOnce([&](Filters filters) {
+            EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
+            return cetl::nullopt;
+        });
 
     const auto params = session->getParams();
     EXPECT_THAT(params.extent_bytes, 4);
@@ -152,130 +180,148 @@ TEST_F(TestCanMsgRxSession, run_and_receive)
     constexpr auto timeout = 200ms;
     session->setTransferIdTimeout(timeout);
 
-    {
+    TimePoint rx_timestamp;
+
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
         SCOPED_TRACE("1-st iteration: one frame available @ 1s");
 
-        scheduler_.setNow(TimePoint{1s});
-        const auto rx_timestamp = now();
+        rx_timestamp = now() + 10ms;
+        EXPECT_CALL(media_mock_, pop(_))  //
+            .WillOnce([&](auto p) {
+                EXPECT_THAT(now(), rx_timestamp);
+                EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+                p[0] = b('0');
+                p[1] = b('1');
+                p[2] = b(0b111'01101);
+                return IMedia::PopResult::Metadata{rx_timestamp, 0x0C'60'23'45, 3};
+            });
+        scheduler_.scheduleNamedCallback("rx", rx_timestamp);
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
-            p[0] = b('0');
-            p[1] = b('1');
-            p[2] = b(0b111'01101);
-            return IMedia::PopResult::Metadata{rx_timestamp, 0x0C'60'23'45, 3};
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
+            //
+            const auto maybe_rx_transfer = session->receive();
+            ASSERT_THAT(maybe_rx_transfer, Optional(_));
+            // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+            const auto& rx_transfer = maybe_rx_transfer.value();
+
+            EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx_timestamp);
+            EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x0D);
+            EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::High);
+            EXPECT_THAT(rx_transfer.metadata.publisher_node_id, Optional(0x45));
+
+            std::array<char, 2> buffer{};
+            ASSERT_THAT(rx_transfer.payload.size(), buffer.size());
+            EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
+            EXPECT_THAT(buffer, ElementsAre('0', '1'));
         });
-        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
-            return cetl::nullopt;
-        });
-
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-
-        const auto maybe_rx_transfer = session->receive();
-        ASSERT_THAT(maybe_rx_transfer, Optional(_));
-        // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-        const auto& rx_transfer = maybe_rx_transfer.value();
-
-        EXPECT_THAT(rx_transfer.metadata.timestamp, rx_timestamp);
-        EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x0D);
-        EXPECT_THAT(rx_transfer.metadata.priority, Priority::High);
-        EXPECT_THAT(rx_transfer.metadata.publisher_node_id, Optional(0x45));
-
-        std::array<char, 2> buffer{};
-        ASSERT_THAT(rx_transfer.payload.size(), buffer.size());
-        EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
-        EXPECT_THAT(buffer, ElementsAre('0', '1'));
-    }
-    {
+    });
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
+        //
         SCOPED_TRACE("2-nd iteration: no frames available @ 2s");
 
-        scheduler_.setNow(TimePoint{2s});
-        const auto rx_timestamp = now();
+        rx_timestamp = now() + 10ms;
+        EXPECT_CALL(media_mock_, pop(_))  //
+            .WillOnce([&](auto p) {
+                EXPECT_THAT(now(), rx_timestamp);
+                EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+                return cetl::nullopt;
+            });
+        scheduler_.scheduleNamedCallback("rx", rx_timestamp);
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
-            return cetl::nullopt;
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
+            //
+            const auto maybe_rx_transfer = session->receive();
+            EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
         });
-
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-
-        const auto maybe_rx_transfer = session->receive();
-        EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
-    }
+    });
+    scheduler_.spinFor(10s);
 }
 
-TEST_F(TestCanMsgRxSession, run_and_receive_one_anonymous_frame)
+TEST_F(TestCanMsgRxSession, receive_one_anonymous_frame)
 {
     auto transport = makeTransport(mr_);
+
+    EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
+        .WillOnce(Invoke([&](auto&, auto function) {                   //
+            return scheduler_.registerNamedCallback("rx", std::move(function));
+        }));
 
     auto maybe_session = transport->makeMessageRxSession({4, 0x23});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
 
-    scheduler_.setNow(TimePoint{1s});
-    const auto rx_timestamp = now();
-
-    {
-        const InSequence seq;
-
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
-            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
-            p[0] = b('1');
-            p[1] = b('2');
-            p[2] = b(0b111'01110);
-            return IMedia::PopResult::Metadata{rx_timestamp, 0x01'60'23'13, 3};
-        });
-        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
-            EXPECT_THAT(now(), rx_timestamp + 10ms);
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1)))  //
+        .WillOnce([&](Filters filters) {
             EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
             return cetl::nullopt;
         });
-    }
 
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    TimePoint rx_timestamp;
 
-    const auto maybe_rx_transfer = session->receive();
-    ASSERT_THAT(maybe_rx_transfer, Optional(_));
-    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-    const auto& rx_transfer = maybe_rx_transfer.value();
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
+        rx_timestamp = now() + 10ms;
+        EXPECT_CALL(media_mock_, pop(_))  //
+            .WillOnce([&](auto p) {
+                EXPECT_THAT(now(), rx_timestamp);
+                EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+                p[0] = b('1');
+                p[1] = b('2');
+                p[2] = b(0b111'01110);
+                return IMedia::PopResult::Metadata{rx_timestamp, 0x01'60'23'13, 3};
+            });
+        scheduler_.scheduleNamedCallback("rx", rx_timestamp);
 
-    EXPECT_THAT(rx_transfer.metadata.timestamp, rx_timestamp);
-    EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x0E);
-    EXPECT_THAT(rx_transfer.metadata.priority, Priority::Exceptional);
-    EXPECT_THAT(rx_transfer.metadata.publisher_node_id, Eq(cetl::nullopt));
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
+            //
+            const auto maybe_rx_transfer = session->receive();
+            ASSERT_THAT(maybe_rx_transfer, Optional(_));
+            // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+            const auto& rx_transfer = maybe_rx_transfer.value();
 
-    std::array<char, 2> buffer{};
-    ASSERT_THAT(rx_transfer.payload.size(), buffer.size());
-    EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
-    EXPECT_THAT(buffer, ElementsAre('1', '2'));
+            EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx_timestamp);
+            EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x0E);
+            EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::Exceptional);
+            EXPECT_THAT(rx_transfer.metadata.publisher_node_id, Eq(cetl::nullopt));
+
+            std::array<char, 2> buffer{};
+            ASSERT_THAT(rx_transfer.payload.size(), buffer.size());
+            EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
+            EXPECT_THAT(buffer, ElementsAre('1', '2'));
+        });
+    });
+    scheduler_.spinFor(10s);
 }
 
-TEST_F(TestCanMsgRxSession, unsubscribe_and_run)
+TEST_F(TestCanMsgRxSession, unsubscribe)
 {
     auto transport = makeTransport(mr_);
+
+    EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
+        .WillOnce(Invoke([&](auto&, auto function) {                   //
+            return scheduler_.registerNamedCallback("rx", std::move(function));
+        }));
 
     auto maybe_session = transport->makeMessageRxSession({4, 0x23});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
 
-    scheduler_.setNow(TimePoint{1s});
-    const auto reset_time = now();
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1)))  //
+        .WillOnce([&](Filters filters) {
+            EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
+            return cetl::nullopt;
+        });
 
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-    EXPECT_CALL(media_mock_, setFilters(IsEmpty())).WillOnce([&](Filters) {
-        EXPECT_THAT(now(), reset_time + 10ms);
-        return cetl::nullopt;
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
+        EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+            .WillOnce([&](Filters) {                     //
+                return cetl::nullopt;
+            });
+        session.reset();
     });
-
-    session.reset();
-
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.spinFor(10s);
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

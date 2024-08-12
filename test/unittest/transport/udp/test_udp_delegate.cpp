@@ -51,21 +51,21 @@ using testing::VariantWith;
 class TestUdpDelegate : public testing::Test
 {
 protected:
-    class TransportDelegateImpl final : public udp::detail::TransportDelegate
+    class TransportDelegateImpl final : public detail::TransportDelegate
     {
     public:
-        using udp::detail::TransportDelegate::MemoryResources;
-        using udp::detail::TransportDelegate::memoryResources;
-        using udp::detail::TransportDelegate::makeUdpardMemoryDeleter;
-        using udp::detail::TransportDelegate::makeUdpardMemoryResource;
+        using TransportDelegate::MemoryResources;
+        using TransportDelegate::memoryResources;
+        using TransportDelegate::makeUdpardMemoryDeleter;
+        using TransportDelegate::makeUdpardMemoryResource;
 
         explicit TransportDelegateImpl(cetl::pmr::memory_resource& general_mr,
                                        cetl::pmr::memory_resource* fragment_mr = nullptr,
                                        cetl::pmr::memory_resource* payload_mr  = nullptr)
-            : udp::detail::TransportDelegate{MemoryResources{general_mr,
-                                                             makeUdpardMemoryResource(nullptr, general_mr),
-                                                             makeUdpardMemoryResource(fragment_mr, general_mr),
-                                                             makeUdpardMemoryDeleter(payload_mr, general_mr)}}
+            : TransportDelegate{MemoryResources{general_mr,
+                                                makeUdpardMemoryResource(nullptr, general_mr),
+                                                makeUdpardMemoryResource(fragment_mr, general_mr),
+                                                makeUdpardMemoryDeleter(payload_mr, general_mr)}}
         {
         }
 
@@ -352,7 +352,7 @@ TEST_F(TestUdpDelegate, makeUdpardMemoryResource)
     EXPECT_THAT(udp_mem_res1.allocate, NotNull());
     EXPECT_THAT(udp_mem_res1.deallocate, NotNull());
 
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
 
     const auto udp_mem_res2 = TransportDelegateImpl::makeUdpardMemoryResource(&mr_mock, general_mr_);
     EXPECT_THAT(udp_mem_res2.user_reference, &mr_mock);
@@ -366,7 +366,7 @@ TEST_F(TestUdpDelegate, makeUdpardMemoryDeleter)
     EXPECT_THAT(udp_mr_del1.user_reference, &general_mr_);
     EXPECT_THAT(udp_mr_del1.deallocate, NotNull());
 
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
 
     const auto udp_mr_del2 = TransportDelegateImpl::makeUdpardMemoryDeleter(&mr_mock, general_mr_);
     EXPECT_THAT(udp_mr_del2.user_reference, &mr_mock);
@@ -375,7 +375,7 @@ TEST_F(TestUdpDelegate, makeUdpardMemoryDeleter)
 
 TEST_F(TestUdpDelegate, allocateMemoryForUdpard_deallocateMemoryForUdpard)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(general_mr_);
 
     const TransportDelegateImpl delegate{mr_mock};
@@ -390,12 +390,13 @@ TEST_F(TestUdpDelegate, allocateMemoryForUdpard_deallocateMemoryForUdpard)
 
 TEST_F(TestUdpDelegate, allocateMemoryForUdpard_no_memory)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
 
     const TransportDelegateImpl delegate{mr_mock};
 
     // Emulate that there is no memory at all.
-    EXPECT_CALL(mr_mock, do_allocate(1, _)).WillOnce(Return(nullptr));
+    EXPECT_CALL(mr_mock, do_allocate(1, _))  //
+        .WillOnce(Return(nullptr));
 
     const auto& session_mr = delegate.memoryResources().session;
     EXPECT_THAT(session_mr.allocate(session_mr.user_reference, 1), IsNull());

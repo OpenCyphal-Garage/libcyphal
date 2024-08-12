@@ -100,13 +100,14 @@ TEST_F(TestSessionTree, ensureNewNodeFor)
 
 TEST_F(TestSessionTree, ensureNewNodeFor_no_memory)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
     detail::SessionTree<MyNode> tree{mr_mock};
 
     // Emulate that there is no memory available for the message session.
-    EXPECT_CALL(mr_mock, do_allocate(sizeof(MyNode), _)).WillOnce(Return(nullptr));
+    EXPECT_CALL(mr_mock, do_allocate(sizeof(MyNode), _))  //
+        .WillOnce(Return(nullptr));
 
     EXPECT_THAT(tree.ensureNewNodeFor(0), VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
 }

@@ -2,6 +2,7 @@
 
 #include <libcyphal/common/cavl/cavl.hpp>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -47,13 +48,15 @@ public:
     {
     }
     using Self = cavl::Node<My>;
+    using Self::isLinked;
+    using Self::isRoot;
     using Self::getChildNode;
     using Self::getParentNode;
     using Self::getBalanceFactor;
-    using Self::getRootNodePtr;
     using Self::search;
     using Self::remove;
-    using Self::traverse;
+    using Self::traverseInOrder;
+    using Self::traversePostOrder;
     using Self::min;
     using Self::max;
 
@@ -105,12 +108,12 @@ NODISCARD auto getHeight(const N<T>* const n) -> std::int8_t  // NOLINT(misc-no-
 
 /// Returns the size if the tree is ordered correctly, otherwise SIZE_MAX.
 template <typename T>
-NODISCARD std::size_t checkOrdering(const N<T>* const root)
+NODISCARD std::size_t checkNormalOrdering(const N<T>* const root)
 {
     const N<T>* prev  = nullptr;
     bool        valid = true;
     std::size_t size  = 0;
-    T::traverse(root, [&](const N<T>& nd) {
+    T::traverseInOrder(root, [&](const N<T>& nd) {
         if (prev != nullptr)
         {
             valid = valid && (prev->getValue() < nd.getValue());
@@ -118,7 +121,46 @@ NODISCARD std::size_t checkOrdering(const N<T>* const root)
         prev = &nd;
         size++;
     });
+
     return valid ? size : std::numeric_limits<std::size_t>::max();
+}
+template <typename T>
+std::size_t checkReverseOrdering(const N<T>* const root)
+{
+    const N<T>* prev  = nullptr;
+    bool        valid = true;
+    std::size_t size  = 0;
+    T::traverseInOrder(
+        root,
+        [&](const N<T>& nd) {
+            if (prev != nullptr)
+            {
+                valid = valid && (prev->getValue() > nd.getValue());
+            }
+            prev = &nd;
+            size++;
+
+            // Fake `return` to cover other `traverseInOrder` overload (the returning one).
+            return false;
+        },
+        true /* reverse */);
+
+    return valid ? size : std::numeric_limits<std::size_t>::max();
+}
+template <typename T>
+NODISCARD std::size_t checkOrdering(const N<T>* const root)
+{
+    const std::size_t ordered = checkNormalOrdering<T>(root);
+    const std::size_t reverse = checkReverseOrdering<T>(root);
+    return (ordered == reverse) ? ordered : std::numeric_limits<std::size_t>::max();
+}
+
+template <typename T>
+void checkPostOrdering(const N<T>* const root, const std::vector<std::uint16_t>& expected, const bool reverse = false)
+{
+    std::vector<std::uint16_t> order;
+    T::traversePostOrder(root, [&](const N<T>& nd) { order.push_back(nd.getValue()); }, reverse);
+    EXPECT_THAT(order, ::testing::ContainerEq(expected));
 }
 
 template <typename T>
@@ -175,13 +217,13 @@ NODISCARD auto toGraphviz(const cavl::Tree<T>& tr) -> std::string
        << "node[style=filled,shape=circle,fontcolor=white,penwidth=0,fontname=\"monospace\",fixedsize=1,fontsize=18];\n"
        << "edge[arrowhead=none,penwidth=2];\n"
        << "nodesep=0.0;ranksep=0.3;splines=false;\n";
-    tr.traverse([&](const typename cavl::Tree<T>::DerivedType& x) {
+    tr.traverseInOrder([&](const typename cavl::Tree<T>::DerivedType& x) {
         const char* const fill_color =  // NOLINTNEXTLINE(*-avoid-nested-conditional-operator)
             (x.getBalanceFactor() == 0) ? "black" : ((x.getBalanceFactor() > 0) ? "orange" : "blue");
         ss << x.getValue() << "[fillcolor=" << fill_color << "];";
     });
     ss << "\n";
-    tr.traverse([&](const typename cavl::Tree<T>::DerivedType& x) {
+    tr.traverseInOrder([&](const typename cavl::Tree<T>::DerivedType& x) {
         if (const auto* const ch = x.getChildNode(false))
         {
             ss << x.getValue() << ":sw->" << ch->getValue() << ":n;";
@@ -227,7 +269,9 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
         const auto pred = [&](const N& v) { return t.at(i)->getValue() - v.getValue(); };
         EXPECT_EQ(nullptr, tr.search(pred));
         EXPECT_EQ(nullptr, static_cast<const TreeType&>(tr).search(pred));
+        EXPECT_FALSE(t[i]->isLinked());
         auto result = tr.search(pred, [&]() { return t[i]; });
+        EXPECT_TRUE(t[i]->isLinked());
         EXPECT_EQ(t[i], std::get<0>(result));
         EXPECT_FALSE(std::get<1>(result));
         EXPECT_EQ(t[i], tr.search(pred));
@@ -257,7 +301,7 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     // Check composition -- ensure that every element is in the tree and it is there exactly once.
     {
         bool seen[32]{};
-        tr.traverse([&](const N& n) {
+        tr.traverseInOrder([&](const N& n) {
             EXPECT_FALSE(seen[n.getValue()]);
             seen[n.getValue()] = true;
         });
@@ -278,11 +322,24 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
         EXPECT_EQ(i, tr[i - 1]->getValue());
         EXPECT_EQ(i, static_cast<const TreeType&>(tr)[i - 1]->getValue());
     }
+    checkPostOrdering<N>(tr, {1,  3,  2,  5,  7,  6,  4,  9,  11, 10, 13, 15, 14, 12, 8, 17,
+                              19, 18, 21, 23, 22, 20, 25, 27, 26, 29, 31, 30, 28, 24, 16});
+    checkPostOrdering<N>(tr,
+                         {31, 29, 30, 27, 25, 26, 28, 23, 21, 22, 19, 17, 18, 20, 24, 15,
+                          13, 14, 11, 9,  10, 12, 7,  5,  6,  3,  1,  2,  4,  8,  16},
+                         true);
+    EXPECT_TRUE(t[16]->isRoot());
+    EXPECT_FALSE(t[24]->isRoot());
 
     // MOVE 16, 18 & 23
     t[16] = node_mover(t[16]);
     t[18] = node_mover(t[18]);
     t[23] = node_mover(t[23]);
+    EXPECT_TRUE(t[16]->isRoot());
+    EXPECT_FALSE(t[18]->isRoot());
+    EXPECT_TRUE(t[18]->isLinked());
+    EXPECT_FALSE(t[23]->isRoot());
+    EXPECT_TRUE(t[23]->isLinked());
 
     // REMOVE 24
     //                               16
@@ -307,6 +364,11 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(nullptr, findBrokenBalanceFactor<N>(tr));
     EXPECT_EQ(nullptr, findBrokenAncestry<N>(tr));
     EXPECT_EQ(30, checkOrdering<N>(tr));
+    EXPECT_TRUE(t[16]->isRoot());
+    EXPECT_FALSE(t[24]->isRoot());
+    EXPECT_FALSE(t[24]->isLinked());
+    checkPostOrdering<N>(tr, {1,  3,  2,  5,  7,  6,  4,  9,  11, 10, 13, 15, 14, 12, 8,
+                              17, 19, 18, 21, 23, 22, 20, 27, 26, 29, 31, 30, 28, 25, 16});
 
     // REMOVE 25
     //                               16
@@ -327,6 +389,11 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(nullptr, findBrokenBalanceFactor<N>(tr));
     EXPECT_EQ(nullptr, findBrokenAncestry<N>(tr));
     EXPECT_EQ(29, checkOrdering<N>(tr));
+    EXPECT_TRUE(t[16]->isRoot());
+    EXPECT_FALSE(t[25]->isRoot());
+    EXPECT_FALSE(t[25]->isLinked());
+    checkPostOrdering<N>(tr, {1,  3,  2,  5,  7,  6,  4,  9,  11, 10, 13, 15, 14, 12, 8,
+                              17, 19, 18, 21, 23, 22, 20, 27, 29, 31, 30, 28, 26, 16});
 
     // REMOVE 26
     //                               16
@@ -348,6 +415,11 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(nullptr, findBrokenBalanceFactor<N>(tr));
     EXPECT_EQ(nullptr, findBrokenAncestry<N>(tr));
     EXPECT_EQ(28, checkOrdering<N>(tr));
+    EXPECT_TRUE(t[16]->isRoot());
+    EXPECT_FALSE(t[26]->isRoot());
+    EXPECT_FALSE(t[26]->isLinked());
+    checkPostOrdering<N>(tr, {1, 3,  2,  5,  7,  6,  4,  9,  11, 10, 13, 15, 14, 12,
+                              8, 17, 19, 18, 21, 23, 22, 20, 29, 28, 31, 30, 27, 16});
 
     // REMOVE 20
     //                               16
@@ -368,6 +440,11 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(nullptr, findBrokenBalanceFactor<N>(tr));
     EXPECT_EQ(nullptr, findBrokenAncestry<N>(tr));
     EXPECT_EQ(27, checkOrdering<N>(tr));
+    EXPECT_TRUE(t[16]->isRoot());
+    EXPECT_FALSE(t[20]->isRoot());
+    EXPECT_FALSE(t[20]->isLinked());
+    checkPostOrdering<N>(tr, {1, 3,  2,  5,  7,  6,  4,  9,  11, 10, 13, 15, 14, 12,
+                              8, 17, 19, 18, 23, 22, 21, 29, 28, 31, 30, 27, 16});
 
     // REMOVE 27
     //                               16
@@ -388,6 +465,11 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(nullptr, findBrokenBalanceFactor<N>(tr));
     EXPECT_EQ(nullptr, findBrokenAncestry<N>(tr));
     EXPECT_EQ(26, checkOrdering<N>(tr));
+    EXPECT_TRUE(t[16]->isRoot());
+    EXPECT_FALSE(t[27]->isRoot());
+    EXPECT_FALSE(t[27]->isLinked());
+    checkPostOrdering<N>(tr, {1,  3, 2,  5,  7,  6,  4,  9,  11, 10, 13, 15, 14,
+                              12, 8, 17, 19, 18, 23, 22, 21, 29, 31, 30, 28, 16});
 
     // REMOVE 28
     //                               16
@@ -408,6 +490,11 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(nullptr, findBrokenBalanceFactor<N>(tr));
     EXPECT_EQ(nullptr, findBrokenAncestry<N>(tr));
     EXPECT_EQ(25, checkOrdering<N>(tr));
+    EXPECT_TRUE(t[16]->isRoot());
+    EXPECT_FALSE(t[28]->isRoot());
+    EXPECT_FALSE(t[28]->isLinked());
+    checkPostOrdering<N>(tr,
+                         {1, 3, 2, 5, 7, 6, 4, 9, 11, 10, 13, 15, 14, 12, 8, 17, 19, 18, 23, 22, 21, 31, 30, 29, 16});
 
     // REMOVE 29; UNBALANCED TREE BEFORE ROTATION:
     //                               16
@@ -442,6 +529,10 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(nullptr, findBrokenBalanceFactor<N>(tr));
     EXPECT_EQ(nullptr, findBrokenAncestry<N>(tr));
     EXPECT_EQ(24, checkOrdering<N>(tr));
+    EXPECT_TRUE(t[16]->isRoot());
+    EXPECT_FALSE(t[29]->isRoot());
+    EXPECT_FALSE(t[29]->isLinked());
+    checkPostOrdering<N>(tr, {1, 3, 2, 5, 7, 6, 4, 9, 11, 10, 13, 15, 14, 12, 8, 17, 19, 18, 23, 22, 31, 30, 21, 16});
 
     // REMOVE 8
     //                               16
@@ -462,6 +553,10 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(nullptr, findBrokenBalanceFactor<N>(tr));
     EXPECT_EQ(nullptr, findBrokenAncestry<N>(tr));
     EXPECT_EQ(23, checkOrdering<N>(tr));
+    EXPECT_TRUE(t[16]->isRoot());
+    EXPECT_FALSE(t[8]->isRoot());
+    EXPECT_FALSE(t[8]->isLinked());
+    checkPostOrdering<N>(tr, {1, 3, 2, 5, 7, 6, 4, 11, 10, 13, 15, 14, 12, 9, 17, 19, 18, 23, 22, 31, 30, 21, 16});
 
     // REMOVE 9
     //                               16
@@ -482,6 +577,10 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(nullptr, findBrokenBalanceFactor<N>(tr));
     EXPECT_EQ(nullptr, findBrokenAncestry<N>(tr));
     EXPECT_EQ(22, checkOrdering<N>(tr));
+    EXPECT_TRUE(t[16]->isRoot());
+    EXPECT_FALSE(t[9]->isRoot());
+    EXPECT_FALSE(t[9]->isLinked());
+    checkPostOrdering<N>(tr, {1, 3, 2, 5, 7, 6, 4, 11, 13, 15, 14, 12, 10, 17, 19, 18, 23, 22, 31, 30, 21, 16});
 
     // REMOVE 1
     //                               16
@@ -501,6 +600,10 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(nullptr, findBrokenBalanceFactor<N>(tr));
     EXPECT_EQ(nullptr, findBrokenAncestry<N>(tr));
     EXPECT_EQ(21, checkOrdering<N>(tr));
+    EXPECT_TRUE(t[16]->isRoot());
+    EXPECT_FALSE(t[1]->isRoot());
+    EXPECT_FALSE(t[1]->isLinked());
+    checkPostOrdering<N>(tr, {3, 2, 5, 7, 6, 4, 11, 13, 15, 14, 12, 10, 17, 19, 18, 23, 22, 31, 30, 21, 16});
 
     // REMOVE 16, the tree got new root.
     //                               17
@@ -524,6 +627,10 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(nullptr, findBrokenBalanceFactor<N>(tr));
     EXPECT_EQ(nullptr, findBrokenAncestry<N>(tr));
     EXPECT_EQ(20, checkOrdering<N>(tr));
+    EXPECT_TRUE(t[17]->isRoot());
+    EXPECT_FALSE(t[16]->isRoot());
+    EXPECT_FALSE(t[16]->isLinked());
+    checkPostOrdering<N>(tr, {3, 2, 5, 7, 6, 4, 11, 13, 15, 14, 12, 10, 19, 18, 23, 22, 31, 30, 21, 17});
 
     // REMOVE 22, only has one child.
     //                               17
@@ -544,6 +651,10 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(nullptr, findBrokenBalanceFactor<N>(tr));
     EXPECT_EQ(nullptr, findBrokenAncestry<N>(tr));
     EXPECT_EQ(19, checkOrdering<N>(tr));
+    EXPECT_TRUE(t[17]->isRoot());
+    EXPECT_FALSE(t[22]->isRoot());
+    EXPECT_FALSE(t[22]->isLinked());
+    checkPostOrdering<N>(tr, {3, 2, 5, 7, 6, 4, 11, 13, 15, 14, 12, 10, 19, 18, 23, 31, 30, 21, 17});
 
     // Print intermediate state for inspection. Be sure to compare it against the above diagram for extra paranoia.
     std::cout << toGraphviz(tr) << std::endl;
@@ -597,6 +708,9 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(t.at(30), static_cast<const TreeType&>(tr).max());
     EXPECT_EQ(t[17], static_cast<N*>(tr));
     EXPECT_EQ(7, tr.size());
+    EXPECT_TRUE(t[17]->isRoot());
+    checkPostOrdering<N>(tr, {4, 12, 10, 18, 30, 21, 17});
+    checkPostOrdering<N>(tr, {30, 18, 21, 12, 4, 10, 17}, true);
 
     // REMOVE 10, 21.
     //                               17
@@ -622,6 +736,13 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(t.at(30), static_cast<const TreeType&>(tr).max());
     EXPECT_EQ(t[17], static_cast<N*>(tr));
     EXPECT_EQ(5, tr.size());
+    EXPECT_TRUE(t[17]->isRoot());
+    EXPECT_FALSE(t[10]->isRoot());
+    EXPECT_FALSE(t[10]->isLinked());
+    EXPECT_FALSE(t[21]->isRoot());
+    EXPECT_FALSE(t[21]->isLinked());
+    checkPostOrdering<N>(tr, {4, 12, 18, 30, 17});
+    checkPostOrdering<N>(tr, {18, 30, 4, 12, 17}, true);
 
     // REMOVE 12, 18.
     //                               17
@@ -643,6 +764,13 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(t.at(30), static_cast<const TreeType&>(tr).max());
     EXPECT_EQ(t[17], static_cast<N*>(tr));
     EXPECT_EQ(3, tr.size());
+    EXPECT_TRUE(t[17]->isRoot());
+    EXPECT_FALSE(t[12]->isRoot());
+    EXPECT_FALSE(t[12]->isLinked());
+    EXPECT_FALSE(t[18]->isRoot());
+    EXPECT_FALSE(t[18]->isLinked());
+    checkPostOrdering<N>(tr, {4, 30, 17});
+    checkPostOrdering<N>(tr, {30, 4, 17}, true);
 
     // REMOVE 17. 30 is the new root.
     //                               30
@@ -662,6 +790,11 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(t.at(30), static_cast<const TreeType&>(tr).max());
     EXPECT_EQ(t[30], static_cast<N*>(tr));
     EXPECT_EQ(2, tr.size());
+    EXPECT_TRUE(t[30]->isRoot());
+    EXPECT_FALSE(t[17]->isRoot());
+    EXPECT_FALSE(t[17]->isLinked());
+    checkPostOrdering<N>(tr, {4, 30});
+    checkPostOrdering<N>(tr, {4, 30}, true);
 
     // REMOVE 30. 4 is the only node left.
     //                               4
@@ -678,6 +811,11 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(t.at(4), static_cast<const TreeType&>(tr).max());
     EXPECT_EQ(t[4], static_cast<N*>(tr));
     EXPECT_EQ(1, tr.size());
+    EXPECT_TRUE(t[4]->isRoot());
+    EXPECT_FALSE(t[30]->isRoot());
+    EXPECT_FALSE(t[30]->isLinked());
+    checkPostOrdering<N>(tr, {4});
+    checkPostOrdering<N>(tr, {4}, true);
 
     // Check the move assignment and move constructor of the tree.
     TreeType tr2(std::move(tr));
@@ -689,6 +827,7 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(t.at(4), static_cast<N*>(tr3));  // Moved.
     EXPECT_EQ(nullptr, static_cast<N*>(tr2));  // NOLINT use after move is intentional.
     EXPECT_EQ(1, tr3.size());
+    EXPECT_TRUE(t[4]->isRoot());
 
     // Try various methods on empty tree (including `const` one).
     //
@@ -701,7 +840,11 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     EXPECT_EQ(0, tr4_const.size());
     EXPECT_EQ(nullptr, tr4_const.min());
     EXPECT_EQ(nullptr, tr4_const.max());
-    EXPECT_EQ(0, tr4_const.traverse([](const N&) { return 13; }));
+    EXPECT_EQ(0, tr4_const.traverseInOrder([](const N&) { return 13; }));
+    EXPECT_FALSE(t[4]->isRoot());
+    EXPECT_FALSE(t[4]->isLinked());
+    checkPostOrdering<N>(tr4_const, {});
+    checkPostOrdering<N>(tr4_const, {}, true);
 
     // Clean up manually to reduce boilerplate in the tests. This is super sloppy but OK for a basic test suite.
     for (auto* const x : t)
@@ -731,7 +874,7 @@ TEST(TestCavl, randomized)
         EXPECT_EQ(nullptr, findBrokenAncestry<My>(root));
         EXPECT_EQ(size, checkOrdering<My>(root));
         std::array<bool, 256> new_mask{};
-        root.traverse([&](const My& node) { new_mask.at(node.getValue()) = true; });
+        root.traverseInOrder([&](const My& node) { new_mask.at(node.getValue()) = true; });
         EXPECT_EQ(mask, new_mask);  // Otherwise, the contents of the tree does not match our expectations.
     };
     validate();
@@ -816,11 +959,8 @@ TEST(TestCavl, manualMy)
         },
         [](My* const old_node) {
             const auto value    = old_node->getValue();
-            My** const root_ptr = old_node->getRootNodePtr();
             My* const  new_node = new My(std::move(*old_node));  // NOLINT(*-owning-memory)
             EXPECT_EQ(value, new_node->getValue());
-            EXPECT_EQ(root_ptr, new_node->getRootNodePtr());
-            EXPECT_EQ(nullptr, old_node->getRootNodePtr());
             delete old_node;  // NOLINT(*-owning-memory)
             return new_node;
         });
@@ -831,12 +971,15 @@ class V : public cavl::Node<V>
 {
 public:
     using Self = cavl::Node<V>;
+    using Self::isLinked;
+    using Self::isRoot;
     using Self::getChildNode;
     using Self::getParentNode;
     using Self::getBalanceFactor;
     using Self::search;
     using Self::remove;
-    using Self::traverse;
+    using Self::traverseInOrder;
+    using Self::traversePostOrder;
     using Self::min;
     using Self::max;
 

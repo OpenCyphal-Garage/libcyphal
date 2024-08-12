@@ -3,7 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "../../cetl_gtest_helpers.hpp"
+#include "../../cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
+#include "../../gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
 #include "../../verification_utilities.hpp"
@@ -52,13 +53,13 @@ using testing::_;
 using testing::Eq;
 using testing::Ref;
 using testing::Truly;
+using testing::Invoke;
 using testing::Return;
 using testing::SizeIs;
 using testing::IsEmpty;
 using testing::NotNull;
 using testing::Contains;
 using testing::Optional;
-using testing::InSequence;
 using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
@@ -72,10 +73,10 @@ using std::literals::chrono_literals::operator""us;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-class MyPlatformError final : public libcyphal::transport::IPlatformError
+class MyPlatformError final : public IPlatformError
 {
 public:
-    explicit MyPlatformError(std::uint32_t code)
+    explicit MyPlatformError(const std::uint32_t code)
         : code_{code}
     {
     }
@@ -140,7 +141,7 @@ protected:
 
 TEST_F(TestCanTransport, makeTransport_no_memory_at_all)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
     // Emulate that there is no memory at all (even for initial array of media).
@@ -156,7 +157,7 @@ TEST_F(TestCanTransport, makeTransport_no_memory_at_all)
 
 TEST_F(TestCanTransport, makeTransport_no_memory_for_impl)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
     // Emulate that there is no memory available for the transport.
@@ -226,29 +227,32 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
 
 TEST_F(TestCanTransport, setLocalNodeId)
 {
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-
     auto transport = makeTransport(mr_);
 
-    EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX + 1), Optional(testing::A<ArgumentError>()));
-    EXPECT_THAT(transport->getLocalNodeId(), Eq(cetl::nullopt));
+    EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+        .WillOnce([&](Filters) { return cetl::nullopt; });
 
-    EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
-
-    EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX), Eq(cetl::nullopt));
-    EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
-
-    EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
-
-    EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX), Eq(cetl::nullopt));
-    EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
-
-    EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
-
-    EXPECT_THAT(transport->setLocalNodeId(0), Optional(testing::A<ArgumentError>()));
-    EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
-
-    EXPECT_THAT(transport->run(now()), UbVariantWithoutValue());
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
+        EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX + 1), Optional(testing::A<ArgumentError>()));
+        EXPECT_THAT(transport->getLocalNodeId(), Eq(cetl::nullopt));
+    });
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
+        //
+        EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX), Eq(cetl::nullopt));
+        EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
+    });
+    scheduler_.scheduleAt(3s, [&](const TimePoint) {
+        //
+        EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX), Eq(cetl::nullopt));
+        EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
+    });
+    scheduler_.scheduleAt(4s, [&](const TimePoint) {
+        //
+        EXPECT_THAT(transport->setLocalNodeId(0), Optional(testing::A<ArgumentError>()));
+        EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
+    });
+    scheduler_.spinFor(10s);
 }
 
 TEST_F(TestCanTransport, makeTransport_with_invalid_arguments)
@@ -291,125 +295,213 @@ TEST_F(TestCanTransport, makeMessageRxSession)
 {
     auto transport = makeTransport(mr_);
 
-    auto maybe_rx_session = transport->makeMessageRxSession({42, 123});
-    ASSERT_THAT(maybe_rx_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+    EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+        .WillOnce([&](Filters) { return cetl::nullopt; });
 
-    auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_rx_session));
-    EXPECT_THAT(session->getParams().extent_bytes, 42);
-    EXPECT_THAT(session->getParams().subject_id, 123);
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
+        EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
+            .WillOnce(Invoke([&](auto&, auto function) {                   //
+                return scheduler_.registerNamedCallback("rx", std::move(function));
+            }));
+
+        auto maybe_rx_session = transport->makeMessageRxSession({42, 123});
+        ASSERT_THAT(maybe_rx_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+
+        auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_rx_session));
+        EXPECT_THAT(session->getParams().extent_bytes, 42);
+        EXPECT_THAT(session->getParams().subject_id, 123);
+
+        session.reset();
+
+        EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+            .WillOnce([&](Filters) { return cetl::nullopt; });
+    });
+    scheduler_.spinFor(10s);
 }
 
 TEST_F(TestCanTransport, makeMessageRxSession_invalid_subject_id)
 {
     auto transport = makeTransport(mr_);
 
-    auto maybe_rx_session = transport->makeMessageRxSession({0, CANARD_SUBJECT_ID_MAX + 1});
-    EXPECT_THAT(maybe_rx_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+    EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+        .WillOnce([&](Filters) { return cetl::nullopt; });
+
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
+        auto maybe_rx_session = transport->makeMessageRxSession({0, CANARD_SUBJECT_ID_MAX + 1});
+        EXPECT_THAT(maybe_rx_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+    });
+    scheduler_.spinFor(10s);
 }
 
 TEST_F(TestCanTransport, makeMessageRxSession_invalid_resubscription)
 {
     auto transport = makeTransport(mr_);
 
+    EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+        .WillOnce([&](Filters) { return cetl::nullopt; });
+
     const PortId test_subject_id = 111;
 
-    auto maybe_rx_session1 = transport->makeMessageRxSession({0, test_subject_id});
-    ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
+        EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
+            .WillOnce(Invoke([&](auto&, auto function) {                   //
+                return scheduler_.registerNamedCallback("rx", std::move(function));
+            }));
 
-    auto maybe_rx_session2 = transport->makeMessageRxSession({0, test_subject_id});
-    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
+        auto maybe_rx_session1 = transport->makeMessageRxSession({0, test_subject_id});
+        ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
 
-    // Now release the first session and try to subscribe again - should succeed.
-    {
-        auto rx_session1 = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_rx_session1));
-        rx_session1.reset();
+        auto maybe_rx_session2 = transport->makeMessageRxSession({0, test_subject_id});
+        EXPECT_THAT(maybe_rx_session2, VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
 
-        maybe_rx_session2 = transport->makeMessageRxSession({0, test_subject_id});
+        EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+            .WillOnce([&](Filters) { return cetl::nullopt; });
+    });
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
+        //
+        EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
+            .WillOnce(Invoke([&](auto&, auto function) {                   //
+                return scheduler_.registerNamedCallback("rx", std::move(function));
+            }));
+
+        auto maybe_rx_session2 = transport->makeMessageRxSession({0, test_subject_id});
         ASSERT_THAT(maybe_rx_session2, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
-    }
+
+        EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+            .WillOnce([&](Filters) { return cetl::nullopt; });
+    });
+    scheduler_.spinFor(10s);
 }
 
 TEST_F(TestCanTransport, makeRequestRxSession_invalid_resubscription)
 {
     auto transport = makeTransport(mr_);
 
+    EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+        .WillOnce([&](Filters) { return cetl::nullopt; });
+
     const PortId test_subject_id = 111;
 
-    auto maybe_rx_session1 = transport->makeRequestRxSession({0, test_subject_id});
-    ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
+        EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
+            .WillOnce(Invoke([&](auto&, auto function) {                   //
+                return scheduler_.registerNamedCallback("rx", std::move(function));
+            }));
 
-    auto maybe_rx_session2 = transport->makeRequestRxSession({0, test_subject_id});
-    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
+        auto maybe_rx_session1 = transport->makeRequestRxSession({0, test_subject_id});
+        ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
 
-    // Now release the first session and try to subscribe again - should succeed.
-    {
-        auto rx_session1 = cetl::get<UniquePtr<IRequestRxSession>>(std::move(maybe_rx_session1));
-        rx_session1.reset();
+        auto maybe_rx_session2 = transport->makeRequestRxSession({0, test_subject_id});
+        EXPECT_THAT(maybe_rx_session2, VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
 
-        maybe_rx_session2 = transport->makeRequestRxSession({0, test_subject_id});
+        EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+            .WillOnce([&](Filters) { return cetl::nullopt; });
+    });
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
+        //
+        EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
+            .WillOnce(Invoke([&](auto&, auto function) {                   //
+                return scheduler_.registerNamedCallback("rx", std::move(function));
+            }));
+
+        auto maybe_rx_session2 = transport->makeRequestRxSession({0, test_subject_id});
         ASSERT_THAT(maybe_rx_session2, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
-    }
+
+        EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+            .WillOnce([&](Filters) { return cetl::nullopt; });
+    });
+    scheduler_.spinFor(10s);
 }
 
 TEST_F(TestCanTransport, makeResponseRxSession_invalid_resubscription)
 {
     auto transport = makeTransport(mr_);
 
+    EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+        .WillOnce([&](Filters) { return cetl::nullopt; });
+
     const PortId test_subject_id = 111;
 
-    auto maybe_rx_session1 = transport->makeResponseRxSession({0, test_subject_id, 0x31});
-    ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
+        EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
+            .WillOnce(Invoke([&](auto&, auto function) {                   //
+                return scheduler_.registerNamedCallback("rx", std::move(function));
+            }));
 
-    auto maybe_rx_session2 = transport->makeResponseRxSession({0, test_subject_id, 0x31});
-    EXPECT_THAT(maybe_rx_session2, VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
+        auto maybe_rx_session1 = transport->makeResponseRxSession({0, test_subject_id, 0x31});
+        ASSERT_THAT(maybe_rx_session1, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
 
-    // Now release the first session and try to subscribe again - should succeed.
-    {
-        auto rx_session1 = cetl::get<UniquePtr<IResponseRxSession>>(std::move(maybe_rx_session1));
-        rx_session1.reset();
+        auto maybe_rx_session2 = transport->makeResponseRxSession({0, test_subject_id, 0x31});
+        EXPECT_THAT(maybe_rx_session2, VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
 
-        maybe_rx_session2 = transport->makeResponseRxSession({0, test_subject_id, 0x31});
+        EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+            .WillOnce([&](Filters) { return cetl::nullopt; });
+    });
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
+        //
+        EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
+            .WillOnce(Invoke([&](auto&, auto function) {                   //
+                return scheduler_.registerNamedCallback("rx", std::move(function));
+            }));
+
+        auto maybe_rx_session2 = transport->makeResponseRxSession({0, test_subject_id, 0x31});
         ASSERT_THAT(maybe_rx_session2, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
-    }
+
+        EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+            .WillOnce([&](Filters) { return cetl::nullopt; });
+    });
+    scheduler_.spinFor(10s);
 }
 
 TEST_F(TestCanTransport, makeMessageTxSession)
 {
     auto transport = makeTransport(mr_);
 
-    auto maybe_tx_session = transport->makeMessageTxSession({123});
-    ASSERT_THAT(maybe_tx_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
+    EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+        .WillOnce([&](Filters) { return cetl::nullopt; });
 
-    auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_tx_session));
-    EXPECT_THAT(session->getParams().subject_id, 123);
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
+        auto maybe_tx_session = transport->makeMessageTxSession({123});
+        ASSERT_THAT(maybe_tx_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
+
+        auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_tx_session));
+        EXPECT_THAT(session->getParams().subject_id, 123);
+    });
+    scheduler_.spinFor(10s);
 }
 
 TEST_F(TestCanTransport, sending_multiframe_payload_should_fail_for_anonymous)
 {
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-
     auto transport = makeTransport(mr_);
 
     auto maybe_session = transport->makeMessageTxSession({7});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    scheduler_.runNow(+10s);
-    const auto send_time = now();
+    const auto       payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC>(b('0'));
+    TransferMetadata metadata{0x13, {}, Priority::Nominal};
 
-    const auto             payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC>(b('0'));
-    const TransferMetadata metadata{0x13, send_time, Priority::Nominal};
+    EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+        .WillOnce([&](Filters) { return cetl::nullopt; });
 
-    auto failure = session->send(metadata, makeSpansFrom(payload));
-    EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
-
-    scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
+        metadata.timestamp = now();
+        auto failure       = session->send(metadata, makeSpansFrom(payload));
+        EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
+    });
+    scheduler_.spinFor(10s);
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
 {
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-
     auto transport = makeTransport(mr_);
     EXPECT_THAT(transport->setLocalNodeId(0x45), Eq(cetl::nullopt));
 
@@ -417,51 +509,55 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    scheduler_.runNow(+10s);
-    const auto timeout   = 1s;
-    const auto send_time = now();
+    constexpr auto timeout = 1s;
 
-    const auto             payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC>(b('0'));
-    const TransferMetadata metadata{0x13, send_time, Priority::Nominal};
+    const auto       payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC>(b('0'));
+    TransferMetadata metadata{0x13, {}, Priority::Nominal};
 
-    auto failure = session->send(metadata, makeSpansFrom(payload));
-    EXPECT_THAT(failure, Eq(cetl::nullopt));
+    EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+        .WillOnce([&](Filters) { return cetl::nullopt; });
 
-    {
-        const InSequence s;
-
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
         EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto payload) {
-            EXPECT_THAT(now(), send_time + 10us);
-            EXPECT_THAT(deadline, send_time + timeout);
+            EXPECT_THAT(now(), metadata.timestamp);
+            EXPECT_THAT(deadline, metadata.timestamp + timeout);
             EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45)));
             EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
 
             auto tbm = TailByteEq(metadata.transfer_id, true, false);
             EXPECT_THAT(payload, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm));
-            return IMedia::PushResult::Success{true /*is_accepted*/};
+            return IMedia::PushResult::Success{true /* is_accepted */};
         });
+        EXPECT_CALL(media_mock_, registerPushCallback(_, _))  //
+            .WillOnce(Invoke([&](auto&, auto function) {      //
+                return scheduler_.registerAndScheduleNamedCallback("", now() + 10us, std::move(function));
+            }));
+
+        metadata.timestamp = now();
+        auto failure       = session->send(metadata, makeSpansFrom(payload));
+        EXPECT_THAT(failure, Eq(cetl::nullopt));
+    });
+    scheduler_.scheduleAt(1s + 10us, [&](const TimePoint) {
+        //
         EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto payload) {
-            EXPECT_THAT(now(), send_time + 10us);
-            EXPECT_THAT(deadline, send_time + timeout);
+            EXPECT_THAT(now(), metadata.timestamp + 10us);
+            EXPECT_THAT(deadline, metadata.timestamp + timeout);
             EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45)));
             EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
 
             auto tbm = TailByteEq(metadata.transfer_id, false, true, false);
             EXPECT_THAT(payload, ElementsAre(b('7'), _, _ /* CRC bytes */, tbm));
-            return IMedia::PushResult::Success{true /*is_accepted*/};
+            return IMedia::PushResult::Success{true /* is_accepted */};
         });
-    }
-
-    scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    });
+    scheduler_.spinFor(10s);
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
 {
     StrictMock<MediaMock> media_mock2{};
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-    EXPECT_CALL(media_mock2, pop(_)).WillRepeatedly(Return(cetl::nullopt));
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
 
     auto transport = makeTransport(mr_, &media_mock2);
@@ -471,56 +567,79 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    scheduler_.runNow(+10s);
-    const auto timeout   = 1s;
-    const auto send_time = now();
+    constexpr auto timeout = 1s;
 
-    const auto             payload = makeIotaArray<10>(b('0'));
-    const TransferMetadata metadata{0x13, send_time, Priority::Nominal};
+    const auto       payload = makeIotaArray<10>(b('0'));
+    TransferMetadata metadata{0x13, {}, Priority::Nominal};
 
-    auto failure = session->send(metadata, makeSpansFrom(payload));
-    EXPECT_THAT(failure, Eq(cetl::nullopt));
+    EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+        .WillOnce([&](Filters) { return cetl::nullopt; });
+    EXPECT_CALL(media_mock2, setFilters(IsEmpty()))  //
+        .WillOnce([&](Filters) { return cetl::nullopt; });
 
-    {
-        const InSequence s;
-
-        auto expectMediaCalls = [&](MediaMock& media_mock, const std::string& ctx, TimePoint when) {
-            EXPECT_CALL(media_mock, push(_, _, _)).WillOnce([&, ctx, when](auto deadline, auto can_id, auto payload) {
-                EXPECT_THAT(now(), when) << ctx;
-                EXPECT_THAT(deadline, send_time + timeout) << ctx;
-                EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45))) << ctx;
-                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId())) << ctx;
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
+        // Emulate once that the first media is not ready to push fragment (@10us). So transport will switch to
+        // the second media, and will retry with the 1st only when its socket is ready @ +20us.
+        //
+        EXPECT_CALL(media_mock_, push(_, _, _))  //
+            .WillOnce([&](auto, auto, auto) {
+                EXPECT_THAT(now(), metadata.timestamp);
+                return IMedia::PushResult::Success{false /* is_accepted */};
+            });
+        EXPECT_CALL(media_mock_, registerPushCallback(Ref(scheduler_), _))  //
+            .WillOnce(Invoke([&](auto&, auto function) {                    //
+                return scheduler_.registerAndScheduleNamedCallback("tx1", now() + 20us, std::move(function));
+            }));
+        EXPECT_CALL(media_mock2, push(_, _, _))  //
+            .WillOnce([&](auto deadline, auto can_id, auto payload) {
+                EXPECT_THAT(now(), metadata.timestamp);
+                EXPECT_THAT(deadline, metadata.timestamp + timeout);
+                EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45)));
+                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
 
                 auto tbm = TailByteEq(metadata.transfer_id, true, false);
-                EXPECT_THAT(payload, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm)) << ctx;
-                return IMedia::PushResult::Success{true /*is_accepted*/};
+                EXPECT_THAT(payload, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm));
+                return IMedia::PushResult::Success{true /* is_accepted */};
             });
-            EXPECT_CALL(media_mock, push(_, _, _)).WillOnce([&, ctx, when](auto deadline, auto can_id, auto payload) {
-                EXPECT_THAT(now(), when) << ctx;
-                EXPECT_THAT(deadline, send_time + timeout) << ctx;
-                EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45))) << ctx;
-                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId())) << ctx;
+        EXPECT_CALL(media_mock2, registerPushCallback(Ref(scheduler_), _))  //
+            .WillOnce(Invoke([&](auto&, auto function) {                    //
+                return scheduler_.registerAndScheduleNamedCallback("tx2", now() + 10us, std::move(function));
+            }));
+
+        metadata.timestamp = now();
+        auto failure       = session->send(metadata, makeSpansFrom(payload));
+        EXPECT_THAT(failure, Eq(cetl::nullopt));
+    });
+    scheduler_.scheduleAt(1s + 10us, [&](const TimePoint) {
+        //
+        EXPECT_CALL(media_mock2, push(_, _, _))  //
+            .WillOnce([&](auto deadline, auto can_id, auto payload) {
+                EXPECT_THAT(now(), metadata.timestamp + 10us);
+                EXPECT_THAT(deadline, metadata.timestamp + timeout);
+                EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45)));
+                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
 
                 auto tbm = TailByteEq(metadata.transfer_id, false, true, false);
-                EXPECT_THAT(payload, ElementsAre(b('7'), b('8'), b('9'), b(0x7D), b(0x61) /* CRC bytes */, tbm)) << ctx;
-                return IMedia::PushResult::Success{true /*is_accepted*/};
+                EXPECT_THAT(payload, ElementsAre(b('7'), b('8'), b('9'), b(0x7D), b(0x61) /* CRC bytes */, tbm));
+                return IMedia::PushResult::Success{true /* is_accepted */};
             });
-        };
-
-        // Emulate once that the first media is not ready to push fragment (@10us). So transport will
-        // switch to the second media, and only on the next run will (@20us) retry with the first media again.
+    });
+    scheduler_.scheduleAt(1s + 20us, [&](const TimePoint) {
         //
-        EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto, auto, auto) {
-            EXPECT_THAT(now(), send_time + 10us);
-            return IMedia::PushResult::Success{false /*is_accepted*/};
-        });
-        expectMediaCalls(media_mock2, "M#2", send_time + 10us);
-        expectMediaCalls(media_mock_, "M#1", send_time + 20us);
-    }
+        EXPECT_CALL(media_mock_, push(_, _, _))  //
+            .WillOnce([&](auto deadline, auto can_id, auto payload) {
+                EXPECT_THAT(now(), metadata.timestamp + 20us);
+                EXPECT_THAT(deadline, metadata.timestamp + timeout);
+                EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45)));
+                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
 
-    scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+                auto tbm = TailByteEq(metadata.transfer_id, true, false);
+                EXPECT_THAT(payload, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm));
+                return IMedia::PushResult::Success{true /* is_accepted */};
+            });
+    });
+    scheduler_.spinFor(10s);
 }
 
 TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
@@ -528,64 +647,33 @@ TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
     using MediaPushReport = ICanTransport::TransientErrorReport::MediaPush;
 
     StrictMock<MediaMock> media_mock2{};
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-    EXPECT_CALL(media_mock2, pop(_)).WillRepeatedly(Return(cetl::nullopt));
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
 
+    StrictMock<TransientErrorHandlerMock> handler_mock;
+
     auto transport = makeTransport(mr_, &media_mock2);
+    transport->setTransientErrorHandler(std::ref(handler_mock));
     EXPECT_THAT(transport->setLocalNodeId(0x45), Eq(cetl::nullopt));
 
     auto maybe_session = transport->makeMessageTxSession({7});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    scheduler_.runNow(+10s);
-    const auto send_time = now();
+    const auto       payload = makeIotaArray<6>(b('0'));
+    TransferMetadata metadata{0x13, {}, Priority::Nominal};
 
-    const auto             payload = makeIotaArray<6>(b('0'));
-    const TransferMetadata metadata{0x13, send_time, Priority::Nominal};
+    EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+        .WillOnce([&](Filters) { return cetl::nullopt; });
+    EXPECT_CALL(media_mock2, setFilters(IsEmpty()))  //
+        .WillOnce([&](Filters) { return cetl::nullopt; });
 
-    // First attempt to send payload.
-    auto failure = session->send(metadata, makeSpansFrom(payload));
-    EXPECT_THAT(failure, Eq(cetl::nullopt));
-
-    // 1st run: media #0 and there is no transient error handler; its frame should be dropped.
-    {
-        EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce(Return(CapacityError{}));
-
-        scheduler_.runNow(+10us, [&] {
-            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<CapacityError>(_)));
-        });
-    }
-    // 2nd run: media #1 and transient error handler have failed; its frame should be dropped.
-    {
-        StrictMock<TransientErrorHandlerMock> handler_mock{};
-        transport->setTransientErrorHandler(std::ref(handler_mock));
-        EXPECT_CALL(handler_mock, invoke(VariantWith<MediaPushReport>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.failure, VariantWith<CapacityError>(_));
-                        EXPECT_THAT(report.media_index, 1);
-                        EXPECT_THAT(report.culprit, Ref(media_mock2));
-                        return true;
-                    }))))
+    // 1. First attempt to push payload.
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
+        // Media #0 failed to push, but not media #2 - its frame should be dropped (but not for #2).
+        //
+        EXPECT_CALL(media_mock_, push(_, _, _))  //
             .WillOnce(Return(CapacityError{}));
-
-        EXPECT_CALL(media_mock2, push(_, _, _)).WillOnce(Return(CapacityError{}));
-
-        scheduler_.runNow(+10us, [&] {
-            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<CapacityError>(_)));
-        });
-
-        // No frames should be left in the session.
-        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    }
-
-    // Second attempt to send payload.
-    EXPECT_THAT(session->send(metadata, makeSpansFrom(payload)), Eq(cetl::nullopt));
-
-    // 3rd run: media #0 has failed but transient error handler succeeded.
-    {
-        StrictMock<TransientErrorHandlerMock> handler_mock{};
-        transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<MediaPushReport>(Truly([&](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<CapacityError>(_));
                         EXPECT_THAT(report.media_index, 0);
@@ -593,15 +681,43 @@ TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
                         return true;
                     }))))
             .WillOnce(Return(cetl::nullopt));
+        //
+        EXPECT_CALL(media_mock2, push(_, _, _))  //
+            .WillOnce(Return(IMedia::PushResult::Success{true /* is_accepted */}));
+        EXPECT_CALL(media_mock2, registerPushCallback(Ref(scheduler_), _))  //
+            .WillOnce(Invoke([&](auto&, auto function) {                    //
+                return scheduler_.registerAndScheduleNamedCallback("", now() + 20us, std::move(function));
+            }));
 
-        EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce(Return(CapacityError{}));
-        EXPECT_CALL(media_mock2, push(_, _, _)).WillOnce(Return(IMedia::PushResult::Success{true /*is_accepted*/}));
+        metadata.timestamp = now();
+        EXPECT_THAT(session->send(metadata, makeSpansFrom(payload)), Eq(cetl::nullopt));
+    });
+    // 2. Second attempt to push payload (while 1st attempt still in progress for socket 2).
+    scheduler_.scheduleAt(1s + 10us, [&](const TimePoint) {
+        //
+        // Socket #0 is fine but Socket #2 failed to send - its frame should be dropped (but not for #0).
+        //
+        EXPECT_CALL(media_mock_, push(_, _, _))  //
+            .WillOnce(Return(IMedia::PushResult::Success{true /* is_accepted */}));
+        EXPECT_CALL(media_mock_, registerPushCallback(Ref(scheduler_), _))  //
+            .WillOnce(Invoke([&](auto&, auto function) {                    //
+                return scheduler_.registerAndScheduleNamedCallback("", now() + 5us, std::move(function));
+            }));
+        //
+        EXPECT_CALL(media_mock2, push(_, _, _))  //
+            .WillOnce(Return(PlatformError{MyPlatformError{13}}));
+        EXPECT_CALL(handler_mock, invoke(VariantWith<MediaPushReport>(Truly([&](auto& report) {
+                        EXPECT_THAT(report.failure, VariantWith<PlatformError>(_));
+                        EXPECT_THAT(report.media_index, 1);
+                        EXPECT_THAT(report.culprit, Ref(media_mock2));
+                        return true;
+                    }))))
+            .WillOnce(Return(cetl::nullopt));
 
-        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-
-        // No frames should be left in the session.
-        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    }
+        metadata.timestamp = now();
+        EXPECT_THAT(session->send(metadata, makeSpansFrom(payload)), Eq(cetl::nullopt));
+    });
+    scheduler_.spinFor(10s);
 }
 
 TEST_F(TestCanTransport, send_payload_to_out_of_capacity_canard_tx)
@@ -615,18 +731,24 @@ TEST_F(TestCanTransport, send_payload_to_out_of_capacity_canard_tx)
     //
     auto transport = makeTransport(mr_, &media_mock2, 0 /*capacity*/);
     EXPECT_THAT(transport->setLocalNodeId(0x45), Eq(cetl::nullopt));
+    StrictMock<TransientErrorHandlerMock> handler_mock;
+    transport->setTransientErrorHandler(std::ref(handler_mock));
 
     auto maybe_session = transport->makeMessageTxSession({7});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    const auto             payload = makeIotaArray<6>(b('0'));
-    const TransferMetadata metadata{0x13, now(), Priority::Nominal};
+    const auto       payload = makeIotaArray<6>(b('0'));
+    TransferMetadata metadata{0x13, {}, Priority::Nominal};
+
+    EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+        .WillOnce([&](Filters) { return cetl::nullopt; });
+    EXPECT_CALL(media_mock2, setFilters(IsEmpty()))  //
+        .WillOnce([&](Filters) { return cetl::nullopt; });
 
     // 1st. Try to send a frame with "failing" handler - only the 0-th media index will be used.
-    {
-        StrictMock<TransientErrorHandlerMock> handler_mock{};
-        transport->setTransientErrorHandler(std::ref(handler_mock));
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
         EXPECT_CALL(handler_mock, invoke(VariantWith<CanardTxPushReport>(Truly([](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<MemoryError>(_));
                         EXPECT_THAT(report.media_index, 0);
@@ -638,13 +760,13 @@ TEST_F(TestCanTransport, send_payload_to_out_of_capacity_canard_tx)
                     }))))
             .WillOnce(Return(StateError{}));
 
-        auto failure = session->send(metadata, makeSpansFrom(payload));
+        metadata.timestamp = now();
+        auto failure       = session->send(metadata, makeSpansFrom(payload));
         EXPECT_THAT(failure, Optional(VariantWith<StateError>(_)));
-    }
+    });
     // 2nd. Try to send a frame with "succeeding" handler - both media indices will be used.
-    {
-        StrictMock<TransientErrorHandlerMock> handler_mock{};
-        transport->setTransientErrorHandler(std::ref(handler_mock));
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
         EXPECT_CALL(handler_mock, invoke(VariantWith<CanardTxPushReport>(Truly([](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<MemoryError>(_));
                         return report.media_index == 0;
@@ -656,13 +778,13 @@ TEST_F(TestCanTransport, send_payload_to_out_of_capacity_canard_tx)
                     }))))
             .WillOnce(Return(cetl::nullopt));
 
-        auto failure = session->send(metadata, makeSpansFrom(payload));
-        EXPECT_THAT(failure, Eq(cetl::nullopt));
-    }
+        EXPECT_THAT(session->send(metadata, makeSpansFrom(payload)), Eq(cetl::nullopt));
+    });
+    scheduler_.spinFor(10s);
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
+TEST_F(TestCanTransport, receive_svc_responses_from_redundant_media)
 {
     StrictMock<MediaMock> media_mock2{};
     EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
@@ -671,6 +793,15 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
 
     auto transport = makeTransport(mr_, &media_mock2);
     EXPECT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
+
+    EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
+        .WillOnce(Invoke([&](auto&, auto function) {                   //
+            return scheduler_.registerNamedCallback("rx1", std::move(function));
+        }));
+    EXPECT_CALL(media_mock2, registerPopCallback(Ref(scheduler_), _))  //
+        .WillOnce(Invoke([&](auto&, auto function) {                   //
+            return scheduler_.registerNamedCallback("rx2", std::move(function));
+        }));
 
     auto maybe_session = transport->makeResponseRxSession({64, 0x17B, 0x31});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
@@ -684,158 +815,146 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_media)
     constexpr auto timeout = 200ms;
     session->setTransferIdTimeout(timeout);
 
-    {
-        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
-            EXPECT_THAT(now(), TimePoint{0s} + 10us);
-            EXPECT_THAT(filters, Contains(FilterEq({0x25EC980, 0x2FFFF80})));
-            return cetl::nullopt;
-        });
-        EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
-            EXPECT_THAT(now(), TimePoint{0s} + 10us);
-            EXPECT_THAT(filters, Contains(FilterEq({0x25EC980, 0x2FFFF80})));
-            return cetl::nullopt;
-        });
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
+        EXPECT_THAT(filters, Contains(FilterEq({0x25EC980, 0x2FFFF80})));
+        return cetl::nullopt;
+    });
+    EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
+        EXPECT_THAT(filters, Contains(FilterEq({0x25EC980, 0x2FFFF80})));
+        return cetl::nullopt;
+    });
 
-        scheduler_.runNow(+10us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    }
+    constexpr auto rx1_timestamp = TimePoint{10s};
+    constexpr auto rx2_timestamp = rx1_timestamp + 2 * timeout;
 
-    const auto epoch = TimePoint{10s};
-    scheduler_.setNow(epoch);
-    const auto rx1_timestamp = epoch;
-    const auto rx2_timestamp = epoch + 2 * timeout;
-    {
-        const InSequence seq;
-
-        // 1. Emulate that only one 1st frame came from the 1st media interface (@ rx1_timestamp+10ms)...
+    scheduler_.scheduleAt(rx1_timestamp, [&](const TimePoint) {
         //
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto p) {
-            EXPECT_THAT(now(), rx1_timestamp + 10ms);
-            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
-            p[0] = b('0');
-            p[1] = b('1');
-            p[2] = b('2');
-            p[3] = b('3');
-            p[4] = b('4');
-            p[5] = b('5');
-            p[6] = b('6');
-            p[7] = b(0b101'11101);
-            return IMedia::PopResult::Metadata{rx1_timestamp, 0b111'1'0'0'101111011'0010011'0110001, 8};
-        });
-        EXPECT_CALL(media_mock2, pop(_)).WillOnce([&](auto) {
-            EXPECT_THAT(now(), rx1_timestamp + 10ms);
-            return cetl::nullopt;
-        });
-        // 2. And then 2nd media delivered all frames ones again after timeout (@ rx2_timestamp+10ms).
+        // 1. Emulate that only one 1st frame came from the 1st media interface (@ rx1_timestamp)...
         //
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce([&](auto) {
-            EXPECT_THAT(now(), rx2_timestamp + 10ms);
-            return cetl::nullopt;
-        });
-        EXPECT_CALL(media_mock2, pop(_)).WillOnce([&](auto p) {
-            EXPECT_THAT(now(), rx2_timestamp + 10ms);
-            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
-            p[0] = b('0');
-            p[1] = b('1');
-            p[2] = b('2');
-            p[3] = b('3');
-            p[4] = b('4');
-            p[5] = b('5');
-            p[6] = b('6');
-            p[7] = b(0b101'11110);
-            return IMedia::PopResult::Metadata{rx2_timestamp, 0b111'1'0'0'101111011'0010011'0110001, 8};
-        });
-        EXPECT_CALL(media_mock2, pop(_)).WillOnce([&](auto p) {
-            EXPECT_THAT(now(), rx2_timestamp + 20ms);
-            EXPECT_THAT(p.size(), CANARD_MTU_MAX);
-            p[0] = b('7');
-            p[1] = b('8');
-            p[2] = b('9');
-            p[3] = b(0x7D);
-            p[4] = b(0x61);  // expected 16-bit CRC
-            p[5] = b(0b010'11110);
-            return IMedia::PopResult::Metadata{rx2_timestamp + 1ms, 0b111'1'0'0'101111011'0010011'0110001, 6};
-        });
-    }
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.setNow(rx2_timestamp);
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+        EXPECT_CALL(media_mock_, pop(_))  //
+            .WillOnce([&](auto p) {
+                EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+                p[0] = b('0');
+                p[1] = b('1');
+                p[2] = b('2');
+                p[3] = b('3');
+                p[4] = b('4');
+                p[5] = b('5');
+                p[6] = b('6');
+                p[7] = b(0b101'11101);
+                return IMedia::PopResult::Metadata{rx1_timestamp, 0b111'1'0'0'101111011'0010011'0110001, 8};
+            });
+        scheduler_.scheduleNamedCallback("rx1", rx1_timestamp);
+    });
+    scheduler_.scheduleAt(rx2_timestamp, [&](const TimePoint) {
+        //
+        // 2. And then 2nd media delivered all frames once again after timeout (@ rx2_timestamp).
+        //
+        EXPECT_CALL(media_mock2, pop(_))  //
+            .WillOnce([&](auto p) {
+                EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+                p[0] = b('0');
+                p[1] = b('1');
+                p[2] = b('2');
+                p[3] = b('3');
+                p[4] = b('4');
+                p[5] = b('5');
+                p[6] = b('6');
+                p[7] = b(0b101'11110);
+                return IMedia::PopResult::Metadata{rx2_timestamp, 0b111'1'0'0'101111011'0010011'0110001, 8};
+            });
+        scheduler_.scheduleNamedCallback("rx2", rx1_timestamp);
+    });
+    scheduler_.scheduleAt(rx2_timestamp + 1ms, [&](const TimePoint) {
+        //
+        EXPECT_CALL(media_mock2, pop(_))  //
+            .WillOnce([&](auto p) {
+                EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+                p[0] = b('7');
+                p[1] = b('8');
+                p[2] = b('9');
+                p[3] = b(0x7D);
+                p[4] = b(0x61);  // expected 16-bit CRC
+                p[5] = b(0b010'11110);
+                return IMedia::PopResult::Metadata{rx2_timestamp, 0b111'1'0'0'101111011'0010011'0110001, 6};
+            });
+        scheduler_.scheduleNamedCallback("rx2", rx1_timestamp);
+    });
+    scheduler_.scheduleAt(rx2_timestamp + 2ms, [&](const TimePoint) {
+        //
+        const auto maybe_rx_transfer = session->receive();
+        ASSERT_THAT(maybe_rx_transfer, Optional(_));
+        // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+        const auto& rx_transfer = maybe_rx_transfer.value();
 
-    const auto maybe_rx_transfer = session->receive();
-    ASSERT_THAT(maybe_rx_transfer, Optional(_));
-    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-    const auto& rx_transfer = maybe_rx_transfer.value();
+        EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx2_timestamp);
+        EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x1E);
+        EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::Optional);
+        EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x31);
 
-    EXPECT_THAT(rx_transfer.metadata.timestamp, rx2_timestamp);
-    EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x1E);
-    EXPECT_THAT(rx_transfer.metadata.priority, Priority::Optional);
-    EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x31);
-
-    std::array<char, 10> buffer{};
-    EXPECT_THAT(rx_transfer.payload.size(), buffer.size());
-    EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
-    EXPECT_THAT(buffer, ElementsAre('0', '1', '2', '3', '4', '5', '6', '7', '8', '9'));
-
-    {
+        std::array<char, 10> buffer{};
+        EXPECT_THAT(rx_transfer.payload.size(), buffer.size());
+        EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
+        EXPECT_THAT(buffer, ElementsAre('0', '1', '2', '3', '4', '5', '6', '7', '8', '9'));
+    });
+    scheduler_.scheduleAt(99s, [&](const TimePoint) {
+        //
         SCOPED_TRACE("unsubscribe @ 99s");
 
-        scheduler_.setNow(TimePoint{99s});
-        const auto reset_time = now();
-
-        EXPECT_CALL(media_mock_, setFilters(IsEmpty())).WillOnce([&](Filters) {
-            EXPECT_THAT(now(), reset_time + 10ms);
-            return cetl::nullopt;
-        });
-        EXPECT_CALL(media_mock2, setFilters(IsEmpty())).WillOnce([&](Filters) {
-            EXPECT_THAT(now(), reset_time + 10ms);
-            return cetl::nullopt;
-        });
-        EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-        EXPECT_CALL(media_mock2, pop(_)).WillRepeatedly(Return(cetl::nullopt));
+        EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
+            .WillOnce([&](Filters) {
+                EXPECT_THAT(now(), TimePoint{99s});
+                return cetl::nullopt;
+            });
+        EXPECT_CALL(media_mock2, setFilters(IsEmpty()))  //
+            .WillOnce([&](Filters) {
+                EXPECT_THAT(now(), TimePoint{99s});
+                return cetl::nullopt;
+            });
 
         session.reset();
-
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-        scheduler_.runNow(+10ms, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    }
+    });
+    scheduler_.spinFor(100s);
 }
 
-TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_fallible_media)
+TEST_F(TestCanTransport, receive_svc_responses_from_redundant_fallible_media)
 {
     using MediaPopReport = ICanTransport::TransientErrorReport::MediaPop;
 
     StrictMock<MediaMock> media_mock2{};
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
 
+    StrictMock<TransientErrorHandlerMock> handler_mock;
+
     auto transport = makeTransport(mr_, &media_mock2);
     EXPECT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
+
+    EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
+        .WillOnce(Invoke([&](auto&, auto function) {                   //
+            return scheduler_.registerNamedCallback("rx1", std::move(function));
+        }));
+    EXPECT_CALL(media_mock2, registerPopCallback(Ref(scheduler_), _))  //
+        .WillOnce(Invoke([&](auto&, auto function) {                   //
+            return scheduler_.registerNamedCallback("rx2", std::move(function));
+        }));
 
     auto maybe_session = transport->makeResponseRxSession({64, 0x17B, 0x31});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IResponseRxSession>>(std::move(maybe_session));
 
     // skip `setFilters` calls; they are tested elsewhere.
-    {
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(cetl::nullopt));
-        EXPECT_CALL(media_mock2, pop(_)).WillOnce(Return(cetl::nullopt));
-
-        EXPECT_CALL(media_mock_, setFilters(_)).WillOnce(Return(cetl::nullopt));
-        EXPECT_CALL(media_mock2, setFilters(_)).WillOnce(Return(cetl::nullopt));
-
-        scheduler_.runNow(+0us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    }
+    EXPECT_CALL(media_mock_, setFilters(_)).WillOnce(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock2, setFilters(_)).WillOnce(Return(cetl::nullopt));
 
     // 1st run: media #0 pop has failed and there is no transient error handler.
-    {
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
         EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(ArgumentError{}));
-
-        scheduler_.runNow(+1s, [&] {
-            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
-        });
-    }
+        scheduler_.scheduleNamedCallback("rx1");
+    });
     // 2nd run: media #0 pop and transient error handler have failed.
-    {
-        StrictMock<TransientErrorHandlerMock> handler_mock{};
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
+        //
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<MediaPopReport>(Truly([&](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<ArgumentError>(_));
@@ -846,15 +965,11 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_fallible_m
             .WillOnce(Return(CapacityError{}));
 
         EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(ArgumentError{}));
-
-        scheduler_.runNow(+1s, [&] {
-            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<CapacityError>(_)));
-        });
-    }
+        scheduler_.scheduleNamedCallback("rx1");
+    });
     // 3rd run: media #0 pop failed but transient error handler succeeded.
-    {
-        StrictMock<TransientErrorHandlerMock> handler_mock{};
-        transport->setTransientErrorHandler(std::ref(handler_mock));
+    scheduler_.scheduleAt(3s, [&](const TimePoint) {
+        //
         EXPECT_CALL(handler_mock, invoke(VariantWith<MediaPopReport>(Truly([&](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<ArgumentError>(_));
                         EXPECT_THAT(report.media_index, 0);
@@ -865,30 +980,30 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_from_redundant_fallible_m
 
         EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(ArgumentError{}));
         EXPECT_CALL(media_mock2, pop(_)).WillOnce(Return(cetl::nullopt));
-
-        scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    }
+        scheduler_.scheduleNamedCallback("rx1");
+        scheduler_.scheduleNamedCallback("rx2");
+    });
+    scheduler_.spinFor(10s);
 }
 
-TEST_F(TestCanTransport, run_and_receive_svc_responses_with_fallible_oom_canard)
+TEST_F(TestCanTransport, receive_svc_responses_with_fallible_oom_canard)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
+
+    StrictMock<TransientErrorHandlerMock> handler_mock;
 
     auto transport = makeTransport(mr_mock);
     EXPECT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
 
+    EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
+        .WillOnce(Invoke([&](auto&, auto function) {                   //
+            return scheduler_.registerNamedCallback("rx", std::move(function));
+        }));
+
     auto maybe_session = transport->makeResponseRxSession({64, 0x17B, 0x31});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IResponseRxSession>>(std::move(maybe_session));
-
-    // Skip setFilters call; it is tested elsewhere.
-    {
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(cetl::nullopt));
-        EXPECT_CALL(media_mock_, setFilters(_)).WillOnce(Return(cetl::nullopt));
-
-        scheduler_.runNow(+0us, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    }
 
     // Emulate that there is constantly a new frame to receive, but the Canard RX has no memory to accept it.
     //
@@ -901,84 +1016,96 @@ TEST_F(TestCanTransport, run_and_receive_svc_responses_with_fallible_oom_canard)
         return IMedia::PopResult::Metadata{now(), 0b111'1'0'0'101111011'0010011'0110001, 4};
     });
     EXPECT_CALL(mr_mock, do_allocate(_, _)).WillRepeatedly(Return(nullptr));
+#if (__cplusplus < CETL_CPP_STANDARD_17)
+    EXPECT_CALL(mr_mock, do_reallocate(nullptr, 0, _, _)).WillRepeatedly(Return(nullptr));
+#endif
 
     // 1st run: canard RX has failed to accept frame and there is no transient error handler.
-    {
-        scheduler_.runNow(+1s, [&] {
-            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
+        scheduler_.scheduleNamedCallback("rx");
+        scheduler_.scheduleAt(now() + 1ms, [&](const TimePoint) {
+            //
+            EXPECT_THAT(session->receive(), Eq(cetl::nullopt));
         });
-        EXPECT_THAT(session->receive(), Eq(cetl::nullopt));
-    }
+    });
     // 2nd run: canard RX has failed to accept frame and there is "failing" transient error handler.
-    {
-        StrictMock<TransientErrorHandlerMock> handler_mock{};
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
+        //
         transport->setTransientErrorHandler(std::ref(handler_mock));
+        scheduler_.scheduleNamedCallback("rx");
         EXPECT_CALL(handler_mock, invoke(_)).WillOnce(Return(StateError{}));
-
-        scheduler_.runNow(+1s, [&] {
-            EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<StateError>(_)));
+        scheduler_.scheduleAt(now() + 1ms, [&](const TimePoint) {
+            //
+            EXPECT_THAT(session->receive(), Eq(cetl::nullopt));
         });
-        EXPECT_THAT(session->receive(), Eq(cetl::nullopt));
-    }
+    });
     // 3rd run: canard RX has failed to accept frame and there is "success" transient error handler -
     // the received frame should be just dropped, but overall `run` result should be success (aka ignore OOM).
-    {
-        StrictMock<TransientErrorHandlerMock> handler_mock{};
-        transport->setTransientErrorHandler(std::ref(handler_mock));
+    scheduler_.scheduleAt(3s, [&](const TimePoint) {
+        //
         EXPECT_CALL(handler_mock, invoke(_)).WillOnce(Return(cetl::nullopt));
-
-        scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-        EXPECT_THAT(session->receive(), Eq(cetl::nullopt));
-    }
+        scheduler_.scheduleNamedCallback("rx");
+        scheduler_.scheduleAt(now() + 1ms, [&](const TimePoint) {
+            //
+            EXPECT_THAT(session->receive(), Eq(cetl::nullopt));
+        });
+    });
     // 4th run: fix memory problems - now we should receive the payload.
-    {
+    scheduler_.scheduleAt(4s, [&](const TimePoint) {
+        //
         mr_mock.redirectExpectedCallsTo(mr_);
+        scheduler_.scheduleNamedCallback("rx");
+        scheduler_.scheduleAt(now() + 1ms, [&](const TimePoint) {
+            //
+            EXPECT_THAT(session->receive(), Optional(Truly([](const auto& rx_transfer) {
+                            EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x1D);
+                            EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::Optional);
+                            EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x31);
 
-        StrictMock<TransientErrorHandlerMock> handler_mock{};
-        transport->setTransientErrorHandler(std::ref(handler_mock));
+                            std::array<char, 3> buffer{};
+                            EXPECT_THAT(rx_transfer.payload.size(), buffer.size());
+                            EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
+                            EXPECT_THAT(buffer, ElementsAre('0', '1', '2'));
 
-        scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-        EXPECT_THAT(session->receive(), Optional(Truly([](const auto& rx_transfer) {
-                        EXPECT_THAT(rx_transfer.metadata.transfer_id, 0x1D);
-                        EXPECT_THAT(rx_transfer.metadata.priority, Priority::Optional);
-                        EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x31);
-
-                        std::array<char, 3> buffer{};
-                        EXPECT_THAT(rx_transfer.payload.size(), buffer.size());
-                        EXPECT_THAT(rx_transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
-                        EXPECT_THAT(buffer, ElementsAre('0', '1', '2'));
-
-                        return true;
-                    })));
-    }
+                            return true;
+                        })));
+        });
+    });
+    scheduler_.spinFor(10s);
 }
 
 TEST_F(TestCanTransport, setLocalNodeId_when_msg_rx_subscription)
 {
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-
     auto transport = makeTransport(mr_);
+
+    EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
+        .WillOnce(Invoke([&](auto&, auto function) {                   //
+            return scheduler_.registerNamedCallback("rx", std::move(function));
+        }));
 
     auto maybe_msg_session = transport->makeMessageRxSession({0, 0x42});
     ASSERT_THAT(maybe_msg_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
 
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters) {
-        EXPECT_THAT(now(), TimePoint{1s});
-        return cetl::nullopt;
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
+
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
+        ASSERT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
+
+        // No `setFilters` expected b/c there is no service RX subscriptions.
     });
-    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-
-    ASSERT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
-
-    // No `setFilters` expected b/c there is no service RX subscriptions.
-    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.spinFor(10s);
 }
 
 TEST_F(TestCanTransport, setLocalNodeId_when_svc_rx_subscription)
 {
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-
     auto transport = makeTransport(mr_);
+
+    EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
+        .WillOnce(Invoke([&](auto&, auto function) {                   //
+            return scheduler_.registerNamedCallback("rx", std::move(function));
+        }));
 
     auto maybe_msg_session = transport->makeMessageRxSession({0, 0x42});
     ASSERT_THAT(maybe_msg_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
@@ -987,168 +1114,97 @@ TEST_F(TestCanTransport, setLocalNodeId_when_svc_rx_subscription)
     ASSERT_THAT(maybe_svc_session, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
 
     EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters filters) {
-        EXPECT_THAT(now(), TimePoint{1s});
         EXPECT_THAT(filters, Contains(FilterEq({0x4200, 0x21FFF80})));
         return cetl::nullopt;
     });
-    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 
-    ASSERT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
+        ASSERT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
 
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(2))).WillOnce([&](Filters filters) {
-        EXPECT_THAT(now(), TimePoint{2s});
-        EXPECT_THAT(filters, Contains(FilterEq({0x4200, 0x21FFF80})));
-        EXPECT_THAT(filters, Contains(FilterEq({0x025EC980, 0x02FFFF80})));
-        return cetl::nullopt;
+        EXPECT_CALL(media_mock_, setFilters(SizeIs(2))).WillOnce([&](Filters filters) {
+            EXPECT_THAT(filters, Contains(FilterEq({0x4200, 0x21FFF80})));
+            EXPECT_THAT(filters, Contains(FilterEq({0x025EC980, 0x02FFFF80})));
+            return cetl::nullopt;
+        });
     });
-    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.spinFor(10s);
 }
 
-TEST_F(TestCanTransport, run_setFilters_no_memory)
+TEST_F(TestCanTransport, setFilters_no_memory)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
-
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
 
     auto transport = makeTransport(mr_mock);
 
+    EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
+        .WillOnce(Invoke([&](auto&, auto function) {                   //
+            return scheduler_.registerNamedCallback("rx", std::move(function));
+        }));
+
     auto maybe_msg_session = transport->makeMessageRxSession({0, 0x42});
     ASSERT_THAT(maybe_msg_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
 
-    // Emulate two times that there is no memory for filters.
+    // Emulate that there is no memory for filters.
     //
-    EXPECT_CALL(mr_mock, do_allocate(_, _)).Times(2).WillRepeatedly(Return(nullptr));
+    EXPECT_CALL(mr_mock, do_allocate(_, _)).WillOnce(Return(nullptr));
 #if (__cplusplus < CETL_CPP_STANDARD_17)
-    EXPECT_CALL(mr_mock, do_reallocate(nullptr, 0, _, _)).Times(2).WillRepeatedly(Return(nullptr));
+    EXPECT_CALL(mr_mock, do_reallocate(nullptr, 0, _, _)).WillOnce(Return(nullptr));
 #endif
-    scheduler_.runNow(+1s, [&] {
-        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
-    });
-    scheduler_.runNow(+1s, [&] {
-        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
-    });
 
-    // Restore normal memory operation, but make media fail to accept filters.
-    //
-    mr_mock.redirectExpectedCallsTo(mr_);
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).Times(2).WillRepeatedly(Return(PlatformError{MyPlatformError{13}}));
-    //
-    scheduler_.runNow(+1s, [&] {
-        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<PlatformError>(Truly([](auto err) {
-                        EXPECT_THAT(err->code(), 13);
-                        return true;
-                    }))));
+    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+        //
+        // Restore normal memory operation, but make media fail to accept filters.
+        //
+        mr_mock.redirectExpectedCallsTo(mr_);
+        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(PlatformError{MyPlatformError{13}}));
+        maybe_msg_session = transport->makeMessageRxSession({0, 0x43});
     });
-    scheduler_.runNow(+1s, [&] {
-        EXPECT_THAT(transport->run(now()),
-                    UbVariantWith<AnyFailure>(VariantWith<PlatformError>(Truly([](const auto& err) {
-                        EXPECT_THAT(err->code(), 13);
-                        return true;
-                    }))));
+    scheduler_.scheduleAt(2s, [&](const TimePoint) {
+        //
+        EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
+        maybe_msg_session = transport->makeMessageRxSession({0, 0x42});
     });
-
-    // And finally, make the media accept filters - should happen once (@5s)!
-    //
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce([&](Filters) {
-        EXPECT_THAT(now(), TimePoint{5s});
-        return cetl::nullopt;
-    });
-    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.spinFor(10s);
 }
 
-TEST_F(TestCanTransport, run_setFilters_no_transient_handler)
-{
-    StrictMock<MediaMock> media_mock2{};
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-    EXPECT_CALL(media_mock2, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-    EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
-
-    auto transport = makeTransport(mr_, &media_mock2);
-
-    auto maybe_msg_session = transport->makeMessageRxSession({0, 0x42});
-    ASSERT_THAT(maybe_msg_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
-
-    // 1st `run`: No transient handler for setFilters,
-    //            so `media_mock_.setFilters` error will be returned (and no call to `media_mock2`).
-    //
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(CapacityError{}));
-    //
-    scheduler_.runNow(+1s, [&] {
-        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<CapacityError>(_)));
-    });
-
-    // 2nd `run`: Now `media_mock_.setFilters` succeeds,
-    //            and so redundant `media_mock2` will be called as well.
-    //
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
-    EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
-    //
-    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-
-    // 3rd `run`: Will do nothing.
-    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-}
-
-TEST_F(TestCanTransport, run_setFilters_with_transient_handler)
+TEST_F(TestCanTransport, setFilters_with_transient_handler)
 {
     using Report = ICanTransport::TransientErrorReport;
 
     StrictMock<MediaMock> media_mock2{};
-    EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
-    EXPECT_CALL(media_mock2, pop(_)).WillRepeatedly(Return(cetl::nullopt));
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
 
     auto transport = makeTransport(mr_, &media_mock2);
 
+    EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
+        .WillOnce(Invoke([&](auto&, auto function) {                   //
+            return scheduler_.registerNamedCallback("rx1", std::move(function));
+        }));
+    EXPECT_CALL(media_mock2, registerPopCallback(Ref(scheduler_), _))  //
+        .WillOnce(Invoke([&](auto&, auto function) {                   //
+            return scheduler_.registerNamedCallback("rx2", std::move(function));
+        }));
+
     auto maybe_msg_session = transport->makeMessageRxSession({0, 0x42});
     ASSERT_THAT(maybe_msg_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
 
-    // 1st `run`: Transient handler for `setFilters` call will fail to handle the error,
-    //            so the handler's result error will be returned (and no call to `media_mock2`).
-    //
-    transport->setTransientErrorHandler([&](Report::Variant& report_var) {
+    const auto expected_error = PlatformError{MyPlatformError{13}};
+
+    transport->setTransientErrorHandler([&](const Report::Variant& report_var) {
         EXPECT_THAT(report_var, VariantWith<Report::MediaConfig>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.failure, VariantWith<CapacityError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<PlatformError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         EXPECT_THAT(report.culprit, Ref(media_mock_));
                         return true;
                     })));
         return StateError{};
     });
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(CapacityError{}));
-    //
-    scheduler_.runNow(+1s, [&] {
-        EXPECT_THAT(transport->run(now()), UbVariantWith<AnyFailure>(VariantWith<StateError>(_)));
-    });
-
-    // 2nd `run`: `media_mock_.setFilters` will fail again but now handler will handle the error,
-    //            and so redundant `media_mock2` will be called as well.
-    //
-    transport->setTransientErrorHandler([&](Report::Variant& report_var) {
-        EXPECT_THAT(report_var, VariantWith<Report::MediaConfig>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.failure, VariantWith<CapacityError>(_));
-                        EXPECT_THAT(report.media_index, 0);
-                        EXPECT_THAT(report.culprit, Ref(media_mock_));
-                        return true;
-                    })));
-        return cetl::nullopt;
-    });
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(CapacityError{}));
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(expected_error));
     EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
-    //
-    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
 
-    // 3rd `run`: Will still try set filters (b/c there was transient error before).
-    //
-    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
-    EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
-    //
-    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
-
-    // 4th `run`: Will do nothing.
-    scheduler_.runNow(+1s, [&] { EXPECT_THAT(transport->run(now()), UbVariantWithoutValue()); });
+    scheduler_.spinFor(10s);
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

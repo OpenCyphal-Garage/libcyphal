@@ -64,18 +64,14 @@ struct TransferMetadata final
 
 struct MessageTransferMetadata final
 {
-    TransferId             transfer_id{};
-    TimePoint              timestamp;
-    Priority               priority{};
+    TransferMetadata       base;
     cetl::optional<NodeId> publisher_node_id;
 };
 
 struct ServiceTransferMetadata final
 {
-    TransferId transfer_id{};
-    TimePoint  timestamp;
-    Priority   priority{};
-    NodeId     remote_node_id{};
+    TransferMetadata base;
+    NodeId           remote_node_id{};
 };
 
 /// @brief Defines a span of immutable fragments of payload.

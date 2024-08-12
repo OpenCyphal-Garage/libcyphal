@@ -29,23 +29,6 @@ public:
     {
     }
 
-    void setNow(const TimePoint now)
-    {
-        now_ = now;
-    }
-
-    void runNow(const Duration duration)
-    {
-        now_ += duration;
-    }
-
-    template <typename Action>
-    void runNow(const Duration duration, Action action)
-    {
-        runNow(duration);
-        action();
-    }
-
     void scheduleAt(const TimePoint exec_time, Callback::Function&& function)
     {
         auto callback = registerCallback(std::move(function));
@@ -75,7 +58,7 @@ public:
                 break;
             }
 
-            setNow(*spin_result.next_exec_time);
+            now_ = *spin_result.next_exec_time;
         }
 
         now_ = end_time;
@@ -112,6 +95,10 @@ public:
         auto callback = registerNamedCallback(name, std::move(function));
         scheduleCallback(callback, schedule);
         return callback;
+    }
+    CETL_NODISCARD bool hasNamedCallback(const std::string& name)
+    {
+        return named_cb_handles_.find(name) != named_cb_handles_.end();
     }
 
     // MARK: - IExecutor

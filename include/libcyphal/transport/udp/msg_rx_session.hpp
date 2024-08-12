@@ -9,7 +9,6 @@
 #include "delegate.hpp"
 #include "session_tree.hpp"
 
-#include "libcyphal/runnable.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -41,7 +40,7 @@ namespace detail
 /// NOSONAR cpp:S4963 for below `class MessageRxSession` - we do directly handle resources here;
 /// namely: in destructor we have to unsubscribe, as well as let transport delegate to know this fact.
 ///
-class MessageRxSession final : private IMsgRxSessionDelegate, public IMessageRxSession  // NOSONAR cpp:S4963
+class MessageRxSession final : IMsgRxSessionDelegate, public IMessageRxSession  // NOSONAR cpp:S4963
 {
     /// @brief Defines private specification for making interface unique ptr.
     ///
@@ -100,12 +99,10 @@ public:
     {
         ::udpardRxSubscriptionFree(&subscription_);
 
-        delegate_.onSessionEvent(SessionEvent::Destroyed{params_.subject_id});
+        delegate_.onSessionEvent(TransportDelegate::SessionEvent::MsgDestroyed{params_.subject_id});
     }
 
 private:
-    using SessionEvent = TransportDelegate::SessionEvent::Message;
-
     // MARK: IMessageRxSession
 
     CETL_NODISCARD MessageRxParams getParams() const noexcept override
@@ -143,7 +140,7 @@ private:
 
         TransportDelegate::UdpardMemory udpard_memory{delegate_, inout_transfer};
 
-        const MessageTransferMetadata meta{inout_transfer.transfer_id, timestamp, priority, publisher_node_id};
+        const MessageTransferMetadata meta{{inout_transfer.transfer_id, timestamp, priority}, publisher_node_id};
         (void) last_rx_transfer_.emplace(MessageRxTransfer{meta, ScatteredBuffer{std::move(udpard_memory)}});
     }
 

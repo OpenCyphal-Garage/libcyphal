@@ -71,10 +71,12 @@ class TestUdpMsgTxSession : public testing::Test
 protected:
     void SetUp() override
     {
-        EXPECT_CALL(media_mock_, makeTxSocket()).WillRepeatedly(Invoke([this]() {
-            return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock_);
-        }));
-        EXPECT_CALL(tx_socket_mock_, getMtu()).WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
+        EXPECT_CALL(media_mock_, makeTxSocket())  //
+            .WillRepeatedly(Invoke([this]() {
+                return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock_);
+            }));
+        EXPECT_CALL(tx_socket_mock_, getMtu())  //
+            .WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
     }
 
     void TearDown() override
@@ -126,7 +128,7 @@ TEST_F(TestUdpMsgTxSession, make)
 
 TEST_F(TestUdpMsgTxSession, make_no_memory)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
     auto transport = makeTransport({mr_mock});
@@ -134,7 +136,8 @@ TEST_F(TestUdpMsgTxSession, make_no_memory)
     scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
         // Emulate that there is no memory available for the message session.
-        EXPECT_CALL(mr_mock, do_allocate(sizeof(udp::detail::MessageTxSession), _)).WillOnce(Return(nullptr));
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(udp::detail::MessageTxSession), _))  //
+            .WillOnce(Return(nullptr));
 
         auto maybe_session = transport->makeMessageTxSession({0x23});
         EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
@@ -164,12 +167,14 @@ TEST_F(TestUdpMsgTxSession, make_fails_due_to_media_socket)
     // 1. Transport will fail to make msg TX session b/c media fails to create a TX socket.
     scheduler_.scheduleAt(1s, [&](const TimePoint) {
         //
-        EXPECT_CALL(media_mock_, makeTxSocket()).WillOnce(Return(MemoryError{}));
+        EXPECT_CALL(media_mock_, makeTxSocket())  //
+            .WillOnce(Return(MemoryError{}));
 
         auto maybe_tx_session = transport->makeMessageTxSession({123});
         EXPECT_THAT(maybe_tx_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
 
-        EXPECT_CALL(media_mock_, makeTxSocket()).WillOnce(Return(nullptr));
+        EXPECT_CALL(media_mock_, makeTxSocket())  //
+            .WillOnce(Return(nullptr));
 
         maybe_tx_session = transport->makeMessageTxSession({123});
         EXPECT_THAT(maybe_tx_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
@@ -178,9 +183,10 @@ TEST_F(TestUdpMsgTxSession, make_fails_due_to_media_socket)
     //    This is b/c transient error handler will be set and will handle the error.
     scheduler_.scheduleAt(2s, [&](const TimePoint) {
         //
-        EXPECT_CALL(media_mock_, makeTxSocket()).WillOnce(Return(MemoryError{}));
+        EXPECT_CALL(media_mock_, makeTxSocket())  //
+            .WillOnce(Return(MemoryError{}));
 
-        StrictMock<TransientErrorHandlerMock> handler_mock{};
+        StrictMock<TransientErrorHandlerMock> handler_mock;
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<MakeSocketReport>(Truly([&](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<MemoryError>(_));
@@ -202,7 +208,7 @@ TEST_F(TestUdpMsgTxSession, make_fails_due_to_media_socket)
 
 TEST_F(TestUdpMsgTxSession, send_empty_payload)
 {
-    StrictMock<MemoryResourceMock> fragment_mr_mock{};
+    StrictMock<MemoryResourceMock> fragment_mr_mock;
     fragment_mr_mock.redirectExpectedCallsTo(mr_);
 
     auto transport = makeTransport({mr_, nullptr, &fragment_mr_mock});
@@ -230,7 +236,7 @@ TEST_F(TestUdpMsgTxSession, send_empty_payload)
         // Emulate that TX socket has not accepted the payload.
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
-            .WillOnce(Return(ITxSocket::SendResult::Success{false /*is_accepted*/}));
+            .WillOnce(Return(ITxSocket::SendResult::Success{false /* is_accepted */}));
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([](auto&, auto) { return libcyphal::IExecutor::Callback::Any{}; }));
 
@@ -262,7 +268,7 @@ TEST_F(TestUdpMsgTxSession, send_empty_expired_payload)
         //
         // Emulate that socket became ready on the very edge of the default 1s timeout (exactly at the deadline).
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
-            .WillOnce(Return(ITxSocket::SendResult::Success{false /*is_accepted*/}));
+            .WillOnce(Return(ITxSocket::SendResult::Success{false /* is_accepted */}));
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //
                 return scheduler_.registerAndScheduleNamedCallback("", now() + timeout, std::move(function));
@@ -293,7 +299,7 @@ TEST_F(TestUdpMsgTxSession, send_single_frame_payload_with_500ms_timeout)
         //
         // Emulate that socket became ready on the very edge of the 500ms timeout (just 1us before the deadline).
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
-            .WillOnce(Return(ITxSocket::SendResult::Success{false /*is_accepted*/}));
+            .WillOnce(Return(ITxSocket::SendResult::Success{false /* is_accepted */}));
         EXPECT_CALL(tx_socket_mock_, registerCallback(_, _))  //
             .WillOnce(Invoke([&](auto&, auto function) {      //
                 return scheduler_.registerAndScheduleNamedCallback("", now() + timeout - 1us, std::move(function));
@@ -305,26 +311,27 @@ TEST_F(TestUdpMsgTxSession, send_single_frame_payload_with_500ms_timeout)
     });
     scheduler_.scheduleAt(1s + timeout - 1us, [&](const TimePoint) {
         //
-        EXPECT_CALL(tx_socket_mock_, send(_, _, _, _)).WillOnce([&](auto, auto endpoint, auto dscp, auto fragments) {
-            EXPECT_THAT(now(), metadata.timestamp + timeout - 1us);
-            EXPECT_THAT(endpoint.ip_address, 0xEF000017);
-            EXPECT_THAT(endpoint.udp_port, 9382);
-            EXPECT_THAT(dscp, 0x0);
-            EXPECT_THAT(fragments, SizeIs(1));
-            EXPECT_THAT(fragments[0], SizeIs(24 + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 4));
-            EXPECT_THAT(fragments[0][24 + 0], b('1'));
-            EXPECT_THAT(fragments[0][24 + 1], b('2'));
-            EXPECT_THAT(fragments[0][24 + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME - 1],
-                        b(static_cast<std::uint8_t>('1' + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME - 1)));
-            return ITxSocket::SendResult::Success{true /*is_accepted*/};
-        });
+        EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))  //
+            .WillOnce([&](auto, auto endpoint, auto dscp, auto fragments) {
+                EXPECT_THAT(now(), metadata.timestamp + timeout - 1us);
+                EXPECT_THAT(endpoint.ip_address, 0xEF000017);
+                EXPECT_THAT(endpoint.udp_port, 9382);
+                EXPECT_THAT(dscp, 0x0);
+                EXPECT_THAT(fragments, SizeIs(1));
+                EXPECT_THAT(fragments[0], SizeIs(24 + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 4));
+                EXPECT_THAT(fragments[0][24 + 0], b('1'));
+                EXPECT_THAT(fragments[0][24 + 1], b('2'));
+                EXPECT_THAT(fragments[0][24 + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME - 1],
+                            b(static_cast<std::uint8_t>('1' + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME - 1)));
+                return ITxSocket::SendResult::Success{true /* is_accepted */};
+            });
     });
     scheduler_.spinFor(10s);
 }
 
 TEST_F(TestUdpMsgTxSession, send_when_no_memory_for_contiguous_payload)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
     auto transport = makeTransport({mr_mock});
@@ -332,7 +339,8 @@ TEST_F(TestUdpMsgTxSession, send_when_no_memory_for_contiguous_payload)
     // Emulate that there is no memory available for the expected contiguous payload.
     const auto payload1 = makeIotaArray<1>(b('0'));
     const auto payload2 = makeIotaArray<2>(b('1'));
-    EXPECT_CALL(mr_mock, do_allocate(sizeof(payload1) + sizeof(payload2), _)).WillOnce(Return(nullptr));
+    EXPECT_CALL(mr_mock, do_allocate(sizeof(payload1) + sizeof(payload2), _))  //
+        .WillOnce(Return(nullptr));
 
     auto maybe_session = transport->makeMessageTxSession({17});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));

@@ -50,11 +50,11 @@ using testing::VariantWith;
 class TestCanDelegate : public testing::Test
 {
 protected:
-    class TransportDelegateImpl final : public can::detail::TransportDelegate
+    class TransportDelegateImpl final : public detail::TransportDelegate
     {
     public:
         explicit TransportDelegateImpl(cetl::pmr::memory_resource& memory)
-            : can::detail::TransportDelegate{memory}
+            : TransportDelegate{memory}
         {
         }
 
@@ -66,7 +66,7 @@ protected:
                      const CanardTransferMetadata& metadata,
                      const PayloadFragments        payload_fragments),
                     (override));
-        MOCK_METHOD(void, triggerUpdateOfFilters, (const FiltersUpdate::Variant& update_var), (override));
+        MOCK_METHOD(void, onSessionEvent, (const SessionEvent::Variant& event_var), (override));
     };
 
     void TearDown() override
@@ -192,13 +192,14 @@ TEST_F(TestCanDelegate, optAnyFailureFromCanard)
 
 TEST_F(TestCanDelegate, canardMemoryAllocate_no_memory)
 {
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<MemoryResourceMock> mr_mock;
 
     TransportDelegateImpl delegate{mr_mock};
     auto&                 canard_instance = delegate.canard_instance();
 
     // Emulate that there is no memory at all.
-    EXPECT_CALL(mr_mock, do_allocate(_, _)).WillOnce(Return(nullptr));
+    EXPECT_CALL(mr_mock, do_allocate(_, _))  //
+        .WillOnce(Return(nullptr));
 
     EXPECT_THAT(canard_instance.memory_allocate(&canard_instance, 1), IsNull());
 }
@@ -218,11 +219,13 @@ TEST_F(TestCanDelegate, CanardConcreteTree_visitCounting)
     //      ↙     ↘
     //  Left       Right
     //      ↘      ↙   ↘
-    //       LR  RL     RR
+    //       LR   RL    RR
+    //                 ↙
+    //               RRL
     //
     // NOLINTBEGIN(readability-isolate-declaration)
     MyNode root{"Root"}, left{"Left"}, right{"Right"};
-    MyNode left_r{"LR"}, right_l{"RL"}, right_r{"RR"};
+    MyNode left_r{"LR"}, right_l{"RL"}, right_r{"RR"}, right_rl{"RRL"};
     // NOLINTEND(readability-isolate-declaration)
     root.lr[0]  = &left;
     root.lr[1]  = &right;
@@ -232,31 +235,15 @@ TEST_F(TestCanDelegate, CanardConcreteTree_visitCounting)
     right.lr[1] = &right_r;
     left.up = right.up = &root;
     right_l.up = right_r.up = &right;
+    right_rl.up             = &right_r;
+    right_r.lr[0]           = &right_rl;
 
     using MyTree = can::detail::TransportDelegate::CanardConcreteTree<const MyNode>;
     {
         std::vector<std::string> names;
         auto count = MyTree::visitCounting(&root, [&names](const MyNode& node) { names.push_back(node.name); });
-        EXPECT_THAT(count, 6);
-        EXPECT_THAT(names, ElementsAre("Left", "LR", "Root", "RL", "Right", "RR"));
-    }
-    {
-        std::vector<std::string> names;
-        auto count = MyTree::visitCounting(&left, [&names](const MyNode& node) { names.push_back(node.name); });
-        EXPECT_THAT(count, 2);
-        EXPECT_THAT(names, ElementsAre("Left", "LR"));
-    }
-    {
-        std::vector<std::string> names;
-        auto count = MyTree::visitCounting(&right, [&names](const MyNode& node) { names.push_back(node.name); });
-        EXPECT_THAT(count, 3);
-        EXPECT_THAT(names, ElementsAre("RL", "Right", "RR"));
-    }
-    {
-        std::vector<std::string> names;
-        auto count = MyTree::visitCounting(&left_r, [&names](const MyNode& node) { names.push_back(node.name); });
-        EXPECT_THAT(count, 1);
-        EXPECT_THAT(names, ElementsAre("LR"));
+        EXPECT_THAT(count, 7);
+        EXPECT_THAT(names, ElementsAre("Left", "LR", "Root", "RL", "Right", "RRL", "RR"));
     }
     {
         std::vector<std::string> names;

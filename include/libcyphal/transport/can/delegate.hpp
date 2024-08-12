@@ -125,58 +125,92 @@ public:
     template <typename Node>
     struct CanardConcreteTree
     {
-        /// @brief Recursively visits each node of the AVL tree, counting total number of nodes visited.
-        ///
-        /// Recursion goes first to the left child, then to the current node, and finally to the right child.
-        /// B/c AVL tree is balanced, the total complexity is `O(n)` and call stack depth should not be deeper than
-        /// ~O(log(N)) (`ceil(1.44 * log2(N + 2) - 0.328)` to be precise, or 19 in case of 8192 ports),
-        /// where `N` is the total number of tree nodes. Hence, the `NOLINTNEXTLINE(misc-no-recursion)`
-        /// and `NOSONAR cpp:S925` exceptions.
+        /// @brief Visits in-order each node of the AVL tree, counting total number of nodes visited.
         ///
         /// @tparam Visitor Type of the visitor callable.
-        /// @param node (sub-)root node of the AVL tree. Could be `nullptr`.
+        /// @param root The root node of the AVL tree. Could be `nullptr`.
         /// @param visitor The callable to be invoked for each non-null node.
-        /// @return Total count of visited nodes (including the `node` one). `0` if `node` is `nullptr`.
+        /// @return Total count of visited nodes (including the `root` one). `0` if `root` is `nullptr`.
+        ///
+        /// No Sonar cpp:S134 b/c this is usual in-order traversal - maintainability is not a concern here.
         ///
         template <typename Visitor>
-        // NOLINTNEXTLINE(misc-no-recursion)
-        static std::size_t visitCounting(CanardTreeNode* const node, const Visitor& visitor)
+        static std::size_t visitCounting(CanardTreeNode* const root, const Visitor& visitor)
         {
-            if (node == nullptr)
+            std::size_t           count = 0;
+            CanardTreeNode*       node  = root;
+            const CanardTreeNode* prev  = nullptr;
+
+            while (nullptr != node)
             {
-                return 0;
+                CanardTreeNode* next = node->up;
+
+                if (prev == node->up)
+                {
+                    // We came down to this node from `prev`.
+
+                    if (auto* const left = node->lr[0])
+                    {
+                        next = left;
+                    }
+                    else
+                    {
+                        ++count;
+                        visitor(down(*node));
+
+                        if (auto* const right = node->lr[1])  // NOSONAR cpp:S134
+                        {
+                            next = right;
+                        }
+                    }
+                }
+                else if (prev == node->lr[0])
+                {
+                    // We came up to this node from the left child.
+
+                    ++count;
+                    visitor(down(*node));
+
+                    if (auto* const right = node->lr[1])
+                    {
+                        next = right;
+                    }
+                }
+                else
+                {
+                    // next has already been set to the parent node.
+                }
+
+                prev = std::exchange(node, next);
             }
-
-            // Initial `1` is for the current node.
-            std::size_t count = 1;
-
-            count += visitCounting(node->lr[0], visitor);  // NOSONAR cpp:S925
-
-            // Next nolint & NOSONAR are unavoidable: this is integration with low-level C code of Canard AVL trees.
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-            visitor(*reinterpret_cast<Node*>(node));  // NOSONAR cpp:S3630
-
-            count += visitCounting(node->lr[1], visitor);  // NOSONAR cpp:S925
 
             return count;
         }
 
+    private:
+        static Node& down(CanardTreeNode& node)
+        {
+            // Next nolint & NOSONAR are unavoidable: this is integration with low-level C code of Canard AVL trees.
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+            return reinterpret_cast<Node&>(node);  // NOSONAR cpp:S3630
+        }
+
     };  // CanardConcreteTree
 
-    struct FiltersUpdate
+    struct SessionEvent
     {
-        struct SubjectPort
+        struct MsgRxLifetime
         {
             bool is_added;
         };
-        struct ServicePort
+        struct SvcRxLifetime
         {
             bool is_added;
         };
 
-        using Variant = cetl::variant<SubjectPort, ServicePort>;
+        using Variant = cetl::variant<MsgRxLifetime, SvcRxLifetime>;
 
-    };  // FiltersUpdate
+    };  // SessionEvent
 
     TransportDelegate(const TransportDelegate&)                = delete;
     TransportDelegate(TransportDelegate&&) noexcept            = delete;
@@ -272,14 +306,11 @@ public:
                                                                    const CanardTransferMetadata& metadata,
                                                                    const PayloadFragments        payload_fragments) = 0;
 
-    /// @brief Triggers update of media filters due to a change of RX ports.
+    /// @brief Called on a session event.
     ///
-    /// Actual update will be done on next `run` of transport.
+    /// @param event_var Describes variant of the session even has happened.
     ///
-    /// @param update_var Describes variant of which the RX ports update has happened.
-    ///                   Allows to distinguish between subject and service ports.
-    ///
-    virtual void triggerUpdateOfFilters(const FiltersUpdate::Variant& update_var) = 0;
+    virtual void onSessionEvent(const SessionEvent::Variant& event_var) = 0;
 
 protected:
     explicit TransportDelegate(cetl::pmr::memory_resource& memory)

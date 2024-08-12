@@ -186,37 +186,22 @@ public:
 
     struct SessionEvent
     {
-        struct Message
+        struct MsgDestroyed
         {
-            struct Destroyed
-            {
-                PortId subject_id;
-            };
-
-            using Variant = cetl::variant<Destroyed>;
+            PortId subject_id;
         };
 
-        struct Request
+        struct SvcRequestDestroyed
         {
-            struct Destroyed
-            {
-                PortId service_id;
-            };
-
-            using Variant = cetl::variant<Destroyed>;
+            PortId service_id;
         };
 
-        struct Response
+        struct SvcResponseDestroyed
         {
-            struct Destroyed
-            {
-                PortId service_id;
-            };
-
-            using Variant = cetl::variant<Destroyed>;
+            PortId service_id;
         };
 
-        using Variant = cetl::variant<Message::Variant, Request::Variant, Response::Variant>;
+        using Variant = cetl::variant<MsgDestroyed, SvcRequestDestroyed, SvcResponseDestroyed>;
 
     };  // SessionEvent
 

@@ -8,7 +8,6 @@
 
 #include "delegate.hpp"
 
-#include "libcyphal/runnable.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -41,7 +40,7 @@ namespace detail
 /// NOSONAR cpp:S4963 for below `class MessageRxSession` - we do directly handle resources here;
 /// namely: in destructor we have to unsubscribe, as well as let transport delegate to know this fact.
 ///
-class MessageRxSession final : private IRxSessionDelegate, public IMessageRxSession  // NOSONAR cpp:S4963
+class MessageRxSession final : IRxSessionDelegate, public IMessageRxSession  // NOSONAR cpp:S4963
 {
     /// @brief Defines private specification for making interface unique ptr.
     ///
@@ -88,7 +87,7 @@ public:
         // No Sonar `cpp:S5356` b/c we integrate here with C libcanard API.
         subscription_.user_reference = static_cast<IRxSessionDelegate*>(this);  // NOSONAR cpp:S5356
 
-        delegate_.triggerUpdateOfFilters(TransportDelegate::FiltersUpdate::SubjectPort{true});
+        delegate_.onSessionEvent(TransportDelegate::SessionEvent::MsgRxLifetime{true /* is_added */});
     }
 
     MessageRxSession(const MessageRxSession&)                = delete;
@@ -104,7 +103,7 @@ public:
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "Subscription supposed to be made at constructor.");
 
-        delegate_.triggerUpdateOfFilters(TransportDelegate::FiltersUpdate::SubjectPort{false});
+        delegate_.onSessionEvent(TransportDelegate::SessionEvent::MsgRxLifetime{false /* is_added */});
     }
 
 private:
@@ -148,7 +147,7 @@ private:
         auto* const buffer = static_cast<cetl::byte*>(transfer.payload);  // NOSONAR cpp:S5356 cpp:S5357
         TransportDelegate::CanardMemory canard_memory{delegate_, buffer, transfer.payload_size};
 
-        const MessageTransferMetadata meta{transfer_id, timestamp, priority, publisher_node_id};
+        const MessageTransferMetadata meta{{transfer_id, timestamp, priority}, publisher_node_id};
         (void) last_rx_transfer_.emplace(MessageRxTransfer{meta, ScatteredBuffer{std::move(canard_memory)}});
     }
 
