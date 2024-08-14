@@ -122,16 +122,16 @@ private:
     }
 
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerAwaitableCallback(
-        libcyphal::IExecutor::Callback::Function&&     function,
-        const posix::IPosixExecutor::Trigger::Variant& trigger) const
+        libcyphal::IExecutor::Callback::Function&&              function,
+        const posix::IPosixExecutorExtension::Trigger::Variant& trigger) const
     {
-        auto* const posix_executor = cetl::rtti_cast<posix::IPosixExecutor*>(&executor_);
-        if (nullptr == posix_executor)
+        auto* const posix_executor_ext = cetl::rtti_cast<posix::IPosixExecutorExtension*>(&executor_);
+        if (nullptr == posix_executor_ext)
         {
             return {};
         }
 
-        return posix_executor->registerAwaitableCallback(std::move(function), trigger);
+        return posix_executor_ext->registerAwaitableCallback(std::move(function), trigger);
     }
 
     // MARK: - IMedia
@@ -199,14 +199,14 @@ private:
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerPushCallback(
         libcyphal::IExecutor::Callback::Function&& function) override
     {
-        using WritableTrigger = posix::IPosixExecutor::Trigger::Writable;
+        using WritableTrigger = posix::IPosixExecutorExtension::Trigger::Writable;
         return registerAwaitableCallback(std::move(function), WritableTrigger{socket_can_tx_fd_});
     }
 
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerPopCallback(
         libcyphal::IExecutor::Callback::Function&& function) override
     {
-        using ReadableTrogger = posix::IPosixExecutor::Trigger::Readable;
+        using ReadableTrogger = posix::IPosixExecutorExtension::Trigger::Readable;
         return registerAwaitableCallback(std::move(function), ReadableTrogger{socket_can_rx_fd_});
     }
 

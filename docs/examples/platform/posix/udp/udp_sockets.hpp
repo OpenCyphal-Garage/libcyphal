@@ -7,7 +7,7 @@
 #ifndef EXAMPLE_PLATFORM_POSIX_UDP_SOCKETS_HPP_INCLUDED
 #define EXAMPLE_PLATFORM_POSIX_UDP_SOCKETS_HPP_INCLUDED
 
-#include "../posix_executor.hpp"
+#include "../posix_executor_extension.hpp"
 #include "../posix_platform_error.hpp"
 #include "udp.h"
 
@@ -105,15 +105,16 @@ private:
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerCallback(
         libcyphal::IExecutor::Callback::Function&& function) override
     {
-        auto* const posix_executor = cetl::rtti_cast<IPosixExecutor*>(&executor_);
-        if (nullptr == posix_executor)
+        auto* const posix_executor_ext = cetl::rtti_cast<IPosixExecutorExtension*>(&executor_);
+        if (nullptr == posix_executor_ext)
         {
             return {};
         }
 
         CETL_DEBUG_ASSERT(udp_handle_.fd >= 0, "");
-        return posix_executor->registerAwaitableCallback(std::move(function),
-                                                         IPosixExecutor::Trigger::Writable{udp_handle_.fd});
+        return posix_executor_ext->registerAwaitableCallback(std::move(function),
+                                                             IPosixExecutorExtension::Trigger::Writable{
+                                                                 udp_handle_.fd});
     }
 
     // MARK: Data members:
@@ -210,15 +211,16 @@ private:
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerCallback(
         libcyphal::IExecutor::Callback::Function&& function) override
     {
-        auto* const posix_executor = cetl::rtti_cast<IPosixExecutor*>(&executor_);
-        if (nullptr == posix_executor)
+        auto* const posix_executor_ext = cetl::rtti_cast<IPosixExecutorExtension*>(&executor_);
+        if (nullptr == posix_executor_ext)
         {
             return {};
         }
 
         CETL_DEBUG_ASSERT(udp_handle_.fd >= 0, "");
-        return posix_executor->registerAwaitableCallback(std::move(function),
-                                                         IPosixExecutor::Trigger::Readable{udp_handle_.fd});
+        return posix_executor_ext->registerAwaitableCallback(std::move(function),
+                                                             IPosixExecutorExtension::Trigger::Readable{
+                                                                 udp_handle_.fd});
     }
 
     // MARK: Data members:

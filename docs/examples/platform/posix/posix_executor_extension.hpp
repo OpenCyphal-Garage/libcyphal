@@ -4,8 +4,8 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#ifndef EXAMPLE_PLATFORM_POSIX_EXECUTOR_HPP_INCLUDED
-#define EXAMPLE_PLATFORM_POSIX_EXECUTOR_HPP_INCLUDED
+#ifndef EXAMPLE_PLATFORM_POSIX_EXECUTOR_EXTENSION_HPP_INCLUDED
+#define EXAMPLE_PLATFORM_POSIX_EXECUTOR_EXTENSION_HPP_INCLUDED
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/rtti.hpp>
@@ -18,7 +18,7 @@ namespace platform
 namespace posix
 {
 
-class IPosixExecutor
+class IPosixExecutorExtension
 {
     // FFE3771E-7962-4CEA-ACA6-ED7895699080
     using TypeIdType = cetl::
@@ -26,10 +26,10 @@ class IPosixExecutor
         type_id_type<0xFF, 0xE3, 0x77, 0x1E, 0x79, 0x62, 0x4C, 0xEA, 0xAC, 0xA6, 0xED, 0x78, 0x95, 0x69, 0x90, 0x80>;
 
 public:
-    IPosixExecutor(const IPosixExecutor&)                = delete;
-    IPosixExecutor(IPosixExecutor&&) noexcept            = delete;
-    IPosixExecutor& operator=(const IPosixExecutor&)     = delete;
-    IPosixExecutor& operator=(IPosixExecutor&&) noexcept = delete;
+    IPosixExecutorExtension(const IPosixExecutorExtension&)                = delete;
+    IPosixExecutorExtension(IPosixExecutorExtension&&) noexcept            = delete;
+    IPosixExecutorExtension& operator=(const IPosixExecutorExtension&)     = delete;
+    IPosixExecutorExtension& operator=(IPosixExecutorExtension&&) noexcept = delete;
 
     struct Trigger
     {
@@ -57,13 +57,13 @@ public:
     }
 
 protected:
-    IPosixExecutor()  = default;
-    ~IPosixExecutor() = default;
+    IPosixExecutorExtension()  = default;
+    ~IPosixExecutorExtension() = default;
 
-};  // IPosixExecutor
+};  // IPosixExecutorExtension
 
 }  // namespace posix
 }  // namespace platform
 }  // namespace example
 
-#endif  // EXAMPLE_PLATFORM_POSIX_EXECUTOR_HPP_INCLUDED
+#endif  // EXAMPLE_PLATFORM_POSIX_EXECUTOR_EXTENSION_HPP_INCLUDED

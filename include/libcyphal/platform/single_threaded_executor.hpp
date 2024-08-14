@@ -12,14 +12,11 @@
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
-#include <cetl/rtti.hpp>
-#include <cetl/unbounded_variant.hpp>
 #include <cetl/visit_helpers.hpp>
 
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
-#include <functional>
 #include <tuple>
 #include <utility>
 

@@ -7,7 +7,7 @@
 #ifndef EXAMPLE_PLATFORM_POSIX_POLL_SINGLE_THREADED_EXECUTOR_HPP_INCLUDED
 #define EXAMPLE_PLATFORM_POSIX_POLL_SINGLE_THREADED_EXECUTOR_HPP_INCLUDED
 
-#include "posix_executor.hpp"
+#include "posix_executor_extension.hpp"
 #include "posix_platform_error.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -37,7 +37,8 @@ namespace posix
 
 /// @brief Defines POSIX platform specific single-threaded executor based on `poll` mechanism.
 ///
-class PollSingleThreadedExecutor final : public libcyphal::platform::SingleThreadedExecutor, public IPosixExecutor
+class PollSingleThreadedExecutor final : public libcyphal::platform::SingleThreadedExecutor,
+                                         public IPosixExecutorExtension
 {
 public:
     explicit PollSingleThreadedExecutor(cetl::pmr::memory_resource& memory_resource)
@@ -153,7 +154,7 @@ public:
     }
 
 protected:
-    // MARK: - IPosixExecutor
+    // MARK: - IPosixExecutorExtension
 
     CETL_NODISCARD Callback::Any registerAwaitableCallback(Callback::Function&&    function,
                                                            const Trigger::Variant& trigger) override
@@ -180,17 +181,17 @@ protected:
 
     CETL_NODISCARD void* _cast_(const cetl::type_id& id) & noexcept override
     {
-        if (id == IPosixExecutor::_get_type_id_())
+        if (id == IPosixExecutorExtension::_get_type_id_())
         {
-            return static_cast<IPosixExecutor*>(this);
+            return static_cast<IPosixExecutorExtension*>(this);
         }
         return Base::_cast_(id);
     }
     CETL_NODISCARD const void* _cast_(const cetl::type_id& id) const& noexcept override
     {
-        if (id == IPosixExecutor::_get_type_id_())
+        if (id == IPosixExecutorExtension::_get_type_id_())
         {
-            return static_cast<const IPosixExecutor*>(this);
+            return static_cast<const IPosixExecutorExtension*>(this);
         }
         return Base::_cast_(id);
     }
