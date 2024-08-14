@@ -33,7 +33,7 @@ namespace platform
 class SingleThreadedExecutor : public IExecutor
 {
 public:
-    SingleThreadedExecutor() = default;
+    SingleThreadedExecutor()          = default;
     virtual ~SingleThreadedExecutor() = default;
 
     SingleThreadedExecutor(const SingleThreadedExecutor&)                = delete;

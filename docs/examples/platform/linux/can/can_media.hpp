@@ -22,7 +22,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
-#include <ratio>
 #include <string>
 #include <unistd.h>
 #include <utility>
@@ -112,8 +111,8 @@ private:
     using Filters = libcyphal::transport::can::Filters;
 
     CanMedia(libcyphal::IExecutor& executor,
-             SocketCANFD           socket_can_rx_fd,
-             SocketCANFD           socket_can_tx_fd,
+             const SocketCANFD     socket_can_rx_fd,
+             const SocketCANFD     socket_can_tx_fd,
              std::string           iface_address)
         : executor_{executor}
         , socket_can_rx_fd_{socket_can_rx_fd}
@@ -122,7 +121,7 @@ private:
     {
     }
 
-    CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerAwatableCallback(
+    CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerAwaitableCallback(
         libcyphal::IExecutor::Callback::Function&&     function,
         const posix::IPosixExecutor::Trigger::Variant& trigger) const
     {
@@ -132,7 +131,7 @@ private:
             return {};
         }
 
-        return posix_executor->registerAwatableCallback(std::move(function), trigger);
+        return posix_executor->registerAwaitableCallback(std::move(function), trigger);
     }
 
     // MARK: - IMedia
@@ -201,14 +200,14 @@ private:
         libcyphal::IExecutor::Callback::Function&& function) override
     {
         using WritableTrigger = posix::IPosixExecutor::Trigger::Writable;
-        return registerAwatableCallback(std::move(function), WritableTrigger{socket_can_tx_fd_});
+        return registerAwaitableCallback(std::move(function), WritableTrigger{socket_can_tx_fd_});
     }
 
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerPopCallback(
         libcyphal::IExecutor::Callback::Function&& function) override
     {
         using ReadableTrogger = posix::IPosixExecutor::Trigger::Readable;
-        return registerAwatableCallback(std::move(function), ReadableTrogger{socket_can_rx_fd_});
+        return registerAwaitableCallback(std::move(function), ReadableTrogger{socket_can_rx_fd_});
     }
 
     // MARK: Data members:
