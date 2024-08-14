@@ -17,9 +17,11 @@
 
 #include <cassert>  // NOLINT for NUNAVUT_ASSERT
 #include <nunavut/support/serialization.hpp>
+#include <uavcan/node/GetInfo_1_0.hpp>
 #include <uavcan/node/Health_1_0.hpp>
 #include <uavcan/node/Heartbeat_1_0.hpp>
 #include <uavcan/node/Mode_1_0.hpp>
+#include <uavcan/node/Version_1_0.hpp>
 
 #include <cetl/pf17/cetlpf.hpp>
 
@@ -39,9 +41,13 @@ namespace platform
 
 struct CommonHelpers
 {
-    using Callback            = libcyphal::IExecutor::Callback;
-    using MessageRxSessionPtr = libcyphal::UniquePtr<libcyphal::transport::IMessageRxSession>;
-    using MessageTxSessionPtr = libcyphal::UniquePtr<libcyphal::transport::IMessageTxSession>;
+    using Callback             = libcyphal::IExecutor::Callback;
+    using MessageRxSessionPtr  = libcyphal::UniquePtr<libcyphal::transport::IMessageRxSession>;
+    using MessageTxSessionPtr  = libcyphal::UniquePtr<libcyphal::transport::IMessageTxSession>;
+    using RequestRxSessionPtr  = libcyphal::UniquePtr<libcyphal::transport::IRequestRxSession>;
+    using ResponseTxSessionPtr = libcyphal::UniquePtr<libcyphal::transport::IResponseTxSession>;
+
+    using SvcTransferMetadata = libcyphal::transport::ServiceTransferMetadata;
 
     static std::vector<std::string> splitInterfaceAddresses(const std::string& iface_addresses_str)
     {
@@ -102,7 +108,7 @@ struct CommonHelpers
         using traits = typename T::_traits_;
         std::array<std::uint8_t, traits::SerializationBufferSizeBytes> buffer{};
 
-        const auto data_size = uavcan::node::serialize(value, buffer).value();
+        const auto data_size = serialize(value, buffer).value();
 
         // NOLINTNEXTLINE
         const cetl::span<const cetl::byte> fragment{reinterpret_cast<cetl::byte*>(buffer.data()), data_size};
@@ -209,17 +215,77 @@ struct CommonHelpers
                                                                   arg.approx_now,
                                                                   libcyphal::transport::Priority::Nominal}),
                             testing::Eq(cetl::nullopt))
-                    << "Failed to publish heartbeat.";
+                    << "Failed to publish Heartbeat_1_0.";
             }
 
         };  // Tx
 
     };  // Heartbeat
 
+    struct GetInfo
+    {
+        RequestRxSessionPtr  svc_req_rx_session_;
+        ResponseTxSessionPtr svc_res_tx_session_;
+
+        bool makeRxSession(libcyphal::transport::ITransport& transport)
+        {
+            auto maybe_svc_rx_session =
+                transport.makeRequestRxSession({uavcan::node::GetInfo::Request_1_0::_traits_::ExtentBytes,
+                                                uavcan::node::GetInfo::Request_1_0::_traits_::FixedPortId});
+            EXPECT_THAT(maybe_svc_rx_session, testing::VariantWith<RequestRxSessionPtr>(testing::_))
+                << "Failed to create GetInfo request RX session.";
+            if (auto* const session = cetl::get_if<RequestRxSessionPtr>(&maybe_svc_rx_session))
+            {
+                svc_req_rx_session_ = std::move(*session);
+            }
+            return nullptr != svc_req_rx_session_;
+        }
+        void makeTxSession(libcyphal::transport::ITransport& transport)
+        {
+            auto maybe_svc_tx_session =
+                transport.makeResponseTxSession({uavcan::node::GetInfo::Response_1_0::_traits_::FixedPortId});
+            EXPECT_THAT(maybe_svc_tx_session, testing::VariantWith<ResponseTxSessionPtr>(testing::_))
+                << "Failed to create GetInfo response TX session.";
+            if (auto* const session = cetl::get_if<ResponseTxSessionPtr>(&maybe_svc_tx_session))
+            {
+                svc_res_tx_session_ = std::move(*session);
+            }
+        }
+
+        void reset()
+        {
+            svc_req_rx_session_.reset();
+            svc_res_tx_session_.reset();
+        }
+
+        void receive(const libcyphal::TimePoint now) const
+        {
+            if (svc_req_rx_session_ && svc_res_tx_session_)
+            {
+                if (auto request = svc_req_rx_session_->receive())
+                {
+                    uavcan::node::GetInfo::Response_1_0 response{};
+                    response.protocol_version = {1, 0};
+                    response.name.push_back('X');
+                    response.name.push_back('Y');
+
+                    const SvcTransferMetadata metadata{{request->metadata.base.transfer_id,
+                                                        now,
+                                                        request->metadata.base.priority},
+                                                       request->metadata.remote_node_id};
+
+                    EXPECT_THAT(serializeAndSend(response, *svc_res_tx_session_, metadata), testing::Eq(cetl::nullopt))
+                        << "Failed to send GetInfo::Response_1_0.";
+                }
+            }
+        }
+
+    };  // GetInfo
+
     template <typename Executor>
-    static void runMainLoop(Executor&                    executor,
-                            const libcyphal::TimePoint   deadline,
-                            const std::function<void()>& spin_extra_action)
+    static void runMainLoop(Executor&                                        executor,
+                            const libcyphal::TimePoint                       deadline,
+                            const std::function<void(libcyphal::TimePoint)>& spin_extra_action)
     {
         libcyphal::Duration worst_lateness{0};
 
@@ -228,7 +294,7 @@ struct CommonHelpers
             const auto spin_result = executor.spinOnce();
             worst_lateness         = std::max(worst_lateness, spin_result.worst_lateness);
 
-            spin_extra_action();
+            spin_extra_action(spin_result.approx_now);
 
             cetl::optional<libcyphal::Duration> opt_timeout;
             if (spin_result.next_exec_time.has_value())

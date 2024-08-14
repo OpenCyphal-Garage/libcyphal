@@ -168,6 +168,7 @@ protected:
     {
         void reset()
         {
+            get_info_.reset();
             rx_heartbeat_.reset();
             tx_heartbeat_.reset();
             transport_.reset();
@@ -176,6 +177,7 @@ protected:
 
         CommonHelpers::Heartbeat::Rx rx_heartbeat_;
         CommonHelpers::Heartbeat::Tx tx_heartbeat_;
+        CommonHelpers::GetInfo       get_info_;
         UdpTransportPtr              transport_;
         std::vector<posix::UdpMedia> media_vector_;
 
@@ -210,10 +212,15 @@ TEST_F(Example_02_PosixUdpTransport, heartbeat)
     state_.rx_heartbeat_.makeRxSession(*state_.transport_, startup_time_);
     state_.tx_heartbeat_.makeTxSession(*state_.transport_, executor_, startup_time_);
 
+    // Bring up 'GetInfo' server.
+    state_.get_info_.makeRxSession(*state_.transport_);
+    state_.get_info_.makeTxSession(*state_.transport_);
+
     // Main loop.
     //
-    CommonHelpers::runMainLoop(executor_, startup_time_ + run_duration_ + 500ms, [&] {
+    CommonHelpers::runMainLoop(executor_, startup_time_ + run_duration_ + 500ms, [&](const auto now) {
         //
+        state_.get_info_.receive(now);
         state_.rx_heartbeat_.receive();
     });
 
