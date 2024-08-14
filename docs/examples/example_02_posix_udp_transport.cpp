@@ -181,13 +181,13 @@ protected:
 
     };  // State
 
-    TrackingMemoryResource             mr_;
-    posix::PosixSingleThreadedExecutor executor_{mr_};
-    State                              state_{};
-    NodeId                             local_node_id_{42};
-    TimePoint                          startup_time_{};
-    Duration                           run_duration_{10s};
-    std::vector<std::string>           iface_addresses_{"127.0.0.1"};
+    TrackingMemoryResource            mr_;
+    posix::PollSingleThreadedExecutor executor_{mr_};
+    State                             state_{};
+    NodeId                            local_node_id_{42};
+    TimePoint                         startup_time_{};
+    Duration                          run_duration_{10s};
+    std::vector<std::string>          iface_addresses_{"127.0.0.1"};
     // NOLINTEND
 
 };  // Example_02_PosixUdpTransport

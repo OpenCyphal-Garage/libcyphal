@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_EXECUTOR_HPP_INCLUDED
 #define LIBCYPHAL_EXECUTOR_HPP_INCLUDED
 
+#include "time_provider.hpp"
 #include "types.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -22,7 +23,7 @@ namespace libcyphal
 
 /// @brief Defines an abstract interface for a callback executor.
 ///
-class IExecutor
+class IExecutor : public ITimeProvider
 {
     // EBAF7312-5CFE-45F5-89FF-D9B9FE45F8EB
     // clang-format off
@@ -102,7 +103,7 @@ public:
         ///
         /// Size is chosen arbitrary, but it should be enough to store any callback implementation.
         ///
-        static constexpr std::size_t MaxSize = (sizeof(void*) * 12) + sizeof(Function);
+        static constexpr std::size_t MaxSize = (sizeof(void*) * 16) + sizeof(Function);
 
         class Interface
         {
@@ -127,9 +128,8 @@ public:
             /// according to the last setup.
             ///
             /// @param schedule Contains specifics of how exactly callback will be scheduled.
-            /// @return `true` if scheduling was successful, `false` otherwise (b/c callback has been reset).
             ///
-            virtual bool schedule(const Schedule::Variant& schedule) = 0;
+            virtual void schedule(const Schedule::Variant& schedule) = 0;
 
             // MARK: RTTI
 
@@ -206,7 +206,8 @@ public:
             {
                 if (auto* const interface = getInterface())
                 {
-                    return interface->schedule(schedule);
+                    interface->schedule(schedule);
+                    return true;
                 }
                 return false;
             }
@@ -219,10 +220,6 @@ public:
     IExecutor(IExecutor&&) noexcept            = delete;
     IExecutor& operator=(const IExecutor&)     = delete;
     IExecutor& operator=(IExecutor&&) noexcept = delete;
-
-    /// @brief Gets the current time point (aka now) of the executor.
-    ///
-    virtual TimePoint now() const noexcept = 0;
 
     /// @brief Registers a new callback by appending it to the executor.
     ///

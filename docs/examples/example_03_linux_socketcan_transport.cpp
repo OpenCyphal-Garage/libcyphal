@@ -8,12 +8,9 @@
 ///
 
 #include "platform/common_helpers.hpp"
-#include "platform/posix/posix_single_threaded_executor.hpp"
+#include "platform/linux/can/can_media.hpp"
+#include "platform/linux/epoll_single_threaded_executor.hpp"
 #include "platform/tracking_memory_resource.hpp"
-
-#ifdef __linux__
-#    include "platform/linux/can/can_media.hpp"
-#endif
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
@@ -177,7 +174,7 @@ protected:
     };  // State
 
     example::platform::TrackingMemoryResource             mr_;
-    example::platform::posix::PosixSingleThreadedExecutor executor_{mr_};
+    example::platform::Linux::EpollSingleThreadedExecutor executor_;
     State                                                 state_{};
     NodeId                                                local_node_id_{42};
     TimePoint                                             startup_time_{};
@@ -220,7 +217,6 @@ TEST_F(Example_03_LinuxSocketCanTransport, heartbeat)
     });
 
     state_.reset();
-    executor_.releaseTemporaryResources();
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

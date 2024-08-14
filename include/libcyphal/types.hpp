@@ -35,19 +35,6 @@ struct MonotonicClock final
 
     static constexpr bool is_steady = true;
 
-    /// @brief Gets the current time point.
-    ///
-    /// Method is NOT implemented by the library; the user code is expected to provide a suitable implementation
-    /// instead depending on the requirements of the application.
-    /// A possible implementation on a POSIX-like platform is:
-    /// ```
-    /// MonotonicClock::time_point MonotonicClock::now() noexcept
-    /// {
-    ///     return std::chrono::time_point_cast<time_point>(std::chrono::steady_clock::now());
-    /// }
-    /// ```
-    static time_point now() noexcept;
-
 };  // MonotonicClock
 
 using TimePoint = MonotonicClock::time_point;

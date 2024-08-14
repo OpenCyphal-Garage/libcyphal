@@ -216,9 +216,10 @@ struct CommonHelpers
 
     };  // Heartbeat
 
-    static void runMainLoop(posix::PosixSingleThreadedExecutor& executor,
-                            const libcyphal::TimePoint          deadline,
-                            const std::function<void()>&        spin_extra_action)
+    template <typename Executor>
+    static void runMainLoop(Executor&                    executor,
+                            const libcyphal::TimePoint   deadline,
+                            const std::function<void()>& spin_extra_action)
     {
         libcyphal::Duration worst_lateness{0};
 

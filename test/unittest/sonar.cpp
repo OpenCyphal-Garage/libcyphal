@@ -7,6 +7,7 @@
 #include <libcyphal/executor.hpp>
 #include <libcyphal/platform/single_threaded_executor.hpp>
 #include <libcyphal/presentation/presentation.hpp>
+#include <libcyphal/time_provider.hpp>
 #include <libcyphal/transport/can/can_transport.hpp>
 #include <libcyphal/transport/can/can_transport_impl.hpp>
 #include <libcyphal/transport/can/delegate.hpp>
