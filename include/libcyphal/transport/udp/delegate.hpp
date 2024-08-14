@@ -76,18 +76,12 @@ struct AnyUdpardTxMetadata
 ///
 class TransportDelegate
 {
-    // FD977E25-CD36-48C5-B02E-B31420DCFF3B
-    using UdpardMemoryTypeIdType = cetl::
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
-        type_id_type<0xFD, 0x97, 0x7E, 0x25, 0xCD, 0x36, 0x48, 0xC5, 0xB0, 0x2E, 0xB3, 0x14, 0x20, 0xDC, 0xFF, 0x3B>;
-
 public:
     /// @brief RAII class to manage memory allocated by Udpard library.
     ///
     /// NOSONAR cpp:S4963 for below `class UdpardMemory` - we do directly handle resources here.
     ///
-    class UdpardMemory final  // NOSONAR cpp:S4963
-        : public cetl::rtti_helper<UdpardMemoryTypeIdType, ScatteredBuffer::IStorage>
+    class UdpardMemory final : public ScatteredBuffer::IStorage  // NOSONAR cpp:S4963
     {
     public:
         UdpardMemory(TransportDelegate& delegate, UdpardRxTransfer& transfer)
@@ -102,13 +96,13 @@ public:
             , payload_{std::exchange(other.payload_, {})}
         {
         }
-        UdpardMemory(const UdpardMemory&) = delete;
 
-        ~UdpardMemory() override
+        ~UdpardMemory()
         {
             ::udpardRxFragmentFree(payload_, delegate_.memoryResources().fragment, delegate_.memoryResources().payload);
         }
 
+        UdpardMemory(const UdpardMemory&)                = delete;
         UdpardMemory& operator=(const UdpardMemory&)     = delete;
         UdpardMemory& operator=(UdpardMemory&&) noexcept = delete;
 

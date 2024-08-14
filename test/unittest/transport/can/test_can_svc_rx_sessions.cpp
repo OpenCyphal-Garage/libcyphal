@@ -44,7 +44,6 @@ using libcyphal::verification_utilities::b;
 
 using testing::_;
 using testing::Eq;
-using testing::Ref;
 using testing::Invoke;
 using testing::Return;
 using testing::SizeIs;
@@ -111,8 +110,8 @@ TEST_F(TestCanSvcRxSessions, make_request_setTransferIdTimeout)
 {
     auto transport = makeTransport(mr_, 0x31);
 
-    EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
-        .WillOnce(Invoke([&](auto&, auto function) {                   //
+    EXPECT_CALL(media_mock_, registerPopCallback(_))  //
+        .WillOnce(Invoke([&](auto function) {         //
             return scheduler_.registerNamedCallback("rx", std::move(function));
         }));
 
@@ -160,8 +159,8 @@ TEST_F(TestCanSvcRxSessions, receive_request)
 {
     auto transport = makeTransport(mr_, 0x31);
 
-    EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
-        .WillOnce(Invoke([&](auto&, auto function) {                   //
+    EXPECT_CALL(media_mock_, registerPopCallback(_))  //
+        .WillOnce(Invoke([&](auto function) {         //
             return scheduler_.registerNamedCallback("rx", std::move(function));
         }));
 
@@ -186,7 +185,7 @@ TEST_F(TestCanSvcRxSessions, receive_request)
 
     TimePoint rx_timestamp;
 
-    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+    scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         SCOPED_TRACE("1-st iteration: one frame available @ 1s");
 
@@ -202,7 +201,7 @@ TEST_F(TestCanSvcRxSessions, receive_request)
             });
         scheduler_.scheduleNamedCallback("rx", rx_timestamp);
 
-        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const auto&) {
             //
             const auto maybe_rx_transfer = session->receive();
             ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -220,7 +219,7 @@ TEST_F(TestCanSvcRxSessions, receive_request)
             EXPECT_THAT(buffer, ElementsAre(42, 147));
         });
     });
-    scheduler_.scheduleAt(2s, [&](const TimePoint) {
+    scheduler_.scheduleAt(2s, [&](const auto&) {
         //
         SCOPED_TRACE("2-nd iteration: no frames available @ 2s");
 
@@ -233,7 +232,7 @@ TEST_F(TestCanSvcRxSessions, receive_request)
             });
         scheduler_.scheduleNamedCallback("rx", rx_timestamp);
 
-        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const auto&) {
             //
             const auto maybe_rx_transfer = session->receive();
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
@@ -247,8 +246,8 @@ TEST_F(TestCanSvcRxSessions, receive_response)
 {
     auto transport = makeTransport(mr_, 0x13);
 
-    EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
-        .WillOnce(Invoke([&](auto&, auto function) {                   //
+    EXPECT_CALL(media_mock_, registerPopCallback(_))  //
+        .WillOnce(Invoke([&](auto function) {         //
             return scheduler_.registerNamedCallback("rx", std::move(function));
         }));
 
@@ -274,7 +273,7 @@ TEST_F(TestCanSvcRxSessions, receive_response)
 
     TimePoint rx_timestamp;
 
-    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+    scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         SCOPED_TRACE("1-st iteration: one frame available @ 1s");
 
@@ -290,7 +289,7 @@ TEST_F(TestCanSvcRxSessions, receive_response)
             });
         scheduler_.scheduleNamedCallback("rx", rx_timestamp);
 
-        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const auto&) {
             //
             const auto maybe_rx_transfer = session->receive();
             ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -308,7 +307,7 @@ TEST_F(TestCanSvcRxSessions, receive_response)
             EXPECT_THAT(buffer, ElementsAre(42, 147));
         });
     });
-    scheduler_.scheduleAt(2s, [&](const TimePoint) {
+    scheduler_.scheduleAt(2s, [&](const auto&) {
         //
         SCOPED_TRACE("2-nd iteration: no frames available @ 2s");
 
@@ -321,7 +320,7 @@ TEST_F(TestCanSvcRxSessions, receive_response)
             });
         scheduler_.scheduleNamedCallback("rx", rx_timestamp);
 
-        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const TimePoint) {
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const auto&) {
             //
             const auto maybe_rx_transfer = session->receive();
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
@@ -335,8 +334,8 @@ TEST_F(TestCanSvcRxSessions, receive_two_frames)
 {
     auto transport = makeTransport(mr_, 0x31);
 
-    EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
-        .WillOnce(Invoke([&](auto&, auto function) {                   //
+    EXPECT_CALL(media_mock_, registerPopCallback(_))  //
+        .WillOnce(Invoke([&](auto function) {         //
             return scheduler_.registerNamedCallback("rx", std::move(function));
         }));
 
@@ -354,7 +353,7 @@ TEST_F(TestCanSvcRxSessions, receive_two_frames)
 
     auto first_rx_timestamp = TimePoint{1s + 10ms};
 
-    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+    scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         EXPECT_CALL(media_mock_, pop(_))  //
             .WillOnce([&](auto p) {
@@ -372,13 +371,13 @@ TEST_F(TestCanSvcRxSessions, receive_two_frames)
             });
         scheduler_.scheduleNamedCallback("rx", first_rx_timestamp);
 
-        scheduler_.scheduleAt(first_rx_timestamp + 1ms, [&](const TimePoint) {
+        scheduler_.scheduleAt(first_rx_timestamp + 1ms, [&](const auto&) {
             //
             const auto maybe_rx_transfer = session->receive();
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
         });
     });
-    scheduler_.scheduleAt(first_rx_timestamp + 3ms, [&](const TimePoint) {
+    scheduler_.scheduleAt(first_rx_timestamp + 3ms, [&](const auto&) {
         //
         EXPECT_CALL(media_mock_, pop(_))  //
             .WillOnce([&](auto p) {
@@ -394,7 +393,7 @@ TEST_F(TestCanSvcRxSessions, receive_two_frames)
             });
         scheduler_.scheduleNamedCallback("rx", now());
 
-        scheduler_.scheduleAt(now() + 1ms, [&](const TimePoint) {
+        scheduler_.scheduleAt(now() + 1ms, [&](const auto&) {
             //
             const auto maybe_rx_transfer = session->receive();
             ASSERT_THAT(maybe_rx_transfer, Optional(_));
@@ -419,8 +418,8 @@ TEST_F(TestCanSvcRxSessions, unsubscribe)
 {
     auto transport = makeTransport(mr_, 0x31);
 
-    EXPECT_CALL(media_mock_, registerPopCallback(Ref(scheduler_), _))  //
-        .WillOnce(Invoke([&](auto&, auto function) {                   //
+    EXPECT_CALL(media_mock_, registerPopCallback(_))  //
+        .WillOnce(Invoke([&](auto function) {         //
             return scheduler_.registerNamedCallback("rx", std::move(function));
         }));
 
@@ -435,7 +434,7 @@ TEST_F(TestCanSvcRxSessions, unsubscribe)
             return cetl::nullopt;
         });
 
-    scheduler_.scheduleAt(1s, [&](const TimePoint) {
+    scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
             .WillOnce([&](Filters) {                     //

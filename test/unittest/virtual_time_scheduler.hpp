@@ -32,7 +32,7 @@ public:
     void scheduleAt(const TimePoint exec_time, Callback::Function&& function)
     {
         auto callback = registerCallback(std::move(function));
-        scheduleCallback(callback, Callback::Schedule::Once{exec_time});
+        callback.schedule(Callback::Schedule::Once{exec_time});
         callbacks_bag_.emplace_back(std::move(callback));
     }
 
@@ -66,8 +66,8 @@ public:
 
     CETL_NODISCARD Callback::Any registerNamedCallback(const std::string& name, Callback::Function&& function)
     {
-        auto callback           = registerCallback(std::move(function));
-        named_cb_handles_[name] = callbackToHandle(callback);
+        auto callback              = registerCallback(std::move(function));
+        named_cb_interfaces_[name] = callback.getInterface();
         return callback;
     }
     void scheduleNamedCallback(const std::string& name)
@@ -80,7 +80,7 @@ public:
     }
     void scheduleNamedCallback(const std::string& name, const Callback::Schedule::Variant& schedule)
     {
-        scheduleCallbackByHandle(named_cb_handles_.at(name), schedule);
+        named_cb_interfaces_.at(name)->schedule(schedule);
     }
     CETL_NODISCARD Callback::Any registerAndScheduleNamedCallback(const std::string&   name,
                                                                   const TimePoint      time_point,
@@ -93,12 +93,12 @@ public:
                                                                   Callback::Function&&               function)
     {
         auto callback = registerNamedCallback(name, std::move(function));
-        scheduleCallback(callback, schedule);
+        callback.schedule(schedule);
         return callback;
     }
     CETL_NODISCARD bool hasNamedCallback(const std::string& name)
     {
-        return named_cb_handles_.find(name) != named_cb_handles_.end();
+        return named_cb_interfaces_.find(name) != named_cb_interfaces_.end();
     }
 
     // MARK: - IExecutor
@@ -109,33 +109,42 @@ public:
     }
 
 protected:
-    void onCallbackHandling(const Callback::Handle old_handle, const Callback::Handle new_handle) noexcept override
+    void onCallbackHandling(const CallbackHandling::Variant& event_var) override
     {
-        // Keep named callbacks up-to-date.
-        //
-        auto it = named_cb_handles_.begin();
-        while (it != named_cb_handles_.end())
+        cetl::visit([this](const auto& event) { onCallbackHandlingImpl(event); }, event_var);
+    }
+
+private:
+    void onCallbackHandlingImpl(const CallbackHandling::Moved& moved)
+    {
+        auto it = named_cb_interfaces_.begin();
+        while (it != named_cb_interfaces_.end())
         {
-            if (it->second == old_handle)
+            if (it->second == moved.old_interface)
             {
-                if (new_handle)
-                {
-                    it->second = new_handle;
-                }
-                else
-                {
-                    it = named_cb_handles_.erase(it);
-                    continue;
-                }
+                it->second = moved.new_interface;
             }
             ++it;
         }
     }
 
-private:
-    TimePoint                               now_;
-    std::vector<Callback::Any>              callbacks_bag_;
-    std::map<std::string, Callback::Handle> named_cb_handles_;
+    void onCallbackHandlingImpl(const CallbackHandling::Removed& removed)
+    {
+        auto it = named_cb_interfaces_.begin();
+        while (it != named_cb_interfaces_.end())
+        {
+            if (it->second == removed.old_interface)
+            {
+                it = named_cb_interfaces_.erase(it);
+                continue;
+            }
+            ++it;
+        }
+    }
+
+    TimePoint                                   now_;
+    std::vector<Callback::Any>                  callbacks_bag_;
+    std::map<std::string, Callback::Interface*> named_cb_interfaces_;
 
 };  // VirtualTimeScheduler
 

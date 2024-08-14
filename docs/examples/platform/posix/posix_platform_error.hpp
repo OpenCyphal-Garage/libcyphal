@@ -49,17 +49,4 @@ private:
 }  // namespace platform
 }  // namespace example
 
-namespace cetl
-{
-
-// Just random id: 5D29D78C-3785-43A2-8D15-7FAF2C3881BC
-template <>
-constexpr type_id type_id_getter<example::platform::posix::PosixPlatformError>() noexcept
-{
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
-    return {0x5D, 0x29, 0xD7, 0x8C, 0x37, 0x85, 0x43, 0xA2, 0x8D, 0x15, 0x7F, 0xAF, 0x2C, 0x38, 0x81, 0xBC};
-}
-
-}  // namespace cetl
-
 #endif  // EXAMPLE_PLATFORM_POSIX_PLATFORM_ERROR_HPP_INCLUDED

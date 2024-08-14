@@ -51,7 +51,7 @@ private:
 
     MakeTxSocketResult::Type makeTxSocket() override
     {
-        return UdpTxSocket::make(memory_, iface_address_);
+        return UdpTxSocket::make(memory_, executor_, iface_address_);
     }
 
     MakeRxSocketResult::Type makeRxSocket(const libcyphal::transport::udp::IpEndpoint& multicast_endpoint) override

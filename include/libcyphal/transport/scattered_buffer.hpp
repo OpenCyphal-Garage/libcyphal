@@ -26,11 +26,6 @@ namespace transport
 ///
 class ScatteredBuffer final  // NOSONAR : cpp:S4963 - we do directly handle resources here.
 {
-    // 91C1B109-F90E-45BE-95CF-6ED02AC3FFAA
-    using IStorageTypeIdType = cetl::
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
-        type_id_type<0x91, 0xC1, 0xB1, 0x09, 0xF9, 0x0E, 0x45, 0xBE, 0x95, 0xCF, 0x6E, 0xD0, 0x2A, 0xC3, 0xFF, 0xAA>;
-
 public:
     /// @brief Defines maximum size (aka footprint) of the storage variant.
     ///
@@ -40,11 +35,16 @@ public:
     ///
     /// @see ScatteredBuffer::ScatteredBuffer(AnyStorage&& any_storage)
     ///
-    class IStorage : public cetl::rtti_helper<IStorageTypeIdType>
+    class IStorage
     {
-    public:
-        ~IStorage() override = default;
+        // 91C1B109-F90E-45BE-95CF-6ED02AC3FFAA
+        // clang-format off
+        using TypeIdType = cetl::type_id_type<
+            // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+            0x91, 0xC1, 0xB1, 0x09, 0xF9, 0x0E, 0x45, 0xBE, 0x95, 0xCF, 0x6E, 0xD0, 0x2A, 0xC3, 0xFF, 0xAA>;
+        // clang-format on
 
+    public:
         // No copying, but move only!
         IStorage(const IStorage&)            = delete;
         IStorage& operator=(const IStorage&) = delete;
@@ -70,8 +70,28 @@ public:
                                  cetl::byte* const destination,
                                  const std::size_t length_bytes) const = 0;
 
+        // MARK: RTTI
+
+        static constexpr cetl::type_id _get_type_id_() noexcept
+        {
+            return cetl::type_id_type_value<TypeIdType>();
+        }
+
+        // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
+        CETL_NODISCARD void* _cast_(const cetl::type_id& id) & noexcept  // NOSONAR cpp:S5008
+        {
+            return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
+        }
+
+        // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
+        CETL_NODISCARD const void* _cast_(const cetl::type_id& id) const& noexcept  // NOSONAR cpp:S5008
+        {
+            return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
+        }
+
     protected:
         IStorage()                               = default;
+        ~IStorage()                              = default;
         IStorage(IStorage&&) noexcept            = default;
         IStorage& operator=(IStorage&&) noexcept = default;
 

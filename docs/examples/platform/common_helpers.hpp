@@ -9,11 +9,11 @@
 #include "posix/posix_single_threaded_executor.hpp"
 
 #include <libcyphal/executor.hpp>
-#include <libcyphal/types.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/transport.hpp>
 #include <libcyphal/transport/types.hpp>
+#include <libcyphal/types.hpp>
 
 #include <cassert>  // NOLINT for NUNAVUT_ASSERT
 #include <nunavut/support/serialization.hpp>
@@ -26,6 +26,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <cstdlib>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -182,7 +184,7 @@ struct CommonHelpers
 
                     callback_             = executor.registerCallback([&](const auto now) { publish(now); });
                     constexpr auto period = std::chrono::seconds{uavcan::node::Heartbeat_1_0::MAX_PUBLICATION_PERIOD};
-                    executor.scheduleCallback(callback_, Callback::Schedule::Repeat{startup_time + period, period});
+                    callback_.schedule(Callback::Schedule::Repeat{startup_time + period, period});
                 }
             }
 
@@ -192,10 +194,11 @@ struct CommonHelpers
                 msg_tx_session_.reset();
             }
 
-            void publish(const libcyphal::TimePoint now)
+            void publish(const Callback::Arg& arg)
             {
                 transfer_id_ += 1;
-                const auto uptime_in_secs = std::chrono::duration_cast<std::chrono::seconds>(now - startup_time_);
+                const auto uptime_in_secs =
+                    std::chrono::duration_cast<std::chrono::seconds>(arg.approx_now - startup_time_);
                 const uavcan::node::Heartbeat_1_0 heartbeat{static_cast<std::uint32_t>(uptime_in_secs.count()),
                                                             {uavcan::node::Health_1_0::NOMINAL},
                                                             {uavcan::node::Mode_1_0::OPERATIONAL}};
@@ -203,7 +206,7 @@ struct CommonHelpers
                                              *msg_tx_session_,
                                              libcyphal::transport::
                                                  TransferMetadata{transfer_id_,
-                                                                  now,
+                                                                  arg.approx_now,
                                                                   libcyphal::transport::Priority::Nominal}),
                             testing::Eq(cetl::nullopt))
                     << "Failed to publish heartbeat.";

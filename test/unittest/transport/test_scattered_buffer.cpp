@@ -3,6 +3,7 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/scattered_buffer.hpp>
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -20,26 +21,38 @@ namespace
 
 using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
 
+using testing::IsNull;
 using testing::Return;
+using testing::NotNull;
 using testing::StrictMock;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-// Just random id: 277C3545-564C-4617-993D-27B1043ECEBA
-using StorageWrapperTypeIdType =
-    cetl::type_id_type<0x27, 0x7C, 0x35, 0x45, 0x56, 0x4C, 0x46, 0x17, 0x99, 0x3D, 0x27, 0xB1, 0x04, 0x3E, 0xCE, 0xBA>;
-
 class StorageMock : public ScatteredBuffer::IStorage
 {
 public:
+    StorageMock()                                  = default;
+    StorageMock(const StorageMock&)                = delete;
+    StorageMock(StorageMock&&) noexcept            = delete;
+    StorageMock& operator=(const StorageMock&)     = delete;
+    StorageMock& operator=(StorageMock&&) noexcept = delete;
+
+    virtual ~StorageMock() = default;
+
     MOCK_METHOD(void, moved, (), (noexcept));   // NOLINT(bugprone-exception-escape)
     MOCK_METHOD(void, deinit, (), (noexcept));  // NOLINT(bugprone-exception-escape)
 
     MOCK_METHOD(std::size_t, size, (), (const, noexcept, override));  // NOLINT(bugprone-exception-escape)
     MOCK_METHOD(std::size_t, copy, (const std::size_t, cetl::byte* const, const std::size_t), (const, override));
 };
-class StorageWrapper final : public cetl::rtti_helper<StorageWrapperTypeIdType, ScatteredBuffer::IStorage>
+class StorageWrapper final : public ScatteredBuffer::IStorage
 {
+    // 277C3545-564C-4617-993D-27B1043ECEBA
+    // clang-format off
+    using TypeIdType = cetl::type_id_type<
+        0x27, 0x7C, 0x35, 0x45, 0x56, 0x4C, 0x46, 0x17, 0x99, 0x3D, 0x27, 0xB1, 0x04, 0x3E, 0xCE, 0xBA>;
+    // clang-format on
+
 public:
     explicit StorageWrapper(StorageMock* mock)
         : mock_{mock}
@@ -58,7 +71,7 @@ public:
     StorageWrapper(const StorageWrapper& other)            = delete;
     StorageWrapper& operator=(const StorageWrapper& other) = delete;
 
-    ~StorageWrapper() override
+    ~StorageWrapper()
     {
         if (mock_ != nullptr)
         {
@@ -97,6 +110,28 @@ private:
 };  // StorageWrapper
 
 // MARK: - Tests:
+
+TEST(TestScatteredBuffer, rtti)
+{
+    // mutable
+    {
+        StrictMock<StorageMock> storage_mock;
+        EXPECT_CALL(storage_mock, deinit());
+
+        StorageWrapper storage{&storage_mock};
+        EXPECT_THAT(cetl::rtti_cast<ScatteredBuffer::IStorage*>(&storage), NotNull());
+        EXPECT_THAT(cetl::rtti_cast<IPlatformError*>(&storage), IsNull());
+    }
+    // const
+    {
+        StrictMock<StorageMock> storage_mock;
+        EXPECT_CALL(storage_mock, deinit());
+
+        const StorageWrapper storage{&storage_mock};
+        EXPECT_THAT(cetl::rtti_cast<ScatteredBuffer::IStorage*>(&storage), NotNull());
+        EXPECT_THAT(cetl::rtti_cast<IPlatformError*>(&storage), IsNull());
+    }
+}
 
 TEST(TestScatteredBuffer, move_ctor_assign_size)
 {

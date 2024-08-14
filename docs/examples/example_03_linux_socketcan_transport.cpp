@@ -77,7 +77,7 @@ protected:
         {
             local_node_id_ = static_cast<NodeId>(std::stoul(node_id_str));
         }
-        // Space separated list of interface addresses, like "slcan0 slcan1". Default is "slcan0".
+        // Space separated list of interface addresses, like "slcan0 slcan1". Default is "vcan0".
         if (const auto* const iface_addresses_str = std::getenv("CYPHAL__CAN__IFACE"))
         {
             iface_addresses_ = CommonHelpers::splitInterfaceAddresses(iface_addresses_str);

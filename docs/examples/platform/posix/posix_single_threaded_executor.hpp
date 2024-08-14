@@ -44,7 +44,7 @@ public:
         : total_awaitables_{0}
         , awaitable_nodes_allocator_{&memory_resource}
         , poll_fds_{&memory_resource}
-        , callback_handles_{&memory_resource}
+        , callback_interfaces_{&memory_resource}
     {
     }
 
@@ -55,8 +55,8 @@ public:
 
     ~PosixSingleThreadedExecutor() override
     {
-        // Just in case release whatever awaitable nodes left, but properly used `Callback::Handle`-s
-        // (aka "handle must not outlive executor") should have removed them all.
+        // Just in case release whatever awaitable nodes left, but properly used `Callback::Interface`-s
+        // (see `onCallbackHandling`) should have removed them all.
         //
         CETL_DEBUG_ASSERT(awaitable_nodes_.empty(), "");
         awaitable_nodes_.traversePostOrder([this](auto& node) { destroyAwaitableNode(node); });
@@ -87,13 +87,13 @@ public:
         // so we can reuse them, and grow on demand (but never shrink).
         //
         poll_fds_.clear();
-        callback_handles_.clear();
+        callback_interfaces_.clear();
         awaitable_nodes_.traverseInOrder([this](AwaitableNode& node) {
             //
-            callback_handles_.push_back(node.handle());
+            callback_interfaces_.push_back(node.cb_interface());
             poll_fds_.push_back({node.fd(), static_cast<short int>(node.pollEvents()), 0});
         });
-        if ((total_awaitables_ != poll_fds_.size()) || (total_awaitables_ != callback_handles_.size()))
+        if ((total_awaitables_ != poll_fds_.size()) || (total_awaitables_ != callback_interfaces_.size()))
         {
             return libcyphal::transport::MemoryError{};
         }
@@ -134,8 +134,10 @@ public:
 
                 if (0 != (static_cast<PollEvents>(poll_fd.revents) & static_cast<PollEvents>(poll_fd.events)))
                 {
-                    const Callback::Handle cb_handle = callback_handles_[index];
-                    scheduleCallbackByHandle(cb_handle, Callback::Schedule::Once{now_time});
+                    if (auto* const cb_interface = callback_interfaces_[index])
+                    {
+                        cb_interface->schedule(Callback::Schedule::Once{now_time});
+                    }
                 }
             }
         }
@@ -153,49 +155,31 @@ public:
         poll_fds_.clear();
         poll_fds_.shrink_to_fit();
 
-        callback_handles_.clear();
-        callback_handles_.shrink_to_fit();
+        callback_interfaces_.clear();
+        callback_interfaces_.shrink_to_fit();
     }
 
 protected:
-    void onCallbackHandling(const Callback::Handle old_handle, const Callback::Handle new_handle) noexcept override
+    void onCallbackHandling(const CallbackHandling::Variant& event_var) override
     {
-        auto* const awaitable_node = awaitable_nodes_.search(  //
-            [old_handle](const AwaitableNode& node) {          // predicate
-                return node.compareByHandle(old_handle);
-            });
-        if (nullptr == awaitable_node)
-        {
-            return;
-        }
-
-        awaitable_nodes_.remove(awaitable_node);
-
-        if (new_handle)
-        {
-            awaitable_node->handle() = new_handle;
-            awaitable_nodes_.search(  //
-                [new_handle](const AwaitableNode& node) { return node.compareByHandle(new_handle); },
-                [awaitable_node]() { return awaitable_node; });
-        }
-        else
-        {
-            destroyAwaitableNode(*awaitable_node);
-        }
+        cetl::visit([this](const auto& event) { onCallbackHandlingImpl(event); }, event_var);
     }
 
     // MARK: - IPosixExecutorExtension
 
     bool scheduleCallbackWhen(Callback::Any& callback, const WhenCondition::Variant& when_condition) override
     {
-        const Callback::Handle cb_handle = callbackToHandle(callback);
+        Callback::Interface* const cb_interface = callback.getInterface();
 
         return cetl::visit(
-            [this, cb_handle](const auto& condition) {  //
-                return scheduleCallbackWhenImpl(cb_handle, condition);
+            [this, cb_interface](const auto& condition) {
+                //
+                return scheduleCallbackWhenImpl(cb_interface, condition);
             },
             when_condition);
     }
+
+    // MARK: - RTTI
 
     CETL_NODISCARD void* _cast_(const cetl::type_id& id) & noexcept override
     {
@@ -223,8 +207,8 @@ private:
     public:
         using Node::getChildNode;
 
-        explicit AwaitableNode(const Callback::Handle cb_handle)
-            : cb_handle_{cb_handle}
+        explicit AwaitableNode(Callback::Interface* const cb_interface)
+            : cb_interface_{cb_interface}
             , fd_{-1}
             , poll_events_{0}
         {
@@ -237,9 +221,9 @@ private:
         AwaitableNode& operator=(const AwaitableNode&)     = delete;
         AwaitableNode& operator=(AwaitableNode&&) noexcept = delete;
 
-        Callback::Handle& handle() noexcept
+        Callback::Interface*& cb_interface() noexcept
         {
-            return cb_handle_;
+            return cb_interface_;
         }
 
         int& fd() noexcept
@@ -252,38 +236,73 @@ private:
             return poll_events_;
         }
 
-        CETL_NODISCARD std::int8_t compareByHandle(const Callback::Handle cb_handle) const noexcept
+        CETL_NODISCARD std::int8_t compareByInterface(Callback::Interface* const cb_interface) const noexcept
         {
-            if (cb_handle == cb_handle_)
+            if (cb_interface == cb_interface_)
             {
                 return 0;
             }
-            return (cb_handle > cb_handle_) ? +1 : -1;
+            return (cb_interface > cb_interface_) ? +1 : -1;
         }
 
     private:
         // MARK: Data members:
 
-        Callback::Handle cb_handle_;
-        int              fd_;
-        PollEvents       poll_events_;
+        Callback::Interface* cb_interface_;
+        int                  fd_;
+        PollEvents           poll_events_;
 
     };  // AwaitableNode
 
-    CETL_NODISCARD AwaitableNode* ensureAwaitableNode(const Callback::Handle cb_handle)
+    void onCallbackHandlingImpl(const CallbackHandling::Moved& moved) noexcept
+    {
+        if (auto* const awaitable_node = awaitable_nodes_.search(  //
+                [&moved](const AwaitableNode& node) {              // predicate
+                    //
+                    return node.compareByInterface(moved.old_interface);
+                }))
+        {
+            awaitable_nodes_.remove(awaitable_node);
+            awaitable_node->cb_interface() = moved.new_interface;
+
+            awaitable_nodes_.search(                   //
+                [&moved](const AwaitableNode& node) {  // predicate
+                    //
+                    return node.compareByInterface(moved.new_interface);
+                },
+                [awaitable_node]() { return awaitable_node; });
+        }
+    }
+
+    void onCallbackHandlingImpl(const CallbackHandling::Removed& removed) noexcept
+    {
+        if (auto* const awaitable_node = awaitable_nodes_.search(  //
+                [&removed](const AwaitableNode& node) {            // predicate
+                    //
+                    return node.compareByInterface(removed.old_interface);
+                }))
+        {
+            awaitable_nodes_.remove(awaitable_node);
+            destroyAwaitableNode(*awaitable_node);
+        }
+    }
+
+    CETL_NODISCARD AwaitableNode* ensureAwaitableNode(Callback::Interface* const cb_interface)
     {
         const std::tuple<AwaitableNode*, bool> node_existing = awaitable_nodes_.search(  //
-            [cb_handle](const AwaitableNode& node) {                                     // predicate
-                return node.compareByHandle(cb_handle);
+            [cb_interface](const AwaitableNode& node) {                                  // predicate
+                //
+                return node.compareByInterface(cb_interface);
             },
-            [this, cb_handle]() {  // factory
-                return makeAwaitableNode(cb_handle);
+            [this, cb_interface]() {  // factory
+                //
+                return makeAwaitableNode(cb_interface);
             });
 
         return std::get<0>(node_existing);
     }
 
-    CETL_NODISCARD AwaitableNode* makeAwaitableNode(const Callback::Handle cb_handle)
+    CETL_NODISCARD AwaitableNode* makeAwaitableNode(Callback::Interface* const cb_interface)
     {
         // Stop allocations if we reach the maximum number of awaitables supported by `poll`.
         CETL_DEBUG_ASSERT(total_awaitables_ < std::numeric_limits<int>::max(), "");
@@ -295,7 +314,7 @@ private:
         AwaitableNode* const node = awaitable_nodes_allocator_.allocate(1);
         if (nullptr != node)
         {
-            awaitable_nodes_allocator_.construct(node, cb_handle);
+            awaitable_nodes_allocator_.construct(node, cb_interface);
         }
 
         ++total_awaitables_;
@@ -311,9 +330,9 @@ private:
         --total_awaitables_;
     }
 
-    bool scheduleCallbackWhenImpl(const Callback::Handle cb_handle, const WhenCondition::HandleReadable& readable)
+    bool scheduleCallbackWhenImpl(Callback::Interface* cb_interface, const WhenCondition::HandleReadable& readable)
     {
-        auto* const awaitable_node = ensureAwaitableNode(cb_handle);
+        auto* const awaitable_node = ensureAwaitableNode(cb_interface);
         if (nullptr == awaitable_node)
         {
             return false;
@@ -325,9 +344,9 @@ private:
         return true;
     }
 
-    bool scheduleCallbackWhenImpl(const Callback::Handle cb_handle, const WhenCondition::HandleWritable& writable)
+    bool scheduleCallbackWhenImpl(Callback::Interface* cb_interface, const WhenCondition::HandleWritable& writable)
     {
-        auto* const awaitable_node = ensureAwaitableNode(cb_handle);
+        auto* const awaitable_node = ensureAwaitableNode(cb_interface);
         if (nullptr == awaitable_node)
         {
             return false;
@@ -342,14 +361,14 @@ private:
     // MARK: - Data members:
 
     using PollFds = cetl::VariableLengthArray<pollfd, cetl::pmr::polymorphic_allocator<pollfd>>;
-    using CallbackHandles =
-        cetl::VariableLengthArray<Callback::Handle, cetl::pmr::polymorphic_allocator<Callback::Handle>>;
+    using CallbackInterfaces =
+        cetl::VariableLengthArray<Callback::Interface*, cetl::pmr::polymorphic_allocator<Callback::Interface*>>;
 
     std::size_t                                    total_awaitables_;
     cavl::Tree<AwaitableNode>                      awaitable_nodes_;
     libcyphal::detail::PmrAllocator<AwaitableNode> awaitable_nodes_allocator_;
     PollFds                                        poll_fds_;
-    CallbackHandles                                callback_handles_;
+    CallbackInterfaces                             callback_interfaces_;
 
 };  // PosixSingleThreadedExecutor
 

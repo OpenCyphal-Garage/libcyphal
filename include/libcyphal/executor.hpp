@@ -11,6 +11,7 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pmr/function.hpp>
 #include <cetl/rtti.hpp>
+#include <cetl/unbounded_variant.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -19,33 +20,26 @@
 namespace libcyphal
 {
 
-// EBAF7312-5CFE-45F5-89FF-D9B9FE45F8EB
-using IExecutorTypeIdType = cetl::
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
-    type_id_type<0xEB, 0xAF, 0x73, 0x12, 0x5C, 0xFE, 0x45, 0xF5, 0x89, 0xFF, 0xD9, 0xB9, 0xFE, 0x45, 0xF8, 0xEB>;
-
 /// @brief Defines an abstract interface for a callback executor.
 ///
-class IExecutor : public cetl::rtti_helper<IExecutorTypeIdType>
+class IExecutor
 {
+    // EBAF7312-5CFE-45F5-89FF-D9B9FE45F8EB
+    // clang-format off
+    using TypeIdType = cetl::type_id_type<
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+        0xEB, 0xAF, 0x73, 0x12, 0x5C, 0xFE, 0x45, 0xF5, 0x89, 0xFF, 0xD9, 0xB9, 0xFE, 0x45, 0xF8, 0xEB>;
+    // clang-format on
+
 public:
-    /// NOSONAR cpp:S4963 - we do directly handle callback resource here.
+    /// @brief Defines umbrella type for everything callback related.
     ///
-    class Callback
+    struct Callback
     {
-    public:
         /// @brief Defines possible variants of callback schedules.
         ///
         struct Schedule
         {
-            /// @brief Defines schedule which will NOT execute callback function.
-            ///
-            /// Useful as a default value for a non-engaged callback schedule.
-            /// Also can be used to cancel previously scheduled callback.
-            ///
-            struct None
-            {};
-
             /// @brief Defines schedule which will execute callback function at the specified execution time once.
             ///
             struct Once
@@ -68,7 +62,7 @@ public:
                 Duration period;
             };
 
-            using Variant = cetl::variant<None, Once, Repeat>;
+            using Variant = cetl::variant<Once, Repeat>;
 
         };  // Schedule
 
@@ -77,6 +71,21 @@ public:
         /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
         ///
         static constexpr std::size_t FunctionMaxSize = sizeof(void*) * 8;
+
+        /// @brief Defines type of callback `Function` single argument.
+        ///
+        /// References to instances of this type are passed to the function during callback execution.
+        /// The following holds: `exec_time` <= `approx_now` <= `Executor::now()`.
+        ///
+        struct Arg
+        {
+            /// Time when the callback was scheduled to be executed.
+            TimePoint exec_time;
+
+            /// An approximation of the current time.
+            TimePoint approx_now;
+
+        };  // Arg
 
         /// @brief Defines callback function signature.
         ///
@@ -87,32 +96,124 @@ public:
         ///                 Depending on executor load, the actual time could be a bit later
         ///                 than it was originally scheduled as desired execution time.
         ///
-        using Function = cetl::pmr::function<void(const TimePoint now_time), FunctionMaxSize>;
+        using Function = cetl::pmr::function<void(const Arg& arg), FunctionMaxSize>;
 
         /// @brief Defines maximum size of callback implementation.
         ///
         /// Size is chosen arbitrary, but it should be enough to store any callback implementation.
         ///
-        static constexpr std::size_t MaxSize = (sizeof(void*) * 10) + sizeof(Function);
+        static constexpr std::size_t MaxSize = (sizeof(void*) * 12) + sizeof(Function);
+
+        class Interface
+        {
+            // 5E16E6BC-C7EB-42EC-8A98-06189C2F0349
+            // clang-format off
+            using TypeIdType = cetl::type_id_type<
+                // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+                0x5E, 0x16, 0xE6, 0xBC, 0xC7, 0xEB, 0x42, 0xEC, 0x8A, 0x98, 0x06, 0x18, 0x9C, 0x2F, 0x03, 0x49>;
+            // clang-format on
+
+        public:
+            Interface(const Interface&)                = delete;
+            Interface(Interface&&) noexcept            = delete;
+            Interface& operator=(const Interface&)     = delete;
+            Interface& operator=(Interface&&) noexcept = delete;
+
+            /// @brief Schedules previously registered callback for execution according to a desired schedule.
+            ///
+            /// Actual execution of the callback's function will be done later (not from context of this method),
+            /// when desired time comes and executor is ready to execute callbacks. It's ok to schedule the same
+            /// callback multiple times even before it was executed - it will be rescheduled, and then executed
+            /// according to the last setup.
+            ///
+            /// @param schedule Contains specifics of how exactly callback will be scheduled.
+            /// @return `true` if scheduling was successful, `false` otherwise (b/c callback has been reset).
+            ///
+            virtual bool schedule(const Schedule::Variant& schedule) = 0;
+
+            // MARK: RTTI
+
+            static constexpr cetl::type_id _get_type_id_() noexcept
+            {
+                return cetl::type_id_type_value<TypeIdType>();
+            }
+
+            // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
+            CETL_NODISCARD void* _cast_(const cetl::type_id& id) & noexcept  // NOSONAR cpp:S5008
+            {
+                return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
+            }
+
+            // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
+            CETL_NODISCARD const void* _cast_(const cetl::type_id& id) const& noexcept  // NOSONAR cpp:S5008
+            {
+                return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
+            }
+
+        protected:
+            Interface()  = default;
+            ~Interface() = default;
+
+        };  // Interface
 
         /// @brief Defines type-erased callback which is capable to store some internal implementation.
         ///
-        /// It is supposed to be used to hide callback implementation,
-        /// and to be passed to the executor for scheduling.
+        /// It is expected that the internal implementation supports `Callback::Interface` (RTTI-cast-able to).
+        ///
+        /// It is supposed to be used to hide callback implementation.
         /// It also manages lifetime and ownership of the callback registration, so it's movable but not copyable.
         ///
-        using Any = cetl::unbounded_variant<MaxSize, false /* Copyable */, true /* Movable */>;
+        /// No Sonar cpp:S110 b/c `unbounded_variant` has initial
+        /// inheritance hierarchy depth of 5 (b/c it's policy-based implementation).
+        ///
+        class Any final  // NOSONAR cpp:S110
+            : public cetl::unbounded_variant<MaxSize, false /* Copyable */, true /* Movable */>
+        {
+        public:
+            using unbounded_variant::unbounded_variant;
 
-        /// @brief Defines opaque handle to a registered callback.
-        ///
-        /// It is supposed to be used internally (by derived executors)
-        /// to identify/reference the callback in the executor.
-        ///
-        using Handle = std::uintptr_t;
+            explicit operator bool() const noexcept
+            {
+                return has_value();
+            }
+
+            /// @breif Gets the internal implementation interface of the callback.
+            ///
+            Interface* getInterface() noexcept
+            {
+                if (!has_value())
+                {
+                    return nullptr;
+                }
+
+                auto* const interface = cetl::get_if<Interface>(this);
+                CETL_DEBUG_ASSERT(interface != nullptr,
+                                  "Internal implementation must be rtti-cast-able to `Callback::Interface`");
+                return interface;
+            }
+
+            /// @brief Schedules previously registered callback for execution according to a desired schedule.
+            ///
+            /// Actual execution of the callback's function will be done later (not from context of this method),
+            /// when desired time comes and executor is ready to execute callbacks. It's ok to schedule the same
+            /// callback multiple times even before it was executed - it will be rescheduled, and then executed
+            /// according to the last setup.
+            ///
+            /// @param schedule Contains specifics of how exactly callback will be scheduled.
+            /// @return `true` if scheduling was successful, `false` otherwise (b/c callback had been reset).
+            ///
+            bool schedule(const Schedule::Variant& schedule)
+            {
+                if (auto* const interface = getInterface())
+                {
+                    return interface->schedule(schedule);
+                }
+                return false;
+            }
+
+        };  // Any
 
     };  // Callback
-
-    ~IExecutor() override = default;
 
     IExecutor(const IExecutor&)                = delete;
     IExecutor(IExecutor&&) noexcept            = delete;
@@ -129,26 +230,33 @@ public:
     /// For scheduling, the very same executor instance must be used; otherwise, undefined behavior (UB).
     ///
     /// @param function The function to be called when the callback is executed.
-    /// @return Type-erased instance of the registered callback. Instance must not outlive the executor,
-    ///         and must be used only with the same executor; otherwise undefined behavior.
+    /// @return Type-erased instance of the registered callback.
+    ///         Instance must not outlive the executor; otherwise undefined behavior.
     ///
     CETL_NODISCARD virtual Callback::Any registerCallback(Callback::Function&& function) = 0;
 
-    /// @brief Schedules previously registered callback for execution according to a desired schedule.
-    ///
-    /// Actual execution of the callback's function will be done later (not from context of this method), when desired
-    /// time comes and executor is ready to execute callbacks. It's ok to schedule the same callback multiple times
-    /// even before it was executed - it will be rescheduled, and then executed according to the last setup.
-    ///
-    /// @param callback The callback instance (registered at this executor) to be scheduled.
-    ///                 There will be no scheduling if callback is not registered yet
-    ///                 (in its initial default value), or has been reset already.
-    /// @param schedule Contains specifics of how exactly callback will be scheduled (like once, repeatedly etc.).
-    ///
-    virtual void scheduleCallback(Callback::Any& callback, const Callback::Schedule::Variant& schedule) = 0;
+    // MARK: RTTI
+
+    static constexpr cetl::type_id _get_type_id_() noexcept
+    {
+        return cetl::type_id_type_value<TypeIdType>();
+    }
+
+    // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
+    CETL_NODISCARD virtual void* _cast_(const cetl::type_id& id) & noexcept  // NOSONAR cpp:S5008
+    {
+        return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
+    }
+
+    // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
+    CETL_NODISCARD virtual const void* _cast_(const cetl::type_id& id) const& noexcept  // NOSONAR cpp:S5008
+    {
+        return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
+    }
 
 protected:
-    IExecutor() = default;
+    IExecutor()  = default;
+    ~IExecutor() = default;
 
 };  // IExecutor
 
