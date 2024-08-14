@@ -30,10 +30,10 @@ namespace platform
 
 /// @brief Defines platform agnostic single-threaded executor.
 ///
-class SingleThreadedExecutor : public virtual IExecutor
+class SingleThreadedExecutor : public IExecutor
 {
 public:
-    SingleThreadedExecutor() {};
+    SingleThreadedExecutor() = default;
     virtual ~SingleThreadedExecutor() = default;
 
     SingleThreadedExecutor(const SingleThreadedExecutor&)                = delete;

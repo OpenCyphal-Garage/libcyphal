@@ -18,7 +18,7 @@ namespace platform
 namespace posix
 {
 
-class IPosixExecutor : public virtual libcyphal::IExecutor
+class IPosixExecutor
 {
     // FFE3771E-7962-4CEA-ACA6-ED7895699080
     using TypeIdType = cetl::
@@ -45,8 +45,9 @@ public:
         using Variant = cetl::variant<Readable, Writable>;
     };
 
-    CETL_NODISCARD virtual Callback::Any registerAwatableCallback(Callback::Function&&    function,
-                                                                  const Trigger::Variant& trigger) = 0;
+    CETL_NODISCARD virtual libcyphal::IExecutor::Callback::Any registerAwaitableCallback(
+        libcyphal::IExecutor::Callback::Function&& function,
+        const Trigger::Variant&                    trigger) = 0;
 
     // MARK: RTTI
 

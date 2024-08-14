@@ -20,14 +20,13 @@
 #include <libcyphal/types.hpp>
 
 #include <algorithm>
+#include <cerrno>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <errno.h>
 #include <limits>
 #include <sys/poll.h>
 #include <thread>
-#include <tuple>
 
 namespace example
 {
@@ -106,7 +105,7 @@ public:
                                   static_cast<PollDuration::rep>(std::numeric_limits<int>::max()))));
         }
 
-        int poll_result = ::poll(poll_fds_.data(), poll_fds_.size(), clamped_timeout_ms);
+        int poll_result = ::poll(poll_fds_.data(), static_cast<nfds_t>(poll_fds_.size()), clamped_timeout_ms);
         if (poll_result < 0)
         {
             const auto err = errno;
@@ -156,8 +155,8 @@ public:
 protected:
     // MARK: - IPosixExecutor
 
-    CETL_NODISCARD Callback::Any registerAwatableCallback(Callback::Function&&    function,
-                                                          const Trigger::Variant& trigger) override
+    CETL_NODISCARD Callback::Any registerAwaitableCallback(Callback::Function&&    function,
+                                                           const Trigger::Variant& trigger) override
     {
         AwaitableNode new_cb_node{*this, std::move(function), awaitable_nodes_};
 
@@ -181,7 +180,7 @@ protected:
 
     CETL_NODISCARD void* _cast_(const cetl::type_id& id) & noexcept override
     {
-        if (id == _get_type_id_())
+        if (id == IPosixExecutor::_get_type_id_())
         {
             return static_cast<IPosixExecutor*>(this);
         }
@@ -189,7 +188,7 @@ protected:
     }
     CETL_NODISCARD const void* _cast_(const cetl::type_id& id) const& noexcept override
     {
-        if (id == _get_type_id_())
+        if (id == IPosixExecutor::_get_type_id_())
         {
             return static_cast<const IPosixExecutor*>(this);
         }

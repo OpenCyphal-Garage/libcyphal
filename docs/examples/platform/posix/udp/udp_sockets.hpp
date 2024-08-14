@@ -112,8 +112,8 @@ private:
         }
 
         CETL_DEBUG_ASSERT(udp_handle_.fd >= 0, "");
-        return posix_executor->registerAwatableCallback(std::move(function),
-                                                        IPosixExecutor::Trigger::Writable{udp_handle_.fd});
+        return posix_executor->registerAwaitableCallback(std::move(function),
+                                                         IPosixExecutor::Trigger::Writable{udp_handle_.fd});
     }
 
     // MARK: Data members:
@@ -217,8 +217,8 @@ private:
         }
 
         CETL_DEBUG_ASSERT(udp_handle_.fd >= 0, "");
-        return posix_executor->registerAwatableCallback(std::move(function),
-                                                        IPosixExecutor::Trigger::Readable{udp_handle_.fd});
+        return posix_executor->registerAwaitableCallback(std::move(function),
+                                                         IPosixExecutor::Trigger::Readable{udp_handle_.fd});
     }
 
     // MARK: Data members:
