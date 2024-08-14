@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_EXECUTOR_HPP_INCLUDED
 #define LIBCYPHAL_EXECUTOR_HPP_INCLUDED
 
+#include "time_provider.hpp"
 #include "types.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -22,7 +23,7 @@ namespace libcyphal
 
 /// @brief Defines an abstract interface for a callback executor.
 ///
-class IExecutor
+class IExecutor : public ITimeProvider
 {
     // EBAF7312-5CFE-45F5-89FF-D9B9FE45F8EB
     // clang-format off
@@ -219,10 +220,6 @@ public:
     IExecutor(IExecutor&&) noexcept            = delete;
     IExecutor& operator=(const IExecutor&)     = delete;
     IExecutor& operator=(IExecutor&&) noexcept = delete;
-
-    /// @brief Gets the current time point (aka now) of the executor.
-    ///
-    virtual TimePoint now() const noexcept = 0;
 
     /// @brief Registers a new callback by appending it to the executor.
     ///

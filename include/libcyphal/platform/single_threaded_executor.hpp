@@ -93,13 +93,15 @@ public:
         return spin_result;
     }
 
-    // MARK: - IExecutor
+    // MARK: - ITimeProvider
 
     TimePoint now() const noexcept override
     {
         const auto duration = std::chrono::steady_clock::now().time_since_epoch();
         return TimePoint{} + std::chrono::duration_cast<Duration>(duration);
     }
+
+    // MARK: - IExecutor
 
     CETL_NODISCARD Callback::Any registerCallback(Callback::Function&& function) override
     {

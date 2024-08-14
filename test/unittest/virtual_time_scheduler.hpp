@@ -102,7 +102,7 @@ public:
         return named_cb_interfaces_.find(name) != named_cb_interfaces_.end();
     }
 
-    // MARK: - IExecutor
+    // MARK: - ITimeProvider
 
     TimePoint now() const noexcept override
     {
