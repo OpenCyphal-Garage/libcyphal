@@ -102,7 +102,7 @@ public:
         ///
         /// Size is chosen arbitrary, but it should be enough to store any callback implementation.
         ///
-        static constexpr std::size_t MaxSize = (sizeof(void*) * 12) + sizeof(Function);
+        static constexpr std::size_t MaxSize = (sizeof(void*) * 16) + sizeof(Function);
 
         class Interface
         {
@@ -127,9 +127,8 @@ public:
             /// according to the last setup.
             ///
             /// @param schedule Contains specifics of how exactly callback will be scheduled.
-            /// @return `true` if scheduling was successful, `false` otherwise (b/c callback has been reset).
             ///
-            virtual bool schedule(const Schedule::Variant& schedule) = 0;
+            virtual void schedule(const Schedule::Variant& schedule) = 0;
 
             // MARK: RTTI
 
@@ -206,7 +205,8 @@ public:
             {
                 if (auto* const interface = getInterface())
                 {
-                    return interface->schedule(schedule);
+                    interface->schedule(schedule);
+                    return true;
                 }
                 return false;
             }

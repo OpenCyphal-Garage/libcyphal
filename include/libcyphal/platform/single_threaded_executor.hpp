@@ -30,10 +30,10 @@ namespace platform
 
 /// @brief Defines platform agnostic single-threaded executor.
 ///
-class SingleThreadedExecutor : public IExecutor
+class SingleThreadedExecutor : public virtual IExecutor
 {
 public:
-    SingleThreadedExecutor()          = default;
+    SingleThreadedExecutor() {};
     virtual ~SingleThreadedExecutor() = default;
 
     SingleThreadedExecutor(const SingleThreadedExecutor&)                = delete;
@@ -106,81 +106,15 @@ public:
 
     CETL_NODISCARD Callback::Any registerCallback(Callback::Function&& function) override
     {
-        CETL_DEBUG_ASSERT(function, "");
-
-        CallbackNode new_callback_node{*this, std::move(function)};
-
-        insertCallbackNode(new_callback_node);
-
-        return {std::move(new_callback_node)};
+        CallbackNode new_cb_node{*this, std::move(function)};
+        insertCallbackNode(new_cb_node);
+        return {std::move(new_cb_node)};
     }
 
 protected:
-    /// @brief Defines callback handling umbrella type.
-    ///
-    struct CallbackHandling
-    {
-        /// @brief Defines callback "moved" handling event.
-        ///
-        /// Sent when the callback instance is moved in memory.
-        ///
-        struct Moved
-        {
-            /// Interface of the callback before movement.
-            ///
-            /// Although the pointed memory still valid (it will be released after `onCallbackHandling` return),
-            /// interface is already removed from executor, so it should not be used other than for pointer comparison.
-            Callback::Interface* const old_interface;
-
-            /// Interface of the callback after movement.
-            ///
-            /// This is the new interface of the callback, which could be called or stored for further use.
-            /// It will stay valid until corresponding `Removed` event is sent.
-            Callback::Interface* const new_interface;
-        };
-
-        /// @brief Defines callback "removed" handling event.
-        ///
-        /// Sent when the callback is removed from the executor.
-        ///
-        struct Removed
-        {
-            /// Interface of the callback after removal.
-            ///
-            /// Although the pointed memory still valid (it will be released after `onCallbackHandling` return),
-            /// interface is already removed from executor, so it should not be used other than for pointer comparison.
-            Callback::Interface* const old_interface;
-        };
-
-        /// @brief Defines callback handling variant type.
-        using Variant = cetl::variant<Moved, Removed>;
-
-    };  // CallbackHandling
-
-    /// @brief Extension point for subclasses to observe callback lifetime.
-    ///
-    /// Called on callback node movement or removal.
-    /// Subclasses are not required to call this base class method.
-    ///
-    /// @param event_var Variant of a callback handling event.
-    ///
-    virtual void onCallbackHandling(const CallbackHandling::Variant& event_var)
-    {
-        // Nothing to do here b/c AVL `CallbackNode` movement (or destruction) has already updated its links,
-        // but subclasses may override this method to update their own references to callback interfaces.
-        (void) event_var;
-    }
-
-private:
-    /// We use distant future as "never" time point.
-    static constexpr TimePoint TimePointNever()
-    {
-        return TimePoint::max();
-    }
-
     /// No Sonar cpp:S4963 b/c `CallbackNode` supports move operation.
     ///
-    class CallbackNode final : public cavl::Node<CallbackNode>, public Callback::Interface  // NOSONAR cpp:S4963
+    class CallbackNode : public cavl::Node<CallbackNode>, public Callback::Interface  // NOSONAR cpp:S4963
     {
     public:
         CallbackNode(SingleThreadedExecutor& executor, Callback::Function&& function)
@@ -191,12 +125,11 @@ private:
         {
             CETL_DEBUG_ASSERT(function_, "");
         }
-        ~CallbackNode()
+        virtual ~CallbackNode()
         {
             if (isLinked())
             {
                 executor_.callback_nodes_.remove(this);
-                executor_.onCallbackHandling(CallbackHandling::Removed{this});
             }
         };
 
@@ -207,7 +140,6 @@ private:
             , next_exec_time_{other.next_exec_time_}
             , schedule_{other.schedule_}
         {
-            executor_.onCallbackHandling(CallbackHandling::Moved{&other, this});
         }
 
         CallbackNode(const CallbackNode&)                      = delete;
@@ -243,10 +175,9 @@ private:
             return (exec_time >= next_exec_time_) ? +1 : -1;
         }
 
-    private:
         // MARK: Callback::Interface
 
-        CETL_NODISCARD bool schedule(const Callback::Schedule::Variant& schedule) override
+        void schedule(const Callback::Schedule::Variant& schedule) override
         {
             CETL_DEBUG_ASSERT(isLinked(), "");
 
@@ -259,9 +190,15 @@ private:
                         [](const Callback::Schedule::Repeat& repeat) { return repeat.exec_time; }),
                     schedule);
             });
-            return true;
         }
 
+    protected:
+        SingleThreadedExecutor& executor() noexcept
+        {
+            return executor_;
+        }
+
+    private:
         // MARK: Data members:
 
         SingleThreadedExecutor&                     executor_;
@@ -270,6 +207,28 @@ private:
         cetl::optional<Callback::Schedule::Variant> schedule_;
 
     };  // CallbackNode
+
+    void insertCallbackNode(CallbackNode& callback_node)
+    {
+        const auto next_exec_time = callback_node.nextExecTime();
+
+        const std::tuple<CallbackNode*, bool> cb_node_existing = callback_nodes_.search(  //
+            [next_exec_time](const CallbackNode& other_node) {                            // predicate
+                return other_node.compareByExecutionTime(next_exec_time);
+            },
+            [&callback_node]() { return &callback_node; });  // factory
+
+        (void) cb_node_existing;
+        CETL_DEBUG_ASSERT(!std::get<1>(cb_node_existing), "Unexpected existing callback node.");
+        CETL_DEBUG_ASSERT(&callback_node == std::get<0>(cb_node_existing), "Unexpected callback node.");
+    }
+
+private:
+    /// We use distant future as "never" time point.
+    static constexpr TimePoint TimePointNever()
+    {
+        return TimePoint::max();
+    }
 
     CETL_NODISCARD cetl::optional<TimePoint> isNowTimeToExecute(const TimePoint next_exec_time,
                                                                 SpinResult&     inout_spin_result) const
@@ -295,21 +254,6 @@ private:
             inout_spin_result.approx_now - next_exec_time);
 
         return cetl::optional<TimePoint>{next_exec_time};
-    }
-
-    void insertCallbackNode(CallbackNode& callback_node)
-    {
-        const auto next_exec_time = callback_node.nextExecTime();
-
-        const std::tuple<CallbackNode*, bool> cb_node_existing = callback_nodes_.search(  //
-            [next_exec_time](const CallbackNode& other_node) {                            // predicate
-                return other_node.compareByExecutionTime(next_exec_time);
-            },
-            [&callback_node]() { return &callback_node; });  // factory
-
-        (void) cb_node_existing;
-        CETL_DEBUG_ASSERT(!std::get<1>(cb_node_existing), "Unexpected existing callback node.");
-        CETL_DEBUG_ASSERT(&callback_node == std::get<0>(cb_node_existing), "Unexpected callback node.");
     }
 
     void removeCallbackNode(CallbackNode& callback_node)

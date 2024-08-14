@@ -66,19 +66,20 @@ public:
 
     CETL_NODISCARD Callback::Any registerNamedCallback(const std::string& name, Callback::Function&& function)
     {
-        auto callback              = registerCallback(std::move(function));
-        named_cb_interfaces_[name] = callback.getInterface();
-        return callback;
+        NamedCallbackNode new_cb_node{*this, std::move(function), name};
+        insertCallbackNode(new_cb_node);
+        named_cb_interfaces_[name] = &new_cb_node;
+        return {std::move(new_cb_node)};
     }
-    void scheduleNamedCallback(const std::string& name)
+    void scheduleNamedCallback(const std::string& name) const
     {
         scheduleNamedCallback(name, Callback::Schedule::Once{now_});
     }
-    void scheduleNamedCallback(const std::string& name, const TimePoint time_point)
+    void scheduleNamedCallback(const std::string& name, const TimePoint time_point) const
     {
         scheduleNamedCallback(name, Callback::Schedule::Once{time_point});
     }
-    void scheduleNamedCallback(const std::string& name, const Callback::Schedule::Variant& schedule)
+    void scheduleNamedCallback(const std::string& name, const Callback::Schedule::Variant& schedule) const
     {
         named_cb_interfaces_.at(name)->schedule(schedule);
     }
@@ -108,39 +109,50 @@ public:
         return now_;
     }
 
-protected:
-    void onCallbackHandling(const CallbackHandling::Variant& event_var) override
-    {
-        cetl::visit([this](const auto& event) { onCallbackHandlingImpl(event); }, event_var);
-    }
-
 private:
-    void onCallbackHandlingImpl(const CallbackHandling::Moved& moved)
-    {
-        auto it = named_cb_interfaces_.begin();
-        while (it != named_cb_interfaces_.end())
-        {
-            if (it->second == moved.old_interface)
-            {
-                it->second = moved.new_interface;
-            }
-            ++it;
-        }
-    }
+    using Self = VirtualTimeScheduler;
+    using Base = SingleThreadedExecutor;
 
-    void onCallbackHandlingImpl(const CallbackHandling::Removed& removed)
+    /// No Sonar cpp:S4963 b/c `AwaitableNode` supports move operation.
+    ///
+    class NamedCallbackNode final : public CallbackNode  // NOSONAR cpp:S4963
     {
-        auto it = named_cb_interfaces_.begin();
-        while (it != named_cb_interfaces_.end())
+    public:
+        NamedCallbackNode(Self& executor, Callback::Function&& function, std::string name)
+            : CallbackNode{executor, std::move(function)}
+            , name_{std::move(name)}
         {
-            if (it->second == removed.old_interface)
-            {
-                it = named_cb_interfaces_.erase(it);
-                continue;
-            }
-            ++it;
         }
-    }
+
+        ~NamedCallbackNode() override
+        {
+            if (!name_.empty())
+            {
+                getExecutor().named_cb_interfaces_.erase(name_);
+            }
+        }
+
+        NamedCallbackNode(NamedCallbackNode&& other) noexcept
+            : CallbackNode(std::move(static_cast<CallbackNode&>(other)))
+            , name_{std::exchange(other.name_, "")}
+        {
+            getExecutor().named_cb_interfaces_[name_] = this;
+        }
+
+        NamedCallbackNode(const NamedCallbackNode&)                      = delete;
+        NamedCallbackNode& operator=(const NamedCallbackNode&)           = delete;
+        NamedCallbackNode& operator=(NamedCallbackNode&& other) noexcept = delete;
+
+    private:
+        Self& getExecutor() noexcept
+        {
+            return static_cast<Self&>(executor());
+        }
+
+        // MARK: Data members:
+        std::string name_;
+
+    };  // NamedCallbackNode
 
     TimePoint                                   now_;
     std::vector<Callback::Any>                  callbacks_bag_;
