@@ -8,6 +8,7 @@
 ///
 
 #include "platform/common_helpers.hpp"
+#include "platform/node_helpers.hpp"
 #include "platform/linux/can/can_media.hpp"
 #include "platform/linux/epoll_single_threaded_executor.hpp"
 #include "platform/tracking_memory_resource.hpp"
@@ -161,15 +162,13 @@ protected:
         void reset()
         {
             get_info_.reset();
-            rx_heartbeat_.reset();
-            tx_heartbeat_.reset();
+            heartbeat_.reset();
             transport_.reset();
             media_vector_.clear();
         }
 
-        CommonHelpers::Heartbeat::Rx rx_heartbeat_;
-        CommonHelpers::Heartbeat::Tx tx_heartbeat_;
-        CommonHelpers::GetInfo       get_info_;
+        NodeHelpers::Heartbeat       heartbeat_;
+        NodeHelpers::GetInfo         get_info_;
         CanTransportPtr              transport_;
         std::vector<Linux::CanMedia> media_vector_;
 
@@ -208,8 +207,8 @@ TEST_F(Example_03_LinuxSocketCanTransport, heartbeat)
     makeTransport();
 
     // Subscribe/Publish heartbeats.
-    state_.rx_heartbeat_.makeRxSession(*state_.transport_, startup_time_);
-    state_.tx_heartbeat_.makeTxSession(*state_.transport_, executor_, startup_time_);
+    state_.heartbeat_.makeRxSession(*state_.transport_, startup_time_);
+    state_.heartbeat_.makeTxSession(*state_.transport_, executor_, startup_time_);
 
     // Bring up 'GetInfo' server.
     state_.get_info_.makeRxSession(*state_.transport_);
@@ -220,7 +219,7 @@ TEST_F(Example_03_LinuxSocketCanTransport, heartbeat)
     CommonHelpers::runMainLoop(executor_, startup_time_ + run_duration_ + 500ms, [&](const auto now) {
         //
         state_.get_info_.receive(now);
-        state_.rx_heartbeat_.receive();
+        state_.heartbeat_.receive();
     });
 
     state_.reset();

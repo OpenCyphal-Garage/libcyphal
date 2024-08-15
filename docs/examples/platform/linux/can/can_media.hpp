@@ -7,6 +7,8 @@
 #ifndef EXAMPLE_PLATFORM_LINUX_CAN_MEDIA_HPP_INCLUDED
 #define EXAMPLE_PLATFORM_LINUX_CAN_MEDIA_HPP_INCLUDED
 
+#include "../../posix/posix_executor_extension.hpp"
+#include "../../posix/posix_platform_error.hpp"
 #include "socketcan.h"
 
 #include <canard.h>
