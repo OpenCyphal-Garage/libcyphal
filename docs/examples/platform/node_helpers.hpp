@@ -8,6 +8,8 @@
 
 #include <libcyphal/executor.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
+#include <libcyphal/transport/scattered_buffer.hpp>
+#include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/transport.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
@@ -60,6 +62,16 @@ struct NodeHelpers
         const std::array<const cetl::span<const cetl::byte>, 1> payload{fragment};
 
         return tx_session.send(metadata, payload);
+    }
+
+    template <typename T>
+    static bool tryDeserialize(T& obj, const libcyphal::transport::ScatteredBuffer& buffer)
+    {
+        std::vector<std::uint8_t>       data_vec(buffer.size());
+        const auto                      data_size = buffer.copy(0, data_vec.data(), data_vec.size());
+        nunavut::support::const_bitspan bitspan{data_vec.data(), data_size};
+
+        return deserialize(obj, bitspan);
     }
 
     struct Heartbeat
@@ -138,12 +150,17 @@ struct NodeHelpers
 
         void print(const libcyphal::transport::MessageRxTransfer& rx_heartbeat) const
         {
-            const auto rel_time = rx_heartbeat.metadata.base.timestamp - startup_time_;
-            std::cout << "Received heartbeat from node " << std::setw(8)
-                      << rx_heartbeat.metadata.publisher_node_id.value_or(0) << " @ " << std::setw(8)
-                      << std::chrono::duration_cast<std::chrono::milliseconds>(rel_time).count()
-                      << " ms, tx_id=" << rx_heartbeat.metadata.base.transfer_id << "\n"
-                      << std::flush;
+            uavcan::node::Heartbeat_1_0 heartbeat{};
+            if (tryDeserialize(heartbeat, rx_heartbeat.payload))
+            {
+                const auto rel_time = rx_heartbeat.metadata.base.timestamp - startup_time_;
+                std::cout << "Received heartbeat from Node " << std::setw(5)
+                          << rx_heartbeat.metadata.publisher_node_id.value_or(0) << ", Uptime " << std::setw(8)
+                          << heartbeat.uptime << "   @ " << std::setw(8)
+                          << std::chrono::duration_cast<std::chrono::milliseconds>(rel_time).count()
+                          << " ms, tx_id=" << std::setw(8) << rx_heartbeat.metadata.base.transfer_id << "\n"
+                          << std::flush;
+            }
         }
 
         libcyphal::TimePoint             startup_time_;
