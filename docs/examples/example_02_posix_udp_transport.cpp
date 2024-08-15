@@ -212,6 +212,7 @@ TEST_F(Example_02_PosixUdpTransport, heartbeat)
     state_.heartbeat_.makeTxSession(*state_.transport_, executor_, startup_time_);
 
     // Bring up 'GetInfo' server.
+    state_.get_info_.setName("org.opencyphal.example_02_posix_udp_transport");
     state_.get_info_.makeRxSession(*state_.transport_);
     state_.get_info_.makeTxSession(*state_.transport_);
 

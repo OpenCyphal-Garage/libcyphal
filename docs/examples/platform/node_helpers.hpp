@@ -27,6 +27,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <sstream>
 #include <string>
@@ -173,8 +174,11 @@ struct NodeHelpers
 
     struct GetInfo
     {
-        RequestRxSessionPtr  svc_req_rx_session_;
-        ResponseTxSessionPtr svc_res_tx_session_;
+        void setName(const std::string& name)
+        {
+            response.name.clear();
+            std::copy_n(name.begin(), std::min(name.size(), 50UL), std::back_inserter(response.name));
+        }
 
         bool makeRxSession(libcyphal::transport::ITransport& transport)
         {
@@ -213,11 +217,6 @@ struct NodeHelpers
             {
                 if (auto request = svc_req_rx_session_->receive())
                 {
-                    uavcan::node::GetInfo::Response_1_0 response{};
-                    response.protocol_version = {1, 0};
-                    response.name.push_back('X');
-                    response.name.push_back('Y');
-
                     const SvcTransferMetadata metadata{{request->metadata.base.transfer_id,
                                                         now,
                                                         request->metadata.base.priority},
@@ -228,6 +227,11 @@ struct NodeHelpers
                 }
             }
         }
+
+    private:
+        RequestRxSessionPtr                 svc_req_rx_session_;
+        ResponseTxSessionPtr                svc_res_tx_session_;
+        uavcan::node::GetInfo::Response_1_0 response{{1, 0}};
 
     };  // GetInfo
 
