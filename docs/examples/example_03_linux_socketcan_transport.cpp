@@ -73,7 +73,7 @@ protected:
         // Local node ID. Default is 42.
         if (const auto* const node_id_str = std::getenv("CYPHAL__NODE__ID"))
         {
-            local_node_id_ = static_cast<NodeId>(std::stoul(node_id_str));
+            state_.local_node_id_ = static_cast<NodeId>(std::stoul(node_id_str));
         }
         // Space separated list of interface addresses, like "slcan0 slcan1". Default is "vcan0".
         if (const auto* const iface_addresses_str = std::getenv("CYPHAL__CAN__IFACE"))
@@ -91,69 +91,6 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
-    cetl::optional<AnyFailure> transientErrorReporter(ICanTransport::TransientErrorReport::Variant& report_var)
-    {
-        using Report = ICanTransport::TransientErrorReport;
-
-        cetl::visit(  //
-            cetl::make_overloaded(
-                [](const Report::CanardTxPush& report) {
-                    std::cerr << "Failed to push TX frame to canard "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::CanardRxAccept& report) {
-                    std::cerr << "Failed to accept RX frame at canard "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::MediaPop& report) {
-                    std::cerr << "Failed to pop frame from media "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::ConfigureMedia& report) {
-                    std::cerr << "Failed to configure CAN.\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::MediaConfig& report) {
-                    std::cerr << "Failed to configure media " << "(mediaIdx=" << static_cast<int>(report.media_index)
-                              << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [this](const Report::MediaPush& report) {
-                    std::cerr << "Failed to push frame to media "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-
-                    state_.media_vector_[report.media_index].tryReopen();
-                }),
-            report_var);
-
-        return cetl::nullopt;
-    }
-
-    void makeTransport()
-    {
-        constexpr std::size_t tx_capacity = 16;
-
-        std::vector<IMedia*> mis;
-        for (auto& media : state_.media_vector_)
-        {
-            mis.push_back(&media);
-        }
-
-        auto maybe_transport = can::makeTransport({mr_}, executor_, {mis.data(), mis.size()}, tx_capacity);
-        EXPECT_THAT(maybe_transport, VariantWith<CanTransportPtr>(_)) << "Failed to create transport.";
-
-        state_.transport_ = cetl::get<CanTransportPtr>(std::move(maybe_transport));
-        state_.transport_->setLocalNodeId(local_node_id_);
-        state_.transport_->setTransientErrorHandler([this](auto& report) {
-            //
-            return transientErrorReporter(report);
-        });
-    }
-
     // MARK: Data members:
     // NOLINTBEGIN
 
@@ -164,20 +101,20 @@ protected:
             get_info_.reset();
             heartbeat_.reset();
             transport_.reset();
-            media_vector_.clear();
+            media_collection_.reset();
         }
 
-        NodeHelpers::Heartbeat       heartbeat_;
-        NodeHelpers::GetInfo         get_info_;
-        CanTransportPtr              transport_;
-        std::vector<Linux::CanMedia> media_vector_;
+        NodeHelpers::Heartbeat      heartbeat_;
+        NodeHelpers::GetInfo        get_info_;
+        CanTransportPtr             transport_;
+        Linux::CanMedia::Collection media_collection_;
+        NodeId                      local_node_id_{42};
 
     };  // State
 
     example::platform::TrackingMemoryResource             mr_;
     example::platform::Linux::EpollSingleThreadedExecutor executor_;
     State                                                 state_{};
-    NodeId                                                local_node_id_{42};
     TimePoint                                             startup_time_{};
     Duration                                              run_duration_{10s};
     std::vector<std::string>                              iface_addresses_{"vcan0"};
@@ -187,24 +124,15 @@ protected:
 
 // MARK: - Tests:
 
-TEST_F(Example_03_LinuxSocketCanTransport, heartbeat)
+TEST_F(Example_03_LinuxSocketCanTransport, heartbeat_and_getInfo)
 {
-    // Make CAN media.
-    //
-    for (const auto& iface_address : iface_addresses_)
-    {
-        auto maybe_media = Linux::CanMedia::make(executor_, iface_address);
-        if (auto* const error = cetl::get_if<PlatformError>(&maybe_media))
-        {
-            std::cerr << "Failed to create CAN media '" << iface_address << "', errno=" << (*error)->code() << ".";
-            GTEST_SKIP();
-        }
-        ASSERT_THAT(maybe_media, VariantWith<Linux::CanMedia>(_)) << "Failed to create CAN media.";
-        state_.media_vector_.emplace_back(cetl::get<Linux::CanMedia>(std::move(maybe_media)));
-    }
-
     // Make CAN transport with collection of media.
-    makeTransport();
+    //
+    if (!state_.media_collection_.make(executor_, iface_addresses_))
+    {
+        GTEST_SKIP();
+    }
+    CommonHelpers::Can::makeTransport(state_, mr_, executor_);
 
     // Subscribe/Publish heartbeats.
     state_.heartbeat_.makeRxSession(*state_.transport_, startup_time_);

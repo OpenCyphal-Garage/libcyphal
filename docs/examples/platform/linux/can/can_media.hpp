@@ -40,6 +40,51 @@ namespace Linux
 class CanMedia final : public libcyphal::transport::can::IMedia
 {
 public:
+    struct Collection
+    {
+        Collection() = default;
+
+        bool make(libcyphal::IExecutor& executor, std::vector<std::string>& iface_addresses)
+        {
+            reset();
+
+            for (const auto& iface_address : iface_addresses)
+            {
+                auto maybe_media = CanMedia::make(executor, iface_address);
+                if (auto* const error = cetl::get_if<libcyphal::transport::PlatformError>(&maybe_media))
+                {
+                    std::cerr << "Failed to create CAN media '" << iface_address << "', errno=" << (*error)->code()
+                              << ".";
+                    return false;
+                }
+                media_vector_.emplace_back(cetl::get<Linux::CanMedia>(std::move(maybe_media)));
+            }
+
+            for (auto& media : media_vector_)
+            {
+                media_ifaces_.push_back(&media);
+            }
+
+            return true;
+        }
+
+        cetl::span<IMedia*> span()
+        {
+            return {media_ifaces_.data(), media_ifaces_.size()};
+        }
+
+        void reset()
+        {
+            media_vector_.clear();
+            media_ifaces_.clear();
+        }
+
+    private:
+        std::vector<CanMedia> media_vector_;
+        std::vector<IMedia*>  media_ifaces_;
+
+    };  // Collection
+
     CETL_NODISCARD static cetl::variant<CanMedia, libcyphal::transport::PlatformError> make(
         libcyphal::IExecutor& executor,
         const std::string&    iface_address)

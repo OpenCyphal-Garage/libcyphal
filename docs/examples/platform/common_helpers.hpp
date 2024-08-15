@@ -6,10 +6,15 @@
 #ifndef EXAMPLE_PLATFORM_COMMON_HELPERS_HPP_INCLUDED
 #define EXAMPLE_PLATFORM_COMMON_HELPERS_HPP_INCLUDED
 
+#include <libcyphal/transport/can/can_transport.hpp>
+#include <libcyphal/transport/can/can_transport_impl.hpp>
 #include <libcyphal/transport/errors.hpp>
+#include <libcyphal/transport/udp/udp_transport.hpp>
+#include <libcyphal/transport/udp/udp_transport_impl.hpp>
 #include <libcyphal/types.hpp>
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/visit_helpers.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -102,6 +107,151 @@ struct CommonHelpers
 
         std::cout << "worst_callback_lateness=" << worst_lateness.count() << "us\n";
     }
+
+    struct Can
+    {
+        using ICanTransport   = libcyphal::transport::can::ICanTransport;
+        using CanTransportPtr = libcyphal::UniquePtr<ICanTransport>;
+        using IMedia          = libcyphal::transport::can::IMedia;
+
+        template <typename State>
+        static void makeTransport(State& state, cetl::pmr::memory_resource& mr, libcyphal::IExecutor& executor)
+        {
+            constexpr std::size_t tx_capacity = 16;
+
+            // Make CAN transport.
+            //
+            auto maybe_transport =
+                libcyphal::transport::can::makeTransport({mr}, executor, state.media_collection_.span(), tx_capacity);
+            EXPECT_THAT(maybe_transport, testing::VariantWith<CanTransportPtr>(testing::_))
+                << "Failed to create CAN transport.";
+            state.transport_ = cetl::get<CanTransportPtr>(std::move(maybe_transport));
+            state.transport_->setLocalNodeId(state.local_node_id_);
+            state.transport_->setTransientErrorHandler(transientErrorReporter);
+        }
+
+        static cetl::optional<libcyphal::transport::AnyFailure> transientErrorReporter(
+            libcyphal::transport::can::ICanTransport::TransientErrorReport::Variant& report_var)
+        {
+            using Report = libcyphal::transport::can::ICanTransport::TransientErrorReport;
+
+            cetl::visit(  //
+                cetl::make_overloaded(
+                    [](const Report::CanardTxPush& report) {
+                        std::cerr << "Failed to push TX frame to canard "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::CanardRxAccept& report) {
+                        std::cerr << "Failed to accept RX frame at canard "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::MediaPop& report) {
+                        std::cerr << "Failed to pop frame from media "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::ConfigureMedia& report) {
+                        std::cerr << "Failed to configure CAN.\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::MediaConfig& report) {
+                        std::cerr << "Failed to configure media "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::MediaPush& report) {
+                        std::cerr << "Failed to push frame to media "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    }),
+                report_var);
+
+            return cetl::nullopt;
+        }
+
+    };  // Can
+
+    struct Udp
+    {
+        using IUdpTransport   = libcyphal::transport::udp::IUdpTransport;
+        using UdpTransportPtr = libcyphal::UniquePtr<IUdpTransport>;
+        using IMedia          = libcyphal::transport::udp::IMedia;
+
+        template <typename State>
+        static void makeTransport(State& state, cetl::pmr::memory_resource& mr, libcyphal::IExecutor& executor)
+        {
+            constexpr std::size_t tx_capacity = 16;
+
+            // Make UDP transport.
+            //
+            auto maybe_transport =
+                libcyphal::transport::udp::makeTransport({mr}, executor, state.media_collection_.span(), tx_capacity);
+            EXPECT_THAT(maybe_transport, testing::VariantWith<UdpTransportPtr>(testing::_))
+                << "Failed to create transport.";
+            state.transport_ = cetl::get<UdpTransportPtr>(std::move(maybe_transport));
+            state.transport_->setLocalNodeId(state.local_node_id_);
+            state.transport_->setTransientErrorHandler(transientErrorReporter);
+        }
+
+        static cetl::optional<libcyphal::transport::AnyFailure> transientErrorReporter(
+            IUdpTransport::TransientErrorReport::Variant& report_var)
+        {
+            using Report = IUdpTransport::TransientErrorReport;
+
+            cetl::visit(  //
+                cetl::make_overloaded(
+                    [](const Report::UdpardTxPublish& report) {
+                        std::cerr << "Failed to TX message frame to udpard "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::UdpardTxRequest& report) {
+                        std::cerr << "Failed to TX request frame to udpard "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::UdpardTxRespond& report) {
+                        std::cerr << "Failed to TX response frame to udpard "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::UdpardRxMsgReceive& report) {
+                        std::cerr << "Failed to accept RX message frame at udpard "
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::UdpardRxSvcReceive& report) {
+                        std::cerr << "Failed to accept RX service frame at udpard "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::MediaMakeRxSocket& report) {
+                        std::cerr << "Failed to make RX socket " << "(mediaIdx=" << static_cast<int>(report.media_index)
+                                  << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::MediaMakeTxSocket& report) {
+                        std::cerr << "Failed to make TX socket " << "(mediaIdx=" << static_cast<int>(report.media_index)
+                                  << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::MediaTxSocketSend& report) {
+                        std::cerr << "Failed to TX frame to socket "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::MediaRxSocketReceive& report) {
+                        std::cerr << "Failed to RX frame from socket "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    }),
+                report_var);
+
+            return cetl::nullopt;
+        }
+
+    };  // Udp
 
 };  // CommonHelpers
 

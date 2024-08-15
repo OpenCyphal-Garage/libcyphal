@@ -72,7 +72,7 @@ protected:
         // Local node ID. Default is 42.
         if (const auto* const node_id_str = std::getenv("CYPHAL__NODE__ID"))
         {
-            local_node_id_ = static_cast<NodeId>(std::stoul(node_id_str));
+            state_.local_node_id_ = static_cast<NodeId>(std::stoul(node_id_str));
         }
         // Space separated list of interface addresses, like "127.0.0.1 192.168.1.162". Default is "127.0.0.1".
         if (const auto* const iface_addresses_str = std::getenv("CYPHAL__UDP__IFACE"))
@@ -90,78 +90,6 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
-    static cetl::optional<AnyFailure> transientErrorReporter(IUdpTransport::TransientErrorReport::Variant& report_var)
-    {
-        using Report = IUdpTransport::TransientErrorReport;
-
-        cetl::visit(  //
-            cetl::make_overloaded(
-                [](const Report::UdpardTxPublish& report) {
-                    std::cerr << "Failed to TX message frame to udpard "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::UdpardTxRequest& report) {
-                    std::cerr << "Failed to TX request frame to udpard "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::UdpardTxRespond& report) {
-                    std::cerr << "Failed to TX response frame to udpard "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::UdpardRxMsgReceive& report) {
-                    std::cerr << "Failed to accept RX message frame at udpard "
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::UdpardRxSvcReceive& report) {
-                    std::cerr << "Failed to accept RX service frame at udpard "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::MediaMakeRxSocket& report) {
-                    std::cerr << "Failed to make RX socket " << "(mediaIdx=" << static_cast<int>(report.media_index)
-                              << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::MediaMakeTxSocket& report) {
-                    std::cerr << "Failed to make TX socket " << "(mediaIdx=" << static_cast<int>(report.media_index)
-                              << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::MediaTxSocketSend& report) {
-                    std::cerr << "Failed to TX frame to socket " << "(mediaIdx=" << static_cast<int>(report.media_index)
-                              << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::MediaRxSocketReceive& report) {
-                    std::cerr << "Failed to RX frame from socket "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                }),
-            report_var);
-
-        return cetl::nullopt;
-    }
-
-    void makeTransport()
-    {
-        constexpr std::size_t tx_capacity = 16;
-
-        std::vector<IMedia*> mis;
-        for (auto& media : state_.media_vector_)
-        {
-            mis.push_back(&media);
-        }
-
-        auto maybe_transport = udp::makeTransport({mr_}, executor_, {mis.data(), mis.size()}, tx_capacity);
-        EXPECT_THAT(maybe_transport, VariantWith<UdpTransportPtr>(_)) << "Failed to create transport.";
-        state_.transport_ = cetl::get<UdpTransportPtr>(std::move(maybe_transport));
-        state_.transport_->setLocalNodeId(local_node_id_);
-        state_.transport_->setTransientErrorHandler(transientErrorReporter);
-    }
-
     // MARK: Data members:
     // NOLINTBEGIN
 
@@ -172,20 +100,20 @@ protected:
             get_info_.reset();
             heartbeat_.reset();
             transport_.reset();
-            media_vector_.clear();
+            media_collection_.reset();
         }
 
-        NodeHelpers::Heartbeat       heartbeat_;
-        NodeHelpers::GetInfo         get_info_;
-        UdpTransportPtr              transport_;
-        std::vector<posix::UdpMedia> media_vector_;
+        NodeHelpers::Heartbeat      heartbeat_;
+        NodeHelpers::GetInfo        get_info_;
+        UdpTransportPtr             transport_;
+        posix::UdpMedia::Collection media_collection_;
+        NodeId                      local_node_id_{42};
 
     };  // State
 
     TrackingMemoryResource            mr_;
     posix::PollSingleThreadedExecutor executor_{mr_};
     State                             state_{};
-    NodeId                            local_node_id_{42};
     TimePoint                         startup_time_{};
     Duration                          run_duration_{10s};
     std::vector<std::string>          iface_addresses_{"127.0.0.1"};
@@ -195,17 +123,12 @@ protected:
 
 // MARK: - Tests:
 
-TEST_F(Example_02_PosixUdpTransport, heartbeat)
+TEST_F(Example_02_PosixUdpTransport, heartbeat_and_getInfo)
 {
-    // Make UDP media.
-    //
-    for (const auto& iface_address : iface_addresses_)
-    {
-        state_.media_vector_.emplace_back(mr_, executor_, iface_address);
-    }
-
     // Make UDP transport with collection of media.
-    makeTransport();
+    //
+    state_.media_collection_.make(mr_, executor_, iface_addresses_);
+    CommonHelpers::Udp::makeTransport(state_, mr_, executor_);
 
     // Subscribe/Publish heartbeats.
     state_.heartbeat_.makeRxSession(*state_.transport_, startup_time_);
