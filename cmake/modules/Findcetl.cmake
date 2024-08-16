@@ -6,7 +6,7 @@
 
 include(FetchContent)
 set(cetl_GIT_REPOSITORY "https://github.com/OpenCyphal/cetl.git")
-set(cetl_GIT_TAG "e9bf9ba46d618dda4a39110dbc118549a905f9a7")
+set(cetl_GIT_TAG "37d19afb6254ed06f0847f9839eb2c0b340ea6eb")
 
 FetchContent_Declare(
     cetl
