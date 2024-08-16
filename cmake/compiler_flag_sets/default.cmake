@@ -53,7 +53,6 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
     message(DEBUG "Release build. Setting optimization flags.")
     list(APPEND C_FLAG_SET
                 "-O1"
-                "-fno-delete-null-pointer-checks"  # https://github.com/OpenCyphal-Garage/libcyphal/pull/347#discussion_r1572254288
     )
 else()
 

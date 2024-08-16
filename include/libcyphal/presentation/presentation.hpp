@@ -34,7 +34,7 @@ public:
     {
     }
 
-    ~Presentation() = default;
+    virtual ~Presentation() = default;
 
     Presentation(const Presentation&)                = delete;
     Presentation(Presentation&&) noexcept            = delete;

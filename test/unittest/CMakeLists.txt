@@ -95,7 +95,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
     )
 
     target_link_libraries(cyphal_sonar
-        PRIVATE cyphal
+        PRIVATE cyphal dsdl_support
     )
 
 endif()

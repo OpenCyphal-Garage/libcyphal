@@ -1,6 +1,6 @@
 {
     "name": "linux development environment for libcyphal",
-    "image": "ghcr.io/opencyphal/toolshed:ts22.4.8",
+    "image": "ghcr.io/opencyphal/toolshed:ts22.4.10",
     "customizations": {
         "vscode": {
             "extensions": [
