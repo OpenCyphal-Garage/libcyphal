@@ -144,11 +144,11 @@ TEST_F(Example_12_PosixUdpPresentation, heartbeat_and_getInfo)
     publish_every_1s_cb.schedule(Callback::Schedule::Repeat{startup_time_ + period, period});
     //
     // Print also received heartbeats.
-    // TODO: Replace with message subscriber when it will be awailable.
+    // TODO: Replace with message subscriber when it will be available.
     state.heartbeat_.makeRxSession(*state.transport_, startup_time_);
 
     // Bring up 'GetInfo' server.
-    // TODO: Replace with service server when it will be awailable.
+    // TODO: Replace with service server when it will be available.
     state.get_info_.setName("org.opencyphal.example_12_posix_udp_presentation");
     state.get_info_.makeRxSession(*state.transport_);
     state.get_info_.makeTxSession(*state.transport_);
