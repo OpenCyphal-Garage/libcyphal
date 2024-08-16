@@ -6,15 +6,14 @@
 #ifndef EXAMPLE_PLATFORM_COMMON_HELPERS_HPP_INCLUDED
 #define EXAMPLE_PLATFORM_COMMON_HELPERS_HPP_INCLUDED
 
+#include <cetl/pf17/cetlpf.hpp>
+#include <cetl/visit_helpers.hpp>
 #include <libcyphal/transport/can/can_transport.hpp>
 #include <libcyphal/transport/can/can_transport_impl.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
 #include <libcyphal/transport/udp/udp_transport_impl.hpp>
 #include <libcyphal/types.hpp>
-
-#include <cetl/pf17/cetlpf.hpp>
-#include <cetl/visit_helpers.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -32,6 +31,8 @@ namespace platform
 
 struct CommonHelpers
 {
+    using NodeId = libcyphal::transport::NodeId;
+
     static std::vector<std::string> splitInterfaceAddresses(const std::string& iface_addresses_str)
     {
         std::vector<std::string> iface_addresses;
@@ -115,7 +116,10 @@ struct CommonHelpers
         using IMedia          = libcyphal::transport::can::IMedia;
 
         template <typename State>
-        static void makeTransport(State& state, cetl::pmr::memory_resource& mr, libcyphal::IExecutor& executor)
+        static void makeTransport(State&                      state,
+                                  cetl::pmr::memory_resource& mr,
+                                  libcyphal::IExecutor&       executor,
+                                  const NodeId                local_node_id_)
         {
             constexpr std::size_t tx_capacity = 16;
 
@@ -126,7 +130,7 @@ struct CommonHelpers
             EXPECT_THAT(maybe_transport, testing::VariantWith<CanTransportPtr>(testing::_))
                 << "Failed to create CAN transport.";
             state.transport_ = cetl::get<CanTransportPtr>(std::move(maybe_transport));
-            state.transport_->setLocalNodeId(state.local_node_id_);
+            state.transport_->setLocalNodeId(local_node_id_);
             state.transport_->setTransientErrorHandler(transientErrorReporter);
         }
 
@@ -180,7 +184,10 @@ struct CommonHelpers
         using IMedia          = libcyphal::transport::udp::IMedia;
 
         template <typename State>
-        static void makeTransport(State& state, cetl::pmr::memory_resource& mr, libcyphal::IExecutor& executor)
+        static void makeTransport(State&                      state,
+                                  cetl::pmr::memory_resource& mr,
+                                  libcyphal::IExecutor&       executor,
+                                  const NodeId                local_node_id)
         {
             constexpr std::size_t tx_capacity = 16;
 
@@ -191,7 +198,7 @@ struct CommonHelpers
             EXPECT_THAT(maybe_transport, testing::VariantWith<UdpTransportPtr>(testing::_))
                 << "Failed to create transport.";
             state.transport_ = cetl::get<UdpTransportPtr>(std::move(maybe_transport));
-            state.transport_->setLocalNodeId(state.local_node_id_);
+            state.transport_->setLocalNodeId(local_node_id);
             state.transport_->setTransientErrorHandler(transientErrorReporter);
         }
 

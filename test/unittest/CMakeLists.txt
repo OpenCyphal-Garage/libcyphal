@@ -34,6 +34,7 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
         EXTRA_TEST_LIBS
             cetl
             cyphal
+            dsdl_support
         LINK_TO_MAIN
         OUT_TEST_LIB_VARIABLE LOCAL_TEST_LIB
         OUT_TEST_EXE_VARIABLE LOCAL_TEST_TARGET

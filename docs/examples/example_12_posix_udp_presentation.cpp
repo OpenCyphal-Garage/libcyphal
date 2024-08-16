@@ -13,9 +13,15 @@
 #include "platform/posix/udp/udp_media.hpp"
 #include "platform/tracking_memory_resource.hpp"
 
+#include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/executor.hpp>
+#include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
 #include <libcyphal/types.hpp>
+
+#include <uavcan/node/Health_1_0.hpp>
+#include <uavcan/node/Mode_1_0.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -30,12 +36,9 @@ namespace
 {
 
 using namespace example::platform;          // NOLINT This our main concern here in this test.
+using namespace libcyphal::presentation;    // NOLINT This our main concern here in this test.
 using namespace libcyphal::transport;       // NOLINT This our main concern here in this test.
 using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in this test.
-
-using Duration        = libcyphal::Duration;
-using TimePoint       = libcyphal::TimePoint;
-using UdpTransportPtr = libcyphal::UniquePtr<IUdpTransport>;
 
 // https://github.com/llvm/llvm-project/issues/53444
 // NOLINTBEGIN(misc-unused-using-decls, misc-include-cleaner)
@@ -47,9 +50,14 @@ using testing::IsEmpty;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-class Example_02_PosixUdpTransport : public testing::Test
+class Example_12_PosixUdpPresentation : public testing::Test
 {
 protected:
+    using Callback        = libcyphal::IExecutor::Callback;
+    using Duration        = libcyphal::Duration;
+    using TimePoint       = libcyphal::TimePoint;
+    using UdpTransportPtr = libcyphal::UniquePtr<IUdpTransport>;
+
     void SetUp() override
     {
         // Duration in seconds for which the test will run. Default is 10 seconds.
@@ -80,6 +88,14 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
+    NodeHelpers::Heartbeat::Message makeHeartbeatMsg(const libcyphal::TimePoint now, const bool is_warn = false) const
+    {
+        const auto uptime_in_secs = std::chrono::duration_cast<std::chrono::seconds>(now - startup_time_);
+        return {static_cast<std::uint32_t>(uptime_in_secs.count()),
+                {is_warn ? uavcan::node::Health_1_0::WARNING : uavcan::node::Health_1_0::NOMINAL},
+                {is_warn ? uavcan::node::Mode_1_0::MAINTENANCE : uavcan::node::Mode_1_0::OPERATIONAL}};
+    }
+
     // MARK: Data members:
     // NOLINTBEGIN
 
@@ -100,11 +116,11 @@ protected:
     std::vector<std::string>          iface_addresses_{"127.0.0.1"};
     // NOLINTEND
 
-};  // Example_02_PosixUdpTransport
+};  // Example_12_PosixUdpPresentation
 
 // MARK: - Tests:
 
-TEST_F(Example_02_PosixUdpTransport, heartbeat_and_getInfo)
+TEST_F(Example_12_PosixUdpPresentation, heartbeat_and_getInfo)
 {
     State state;
 
@@ -113,12 +129,27 @@ TEST_F(Example_02_PosixUdpTransport, heartbeat_and_getInfo)
     state.media_collection_.make(mr_, executor_, iface_addresses_);
     CommonHelpers::Udp::makeTransport(state, mr_, executor_, local_node_id_);
 
-    // Subscribe/Publish heartbeats.
+    Presentation presentation{mr_, *state.transport_};
+
+    // Publish heartbeats.
+    auto heartbeat_publisher = NodeHelpers::Heartbeat::makePublisher(presentation);
+    ASSERT_THAT(heartbeat_publisher, testing::Optional(testing::_));
+    auto publish_every_1s_cb = executor_.registerCallback([&](const auto& arg) {
+        //
+        EXPECT_THAT(heartbeat_publisher->publish(arg.approx_now, makeHeartbeatMsg(arg.approx_now)),
+                    testing::Eq(cetl::nullopt));
+    });
+    //
+    constexpr auto period = std::chrono::seconds{NodeHelpers::Heartbeat::Message::MAX_PUBLICATION_PERIOD};
+    publish_every_1s_cb.schedule(Callback::Schedule::Repeat{startup_time_ + period, period});
+    //
+    // Print also received heartbeats.
+    // TODO: Replace with message subscriber when it will be awailable.
     state.heartbeat_.makeRxSession(*state.transport_, startup_time_);
-    state.heartbeat_.makeTxSession(*state.transport_, executor_, startup_time_);
 
     // Bring up 'GetInfo' server.
-    state.get_info_.setName("org.opencyphal.example_02_posix_udp_transport");
+    // TODO: Replace with service server when it will be awailable.
+    state.get_info_.setName("org.opencyphal.example_12_posix_udp_presentation");
     state.get_info_.makeRxSession(*state.transport_);
     state.get_info_.makeTxSession(*state.transport_);
 

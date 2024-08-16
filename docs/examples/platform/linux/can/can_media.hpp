@@ -253,8 +253,8 @@ private:
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerPopCallback(
         libcyphal::IExecutor::Callback::Function&& function) override
     {
-        using ReadableTrogger = posix::IPosixExecutorExtension::Trigger::Readable;
-        return registerAwaitableCallback(std::move(function), ReadableTrogger{socket_can_rx_fd_});
+        using ReadableTrigger = posix::IPosixExecutorExtension::Trigger::Readable;
+        return registerAwaitableCallback(std::move(function), ReadableTrigger{socket_can_rx_fd_});
     }
 
     // MARK: Data members:

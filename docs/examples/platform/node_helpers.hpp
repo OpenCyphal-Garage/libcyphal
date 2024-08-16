@@ -6,7 +6,9 @@
 #ifndef EXAMPLE_PLATFORM_NODE_HELPERS_HPP_INCLUDED
 #define EXAMPLE_PLATFORM_NODE_HELPERS_HPP_INCLUDED
 
+#include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
+#include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/scattered_buffer.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
@@ -21,8 +23,6 @@
 #include <uavcan/node/Heartbeat_1_0.hpp>
 #include <uavcan/node/Mode_1_0.hpp>
 #include <uavcan/node/Version_1_0.hpp>
-
-#include <cetl/pf17/cetlpf.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -40,13 +40,18 @@ namespace platform
 
 struct NodeHelpers
 {
-    using Callback             = libcyphal::IExecutor::Callback;
+    using Callback = libcyphal::IExecutor::Callback;
+
+    using TransferMetadata     = libcyphal::transport::TransferMetadata;
+    using SvcTransferMetadata  = libcyphal::transport::ServiceTransferMetadata;
     using MessageRxSessionPtr  = libcyphal::UniquePtr<libcyphal::transport::IMessageRxSession>;
     using MessageTxSessionPtr  = libcyphal::UniquePtr<libcyphal::transport::IMessageTxSession>;
     using RequestRxSessionPtr  = libcyphal::UniquePtr<libcyphal::transport::IRequestRxSession>;
     using ResponseTxSessionPtr = libcyphal::UniquePtr<libcyphal::transport::IResponseTxSession>;
 
-    using SvcTransferMetadata = libcyphal::transport::ServiceTransferMetadata;
+    using Presentation = libcyphal::presentation::Presentation;
+    template <typename T>
+    using Publisher = libcyphal::presentation::Publisher<T>;
 
     template <typename T, typename TxSession, typename TxMetadata>
     static cetl::optional<libcyphal::transport::AnyFailure> serializeAndSend(const T&          value,
@@ -54,7 +59,7 @@ struct NodeHelpers
                                                                              const TxMetadata& metadata)
     {
         using traits = typename T::_traits_;
-        std::array<std::uint8_t, traits::SerializationBufferSizeBytes> buffer{};
+        std::array<std::uint8_t, traits::SerializationBufferSizeBytes> buffer;
 
         const auto data_size = serialize(value, buffer).value();
 
@@ -77,11 +82,12 @@ struct NodeHelpers
 
     struct Heartbeat
     {
+        using Message = uavcan::node::Heartbeat_1_0;
+
         bool makeRxSession(libcyphal::transport::ITransport& transport, const libcyphal::TimePoint startup_time)
         {
             auto maybe_msg_rx_session =
-                transport.makeMessageRxSession({uavcan::node::Heartbeat_1_0::_traits_::ExtentBytes,
-                                                uavcan::node::Heartbeat_1_0::_traits_::FixedPortId});
+                transport.makeMessageRxSession({Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId});
             EXPECT_THAT(maybe_msg_rx_session, testing::VariantWith<MessageRxSessionPtr>(testing::_))
                 << "Failed to create Heartbeat RX session.";
             if (auto* const session = cetl::get_if<MessageRxSessionPtr>(&maybe_msg_rx_session))
@@ -96,8 +102,7 @@ struct NodeHelpers
                            libcyphal::IExecutor&             executor,
                            const libcyphal::TimePoint        startup_time)
         {
-            auto maybe_msg_tx_session =
-                transport.makeMessageTxSession({uavcan::node::Heartbeat_1_0::_traits_::FixedPortId});
+            auto maybe_msg_tx_session = transport.makeMessageTxSession({Message::_traits_::FixedPortId});
             EXPECT_THAT(maybe_msg_tx_session, testing::VariantWith<MessageTxSessionPtr>(testing::_))
                 << "Failed to create Heartbeat TX session.";
             if (auto* const session = cetl::get_if<MessageTxSessionPtr>(&maybe_msg_tx_session))
@@ -105,25 +110,29 @@ struct NodeHelpers
                 startup_time_   = startup_time;
                 msg_tx_session_ = std::move(*session);
 
-                publish_every_1s_cb_  = executor.registerCallback([&](const auto now) { publish(now); });
-                constexpr auto period = std::chrono::seconds{uavcan::node::Heartbeat_1_0::MAX_PUBLICATION_PERIOD};
+                publish_every_1s_cb_  = executor.registerCallback([&](const auto& arg) { publish(arg.approx_now); });
+                constexpr auto period = std::chrono::seconds{Message::MAX_PUBLICATION_PERIOD};
                 publish_every_1s_cb_.schedule(Callback::Schedule::Repeat{startup_time + period, period});
             }
         }
 
-        void reset()
+        static cetl::optional<Publisher<Message>> makePublisher(Presentation& presentation)
         {
-            publish_every_1s_cb_.reset();
-            msg_tx_session_.reset();
-            msg_rx_session_.reset();
+            auto maybe_publisher = presentation.makePublisher<Message>(Message::_traits_::FixedPortId);
+            EXPECT_THAT(maybe_publisher, testing::VariantWith<Publisher<Message>>(testing::_))
+                << "Failed to create Heartbeat publisher.";
+            if (auto* const publisher = cetl::get_if<Publisher<Message>>(&maybe_publisher))
+            {
+                return std::move(*publisher);
+            }
+            return cetl::nullopt;
         }
 
         void receive() const
         {
             if (msg_rx_session_)
             {
-                auto rx_heartbeat = msg_rx_session_->receive();
-                if (rx_heartbeat)
+                if (const auto rx_heartbeat = msg_rx_session_->receive())
                 {
                     print(*rx_heartbeat);
                 }
@@ -131,21 +140,18 @@ struct NodeHelpers
         }
 
     private:
-        void publish(const Callback::Arg& arg)
+        void publish(const libcyphal::TimePoint now)
         {
             transfer_id_ += 1;
-            const auto uptime_in_secs =
-                std::chrono::duration_cast<std::chrono::seconds>(arg.approx_now - startup_time_);
-            const uavcan::node::Heartbeat_1_0 heartbeat{static_cast<std::uint32_t>(uptime_in_secs.count()),
-                                                        {uavcan::node::Health_1_0::NOMINAL},
-                                                        {uavcan::node::Mode_1_0::OPERATIONAL}};
-            EXPECT_THAT(serializeAndSend(heartbeat,
-                                         *msg_tx_session_,
-                                         libcyphal::transport::
-                                             TransferMetadata{transfer_id_,
-                                                              arg.approx_now,
-                                                              libcyphal::transport::Priority::Nominal}),
-                        testing::Eq(cetl::nullopt))
+
+            const auto uptime_in_secs = std::chrono::duration_cast<std::chrono::seconds>(now - startup_time_);
+
+            const Message          heartbeat{static_cast<std::uint32_t>(uptime_in_secs.count()),
+                                             {uavcan::node::Health_1_0::NOMINAL},
+                                             {uavcan::node::Mode_1_0::OPERATIONAL}};
+            const TransferMetadata metadata{transfer_id_, now, libcyphal::transport::Priority::Nominal};
+
+            EXPECT_THAT(serializeAndSend(heartbeat, *msg_tx_session_, metadata), testing::Eq(cetl::nullopt))
                 << "Failed to publish Heartbeat_1_0.";
         }
 
@@ -174,6 +180,9 @@ struct NodeHelpers
 
     struct GetInfo
     {
+        using Request  = uavcan::node::GetInfo::Request_1_0;
+        using Response = uavcan::node::GetInfo::Response_1_0;
+
         void setName(const std::string& name)
         {
             response.name.clear();
@@ -183,8 +192,7 @@ struct NodeHelpers
         bool makeRxSession(libcyphal::transport::ITransport& transport)
         {
             auto maybe_svc_rx_session =
-                transport.makeRequestRxSession({uavcan::node::GetInfo::Request_1_0::_traits_::ExtentBytes,
-                                                uavcan::node::GetInfo::Request_1_0::_traits_::FixedPortId});
+                transport.makeRequestRxSession({Request::_traits_::ExtentBytes, Request::_traits_::FixedPortId});
             EXPECT_THAT(maybe_svc_rx_session, testing::VariantWith<RequestRxSessionPtr>(testing::_))
                 << "Failed to create GetInfo request RX session.";
             if (auto* const session = cetl::get_if<RequestRxSessionPtr>(&maybe_svc_rx_session))
@@ -195,8 +203,7 @@ struct NodeHelpers
         }
         void makeTxSession(libcyphal::transport::ITransport& transport)
         {
-            auto maybe_svc_tx_session =
-                transport.makeResponseTxSession({uavcan::node::GetInfo::Response_1_0::_traits_::FixedPortId});
+            auto maybe_svc_tx_session = transport.makeResponseTxSession({Response::_traits_::FixedPortId});
             EXPECT_THAT(maybe_svc_tx_session, testing::VariantWith<ResponseTxSessionPtr>(testing::_))
                 << "Failed to create GetInfo response TX session.";
             if (auto* const session = cetl::get_if<ResponseTxSessionPtr>(&maybe_svc_tx_session))
@@ -205,17 +212,11 @@ struct NodeHelpers
             }
         }
 
-        void reset()
-        {
-            svc_req_rx_session_.reset();
-            svc_res_tx_session_.reset();
-        }
-
         void receive(const libcyphal::TimePoint now) const
         {
             if (svc_req_rx_session_ && svc_res_tx_session_)
             {
-                if (auto request = svc_req_rx_session_->receive())
+                if (const auto request = svc_req_rx_session_->receive())
                 {
                     const SvcTransferMetadata metadata{{request->metadata.base.transfer_id,
                                                         now,
@@ -229,9 +230,9 @@ struct NodeHelpers
         }
 
     private:
-        RequestRxSessionPtr                 svc_req_rx_session_;
-        ResponseTxSessionPtr                svc_res_tx_session_;
-        uavcan::node::GetInfo::Response_1_0 response{{1, 0}};
+        RequestRxSessionPtr  svc_req_rx_session_;
+        ResponseTxSessionPtr svc_res_tx_session_;
+        Response             response{{1, 0}};
 
     };  // GetInfo
 

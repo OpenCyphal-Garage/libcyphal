@@ -17,6 +17,10 @@ namespace transport
 {
 namespace common
 {
+
+/// Internal implementation details of the Transport layer.
+/// Not supposed to be used directly by the users of the library.
+///
 namespace detail
 {
 
