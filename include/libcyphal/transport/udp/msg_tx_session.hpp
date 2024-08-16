@@ -65,18 +65,10 @@ public:
     MessageTxSession(const Spec, TransportDelegate& delegate, const MessageTxParams& params)
         : delegate_{delegate}
         , params_{params}
-        , send_timeout_{std::chrono::seconds{1}}
     {
     }
 
 private:
-    // MARK: ITxSession
-
-    void setSendTimeout(const Duration timeout) override
-    {
-        send_timeout_ = timeout;
-    }
-
     // MARK: IMessageTxSession
 
     CETL_NODISCARD MessageTxParams getParams() const noexcept override
@@ -84,16 +76,16 @@ private:
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<AnyFailure> send(const TransferMetadata& metadata,
-                                                   const PayloadFragments  payload_fragments) override
+    CETL_NODISCARD cetl::optional<AnyFailure> send(const TransferTxMetadata& metadata,
+                                                   const PayloadFragments    payload_fragments) override
     {
-        const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(
-            (metadata.timestamp + send_timeout_).time_since_epoch());
+        const auto deadline_us =
+            std::chrono::duration_cast<std::chrono::microseconds>(metadata.deadline.time_since_epoch());
 
         const auto tx_metadata = AnyUdpardTxMetadata::Publish{static_cast<UdpardMicrosecond>(deadline_us.count()),
-                                                              static_cast<UdpardPriority>(metadata.priority),
+                                                              static_cast<UdpardPriority>(metadata.base.priority),
                                                               params_.subject_id,
-                                                              metadata.transfer_id};
+                                                              metadata.base.transfer_id};
 
         return delegate_.sendAnyTransfer(tx_metadata, payload_fragments);
     }

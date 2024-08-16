@@ -483,16 +483,16 @@ TEST_F(TestCanTransport, sending_multiframe_payload_should_fail_for_anonymous)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    const auto       payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC>(b('0'));
-    TransferMetadata metadata{0x13, {}, Priority::Nominal};
+    const auto         payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC>(b('0'));
+    TransferTxMetadata metadata{{0x13, Priority::Nominal}, {}};
 
     EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
         .WillOnce([&](Filters) { return cetl::nullopt; });
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        metadata.timestamp = now();
-        auto failure       = session->send(metadata, makeSpansFrom(payload));
+        metadata.deadline = now() + 1s;
+        auto failure      = session->send(metadata, makeSpansFrom(payload));
         EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
     });
     scheduler_.spinFor(10s);
@@ -510,22 +510,22 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
 
     constexpr auto timeout = 1s;
 
-    const auto       payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC>(b('0'));
-    TransferMetadata metadata{0x13, {}, Priority::Nominal};
+    const auto         payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC>(b('0'));
+    TransferTxMetadata metadata{{0x13, Priority::Nominal}, {}};
 
     EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
         .WillOnce([&](Filters) { return cetl::nullopt; });
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto payload) {
-            EXPECT_THAT(now(), metadata.timestamp);
-            EXPECT_THAT(deadline, metadata.timestamp + timeout);
+        EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto pld) {
+            EXPECT_THAT(now(), metadata.deadline - timeout);
+            EXPECT_THAT(deadline, metadata.deadline);
             EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45)));
-            EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
+            EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsMessageCanId()));
 
-            auto tbm = TailByteEq(metadata.transfer_id, true, false);
-            EXPECT_THAT(payload, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm));
+            const auto tbm = TailByteEq(metadata.base.transfer_id, true, false);
+            EXPECT_THAT(pld, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm));
             return IMedia::PushResult::Success{true /* is_accepted */};
         });
         EXPECT_CALL(media_mock_, registerPushCallback(_))  //
@@ -533,20 +533,20 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
                 return scheduler_.registerAndScheduleNamedCallback("", now() + 10us, std::move(function));
             }));
 
-        metadata.timestamp = now();
-        auto failure       = session->send(metadata, makeSpansFrom(payload));
+        metadata.deadline = now() + timeout;
+        auto failure      = session->send(metadata, makeSpansFrom(payload));
         EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
     scheduler_.scheduleAt(1s + 10us, [&](const auto&) {
         //
-        EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto payload) {
-            EXPECT_THAT(now(), metadata.timestamp + 10us);
-            EXPECT_THAT(deadline, metadata.timestamp + timeout);
+        EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto pld) {
+            EXPECT_THAT(now(), metadata.deadline - timeout + 10us);
+            EXPECT_THAT(deadline, metadata.deadline);
             EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45)));
-            EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
+            EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsMessageCanId()));
 
-            auto tbm = TailByteEq(metadata.transfer_id, false, true, false);
-            EXPECT_THAT(payload, ElementsAre(b('7'), _, _ /* CRC bytes */, tbm));
+            const auto tbm = TailByteEq(metadata.base.transfer_id, false, true, false);
+            EXPECT_THAT(pld, ElementsAre(b('7'), _, _ /* CRC bytes */, tbm));
             return IMedia::PushResult::Success{true /* is_accepted */};
         });
     });
@@ -568,8 +568,8 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
 
     constexpr auto timeout = 1s;
 
-    const auto       payload = makeIotaArray<10>(b('0'));
-    TransferMetadata metadata{0x13, {}, Priority::Nominal};
+    const auto         payload = makeIotaArray<10>(b('0'));
+    TransferTxMetadata metadata{{0x13, Priority::Nominal}, {}};
 
     EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
         .WillOnce([&](Filters) { return cetl::nullopt; });
@@ -583,7 +583,7 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
         //
         EXPECT_CALL(media_mock_, push(_, _, _))  //
             .WillOnce([&](auto, auto, auto) {
-                EXPECT_THAT(now(), metadata.timestamp);
+                EXPECT_THAT(now(), metadata.deadline - timeout);
                 return IMedia::PushResult::Success{false /* is_accepted */};
             });
         EXPECT_CALL(media_mock_, registerPushCallback(_))  //
@@ -591,14 +591,14 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
                 return scheduler_.registerAndScheduleNamedCallback("tx1", now() + 20us, std::move(function));
             }));
         EXPECT_CALL(media_mock2, push(_, _, _))  //
-            .WillOnce([&](auto deadline, auto can_id, auto payload) {
-                EXPECT_THAT(now(), metadata.timestamp);
-                EXPECT_THAT(deadline, metadata.timestamp + timeout);
+            .WillOnce([&](auto deadline, auto can_id, auto pld) {
+                EXPECT_THAT(now(), metadata.deadline - timeout);
+                EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45)));
-                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
+                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsMessageCanId()));
 
-                auto tbm = TailByteEq(metadata.transfer_id, true, false);
-                EXPECT_THAT(payload, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm));
+                auto tbm = TailByteEq(metadata.base.transfer_id, true, false);
+                EXPECT_THAT(pld, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm));
                 return IMedia::PushResult::Success{true /* is_accepted */};
             });
         EXPECT_CALL(media_mock2, registerPushCallback(_))  //
@@ -606,35 +606,35 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
                 return scheduler_.registerAndScheduleNamedCallback("tx2", now() + 10us, std::move(function));
             }));
 
-        metadata.timestamp = now();
-        auto failure       = session->send(metadata, makeSpansFrom(payload));
+        metadata.deadline = now() + timeout;
+        auto failure      = session->send(metadata, makeSpansFrom(payload));
         EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
     scheduler_.scheduleAt(1s + 10us, [&](const auto&) {
         //
         EXPECT_CALL(media_mock2, push(_, _, _))  //
-            .WillOnce([&](auto deadline, auto can_id, auto payload) {
-                EXPECT_THAT(now(), metadata.timestamp + 10us);
-                EXPECT_THAT(deadline, metadata.timestamp + timeout);
+            .WillOnce([&](auto deadline, auto can_id, auto pld) {
+                EXPECT_THAT(now(), metadata.deadline - timeout + 10us);
+                EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45)));
-                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
+                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsMessageCanId()));
 
-                auto tbm = TailByteEq(metadata.transfer_id, false, true, false);
-                EXPECT_THAT(payload, ElementsAre(b('7'), b('8'), b('9'), b(0x7D), b(0x61) /* CRC bytes */, tbm));
+                const auto tbm = TailByteEq(metadata.base.transfer_id, false, true, false);
+                EXPECT_THAT(pld, ElementsAre(b('7'), b('8'), b('9'), b(0x7D), b(0x61) /* CRC bytes */, tbm));
                 return IMedia::PushResult::Success{true /* is_accepted */};
             });
     });
     scheduler_.scheduleAt(1s + 20us, [&](const auto&) {
         //
         EXPECT_CALL(media_mock_, push(_, _, _))  //
-            .WillOnce([&](auto deadline, auto can_id, auto payload) {
-                EXPECT_THAT(now(), metadata.timestamp + 20us);
-                EXPECT_THAT(deadline, metadata.timestamp + timeout);
+            .WillOnce([&](auto deadline, auto can_id, auto pld) {
+                EXPECT_THAT(now(), metadata.deadline - timeout + 20us);
+                EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45)));
-                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsMessageCanId()));
+                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsMessageCanId()));
 
-                auto tbm = TailByteEq(metadata.transfer_id, true, false);
-                EXPECT_THAT(payload, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm));
+                const auto tbm = TailByteEq(metadata.base.transfer_id, true, false);
+                EXPECT_THAT(pld, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm));
                 return IMedia::PushResult::Success{true /* is_accepted */};
             });
     });
@@ -658,8 +658,10 @@ TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    const auto       payload = makeIotaArray<6>(b('0'));
-    TransferMetadata metadata{0x13, {}, Priority::Nominal};
+    constexpr auto timeout = 1s;
+
+    const auto         payload = makeIotaArray<6>(b('0'));
+    TransferTxMetadata metadata{{0x13, Priority::Nominal}, {}};
 
     EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
         .WillOnce([&](Filters) { return cetl::nullopt; });
@@ -688,7 +690,7 @@ TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
                 return scheduler_.registerAndScheduleNamedCallback("", now() + 20us, std::move(function));
             }));
 
-        metadata.timestamp = now();
+        metadata.deadline = now() + timeout;
         EXPECT_THAT(session->send(metadata, makeSpansFrom(payload)), Eq(cetl::nullopt));
     });
     // 2. Second attempt to push payload (while 1st attempt still in progress for socket 2).
@@ -713,7 +715,7 @@ TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
                     }))))
             .WillOnce(Return(cetl::nullopt));
 
-        metadata.timestamp = now();
+        metadata.deadline = now() + timeout;
         EXPECT_THAT(session->send(metadata, makeSpansFrom(payload)), Eq(cetl::nullopt));
     });
     scheduler_.spinFor(10s);
@@ -737,8 +739,10 @@ TEST_F(TestCanTransport, send_payload_to_out_of_capacity_canard_tx)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    const auto       payload = makeIotaArray<6>(b('0'));
-    TransferMetadata metadata{0x13, {}, Priority::Nominal};
+    constexpr auto timeout = 1s;
+
+    const auto         payload = makeIotaArray<6>(b('0'));
+    TransferTxMetadata metadata{{0x13, Priority::Nominal}, {}};
 
     EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
         .WillOnce([&](Filters) { return cetl::nullopt; });
@@ -759,8 +763,8 @@ TEST_F(TestCanTransport, send_payload_to_out_of_capacity_canard_tx)
                     }))))
             .WillOnce(Return(StateError{}));
 
-        metadata.timestamp = now();
-        auto failure       = session->send(metadata, makeSpansFrom(payload));
+        metadata.deadline = now() + timeout;
+        auto failure      = session->send(metadata, makeSpansFrom(payload));
         EXPECT_THAT(failure, Optional(VariantWith<StateError>(_)));
     });
     // 2nd. Try to send a frame with "succeeding" handler - both media indices will be used.
@@ -886,9 +890,9 @@ TEST_F(TestCanTransport, receive_svc_responses_from_redundant_media)
         // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
         const auto& rx_transfer = maybe_rx_transfer.value();
 
-        EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx2_timestamp);
-        EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x1E);
-        EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::Optional);
+        EXPECT_THAT(rx_transfer.metadata.rx_meta.timestamp, rx2_timestamp);
+        EXPECT_THAT(rx_transfer.metadata.rx_meta.base.transfer_id, 0x1E);
+        EXPECT_THAT(rx_transfer.metadata.rx_meta.base.priority, Priority::Optional);
         EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x31);
 
         std::array<char, 10> buffer{};
@@ -1058,8 +1062,8 @@ TEST_F(TestCanTransport, receive_svc_responses_with_fallible_oom_canard)
         scheduler_.scheduleAt(now() + 1ms, [&](const auto&) {
             //
             EXPECT_THAT(session->receive(), Optional(Truly([](const auto& rx_transfer) {
-                            EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x1D);
-                            EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::Optional);
+                            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.transfer_id, 0x1D);
+                            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.priority, Priority::Optional);
                             EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x31);
 
                             std::array<char, 3> buffer{};

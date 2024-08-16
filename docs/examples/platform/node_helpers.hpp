@@ -28,10 +28,13 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <sstream>
 #include <string>
 #include <vector>
+
+using std::literals::chrono_literals::operator""s;
 
 namespace example
 {
@@ -42,8 +45,9 @@ struct NodeHelpers
 {
     using Callback = libcyphal::IExecutor::Callback;
 
-    using TransferMetadata     = libcyphal::transport::TransferMetadata;
-    using SvcTransferMetadata  = libcyphal::transport::ServiceTransferMetadata;
+    using ServiceRxMetadata    = libcyphal::transport::ServiceRxMetadata;
+    using ServiceTxMetadata    = libcyphal::transport::ServiceTxMetadata;
+    using TransferTxMetadata   = libcyphal::transport::TransferTxMetadata;
     using MessageRxSessionPtr  = libcyphal::UniquePtr<libcyphal::transport::IMessageRxSession>;
     using MessageTxSessionPtr  = libcyphal::UniquePtr<libcyphal::transport::IMessageTxSession>;
     using RequestRxSessionPtr  = libcyphal::UniquePtr<libcyphal::transport::IRequestRxSession>;
@@ -128,13 +132,13 @@ struct NodeHelpers
             return cetl::nullopt;
         }
 
-        void receive() const
+        void receive(const libcyphal::TimePoint now) const
         {
             if (msg_rx_session_)
             {
                 if (const auto rx_heartbeat = msg_rx_session_->receive())
                 {
-                    print(*rx_heartbeat);
+                    print(now, *rx_heartbeat);
                 }
             }
         }
@@ -146,26 +150,26 @@ struct NodeHelpers
 
             const auto uptime_in_secs = std::chrono::duration_cast<std::chrono::seconds>(now - startup_time_);
 
-            const Message          heartbeat{static_cast<std::uint32_t>(uptime_in_secs.count()),
-                                             {uavcan::node::Health_1_0::NOMINAL},
-                                             {uavcan::node::Mode_1_0::OPERATIONAL}};
-            const TransferMetadata metadata{transfer_id_, now, libcyphal::transport::Priority::Nominal};
+            const Message            heartbeat{static_cast<std::uint32_t>(uptime_in_secs.count()),
+                                               {uavcan::node::Health_1_0::NOMINAL},
+                                               {uavcan::node::Mode_1_0::OPERATIONAL}};
+            const TransferTxMetadata metadata{{transfer_id_, libcyphal::transport::Priority::Nominal}, now + 1s};
 
             EXPECT_THAT(serializeAndSend(heartbeat, *msg_tx_session_, metadata), testing::Eq(cetl::nullopt))
                 << "Failed to publish Heartbeat_1_0.";
         }
 
-        void print(const libcyphal::transport::MessageRxTransfer& rx_heartbeat) const
+        void print(const libcyphal::TimePoint now, const libcyphal::transport::MessageRxTransfer& rx_heartbeat) const
         {
             uavcan::node::Heartbeat_1_0 heartbeat{};
             if (tryDeserialize(heartbeat, rx_heartbeat.payload))
             {
-                const auto rel_time = rx_heartbeat.metadata.base.timestamp - startup_time_;
+                const auto rel_time = now - startup_time_;
                 std::cout << "Received heartbeat from Node " << std::setw(5)
                           << rx_heartbeat.metadata.publisher_node_id.value_or(0) << ", Uptime " << std::setw(8)
                           << heartbeat.uptime << "   @ " << std::setw(8)
                           << std::chrono::duration_cast<std::chrono::milliseconds>(rel_time).count()
-                          << " ms, tx_id=" << std::setw(8) << rx_heartbeat.metadata.base.transfer_id << "\n"
+                          << " ms, tx_id=" << std::setw(8) << rx_heartbeat.metadata.rx_meta.base.transfer_id << "\n"
                           << std::flush;
             }
         }
@@ -218,10 +222,10 @@ struct NodeHelpers
             {
                 if (const auto request = svc_req_rx_session_->receive())
                 {
-                    const SvcTransferMetadata metadata{{request->metadata.base.transfer_id,
-                                                        now,
-                                                        request->metadata.base.priority},
-                                                       request->metadata.remote_node_id};
+                    const ServiceTxMetadata metadata{{{request->metadata.rx_meta.base.transfer_id,
+                                                       request->metadata.rx_meta.base.priority},
+                                                      now + 1s},
+                                                     request->metadata.remote_node_id};
 
                     EXPECT_THAT(serializeAndSend(response, *svc_res_tx_session_, metadata), testing::Eq(cetl::nullopt))
                         << "Failed to send GetInfo::Response_1_0.";

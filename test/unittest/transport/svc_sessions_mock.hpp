@@ -68,16 +68,12 @@ public:
 
         // MARK: IRequestTxSession
 
-        void setSendTimeout(const Duration timeout) override
-        {
-            reference().setSendTimeout(timeout);
-        }
         RequestTxParams getParams() const noexcept override
         {
             return reference().getParams();
         }
-        cetl::optional<AnyFailure> send(const TransferMetadata& metadata,
-                                        const PayloadFragments  payload_fragments) override
+        cetl::optional<AnyFailure> send(const TransferTxMetadata& metadata,
+                                        const PayloadFragments    payload_fragments) override
         {
             return reference().send(metadata, payload_fragments);
         }
@@ -92,11 +88,10 @@ public:
     RequestTxSessionMock& operator=(const RequestTxSessionMock&)     = delete;
     RequestTxSessionMock& operator=(RequestTxSessionMock&&) noexcept = delete;
 
-    MOCK_METHOD(void, setSendTimeout, (const Duration timeout), (override));
     MOCK_METHOD(RequestTxParams, getParams, (), (const, noexcept, override));
     MOCK_METHOD(cetl::optional<AnyFailure>,
                 send,
-                (const TransferMetadata& metadata, const PayloadFragments payload_fragments),
+                (const TransferTxMetadata& metadata, const PayloadFragments payload_fragments),
                 (override));
 
 };  // RequestTxSessionMock
@@ -152,16 +147,12 @@ public:
 
         // MARK: IResponseTxSession
 
-        void setSendTimeout(const Duration timeout) override
-        {
-            reference().setSendTimeout(timeout);
-        }
         ResponseTxParams getParams() const noexcept override
         {
             return reference().getParams();
         }
-        cetl::optional<AnyFailure> send(const ServiceTransferMetadata& metadata,
-                                        const PayloadFragments         payload_fragments) override
+        cetl::optional<AnyFailure> send(const ServiceTxMetadata& metadata,
+                                        const PayloadFragments   payload_fragments) override
         {
             return reference().send(metadata, payload_fragments);
         }
@@ -176,11 +167,10 @@ public:
     ResponseTxSessionMock& operator=(const ResponseTxSessionMock&)     = delete;
     ResponseTxSessionMock& operator=(ResponseTxSessionMock&&) noexcept = delete;
 
-    MOCK_METHOD(void, setSendTimeout, (const Duration timeout), (override));
     MOCK_METHOD(ResponseTxParams, getParams, (), (const, noexcept, override));
     MOCK_METHOD(cetl::optional<AnyFailure>,
                 send,
-                (const ServiceTransferMetadata& metadata, const PayloadFragments payload_fragments),
+                (const ServiceTxMetadata& metadata, const PayloadFragments payload_fragments),
                 (override));
 
 };  // ResponseTxSessionMock

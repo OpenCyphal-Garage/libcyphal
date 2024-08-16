@@ -274,9 +274,9 @@ TEST_F(TestUdpMsgRxSession, receive)
             // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
             const auto& rx_transfer = maybe_rx_transfer.value();
 
-            EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx_timestamp);
-            EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x0D);
-            EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::High);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.timestamp, rx_timestamp);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.transfer_id, 0x0D);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.priority, Priority::High);
             EXPECT_THAT(rx_transfer.metadata.publisher_node_id, Optional(0x13));
 
             std::array<char, 2> buffer{};
@@ -411,9 +411,9 @@ TEST_F(TestUdpMsgRxSession, receive_one_anonymous_frame)
             // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
             const auto& rx_transfer = maybe_rx_transfer.value();
 
-            EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx_timestamp);
-            EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x0D);
-            EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::Low);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.timestamp, rx_timestamp);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.transfer_id, 0x0D);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.priority, Priority::Low);
             EXPECT_THAT(rx_transfer.metadata.publisher_node_id, Eq(cetl::nullopt));
 
             std::array<char, 2> buffer{};

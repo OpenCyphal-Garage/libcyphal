@@ -140,7 +140,7 @@ private:
 
         TransportDelegate::UdpardMemory udpard_memory{delegate_, inout_transfer};
 
-        const MessageTransferMetadata meta{{inout_transfer.transfer_id, timestamp, priority}, publisher_node_id};
+        const MessageRxMetadata meta{{{inout_transfer.transfer_id, priority}, timestamp}, publisher_node_id};
         (void) last_rx_transfer_.emplace(MessageRxTransfer{meta, ScatteredBuffer{std::move(udpard_memory)}});
     }
 

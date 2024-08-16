@@ -463,13 +463,13 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_should_fail_for_anonymous)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    const auto       payload = makeIotaArray<UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 1>(b('0'));
-    TransferMetadata metadata{0x13, {}, Priority::Nominal};
+    const auto         payload = makeIotaArray<UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 1>(b('0'));
+    TransferTxMetadata metadata{{0x13, Priority::Nominal}, {}};
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        metadata.timestamp = now();
-        auto failure       = session->send(metadata, makeSpansFrom(payload));
+        metadata.deadline = now() + 1s;
+        auto failure      = session->send(metadata, makeSpansFrom(payload));
         EXPECT_THAT(failure, Optional(VariantWith<AnonymousError>(_)));
     });
     scheduler_.spinFor(10s);
@@ -487,15 +487,15 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)
 
     constexpr auto timeout = 1s;
 
-    const auto       payload = makeIotaArray<UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 1>(b('0'));
-    TransferMetadata metadata{0x13, {}, Priority::Nominal};
+    const auto         payload = makeIotaArray<UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 1>(b('0'));
+    TransferTxMetadata metadata{{0x13, Priority::Nominal}, {}};
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto, auto fragments) {
-                EXPECT_THAT(now(), metadata.timestamp);
-                EXPECT_THAT(deadline, metadata.timestamp + timeout);
+                EXPECT_THAT(now(), metadata.deadline - timeout);
+                EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(endpoint.ip_address, 0xEF000007);
                 EXPECT_THAT(fragments, SizeIs(1));
                 EXPECT_THAT(fragments[0], SizeIs(24 + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 4));
@@ -506,16 +506,16 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)
                 return scheduler_.registerAndScheduleNamedCallback("", now() + 10us, std::move(function));
             }));
 
-        metadata.timestamp = now();
-        auto failure       = session->send(metadata, makeSpansFrom(payload));
+        metadata.deadline = now() + timeout;
+        auto failure      = session->send(metadata, makeSpansFrom(payload));
         EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
     scheduler_.scheduleAt(1s + 10us, [&](const auto&) {
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto, auto fragments) {
-                EXPECT_THAT(now(), metadata.timestamp + 10us);
-                EXPECT_THAT(deadline, metadata.timestamp + timeout);
+                EXPECT_THAT(now(), metadata.deadline - timeout + 10us);
+                EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(endpoint.ip_address, 0xEF000007);
                 EXPECT_THAT(fragments, SizeIs(1));
                 // NB! No `+4` here b/c CRC was in the start frame.
@@ -546,8 +546,8 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
 
     constexpr auto timeout = 1s;
 
-    const auto       payload = makeIotaArray<UDPARD_MTU_DEFAULT>(b('0'));
-    TransferMetadata metadata{0x13, {}, Priority::Nominal};
+    const auto         payload = makeIotaArray<UDPARD_MTU_DEFAULT>(b('0'));
+    TransferTxMetadata metadata{{0x13, Priority::Nominal}, {}};
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
@@ -556,8 +556,8 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto, auto fragments) {
-                EXPECT_THAT(now(), metadata.timestamp);
-                EXPECT_THAT(deadline, metadata.timestamp + timeout);
+                EXPECT_THAT(now(), metadata.deadline - timeout);
+                EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(endpoint.ip_address, 0xEF000007);
                 EXPECT_THAT(fragments, SizeIs(1));
                 EXPECT_THAT(fragments[0], SizeIs(24 + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 4));  // 1st frame
@@ -569,8 +569,8 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
             }));
         EXPECT_CALL(tx_socket_mock2, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto, auto fragments) {
-                EXPECT_THAT(now(), metadata.timestamp);
-                EXPECT_THAT(deadline, metadata.timestamp + timeout);
+                EXPECT_THAT(now(), metadata.deadline - timeout);
+                EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(endpoint.ip_address, 0xEF000007);
                 EXPECT_THAT(fragments, SizeIs(1));
                 EXPECT_THAT(fragments[0], SizeIs(24 + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 4));  // 1st frame
@@ -581,16 +581,16 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
                 return scheduler_.registerAndScheduleNamedCallback("tx2", now() + 10us, std::move(function));
             }));
 
-        metadata.timestamp = now();
-        auto failure       = session->send(metadata, makeSpansFrom(payload));
+        metadata.deadline = now() + timeout;
+        auto failure      = session->send(metadata, makeSpansFrom(payload));
         EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
     scheduler_.scheduleAt(1s + 10us, [&](const auto&) {
         //
         EXPECT_CALL(tx_socket_mock2, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto, auto fragments) {
-                EXPECT_THAT(now(), metadata.timestamp + 10us);
-                EXPECT_THAT(deadline, metadata.timestamp + timeout);
+                EXPECT_THAT(now(), metadata.deadline - timeout + 10us);
+                EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(endpoint.ip_address, 0xEF000007);
                 EXPECT_THAT(fragments, SizeIs(1));
                 EXPECT_THAT(fragments[0], SizeIs(24 + 4));  // 2nd frame
@@ -603,8 +603,8 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto, auto fragments) {
-                EXPECT_THAT(now(), metadata.timestamp + 20us);
-                EXPECT_THAT(deadline, metadata.timestamp + timeout);
+                EXPECT_THAT(now(), metadata.deadline - timeout + 20us);
+                EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(endpoint.ip_address, 0xEF000007);
                 EXPECT_THAT(fragments, SizeIs(1));
                 EXPECT_THAT(fragments[0], SizeIs(24 + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 4));  // 1st frame again
@@ -617,8 +617,8 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto, auto fragments) {
-                EXPECT_THAT(now(), metadata.timestamp + 25us);
-                EXPECT_THAT(deadline, metadata.timestamp + timeout);
+                EXPECT_THAT(now(), metadata.deadline - timeout + 25us);
+                EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(endpoint.ip_address, 0xEF000007);
                 EXPECT_THAT(fragments, SizeIs(1));
                 EXPECT_THAT(fragments[0], SizeIs(24 + 4));  // 2nd frame
@@ -654,8 +654,8 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
 
     constexpr auto timeout = 1s;
 
-    const auto       payload = makeIotaArray<6>(b('0'));
-    TransferMetadata metadata{0x13, {}, Priority::Nominal};
+    const auto         payload = makeIotaArray<6>(b('0'));
+    TransferTxMetadata metadata{{0x13, Priority::Nominal}, {}};
 
     // 1. First attempt to send payload.
     scheduler_.scheduleAt(1s, [&](const auto&) {
@@ -675,8 +675,8 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
         //
         EXPECT_CALL(tx_socket_mock2, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto, auto fragments) {
-                EXPECT_THAT(now(), metadata.timestamp);
-                EXPECT_THAT(deadline, metadata.timestamp + timeout);
+                EXPECT_THAT(now(), metadata.deadline - timeout);
+                EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(endpoint.ip_address, 0xEF000007);
                 EXPECT_THAT(fragments, SizeIs(1));
                 EXPECT_THAT(fragments[0], SizeIs(24 + 6 + 4));
@@ -687,7 +687,7 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
                 return scheduler_.registerAndScheduleNamedCallback("", now() + 20us, std::move(function));
             }));
 
-        metadata.timestamp = now();
+        metadata.deadline = now() + timeout;
         EXPECT_THAT(session->send(metadata, makeSpansFrom(payload)), Eq(cetl::nullopt));
     });
     // 2. Second attempt to send payload (while 1st attempt still in progress for socket 2).
@@ -713,7 +713,7 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
                     }))))
             .WillOnce(Return(cetl::nullopt));
 
-        metadata.timestamp = now();
+        metadata.deadline = now() + timeout;
         EXPECT_THAT(session->send(metadata, makeSpansFrom(payload)), Eq(cetl::nullopt));
     });
     scheduler_.spinFor(10s);
@@ -750,6 +750,8 @@ TEST_F(TestUpdTransport, no_adhoc_tx_sockets_creation_when_there_is_nothing_to_s
         tx_session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
     });
     scheduler_.spinFor(10s);
+
+    tx_session.reset();
 }
 
 // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)

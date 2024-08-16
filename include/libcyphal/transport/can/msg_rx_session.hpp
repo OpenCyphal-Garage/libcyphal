@@ -147,7 +147,7 @@ private:
         auto* const buffer = static_cast<cetl::byte*>(transfer.payload);  // NOSONAR cpp:S5356 cpp:S5357
         TransportDelegate::CanardMemory canard_memory{delegate_, buffer, transfer.payload_size};
 
-        const MessageTransferMetadata meta{{transfer_id, timestamp, priority}, publisher_node_id};
+        const MessageRxMetadata meta{{{transfer_id, priority}, timestamp}, publisher_node_id};
         (void) last_rx_transfer_.emplace(MessageRxTransfer{meta, ScatteredBuffer{std::move(canard_memory)}});
     }
 

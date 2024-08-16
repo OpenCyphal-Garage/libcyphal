@@ -111,8 +111,8 @@ public:
     /// @param payload_fragments Segments of the request payload.
     /// @return `nullopt` in case of success; otherwise a transport failure.
     ///
-    virtual cetl::optional<AnyFailure> send(const TransferMetadata& metadata,
-                                            const PayloadFragments  payload_fragments) = 0;
+    virtual cetl::optional<AnyFailure> send(const TransferTxMetadata& metadata,
+                                            const PayloadFragments    payload_fragments) = 0;
 
 protected:
     IRequestTxSession()  = default;
@@ -162,8 +162,8 @@ public:
     /// @param payload_fragments Segments of the response payload.
     /// @return `nullopt` in case of success; otherwise a transport failure.
     ///
-    virtual cetl::optional<AnyFailure> send(const ServiceTransferMetadata& metadata,
-                                            const PayloadFragments         payload_fragments) = 0;
+    virtual cetl::optional<AnyFailure> send(const ServiceTxMetadata& metadata,
+                                            const PayloadFragments   payload_fragments) = 0;
 
 protected:
     IResponseTxSession()  = default;

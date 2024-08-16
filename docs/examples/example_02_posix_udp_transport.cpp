@@ -127,7 +127,7 @@ TEST_F(Example_02_PosixUdpTransport, heartbeat_and_getInfo)
     CommonHelpers::runMainLoop(executor_, startup_time_ + run_duration_ + 500ms, [&](const auto now) {
         //
         state.get_info_.receive(now);
-        state.heartbeat_.receive();
+        state.heartbeat_.receive(now);
     });
 }
 

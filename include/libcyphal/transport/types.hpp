@@ -58,35 +58,47 @@ struct ProtocolParams final
 struct TransferMetadata final
 {
     TransferId transfer_id{};
-    TimePoint  timestamp;
     Priority   priority{};
 };
-
-struct MessageTransferMetadata final
+struct TransferTxMetadata final
 {
-    TransferMetadata       base;
-    cetl::optional<NodeId> publisher_node_id;
+    TransferMetadata base{};
+    TimePoint        deadline{};
 };
-
-struct ServiceTransferMetadata final
+struct TransferRxMetadata final
 {
-    TransferMetadata base;
-    NodeId           remote_node_id{};
+    TransferMetadata base{};
+    TimePoint        timestamp{};
 };
 
 /// @brief Defines a span of immutable fragments of payload.
 using PayloadFragments = cetl::span<const cetl::span<const cetl::byte>>;
 
+struct MessageRxMetadata final
+{
+    TransferRxMetadata     rx_meta;
+    cetl::optional<NodeId> publisher_node_id;
+};
 struct MessageRxTransfer final
 {
-    MessageTransferMetadata metadata;
-    ScatteredBuffer         payload;
+    MessageRxMetadata metadata;
+    ScatteredBuffer   payload;
 };
 
+struct ServiceTxMetadata final
+{
+    TransferTxMetadata tx_meta;
+    NodeId             remote_node_id;
+};
+struct ServiceRxMetadata final
+{
+    TransferRxMetadata rx_meta;
+    NodeId             remote_node_id;
+};
 struct ServiceRxTransfer final
 {
-    ServiceTransferMetadata metadata;
-    ScatteredBuffer         payload;
+    ServiceRxMetadata metadata;
+    ScatteredBuffer   payload;
 };
 
 }  // namespace transport

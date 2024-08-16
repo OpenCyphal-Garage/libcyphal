@@ -24,7 +24,9 @@ namespace detail
 {
 
 // TODO: docs
-class PublisherBase
+/// No Sonar cpp:S4963 "The "Rule-of-Zero" should be followed"
+/// b/c we do directly handle resources here.
+class PublisherBase  // NOSONAR cpp:S4963
 {
 public:
     using Failure = transport::AnyFailure;
@@ -99,10 +101,10 @@ protected:
         impl->retain();
     }
 
-    cetl::optional<Failure> publishRawData(const TimePoint now, const cetl::span<const cetl::byte> data) const
+    cetl::optional<Failure> publishRawData(const TimePoint deadline, const cetl::span<const cetl::byte> data) const
     {
         CETL_DEBUG_ASSERT(impl_ != nullptr, "");
-        return impl_->publish(now, priority_, data);
+        return impl_->publishRawData(deadline, priority_, data);
     }
 
 private:
@@ -122,7 +124,7 @@ class Publisher final : public detail::PublisherBase
 public:
     using Failure = libcyphal::detail::AppendType<transport::AnyFailure, nunavut::support::Error>::Result;
 
-    cetl::optional<Failure> publish(const TimePoint now, const Message& message) const
+    cetl::optional<Failure> publish(const TimePoint deadline, const Message& message) const
     {
         std::array<std::uint8_t, Message::_traits_::SerializationBufferSizeBytes> buffer;
 
@@ -137,7 +139,7 @@ public:
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         const cetl::span<const cetl::byte> data{reinterpret_cast<cetl::byte*>(buffer.data()),  // NOSONAR cpp:S3630
                                                 result.value()};
-        if (auto failure = publishRawData(now, data))
+        if (auto failure = publishRawData(deadline, data))
         {
             return failureFromVariant(std::move(*failure));
         }

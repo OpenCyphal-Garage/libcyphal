@@ -68,16 +68,12 @@ public:
 
         // MARK: IMessageTxSession
 
-        void setSendTimeout(const Duration timeout) override
-        {
-            reference().setSendTimeout(timeout);
-        }
         MessageTxParams getParams() const noexcept override
         {
             return reference().getParams();
         }
-        cetl::optional<AnyFailure> send(const TransferMetadata& metadata,
-                                        const PayloadFragments  payload_fragments) override
+        cetl::optional<AnyFailure> send(const TransferTxMetadata& metadata,
+                                        const PayloadFragments    payload_fragments) override
         {
             return reference().send(metadata, payload_fragments);
         }
@@ -92,11 +88,10 @@ public:
     MessageTxSessionMock& operator=(const MessageTxSessionMock&)     = delete;
     MessageTxSessionMock& operator=(MessageTxSessionMock&&) noexcept = delete;
 
-    MOCK_METHOD(void, setSendTimeout, (const Duration timeout), (override));
     MOCK_METHOD(MessageTxParams, getParams, (), (const, noexcept, override));
     MOCK_METHOD(cetl::optional<AnyFailure>,
                 send,
-                (const TransferMetadata& metadata, const PayloadFragments payload_fragments),
+                (const TransferTxMetadata& metadata, const PayloadFragments payload_fragments),
                 (override));
 
 };  // MessageTxSessionMock

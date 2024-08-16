@@ -47,12 +47,12 @@ public:
         return static_cast<std::int32_t>(port_id_) - static_cast<std::int32_t>(port_id);
     }
 
-    cetl::optional<transport::AnyFailure> publish(const TimePoint                    now,
-                                                  const transport::Priority          priority,
-                                                  const cetl::span<const cetl::byte> data)
+    cetl::optional<transport::AnyFailure> publishRawData(const TimePoint                    deadline,
+                                                         const transport::Priority          priority,
+                                                         const cetl::span<const cetl::byte> data)
     {
         transfer_id_ += 1;
-        const transport::TransferMetadata metadata{transfer_id_, now, priority};
+        const transport::TransferTxMetadata metadata{{transfer_id_, priority}, deadline};
 
         const std::array<const cetl::span<const cetl::byte>, 1> payload{data};
         return msg_tx_session_->send(metadata, payload);

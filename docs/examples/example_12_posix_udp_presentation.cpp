@@ -136,7 +136,7 @@ TEST_F(Example_12_PosixUdpPresentation, heartbeat_and_getInfo)
     ASSERT_THAT(heartbeat_publisher, testing::Optional(testing::_));
     auto publish_every_1s_cb = executor_.registerCallback([&](const auto& arg) {
         //
-        EXPECT_THAT(heartbeat_publisher->publish(arg.approx_now, makeHeartbeatMsg(arg.approx_now)),
+        EXPECT_THAT(heartbeat_publisher->publish(arg.approx_now + 1s, makeHeartbeatMsg(arg.approx_now)),
                     testing::Eq(cetl::nullopt));
     });
     //
@@ -158,7 +158,7 @@ TEST_F(Example_12_PosixUdpPresentation, heartbeat_and_getInfo)
     CommonHelpers::runMainLoop(executor_, startup_time_ + run_duration_ + 500ms, [&](const auto now) {
         //
         state.get_info_.receive(now);
-        state.heartbeat_.receive();
+        state.heartbeat_.receive(now);
     });
 }
 
