@@ -63,12 +63,12 @@ struct TransferMetadata final
 struct TransferTxMetadata final
 {
     TransferMetadata base{};
-    TimePoint        deadline{};
+    TimePoint        deadline;
 };
 struct TransferRxMetadata final
 {
     TransferMetadata base{};
-    TimePoint        timestamp{};
+    TimePoint        timestamp;
 };
 
 /// @brief Defines a span of immutable fragments of payload.
@@ -76,28 +76,28 @@ using PayloadFragments = cetl::span<const cetl::span<const cetl::byte>>;
 
 struct MessageRxMetadata final
 {
-    TransferRxMetadata     rx_meta;
+    TransferRxMetadata     rx_meta{};
     cetl::optional<NodeId> publisher_node_id;
 };
 struct MessageRxTransfer final
 {
-    MessageRxMetadata metadata;
+    MessageRxMetadata metadata{};
     ScatteredBuffer   payload;
 };
 
 struct ServiceTxMetadata final
 {
-    TransferTxMetadata tx_meta;
-    NodeId             remote_node_id;
+    TransferTxMetadata tx_meta{};
+    NodeId             remote_node_id{};
 };
 struct ServiceRxMetadata final
 {
-    TransferRxMetadata rx_meta;
-    NodeId             remote_node_id;
+    TransferRxMetadata rx_meta{};
+    NodeId             remote_node_id{};
 };
 struct ServiceRxTransfer final
 {
-    ServiceRxMetadata metadata;
+    ServiceRxMetadata metadata{};
     ScatteredBuffer   payload;
 };
 

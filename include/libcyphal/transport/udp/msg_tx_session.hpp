@@ -94,7 +94,6 @@ private:
 
     TransportDelegate&    delegate_;
     const MessageTxParams params_;
-    Duration              send_timeout_;
 
 };  // MessageTxSession
 
