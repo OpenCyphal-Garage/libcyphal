@@ -29,7 +29,7 @@ namespace detail
 class PublisherImpl : public cavl::Node<PublisherImpl>, public SharedObject
 {
 public:
-    explicit PublisherImpl(PresentationDelegate& delegate, UniquePtr<transport::IMessageTxSession> msg_tx_session)
+    explicit PublisherImpl(IPresentationDelegate& delegate, UniquePtr<transport::IMessageTxSession> msg_tx_session)
         : delegate_{delegate}
         , msg_tx_session_{std::move(msg_tx_session)}
         , port_id_{msg_tx_session_->getParams().subject_id}
@@ -77,7 +77,7 @@ public:
 private:
     // MARK: Data members:
 
-    PresentationDelegate&                         delegate_;
+    IPresentationDelegate&                        delegate_;
     const UniquePtr<transport::IMessageTxSession> msg_tx_session_;
     const transport::PortId                       port_id_;
     transport::TransferId                         transfer_id_;

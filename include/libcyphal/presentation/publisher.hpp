@@ -146,7 +146,7 @@ public:
     }
 
 private:
-    friend class Presentation;
+    friend class Presentation;  // NOLINT cppcoreguidelines-virtual-class-destructor
 
     explicit Publisher(detail::PublisherImpl* const impl)
         : PublisherBase{impl}

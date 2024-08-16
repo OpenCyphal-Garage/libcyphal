@@ -24,13 +24,12 @@ namespace presentation
 {
 
 // TODO: docs
-class Presentation final : public detail::PresentationDelegate
+class Presentation final : public detail::IPresentationDelegate
 {
 public:
     Presentation(cetl::pmr::memory_resource& memory, transport::ITransport& transport) noexcept
         : memory_{memory}
         , transport_{transport}
-        , publisher_impl_nodes_{}
         , publisher_nodes_allocator_{&memory_}
     {
     }
@@ -95,7 +94,7 @@ private:
         return nullptr;
     }
 
-    // MARK: PresentationDelegate
+    // MARK: IPresentationDelegate
 
     void releasePublisher(detail::PublisherImpl* const publisher_impl) noexcept override
     {

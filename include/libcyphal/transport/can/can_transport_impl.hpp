@@ -54,7 +54,7 @@ namespace detail
 /// NOSONAR cpp:S4963 for below `class TransportImpl` - we do directly handle resources here;
 /// namely: in destructor we have to flush TX queues (otherwise there will be memory leaks).
 ///
-class TransportImpl final : private TransportDelegate, public ICanTransport  // NOSONAR cpp:S4963
+class TransportImpl final : TransportDelegate, public ICanTransport  // NOSONAR cpp:S4963
 {
     /// @brief Defines private specification for making interface unique ptr.
     ///

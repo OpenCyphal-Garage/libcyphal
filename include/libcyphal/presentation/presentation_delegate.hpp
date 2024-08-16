@@ -21,21 +21,21 @@ namespace detail
 class PublisherImpl;
 
 // TODO: docs
-class PresentationDelegate
+class IPresentationDelegate
 {
 public:
-    PresentationDelegate(const PresentationDelegate&)                = delete;
-    PresentationDelegate(PresentationDelegate&&) noexcept            = delete;
-    PresentationDelegate& operator=(const PresentationDelegate&)     = delete;
-    PresentationDelegate& operator=(PresentationDelegate&&) noexcept = delete;
+    IPresentationDelegate(const IPresentationDelegate&)                = delete;
+    IPresentationDelegate(IPresentationDelegate&&) noexcept            = delete;
+    IPresentationDelegate& operator=(const IPresentationDelegate&)     = delete;
+    IPresentationDelegate& operator=(IPresentationDelegate&&) noexcept = delete;
 
     virtual void releasePublisher(PublisherImpl* publisher_impl) noexcept = 0;
 
 protected:
-    PresentationDelegate()  = default;
-    ~PresentationDelegate() = default;
+    IPresentationDelegate()  = default;
+    ~IPresentationDelegate() = default;
 
-};  // PresentationDelegate
+};  // IPresentationDelegate
 
 }  // namespace detail
 }  // namespace presentation
