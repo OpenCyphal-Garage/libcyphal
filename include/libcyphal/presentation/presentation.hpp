@@ -30,22 +30,16 @@ public:
     Presentation(cetl::pmr::memory_resource& memory, transport::ITransport& transport) noexcept
         : memory_{memory}
         , transport_{transport}
+        , publisher_impl_nodes_{}
         , publisher_nodes_allocator_{&memory_}
     {
     }
-
-    virtual ~Presentation() = default;
-
-    Presentation(const Presentation&)                = delete;
-    Presentation(Presentation&&) noexcept            = delete;
-    Presentation& operator=(const Presentation&)     = delete;
-    Presentation& operator=(Presentation&&) noexcept = delete;
 
     /// @brief Makes a message publisher.
     ///
     /// The publisher must never outlive this presentation object.
     ///
-    /// @tparam Message DSL compiled (aka Nunavut generated) type of the message to publish.
+    /// @tparam Message DSDL compiled (aka Nunavut generated) type of the message to publish.
     /// @param port_id The port ID to publish the message on.
     ///
     template <typename Message>
@@ -61,7 +55,7 @@ public:
             [this, port_id, &make_session_failure]() -> detail::PublisherImpl* {  // factory
                 //
                 auto maybe_session = transport_.makeMessageTxSession({port_id});
-                if (auto* failure = cetl::get_if<transport::AnyFailure>(&maybe_session))
+                if (auto* const failure = cetl::get_if<transport::AnyFailure>(&maybe_session))
                 {
                     make_session_failure = std::move(*failure);
                     return nullptr;
@@ -103,13 +97,17 @@ private:
 
     // MARK: PresentationDelegate
 
-    void releasePublisher(detail::PublisherImpl* publisher_impl) noexcept override
+    void releasePublisher(detail::PublisherImpl* const publisher_impl) noexcept override
     {
         CETL_DEBUG_ASSERT(publisher_impl, "");
 
         // TODO: make it async (deferred to "on idle" callback).
         publisher_impl_nodes_.remove(publisher_impl);
-        publisher_impl->~PublisherImpl();
+        // No Sonar
+        // - cpp:S3432   "Destructors should not be called explicitly"
+        // - cpp:M23_329 "Advanced memory management" shall not be used"
+        // b/c we do our own low-level PMR management here.
+        publisher_impl->~PublisherImpl();  // NOSONAR cpp:S3432 cpp:M23_329
         publisher_nodes_allocator_.deallocate(publisher_impl, 1);
     }
 

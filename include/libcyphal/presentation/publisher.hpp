@@ -91,7 +91,7 @@ protected:
         }
     }
 
-    explicit PublisherBase(PublisherImpl* impl)
+    explicit PublisherBase(PublisherImpl* const impl)
         : impl_{impl}
         , priority_{transport::Priority::Nominal}
     {
@@ -99,7 +99,7 @@ protected:
         impl->retain();
     }
 
-    cetl::optional<Failure> publish(const TimePoint now, const cetl::span<const cetl::byte> data) const
+    cetl::optional<Failure> publishRawData(const TimePoint now, const cetl::span<const cetl::byte> data) const
     {
         CETL_DEBUG_ASSERT(impl_ != nullptr, "");
         return impl_->publish(now, priority_, data);
@@ -132,9 +132,12 @@ public:
             return result.error();
         }
 
-        // NOLINTNEXTLINE
-        const cetl::span<const cetl::byte> data{reinterpret_cast<cetl::byte*>(buffer.data()), result.value()};
-        if (auto failure = PublisherBase::publish(now, data))
+        // Next nolint & NOSONAR are currently unavoidable:.
+        // TODO: Eliminate `reinterpret_cast` when Nunavut supports `cetl::byte` at its `serialize`.
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        const cetl::span<const cetl::byte> data{reinterpret_cast<cetl::byte*>(buffer.data()),  // NOSONAR cpp:S3630
+                                                result.value()};
+        if (auto failure = publishRawData(now, data))
         {
             return failureFromVariant(std::move(*failure));
         }
@@ -145,7 +148,7 @@ public:
 private:
     friend class Presentation;
 
-    explicit Publisher(detail::PublisherImpl* impl)
+    explicit Publisher(detail::PublisherImpl* const impl)
         : PublisherBase{impl}
     {
     }
@@ -166,12 +169,12 @@ template <>
 class Publisher<void> final : public detail::PublisherBase
 {
 public:
-    using PublisherBase::publish;
+    using PublisherBase::publishRawData;
 
 private:
     friend class Presentation;
 
-    explicit Publisher(detail::PublisherImpl* impl)
+    explicit Publisher(detail::PublisherImpl* const impl)
         : PublisherBase{impl}
     {
     }
