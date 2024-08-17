@@ -56,7 +56,7 @@ public:
                 impl_->release();
             }
 
-            impl_     = other.impl_;
+            impl_ = other.impl_;
             impl_->retain();
         }
         return *this;
@@ -66,7 +66,7 @@ public:
     {
         CETL_DEBUG_ASSERT(other.impl_ != nullptr, "Not supposed to move from already moved `other`.");
 
-        impl_     = std::exchange(other.impl_, nullptr);
+        impl_ = std::exchange(other.impl_, nullptr);
 
         return *this;
     }
@@ -87,11 +87,10 @@ protected:
         impl->retain();
     }
 
-
 private:
     // MARK: Data members:
 
-    SubscriberImpl*      impl_;
+    SubscriberImpl* impl_;
 
 };  // SubscriberBase
 
@@ -102,7 +101,6 @@ template <typename Message>
 class Subscriber final : public detail::SubscriberBase
 {
 public:
-
 private:
     friend class Presentation;  // NOLINT cppcoreguidelines-virtual-class-destructor
 
@@ -111,8 +109,7 @@ private:
     {
     }
 
-}; // Subscriber
-
+};  // Subscriber
 
 }  // namespace presentation
 }  // namespace libcyphal

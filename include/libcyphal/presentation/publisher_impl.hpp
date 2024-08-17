@@ -42,6 +42,7 @@ public:
         , subject_id_{msg_tx_session_->getParams().subject_id}
         , transfer_id_{0}
     {
+        CETL_DEBUG_ASSERT(msg_tx_session_ != nullptr, "");
     }
 
     transport::PortId subjectId() const noexcept

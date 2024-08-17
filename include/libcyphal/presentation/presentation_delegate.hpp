@@ -30,7 +30,7 @@ public:
     IPresentationDelegate& operator=(const IPresentationDelegate&)     = delete;
     IPresentationDelegate& operator=(IPresentationDelegate&&) noexcept = delete;
 
-    virtual void releasePublisher(PublisherImpl* publisher_impl) noexcept = 0;
+    virtual void releasePublisher(PublisherImpl* publisher_impl) noexcept    = 0;
     virtual void releaseSubscriber(SubscriberImpl* subscriber_impl) noexcept = 0;
 
 protected:

@@ -153,7 +153,7 @@ private:
         TransportDelegate::CanardMemory canard_memory{delegate_, buffer, transfer.payload_size};
 
         const MessageRxMetadata meta{{{transfer_id, priority}, timestamp}, publisher_node_id};
-        MessageRxTransfer msg_rx_transfer{meta, ScatteredBuffer{std::move(canard_memory)}};
+        MessageRxTransfer       msg_rx_transfer{meta, ScatteredBuffer{std::move(canard_memory)}};
         if (function_)
         {
             function_(msg_rx_transfer);

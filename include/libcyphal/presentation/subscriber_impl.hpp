@@ -10,12 +10,11 @@
 #include "shared_object.hpp"
 
 #include "libcyphal/common/cavl/cavl.hpp"
-#include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
 
-#include <cetl/pf17/cetlpf.hpp>
+#include <cetl/cetl.hpp>
 
 #include <cstdint>
 #include <utility>
@@ -40,6 +39,7 @@ public:
         , msg_rx_session_{std::move(msg_rx_session)}
         , subject_id_{msg_rx_session_->getParams().subject_id}
     {
+        CETL_DEBUG_ASSERT(msg_rx_session_ != nullptr, "");
     }
 
     transport::PortId subjectId() const noexcept
