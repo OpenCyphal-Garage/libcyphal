@@ -8,11 +8,15 @@
 
 #include "../unique_ptr_reference_wrapper.hpp"
 
+#include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>
+
+#include <utility>
 
 namespace libcyphal
 {
@@ -40,6 +44,10 @@ public:
         {
             return reference().receive();
         }
+        void setOnReceiveCallback(OnReceiveFunction&& function) override
+        {
+            reference().setOnReceiveCallback(std::move(function));
+        }
 
     };  // RefWrapper
 
@@ -54,6 +62,7 @@ public:
     MOCK_METHOD(void, setTransferIdTimeout, (const Duration timeout), (override));
     MOCK_METHOD(MessageRxParams, getParams, (), (const, noexcept, override));
     MOCK_METHOD(cetl::optional<MessageRxTransfer>, receive, (), (override));
+    MOCK_METHOD(void, setOnReceiveCallback, (OnReceiveFunction&&), (override));
 
 };  // MessageRxSessionMock
 

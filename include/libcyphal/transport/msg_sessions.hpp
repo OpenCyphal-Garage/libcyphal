@@ -11,6 +11,7 @@
 #include "types.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pmr/function.hpp>
 
 #include <cstddef>
 
@@ -53,6 +54,9 @@ public:
     /// @return A message transfer if available; otherwise an empty optional.
     ///
     virtual cetl::optional<MessageRxTransfer> receive() = 0;
+
+    using OnReceiveFunction = cetl::pmr::function<void(MessageRxTransfer&), sizeof(void*) * 4>;
+    virtual void setOnReceiveCallback(OnReceiveFunction&& function) = 0;
 
 protected:
     IMessageRxSession()  = default;

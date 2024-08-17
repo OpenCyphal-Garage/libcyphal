@@ -119,6 +119,11 @@ private:
         return std::exchange(last_rx_transfer_, cetl::nullopt);
     }
 
+    void setOnReceiveCallback(OnReceiveFunction&& function) override
+    {
+        function_ = std::move(function);
+    }
+
     // MARK: IRxSession
 
     void setTransferIdTimeout(const Duration timeout) override
@@ -148,7 +153,13 @@ private:
         TransportDelegate::CanardMemory canard_memory{delegate_, buffer, transfer.payload_size};
 
         const MessageRxMetadata meta{{{transfer_id, priority}, timestamp}, publisher_node_id};
-        (void) last_rx_transfer_.emplace(MessageRxTransfer{meta, ScatteredBuffer{std::move(canard_memory)}});
+        MessageRxTransfer msg_rx_transfer{meta, ScatteredBuffer{std::move(canard_memory)}};
+        if (function_)
+        {
+            function_(msg_rx_transfer);
+            return;
+        }
+        (void) last_rx_transfer_.emplace(std::move(msg_rx_transfer));
     }
 
     // MARK: Data members:
@@ -157,6 +168,7 @@ private:
     const MessageRxParams             params_;
     CanardRxSubscription              subscription_;
     cetl::optional<MessageRxTransfer> last_rx_transfer_;
+    OnReceiveFunction                 function_;
 
 };  // MessageRxSession
 

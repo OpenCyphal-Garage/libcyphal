@@ -113,9 +113,12 @@ TEST_F(Example_02_PosixUdpTransport, heartbeat_and_getInfo)
     state.media_collection_.make(mr_, executor_, iface_addresses_);
     CommonHelpers::Udp::makeTransport(state, mr_, executor_, local_node_id_);
 
-    // Subscribe/Publish heartbeats.
-    state.heartbeat_.makeRxSession(*state.transport_, startup_time_);
+    // Publish/Subscribe heartbeats.
     state.heartbeat_.makeTxSession(*state.transport_, executor_, startup_time_);
+    state.heartbeat_.makeRxSession(*state.transport_, startup_time_, [&](auto& rx_heartbeat) {
+        //
+        state.heartbeat_.print(executor_.now(), rx_heartbeat);
+    });
 
     // Bring up 'GetInfo' server.
     state.get_info_.setName("org.opencyphal.example_02_posix_udp_transport");
@@ -127,7 +130,6 @@ TEST_F(Example_02_PosixUdpTransport, heartbeat_and_getInfo)
     CommonHelpers::runMainLoop(executor_, startup_time_ + run_duration_ + 500ms, [&](const auto now) {
         //
         state.get_info_.receive(now);
-        state.heartbeat_.receive(now);
     });
 }
 

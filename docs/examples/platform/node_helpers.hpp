@@ -29,26 +29,29 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <array>
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdint>
+#include <iomanip>
+#include <iostream>
+#include <iterator>
 #include <string>
 #include <utility>
 #include <vector>
 
-using std::literals::chrono_literals::operator""s;
+using std::literals::chrono_literals::operator""s;  // NOLINT(*-global-names-in-headers)
 
 namespace example
 {
 namespace platform
 {
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 struct NodeHelpers
 {
     using Callback = libcyphal::IExecutor::Callback;
 
-    using ServiceRxMetadata    = libcyphal::transport::ServiceRxMetadata;
     using ServiceTxMetadata    = libcyphal::transport::ServiceTxMetadata;
     using TransferTxMetadata   = libcyphal::transport::TransferTxMetadata;
     using MessageRxSessionPtr  = libcyphal::UniquePtr<libcyphal::transport::IMessageRxSession>;
@@ -93,7 +96,9 @@ struct NodeHelpers
     {
         using Message = uavcan::node::Heartbeat_1_0;
 
-        bool makeRxSession(libcyphal::transport::ITransport& transport, const libcyphal::TimePoint startup_time)
+        bool makeRxSession(libcyphal::transport::ITransport&                            transport,
+                           const libcyphal::TimePoint                                   startup_time,
+                           libcyphal::transport::IMessageRxSession::OnReceiveFunction&& on_receive_fn = {})
         {
             auto maybe_msg_rx_session =
                 transport.makeMessageRxSession({Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId});
@@ -103,6 +108,10 @@ struct NodeHelpers
             {
                 startup_time_   = startup_time;
                 msg_rx_session_ = std::move(*session);
+                if (on_receive_fn)
+                {
+                    msg_rx_session_->setOnReceiveCallback(std::move(on_receive_fn));
+                }
             }
             return nullptr != msg_rx_session_;
         }
@@ -160,6 +169,21 @@ struct NodeHelpers
             }
         }
 
+        void print(const libcyphal::TimePoint now, const libcyphal::transport::MessageRxTransfer& rx_heartbeat) const
+        {
+            uavcan::node::Heartbeat_1_0 heartbeat{};
+            if (tryDeserialize(heartbeat, rx_heartbeat.payload))
+            {
+                const auto rel_time = now - startup_time_;
+                std::cout << "Received heartbeat from Node " << std::setw(5)
+                          << rx_heartbeat.metadata.publisher_node_id.value_or(0) << ", Uptime " << std::setw(8)
+                          << heartbeat.uptime << "   @ " << std::setw(8)
+                          << std::chrono::duration_cast<std::chrono::milliseconds>(rel_time).count()
+                          << " ms, tx_id=" << std::setw(8) << rx_heartbeat.metadata.rx_meta.base.transfer_id << "\n"
+                          << std::flush;
+            }
+        }
+
     private:
         void publish(const libcyphal::TimePoint now)
         {
@@ -174,21 +198,6 @@ struct NodeHelpers
 
             EXPECT_THAT(serializeAndSend(heartbeat, *msg_tx_session_, metadata), testing::Eq(cetl::nullopt))
                 << "Failed to publish Heartbeat_1_0.";
-        }
-
-        void print(const libcyphal::TimePoint now, const libcyphal::transport::MessageRxTransfer& rx_heartbeat) const
-        {
-            uavcan::node::Heartbeat_1_0 heartbeat{};
-            if (tryDeserialize(heartbeat, rx_heartbeat.payload))
-            {
-                const auto rel_time = now - startup_time_;
-                std::cout << "Received heartbeat from Node " << std::setw(5)
-                          << rx_heartbeat.metadata.publisher_node_id.value_or(0) << ", Uptime " << std::setw(8)
-                          << heartbeat.uptime << "   @ " << std::setw(8)
-                          << std::chrono::duration_cast<std::chrono::milliseconds>(rel_time).count()
-                          << " ms, tx_id=" << std::setw(8) << rx_heartbeat.metadata.rx_meta.base.transfer_id << "\n"
-                          << std::flush;
-            }
         }
 
         libcyphal::TimePoint             startup_time_;
@@ -258,6 +267,8 @@ struct NodeHelpers
     };  // GetInfo
 
 };  // NodeHelpers
+
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 }  // namespace platform
 }  // namespace example
