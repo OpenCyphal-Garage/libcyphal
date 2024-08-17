@@ -8,11 +8,15 @@
 
 #include "libcyphal/common/cavl/cavl.hpp"
 #include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/transport.hpp"
 #include "libcyphal/transport/types.hpp"
+#include "libcyphal/types.hpp"
 #include "presentation_delegate.hpp"
 #include "publisher.hpp"
 #include "publisher_impl.hpp"
+#include "subscriber.hpp"
+#include "subscriber_impl.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 
@@ -31,6 +35,7 @@ public:
         : memory_{memory}
         , transport_{transport}
         , publisher_nodes_allocator_{&memory_}
+        , subscriber_nodes_allocator_{&memory_}
     {
     }
 
@@ -39,21 +44,21 @@ public:
     /// The publisher must never outlive this presentation object.
     ///
     /// @tparam Message DSDL compiled (aka Nunavut generated) type of the message to publish.
-    /// @param port_id The port ID to publish the message on.
+    /// @param subject_id The subject ID to publish the message on.
     ///
     template <typename Message>
-    Expected<Publisher<Message>, transport::AnyFailure> makePublisher(const transport::PortId port_id)
+    Expected<Publisher<Message>, transport::AnyFailure> makePublisher(const transport::PortId subject_id)
     {
         cetl::optional<transport::AnyFailure> make_session_failure;
 
         const auto publisher_existing = publisher_impl_nodes_.search(
-            [port_id](const detail::PublisherImpl& other_pub) {  // predicate
+            [subject_id](const detail::PublisherImpl& other_pub) {  // predicate
                 //
-                return other_pub.compareWith(port_id);
+                return other_pub.compareWith(subject_id);
             },
-            [this, port_id, &make_session_failure]() -> detail::PublisherImpl* {  // factory
+            [this, subject_id, &make_session_failure]() -> detail::PublisherImpl* {  // factory
                 //
-                auto maybe_session = transport_.makeMessageTxSession({port_id});
+                auto maybe_session = transport_.makeMessageTxSession({subject_id});
                 if (auto* const failure = cetl::get_if<transport::AnyFailure>(&maybe_session))
                 {
                     make_session_failure = std::move(*failure);
@@ -79,7 +84,53 @@ public:
         return Publisher<Message>{publisher_impl};
     }
 
+    /// @brief Makes a message subscriber.
+    ///
+    /// The subscriber must never outlive this presentation object.
+    ///
+    /// @tparam Message DSDL compiled (aka Nunavut generated) type of the message to subscribe.
+    /// @param subject_id The subject ID to subscribe the message on.
+    ///
+    template <typename Message>
+    Expected<Subscriber<Message>, transport::AnyFailure> makeSubscriber(const transport::PortId subject_id)
+    {
+        cetl::optional<transport::AnyFailure> make_session_failure;
+
+        const auto subscriber_existing = subscriber_impl_nodes_.search(
+            [subject_id](const detail::SubscriberImpl& other_sub) {  // predicate
+                //
+                return other_sub.compareWith(subject_id);
+            },
+            [this, subject_id, &make_session_failure]() -> detail::SubscriberImpl* {  // factory
+                //
+                auto maybe_session = transport_.makeMessageRxSession({Message::_traits_::ExtentBytes, subject_id});
+                if (auto* const failure = cetl::get_if<transport::AnyFailure>(&maybe_session))
+                {
+                    make_session_failure = std::move(*failure);
+                    return nullptr;
+                }
+                auto msg_rx_session = cetl::get<MessageRxSessionPtr>(std::move(maybe_session));
+                if (!msg_rx_session)
+                {
+                    make_session_failure = transport::MemoryError{};
+                    return nullptr;
+                }
+                return makeSubscriberImpl(std::move(msg_rx_session));
+            });
+
+        if (make_session_failure)
+        {
+            return std::move(*make_session_failure);
+        }
+
+        auto* const subscriber_impl = std::get<0>(subscriber_existing);
+        CETL_DEBUG_ASSERT(subscriber_impl != nullptr, "");
+
+        return Subscriber<Message>{subscriber_impl};
+    }
+
 private:
+    using MessageRxSessionPtr = UniquePtr<transport::IMessageRxSession>;
     using MessageTxSessionPtr = UniquePtr<transport::IMessageTxSession>;
 
     CETL_NODISCARD detail::PublisherImpl* makePublisherImpl(MessageTxSessionPtr&& msg_tx_session)
@@ -90,6 +141,18 @@ private:
         {
             publisher_nodes_allocator_.construct(publisher_impl, *this, std::move(msg_tx_session));
             return publisher_impl;
+        }
+        return nullptr;
+    }
+
+    CETL_NODISCARD detail::SubscriberImpl* makeSubscriberImpl(MessageRxSessionPtr&& msg_rx_session)
+    {
+        CETL_DEBUG_ASSERT(msg_rx_session, "");
+
+        if (auto* const subscriber_impl = subscriber_nodes_allocator_.allocate(1))
+        {
+            subscriber_nodes_allocator_.construct(subscriber_impl, *this, std::move(msg_rx_session));
+            return subscriber_impl;
         }
         return nullptr;
     }
@@ -110,12 +173,28 @@ private:
         publisher_nodes_allocator_.deallocate(publisher_impl, 1);
     }
 
+    void releaseSubscriber(detail::SubscriberImpl* const subscriber_impl) noexcept override
+    {
+        CETL_DEBUG_ASSERT(subscriber_impl, "");
+
+        // TODO: make it async (deferred to "on idle" callback).
+        subscriber_impl_nodes_.remove(subscriber_impl);
+        // No Sonar
+        // - cpp:S3432   "Destructors should not be called explicitly"
+        // - cpp:M23_329 "Advanced memory management" shall not be used"
+        // b/c we do our own low-level PMR management here.
+        subscriber_impl->~SubscriberImpl();  // NOSONAR cpp:S3432 cpp:M23_329
+        subscriber_nodes_allocator_.deallocate(subscriber_impl, 1);
+    }
+
     // MARK: Data members:
 
-    cetl::pmr::memory_resource&                            memory_;
-    transport::ITransport&                                 transport_;
-    cavl::Tree<detail::PublisherImpl>                      publisher_impl_nodes_;
-    libcyphal::detail::PmrAllocator<detail::PublisherImpl> publisher_nodes_allocator_;
+    cetl::pmr::memory_resource&                             memory_;
+    transport::ITransport&                                  transport_;
+    cavl::Tree<detail::PublisherImpl>                       publisher_impl_nodes_;
+    cavl::Tree<detail::SubscriberImpl>                      subscriber_impl_nodes_;
+    libcyphal::detail::PmrAllocator<detail::PublisherImpl>  publisher_nodes_allocator_;
+    libcyphal::detail::PmrAllocator<detail::SubscriberImpl> subscriber_nodes_allocator_;
 
 };  // Presentation
 

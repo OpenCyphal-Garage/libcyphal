@@ -9,6 +9,9 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/presentation/presentation.hpp>
+#include <libcyphal/presentation/publisher.hpp>
+#include <libcyphal/presentation/subscriber.hpp>
+#include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/scattered_buffer.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
@@ -22,16 +25,16 @@
 #include <uavcan/node/Health_1_0.hpp>
 #include <uavcan/node/Heartbeat_1_0.hpp>
 #include <uavcan/node/Mode_1_0.hpp>
-#include <uavcan/node/Version_1_0.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <array>
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
-#include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 using std::literals::chrono_literals::operator""s;
@@ -56,6 +59,8 @@ struct NodeHelpers
     using Presentation = libcyphal::presentation::Presentation;
     template <typename T>
     using Publisher = libcyphal::presentation::Publisher<T>;
+    template <typename T>
+    using Subscriber = libcyphal::presentation::Subscriber<T>;
 
     template <typename T, typename TxSession, typename TxMetadata>
     static cetl::optional<libcyphal::transport::AnyFailure> serializeAndSend(const T&          value,
@@ -63,7 +68,7 @@ struct NodeHelpers
                                                                              const TxMetadata& metadata)
     {
         using traits = typename T::_traits_;
-        std::array<std::uint8_t, traits::SerializationBufferSizeBytes> buffer;
+        std::array<std::uint8_t, traits::SerializationBufferSizeBytes> buffer{};
 
         const auto data_size = serialize(value, buffer).value();
 
@@ -77,9 +82,9 @@ struct NodeHelpers
     template <typename T>
     static bool tryDeserialize(T& obj, const libcyphal::transport::ScatteredBuffer& buffer)
     {
-        std::vector<std::uint8_t>       data_vec(buffer.size());
-        const auto                      data_size = buffer.copy(0, data_vec.data(), data_vec.size());
-        nunavut::support::const_bitspan bitspan{data_vec.data(), data_size};
+        std::vector<std::uint8_t>             data_vec(buffer.size());
+        const auto                            data_size = buffer.copy(0, data_vec.data(), data_vec.size());
+        const nunavut::support::const_bitspan bitspan{data_vec.data(), data_size};
 
         return deserialize(obj, bitspan);
     }
@@ -128,6 +133,18 @@ struct NodeHelpers
             if (auto* const publisher = cetl::get_if<Publisher<Message>>(&maybe_publisher))
             {
                 return std::move(*publisher);
+            }
+            return cetl::nullopt;
+        }
+
+        static cetl::optional<Subscriber<Message>> makeSubscriber(Presentation& presentation)
+        {
+            auto maybe_subscriber = presentation.makeSubscriber<Message>(Message::_traits_::FixedPortId);
+            EXPECT_THAT(maybe_subscriber, testing::VariantWith<Subscriber<Message>>(testing::_))
+                << "Failed to create Heartbeat subscriber.";
+            if (auto* const subscriber = cetl::get_if<Subscriber<Message>>(&maybe_subscriber))
+            {
+                return std::move(*subscriber);
             }
             return cetl::nullopt;
         }

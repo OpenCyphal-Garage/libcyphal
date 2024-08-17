@@ -144,8 +144,8 @@ TEST_F(Example_12_PosixUdpPresentation, heartbeat_and_getInfo)
     publish_every_1s_cb.schedule(Callback::Schedule::Repeat{startup_time_ + period, period});
     //
     // Print also received heartbeats.
-    // TODO: Replace with message subscriber when it will be available.
-    state.heartbeat_.makeRxSession(*state.transport_, startup_time_);
+    auto heartbeat_subscriber = NodeHelpers::Heartbeat::makeSubscriber(presentation);
+    ASSERT_THAT(heartbeat_subscriber, testing::Optional(testing::_));
 
     // Bring up 'GetInfo' server.
     // TODO: Replace with service server when it will be available.
@@ -158,7 +158,7 @@ TEST_F(Example_12_PosixUdpPresentation, heartbeat_and_getInfo)
     CommonHelpers::runMainLoop(executor_, startup_time_ + run_duration_ + 500ms, [&](const auto now) {
         //
         state.get_info_.receive(now);
-        state.heartbeat_.receive(now);
+        // state.heartbeat_.receive(now);
     });
 }
 
