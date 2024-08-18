@@ -55,14 +55,16 @@ public:
             };  // Context
 
             using TypeId = std::uintptr_t;
-
-            template <typename>
+            template <typename Message>
             static TypeId getTypeId() noexcept
             {
                 static const struct
                 {
                 } placeholder{};
-                return reinterpret_cast<TypeId>(&placeholder);  // NOLINT(*-pro-type-reinterpret-cast)
+                // No Lint and Sonar cpp:S3630 "reinterpret_cast" should not be used" b/c it's a part of
+                // the type id/erasure pattern - we use this cast to be able to compare deserializers.
+                // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+                return reinterpret_cast<TypeId>(&placeholder);  // NOSONAR : cpp:S3630
             }
 
             template <typename Message, typename Subscriber>

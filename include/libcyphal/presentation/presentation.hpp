@@ -129,19 +129,6 @@ public:
         return Subscriber<Message>{subscriber_impl};
     }
 
-protected:
-    // MARK: IPresentationDelegate
-
-    void releasePublisher(detail::PublisherImpl* const publisher_impl) noexcept override
-    {
-        releaseAnyImplNode(publisher_impl, publisher_impl_nodes_);
-    }
-
-    void releaseSubscriber(detail::SubscriberImpl* const subscriber_impl) noexcept override
-    {
-        releaseAnyImplNode(subscriber_impl, subscriber_impl_nodes_);
-    }
-
 private:
     template <typename T>
     using PmrAllocator        = libcyphal::detail::PmrAllocator<T>;
@@ -188,6 +175,18 @@ private:
         impl->~ImplNode();  // NOSONAR cpp:S3432 cpp:M23_329
         PmrAllocator<ImplNode> allocator{&memory_};
         allocator.deallocate(impl, 1);
+    }
+
+    // MARK: IPresentationDelegate
+
+    void releasePublisher(detail::PublisherImpl* const publisher_impl) noexcept override
+    {
+        releaseAnyImplNode(publisher_impl, publisher_impl_nodes_);
+    }
+
+    void releaseSubscriber(detail::SubscriberImpl* const subscriber_impl) noexcept override
+    {
+        releaseAnyImplNode(subscriber_impl, subscriber_impl_nodes_);
     }
 
     // MARK: Data members:

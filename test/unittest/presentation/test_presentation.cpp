@@ -19,7 +19,6 @@ namespace
 
 using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
-using libcyphal::detail::makeUniquePtr;
 using namespace libcyphal::presentation;  // NOLINT This our main concern here in the unit tests.
 using namespace libcyphal::transport;     // NOLINT This our main concern here in the unit tests.
 
