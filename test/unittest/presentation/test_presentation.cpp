@@ -8,7 +8,6 @@
 #include "../virtual_time_scheduler.hpp"
 
 #include <libcyphal/presentation/presentation.hpp>
-#include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>

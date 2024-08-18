@@ -155,7 +155,7 @@ private:
         PmrAllocator<detail::SubscriberImpl> allocator{&memory_};
         if (auto* const subscriber_impl = allocator.allocate(1))
         {
-            allocator.construct(subscriber_impl, *this, executor_, std::move(msg_rx_session));
+            allocator.construct(subscriber_impl, memory_, *this, executor_, std::move(msg_rx_session));
             return subscriber_impl;
         }
         return nullptr;

@@ -16,11 +16,11 @@
 #include "libcyphal/types.hpp"
 
 #include <cetl/cetl.hpp>
+#include <cetl/pf17/cetlpf.hpp>
 
-#include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <utility>
-#include <vector>
 
 namespace libcyphal
 {
@@ -47,6 +47,7 @@ public:
 
             struct Context
             {
+                cetl::pmr::memory_resource&         memory;
                 const TimePoint                     approx_now;
                 const transport::ScatteredBuffer&   buffer;
                 const transport::MessageRxMetadata& metadata;
@@ -76,13 +77,22 @@ public:
 
                 // Deserialize the message from the buffer - only once!
                 //
-                // TODO: Eliminate dynamic memory allocation - when the `deserialize` will support scattered buffers.
-                std::vector<std::uint8_t> data_vec(context.buffer.size());
-                const auto data_size = context.buffer.copy(0, data_vec.data(), data_vec.size());  // NOSONAR : cpp:S5356
-                const nunavut::support::const_bitspan bitspan{data_vec.data(), data_size};
-                //
-                Message    msg{};
-                const bool deserialization_success = deserialize(msg, bitspan);
+                Message message{};
+                bool    got_message = false;
+                {
+                    // TODO: Eliminate PMR allocation - when the `deserialize` will support scattered buffers.
+                    const std::unique_ptr<cetl::byte, PmrRawBytesDeleter>
+                        tmp_buffer{static_cast<cetl::byte*>(context.memory.allocate(context.buffer.size())),
+                                   {context.buffer.size(), &context.memory}};
+                    if (tmp_buffer)
+                    {
+                        const auto        data_size = context.buffer.copy(0, tmp_buffer.get(), context.buffer.size());
+                        const auto* const data_raw  = static_cast<const void*>(tmp_buffer.get());
+                        const auto* const data_u8s  = static_cast<const std::uint8_t*>(data_raw);
+                        const nunavut::support::const_bitspan bitspan{data_u8s, data_size};
+                        got_message = deserialize(message, bitspan);
+                    }
+                }
 
                 // Enumerate all nodes with the same deserializer, and deliver the message to them.
                 // It's important to do it even in case of deserialization failure -
@@ -105,12 +115,12 @@ public:
                     // This is to avoid nondeterministic delivery of messages to subscribers that were created
                     // after the message was sent to one of callbacks.
                     //
-                    if (deserialization_success && (context.approx_now > curr_node->creation_time_))
+                    if (got_message && (context.approx_now > curr_node->creation_time_))
                     {
                         // This is safe downcast b/c we know that the `curr_node` is of type `Subscriber`.
                         // Otherwise, the `deserializer_` would be different from `this_deserializer`.
                         auto* const subscriber = static_cast<Subscriber*>(curr_node);
-                        subscriber->onReceiveCallback(context.approx_now, msg, context.metadata);
+                        subscriber->onReceiveCallback(context.approx_now, message, context.metadata);
 
                         // NB! `curr_node` or `subscriber` must not be used anymore b/c they may be invalidated
                         // by a callback activity, f.e. by moving or freeing the `Subscriber` object.
@@ -149,10 +159,12 @@ public:
 
     };  // CallbackNode
 
-    explicit SubscriberImpl(IPresentationDelegate&                  delegate,
+    explicit SubscriberImpl(cetl::pmr::memory_resource&             memory,
+                            IPresentationDelegate&                  delegate,
                             ITimeProvider&                          time_provider,
                             UniquePtr<transport::IMessageRxSession> msg_rx_session)
-        : delegate_{delegate}
+        : memory_{memory}
+        , delegate_{delegate}
         , time_provider_{time_provider}
         , msg_rx_session_{std::move(msg_rx_session)}
         , subject_id_{msg_rx_session_->getParams().subject_id}
@@ -176,7 +188,8 @@ public:
         }
 
         next_cb_node_ = callback_nodes_.min();
-        CallbackNode::Deserializer::Context context{time_provider_.now(),
+        CallbackNode::Deserializer::Context context{memory_,
+                                                    time_provider_.now(),
                                                     arg.transfer.payload,
                                                     arg.transfer.metadata,
                                                     next_cb_node_};
@@ -253,6 +266,7 @@ public:
 private:
     // MARK: Data members:
 
+    cetl::pmr::memory_resource&                   memory_;
     IPresentationDelegate&                        delegate_;
     ITimeProvider&                                time_provider_;
     const UniquePtr<transport::IMessageRxSession> msg_rx_session_;
