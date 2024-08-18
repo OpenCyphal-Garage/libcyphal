@@ -132,6 +132,7 @@ TEST_F(Example_12_PosixUdpPresentation, heartbeat_and_getInfo)
     Presentation presentation{mr_, executor_, *state.transport_};
 
     // Publish heartbeats.
+    //
     auto heartbeat_publisher = NodeHelpers::Heartbeat::makePublisher(presentation);
     ASSERT_THAT(heartbeat_publisher, testing::Optional(testing::_));
     auto publish_every_1s_cb = executor_.registerCallback([&](const auto& arg) {
@@ -142,8 +143,9 @@ TEST_F(Example_12_PosixUdpPresentation, heartbeat_and_getInfo)
     //
     constexpr auto period = std::chrono::seconds{NodeHelpers::Heartbeat::Message::MAX_PUBLICATION_PERIOD};
     publish_every_1s_cb.schedule(Callback::Schedule::Repeat{startup_time_ + period, period});
+
+    // Subscribe and print received heartbeats.
     //
-    // Print also received heartbeats.
     auto heartbeat_subscriber = NodeHelpers::Heartbeat::makeSubscriber(presentation);
     ASSERT_THAT(heartbeat_subscriber, testing::Optional(testing::_));
     heartbeat_subscriber->setOnReceiveCallback([&](const auto& arg) {

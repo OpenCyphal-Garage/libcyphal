@@ -68,6 +68,31 @@ public:
                 return reinterpret_cast<TypeId>(&placeholder);  // NOSONAR : cpp:S3630
             }
 
+            // No Sonar `cpp:S5356` and `cpp:S5357` b/c of raw PMR memory allocation,
+            // as well as data pointer type mismatches between scattered buffer and `const_bitspan`.
+            // TODO: Eliminate PMR allocation - when `deserialize` will support scattered buffers.
+            template <typename Message>
+            static bool tryDeserializeMessage(Message& message, Context& context)
+            {
+                // Make a copy of the scattered buffer into a single contiguous temp buffer.
+                //
+                const std::unique_ptr<cetl::byte, PmrRawBytesDeleter>
+                    tmp_buffer{static_cast<cetl::byte*>(
+                                   context.memory.allocate(context.buffer.size())),  // NOSONAR cpp:S5356 cpp:S5357
+                               {context.buffer.size(), &context.memory}};
+                if (!tmp_buffer)
+                {
+                    return false;
+                }
+                const auto data_size = context.buffer.copy(0, tmp_buffer.get(), context.buffer.size());
+
+                const auto* const data_raw = static_cast<const void*>(tmp_buffer.get());
+                const auto* const data_u8s = static_cast<const std::uint8_t*>(data_raw);  // NOSONAR cpp:S5356 cpp:S5357
+                const nunavut::support::const_bitspan bitspan{data_u8s, data_size};
+
+                return deserialize(message, bitspan);
+            }
+
             template <typename Message, typename Subscriber>
             static void deserializeMsgOnceForManySubs(Context& context)
             {
@@ -78,21 +103,7 @@ public:
                 // Deserialize the message from the buffer - only once!
                 //
                 Message message{};
-                bool    got_message = false;
-                {
-                    // TODO: Eliminate PMR allocation - when the `deserialize` will support scattered buffers.
-                    const std::unique_ptr<cetl::byte, PmrRawBytesDeleter>
-                        tmp_buffer{static_cast<cetl::byte*>(context.memory.allocate(context.buffer.size())),
-                                   {context.buffer.size(), &context.memory}};
-                    if (tmp_buffer)
-                    {
-                        const auto        data_size = context.buffer.copy(0, tmp_buffer.get(), context.buffer.size());
-                        const auto* const data_raw  = static_cast<const void*>(tmp_buffer.get());
-                        const auto* const data_u8s  = static_cast<const std::uint8_t*>(data_raw);
-                        const nunavut::support::const_bitspan bitspan{data_u8s, data_size};
-                        got_message = deserialize(message, bitspan);
-                    }
-                }
+                bool    got_message = tryDeserializeMessage(message, context);
 
                 // Enumerate all nodes with the same deserializer, and deliver the message to them.
                 // It's important to do it even in case of deserialization failure -
