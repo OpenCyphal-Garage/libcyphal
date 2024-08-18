@@ -102,8 +102,8 @@ public:
 
                 // Deserialize the message from the buffer - only once!
                 //
-                Message message{};
-                bool    got_message = tryDeserializeMessage(message, context);
+                Message    message{};
+                const bool got_message = tryDeserializeMessage(message, context);
 
                 // Enumerate all nodes with the same deserializer, and deliver the message to them.
                 // It's important to do it even in case of deserialization failure -
