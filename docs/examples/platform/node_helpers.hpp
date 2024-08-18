@@ -92,6 +92,34 @@ struct NodeHelpers
         return deserialize(obj, bitspan);
     }
 
+    template <typename Message>
+    static cetl::optional<Publisher<Message>> makeAnyPublisher(Presentation&                      presentation,
+                                                               const libcyphal::transport::PortId subject_id)
+    {
+        auto maybe_publisher = presentation.makePublisher<Message>(subject_id);
+        EXPECT_THAT(maybe_publisher, testing::VariantWith<Publisher<Message>>(testing::_))
+            << "Failed to create publisher (subject_id=" << subject_id << ").";
+        if (auto* const publisher = cetl::get_if<Publisher<Message>>(&maybe_publisher))
+        {
+            return std::move(*publisher);
+        }
+        return cetl::nullopt;
+    }
+
+    template <typename Message>
+    static cetl::optional<Subscriber<Message>> makeAnySubscriber(Presentation&                      presentation,
+                                                                 const libcyphal::transport::PortId subject_id)
+    {
+        auto maybe_subscriber = presentation.makeSubscriber<Message>(subject_id);
+        EXPECT_THAT(maybe_subscriber, testing::VariantWith<Subscriber<Message>>(testing::_))
+            << "Failed to create subscriber (subject_id=" << subject_id << ").";
+        if (auto* const subscriber = cetl::get_if<Subscriber<Message>>(&maybe_subscriber))
+        {
+            return std::move(*subscriber);
+        }
+        return cetl::nullopt;
+    }
+
     struct Heartbeat
     {
         using Message = uavcan::node::Heartbeat_1_0;
@@ -136,26 +164,12 @@ struct NodeHelpers
 
         static cetl::optional<Publisher<Message>> makePublisher(Presentation& presentation)
         {
-            auto maybe_publisher = presentation.makePublisher<Message>(Message::_traits_::FixedPortId);
-            EXPECT_THAT(maybe_publisher, testing::VariantWith<Publisher<Message>>(testing::_))
-                << "Failed to create Heartbeat publisher.";
-            if (auto* const publisher = cetl::get_if<Publisher<Message>>(&maybe_publisher))
-            {
-                return std::move(*publisher);
-            }
-            return cetl::nullopt;
+            return makeAnyPublisher<Message>(presentation, Message::_traits_::FixedPortId);
         }
 
         static cetl::optional<Subscriber<Message>> makeSubscriber(Presentation& presentation)
         {
-            auto maybe_subscriber = presentation.makeSubscriber<Message>(Message::_traits_::FixedPortId);
-            EXPECT_THAT(maybe_subscriber, testing::VariantWith<Subscriber<Message>>(testing::_))
-                << "Failed to create Heartbeat subscriber.";
-            if (auto* const subscriber = cetl::get_if<Subscriber<Message>>(&maybe_subscriber))
-            {
-                return std::move(*subscriber);
-            }
-            return cetl::nullopt;
+            return makeAnySubscriber<Message>(presentation, Message::_traits_::FixedPortId);
         }
 
         void receive(const libcyphal::TimePoint now) const
@@ -182,6 +196,16 @@ struct NodeHelpers
                           << " ms, tx_id=" << std::setw(8) << rx_heartbeat.metadata.rx_meta.base.transfer_id << "\n"
                           << std::flush;
             }
+        }
+
+        void print(const Subscriber<Message>::OnReceiveCallback::Arg& arg) const
+        {
+            const auto rel_time = arg.approx_now - startup_time_;
+            std::cout << "Received heartbeat from Node " << std::setw(5) << arg.metadata.publisher_node_id.value_or(0)
+                      << ", Uptime " << std::setw(8) << arg.message.uptime << "   @ " << std::setw(8)
+                      << std::chrono::duration_cast<std::chrono::milliseconds>(rel_time).count()
+                      << " ms, tx_id=" << std::setw(8) << arg.metadata.rx_meta.base.transfer_id << "\n"
+                      << std::flush;
         }
 
     private:

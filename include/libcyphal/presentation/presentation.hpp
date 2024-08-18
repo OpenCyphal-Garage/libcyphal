@@ -6,17 +6,18 @@
 #ifndef LIBCYPHAL_PRESENTATION_PRESENTATION_HPP_INCLUDED
 #define LIBCYPHAL_PRESENTATION_PRESENTATION_HPP_INCLUDED
 
+#include "presentation_delegate.hpp"
+#include "publisher.hpp"
+#include "publisher_impl.hpp"
+#include "subscriber.hpp"
+#include "subscriber_impl.hpp"
+
 #include "libcyphal/common/cavl/cavl.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/transport.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
-#include "presentation_delegate.hpp"
-#include "publisher.hpp"
-#include "publisher_impl.hpp"
-#include "subscriber.hpp"
-#include "subscriber_impl.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 
@@ -31,11 +32,10 @@ namespace presentation
 class Presentation final : public detail::IPresentationDelegate
 {
 public:
-    Presentation(cetl::pmr::memory_resource& memory, transport::ITransport& transport) noexcept
+    Presentation(cetl::pmr::memory_resource& memory, IExecutor& executor, transport::ITransport& transport) noexcept
         : memory_{memory}
+        , executor_{executor}
         , transport_{transport}
-        , publisher_nodes_allocator_{&memory_}
-        , subscriber_nodes_allocator_{&memory_}
     {
     }
 
@@ -130,6 +130,8 @@ public:
     }
 
 private:
+    template <typename T>
+    using PmrAllocator        = libcyphal::detail::PmrAllocator<T>;
     using MessageRxSessionPtr = UniquePtr<transport::IMessageRxSession>;
     using MessageTxSessionPtr = UniquePtr<transport::IMessageTxSession>;
 
@@ -137,9 +139,10 @@ private:
     {
         CETL_DEBUG_ASSERT(msg_tx_session, "");
 
-        if (auto* const publisher_impl = publisher_nodes_allocator_.allocate(1))
+        PmrAllocator<detail::PublisherImpl> allocator{&memory_};
+        if (auto* const publisher_impl = allocator.allocate(1))
         {
-            publisher_nodes_allocator_.construct(publisher_impl, *this, std::move(msg_tx_session));
+            allocator.construct(publisher_impl, *this, std::move(msg_tx_session));
             return publisher_impl;
         }
         return nullptr;
@@ -149,9 +152,10 @@ private:
     {
         CETL_DEBUG_ASSERT(msg_rx_session, "");
 
-        if (auto* const subscriber_impl = subscriber_nodes_allocator_.allocate(1))
+        PmrAllocator<detail::SubscriberImpl> allocator{&memory_};
+        if (auto* const subscriber_impl = allocator.allocate(1))
         {
-            subscriber_nodes_allocator_.construct(subscriber_impl, *this, std::move(msg_rx_session));
+            allocator.construct(subscriber_impl, *this, executor_, std::move(msg_rx_session));
             return subscriber_impl;
         }
         return nullptr;
@@ -170,7 +174,8 @@ private:
         // - cpp:M23_329 "Advanced memory management" shall not be used"
         // b/c we do our own low-level PMR management here.
         publisher_impl->~PublisherImpl();  // NOSONAR cpp:S3432 cpp:M23_329
-        publisher_nodes_allocator_.deallocate(publisher_impl, 1);
+        PmrAllocator<detail::PublisherImpl> allocator{&memory_};
+        allocator.deallocate(publisher_impl, 1);
     }
 
     void releaseSubscriber(detail::SubscriberImpl* const subscriber_impl) noexcept override
@@ -184,17 +189,17 @@ private:
         // - cpp:M23_329 "Advanced memory management" shall not be used"
         // b/c we do our own low-level PMR management here.
         subscriber_impl->~SubscriberImpl();  // NOSONAR cpp:S3432 cpp:M23_329
-        subscriber_nodes_allocator_.deallocate(subscriber_impl, 1);
+        PmrAllocator<detail::SubscriberImpl> allocator{&memory_};
+        allocator.deallocate(subscriber_impl, 1);
     }
 
     // MARK: Data members:
 
-    cetl::pmr::memory_resource&                             memory_;
-    transport::ITransport&                                  transport_;
-    cavl::Tree<detail::PublisherImpl>                       publisher_impl_nodes_;
-    cavl::Tree<detail::SubscriberImpl>                      subscriber_impl_nodes_;
-    libcyphal::detail::PmrAllocator<detail::PublisherImpl>  publisher_nodes_allocator_;
-    libcyphal::detail::PmrAllocator<detail::SubscriberImpl> subscriber_nodes_allocator_;
+    cetl::pmr::memory_resource&        memory_;
+    IExecutor&                         executor_;
+    transport::ITransport&             transport_;
+    cavl::Tree<detail::PublisherImpl>  publisher_impl_nodes_;
+    cavl::Tree<detail::SubscriberImpl> subscriber_impl_nodes_;
 
 };  // Presentation
 

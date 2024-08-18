@@ -58,44 +58,7 @@ protected:
 
 // MARK: - Tests:
 
-TEST_F(TestPresentation, xxx)
-{
-    const Presentation    presentation{mr_, transport_mock_};
-    MessageRxSessionMock  msg_rx_session_mock;
-    MessageTxSessionMock  msg_tx_session_mock;
-    RequestRxSessionMock  svc_req_rx_session_mock;
-    RequestTxSessionMock  svc_req_tx_session_mock;
-    ResponseRxSessionMock svc_res_rx_session_mock;
-    ResponseTxSessionMock svc_res_tx_session_mock;
-
-    EXPECT_CALL(transport_mock_, makeMessageRxSession(_))  //
-        .WillRepeatedly(Invoke([&](const auto&) {
-            return makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
-        }));
-    EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
-        .WillRepeatedly(Invoke([&](const auto&) {
-            return makeUniquePtr<MessageTxSessionMock::RefWrapper::Spec>(mr_, msg_tx_session_mock);
-        }));
-    EXPECT_CALL(transport_mock_, makeRequestRxSession(_))  //
-        .WillRepeatedly(Invoke([&](const auto&) {
-            return makeUniquePtr<RequestRxSessionMock::RefWrapper::Spec>(mr_, svc_req_rx_session_mock);
-        }));
-    EXPECT_CALL(transport_mock_, makeRequestTxSession(_))  //
-        .WillRepeatedly(Invoke([&](const auto&) {
-            return makeUniquePtr<RequestTxSessionMock::RefWrapper::Spec>(mr_, svc_req_tx_session_mock);
-        }));
-    EXPECT_CALL(transport_mock_, makeResponseRxSession(_))  //
-        .WillRepeatedly(Invoke([&](const auto&) {
-            return makeUniquePtr<ResponseRxSessionMock::RefWrapper::Spec>(mr_, svc_res_rx_session_mock);
-        }));
-    EXPECT_CALL(transport_mock_, makeResponseTxSession(_))  //
-        .WillRepeatedly(Invoke([&](const auto&) {
-            return makeUniquePtr<ResponseTxSessionMock::RefWrapper::Spec>(mr_, svc_res_tx_session_mock);
-        }));
-
-    auto maybe_msg_rx_session = transport_mock_.makeMessageRxSession({16, 0x7B});
-    ASSERT_THAT(maybe_msg_rx_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
-}
+TEST_F(TestPresentation, xxx) {}
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 

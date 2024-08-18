@@ -126,6 +126,14 @@ protected:
     {
         return bf;
     }
+    auto getNextInOrderNode(const bool reverse = false) noexcept -> Derived*
+    {
+        return getNextInOrderNodeImpl<Derived>(this, reverse);
+    }
+    auto getNextInOrderNode(const bool reverse = false) const noexcept -> const Derived*
+    {
+        return getNextInOrderNodeImpl<const Derived>(this, reverse);
+    }
 
     /// Find a node for which the predicate returns zero, or nullptr if there is no such node or the tree is empty.
     /// The predicate is invoked with a single argument which is a constant reference to Derived.
@@ -317,6 +325,29 @@ private:
             n = n->lr[cmp > 0];
         }
         return nullptr;
+    }
+
+    template <typename DerivedT, typename NodeT>
+    static auto getNextInOrderNodeImpl(NodeT* const node, const bool reverse) noexcept -> DerivedT*
+    {
+        if (nullptr != node->lr[!reverse])
+        {
+            auto* next_down = node->lr[!reverse];
+            while (nullptr != next_down->lr[reverse])
+            {
+                next_down = next_down->lr[reverse];
+            }
+            return down(next_down);
+        }
+
+        auto*  next_up_child = node;
+        NodeT* next_up       = node->getParentNode();
+        while ((nullptr != next_up) && (next_up_child == next_up->lr[!reverse]))
+        {
+            next_up_child = next_up;
+            next_up       = next_up->getParentNode();
+        }
+        return down(next_up);
     }
 
     void unlink() noexcept

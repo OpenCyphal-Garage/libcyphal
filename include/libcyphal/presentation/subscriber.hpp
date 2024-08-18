@@ -6,11 +6,17 @@
 #ifndef LIBCYPHAL_PRESENTATION_SUBSCRIBER_HPP_INCLUDED
 #define LIBCYPHAL_PRESENTATION_SUBSCRIBER_HPP_INCLUDED
 
-#include "libcyphal/transport/errors.hpp"
 #include "subscriber_impl.hpp"
 
-#include <cetl/cetl.hpp>
+#include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/scattered_buffer.hpp"
+#include "libcyphal/transport/types.hpp"
 
+#include <cetl/cetl.hpp>
+#include <cetl/pmr/function.hpp>
+#include <nunavut/support/serialization.hpp>
+
+#include <tuple>
 #include <utility>
 
 namespace libcyphal
@@ -27,39 +33,17 @@ namespace detail
 // TODO: docs
 /// No Sonar cpp:S4963 "The "Rule-of-Zero" should be followed"
 /// b/c we do directly handle resources here.
-class SubscriberBase  // NOSONAR cpp:S4963
+class SubscriberBase : public SubscriberImpl::CallbackNode  // NOSONAR cpp:S4963
 {
 public:
     using Failure = transport::AnyFailure;
 
-    SubscriberBase(const SubscriberBase& other)
-        : impl_{other.impl_}
-    {
-        CETL_DEBUG_ASSERT(impl_ != nullptr, "Not supposed to copy from already moved `other`.");
-        impl_->retain();
-    }
-
     SubscriberBase(SubscriberBase&& other) noexcept
-        : impl_{std::exchange(other.impl_, nullptr)}
+        : CallbackNode{std::move(static_cast<CallbackNode&>(other))}
+        , impl_{std::exchange(other.impl_, nullptr)}
     {
         CETL_DEBUG_ASSERT(impl_ != nullptr, "Not supposed to move from already moved `other`.");
-    }
-
-    SubscriberBase& operator=(const SubscriberBase& other)
-    {
-        if (this != &other)
-        {
-            CETL_DEBUG_ASSERT(other.impl_ != nullptr, "Not supposed to copy from already moved `other`.");
-
-            if (impl_ != nullptr)
-            {
-                impl_->release();
-            }
-
-            impl_ = other.impl_;
-            impl_->retain();
-        }
-        return *this;
+        impl_->updateCallbackNode(&other, this);
     }
 
     SubscriberBase& operator=(SubscriberBase&& other) noexcept
@@ -67,24 +51,30 @@ public:
         CETL_DEBUG_ASSERT(other.impl_ != nullptr, "Not supposed to move from already moved `other`.");
 
         impl_ = std::exchange(other.impl_, nullptr);
+        impl_->updateCallbackNode(&other, this);
 
         return *this;
     }
+
+    SubscriberBase(const SubscriberBase& other)            = delete;
+    SubscriberBase& operator=(const SubscriberBase& other) = delete;
 
 protected:
     ~SubscriberBase() noexcept
     {
         if (impl_ != nullptr)
         {
-            impl_->release();
+            impl_->releaseCallbackNode(*this);
         }
     }
 
-    explicit SubscriberBase(SubscriberImpl* const impl)
-        : impl_{impl}
+    SubscriberBase(SubscriberImpl* const impl, const Deserializer::FunctionPtr deserializer)
+        : CallbackNode{deserializer, impl->now()}
+        , impl_{impl}
     {
         CETL_DEBUG_ASSERT(impl != nullptr, "");
-        impl->retain();
+
+        impl_->retainCallbackNode(*this);
     }
 
 private:
@@ -101,13 +91,43 @@ template <typename Message>
 class Subscriber final : public detail::SubscriberBase
 {
 public:
+    struct OnReceiveCallback
+    {
+        struct Arg
+        {
+            TimePoint                    approx_now;
+            Message                      message;
+            transport::MessageRxMetadata metadata;
+        };
+        using Function = cetl::pmr::function<void(const Arg&), sizeof(void*) * 4>;
+    };
+    void setOnReceiveCallback(typename OnReceiveCallback::Function&& on_receive_cb_fn)
+    {
+        on_receive_cb_fn_ = std::move(on_receive_cb_fn);
+    }
+
 private:
     friend class Presentation;  // NOLINT cppcoreguidelines-virtual-class-destructor
+    friend class detail::SubscriberImpl;
 
     explicit Subscriber(detail::SubscriberImpl* const impl)
-        : SubscriberBase{impl}
+        : SubscriberBase{impl, Deserializer::deserializeMsgOnceForManySubs<Message, Subscriber>}
     {
     }
+
+    void onReceiveCallback(const TimePoint                     approx_now,
+                           const Message&                      message,
+                           const transport::MessageRxMetadata& metadata)
+    {
+        if (on_receive_cb_fn_)
+        {
+            on_receive_cb_fn_({approx_now, message, metadata});
+        }
+    }
+
+    // MARK: Data members:
+
+    typename OnReceiveCallback::Function on_receive_cb_fn_;
 
 };  // Subscriber
 

@@ -6,16 +6,19 @@
 #ifndef LIBCYPHAL_PRESENTATION_PUBLISHER_HPP_INCLUDED
 #define LIBCYPHAL_PRESENTATION_PUBLISHER_HPP_INCLUDED
 
+#include "publisher_impl.hpp"
+
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
-#include "publisher_impl.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 #include <nunavut/support/serialization.hpp>
 
+#include <array>
+#include <cstdint>
 #include <utility>
 
 namespace libcyphal

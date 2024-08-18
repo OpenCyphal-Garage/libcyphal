@@ -52,6 +52,7 @@ public:
     using Self::isRoot;
     using Self::getChildNode;
     using Self::getParentNode;
+    using Self::getNextInOrderNode;
     using Self::getBalanceFactor;
     using Self::search;
     using Self::remove;
@@ -321,6 +322,12 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
         EXPECT_NE(nullptr, tr[i - 1]);
         EXPECT_EQ(i, tr[i - 1]->getValue());
         EXPECT_EQ(i, static_cast<const TreeType&>(tr)[i - 1]->getValue());
+
+        // Check the in-order successor.
+        EXPECT_EQ(i < 31 ? t.at(i + 1) : nullptr, static_cast<const TreeType&>(tr)[i - 1]->getNextInOrderNode());
+        // Check the reverse in-order predecessor.
+        const auto ri = 32 - i;
+        EXPECT_EQ(ri > 1 ? t.at(ri - 1) : nullptr, tr[ri - 1]->getNextInOrderNode(true));  // reverse
     }
     checkPostOrdering<N>(tr, {1,  3,  2,  5,  7,  6,  4,  9,  11, 10, 13, 15, 14, 12, 8, 17,
                               19, 18, 21, 23, 22, 20, 25, 27, 26, 29, 31, 30, 28, 24, 16});
@@ -975,6 +982,7 @@ public:
     using Self::isRoot;
     using Self::getChildNode;
     using Self::getParentNode;
+    using Self::getNextInOrderNode;
     using Self::getBalanceFactor;
     using Self::search;
     using Self::remove;

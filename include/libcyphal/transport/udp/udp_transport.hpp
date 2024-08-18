@@ -6,10 +6,11 @@
 #ifndef LIBCYPHAL_TRANSPORT_UDP_TRANSPORT_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_UDP_TRANSPORT_HPP_INCLUDED
 
-#include "libcyphal/transport/errors.hpp"
-#include "libcyphal/transport/transport.hpp"
 #include "media.hpp"
 #include "tx_rx_sockets.hpp"
+
+#include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/transport.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pmr/function.hpp>

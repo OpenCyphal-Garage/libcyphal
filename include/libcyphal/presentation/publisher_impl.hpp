@@ -18,6 +18,7 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
+#include <array>
 #include <cstdint>
 #include <utility>
 

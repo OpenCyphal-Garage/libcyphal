@@ -129,23 +129,26 @@ TEST_F(Example_12_PosixUdpPresentation, heartbeat_and_getInfo)
     state.media_collection_.make(mr_, executor_, iface_addresses_);
     CommonHelpers::Udp::makeTransport(state, mr_, executor_, local_node_id_);
 
-    Presentation presentation{mr_, *state.transport_};
+    Presentation presentation{mr_, executor_, *state.transport_};
 
     // Publish heartbeats.
     auto heartbeat_publisher = NodeHelpers::Heartbeat::makePublisher(presentation);
     ASSERT_THAT(heartbeat_publisher, testing::Optional(testing::_));
-    auto publish_every_1s_cb = executor_.registerCallback([&](const auto& arg) {
+    auto           publish_every_1s_cb = executor_.registerCallback([&](const auto& arg) {
         //
         EXPECT_THAT(heartbeat_publisher->publish(arg.approx_now + 1s, makeHeartbeatMsg(arg.approx_now)),
                     testing::Eq(cetl::nullopt));
     });
-    //
-    constexpr auto period = std::chrono::seconds{NodeHelpers::Heartbeat::Message::MAX_PUBLICATION_PERIOD};
+    constexpr auto period              = std::chrono::seconds{NodeHelpers::Heartbeat::Message::MAX_PUBLICATION_PERIOD};
     publish_every_1s_cb.schedule(Callback::Schedule::Repeat{startup_time_ + period, period});
     //
     // Print also received heartbeats.
     auto heartbeat_subscriber = NodeHelpers::Heartbeat::makeSubscriber(presentation);
     ASSERT_THAT(heartbeat_subscriber, testing::Optional(testing::_));
+    heartbeat_subscriber->setOnReceiveCallback([&](const auto& arg) {
+        //
+        state.heartbeat_.print(arg);
+    });
 
     // Bring up 'GetInfo' server.
     // TODO: Replace with service server when it will be available.
