@@ -124,9 +124,8 @@ struct NodeHelpers
     {
         using Message = uavcan::node::Heartbeat_1_0;
 
-        bool makeRxSession(libcyphal::transport::ITransport&                            transport,
-                           const libcyphal::TimePoint                                   startup_time,
-                           libcyphal::transport::IMessageRxSession::OnReceiveFunction&& on_receive_fn = {})
+        bool makeRxSession(libcyphal::transport::ITransport&                                      transport,
+                           libcyphal::transport::IMessageRxSession::OnReceiveCallback::Function&& on_receive_fn = {})
         {
             auto maybe_msg_rx_session =
                 transport.makeMessageRxSession({Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId});
@@ -134,7 +133,6 @@ struct NodeHelpers
                 << "Failed to create Heartbeat RX session.";
             if (auto* const session = cetl::get_if<MessageRxSessionPtr>(&maybe_msg_rx_session))
             {
-                startup_time_   = startup_time;
                 msg_rx_session_ = std::move(*session);
                 if (on_receive_fn)
                 {
@@ -153,10 +151,12 @@ struct NodeHelpers
                 << "Failed to create Heartbeat TX session.";
             if (auto* const session = cetl::get_if<MessageTxSessionPtr>(&maybe_msg_tx_session))
             {
-                startup_time_   = startup_time;
                 msg_tx_session_ = std::move(*session);
 
-                publish_every_1s_cb_  = executor.registerCallback([&](const auto& arg) { publish(arg.approx_now); });
+                publish_every_1s_cb_  = executor.registerCallback([this, startup_time](const auto& arg) {
+                    //
+                    publish(arg.approx_now, arg.approx_now - startup_time);
+                });
                 constexpr auto period = std::chrono::seconds{Message::MAX_PUBLICATION_PERIOD};
                 publish_every_1s_cb_.schedule(Callback::Schedule::Repeat{startup_time + period, period});
             }
@@ -172,48 +172,43 @@ struct NodeHelpers
             return makeAnySubscriber<Message>(presentation, Message::_traits_::FixedPortId);
         }
 
-        void receive(const libcyphal::TimePoint now) const
+        void receive(const libcyphal::Duration uptime) const
         {
             if (msg_rx_session_)
             {
                 if (const auto rx_heartbeat = msg_rx_session_->receive())
                 {
-                    print(now, *rx_heartbeat);
+                    print(uptime, *rx_heartbeat);
                 }
             }
         }
 
-        void print(const libcyphal::TimePoint now, const libcyphal::transport::MessageRxTransfer& rx_heartbeat) const
+        static void print(const libcyphal::Duration uptime, const libcyphal::transport::MessageRxTransfer& rx_heartbeat)
         {
-            uavcan::node::Heartbeat_1_0 heartbeat{};
-            if (tryDeserialize(heartbeat, rx_heartbeat.payload))
+            Message heartbeat_msg{};
+            if (tryDeserialize(heartbeat_msg, rx_heartbeat.payload))
             {
-                const auto rel_time = now - startup_time_;
-                std::cout << "Received heartbeat from Node " << std::setw(5)
-                          << rx_heartbeat.metadata.publisher_node_id.value_or(0) << ", Uptime " << std::setw(8)
-                          << heartbeat.uptime << "   @ " << std::setw(8)
-                          << std::chrono::duration_cast<std::chrono::milliseconds>(rel_time).count()
-                          << " ms, tx_id=" << std::setw(8) << rx_heartbeat.metadata.rx_meta.base.transfer_id << "\n"
-                          << std::flush;
+                print(uptime, heartbeat_msg, rx_heartbeat.metadata);
             }
         }
 
-        void print(const Subscriber<Message>::OnReceiveCallback::Arg& arg) const
+        static void print(const libcyphal::Duration               uptime,
+                          const Message&                          heartbeat_msg,
+                          libcyphal::transport::MessageRxMetadata metadata)
         {
-            const auto rel_time = arg.approx_now - startup_time_;
-            std::cout << "Received heartbeat from Node " << std::setw(5) << arg.metadata.publisher_node_id.value_or(0)
-                      << ", Uptime " << std::setw(8) << arg.message.uptime << "   @ " << std::setw(8)
-                      << std::chrono::duration_cast<std::chrono::milliseconds>(rel_time).count()
-                      << " ms, tx_id=" << std::setw(8) << arg.metadata.rx_meta.base.transfer_id << "\n"
+            std::cout << "Received heartbeat from Node " << std::setw(5) << metadata.publisher_node_id.value_or(0)
+                      << ", Uptime " << std::setw(8) << heartbeat_msg.uptime << "   @ " << std::setw(8)
+                      << std::chrono::duration_cast<std::chrono::milliseconds>(uptime).count()
+                      << " ms, tx_id=" << std::setw(8) << metadata.rx_meta.base.transfer_id << "\n"
                       << std::flush;
         }
 
     private:
-        void publish(const libcyphal::TimePoint now)
+        void publish(const libcyphal::TimePoint now, const libcyphal::Duration uptime)
         {
             transfer_id_ += 1;
 
-            const auto uptime_in_secs = std::chrono::duration_cast<std::chrono::seconds>(now - startup_time_);
+            const auto uptime_in_secs = std::chrono::duration_cast<std::chrono::seconds>(uptime);
 
             const Message            heartbeat{static_cast<std::uint32_t>(uptime_in_secs.count()),
                                                {uavcan::node::Health_1_0::NOMINAL},
@@ -224,7 +219,6 @@ struct NodeHelpers
                 << "Failed to publish Heartbeat_1_0.";
         }
 
-        libcyphal::TimePoint             startup_time_;
         MessageRxSessionPtr              msg_rx_session_;
         libcyphal::transport::TransferId transfer_id_{0};
         MessageTxSessionPtr              msg_tx_session_;

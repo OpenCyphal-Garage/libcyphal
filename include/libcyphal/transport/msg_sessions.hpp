@@ -61,14 +61,11 @@ public:
     {
         struct Arg
         {
-            const TimePoint   approx_now;
-            MessageRxTransfer transfer;
+            MessageRxTransfer& transfer;
         };
         using Function = cetl::pmr::function<void(const Arg&), sizeof(void*) * 4>;
     };
-
-    using OnReceiveFunction = cetl::pmr::function<void(MessageRxTransfer&), sizeof(void*) * 4>;
-    virtual void setOnReceiveCallback(OnReceiveFunction&& function) = 0;
+    virtual void setOnReceiveCallback(OnReceiveCallback::Function&& function) = 0;
 
 protected:
     IMessageRxSession()  = default;

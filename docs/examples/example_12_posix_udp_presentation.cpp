@@ -134,12 +134,13 @@ TEST_F(Example_12_PosixUdpPresentation, heartbeat_and_getInfo)
     // Publish heartbeats.
     auto heartbeat_publisher = NodeHelpers::Heartbeat::makePublisher(presentation);
     ASSERT_THAT(heartbeat_publisher, testing::Optional(testing::_));
-    auto           publish_every_1s_cb = executor_.registerCallback([&](const auto& arg) {
+    auto publish_every_1s_cb = executor_.registerCallback([&](const auto& arg) {
         //
         EXPECT_THAT(heartbeat_publisher->publish(arg.approx_now + 1s, makeHeartbeatMsg(arg.approx_now)),
                     testing::Eq(cetl::nullopt));
     });
-    constexpr auto period              = std::chrono::seconds{NodeHelpers::Heartbeat::Message::MAX_PUBLICATION_PERIOD};
+    //
+    constexpr auto period = std::chrono::seconds{NodeHelpers::Heartbeat::Message::MAX_PUBLICATION_PERIOD};
     publish_every_1s_cb.schedule(Callback::Schedule::Repeat{startup_time_ + period, period});
     //
     // Print also received heartbeats.
@@ -147,7 +148,7 @@ TEST_F(Example_12_PosixUdpPresentation, heartbeat_and_getInfo)
     ASSERT_THAT(heartbeat_subscriber, testing::Optional(testing::_));
     heartbeat_subscriber->setOnReceiveCallback([&](const auto& arg) {
         //
-        state.heartbeat_.print(arg);
+        state.heartbeat_.print(arg.approx_now - startup_time_, arg.message, arg.metadata);
     });
 
     // Bring up 'GetInfo' server.

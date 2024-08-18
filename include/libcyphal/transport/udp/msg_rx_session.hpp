@@ -142,17 +142,17 @@ private:
 
         const MessageRxMetadata meta{{{inout_transfer.transfer_id, priority}, timestamp}, publisher_node_id};
         MessageRxTransfer       msg_rx_transfer{meta, ScatteredBuffer{std::move(udpard_memory)}};
-        if (function_)
+        if (on_receive_cb_fn_)
         {
-            function_(msg_rx_transfer);
+            on_receive_cb_fn_(OnReceiveCallback::Arg{msg_rx_transfer});
             return;
         }
         (void) last_rx_transfer_.emplace(std::move(msg_rx_transfer));
     }
 
-    void setOnReceiveCallback(OnReceiveFunction&& function) override
+    void setOnReceiveCallback(OnReceiveCallback::Function&& function) override
     {
-        function_ = std::move(function);
+        on_receive_cb_fn_ = std::move(function);
     }
 
     // MARK: IMsgRxSessionDelegate
@@ -168,7 +168,7 @@ private:
     const MessageRxParams             params_;
     UdpardRxSubscription              subscription_;
     cetl::optional<MessageRxTransfer> last_rx_transfer_;
-    OnReceiveFunction                 function_;
+    OnReceiveCallback::Function       on_receive_cb_fn_;
 
 };  // MessageRxSession
 

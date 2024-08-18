@@ -119,9 +119,9 @@ private:
         return std::exchange(last_rx_transfer_, cetl::nullopt);
     }
 
-    void setOnReceiveCallback(OnReceiveFunction&& function) override
+    void setOnReceiveCallback(OnReceiveCallback::Function&& function) override
     {
-        function_ = std::move(function);
+        on_receive_cb_fn_ = std::move(function);
     }
 
     // MARK: IRxSession
@@ -154,9 +154,9 @@ private:
 
         const MessageRxMetadata meta{{{transfer_id, priority}, timestamp}, publisher_node_id};
         MessageRxTransfer       msg_rx_transfer{meta, ScatteredBuffer{std::move(canard_memory)}};
-        if (function_)
+        if (on_receive_cb_fn_)
         {
-            function_(msg_rx_transfer);
+            on_receive_cb_fn_(OnReceiveCallback::Arg{msg_rx_transfer});
             return;
         }
         (void) last_rx_transfer_.emplace(std::move(msg_rx_transfer));
@@ -168,7 +168,7 @@ private:
     const MessageRxParams             params_;
     CanardRxSubscription              subscription_;
     cetl::optional<MessageRxTransfer> last_rx_transfer_;
-    OnReceiveFunction                 function_;
+    OnReceiveCallback::Function       on_receive_cb_fn_;
 
 };  // MessageRxSession
 

@@ -129,6 +129,19 @@ public:
         return Subscriber<Message>{subscriber_impl};
     }
 
+protected:
+    // MARK: IPresentationDelegate
+
+    void releasePublisher(detail::PublisherImpl* const publisher_impl) noexcept override
+    {
+        releaseAnyImplNode(publisher_impl, publisher_impl_nodes_);
+    }
+
+    void releaseSubscriber(detail::SubscriberImpl* const subscriber_impl) noexcept override
+    {
+        releaseAnyImplNode(subscriber_impl, subscriber_impl_nodes_);
+    }
+
 private:
     template <typename T>
     using PmrAllocator        = libcyphal::detail::PmrAllocator<T>;
@@ -161,36 +174,20 @@ private:
         return nullptr;
     }
 
-    // MARK: IPresentationDelegate
-
-    void releasePublisher(detail::PublisherImpl* const publisher_impl) noexcept override
+    template <typename ImplNode>
+    void releaseAnyImplNode(ImplNode* const impl, cavl::Tree<ImplNode>& tree) noexcept
     {
-        CETL_DEBUG_ASSERT(publisher_impl, "");
+        CETL_DEBUG_ASSERT(impl, "");
 
         // TODO: make it async (deferred to "on idle" callback).
-        publisher_impl_nodes_.remove(publisher_impl);
+        tree.remove(impl);
         // No Sonar
         // - cpp:S3432   "Destructors should not be called explicitly"
         // - cpp:M23_329 "Advanced memory management" shall not be used"
         // b/c we do our own low-level PMR management here.
-        publisher_impl->~PublisherImpl();  // NOSONAR cpp:S3432 cpp:M23_329
-        PmrAllocator<detail::PublisherImpl> allocator{&memory_};
-        allocator.deallocate(publisher_impl, 1);
-    }
-
-    void releaseSubscriber(detail::SubscriberImpl* const subscriber_impl) noexcept override
-    {
-        CETL_DEBUG_ASSERT(subscriber_impl, "");
-
-        // TODO: make it async (deferred to "on idle" callback).
-        subscriber_impl_nodes_.remove(subscriber_impl);
-        // No Sonar
-        // - cpp:S3432   "Destructors should not be called explicitly"
-        // - cpp:M23_329 "Advanced memory management" shall not be used"
-        // b/c we do our own low-level PMR management here.
-        subscriber_impl->~SubscriberImpl();  // NOSONAR cpp:S3432 cpp:M23_329
-        PmrAllocator<detail::SubscriberImpl> allocator{&memory_};
-        allocator.deallocate(subscriber_impl, 1);
+        impl->~ImplNode();  // NOSONAR cpp:S3432 cpp:M23_329
+        PmrAllocator<ImplNode> allocator{&memory_};
+        allocator.deallocate(impl, 1);
     }
 
     // MARK: Data members:

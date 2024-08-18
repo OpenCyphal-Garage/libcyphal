@@ -17,8 +17,8 @@
 
 #include <cetl/cetl.hpp>
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 #include <utility>
 #include <vector>
 
@@ -54,18 +54,29 @@ public:
 
             };  // Context
 
+            using TypeId = std::uintptr_t;
+
+            template <typename>
+            static TypeId getTypeId() noexcept
+            {
+                static const struct
+                {
+                } placeholder{};
+                return reinterpret_cast<TypeId>(&placeholder);  // NOLINT(*-pro-type-reinterpret-cast)
+            }
+
             template <typename Message, typename Subscriber>
             static void deserializeMsgOnceForManySubs(Context& context)
             {
                 CETL_DEBUG_ASSERT(context.next_node != nullptr, "");
-                constexpr auto this_deserializer = &deserializeMsgOnceForManySubs<Message, Subscriber>;
-                CETL_DEBUG_ASSERT(context.next_node->deserializer_ == this_deserializer, "");
+                constexpr auto this_deserializer_fn = &deserializeMsgOnceForManySubs<Message, Subscriber>;
+                CETL_DEBUG_ASSERT(context.next_node->deserializer_.function == this_deserializer_fn, "");
 
                 // Deserialize the message from the buffer - only once!
                 //
                 // TODO: Eliminate dynamic memory allocation - when the `deserialize` will support scattered buffers.
                 std::vector<std::uint8_t> data_vec(context.buffer.size());
-                const auto                data_size = context.buffer.copy(0, data_vec.data(), data_vec.size());
+                const auto data_size = context.buffer.copy(0, data_vec.data(), data_vec.size());  // NOSONAR : cpp:S5356
                 const nunavut::support::const_bitspan bitspan{data_vec.data(), data_size};
                 //
                 Message    msg{};
@@ -77,7 +88,7 @@ public:
                 //
                 while (auto* const curr_node = context.next_node)
                 {
-                    if (curr_node->deserializer_ != this_deserializer)
+                    if (curr_node->deserializer_.function != this_deserializer_fn)
                     {
                         // We've reached the end of the list of nodes with the same deserializer.
                         // A different deserializer will take care of the next node.
@@ -105,25 +116,25 @@ public:
                 }
             }
 
+            const TypeId      type_id;
+            const FunctionPtr function;
+
         };  // Deserializer
 
-        CallbackNode(const Deserializer::FunctionPtr deserializer, const TimePoint creation_time)
-            : deserializer_{deserializer}
-            , creation_time_{creation_time}
+        CallbackNode(const TimePoint creation_time, const Deserializer deserializer)
+            : creation_time_{creation_time}
+            , deserializer_{deserializer}
+
         {
-            CETL_DEBUG_ASSERT(deserializer_ != nullptr, "");
+            CETL_DEBUG_ASSERT(deserializer_.function != nullptr, "");
         }
 
-        CETL_NODISCARD std::int8_t compareByDeserializer(const Deserializer::FunctionPtr deserializer) const noexcept
+        CETL_NODISCARD std::int8_t compareByDeserializer(const Deserializer& deserializer) const noexcept
         {
-            const std::ptrdiff_t diff =
-                // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
-                reinterpret_cast<std::intptr_t>(deserializer) - reinterpret_cast<std::intptr_t>(deserializer_);
-
             // Keep callback nodes sorted by address of their `deserializer_` static function.
             // This will ensure that callback nodes with the same deserializer will be grouped together,
             // and so `deserializeMsgOnceForManySubs` strategy could be applied.
-            return (diff >= 0) ? +1 : -1;
+            return (deserializer.type_id >= deserializer_.type_id) ? +1 : -1;
         }
 
     private:
@@ -131,8 +142,8 @@ public:
 
         // MARK: Data members:
 
-        const Deserializer::FunctionPtr deserializer_;
-        const TimePoint                 creation_time_;
+        const TimePoint    creation_time_;
+        const Deserializer deserializer_;
 
     };  // CallbackNode
 
@@ -147,13 +158,13 @@ public:
     {
         CETL_DEBUG_ASSERT(msg_rx_session_ != nullptr, "");
 
-        msg_rx_session_->setOnReceiveCallback([this](transport::MessageRxTransfer& msg_rx_transfer) {
+        msg_rx_session_->setOnReceiveCallback([this](const auto& arg) {
             //
-            onMessageRxTransfer(msg_rx_transfer);
+            onMessageRxTransfer(arg);
         });
     }
 
-    void onMessageRxTransfer(transport::MessageRxTransfer& msg_rx_transfer)
+    void onMessageRxTransfer(const transport::IMessageRxSession::OnReceiveCallback::Arg& arg)
     {
         CETL_DEBUG_ASSERT(next_cb_node_ == nullptr, "");
 
@@ -164,13 +175,13 @@ public:
 
         next_cb_node_ = callback_nodes_.min();
         CallbackNode::Deserializer::Context context{time_provider_.now(),
-                                                    msg_rx_transfer.payload,
-                                                    msg_rx_transfer.metadata,
+                                                    arg.transfer.payload,
+                                                    arg.transfer.metadata,
                                                     next_cb_node_};
         while (next_cb_node_ != nullptr)
         {
-            CETL_DEBUG_ASSERT(next_cb_node_->deserializer_ != nullptr, "");
-            next_cb_node_->deserializer_(context);
+            CETL_DEBUG_ASSERT(next_cb_node_->deserializer_.function != nullptr, "");
+            next_cb_node_->deserializer_.function(context);
         }
     }
 

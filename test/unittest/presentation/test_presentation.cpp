@@ -4,8 +4,6 @@
 /// SPDX-License-Identifier: MIT
 
 #include "../tracking_memory_resource.hpp"
-#include "../transport/msg_sessions_mock.hpp"
-#include "../transport/svc_sessions_mock.hpp"
 #include "../transport/transport_mock.hpp"
 #include "../virtual_time_scheduler.hpp"
 
@@ -25,11 +23,7 @@ using libcyphal::detail::makeUniquePtr;
 using namespace libcyphal::presentation;  // NOLINT This our main concern here in the unit tests.
 using namespace libcyphal::transport;     // NOLINT This our main concern here in the unit tests.
 
-using testing::_;
-using testing::Invoke;
 using testing::IsEmpty;
-using testing::NotNull;
-using testing::VariantWith;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
@@ -58,7 +52,10 @@ protected:
 
 // MARK: - Tests:
 
-TEST_F(TestPresentation, xxx) {}
+TEST_F(TestPresentation, xxx)
+{
+    const Presentation presentation{mr_, scheduler_, transport_mock_};
+}
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 

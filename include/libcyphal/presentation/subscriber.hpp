@@ -68,8 +68,8 @@ protected:
         }
     }
 
-    SubscriberBase(SubscriberImpl* const impl, const Deserializer::FunctionPtr deserializer)
-        : CallbackNode{deserializer, impl->now()}
+    SubscriberBase(SubscriberImpl* const impl, const Deserializer deserializer)
+        : CallbackNode{impl->now(), deserializer}
         , impl_{impl}
     {
         CETL_DEBUG_ASSERT(impl != nullptr, "");
@@ -111,7 +111,9 @@ private:
     friend class detail::SubscriberImpl;
 
     explicit Subscriber(detail::SubscriberImpl* const impl)
-        : SubscriberBase{impl, Deserializer::deserializeMsgOnceForManySubs<Message, Subscriber>}
+        : SubscriberBase{impl,
+                         {Deserializer::getTypeId<Message>(),
+                          Deserializer::deserializeMsgOnceForManySubs<Message, Subscriber>}}
     {
     }
 
