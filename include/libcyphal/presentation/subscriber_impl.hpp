@@ -77,8 +77,8 @@ public:
                 // Make a copy of the scattered buffer into a single contiguous temp buffer.
                 //
                 const std::unique_ptr<cetl::byte, PmrRawBytesDeleter>
-                    tmp_buffer{static_cast<cetl::byte*>(
-                                   context.memory.allocate(context.buffer.size())),  // NOSONAR cpp:S5356 cpp:S5357
+                    tmp_buffer{static_cast<cetl::byte*>(  // NOSONAR cpp:S5356 cpp:S5357
+                                   context.memory.allocate(context.buffer.size())),
                                {context.buffer.size(), &context.memory}};
                 if (!tmp_buffer)
                 {
