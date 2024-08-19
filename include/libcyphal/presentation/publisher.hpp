@@ -59,12 +59,10 @@ public:
     {
         if (this != &other)
         {
+            CETL_DEBUG_ASSERT(impl_ != nullptr, "Not supposed to copy to already moved `this`.");
             CETL_DEBUG_ASSERT(other.impl_ != nullptr, "Not supposed to copy from already moved `other`.");
 
-            if (impl_ != nullptr)
-            {
-                impl_->release();
-            }
+            impl_->release();
 
             impl_     = other.impl_;
             priority_ = other.priority_;
@@ -76,7 +74,10 @@ public:
 
     PublisherBase& operator=(PublisherBase&& other) noexcept
     {
+        CETL_DEBUG_ASSERT(impl_ != nullptr, "Not supposed to move to already moved `this`.");
         CETL_DEBUG_ASSERT(other.impl_ != nullptr, "Not supposed to move from already moved `other`.");
+
+        impl_->release();
 
         impl_     = std::exchange(other.impl_, nullptr);
         priority_ = other.priority_;
@@ -88,6 +89,7 @@ public:
     {
         return priority_;
     }
+
     void setPriority(const transport::Priority priority) noexcept
     {
         priority_ = priority;
@@ -107,12 +109,14 @@ protected:
         , priority_{transport::Priority::Nominal}
     {
         CETL_DEBUG_ASSERT(impl != nullptr, "");
+
         impl->retain();
     }
 
     cetl::optional<Failure> publishRawData(const TimePoint deadline, const cetl::span<const cetl::byte> data) const
     {
         CETL_DEBUG_ASSERT(impl_ != nullptr, "");
+
         return impl_->publishRawData(deadline, priority_, data);
     }
 
