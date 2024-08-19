@@ -89,6 +89,8 @@ public:
     }
     auto operator=(Node&& other) noexcept -> Node&
     {
+        unlink();
+
         moveFrom(other);
         return *this;
     }

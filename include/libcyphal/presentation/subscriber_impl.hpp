@@ -139,8 +139,8 @@ public:
                 }
             }
 
-            const TypeId      type_id;
-            const FunctionPtr function;
+            TypeId      type_id;
+            FunctionPtr function;
 
         };  // Deserializer
 
@@ -165,8 +165,8 @@ public:
 
         // MARK: Data members:
 
-        const TimePoint    creation_time_;
-        const Deserializer deserializer_;
+        TimePoint    creation_time_;
+        Deserializer deserializer_;
 
     };  // CallbackNode
 

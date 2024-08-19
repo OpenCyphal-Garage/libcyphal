@@ -48,7 +48,12 @@ public:
 
     SubscriberBase& operator=(SubscriberBase&& other) noexcept
     {
+        CETL_DEBUG_ASSERT(impl_ != nullptr, "Not supposed to move to already moved `this`.");
         CETL_DEBUG_ASSERT(other.impl_ != nullptr, "Not supposed to move from already moved `other`.");
+
+        impl_->releaseCallbackNode(*this);
+
+        static_cast<CallbackNode&>(*this) = std::move(static_cast<CallbackNode&>(other));
 
         impl_ = std::exchange(other.impl_, nullptr);
         impl_->updateCallbackNode(&other, this);
