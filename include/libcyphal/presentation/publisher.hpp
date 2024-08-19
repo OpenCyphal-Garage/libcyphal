@@ -139,7 +139,7 @@ public:
 
     cetl::optional<Failure> publish(const TimePoint deadline, const Message& message) const
     {
-        std::array<std::uint8_t, Message::_traits_::SerializationBufferSizeBytes> buffer;
+        std::array<std::uint8_t, Message::_traits_::SerializationBufferSizeBytes> buffer{};
 
         const auto result = serialize(message, buffer);
         if (!result)
@@ -184,7 +184,10 @@ template <>
 class Publisher<void> final : public detail::PublisherBase
 {
 public:
-    using PublisherBase::publishRawData;
+    cetl::optional<Failure> publish(const TimePoint deadline, const cetl::span<const cetl::byte> data) const
+    {
+        return PublisherBase::publishRawData(deadline, data);
+    }
 
 private:
     friend class Presentation;

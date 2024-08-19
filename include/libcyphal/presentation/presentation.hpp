@@ -30,7 +30,7 @@ namespace presentation
 {
 
 // TODO: docs
-class Presentation final : public detail::IPresentationDelegate
+class Presentation final : detail::IPresentationDelegate
 {
 public:
     Presentation(cetl::pmr::memory_resource& memory, IExecutor& executor, transport::ITransport& transport) noexcept
@@ -127,7 +127,9 @@ private:
             publisher_impl = allocator.allocate(1);
             if (publisher_impl != nullptr)
             {
-                allocator.construct(publisher_impl, *this, std::move(msg_tx_session));
+                allocator.construct(publisher_impl,
+                                    static_cast<detail::IPresentationDelegate&>(*this),
+                                    std::move(msg_tx_session));
             }
         }
         if (publisher_impl == nullptr)
@@ -154,7 +156,11 @@ private:
             subscriber_impl = allocator.allocate(1);
             if (subscriber_impl != nullptr)
             {
-                allocator.construct(subscriber_impl, memory_, *this, executor_, std::move(msg_rx_session));
+                allocator.construct(subscriber_impl,
+                                    memory_,
+                                    static_cast<detail::IPresentationDelegate&>(*this),
+                                    executor_,
+                                    std::move(msg_rx_session));
             }
         }
         if (subscriber_impl == nullptr)

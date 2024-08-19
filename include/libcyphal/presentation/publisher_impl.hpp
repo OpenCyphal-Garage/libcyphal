@@ -34,7 +34,7 @@ namespace detail
 {
 
 // TODO: docs
-class PublisherImpl : public cavl::Node<PublisherImpl>, public SharedObject
+class PublisherImpl final : public cavl::Node<PublisherImpl>, public detail::SharedObject
 {
 public:
     explicit PublisherImpl(IPresentationDelegate& delegate, UniquePtr<transport::IMessageTxSession> msg_tx_session)

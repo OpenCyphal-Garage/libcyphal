@@ -34,7 +34,7 @@ namespace detail
 {
 
 // TODO: docs
-class SubscriberImpl : public cavl::Node<SubscriberImpl>, public SharedObject
+class SubscriberImpl final : public cavl::Node<SubscriberImpl>, public detail::SharedObject
 {
 public:
     class CallbackNode : public cavl::Node<CallbackNode>

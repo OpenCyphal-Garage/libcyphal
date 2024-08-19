@@ -15,6 +15,12 @@ namespace libcyphal
 namespace presentation
 {
 
+/// Internal implementation details of the Presentation layer.
+/// Not supposed to be used directly by the users of the library.
+///
+namespace detail
+{
+
 /// @brief Defines the base class for all classes that need to be shared (using reference count).
 ///
 class SharedObject
@@ -58,6 +64,7 @@ private:
 
 };  // SharedObject
 
+}  // namespace detail
 }  // namespace presentation
 }  // namespace libcyphal
 
