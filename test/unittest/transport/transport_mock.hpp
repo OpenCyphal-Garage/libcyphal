@@ -8,7 +8,11 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/transport/errors.hpp>
+#include <libcyphal/transport/msg_sessions.hpp>
+#include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/transport.hpp>
+#include <libcyphal/transport/types.hpp>
+#include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>
 

@@ -44,15 +44,18 @@ public:
         {
             return reference().receive();
         }
-        void setOnReceiveCallback(OnReceiveFunction&& function) override
+        void setOnReceiveCallback(OnReceiveCallback::Function&& function) override
         {
             reference().setOnReceiveCallback(std::move(function));
         }
 
     };  // RefWrapper
 
-    MessageRxSessionMock()          = default;
-    virtual ~MessageRxSessionMock() = default;
+    MessageRxSessionMock() = default;
+    virtual ~MessageRxSessionMock()
+    {
+        deinit();
+    }
 
     MessageRxSessionMock(const MessageRxSessionMock&)                = delete;
     MessageRxSessionMock(MessageRxSessionMock&&) noexcept            = delete;
@@ -62,7 +65,8 @@ public:
     MOCK_METHOD(void, setTransferIdTimeout, (const Duration timeout), (override));
     MOCK_METHOD(MessageRxParams, getParams, (), (const, noexcept, override));
     MOCK_METHOD(cetl::optional<MessageRxTransfer>, receive, (), (override));
-    MOCK_METHOD(void, setOnReceiveCallback, (OnReceiveFunction&&), (override));
+    MOCK_METHOD(void, setOnReceiveCallback, (OnReceiveCallback::Function&&), (override));
+    MOCK_METHOD(void, deinit, (), (noexcept));  // NOLINT(*-exception-escape)
 
 };  // MessageRxSessionMock
 
@@ -89,8 +93,11 @@ public:
 
     };  // RefWrapper
 
-    MessageTxSessionMock()          = default;
-    virtual ~MessageTxSessionMock() = default;
+    MessageTxSessionMock() = default;
+    virtual ~MessageTxSessionMock()
+    {
+        deinit();
+    }
 
     MessageTxSessionMock(const MessageTxSessionMock&)                = delete;
     MessageTxSessionMock(MessageTxSessionMock&&) noexcept            = delete;
@@ -102,6 +109,7 @@ public:
                 send,
                 (const TransferTxMetadata& metadata, const PayloadFragments payload_fragments),
                 (override));
+    MOCK_METHOD(void, deinit, (), (noexcept));  // NOLINT(*-exception-escape)
 
 };  // MessageTxSessionMock
 

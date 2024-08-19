@@ -19,6 +19,7 @@
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <utility>
@@ -49,33 +50,20 @@ public:
     template <typename Message>
     Expected<Publisher<Message>, transport::AnyFailure> makePublisher(const transport::PortId subject_id)
     {
-        cetl::optional<transport::AnyFailure> make_session_failure;
+        cetl::optional<transport::AnyFailure> out_failure;
 
         const auto publisher_existing = publisher_impl_nodes_.search(
             [subject_id](const detail::PublisherImpl& other_pub) {  // predicate
                 //
                 return other_pub.compareWith(subject_id);
             },
-            [this, subject_id, &make_session_failure]() -> detail::PublisherImpl* {  // factory
+            [this, subject_id, &out_failure]() -> detail::PublisherImpl* {  // factory
                 //
-                auto maybe_session = transport_.makeMessageTxSession({subject_id});
-                if (auto* const failure = cetl::get_if<transport::AnyFailure>(&maybe_session))
-                {
-                    make_session_failure = std::move(*failure);
-                    return nullptr;
-                }
-                auto msg_tx_session = cetl::get<MessageTxSessionPtr>(std::move(maybe_session));
-                if (!msg_tx_session)
-                {
-                    make_session_failure = transport::MemoryError{};
-                    return nullptr;
-                }
-                return makePublisherImpl(std::move(msg_tx_session));
+                return makePublisherImpl({subject_id}, out_failure);
             });
-
-        if (make_session_failure)
+        if (out_failure)
         {
-            return std::move(*make_session_failure);
+            return std::move(*out_failure);
         }
 
         auto* const publisher_impl = std::get<0>(publisher_existing);
@@ -94,33 +82,20 @@ public:
     template <typename Message>
     Expected<Subscriber<Message>, transport::AnyFailure> makeSubscriber(const transport::PortId subject_id)
     {
-        cetl::optional<transport::AnyFailure> make_session_failure;
+        cetl::optional<transport::AnyFailure> out_failure;
 
         const auto subscriber_existing = subscriber_impl_nodes_.search(
             [subject_id](const detail::SubscriberImpl& other_sub) {  // predicate
                 //
                 return other_sub.compareWith(subject_id);
             },
-            [this, subject_id, &make_session_failure]() -> detail::SubscriberImpl* {  // factory
+            [this, subject_id, &out_failure]() -> detail::SubscriberImpl* {  // factory
                 //
-                auto maybe_session = transport_.makeMessageRxSession({Message::_traits_::ExtentBytes, subject_id});
-                if (auto* const failure = cetl::get_if<transport::AnyFailure>(&maybe_session))
-                {
-                    make_session_failure = std::move(*failure);
-                    return nullptr;
-                }
-                auto msg_rx_session = cetl::get<MessageRxSessionPtr>(std::move(maybe_session));
-                if (!msg_rx_session)
-                {
-                    make_session_failure = transport::MemoryError{};
-                    return nullptr;
-                }
-                return makeSubscriberImpl(std::move(msg_rx_session));
+                return makeSubscriberImpl({Message::_traits_::ExtentBytes, subject_id}, out_failure);
             });
-
-        if (make_session_failure)
+        if (out_failure)
         {
-            return std::move(*make_session_failure);
+            return std::move(*out_failure);
         }
 
         auto* const subscriber_impl = std::get<0>(subscriber_existing);
@@ -135,30 +110,58 @@ private:
     using MessageRxSessionPtr = UniquePtr<transport::IMessageRxSession>;
     using MessageTxSessionPtr = UniquePtr<transport::IMessageTxSession>;
 
-    CETL_NODISCARD detail::PublisherImpl* makePublisherImpl(MessageTxSessionPtr&& msg_tx_session)
+    CETL_NODISCARD detail::PublisherImpl* makePublisherImpl(const transport::MessageTxParams       params,
+                                                            cetl::optional<transport::AnyFailure>& out_failure)
     {
-        CETL_DEBUG_ASSERT(msg_tx_session, "");
-
-        PmrAllocator<detail::PublisherImpl> allocator{&memory_};
-        if (auto* const publisher_impl = allocator.allocate(1))
+        auto maybe_session = transport_.makeMessageTxSession(params);
+        if (auto* const failure = cetl::get_if<transport::AnyFailure>(&maybe_session))
         {
-            allocator.construct(publisher_impl, *this, std::move(msg_tx_session));
-            return publisher_impl;
+            out_failure = std::move(*failure);
+            return nullptr;
         }
-        return nullptr;
+
+        detail::PublisherImpl* publisher_impl{nullptr};
+        if (auto msg_tx_session = cetl::get<MessageTxSessionPtr>(std::move(maybe_session)))
+        {
+            PmrAllocator<detail::PublisherImpl> allocator{&memory_};
+            publisher_impl = allocator.allocate(1);
+            if (publisher_impl != nullptr)
+            {
+                allocator.construct(publisher_impl, *this, std::move(msg_tx_session));
+            }
+        }
+        if (publisher_impl == nullptr)
+        {
+            out_failure = transport::MemoryError{};
+        }
+        return publisher_impl;
     }
 
-    CETL_NODISCARD detail::SubscriberImpl* makeSubscriberImpl(MessageRxSessionPtr&& msg_rx_session)
+    CETL_NODISCARD detail::SubscriberImpl* makeSubscriberImpl(const transport::MessageRxParams       params,
+                                                              cetl::optional<transport::AnyFailure>& out_failure)
     {
-        CETL_DEBUG_ASSERT(msg_rx_session, "");
-
-        PmrAllocator<detail::SubscriberImpl> allocator{&memory_};
-        if (auto* const subscriber_impl = allocator.allocate(1))
+        auto maybe_session = transport_.makeMessageRxSession(params);
+        if (auto* const failure = cetl::get_if<transport::AnyFailure>(&maybe_session))
         {
-            allocator.construct(subscriber_impl, memory_, *this, executor_, std::move(msg_rx_session));
-            return subscriber_impl;
+            out_failure = std::move(*failure);
+            return nullptr;
         }
-        return nullptr;
+
+        detail::SubscriberImpl* subscriber_impl{nullptr};
+        if (auto msg_rx_session = cetl::get<MessageRxSessionPtr>(std::move(maybe_session)))
+        {
+            PmrAllocator<detail::SubscriberImpl> allocator{&memory_};
+            subscriber_impl = allocator.allocate(1);
+            if (subscriber_impl != nullptr)
+            {
+                allocator.construct(subscriber_impl, memory_, *this, executor_, std::move(msg_rx_session));
+            }
+        }
+        if (subscriber_impl == nullptr)
+        {
+            out_failure = transport::MemoryError{};
+        }
+        return subscriber_impl;
     }
 
     template <typename ImplNode>
