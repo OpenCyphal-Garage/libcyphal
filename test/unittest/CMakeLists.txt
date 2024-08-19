@@ -35,6 +35,7 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
             cetl
             cyphal
             dsdl_support
+            dsdl_public_types
         LINK_TO_MAIN
         OUT_TEST_LIB_VARIABLE LOCAL_TEST_LIB
         OUT_TEST_EXE_VARIABLE LOCAL_TEST_TARGET
