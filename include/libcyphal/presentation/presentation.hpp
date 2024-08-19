@@ -55,7 +55,7 @@ public:
         const auto publisher_existing = publisher_impl_nodes_.search(
             [subject_id](const detail::PublisherImpl& other_pub) {  // predicate
                 //
-                return other_pub.compareWith(subject_id);
+                return other_pub.compareBySubjectId(subject_id);
             },
             [this, subject_id, &out_failure]() -> detail::PublisherImpl* {  // factory
                 //
@@ -87,7 +87,7 @@ public:
         const auto subscriber_existing = subscriber_impl_nodes_.search(
             [subject_id](const detail::SubscriberImpl& other_sub) {  // predicate
                 //
-                return other_sub.compareWith(subject_id);
+                return other_sub.compareBySubjectId(subject_id);
             },
             [this, subject_id, &out_failure]() -> detail::SubscriberImpl* {  // factory
                 //

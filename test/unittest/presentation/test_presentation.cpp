@@ -15,6 +15,7 @@
 #include <libcyphal/presentation/subscriber.hpp>
 #include <libcyphal/presentation/subscriber_impl.hpp>
 #include <libcyphal/transport/errors.hpp>
+#include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/types.hpp>
 
 #include <uavcan/node/Heartbeat_1_0.hpp>

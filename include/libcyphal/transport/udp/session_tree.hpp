@@ -76,8 +76,15 @@ public:
 
     CETL_NODISCARD Expected<NodeRef, AnyFailure> ensureNewNodeFor(const PortId port_id)
     {
-        const auto node_existing = nodes_.search([port_id](const Node& node) { return node.compareWith(port_id); },
-                                                 [port_id, this]() { return constructNewNode(port_id); });
+        const auto node_existing = nodes_.search(
+            [port_id](const Node& node) {  // predicate
+                //
+                return node.compareByPortId(port_id);
+            },
+            [this, port_id]() {  // factory
+                //
+                return constructNewNode(port_id);
+            });
 
         auto* const node = std::get<0>(node_existing);
         if (nullptr == node)
@@ -94,7 +101,10 @@ public:
 
     void removeNodeFor(const PortId port_id)
     {
-        removeAndDestroyNode(nodes_.search([port_id](const Node& node) { return node.compareWith(port_id); }));
+        removeAndDestroyNode(nodes_.search([port_id](const Node& node) {  // predicate
+            //
+            return node.compareByPortId(port_id);
+        }));
     }
 
     template <typename Action>
@@ -153,7 +163,7 @@ struct RxSessionTreeNode
         {
         }
 
-        CETL_NODISCARD std::int32_t compareWith(const PortId port_id) const
+        CETL_NODISCARD std::int32_t compareByPortId(const PortId port_id) const
         {
             return static_cast<std::int32_t>(port_id_) - static_cast<std::int32_t>(port_id);
         }

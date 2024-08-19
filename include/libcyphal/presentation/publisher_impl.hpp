@@ -46,12 +46,7 @@ public:
         CETL_DEBUG_ASSERT(msg_tx_session_ != nullptr, "");
     }
 
-    transport::PortId subjectId() const noexcept
-    {
-        return subject_id_;
-    }
-
-    CETL_NODISCARD std::int32_t compareWith(const transport::PortId subject_id) const
+    CETL_NODISCARD std::int32_t compareBySubjectId(const transport::PortId subject_id) const
     {
         return static_cast<std::int32_t>(subject_id_) - static_cast<std::int32_t>(subject_id);
     }
