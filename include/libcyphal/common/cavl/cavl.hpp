@@ -801,12 +801,12 @@ public:
     Tree(Tree&& other) noexcept
         : origin_node_{std::move(other.origin_node_)}
     {
-        CAVL_ASSERT(!traversal_in_progress_);  // Cannot modify the tree while it is being traversed.
+        CAVL_ASSERT(!traversal_in_progress_);        // Cannot modify the tree while it is being traversed.
         CAVL_ASSERT(!other.traversal_in_progress_);  // Cannot modify the tree while it is being traversed.
     }
     auto operator=(Tree&& other) noexcept -> Tree&
     {
-        CAVL_ASSERT(!traversal_in_progress_);  // Cannot modify the tree while it is being traversed.
+        CAVL_ASSERT(!traversal_in_progress_);        // Cannot modify the tree while it is being traversed.
         CAVL_ASSERT(!other.traversal_in_progress_);  // Cannot modify the tree while it is being traversed.
 
         origin_node_ = std::move(other.origin_node_);
