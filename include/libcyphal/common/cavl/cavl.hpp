@@ -481,8 +481,8 @@ void Node<Derived>::removeImpl(const Node* const node) noexcept
         {
             p = re->getParentNode();  // Retracing starts with the ex-parent of our replacement node.
             CAVL_ASSERT(p->lr[0] == re);
-            p->lr[0] = re->lr[1];     // Reducing the height of the left subtree here.
-            if (p->lr[0] != nullptr)  // NOSONAR cpp:S134
+            p->lr[0] = re->lr[1];  // Reducing the height of the left subtree here.
+            if (p->lr[0] != nullptr)
             {
                 p->lr[0]->up = p;
             }
@@ -509,7 +509,7 @@ void Node<Derived>::removeImpl(const Node* const node) noexcept
 
         r        = p->lr[1] == node;
         p->lr[r] = node->lr[rr];
-        if (p->lr[r] != nullptr)  // NOSONAR cpp:S134
+        if (p->lr[r] != nullptr)
         {
             p->lr[r]->up = p;
         }
@@ -520,22 +520,20 @@ void Node<Derived>::removeImpl(const Node* const node) noexcept
     // subtree is unchanged, so upper balance factors shall be kept unchanged.
     if (p->isLinked())
     {
-        Node* c = nullptr;
         for (;;)  // NOSONAR cpp:S5311
         {
-            c = p->adjustBalance(!r);
-            p = c->getParentNode();
-            if ((c->bf != 0) || (nullptr == p))  // NOSONAR cpp:S134
+            Node* const c = p->adjustBalance(!r);
+            p             = c->getParentNode();
+            if ((c->bf != 0) || (nullptr == p))
             {
                 // Reached the root or the height difference is absorbed by `c`.
+                if (nullptr == p)
+                {
+                    c->up->lr[0] = c;
+                }
                 break;
             }
             r = p->lr[1] == c;
-        }
-        if (nullptr == p)
-        {
-            CAVL_ASSERT(c != nullptr);
-            c->up->lr[0] = c;
         }
     }
 }
