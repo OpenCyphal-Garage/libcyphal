@@ -168,8 +168,8 @@ protected:
     /// Remove the specified node from its tree.
     ///
     /// The root node (inside the origin) may be replaced in the process.
-    ///
-    void remove() const noexcept
+    /// No Sonar cpp:S6936 b/c the `remove` method name isolated inside `Node` type (doesn't conflict with C).
+    void remove() const noexcept  // NOSONAR cpp:S6936
     {
         removeImpl(this);
     }
@@ -177,7 +177,8 @@ protected:
     /// This is like the const overload of `remove()`
     /// except that the node pointers are invalidated afterward for safety.
     ///
-    void remove() noexcept
+    /// No Sonar cpp:S6936 b/c the `remove` method name isolated inside `Node` type (doesn't conflict with C).
+    void remove() noexcept  // NOSONAR cpp:S6936
     {
         removeImpl(this);
         unlink();

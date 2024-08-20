@@ -30,7 +30,7 @@ namespace presentation
 {
 
 // TODO: docs
-class Presentation final : detail::IPresentationDelegate
+class Presentation final : private detail::IPresentationDelegate
 {
 public:
     Presentation(cetl::pmr::memory_resource& memory, IExecutor& executor, transport::ITransport& transport) noexcept
