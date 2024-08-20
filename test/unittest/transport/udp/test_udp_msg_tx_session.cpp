@@ -124,6 +124,12 @@ TEST_F(TestUdpMsgTxSession, make)
 
         EXPECT_THAT(session->getParams().subject_id, 123);
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -143,6 +149,12 @@ TEST_F(TestUdpMsgTxSession, make_no_memory)
         auto maybe_session = transport->makeMessageTxSession({0x23});
         EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -155,6 +167,12 @@ TEST_F(TestUdpMsgTxSession, make_fails_due_to_argument_error)
         //
         auto maybe_session = transport->makeMessageTxSession({UDPARD_SUBJECT_ID_MAX + 1});
         EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -245,6 +263,12 @@ TEST_F(TestUdpMsgTxSession, send_empty_payload)
         auto failure      = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 
     // Payload still inside udpard TX queue (b/c TX socket did not accept the payload),
@@ -279,12 +303,18 @@ TEST_F(TestUdpMsgTxSession, send_empty_expired_payload)
         auto failure      = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
 TEST_F(TestUdpMsgTxSession, send_single_frame_payload_with_500ms_timeout)
 {
-    const auto transport = makeTransport({mr_});
+    auto transport = makeTransport({mr_});
 
     auto maybe_session = transport->makeMessageTxSession({0x17});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
@@ -326,6 +356,13 @@ TEST_F(TestUdpMsgTxSession, send_single_frame_payload_with_500ms_timeout)
                 return ITxSocket::SendResult::Success{true /* is_accepted */};
             });
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -353,6 +390,13 @@ TEST_F(TestUdpMsgTxSession, send_when_no_memory_for_contiguous_payload)
         metadata.deadline = now() + 1s;
         auto failure      = session->send(metadata, makeSpansFrom(payload1, payload2));
         EXPECT_THAT(failure, Optional(VariantWith<MemoryError>(_)));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }

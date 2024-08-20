@@ -127,6 +127,12 @@ TEST_F(TestUdpSvcTxSessions, make_request_session)
         EXPECT_THAT(session->getParams().service_id, 123);
         EXPECT_THAT(session->getParams().server_node_id, UDPARD_NODE_ID_MAX);
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -146,6 +152,12 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_argument_error)
         auto maybe_session = transport->makeRequestTxSession({0, UDPARD_NODE_ID_MAX + 1});
         EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -164,6 +176,12 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_no_memory)
 
         auto maybe_session = transport->makeRequestTxSession({0x23, 0});
         EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -206,6 +224,11 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_media_socket)
         auto session = cetl::get<UniquePtr<IRequestTxSession>>(std::move(maybe_tx_session));
         EXPECT_THAT(session->getParams().service_id, 0x23);
         EXPECT_THAT(transport->getProtocolParams().mtu_bytes, ITxSocket::DefaultMtu);
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -257,6 +280,13 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_request)
         metadata.deadline = now() + 1s;
         auto failure      = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        session.reset();
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 
@@ -313,6 +343,13 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_responce)
         auto failure              = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 
     // Payload still inside udpard TX queue (b/c TX socket did not accept the payload),
@@ -354,6 +391,13 @@ TEST_F(TestUdpSvcTxSessions, send_request)
         metadata.deadline = now() + timeout;
         auto failure      = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -400,6 +444,13 @@ TEST_F(TestUdpSvcTxSessions, send_request_with_argument_error)
         const auto failure = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -415,6 +466,12 @@ TEST_F(TestUdpSvcTxSessions, make_response_session)
 
         EXPECT_THAT(session->getParams().service_id, 123);
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -427,6 +484,12 @@ TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_argument_error)
         //
         auto maybe_session = transport->makeResponseTxSession({UDPARD_SERVICE_ID_MAX + 1});
         EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -446,6 +509,10 @@ TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_no_memory)
 
         auto maybe_session = transport->makeResponseTxSession({0x23});
         EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
+
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -489,6 +556,11 @@ TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_media_socket)
         EXPECT_THAT(session->getParams().service_id, 123);
         EXPECT_THAT(transport->getProtocolParams().mtu_bytes, ITxSocket::DefaultMtu);
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -527,6 +599,13 @@ TEST_F(TestUdpSvcTxSessions, send_response)
         auto failure              = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -562,6 +641,13 @@ TEST_F(TestUdpSvcTxSessions, send_response_with_argument_error)
         metadata.remote_node_id   = UDPARD_NODE_ID_MAX + 1;
         const auto maybe_error    = session->send(metadata, empty_payload);
         EXPECT_THAT(maybe_error, Optional(VariantWith<ArgumentError>(_)));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }

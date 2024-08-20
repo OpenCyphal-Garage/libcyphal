@@ -91,6 +91,8 @@ public:
 
     MOCK_METHOD(IExecutor::Callback::Any, registerCallback, (IExecutor::Callback::Function && function), (override));
 
+    MOCK_METHOD(void, deinit, (), (noexcept));  // NOLINT(*-exception-escape)
+
 private:
     const std::string name_;
 
@@ -149,6 +151,8 @@ public:
     MOCK_METHOD(ReceiveResult::Type, receive, (), (override));
 
     MOCK_METHOD(IExecutor::Callback::Any, registerCallback, (IExecutor::Callback::Function && function), (override));
+
+    MOCK_METHOD(void, deinit, (), (noexcept));  // NOLINT(*-exception-escape)
 
 private:
     const std::string name_;

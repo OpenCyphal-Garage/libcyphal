@@ -151,7 +151,9 @@ TEST_F(TestUdpMsgRxSession, make_setTransferIdTimeout)
     session->setTransferIdTimeout(500ms);
 
     EXPECT_THAT(scheduler_.hasNamedCallback("rx"), true);
+    EXPECT_CALL(rx_socket_mock_, deinit());
     session.reset();
+    testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
     EXPECT_THAT(scheduler_.hasNamedCallback("rx"), false);
 }
 
@@ -349,6 +351,12 @@ TEST_F(TestUdpMsgRxSession, receive)
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
         });
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(rx_socket_mock_, deinit());
+        session.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -427,6 +435,12 @@ TEST_F(TestUdpMsgRxSession, receive_one_anonymous_frame)
                 });
         });
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(rx_socket_mock_, deinit());
+        session.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -445,7 +459,9 @@ TEST_F(TestUdpMsgRxSession, unsubscribe)
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
+        EXPECT_CALL(rx_socket_mock_, deinit());
         session.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }

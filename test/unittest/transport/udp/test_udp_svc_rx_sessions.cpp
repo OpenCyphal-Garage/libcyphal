@@ -367,6 +367,13 @@ TEST_F(TestUdpSvcRxSessions, receive_request)
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
         });
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(rx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -468,6 +475,13 @@ TEST_F(TestUdpSvcRxSessions, receive_response)
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
         });
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(rx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -488,6 +502,12 @@ TEST_F(TestUdpSvcRxSessions, unsubscribe)
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         session.reset();
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(rx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }

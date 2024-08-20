@@ -193,6 +193,7 @@ TEST_F(TestPublisher, publish)
         //
         EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
         publisher.reset();
+        testing::Mock::VerifyAndClearExpectations(&msg_tx_session_mock);
     });
     scheduler_.spinFor(10s);
 }
@@ -231,6 +232,7 @@ TEST_F(TestPublisher, publish_with_serialization_failure)
         //
         EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
         publisher.reset();
+        testing::Mock::VerifyAndClearExpectations(&msg_tx_session_mock);
     });
     scheduler_.spinFor(10s);
 }
@@ -278,6 +280,7 @@ TEST_F(TestPublisher, publishRawData)
         //
         EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
         publisher.reset();
+        testing::Mock::VerifyAndClearExpectations(&msg_tx_session_mock);
     });
     scheduler_.spinFor(10s);
 }

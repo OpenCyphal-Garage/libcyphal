@@ -26,7 +26,10 @@ struct UniquePtrReferenceWrapper : Interface
     {
     }
 
-    virtual ~UniquePtrReferenceWrapper() = default;
+    virtual ~UniquePtrReferenceWrapper()
+    {
+        reference_.deinit();
+    }
 
     UniquePtrReferenceWrapper(UniquePtrReferenceWrapper&&) noexcept            = delete;
     UniquePtrReferenceWrapper& operator=(const UniquePtrReferenceWrapper&)     = delete;

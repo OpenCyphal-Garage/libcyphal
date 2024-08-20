@@ -51,11 +51,8 @@ public:
 
     };  // RefWrapper
 
-    MessageRxSessionMock() = default;
-    virtual ~MessageRxSessionMock()
-    {
-        deinit();
-    }
+    MessageRxSessionMock()          = default;
+    virtual ~MessageRxSessionMock() = default;
 
     MessageRxSessionMock(const MessageRxSessionMock&)                = delete;
     MessageRxSessionMock(MessageRxSessionMock&&) noexcept            = delete;
@@ -93,11 +90,8 @@ public:
 
     };  // RefWrapper
 
-    MessageTxSessionMock() = default;
-    virtual ~MessageTxSessionMock()
-    {
-        deinit();
-    }
+    MessageTxSessionMock()          = default;
+    virtual ~MessageTxSessionMock() = default;
 
     MessageTxSessionMock(const MessageTxSessionMock&)                = delete;
     MessageTxSessionMock(MessageTxSessionMock&&) noexcept            = delete;
@@ -109,7 +103,7 @@ public:
                 send,
                 (const TransferTxMetadata& metadata, const PayloadFragments payload_fragments),
                 (override));
-    MOCK_METHOD(void, deinit, (), (noexcept));  // NOLINT(*-exception-escape)
+    MOCK_METHOD(void, deinit, (), ());
 
 };  // MessageTxSessionMock
 

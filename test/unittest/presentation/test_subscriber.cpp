@@ -108,7 +108,7 @@ TEST_F(TestSubscriber, move)
     ASSERT_THAT(maybe_sub1, VariantWith<Subscriber<Message>>(_));
     auto sub1a = cetl::get<Subscriber<Message>>(std::move(maybe_sub1));
 
-    auto sub1b = std::move(sub1a);
+    cetl::optional<Subscriber<Message>> sub1b{std::move(sub1a)};
 
     auto maybe_sub2 = presentation.makeSubscriber<Message>(Message::_traits_::FixedPortId);
     ASSERT_THAT(maybe_sub2, VariantWith<Subscriber<Message>>(_));
@@ -117,6 +117,8 @@ TEST_F(TestSubscriber, move)
     sub1b = std::move(sub2);
 
     EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);
+    sub1b.reset();
+    testing::Mock::VerifyAndClearExpectations(&msg_rx_session_mock);
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
