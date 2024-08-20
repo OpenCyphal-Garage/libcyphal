@@ -524,7 +524,7 @@ void Node<Derived>::removeImpl(const Node* const node) noexcept
         {
             Node* const c = p->adjustBalance(!r);
             CAVL_ASSERT(nullptr != c);
-            p             = c->getParentNode();
+            p = c->getParentNode();
             if ((c->bf != 0) || (nullptr == p))
             {
                 // Reached the root or the height difference is absorbed by `c`.
