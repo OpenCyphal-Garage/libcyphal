@@ -523,11 +523,13 @@ void Node<Derived>::removeImpl(const Node* const node) noexcept
         for (;;)  // NOSONAR cpp:S5311
         {
             Node* const c = p->adjustBalance(!r);
+            CAVL_ASSERT(nullptr != c);
             p             = c->getParentNode();
             if ((c->bf != 0) || (nullptr == p))
             {
                 // Reached the root or the height difference is absorbed by `c`.
-                if (nullptr == p)
+                CAVL_ASSERT(nullptr != c->up);
+                if ((nullptr == p) && (nullptr != c->up))  // NOSONAR cpp:S134
                 {
                     c->up->lr[0] = c;
                 }
@@ -596,6 +598,7 @@ auto Node<Derived>::adjustBalance(const bool increment) noexcept -> Node*
     {
         bf = new_bf;  // Balancing not needed, just update the balance factor and call it a day.
     }
+    CAVL_ASSERT(nullptr != out);
     return out;
 }
 
