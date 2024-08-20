@@ -21,19 +21,16 @@ struct UniquePtrReferenceWrapper : Interface
         : reference_{reference}
     {
     }
-    UniquePtrReferenceWrapper(const UniquePtrReferenceWrapper& other)
-        : reference_{other.reference_}
-    {
-    }
+
+    UniquePtrReferenceWrapper(const UniquePtrReferenceWrapper& other)          = delete;
+    UniquePtrReferenceWrapper(UniquePtrReferenceWrapper&&) noexcept            = delete;
+    UniquePtrReferenceWrapper& operator=(const UniquePtrReferenceWrapper&)     = delete;
+    UniquePtrReferenceWrapper& operator=(UniquePtrReferenceWrapper&&) noexcept = delete;
 
     virtual ~UniquePtrReferenceWrapper()
     {
         reference_.deinit();
     }
-
-    UniquePtrReferenceWrapper(UniquePtrReferenceWrapper&&) noexcept            = delete;
-    UniquePtrReferenceWrapper& operator=(const UniquePtrReferenceWrapper&)     = delete;
-    UniquePtrReferenceWrapper& operator=(UniquePtrReferenceWrapper&&) noexcept = delete;
 
     Reference& reference() const
     {
