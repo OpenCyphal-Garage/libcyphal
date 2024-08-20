@@ -18,6 +18,7 @@
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #if __cplusplus >= 201703L
@@ -43,6 +44,7 @@ constexpr auto Zzzzz = nullptr;
 class My : public cavl::Node<My>
 {
 public:
+    My() = default;
     explicit My(const std::uint16_t v)
         : value(v)
     {
@@ -361,6 +363,7 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     std::puts("REMOVE 24");
     EXPECT_TRUE(checkLinkage<N>(t[24], t[16], {t[20], t[28]}, 00));
     tr.remove(t[24]);
+    //*t[24] = std::move(*t[1]); std::swap(t[24], t[1]);
     EXPECT_EQ(nullptr, t[24]->getParentNode());  // Ensure everything has been reset.
     EXPECT_EQ(nullptr, t[24]->getChildNode(false));
     EXPECT_EQ(nullptr, t[24]->getChildNode(true));
@@ -960,6 +963,18 @@ TEST(TestCavl, randomized)
 
 TEST(TestCavl, manualMy)
 {
+    static_assert(!std::is_copy_assignable<My>::value, "Should not be copy assignable.");
+    static_assert(!std::is_copy_constructible<My>::value, "Should not be copy constructible.");
+    static_assert(std::is_move_assignable<My>::value, "Should be move assignable.");
+    static_assert(std::is_move_constructible<My>::value, "Should be move constructible.");
+    static_assert(std::is_default_constructible<My>::value, "Should be default constructible.");
+
+    static_assert(!std::is_copy_assignable<My::TreeType>::value, "Should not be copy assignable.");
+    static_assert(!std::is_copy_constructible<My::TreeType>::value, "Should not be copy constructible.");
+    static_assert(std::is_move_assignable<My::TreeType>::value, "Should be move assignable.");
+    static_assert(std::is_move_constructible<My::TreeType>::value, "Should be move constructible.");
+    static_assert(std::is_default_constructible<My::TreeType>::value, "Should be default constructible.");
+
     testManual<My>(
         [](const std::uint16_t x) {
             return new My(x);  // NOLINT
@@ -1005,7 +1020,6 @@ public:
 private:
     using E = struct
     {};
-    UNUSED E root_ptr;
     UNUSED E up;
     UNUSED E lr;
     UNUSED E bf;
@@ -1070,6 +1084,18 @@ auto makeV(const std::uint8_t val) -> V*
 
 TEST(TestCavl, manualV)
 {
+    static_assert(!std::is_copy_assignable<V>::value, "Should not be copy assignable.");
+    static_assert(!std::is_copy_constructible<V>::value, "Should not be copy constructible.");
+    static_assert(std::is_move_assignable<V>::value, "Should be move assignable.");
+    static_assert(!std::is_move_constructible<V>::value, "Should be move constructible.");
+    static_assert(!std::is_default_constructible<V>::value, "Should be default constructible.");
+
+    static_assert(!std::is_copy_assignable<V::TreeType>::value, "Should not be copy assignable.");
+    static_assert(!std::is_copy_constructible<V::TreeType>::value, "Should not be copy constructible.");
+    static_assert(std::is_move_assignable<V::TreeType>::value, "Should be move assignable.");
+    static_assert(std::is_move_constructible<V::TreeType>::value, "Should be move constructible.");
+    static_assert(std::is_default_constructible<V::TreeType>::value, "Should be default constructible.");
+
     testManual<V>(&makeV<>, [](V* const old_node) {  //
         auto* const new_node = old_node->clone();
         delete old_node;  // NOLINT(*-owning-memory)
