@@ -270,7 +270,13 @@ TEST_F(TestUpdTransport, makeTransport_with_invalid_arguments)
 
 TEST_F(TestUpdTransport, getProtocolParams)
 {
-    StrictMock<MediaMock> media_mock2{};
+    StrictMock<MediaMock>    media_mock2{};
+    StrictMock<TxSocketMock> tx_socket_mock2{"S2"};
+    EXPECT_CALL(media_mock2, makeTxSocket())  //
+        .WillRepeatedly(Invoke([&] {          //
+            return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock2);
+        }));
+    EXPECT_CALL(tx_socket_mock2, getMtu()).WillRepeatedly(Return(ITxSocket::DefaultMtu));
 
     std::array<IMedia*, 2> media_array{&media_mock_, &media_mock2};
     auto transport = cetl::get<UniquePtr<IUdpTransport>>(udp::makeTransport({mr_}, scheduler_, media_array, 0));
@@ -279,13 +285,6 @@ TEST_F(TestUpdTransport, getProtocolParams)
     EXPECT_THAT(params.transfer_id_modulo, std::numeric_limits<TransferId>::max());
     EXPECT_THAT(params.max_nodes, UDPARD_NODE_ID_MAX + 1);
     EXPECT_THAT(params.mtu_bytes, UDPARD_MTU_DEFAULT);
-
-    StrictMock<TxSocketMock> tx_socket_mock2{"S2"};
-    EXPECT_CALL(media_mock2, makeTxSocket())  //
-        .WillRepeatedly(Invoke([&] {          //
-            return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock2);
-        }));
-    EXPECT_CALL(tx_socket_mock2, getMtu()).WillRepeatedly(Return(ITxSocket::DefaultMtu));
 
     auto maybe_tx_session = transport->makeMessageTxSession({123});
     ASSERT_THAT(maybe_tx_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
@@ -306,6 +305,9 @@ TEST_F(TestUpdTransport, getProtocolParams)
         EXPECT_CALL(tx_socket_mock2, getMtu()).WillRepeatedly(Return(UDPARD_MTU_DEFAULT - 256));
         EXPECT_THAT(transport->getProtocolParams().mtu_bytes, UDPARD_MTU_DEFAULT - 256);
     }
+
+    EXPECT_CALL(tx_socket_mock_, deinit());
+    EXPECT_CALL(tx_socket_mock2, deinit());
 }
 
 TEST_F(TestUpdTransport, makeMessageRxSession)
@@ -326,7 +328,13 @@ TEST_F(TestUpdTransport, makeMessageRxSession)
         EXPECT_THAT(session->getParams().extent_bytes, 42);
         EXPECT_THAT(session->getParams().subject_id, 123);
 
+        EXPECT_CALL(rx_socket_mock_, deinit());
         session.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        transport.reset();
     });
     scheduler_.spinFor(10s);
 }
@@ -340,6 +348,10 @@ TEST_F(TestUpdTransport, makeMessageRxSession_invalid_subject_id)
         auto maybe_rx_session = transport->makeMessageRxSession({0, UDPARD_SUBJECT_ID_MAX + 1});
         EXPECT_THAT(maybe_rx_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        transport.reset();
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -347,7 +359,7 @@ TEST_F(TestUpdTransport, makeMessageRxSession_invalid_resubscription)
 {
     auto transport = makeTransport({mr_});
 
-    const PortId test_subject_id = 111;
+    constexpr PortId test_subject_id = 111;
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
@@ -360,6 +372,11 @@ TEST_F(TestUpdTransport, makeMessageRxSession_invalid_resubscription)
 
         auto maybe_rx_session2 = transport->makeMessageRxSession({0, test_subject_id});
         EXPECT_THAT(maybe_rx_session2, VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
+
+        EXPECT_CALL(rx_socket_mock_, deinit());
+        auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_rx_session1));
+        session.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
@@ -367,8 +384,17 @@ TEST_F(TestUpdTransport, makeMessageRxSession_invalid_resubscription)
             .WillOnce(Invoke([&](auto function) {          //
                 return scheduler_.registerCallback(std::move(function));
             }));
-        auto maybe_rx_session2 = transport->makeMessageRxSession({0, test_subject_id});
-        ASSERT_THAT(maybe_rx_session2, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+        auto maybe_rx_session = transport->makeMessageRxSession({0, test_subject_id});
+        ASSERT_THAT(maybe_rx_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+
+        EXPECT_CALL(rx_socket_mock_, deinit());
+        auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_rx_session));
+        session.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        transport.reset();
     });
     scheduler_.spinFor(10s);
 }
@@ -389,8 +415,13 @@ TEST_F(TestUpdTransport, makeRequestRxSession_invalid_resubscription)
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
-        auto maybe_rx_session2 = transport->makeRequestRxSession({0, test_subject_id});
-        ASSERT_THAT(maybe_rx_session2, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
+        auto maybe_rx_session = transport->makeRequestRxSession({0, test_subject_id});
+        ASSERT_THAT(maybe_rx_session, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -399,7 +430,7 @@ TEST_F(TestUpdTransport, makeResponseRxSession_invalid_resubscription)
 {
     auto transport = makeTransport({mr_});
 
-    const PortId test_subject_id = 111;
+    constexpr PortId test_subject_id = 111;
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
@@ -414,6 +445,11 @@ TEST_F(TestUpdTransport, makeResponseRxSession_invalid_resubscription)
         auto maybe_rx_session2 = transport->makeResponseRxSession({0, test_subject_id, 0x31});
         ASSERT_THAT(maybe_rx_session2, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -427,8 +463,8 @@ TEST_F(TestUpdTransport, makeXxxRxSession_all_with_same_port_id)
             .WillOnce(Invoke([&](auto function) {          //
                 return scheduler_.registerCallback(std::move(function));
             }));
-        const PortId test_port_id              = 111;
-        auto         maybe_svc_res_rx_session1 = transport->makeResponseRxSession({0, test_port_id, 0x31});
+        constexpr PortId test_port_id              = 111;
+        auto             maybe_svc_res_rx_session1 = transport->makeResponseRxSession({0, test_port_id, 0x31});
         ASSERT_THAT(maybe_svc_res_rx_session1, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
 
         auto maybe_svc_req_rx_session1 = transport->makeRequestRxSession({0, test_port_id});
@@ -436,6 +472,15 @@ TEST_F(TestUpdTransport, makeXxxRxSession_all_with_same_port_id)
 
         auto maybe_msg_rx_session = transport->makeMessageRxSession({42, test_port_id});
         ASSERT_THAT(maybe_msg_rx_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+
+        EXPECT_CALL(rx_socket_mock_, deinit());
+        auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_msg_rx_session));
+        session.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        transport.reset();
     });
     scheduler_.spinFor(10s);
 }
@@ -451,6 +496,12 @@ TEST_F(TestUpdTransport, makeMessageTxSession)
 
         auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_tx_session));
         EXPECT_THAT(session->getParams().subject_id, 123);
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -471,6 +522,13 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_should_fail_for_anonymous)
         metadata.deadline = now() + 1s;
         auto failure      = session->send(metadata, makeSpansFrom(payload));
         EXPECT_THAT(failure, Optional(VariantWith<AnonymousError>(_)));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -522,6 +580,13 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)
                 EXPECT_THAT(fragments[0], SizeIs(24 + 1));
                 return ITxSocket::SendResult::Success{true /* is_accepted */};
             });
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -625,6 +690,15 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
                 return ITxSocket::SendResult::Success{true /* is_accepted */};
             });
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        EXPECT_CALL(tx_socket_mock2, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock2);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -632,6 +706,8 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
 TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
 {
     using SocketSendReport = IUdpTransport::TransientErrorReport::MediaTxSocketSend;
+
+    StrictMock<TransientErrorHandlerMock> handler_mock;
 
     StrictMock<MediaMock>    media_mock2{};
     StrictMock<TxSocketMock> tx_socket_mock2{"S2"};
@@ -642,8 +718,6 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
         }));
 
     auto transport = makeTransport({mr_}, &media_mock2);
-
-    StrictMock<TransientErrorHandlerMock> handler_mock;
     transport->setTransientErrorHandler(std::ref(handler_mock));
 
     EXPECT_THAT(transport->setLocalNodeId(0x45), Eq(cetl::nullopt));
@@ -667,7 +741,7 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
         EXPECT_CALL(handler_mock, invoke(VariantWith<SocketSendReport>(Truly([&](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<ArgumentError>(_));
                         EXPECT_THAT(report.media_index, 0);
-                        auto culprit = static_cast<TxSocketMock::RefWrapper&>(report.culprit);
+                        auto& culprit = static_cast<TxSocketMock::RefWrapper&>(report.culprit);
                         EXPECT_THAT(culprit.reference(), Ref(tx_socket_mock_));
                         return true;
                     }))))
@@ -707,7 +781,7 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
         EXPECT_CALL(handler_mock, invoke(VariantWith<SocketSendReport>(Truly([&](auto& report) {
                         EXPECT_THAT(report.failure, VariantWith<PlatformError>(_));
                         EXPECT_THAT(report.media_index, 1);
-                        auto culprit = static_cast<TxSocketMock::RefWrapper&>(report.culprit);
+                        auto& culprit = static_cast<TxSocketMock::RefWrapper&>(report.culprit);
                         EXPECT_THAT(culprit.reference(), Ref(tx_socket_mock2));
                         return true;
                     }))))
@@ -715,6 +789,15 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
 
         metadata.deadline = now() + timeout;
         EXPECT_THAT(session->send(metadata, makeSpansFrom(payload)), Eq(cetl::nullopt));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        EXPECT_CALL(tx_socket_mock2, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock2);
     });
     scheduler_.spinFor(10s);
 }
@@ -749,9 +832,11 @@ TEST_F(TestUpdTransport, no_adhoc_tx_sockets_creation_when_there_is_nothing_to_s
         ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
         tx_session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        tx_session.reset();
+    });
     scheduler_.spinFor(10s);
-
-    tx_session.reset();
 }
 
 // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
