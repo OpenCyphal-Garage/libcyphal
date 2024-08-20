@@ -35,37 +35,7 @@ namespace platform
 namespace posix
 {
 
-class UdpSocketBase
-{
-protected:
-    explicit UdpSocketBase(libcyphal::IExecutor& executor)
-        : executor_{executor}
-    {
-    }
-
-    CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerCallbackWithCondition(
-        libcyphal::IExecutor::Callback::Function&&             function,
-        const IPosixExecutorExtension::WhenCondition::Variant& condition)
-    {
-        auto* const posix_extension = cetl::rtti_cast<IPosixExecutorExtension*>(&executor_);
-        if (nullptr == posix_extension)
-        {
-            return {};
-        }
-
-        auto callback = executor_.registerCallback(std::move(function));
-        posix_extension->scheduleCallbackWhen(callback, condition);
-        return callback;
-    }
-
-private:
-    libcyphal::IExecutor& executor_;
-
-};  // UdpSocketBase
-
-// MARK: -
-
-class UdpTxSocket final : public UdpSocketBase, public libcyphal::transport::udp::ITxSocket
+class UdpTxSocket final : public libcyphal::transport::udp::ITxSocket
 {
 public:
     CETL_NODISCARD static libcyphal::transport::udp::IMedia::MakeTxSocketResult::Type make(
@@ -73,8 +43,6 @@ public:
         libcyphal::IExecutor&       executor,
         const std::string&          iface_address)
     {
-        using ITxSocket = libcyphal::transport::udp::ITxSocket;
-
         UDPTxHandle handle{-1};
         const auto  result = ::udpTxInit(&handle, ::udpParseIfaceAddress(iface_address.c_str()));
         if (result < 0)
@@ -93,8 +61,8 @@ public:
     }
 
     UdpTxSocket(libcyphal::IExecutor& executor, UDPTxHandle udp_handle)
-        : UdpSocketBase{executor}
-        , udp_handle_{udp_handle}
+        : udp_handle_{udp_handle}
+        , executor_{executor}
     {
         CETL_DEBUG_ASSERT(udp_handle_.fd >= 0, "");
     }
@@ -137,22 +105,28 @@ private:
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerCallback(
         libcyphal::IExecutor::Callback::Function&& function) override
     {
-        using HandleWritable = IPosixExecutorExtension::WhenCondition::HandleWritable;
+        auto* const posix_executor_ext = cetl::rtti_cast<IPosixExecutorExtension*>(&executor_);
+        if (nullptr == posix_executor_ext)
+        {
+            return {};
+        }
 
         CETL_DEBUG_ASSERT(udp_handle_.fd >= 0, "");
-
-        return registerCallbackWithCondition(std::move(function), HandleWritable{udp_handle_.fd});
+        return posix_executor_ext->registerAwaitableCallback(std::move(function),
+                                                             IPosixExecutorExtension::Trigger::Writable{
+                                                                 udp_handle_.fd});
     }
 
     // MARK: Data members:
 
-    UDPTxHandle udp_handle_;
+    UDPTxHandle           udp_handle_;
+    libcyphal::IExecutor& executor_;
 
 };  // UdpTxSocket
 
 // MARK: -
 
-class UdpRxSocket final : public UdpSocketBase, public libcyphal::transport::udp::IRxSocket
+class UdpRxSocket final : public libcyphal::transport::udp::IRxSocket
 {
 public:
     CETL_NODISCARD static libcyphal::transport::udp::IMedia::MakeRxSocketResult::Type make(
@@ -161,8 +135,6 @@ public:
         const std::string&                           address,
         const libcyphal::transport::udp::IpEndpoint& endpoint)
     {
-        using IRxSocket = libcyphal::transport::udp::IRxSocket;
-
         UDPRxHandle handle{-1};
         const auto  result =
             ::udpRxInit(&handle, ::udpParseIfaceAddress(address.c_str()), endpoint.ip_address, endpoint.udp_port);
@@ -182,9 +154,8 @@ public:
     }
 
     UdpRxSocket(libcyphal::IExecutor& executor, UDPRxHandle udp_handle, cetl::pmr::memory_resource& memory)
-        : UdpSocketBase{executor}
-        , udp_handle_{udp_handle}
-        , time_provider_{executor}
+        : udp_handle_{udp_handle}
+        , executor_{executor}
         , memory_{memory}
     {
         CETL_DEBUG_ASSERT(udp_handle_.fd >= 0, "");
@@ -232,7 +203,7 @@ private:
         }
         (void) std::memmove(allocated_buffer, buffer.data(), inout_size);
 
-        return ReceiveResult::Metadata{time_provider_.now(),
+        return ReceiveResult::Metadata{executor_.now(),
                                        {static_cast<cetl::byte*>(allocated_buffer),
                                         libcyphal::PmrRawBytesDeleter{inout_size, &memory_}}};
     }
@@ -240,17 +211,22 @@ private:
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerCallback(
         libcyphal::IExecutor::Callback::Function&& function) override
     {
-        using HandleReadable = IPosixExecutorExtension::WhenCondition::HandleReadable;
+        auto* const posix_executor_ext = cetl::rtti_cast<IPosixExecutorExtension*>(&executor_);
+        if (nullptr == posix_executor_ext)
+        {
+            return {};
+        }
 
         CETL_DEBUG_ASSERT(udp_handle_.fd >= 0, "");
-
-        return registerCallbackWithCondition(std::move(function), HandleReadable{udp_handle_.fd});
+        return posix_executor_ext->registerAwaitableCallback(std::move(function),
+                                                             IPosixExecutorExtension::Trigger::Readable{
+                                                                 udp_handle_.fd});
     }
 
     // MARK: Data members:
 
     UDPRxHandle                 udp_handle_;
-    libcyphal::IExecutor&       time_provider_;
+    libcyphal::IExecutor&       executor_;
     cetl::pmr::memory_resource& memory_;
 
 };  // UdpRxSocket
