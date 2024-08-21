@@ -363,7 +363,6 @@ void testManual(const std::function<N*(std::uint8_t)>& factory, const std::funct
     std::puts("REMOVE 24");
     EXPECT_TRUE(checkLinkage<N>(t[24], t[16], {t[20], t[28]}, 00));
     tr.remove(t[24]);
-    //*t[24] = std::move(*t[1]); std::swap(t[24], t[1]);
     EXPECT_EQ(nullptr, t[24]->getParentNode());  // Ensure everything has been reset.
     EXPECT_EQ(nullptr, t[24]->getChildNode(false));
     EXPECT_EQ(nullptr, t[24]->getChildNode(true));

@@ -57,6 +57,7 @@ public:
     ///
     virtual cetl::optional<MessageRxTransfer> receive() = 0;
 
+    // TODO: docs
     struct OnReceiveCallback
     {
         struct Arg
