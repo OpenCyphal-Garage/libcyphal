@@ -293,6 +293,63 @@ TEST_F(TestCanMsgRxSession, receive_one_anonymous_frame)
     scheduler_.spinFor(10s);
 }
 
+TEST_F(TestCanMsgRxSession, receive_via_callback)
+{
+    auto transport = makeTransport(mr_);
+
+    EXPECT_CALL(media_mock_, registerPopCallback(_))  //
+        .WillOnce(Invoke([&](auto function) {         //
+            return scheduler_.registerNamedCallback("rx", std::move(function));
+        }));
+
+    auto maybe_session = transport->makeMessageRxSession({4, 0x23});
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+    auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
+
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1)))  //
+        .WillOnce([&](Filters filters) {
+            EXPECT_THAT(filters, Contains(FilterEq({0x2300, 0x21FFF80})));
+            return cetl::nullopt;
+        });
+
+    TimePoint rx_timestamp;
+
+    session->setOnReceiveCallback([&](const IMessageRxSession::OnReceiveCallback::Arg& arg) {
+        //
+        EXPECT_THAT(arg.transfer.metadata.rx_meta.timestamp, rx_timestamp);
+        EXPECT_THAT(arg.transfer.metadata.rx_meta.base.transfer_id, 0x0E);
+        EXPECT_THAT(arg.transfer.metadata.rx_meta.base.priority, Priority::Exceptional);
+        EXPECT_THAT(arg.transfer.metadata.publisher_node_id, Eq(cetl::nullopt));
+
+        std::array<char, 2> buffer{};
+        ASSERT_THAT(arg.transfer.payload.size(), buffer.size());
+        EXPECT_THAT(arg.transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
+        EXPECT_THAT(buffer, ElementsAre('1', '2'));
+    });
+
+    scheduler_.scheduleAt(1s, [&](const auto&) {
+        //
+        rx_timestamp = now() + 10ms;
+        EXPECT_CALL(media_mock_, pop(_))  //
+            .WillOnce([&](auto p) {
+                EXPECT_THAT(now(), rx_timestamp);
+                EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+                p[0] = b('1');
+                p[1] = b('2');
+                p[2] = b(0b111'01110);
+                return IMedia::PopResult::Metadata{rx_timestamp, 0x01'60'23'13, 3};
+            });
+        scheduler_.scheduleNamedCallback("rx", rx_timestamp);
+
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const auto&) {
+            //
+            const auto maybe_rx_transfer = session->receive();
+            ASSERT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));  // b/c was "consumed" by the callback.
+        });
+    });
+    scheduler_.spinFor(10s);
+}
+
 TEST_F(TestCanMsgRxSession, unsubscribe)
 {
     auto transport = makeTransport(mr_);
