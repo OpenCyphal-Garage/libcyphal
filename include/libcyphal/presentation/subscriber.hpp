@@ -49,7 +49,6 @@ public:
     SubscriberBase& operator=(SubscriberBase&& other) noexcept
     {
         CETL_DEBUG_ASSERT(impl_ != nullptr, "Not supposed to move to already moved `this`.");
-        CETL_DEBUG_ASSERT(other.impl_ != nullptr, "Not supposed to move from already moved `other`.");
 
         impl_->releaseCallbackNode(*this);
 

@@ -5,6 +5,7 @@
 
 #include "../cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "../gtest_helpers.hpp"       // NOLINT(misc-include-cleaner)
+#include "../memory_resource_mock.hpp"
 #include "../tracking_memory_resource.hpp"
 #include "../transport/msg_sessions_mock.hpp"
 #include "../transport/scattered_buffer_storage_mock.hpp"
@@ -220,7 +221,10 @@ TEST_F(TestSubscriber, onReceive_deserialize_failure)
 {
     using Message = my_custom::bar_1_0;
 
-    Presentation presentation{mr_, scheduler_, transport_mock_};
+    StrictMock<MemoryResourceMock> mr_mock;
+    mr_mock.redirectExpectedCallsTo(mr_);
+
+    Presentation presentation{mr_mock, scheduler_, transport_mock_};
 
     IMessageRxSession::OnReceiveCallback::Function msg_rx_cb_fn;
 
@@ -268,12 +272,41 @@ TEST_F(TestSubscriber, onReceive_deserialize_failure)
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
+        transfer.metadata.rx_meta.base.transfer_id++;
+        transfer.metadata.rx_meta.timestamp = now();
+        msg_rx_cb_fn({transfer});
+    });
+    scheduler_.scheduleAt(2s, [&](const auto&) {
+        //
+        // Fix "problem" with the bad array size,
+        // but introduce another one with memory allocation.
+        EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(1));
+        EXPECT_CALL(storage_mock, copy(_, _, _))                           //
+            .WillRepeatedly(Invoke([&](auto, auto* const dst, auto len) {  //
+                //
+                std::array<std::uint8_t, 1> buffer{};
+                const auto                  size = std::min(buffer.size(), len);
+                (void) std::memmove(dst, buffer.data(), size);
+                return size;
+            }));
+        EXPECT_CALL(mr_mock, do_allocate(1, _)).WillRepeatedly(Return(nullptr));
+        //
+        transfer.metadata.rx_meta.base.transfer_id++;
+        transfer.metadata.rx_meta.timestamp = now();
+        msg_rx_cb_fn({transfer});
+    });
+    scheduler_.scheduleAt(3s, [&](const auto&) {
+        //
+        // Fix the "memory problem" as well.
+        mr_mock.redirectExpectedCallsTo(mr_);
+        //
+        transfer.metadata.rx_meta.base.transfer_id++;
         transfer.metadata.rx_meta.timestamp = now();
         msg_rx_cb_fn({transfer});
     });
     scheduler_.spinFor(10s);
 
-    EXPECT_THAT(messages, IsEmpty());
+    EXPECT_THAT(messages, ElementsAre(std::make_tuple(TimePoint{3s}, 16)));
     EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);
 }
 
