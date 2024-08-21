@@ -134,6 +134,8 @@ private:
 template <typename Message>
 class Publisher final : public detail::PublisherBase
 {
+    static_assert(!Message::_traits_::IsServiceType, "Service types are not supported by the Publisher.");
+
 public:
     using Failure = libcyphal::detail::AppendType<transport::AnyFailure, nunavut::support::Error>::Result;
 

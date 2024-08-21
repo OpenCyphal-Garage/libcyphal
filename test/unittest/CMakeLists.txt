@@ -13,6 +13,19 @@ if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
 find_package(gcovr REQUIRED)
 endif()
 
+# +---------------------------------------------------------------------------+
+# | BUILD EXAMPLE TYPES
+# +---------------------------------------------------------------------------+
+
+add_dsdl_cpp_codegen(
+    TARGET dsdl_my_custom_types
+    DSDL_ROOT_DIR dsdl/my_custom
+    ${NNVG_ASSERT_ARGS}
+    ${NNVG_VERBOSE_ARGS}
+    DSDL_DEPENDENCIES
+        dsdl_support
+        dsdl_public_types
+)
 
 # +---------------------------------------------------------------------------+
 #   We generate individual test binaires so we can record which test generated
@@ -36,6 +49,7 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
             cyphal
             dsdl_support
             dsdl_public_types
+            dsdl_my_custom_types
         LINK_TO_MAIN
         OUT_TEST_LIB_VARIABLE LOCAL_TEST_LIB
         OUT_TEST_EXE_VARIABLE LOCAL_TEST_TARGET
@@ -50,10 +64,11 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
     list(APPEND ALL_TESTS_BUILD ${LOCAL_TEST_TARGET})
     list(APPEND ALL_TESTS_RUN ${LOCAL_TEST_REPORT})
 
-    # We need to exclude the "external", "nunavut" & "uavcan" directories from coverage reports.
+    # We need to exclude the "external", "nunavut", "uavcan" & "my_custom" DSDL directories from coverage reports.
     cmake_path(APPEND LIBCYPHAL_ROOT "external" OUTPUT_VARIABLE LIBCYPHAL_EXTERNAL_PATH)
-    cmake_path(APPEND LIBCYPHAL_ROOT "${CMAKE_INSTALL_PREFIX}/docs/examples/nunavut" OUTPUT_VARIABLE LIBCYPHAL_NUNAVUT_PATH)
-    cmake_path(APPEND LIBCYPHAL_ROOT "${CMAKE_INSTALL_PREFIX}/docs/examples/uavcan" OUTPUT_VARIABLE LIBCYPHAL_UAVCAN_PATH)
+    cmake_path(APPEND LIBCYPHAL_ROOT "${CMAKE_INSTALL_PREFIX}/nunavut" OUTPUT_VARIABLE LIBCYPHAL_NUNAVUT_PATH)
+    cmake_path(APPEND LIBCYPHAL_ROOT "${CMAKE_INSTALL_PREFIX}/uavcan" OUTPUT_VARIABLE LIBCYPHAL_UAVCAN_PATH)
+    cmake_path(APPEND LIBCYPHAL_ROOT "${CMAKE_INSTALL_PREFIX}/test/unittest/my_custom" OUTPUT_VARIABLE LIBCYPHAL_MY_CUSTOM_PATH)
 
     if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
         define_gcovr_tracefile_target(
@@ -61,7 +76,7 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
             ROOT_DIRECTORY ${LIBCYPHAL_ROOT}
             TARGET_EXECUTION_DEPENDS ${LOCAL_TEST_REPORT}
             OBJECT_LIBRARY ${LOCAL_TEST_LIB}
-            EXCLUDE_PATHS ${LIBCYPHAL_EXTERNAL_PATH} ${LIBCYPHAL_NUNAVUT_PATH} ${LIBCYPHAL_UAVCAN_PATH}
+            EXCLUDE_PATHS ${LIBCYPHAL_EXTERNAL_PATH} ${LIBCYPHAL_NUNAVUT_PATH} ${LIBCYPHAL_UAVCAN_PATH} ${LIBCYPHAL_MY_CUSTOM_PATH}
             EXCLUDE_TEST_FRAMEWORKS
             EXCLUDE_TARGET
             ENABLE_INSTRUMENTATION

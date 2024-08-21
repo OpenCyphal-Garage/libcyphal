@@ -9,6 +9,7 @@
 #include "../transport/transport_mock.hpp"
 #include "../verification_utilities.hpp"
 #include "../virtual_time_scheduler.hpp"
+#include "my_custom/bar_1_0.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/presentation/presentation.hpp>
@@ -19,7 +20,6 @@
 #include <libcyphal/types.hpp>
 
 #include <nunavut/support/serialization.hpp>
-#include <uavcan/node/GetInfo_1_0.hpp>
 #include <uavcan/node/Heartbeat_1_0.hpp>
 
 #include <gmock/gmock.h>
@@ -201,20 +201,20 @@ TEST_F(TestPublisher, publish)
 TEST_F(TestPublisher, publish_with_serialization_failure)
 {
     using SerError = nunavut::support::Error;
-    using Message  = uavcan::node::GetInfo_1_0::Response;
+    using Message  = my_custom::bar_1_0;
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
     EXPECT_CALL(msg_tx_session_mock, getParams())  //
-        .WillOnce(Return(MessageTxParams{Message::_traits_::FixedPortId}));
+        .WillOnce(Return(MessageTxParams{0x123}));
 
     EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<MessageTxSessionMock::RefWrapper::Spec>(mr_, msg_tx_session_mock);
         }));
 
-    auto maybe_pub = presentation.makePublisher<Message>(Message::_traits_::FixedPortId);
+    auto maybe_pub = presentation.makePublisher<Message>(0x123);
     ASSERT_THAT(maybe_pub, VariantWith<Publisher<Message>>(_));
     cetl::optional<Publisher<Message>> publisher{cetl::get<Publisher<Message>>(std::move(maybe_pub))};
     EXPECT_THAT(publisher->getPriority(), Priority::Nominal);
@@ -223,7 +223,8 @@ TEST_F(TestPublisher, publish_with_serialization_failure)
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         Message message{};
-        message.name.resize(51);  // This will cause a serialization failure.
+        // This will cause a serialization failure.
+        message.some_stuff.resize(Message::_traits_::SerializationBufferSizeBytes);
 
         EXPECT_THAT(publisher->publish(now() + 200ms, message),
                     Optional(VariantWith<SerError>(SerError::SerializationBadArrayLength)));

@@ -95,6 +95,8 @@ private:
 template <typename Message>
 class Subscriber final : public detail::SubscriberBase
 {
+    static_assert(!Message::_traits_::IsServiceType, "Service types are not supported by the Subscriber.");
+
 public:
     struct OnReceiveCallback
     {

@@ -10,6 +10,7 @@
 #include "../transport/scattered_buffer_storage_mock.hpp"
 #include "../transport/transport_mock.hpp"
 #include "../virtual_time_scheduler.hpp"
+#include "my_custom/bar_1_0.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/presentation/presentation.hpp>
@@ -123,7 +124,7 @@ TEST_F(TestSubscriber, move)
     testing::Mock::VerifyAndClearExpectations(&msg_rx_session_mock);
 }
 
-TEST_F(TestSubscriber, setOnReceiveCallback)
+TEST_F(TestSubscriber, onReceive)
 {
     using Message = uavcan::node::Heartbeat_1_0;
 
@@ -209,6 +210,67 @@ TEST_F(TestSubscriber, setOnReceiveCallback)
                 ElementsAre(std::make_tuple(TimePoint{1s}, 123, 7),
                             std::make_tuple(TimePoint{2s}, 124, 8),
                             std::make_tuple(TimePoint{3s}, 125, 9)));
+
+    EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);
+}
+
+TEST_F(TestSubscriber, onReceive_deserialize_failure)
+{
+    using Message = my_custom::bar_1_0;
+
+    Presentation presentation{mr_, scheduler_, transport_mock_};
+
+    IMessageRxSession::OnReceiveCallback::Function msg_rx_cb_fn;
+
+    StrictMock<MessageRxSessionMock> msg_rx_session_mock;
+    EXPECT_CALL(msg_rx_session_mock, getParams())  //
+        .WillOnce(Return(MessageRxParams{0, 0x123}));
+    EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_))  //
+        .WillOnce(Invoke(
+            [&](auto&& cb_fn) { msg_rx_cb_fn = std::forward<IMessageRxSession::OnReceiveCallback::Function>(cb_fn); }));
+
+    EXPECT_CALL(transport_mock_, makeMessageRxSession(_))  //
+        .WillOnce(Invoke([&](const auto&) {
+            return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
+        }));
+
+    auto maybe_sub = presentation.makeSubscriber<Message>(0x123);
+    ASSERT_THAT(maybe_sub, VariantWith<Subscriber<Message>>(_));
+    auto subscriber = cetl::get<Subscriber<Message>>(std::move(maybe_sub));
+
+    EXPECT_TRUE(msg_rx_cb_fn);
+
+    NiceMock<ScatteredBufferStorageMock> storage_mock;
+    ScatteredBufferStorageMock::Wrapper  storage{&storage_mock};
+    EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(Message::_traits_::SerializationBufferSizeBytes));
+    EXPECT_CALL(storage_mock, copy(_, _, _))                           //
+        .WillRepeatedly(Invoke([&](auto, auto* const dst, auto len) {  //
+            //
+            // This will cause SerializationBadArrayLength
+            std::array<std::uint8_t, 1> buffer{Message::_traits_::SerializationBufferSizeBytes};
+            const auto                  size = std::min(buffer.size(), len);
+            (void) std::memmove(dst, buffer.data(), size);
+            return size;
+        }));
+
+    MessageRxTransfer transfer{{{{13, Priority::Fast}, {}}, NodeId{0x31}}, ScatteredBuffer{std::move(storage)}};
+
+    std::vector<std::tuple<TimePoint, TransferId>> messages;
+    subscriber.setOnReceiveCallback([&](const auto& arg) {
+        //
+        messages.emplace_back(std::make_tuple(arg.approx_now, arg.metadata.rx_meta.base.transfer_id));
+        EXPECT_THAT(arg.metadata.rx_meta.base.priority, Priority::Fast);
+        EXPECT_THAT(arg.metadata.publisher_node_id, Optional(NodeId{0x31}));
+    });
+
+    scheduler_.scheduleAt(1s, [&](const auto&) {
+        //
+        transfer.metadata.rx_meta.timestamp = now();
+        msg_rx_cb_fn({transfer});
+    });
+    scheduler_.spinFor(10s);
+
+    EXPECT_THAT(messages, IsEmpty());
 
     EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);
 }
