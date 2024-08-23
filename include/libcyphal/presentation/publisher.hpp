@@ -141,6 +141,8 @@ public:
 
     cetl::optional<Failure> publish(const TimePoint deadline, const Message& message) const
     {
+        // Next nolint b/c we use a buffer to serialize the message, so no need to zero it (and performance better).
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
         std::array<std::uint8_t, Message::_traits_::SerializationBufferSizeBytes> buffer;
 
         const auto result = serialize(message, buffer);
@@ -149,7 +151,7 @@ public:
             return result.error();
         }
 
-        // Next nolint & NOSONAR are currently unavoidable:.
+        // Next nolint & NOSONAR are currently unavoidable.
         // TODO: Eliminate `reinterpret_cast` when Nunavut supports `cetl::byte` at its `serialize`.
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         const cetl::span<const cetl::byte> data{reinterpret_cast<cetl::byte*>(buffer.data()),  // NOSONAR cpp:S3630
