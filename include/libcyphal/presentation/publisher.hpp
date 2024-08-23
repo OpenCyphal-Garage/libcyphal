@@ -141,7 +141,7 @@ public:
 
     cetl::optional<Failure> publish(const TimePoint deadline, const Message& message) const
     {
-        std::array<std::uint8_t, Message::_traits_::SerializationBufferSizeBytes> buffer{};
+        std::array<std::uint8_t, Message::_traits_::SerializationBufferSizeBytes> buffer;
 
         const auto result = serialize(message, buffer);
         if (!result)

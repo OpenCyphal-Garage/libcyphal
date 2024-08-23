@@ -117,7 +117,7 @@ TEST_F(Example_02_PosixUdpTransport, heartbeat_and_getInfo)
     state.heartbeat_.makeTxSession(*state.transport_, executor_, startup_time_);
     state.heartbeat_.makeRxSession(*state.transport_, [&](const auto& arg) {
         //
-        state.heartbeat_.print(executor_.now() - startup_time_, arg.transfer);
+        state.heartbeat_.tryDeserializeAndPrint(executor_.now() - startup_time_, arg.transfer);
     });
 
     // Bring up 'GetInfo' server.

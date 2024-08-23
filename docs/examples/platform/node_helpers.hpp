@@ -178,12 +178,13 @@ struct NodeHelpers
             {
                 if (const auto rx_heartbeat = msg_rx_session_->receive())
                 {
-                    print(uptime, *rx_heartbeat);
+                    tryDeserializeAndPrint(uptime, *rx_heartbeat);
                 }
             }
         }
 
-        static void print(const libcyphal::Duration uptime, const libcyphal::transport::MessageRxTransfer& rx_heartbeat)
+        static void tryDeserializeAndPrint(const libcyphal::Duration                      uptime,
+                                           const libcyphal::transport::MessageRxTransfer& rx_heartbeat)
         {
             Message heartbeat_msg{};
             if (tryDeserialize(heartbeat_msg, rx_heartbeat.payload))
