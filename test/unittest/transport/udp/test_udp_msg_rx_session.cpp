@@ -40,7 +40,6 @@ namespace
 
 using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
-using Callback = libcyphal::IExecutor::Callback;
 using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
 using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
@@ -74,8 +73,8 @@ protected:
     void SetUp() override
     {
         EXPECT_CALL(media_mock_, makeTxSocket())  //
-            .WillRepeatedly(Invoke([this]() {
-                return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock_);
+            .WillRepeatedly(Invoke([this] {
+                return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock_);
             }));
         EXPECT_CALL(tx_socket_mock_, getMtu())  //
             .WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
@@ -83,7 +82,7 @@ protected:
         EXPECT_CALL(media_mock_, makeRxSocket(_))  //
             .WillRepeatedly(Invoke([this](auto& endpoint) {
                 rx_socket_mock_.setEndpoint(endpoint);
-                return libcyphal::detail::makeUniquePtr<RxSocketMock::ReferenceWrapper::Spec>(mr_, rx_socket_mock_);
+                return libcyphal::detail::makeUniquePtr<RxSocketMock::RefWrapper::Spec>(mr_, rx_socket_mock_);
             }));
     }
 
@@ -152,7 +151,9 @@ TEST_F(TestUdpMsgRxSession, make_setTransferIdTimeout)
     session->setTransferIdTimeout(500ms);
 
     EXPECT_THAT(scheduler_.hasNamedCallback("rx"), true);
+    EXPECT_CALL(rx_socket_mock_, deinit());
     session.reset();
+    testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
     EXPECT_THAT(scheduler_.hasNamedCallback("rx"), false);
 }
 
@@ -275,9 +276,9 @@ TEST_F(TestUdpMsgRxSession, receive)
             // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
             const auto& rx_transfer = maybe_rx_transfer.value();
 
-            EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx_timestamp);
-            EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x0D);
-            EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::High);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.timestamp, rx_timestamp);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.transfer_id, 0x0D);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.priority, Priority::High);
             EXPECT_THAT(rx_transfer.metadata.publisher_node_id, Optional(0x13));
 
             std::array<char, 2> buffer{};
@@ -350,6 +351,12 @@ TEST_F(TestUdpMsgRxSession, receive)
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
         });
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(rx_socket_mock_, deinit());
+        session.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -412,9 +419,9 @@ TEST_F(TestUdpMsgRxSession, receive_one_anonymous_frame)
             // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
             const auto& rx_transfer = maybe_rx_transfer.value();
 
-            EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx_timestamp);
-            EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x0D);
-            EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::Low);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.timestamp, rx_timestamp);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.transfer_id, 0x0D);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.priority, Priority::Low);
             EXPECT_THAT(rx_transfer.metadata.publisher_node_id, Eq(cetl::nullopt));
 
             std::array<char, 2> buffer{};
@@ -427,6 +434,97 @@ TEST_F(TestUdpMsgRxSession, receive_one_anonymous_frame)
                     payload_mr_.deallocate(p, size_bytes, alignment);
                 });
         });
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(rx_socket_mock_, deinit());
+        session.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
+    });
+    scheduler_.spinFor(10s);
+}
+
+TEST_F(TestUdpMsgRxSession, receive_via_callback)
+{
+    StrictMock<MemoryResourceMock> payload_mr_mock;
+
+    auto transport = makeTransport({mr_, nullptr, nullptr, &payload_mr_mock});
+
+    EXPECT_CALL(rx_socket_mock_, registerCallback(_))  //
+        .WillOnce(Invoke([&](auto function) {          //
+            return scheduler_.registerNamedCallback("rx_socket", std::move(function));
+        }));
+
+    auto maybe_session = transport->makeMessageRxSession({4, 0x23});
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageRxSession>>(NotNull()));
+    auto session = cetl::get<UniquePtr<IMessageRxSession>>(std::move(maybe_session));
+
+    const auto params = session->getParams();
+    EXPECT_THAT(params.extent_bytes, 4);
+    EXPECT_THAT(params.subject_id, 0x23);
+
+    constexpr auto timeout = 200ms;
+    session->setTransferIdTimeout(timeout);
+
+    constexpr std::size_t payload_size = 2;
+    constexpr std::size_t frame_size   = UdpardFrame::SizeOfHeaderAndTxCrc + payload_size;
+
+    TimePoint rx_timestamp;
+
+    session->setOnReceiveCallback([&](const IMessageRxSession::OnReceiveCallback::Arg& arg) {
+        //
+        EXPECT_THAT(arg.transfer.metadata.rx_meta.timestamp, rx_timestamp);
+        EXPECT_THAT(arg.transfer.metadata.rx_meta.base.transfer_id, 0x0D);
+        EXPECT_THAT(arg.transfer.metadata.rx_meta.base.priority, Priority::Low);
+        EXPECT_THAT(arg.transfer.metadata.publisher_node_id, Eq(cetl::nullopt));
+
+        std::array<char, 2> buffer{};
+        ASSERT_THAT(arg.transfer.payload.size(), buffer.size());
+        EXPECT_THAT(arg.transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
+        EXPECT_THAT(buffer, ElementsAre('0', '1'));
+
+        EXPECT_CALL(payload_mr_mock, do_deallocate(_, frame_size, alignof(std::max_align_t)))
+            .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+                payload_mr_.deallocate(p, size_bytes, alignment);
+            });
+    });
+
+    scheduler_.scheduleAt(1s, [&](const auto&) {
+        //
+        rx_timestamp = now() + 10ms;
+        EXPECT_CALL(rx_socket_mock_, receive())  //
+            .WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
+                EXPECT_THAT(now(), rx_timestamp);
+                auto frame = UdpardFrame(UDPARD_NODE_ID_UNSET,
+                                         UDPARD_NODE_ID_UNSET,
+                                         0x0D,
+                                         payload_size,
+                                         &payload_mr_mock,
+                                         Priority::Low);
+
+                frame.payload()[0] = b('0');
+                frame.payload()[1] = b('1');
+                frame.setPortId(0x23, false /*is_service*/);
+                std::uint32_t tx_crc = UdpardFrame::InitialTxCrc;
+                return {rx_timestamp, std::move(frame).release(tx_crc)};
+            });
+        EXPECT_CALL(payload_mr_mock, do_allocate(frame_size, alignof(std::max_align_t)))
+            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
+                return payload_mr_.allocate(size_bytes, alignment);
+            });
+        scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
+
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const auto&) {
+            //
+            const auto maybe_rx_transfer = session->receive();
+            EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));  // b/c was "consumed" by the callback.
+        });
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(rx_socket_mock_, deinit());
+        session.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -446,7 +544,9 @@ TEST_F(TestUdpMsgRxSession, unsubscribe)
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
+        EXPECT_CALL(rx_socket_mock_, deinit());
         session.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }

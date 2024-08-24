@@ -3,6 +3,7 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include "../../gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "../../memory_resource_mock.hpp"
 #include "../../tracking_memory_resource.hpp"
 #include "../../verification_utilities.hpp"
@@ -72,8 +73,8 @@ protected:
     void SetUp() override
     {
         EXPECT_CALL(media_mock_, makeTxSocket())  //
-            .WillRepeatedly(Invoke([this]() {
-                return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock_);
+            .WillRepeatedly(Invoke([this] {
+                return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock_);
             }));
         EXPECT_CALL(tx_socket_mock_, getMtu())  //
             .WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
@@ -123,6 +124,12 @@ TEST_F(TestUdpMsgTxSession, make)
 
         EXPECT_THAT(session->getParams().subject_id, 123);
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -142,6 +149,12 @@ TEST_F(TestUdpMsgTxSession, make_no_memory)
         auto maybe_session = transport->makeMessageTxSession({0x23});
         EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -154,6 +167,12 @@ TEST_F(TestUdpMsgTxSession, make_fails_due_to_argument_error)
         //
         auto maybe_session = transport->makeMessageTxSession({UDPARD_SUBJECT_ID_MAX + 1});
         EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -217,8 +236,8 @@ TEST_F(TestUdpMsgTxSession, send_empty_payload)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    const PayloadFragments empty_payload{};
-    TransferMetadata       metadata{0x1AF52, {}, Priority::Low};
+    constexpr PayloadFragments empty_payload{};
+    TransferTxMetadata         metadata{{0x1AF52, Priority::Low}, {}};
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
@@ -240,9 +259,15 @@ TEST_F(TestUdpMsgTxSession, send_empty_payload)
         EXPECT_CALL(tx_socket_mock_, registerCallback(_))  //
             .WillOnce(Invoke([](auto) { return libcyphal::IExecutor::Callback::Any{}; }));
 
-        metadata.timestamp = now();
-        auto failure       = session->send(metadata, empty_payload);
+        metadata.deadline = now() + 1s;
+        auto failure      = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 
@@ -261,8 +286,8 @@ TEST_F(TestUdpMsgTxSession, send_empty_expired_payload)
 
     constexpr auto timeout = 1s;
 
-    const PayloadFragments empty_payload{};
-    TransferMetadata       metadata{0x11, {}, Priority::Low};
+    constexpr PayloadFragments empty_payload{};
+    TransferTxMetadata         metadata{{0x11, Priority::Low}, {}};
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
@@ -274,9 +299,15 @@ TEST_F(TestUdpMsgTxSession, send_empty_expired_payload)
                 return scheduler_.registerAndScheduleNamedCallback("", now() + timeout, std::move(function));
             }));
 
-        metadata.timestamp = now();
-        auto failure       = session->send(metadata, empty_payload);
+        metadata.deadline = now() + timeout;
+        auto failure      = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -290,10 +321,9 @@ TEST_F(TestUdpMsgTxSession, send_single_frame_payload_with_500ms_timeout)
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
     constexpr auto timeout = 500ms;
-    session->setSendTimeout(timeout);
 
-    const auto       payload = makeIotaArray<UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME>(b('1'));
-    TransferMetadata metadata{0x03, {}, Priority::High};
+    const auto         payload = makeIotaArray<UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME>(b('1'));
+    TransferTxMetadata metadata{{0x03, Priority::High}, {}};
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
@@ -305,15 +335,15 @@ TEST_F(TestUdpMsgTxSession, send_single_frame_payload_with_500ms_timeout)
                 return scheduler_.registerAndScheduleNamedCallback("", now() + timeout - 1us, std::move(function));
             }));
 
-        metadata.timestamp = now();
-        auto failure       = session->send(metadata, makeSpansFrom(payload));
+        metadata.deadline  = now() + timeout;
+        const auto failure = session->send(metadata, makeSpansFrom(payload));
         EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
     scheduler_.scheduleAt(1s + timeout - 1us, [&](const auto&) {
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))  //
             .WillOnce([&](auto, auto endpoint, auto dscp, auto fragments) {
-                EXPECT_THAT(now(), metadata.timestamp + timeout - 1us);
+                EXPECT_THAT(now(), metadata.deadline - 1us);
                 EXPECT_THAT(endpoint.ip_address, 0xEF000017);
                 EXPECT_THAT(endpoint.udp_port, 9382);
                 EXPECT_THAT(dscp, 0x0);
@@ -325,6 +355,13 @@ TEST_F(TestUdpMsgTxSession, send_single_frame_payload_with_500ms_timeout)
                             b(static_cast<std::uint8_t>('1' + UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME - 1)));
                 return ITxSocket::SendResult::Success{true /* is_accepted */};
             });
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -346,13 +383,20 @@ TEST_F(TestUdpMsgTxSession, send_when_no_memory_for_contiguous_payload)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IMessageTxSession>>(std::move(maybe_session));
 
-    TransferMetadata metadata{0x03, {}, Priority::Optional};
+    TransferTxMetadata metadata{{0x03, Priority::Optional}, {}};
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        metadata.timestamp = now();
-        auto failure       = session->send(metadata, makeSpansFrom(payload1, payload2));
+        metadata.deadline = now() + 1s;
+        auto failure      = session->send(metadata, makeSpansFrom(payload1, payload2));
         EXPECT_THAT(failure, Optional(VariantWith<MemoryError>(_)));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }

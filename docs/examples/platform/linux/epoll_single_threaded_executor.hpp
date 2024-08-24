@@ -17,6 +17,7 @@
 #include <libcyphal/types.hpp>
 
 #include <sys/epoll.h>
+#include <thread>
 #include <unistd.h>
 
 namespace example

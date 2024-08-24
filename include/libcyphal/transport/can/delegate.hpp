@@ -14,7 +14,6 @@
 #include <canard.h>
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
-#include <cetl/rtti.hpp>
 
 #include <algorithm>
 #include <cstddef>

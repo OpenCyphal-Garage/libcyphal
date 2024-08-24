@@ -89,6 +89,11 @@ public:
     }
     auto operator=(Node&& other) noexcept -> Node&
     {
+        if (isLinked())
+        {
+            remove();
+        }
+
         moveFrom(other);
         return *this;
     }
@@ -126,6 +131,14 @@ protected:
     {
         return bf;
     }
+    auto getNextInOrderNode(const bool reverse = false) noexcept -> Derived*
+    {
+        return getNextInOrderNodeImpl<Derived>(this, reverse);
+    }
+    auto getNextInOrderNode(const bool reverse = false) const noexcept -> const Derived*
+    {
+        return getNextInOrderNodeImpl<const Derived>(this, reverse);
+    }
 
     /// Find a node for which the predicate returns zero, or nullptr if there is no such node or the tree is empty.
     /// The predicate is invoked with a single argument which is a constant reference to Derived.
@@ -152,25 +165,23 @@ protected:
     template <typename Pre, typename Fac>
     static auto search(Node& origin, const Pre& predicate, const Fac& factory) -> std::tuple<Derived*, bool>;
 
-    /// Remove the specified node from its tree. The root node (inside the origin) may be replaced in the process.
-    /// The function has no effect if the node pointer is nullptr.
-    /// If the node is not in the tree, the behavior is undefined; it may create cycles in the tree which is deadly.
-    /// It is safe to pass the result of search() directly as the second argument:
-    ///     Node<T>::remove(root, Node<T>::search(root, search_predicate));
+    /// Remove the specified node from its tree.
     ///
+    /// The root node (inside the origin) may be replaced in the process.
     /// No Sonar cpp:S6936 b/c the `remove` method name isolated inside `Node` type (doesn't conflict with C).
-    static void remove(Node& origin, const Node* const node) noexcept;  // NOSONAR cpp:S6936
-
-    /// This is like the const overload of remove() except that the node pointers are invalidated afterward for safety.
-    ///
-    /// No Sonar cpp:S6936 b/c the `remove` method name isolated inside `Node` type (doesn't conflict with C).
-    static void remove(Node& origin, Node* const node) noexcept  // NOSONAR cpp:S6936
+    void remove() const noexcept  // NOSONAR cpp:S6936
     {
-        remove(origin, static_cast<const Node*>(node));
-        if (nullptr != node)
-        {
-            node->unlink();
-        }
+        removeImpl(this);
+    }
+
+    /// This is like the const overload of `remove()`
+    /// except that the node pointers are invalidated afterward for safety.
+    ///
+    /// No Sonar cpp:S6936 b/c the `remove` method name isolated inside `Node` type (doesn't conflict with C).
+    void remove() noexcept  // NOSONAR cpp:S6936
+    {
+        removeImpl(this);
+        unlink();
     }
 
     /// These methods provide very fast retrieval of min/max values, either const or mutable.
@@ -300,6 +311,8 @@ private:
     template <typename NodeT, typename DerivedT, typename Vis>
     static void traversePostOrderImpl(DerivedT* const root, const Vis& visitor, const bool reverse);
 
+    static void removeImpl(const Node* const node) noexcept;
+
     template <typename DerivedT, typename NodeT, typename Pre>
     static auto searchImpl(NodeT* const root, const Pre& predicate) noexcept -> DerivedT*
     {
@@ -317,6 +330,29 @@ private:
             n = n->lr[cmp > 0];
         }
         return nullptr;
+    }
+
+    template <typename DerivedT, typename NodeT>
+    static auto getNextInOrderNodeImpl(NodeT* const node, const bool reverse) noexcept -> DerivedT*
+    {
+        if (nullptr != node->lr[!reverse])
+        {
+            auto* next_down = node->lr[!reverse];
+            while (nullptr != next_down->lr[reverse])
+            {
+                next_down = next_down->lr[reverse];
+            }
+            return down(next_down);
+        }
+
+        auto*  next_up_child = node;
+        NodeT* next_up       = node->getParentNode();
+        while ((nullptr != next_up) && (next_up_child == next_up->lr[!reverse]))
+        {
+            next_up_child = next_up;
+            next_up       = next_up->getParentNode();
+        }
+        return down(next_up);
     }
 
     void unlink() noexcept
@@ -424,103 +460,82 @@ auto Node<Derived>::search(Node& origin, const Pre& predicate, const Fac& factor
     return std::make_tuple(down(out), false);
 }
 
-// No Sonar cpp:S6936 b/c the `remove` method name isolated inside `Node` type (doesn't conflict with C).
-// No Sonar cpp:S3776 cpp:S134 cpp:S5311 b/c this is the main removal tool - maintainability is not a concern here.
 template <typename Derived>
-void Node<Derived>::remove(Node& origin, const Node* const node) noexcept  // NOSONAR cpp:S6936 cpp:S3776
+void Node<Derived>::removeImpl(const Node* const node) noexcept
 {
-    CAVL_ASSERT(!origin.isLinked());
-    CAVL_ASSERT(node != &origin);  // The origin node is not part of the tree, so it cannot be removed.
+    CAVL_ASSERT(node != nullptr);
+    CAVL_ASSERT(node->isLinked());
 
-    if (node != nullptr)
+    Node* p = nullptr;  // The lowest parent node that suffered a shortening of its subtree.
+    bool  r = false;    // Which side of the above was shortened.
+    // The first step is to update the topology and remember the node where to start the retracing from later.
+    // Balancing is not performed yet, so we may end up with an unbalanced tree.
+    if ((node->lr[0] != nullptr) && (node->lr[1] != nullptr))
     {
-        Node*& root = origin.lr[0];
-        CAVL_ASSERT(root != nullptr);  // Otherwise, the node would have to be nullptr.
-        CAVL_ASSERT(node->isLinked());
-        Node* p = nullptr;  // The lowest parent node that suffered a shortening of its subtree.
-        bool  r = false;    // Which side of the above was shortened.
-        // The first step is to update the topology and remember the node where to start the retracing from later.
-        // Balancing is not performed yet, so we may end up with an unbalanced tree.
-        if ((node->lr[0] != nullptr) && (node->lr[1] != nullptr))
+        Node* const re = min(node->lr[1]);
+        CAVL_ASSERT((re != nullptr) && (nullptr == re->lr[0]) && (re->up != nullptr));
+        re->bf        = node->bf;
+        re->lr[0]     = node->lr[0];
+        re->lr[0]->up = re;
+        if (re->up != node)
         {
-            Node* const re = min(node->lr[1]);
-            CAVL_ASSERT((re != nullptr) && (nullptr == re->lr[0]) && (re->up != nullptr));
-            re->bf        = node->bf;
-            re->lr[0]     = node->lr[0];
-            re->lr[0]->up = re;
-            if (re->up != node)
+            p = re->getParentNode();  // Retracing starts with the ex-parent of our replacement node.
+            CAVL_ASSERT(p->lr[0] == re);
+            p->lr[0] = re->lr[1];  // Reducing the height of the left subtree here.
+            if (p->lr[0] != nullptr)
             {
-                p = re->getParentNode();  // Retracing starts with the ex-parent of our replacement node.
-                CAVL_ASSERT(p->lr[0] == re);
-                p->lr[0] = re->lr[1];     // Reducing the height of the left subtree here.
-                if (p->lr[0] != nullptr)  // NOSONAR cpp:S134
-                {
-                    p->lr[0]->up = p;
-                }
-                re->lr[1]     = node->lr[1];
-                re->lr[1]->up = re;
-                r             = false;
+                p->lr[0]->up = p;
             }
-            else  // In this case, we are reducing the height of the right subtree, so r=1.
-            {
-                p = re;    // Retracing starts with the replacement node itself as we are deleting its parent.
-                r = true;  // The right child of the replacement node remains the same, so we don't bother relinking it.
-            }
-            re->up = node->up;
-            if (!re->isRoot())
-            {
-                re->up->lr[re->up->lr[1] == node] = re;  // Replace link in the parent of node.
-            }
-            else
-            {
-                root = re;
-            }
+            re->lr[1]     = node->lr[1];
+            re->lr[1]->up = re;
+            r             = false;
         }
-        else  // Either or both of the children are nullptr.
+        else  // In this case, we are reducing the height of the right subtree, so r=1.
         {
-            p             = node->up;
-            const bool rr = node->lr[1] != nullptr;
-            if (node->lr[rr] != nullptr)
-            {
-                node->lr[rr]->up = p;
-            }
-            if (!node->isRoot())
-            {
-                r        = p->lr[1] == node;
-                p->lr[r] = node->lr[rr];
-                if (p->lr[r] != nullptr)  // NOSONAR cpp:S134
-                {
-                    p->lr[r]->up = p;
-                }
-            }
-            else
-            {
-                root = node->lr[rr];
-            }
+            p = re;    // Retracing starts with the replacement node itself as we are deleting its parent.
+            r = true;  // The right child of the replacement node remains the same, so we don't bother relinking it.
         }
-        // Now that the topology is updated, perform the retracing to restore balance. We climb up adjusting the
-        // balance factors until we reach the root or a parent whose balance factor becomes plus/minus one, which
-        // means that that parent was able to absorb the balance delta; in other words, the height of the outer
-        // subtree is unchanged, so upper balance factors shall be kept unchanged.
-        if (p != &origin)
+        re->up                            = node->up;
+        re->up->lr[re->up->lr[1] == node] = re;  // Replace link in the parent of node.
+    }
+    else  // Either or both of the children are nullptr.
+    {
+        p             = node->up;
+        const bool rr = node->lr[1] != nullptr;
+        if (node->lr[rr] != nullptr)
         {
-            Node* c = nullptr;
-            for (;;)  // NOSONAR cpp:S5311
+            node->lr[rr]->up = p;
+        }
+
+        r        = p->lr[1] == node;
+        p->lr[r] = node->lr[rr];
+        if (p->lr[r] != nullptr)
+        {
+            p->lr[r]->up = p;
+        }
+    }
+    // Now that the topology is updated, perform the retracing to restore balance. We climb up adjusting the
+    // balance factors until we reach the root or a parent whose balance factor becomes plus/minus one, which
+    // means that that parent was able to absorb the balance delta; in other words, the height of the outer
+    // subtree is unchanged, so upper balance factors shall be kept unchanged.
+    if (p->isLinked())
+    {
+        for (;;)  // NOSONAR cpp:S5311
+        {
+            Node* const c = p->adjustBalance(!r);
+            CAVL_ASSERT(nullptr != c);
+            p = c->getParentNode();
+            if ((c->bf != 0) || (nullptr == p))
             {
-                c = p->adjustBalance(!r);
-                p = c->getParentNode();
-                if ((c->bf != 0) || (nullptr == p))  // NOSONAR cpp:S134
+                // Reached the root or the height difference is absorbed by `c`.
+                CAVL_ASSERT(nullptr != c->up);
+                if ((nullptr == p) && (nullptr != c->up))  // NOSONAR cpp:S134
                 {
-                    // Reached the root or the height difference is absorbed by `c`.
-                    break;
+                    c->up->lr[0] = c;
                 }
-                r = p->lr[1] == c;
+                break;
             }
-            if (nullptr == p)
-            {
-                CAVL_ASSERT(c != nullptr);
-                root = c;
-            }
+            r = p->lr[1] == c;
         }
     }
 }
@@ -583,6 +598,7 @@ auto Node<Derived>::adjustBalance(const bool increment) noexcept -> Node*
     {
         bf = new_bf;  // Balancing not needed, just update the balance factor and call it a day.
     }
+    CAVL_ASSERT(nullptr != out);
     return out;
 }
 
@@ -787,11 +803,14 @@ public:
     Tree(Tree&& other) noexcept
         : origin_node_{std::move(other.origin_node_)}
     {
-        CAVL_ASSERT(!traversal_in_progress_);  // Cannot modify the tree while it is being traversed.
+        CAVL_ASSERT(!traversal_in_progress_);        // Cannot modify the tree while it is being traversed.
+        CAVL_ASSERT(!other.traversal_in_progress_);  // Cannot modify the tree while it is being traversed.
     }
     auto operator=(Tree&& other) noexcept -> Tree&
     {
-        CAVL_ASSERT(!traversal_in_progress_);  // Cannot modify the tree while it is being traversed.
+        CAVL_ASSERT(!traversal_in_progress_);        // Cannot modify the tree while it is being traversed.
+        CAVL_ASSERT(!other.traversal_in_progress_);  // Cannot modify the tree while it is being traversed.
+
         origin_node_ = std::move(other.origin_node_);
         return *this;
     }
@@ -814,13 +833,26 @@ public:
         return NodeType::template search<Pre, Fac>(origin_node_, predicate, factory);
     }
 
+    /// The function has no effect if the node pointer is `nullptr`, or node is not in the tree (aka unlinked).
+    /// It is safe to pass the result of search() directly as the `node` argument:
+    ///     `tree.remove(Node<T>::search(root, search_predicate));`
+    /// but it could be done also by direct node removal:
+    /// ```
+    ///     if (auto* const node = Node<T>::search(root, search_predicate) {
+    ///         node->remove();
+    ///     }
+    /// ```
+    ///
     /// Wraps NodeType<>::remove().
     ///
     /// No Sonar cpp:S6936 b/c the `remove` method name isolated inside `Tree` type (doesn't conflict with C).
     void remove(NodeType* const node) noexcept  // NOSONAR cpp:S6936
     {
         CAVL_ASSERT(!traversal_in_progress_);  // Cannot modify the tree while it is being traversed.
-        NodeType::remove(origin_node_, node);
+        if ((node != nullptr) && node->isLinked())
+        {
+            node->remove();
+        }
     }
 
     /// Wraps NodeType<>::min/max().

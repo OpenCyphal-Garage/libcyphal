@@ -15,7 +15,6 @@
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
-#include <cetl/rtti.hpp>
 #include <udpard.h>
 
 #include <algorithm>

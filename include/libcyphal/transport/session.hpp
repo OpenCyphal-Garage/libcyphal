@@ -72,16 +72,6 @@ public:
     ITxSession& operator=(const ITxSession&)     = delete;
     ITxSession& operator=(ITxSession&&) noexcept = delete;
 
-    /// @brief Sets the timeout for a transmission.
-    ///
-    /// The value is added to the original transfer timestamp to determine its deadline.
-    /// Any transfer that exceeded this deadline would be dropped.
-    ///
-    /// @param timeout - Positive duration for transmission timeout. Default value is 1 second.
-    ///                  Zero or negative values have no sense - TX will always expire.
-    ///
-    virtual void setSendTimeout(const Duration timeout) = 0;
-
 protected:
     ITxSession()  = default;
     ~ITxSession() = default;

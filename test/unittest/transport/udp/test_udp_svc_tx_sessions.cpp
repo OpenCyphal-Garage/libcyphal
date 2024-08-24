@@ -66,8 +66,8 @@ protected:
     void SetUp() override
     {
         EXPECT_CALL(media_mock_, makeTxSocket())  //
-            .WillRepeatedly(Invoke([this]() {
-                return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock_);
+            .WillRepeatedly(Invoke([this] {
+                return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock_);
             }));
 
         EXPECT_CALL(tx_socket_mock_, getMtu())  //
@@ -127,6 +127,12 @@ TEST_F(TestUdpSvcTxSessions, make_request_session)
         EXPECT_THAT(session->getParams().service_id, 123);
         EXPECT_THAT(session->getParams().server_node_id, UDPARD_NODE_ID_MAX);
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -146,6 +152,12 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_argument_error)
         auto maybe_session = transport->makeRequestTxSession({0, UDPARD_NODE_ID_MAX + 1});
         EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -164,6 +176,12 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_no_memory)
 
         auto maybe_session = transport->makeRequestTxSession({0x23, 0});
         EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -207,6 +225,11 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_media_socket)
         EXPECT_THAT(session->getParams().service_id, 0x23);
         EXPECT_THAT(transport->getProtocolParams().mtu_bytes, ITxSocket::DefaultMtu);
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -222,13 +245,13 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_request)
     auto session = cetl::get<UniquePtr<IRequestTxSession>>(std::move(maybe_session));
 
     const PayloadFragments empty_payload{};
-    TransferMetadata       metadata{0x1AF52, {}, Priority::Low};
+    TransferTxMetadata     metadata{{0x1AF52, Priority::Low}, {}};
 
     // 1st try anonymous node - should fail without even trying to allocate & send payload.
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        metadata.timestamp = now();
-        auto failure       = session->send(metadata, empty_payload);
+        metadata.deadline = now() + 1s;
+        auto failure      = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
     });
     // 2nd. Try again but now with a valid node id.
@@ -254,9 +277,16 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_request)
         EXPECT_CALL(tx_socket_mock_, registerCallback(_))  //
             .WillOnce(Invoke([](auto) { return libcyphal::IExecutor::Callback::Any{}; }));
 
-        metadata.timestamp = now();
-        auto failure       = session->send(metadata, empty_payload);
+        metadata.deadline = now() + 1s;
+        auto failure      = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        session.reset();
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 
@@ -276,14 +306,14 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_responce)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IResponseTxSession>>(std::move(maybe_session));
 
-    const PayloadFragments  empty_payload{};
-    ServiceTransferMetadata metadata{{0x1AF52, {}, Priority::Low}, 0x31};
+    const PayloadFragments empty_payload{};
+    ServiceTxMetadata      metadata{{{0x1AF52, Priority::Low}, {}}, 0x31};
 
     // 1st try anonymous node - should fail without even trying to allocate & send payload.
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        metadata.base.timestamp = now();
-        auto failure            = session->send(metadata, empty_payload);
+        metadata.tx_meta.deadline = now() + 1s;
+        auto failure              = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
     });
     // 2nd. Try again but now with a valid node id.
@@ -309,9 +339,16 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_responce)
         EXPECT_CALL(tx_socket_mock_, registerCallback(_))  //
             .WillOnce(Invoke([](auto) { return libcyphal::IExecutor::Callback::Any{}; }));
 
-        metadata.base.timestamp = now();
-        auto failure            = session->send(metadata, empty_payload);
+        metadata.tx_meta.deadline = now() + 1s;
+        auto failure              = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 
@@ -329,17 +366,16 @@ TEST_F(TestUdpSvcTxSessions, send_request)
     auto session = cetl::get<UniquePtr<IRequestTxSession>>(std::move(maybe_session));
 
     constexpr auto timeout = 100ms;
-    session->setSendTimeout(timeout);
 
     const PayloadFragments empty_payload{};
-    TransferMetadata       metadata{0x66, {}, Priority::Slow};
+    TransferTxMetadata     metadata{{0x66, Priority::Slow}, {}};
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto dscp, auto fragments) {
-                EXPECT_THAT(now(), metadata.timestamp);
-                EXPECT_THAT(deadline, metadata.timestamp + timeout);
+                EXPECT_THAT(now(), metadata.deadline - timeout);
+                EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(endpoint.ip_address, 0xEF01001F);
                 EXPECT_THAT(endpoint.udp_port, 9382);
                 EXPECT_THAT(dscp, 0x0);
@@ -352,9 +388,16 @@ TEST_F(TestUdpSvcTxSessions, send_request)
                 return scheduler_.registerAndScheduleNamedCallback("", now() + 10ms, std::move(function));
             }));
 
-        metadata.timestamp = now();
-        auto failure       = session->send(metadata, empty_payload);
+        metadata.deadline = now() + timeout;
+        auto failure      = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -373,12 +416,12 @@ TEST_F(TestUdpSvcTxSessions, send_request_with_argument_error)
     auto session = cetl::get<UniquePtr<IRequestTxSession>>(std::move(maybe_session));
 
     const PayloadFragments empty_payload{};
-    TransferMetadata       metadata{0x66, {}, Priority::Immediate};
+    TransferTxMetadata     metadata{{0x66, Priority::Immediate}, {}};
 
     // Should fail due to anonymous node.
     scheduler_.scheduleAt(100ms, [&](const auto&) {
         //
-        metadata.timestamp = now();
+        metadata.deadline  = now() + 1s;
         const auto failure = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
     });
@@ -397,9 +440,16 @@ TEST_F(TestUdpSvcTxSessions, send_request_with_argument_error)
                 return scheduler_.registerAndScheduleNamedCallback("", now() + 10ms, std::move(function));
             }));
 
-        metadata.timestamp = now();
+        metadata.deadline  = now() + 1s;
         const auto failure = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -416,6 +466,12 @@ TEST_F(TestUdpSvcTxSessions, make_response_session)
 
         EXPECT_THAT(session->getParams().service_id, 123);
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -428,6 +484,12 @@ TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_argument_error)
         //
         auto maybe_session = transport->makeResponseTxSession({UDPARD_SERVICE_ID_MAX + 1});
         EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -447,6 +509,10 @@ TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_no_memory)
 
         auto maybe_session = transport->makeResponseTxSession({0x23});
         EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
+
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -490,6 +556,11 @@ TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_media_socket)
         EXPECT_THAT(session->getParams().service_id, 123);
         EXPECT_THAT(transport->getProtocolParams().mtu_bytes, ITxSocket::DefaultMtu);
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -502,17 +573,16 @@ TEST_F(TestUdpSvcTxSessions, send_response)
     auto session = cetl::get<UniquePtr<IResponseTxSession>>(std::move(maybe_session));
 
     constexpr auto timeout = 100ms;
-    session->setSendTimeout(timeout);
 
-    const PayloadFragments  empty_payload{};
-    ServiceTransferMetadata metadata{{0x66, {}, Priority::Fast}, 0x0D};
+    const PayloadFragments empty_payload{};
+    ServiceTxMetadata      metadata{{{0x66, Priority::Fast}, {}}, 0x0D};
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto dscp, auto fragments) {
-                EXPECT_THAT(now(), metadata.base.timestamp);
-                EXPECT_THAT(deadline, metadata.base.timestamp + timeout);
+                EXPECT_THAT(now(), metadata.tx_meta.deadline - timeout);
+                EXPECT_THAT(deadline, metadata.tx_meta.deadline);
                 EXPECT_THAT(endpoint.ip_address, 0xEF01000D);
                 EXPECT_THAT(endpoint.udp_port, 9382);
                 EXPECT_THAT(dscp, 0x0);
@@ -525,9 +595,16 @@ TEST_F(TestUdpSvcTxSessions, send_response)
                 return scheduler_.registerAndScheduleNamedCallback("", now() + 10ms, std::move(function));
             }));
 
-        metadata.base.timestamp = now();
-        auto failure            = session->send(metadata, empty_payload);
+        metadata.tx_meta.deadline = now() + timeout;
+        auto failure              = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -545,14 +622,14 @@ TEST_F(TestUdpSvcTxSessions, send_response_with_argument_error)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IResponseTxSession>>(std::move(maybe_session));
 
-    const PayloadFragments  empty_payload{};
-    ServiceTransferMetadata metadata{{0x66, {}, Priority::Immediate}, 13};
+    const PayloadFragments empty_payload{};
+    ServiceTxMetadata      metadata{{{0x66, Priority::Immediate}, {}}, 13};
 
     // Should fail due to anonymous node.
     scheduler_.scheduleAt(100ms, [&](const auto&) {
         //
-        metadata.base.timestamp = now();
-        const auto failure      = session->send(metadata, empty_payload);
+        metadata.tx_meta.deadline = now() + 1s;
+        const auto failure        = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
     });
     // Fix anonymous node, but break remote node id.
@@ -560,10 +637,17 @@ TEST_F(TestUdpSvcTxSessions, send_response_with_argument_error)
         //
         EXPECT_THAT(transport->setLocalNodeId(31), Eq(cetl::nullopt));
 
-        metadata.base.timestamp = now();
-        metadata.remote_node_id = UDPARD_NODE_ID_MAX + 1;
-        const auto maybe_error  = session->send(metadata, empty_payload);
+        metadata.tx_meta.deadline = now() + 1s;
+        metadata.remote_node_id   = UDPARD_NODE_ID_MAX + 1;
+        const auto maybe_error    = session->send(metadata, empty_payload);
         EXPECT_THAT(maybe_error, Optional(VariantWith<ArgumentError>(_)));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(tx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&tx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }

@@ -1,0 +1,4 @@
+int8[<8] some_stuff
+
+# reserve twice as much as we need.
+@extent _offset_.max * 2

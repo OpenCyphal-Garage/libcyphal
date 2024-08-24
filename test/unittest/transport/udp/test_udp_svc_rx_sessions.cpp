@@ -75,13 +75,13 @@ protected:
     void SetUp() override
     {
         EXPECT_CALL(media_mock_, makeTxSocket())  //
-            .WillRepeatedly(Invoke([this]() {
-                return libcyphal::detail::makeUniquePtr<TxSocketMock::ReferenceWrapper::Spec>(mr_, tx_socket_mock_);
+            .WillRepeatedly(Invoke([this] {
+                return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock_);
             }));
         EXPECT_CALL(media_mock_, makeRxSocket(_))  //
             .WillRepeatedly(Invoke([this](auto& endpoint) {
                 rx_socket_mock_.setEndpoint(endpoint);
-                return libcyphal::detail::makeUniquePtr<RxSocketMock::ReferenceWrapper::Spec>(mr_, rx_socket_mock_);
+                return libcyphal::detail::makeUniquePtr<RxSocketMock::RefWrapper::Spec>(mr_, rx_socket_mock_);
             }));
     }
 
@@ -302,9 +302,9 @@ TEST_F(TestUdpSvcRxSessions, receive_request)
             // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
             const auto& rx_transfer = maybe_rx_transfer.value();
 
-            EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx_timestamp);
-            EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x1D);
-            EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::High);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.timestamp, rx_timestamp);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.transfer_id, 0x1D);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.priority, Priority::High);
             EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x13);
 
             std::array<std::uint8_t, 2> buffer{};
@@ -366,6 +366,13 @@ TEST_F(TestUdpSvcRxSessions, receive_request)
             const auto maybe_rx_transfer = session->receive();
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
         });
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(rx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }
@@ -434,9 +441,9 @@ TEST_F(TestUdpSvcRxSessions, receive_response)
             // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
             const auto& rx_transfer = maybe_rx_transfer.value();
 
-            EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx_timestamp);
-            EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x1D);
-            EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::High);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.timestamp, rx_timestamp);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.transfer_id, 0x1D);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.priority, Priority::High);
             EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x31);
 
             std::array<std::uint8_t, 2> buffer{};
@@ -468,6 +475,13 @@ TEST_F(TestUdpSvcRxSessions, receive_response)
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
         });
     });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(rx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
+    });
     scheduler_.spinFor(10s);
 }
 
@@ -488,6 +502,12 @@ TEST_F(TestUdpSvcRxSessions, unsubscribe)
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         session.reset();
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(rx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
     });
     scheduler_.spinFor(10s);
 }

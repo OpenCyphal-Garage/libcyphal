@@ -67,18 +67,10 @@ public:
     SvcRequestTxSession(const Spec, TransportDelegate& delegate, const RequestTxParams& params)
         : delegate_{delegate}
         , params_{params}
-        , send_timeout_{std::chrono::seconds{1}}
     {
     }
 
 private:
-    // MARK: ITxSession
-
-    void setSendTimeout(const Duration timeout) override
-    {
-        send_timeout_ = timeout;
-    }
-
     // MARK: IRequestTxSession
 
     CETL_NODISCARD RequestTxParams getParams() const noexcept override
@@ -86,8 +78,8 @@ private:
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<AnyFailure> send(const TransferMetadata& metadata,
-                                                   const PayloadFragments  payload_fragments) override
+    CETL_NODISCARD cetl::optional<AnyFailure> send(const TransferTxMetadata& metadata,
+                                                   const PayloadFragments    payload_fragments) override
     {
         // Before delegating to transport it makes sense to do some sanity checks.
         // Otherwise, transport may do some work (like possible payload allocation/copying,
@@ -98,14 +90,14 @@ private:
             return ArgumentError{};
         }
 
-        const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(
-            (metadata.timestamp + send_timeout_).time_since_epoch());
+        const auto deadline_us =
+            std::chrono::duration_cast<std::chrono::microseconds>(metadata.deadline.time_since_epoch());
 
         const auto tx_metadata = AnyUdpardTxMetadata::Request{static_cast<UdpardMicrosecond>(deadline_us.count()),
-                                                              static_cast<UdpardPriority>(metadata.priority),
+                                                              static_cast<UdpardPriority>(metadata.base.priority),
                                                               params_.service_id,
                                                               params_.server_node_id,
-                                                              metadata.transfer_id};
+                                                              metadata.base.transfer_id};
 
         return delegate_.sendAnyTransfer(tx_metadata, payload_fragments);
     }
@@ -114,7 +106,6 @@ private:
 
     TransportDelegate&    delegate_;
     const RequestTxParams params_;
-    Duration              send_timeout_;
 
 };  // SvcRequestTxSession
 
@@ -155,18 +146,10 @@ public:
     SvcResponseTxSession(const Spec, TransportDelegate& delegate, const ResponseTxParams& params)
         : delegate_{delegate}
         , params_{params}
-        , send_timeout_{std::chrono::seconds{1}}
     {
     }
 
 private:
-    // MARK: ITxSession
-
-    void setSendTimeout(const Duration timeout) override
-    {
-        send_timeout_ = timeout;
-    }
-
     // MARK: IResponseTxSession
 
     CETL_NODISCARD ResponseTxParams getParams() const noexcept override
@@ -174,8 +157,8 @@ private:
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<AnyFailure> send(const ServiceTransferMetadata& metadata,
-                                                   const PayloadFragments         payload_fragments) override
+    CETL_NODISCARD cetl::optional<AnyFailure> send(const ServiceTxMetadata& metadata,
+                                                   const PayloadFragments   payload_fragments) override
     {
         // Before delegating to transport it makes sense to do some sanity checks.
         // Otherwise, transport may do some work (like possible payload allocation/copying,
@@ -186,14 +169,15 @@ private:
             return ArgumentError{};
         }
 
-        const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(
-            (metadata.base.timestamp + send_timeout_).time_since_epoch());
+        const auto deadline_us =
+            std::chrono::duration_cast<std::chrono::microseconds>(metadata.tx_meta.deadline.time_since_epoch());
 
-        const auto tx_metadata = AnyUdpardTxMetadata::Respond{static_cast<UdpardMicrosecond>(deadline_us.count()),
-                                                              static_cast<UdpardPriority>(metadata.base.priority),
-                                                              params_.service_id,
-                                                              metadata.remote_node_id,
-                                                              metadata.base.transfer_id};
+        const auto tx_metadata =
+            AnyUdpardTxMetadata::Respond{static_cast<UdpardMicrosecond>(deadline_us.count()),
+                                         static_cast<UdpardPriority>(metadata.tx_meta.base.priority),
+                                         params_.service_id,
+                                         metadata.remote_node_id,
+                                         metadata.tx_meta.base.transfer_id};
 
         return delegate_.sendAnyTransfer(tx_metadata, payload_fragments);
     }
@@ -202,7 +186,6 @@ private:
 
     TransportDelegate&     delegate_;
     const ResponseTxParams params_;
-    Duration               send_timeout_;
 
 };  // SvcResponseTxSession
 

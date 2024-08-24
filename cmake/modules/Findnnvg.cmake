@@ -147,7 +147,7 @@ endfunction()
 # :option               ENABLE_OVR_VAR_ARRAY:     Generates code with variable array capacity override enabled
 # :option               ENABLE_SER_ASSERT:        Generates code with serialization asserts enabled
 # :option               VERBOSE                   Enable verbose output from nnvg.
-function (define_nuanvut_support_target)
+function (define_nunavut_support_target)
     #+-[input]----------------------------------------------------------------+
     set(options VERBOSE ENABLE_SER_ASSERT ENABLE_OVR_VAR_ARRAY)
     set(singleValueArgs TARGET OUTPUT_FOLDER)

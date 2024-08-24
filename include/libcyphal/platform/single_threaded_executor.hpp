@@ -133,7 +133,7 @@ protected:
         };
 
         CallbackNode(CallbackNode&& other) noexcept
-            : Node(std::move(static_cast<Node&>(other)))
+            : Node{std::move(static_cast<Node&>(other))}
             , executor_{other.executor_}
             , function_{std::move(other.function_)}
             , next_exec_time_{other.next_exec_time_}
@@ -213,9 +213,10 @@ protected:
 
         const std::tuple<CallbackNode*, bool> cb_node_existing = callback_nodes_.search(  //
             [next_exec_time](const CallbackNode& other_node) {                            // predicate
+                //
                 return other_node.compareByExecutionTime(next_exec_time);
             },
-            [&callback_node]() { return &callback_node; });  // factory
+            [&callback_node]() { return &callback_node; });  // "factory"
 
         (void) cb_node_existing;
         CETL_DEBUG_ASSERT(!std::get<1>(cb_node_existing), "Unexpected existing callback node.");

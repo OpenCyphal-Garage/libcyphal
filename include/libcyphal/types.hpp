@@ -89,6 +89,9 @@ private:
 
 };  // ImplementationCell
 
+/// Internal implementation details.
+/// Not supposed to be used directly by the users of the library.
+///
 namespace detail
 {
 
@@ -113,6 +116,24 @@ CETL_NODISCARD UniquePtr<typename UniquePtrSpec::Interface> makeUniquePtr(cetl::
         typename UniquePtrSpec::Interface>(PmrAllocator<typename UniquePtrSpec::Concrete>{&memory},
                                            std::forward<Args>(args)...);
 }
+
+/// @brief Makes a new variant type by appending set of additional types.
+///
+/// In use f.e. for extending an existing `Failure` type (which is `cetl::variant` of possible `Error`s)
+/// with extra set of additional failure modes which are specific to the particular functionality.
+///
+/// @tparam T Type of the original variant.
+/// @tparam Args Set of the additional types.
+///
+template <typename T, typename... Args>
+struct AppendType;
+//
+template <typename... A, typename... B>
+struct AppendType<cetl::variant<A...>, B...>
+{
+    using Result = cetl::variant<A..., B...>;
+
+};  // AppendType
 
 }  // namespace detail
 

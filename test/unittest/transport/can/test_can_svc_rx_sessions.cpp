@@ -208,9 +208,9 @@ TEST_F(TestCanSvcRxSessions, receive_request)
             // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
             const auto& rx_transfer = maybe_rx_transfer.value();
 
-            EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx_timestamp);
-            EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x1D);
-            EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::High);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.timestamp, rx_timestamp);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.transfer_id, 0x1D);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.priority, Priority::High);
             EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x13);
 
             std::array<std::uint8_t, 2> buffer{};
@@ -296,9 +296,9 @@ TEST_F(TestCanSvcRxSessions, receive_response)
             // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
             const auto& rx_transfer = maybe_rx_transfer.value();
 
-            EXPECT_THAT(rx_transfer.metadata.base.timestamp, rx_timestamp);
-            EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x1D);
-            EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::High);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.timestamp, rx_timestamp);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.transfer_id, 0x1D);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.priority, Priority::High);
             EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x31);
 
             std::array<std::uint8_t, 2> buffer{};
@@ -400,9 +400,9 @@ TEST_F(TestCanSvcRxSessions, receive_two_frames)
             // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
             const auto& rx_transfer = maybe_rx_transfer.value();
 
-            EXPECT_THAT(rx_transfer.metadata.base.timestamp, first_rx_timestamp);
-            EXPECT_THAT(rx_transfer.metadata.base.transfer_id, 0x1E);
-            EXPECT_THAT(rx_transfer.metadata.base.priority, Priority::Exceptional);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.timestamp, first_rx_timestamp);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.transfer_id, 0x1E);
+            EXPECT_THAT(rx_transfer.metadata.rx_meta.base.priority, Priority::Exceptional);
             EXPECT_THAT(rx_transfer.metadata.remote_node_id, 0x13);
 
             std::array<char, extent_bytes> buffer{};

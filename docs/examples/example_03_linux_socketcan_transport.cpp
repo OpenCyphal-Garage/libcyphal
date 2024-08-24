@@ -10,15 +10,10 @@
 #include "platform/common_helpers.hpp"
 #include "platform/linux/can/can_media.hpp"
 #include "platform/linux/epoll_single_threaded_executor.hpp"
+#include "platform/node_helpers.hpp"
 #include "platform/tracking_memory_resource.hpp"
 
-#include <cetl/pf17/cetlpf.hpp>
-#include <cetl/pf20/cetlpf.hpp>
-#include <cetl/visit_helpers.hpp>
 #include <libcyphal/transport/can/can_transport.hpp>
-#include <libcyphal/transport/can/can_transport_impl.hpp>
-#include <libcyphal/transport/can/media.hpp>
-#include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
@@ -26,13 +21,10 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <iostream>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace
@@ -90,94 +82,22 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
-    cetl::optional<AnyFailure> transientErrorReporter(ICanTransport::TransientErrorReport::Variant& report_var)
-    {
-        using Report = ICanTransport::TransientErrorReport;
-
-        cetl::visit(  //
-            cetl::make_overloaded(
-                [](const Report::CanardTxPush& report) {
-                    std::cerr << "Failed to push TX frame to canard "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::CanardRxAccept& report) {
-                    std::cerr << "Failed to accept RX frame at canard "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::MediaPop& report) {
-                    std::cerr << "Failed to pop frame from media "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::ConfigureMedia& report) {
-                    std::cerr << "Failed to configure CAN.\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::MediaConfig& report) {
-                    std::cerr << "Failed to configure media " << "(mediaIdx=" << static_cast<int>(report.media_index)
-                              << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [this](const Report::MediaPush& report) {
-                    std::cerr << "Failed to push frame to media "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-
-                    state_.media_vector_[report.media_index].tryReopen();
-                }),
-            report_var);
-
-        return cetl::nullopt;
-    }
-
-    void makeTransport()
-    {
-        constexpr std::size_t tx_capacity = 16;
-
-        std::vector<IMedia*> mis;
-        for (auto& media : state_.media_vector_)
-        {
-            mis.push_back(&media);
-        }
-
-        auto maybe_transport = can::makeTransport({mr_}, executor_, {mis.data(), mis.size()}, tx_capacity);
-        EXPECT_THAT(maybe_transport, VariantWith<CanTransportPtr>(_)) << "Failed to create transport.";
-
-        state_.transport_ = cetl::get<CanTransportPtr>(std::move(maybe_transport));
-        state_.transport_->setLocalNodeId(local_node_id_);
-        state_.transport_->setTransientErrorHandler([this](auto& report) {
-            //
-            return transientErrorReporter(report);
-        });
-    }
-
     // MARK: Data members:
     // NOLINTBEGIN
 
     struct State
     {
-        void reset()
-        {
-            rx_heartbeat_.reset();
-            tx_heartbeat_.reset();
-            transport_.reset();
-            media_vector_.clear();
-        }
-
-        CommonHelpers::Heartbeat::Rx rx_heartbeat_;
-        CommonHelpers::Heartbeat::Tx tx_heartbeat_;
-        CanTransportPtr              transport_;
-        std::vector<Linux::CanMedia> media_vector_;
+        Linux::CanMedia::Collection media_collection_;
+        CanTransportPtr             transport_;
+        NodeHelpers::Heartbeat      heartbeat_;
+        NodeHelpers::GetInfo        get_info_;
 
     };  // State
 
     example::platform::TrackingMemoryResource             mr_;
     example::platform::Linux::EpollSingleThreadedExecutor executor_;
-    State                                                 state_{};
-    NodeId                                                local_node_id_{42};
     TimePoint                                             startup_time_{};
+    NodeId                                                local_node_id_{42};
     Duration                                              run_duration_{10s};
     std::vector<std::string>                              iface_addresses_{"vcan0"};
     // NOLINTEND
@@ -186,37 +106,36 @@ protected:
 
 // MARK: - Tests:
 
-TEST_F(Example_03_LinuxSocketCanTransport, heartbeat)
+TEST_F(Example_03_LinuxSocketCanTransport, heartbeat_and_getInfo)
 {
-    // Make CAN media.
-    //
-    for (const auto& iface_address : iface_addresses_)
-    {
-        auto maybe_media = Linux::CanMedia::make(executor_, iface_address);
-        if (auto* const error = cetl::get_if<PlatformError>(&maybe_media))
-        {
-            std::cerr << "Failed to create CAN media '" << iface_address << "', errno=" << (*error)->code() << ".";
-            GTEST_SKIP();
-        }
-        ASSERT_THAT(maybe_media, VariantWith<Linux::CanMedia>(_)) << "Failed to create CAN media.";
-        state_.media_vector_.emplace_back(cetl::get<Linux::CanMedia>(std::move(maybe_media)));
-    }
+    State state;
 
     // Make CAN transport with collection of media.
-    makeTransport();
+    //
+    if (!state.media_collection_.make(executor_, iface_addresses_))
+    {
+        GTEST_SKIP();
+    }
+    CommonHelpers::Can::makeTransport(state, mr_, executor_, local_node_id_);
 
-    // Subscribe/Publish heartbeats.
-    state_.rx_heartbeat_.makeRxSession(*state_.transport_, startup_time_);
-    state_.tx_heartbeat_.makeTxSession(*state_.transport_, executor_, startup_time_);
+    // Publish/Subscribe heartbeats.
+    state.heartbeat_.makeTxSession(*state.transport_, executor_, startup_time_);
+    state.heartbeat_.makeRxSession(*state.transport_, [&](const auto& arg) {
+        //
+        state.heartbeat_.tryDeserializeAndPrint(executor_.now() - startup_time_, arg.transfer);
+    });
+
+    // Bring up 'GetInfo' server.
+    state.get_info_.setName("org.opencyphal.example_03_linux_socketcan_transport");
+    state.get_info_.makeRxSession(*state.transport_);
+    state.get_info_.makeTxSession(*state.transport_);
 
     // Main loop.
     //
-    CommonHelpers::runMainLoop(executor_, startup_time_ + run_duration_ + 500ms, [&] {
+    CommonHelpers::runMainLoop(executor_, startup_time_ + run_duration_ + 500ms, [&](const auto now) {
         //
-        state_.rx_heartbeat_.receive();
+        state.get_info_.receive(now);
     });
-
-    state_.reset();
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

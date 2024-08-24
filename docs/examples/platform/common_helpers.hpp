@@ -6,22 +6,14 @@
 #ifndef EXAMPLE_PLATFORM_COMMON_HELPERS_HPP_INCLUDED
 #define EXAMPLE_PLATFORM_COMMON_HELPERS_HPP_INCLUDED
 
-#include "posix/posix_single_threaded_executor.hpp"
-
-#include <libcyphal/executor.hpp>
-#include <libcyphal/transport/errors.hpp>
-#include <libcyphal/transport/msg_sessions.hpp>
-#include <libcyphal/transport/transport.hpp>
-#include <libcyphal/transport/types.hpp>
-#include <libcyphal/types.hpp>
-
-#include <cassert>  // NOLINT for NUNAVUT_ASSERT
-#include <nunavut/support/serialization.hpp>
-#include <uavcan/node/Health_1_0.hpp>
-#include <uavcan/node/Heartbeat_1_0.hpp>
-#include <uavcan/node/Mode_1_0.hpp>
-
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/visit_helpers.hpp>
+#include <libcyphal/transport/can/can_transport.hpp>
+#include <libcyphal/transport/can/can_transport_impl.hpp>
+#include <libcyphal/transport/errors.hpp>
+#include <libcyphal/transport/udp/udp_transport.hpp>
+#include <libcyphal/transport/udp/udp_transport_impl.hpp>
+#include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -39,9 +31,7 @@ namespace platform
 
 struct CommonHelpers
 {
-    using Callback            = libcyphal::IExecutor::Callback;
-    using MessageRxSessionPtr = libcyphal::UniquePtr<libcyphal::transport::IMessageRxSession>;
-    using MessageTxSessionPtr = libcyphal::UniquePtr<libcyphal::transport::IMessageTxSession>;
+    using NodeId = libcyphal::transport::NodeId;
 
     static std::vector<std::string> splitInterfaceAddresses(const std::string& iface_addresses_str)
     {
@@ -94,132 +84,10 @@ struct CommonHelpers
         }
     };
 
-    template <typename T, typename TxSession, typename TxMetadata>
-    static cetl::optional<libcyphal::transport::AnyFailure> serializeAndSend(const T&          value,
-                                                                             TxSession&        tx_session,
-                                                                             const TxMetadata& metadata)
-    {
-        using traits = typename T::_traits_;
-        std::array<std::uint8_t, traits::SerializationBufferSizeBytes> buffer{};
-
-        const auto data_size = uavcan::node::serialize(value, buffer).value();
-
-        // NOLINTNEXTLINE
-        const cetl::span<const cetl::byte> fragment{reinterpret_cast<cetl::byte*>(buffer.data()), data_size};
-        const std::array<const cetl::span<const cetl::byte>, 1> payload{fragment};
-
-        return tx_session.send(metadata, payload);
-    }
-
-    struct Heartbeat
-    {
-        struct Rx
-        {
-            libcyphal::TimePoint startup_time_;
-            MessageRxSessionPtr  msg_rx_session_;
-
-            bool makeRxSession(libcyphal::transport::ITransport& transport, const libcyphal::TimePoint startup_time)
-            {
-                auto maybe_msg_rx_session =
-                    transport.makeMessageRxSession({uavcan::node::Heartbeat_1_0::_traits_::ExtentBytes,
-                                                    uavcan::node::Heartbeat_1_0::_traits_::FixedPortId});
-                EXPECT_THAT(maybe_msg_rx_session, testing::VariantWith<MessageRxSessionPtr>(testing::_))
-                    << "Failed to create Heartbeat RX session.";
-                if (auto* const session = cetl::get_if<MessageRxSessionPtr>(&maybe_msg_rx_session))
-                {
-                    startup_time_   = startup_time;
-                    msg_rx_session_ = std::move(*session);
-                }
-                return nullptr != msg_rx_session_;
-            }
-
-            void reset()
-            {
-                msg_rx_session_.reset();
-            }
-
-            void receive() const
-            {
-                if (msg_rx_session_)
-                {
-                    auto rx_heartbeat = msg_rx_session_->receive();
-                    if (rx_heartbeat)
-                    {
-                        print(*rx_heartbeat);
-                    }
-                }
-            }
-
-            void print(const libcyphal::transport::MessageRxTransfer& rx_heartbeat) const
-            {
-                const auto rel_time = rx_heartbeat.metadata.base.timestamp - startup_time_;
-                std::cout << "Received heartbeat from node " << std::setw(8)
-                          << rx_heartbeat.metadata.publisher_node_id.value_or(0) << " @ " << std::setw(8)
-                          << std::chrono::duration_cast<std::chrono::milliseconds>(rel_time).count()
-                          << " ms, tx_id=" << rx_heartbeat.metadata.base.transfer_id << "\n"
-                          << std::flush;
-            }
-
-        };  // Rx
-
-        struct Tx
-        {
-            libcyphal::TimePoint             startup_time_;
-            libcyphal::transport::TransferId transfer_id_{0};
-            MessageTxSessionPtr              msg_tx_session_;
-            Callback::Any                    callback_;
-
-            void makeTxSession(libcyphal::transport::ITransport& transport,
-                               libcyphal::IExecutor&             executor,
-                               const libcyphal::TimePoint        startup_time)
-            {
-                auto maybe_msg_tx_session =
-                    transport.makeMessageTxSession({uavcan::node::Heartbeat_1_0::_traits_::FixedPortId});
-                EXPECT_THAT(maybe_msg_tx_session, testing::VariantWith<MessageTxSessionPtr>(testing::_))
-                    << "Failed to create Heartbeat TX session.";
-                if (auto* const session = cetl::get_if<MessageTxSessionPtr>(&maybe_msg_tx_session))
-                {
-                    startup_time_   = startup_time;
-                    msg_tx_session_ = std::move(*session);
-
-                    callback_             = executor.registerCallback([&](const auto now) { publish(now); });
-                    constexpr auto period = std::chrono::seconds{uavcan::node::Heartbeat_1_0::MAX_PUBLICATION_PERIOD};
-                    callback_.schedule(Callback::Schedule::Repeat{startup_time + period, period});
-                }
-            }
-
-            void reset()
-            {
-                callback_.reset();
-                msg_tx_session_.reset();
-            }
-
-            void publish(const Callback::Arg& arg)
-            {
-                transfer_id_ += 1;
-                const auto uptime_in_secs =
-                    std::chrono::duration_cast<std::chrono::seconds>(arg.approx_now - startup_time_);
-                const uavcan::node::Heartbeat_1_0 heartbeat{static_cast<std::uint32_t>(uptime_in_secs.count()),
-                                                            {uavcan::node::Health_1_0::NOMINAL},
-                                                            {uavcan::node::Mode_1_0::OPERATIONAL}};
-                EXPECT_THAT(serializeAndSend(heartbeat,
-                                             *msg_tx_session_,
-                                             libcyphal::transport::
-                                                 TransferMetadata{transfer_id_,
-                                                                  arg.approx_now,
-                                                                  libcyphal::transport::Priority::Nominal}),
-                            testing::Eq(cetl::nullopt))
-                    << "Failed to publish heartbeat.";
-            }
-
-        };  // Tx
-
-    };  // Heartbeat
-
     template <typename Executor>
-    static void runMainLoop(Executor&                    executor,
-                            const libcyphal::TimePoint   deadline,
-                            const std::function<void()>& spin_extra_action)
+    static void runMainLoop(Executor&                                        executor,
+                            const libcyphal::TimePoint                       deadline,
+                            const std::function<void(libcyphal::TimePoint)>& spin_extra_action)
     {
         libcyphal::Duration worst_lateness{0};
 
@@ -228,7 +96,7 @@ struct CommonHelpers
             const auto spin_result = executor.spinOnce();
             worst_lateness         = std::max(worst_lateness, spin_result.worst_lateness);
 
-            spin_extra_action();
+            spin_extra_action(spin_result.approx_now);
 
             cetl::optional<libcyphal::Duration> opt_timeout;
             if (spin_result.next_exec_time.has_value())
@@ -240,6 +108,157 @@ struct CommonHelpers
 
         std::cout << "worst_callback_lateness=" << worst_lateness.count() << "us\n";
     }
+
+    struct Can
+    {
+        using ICanTransport   = libcyphal::transport::can::ICanTransport;
+        using CanTransportPtr = libcyphal::UniquePtr<ICanTransport>;
+        using IMedia          = libcyphal::transport::can::IMedia;
+
+        template <typename State>
+        static void makeTransport(State&                      state,
+                                  cetl::pmr::memory_resource& mr,
+                                  libcyphal::IExecutor&       executor,
+                                  const NodeId                local_node_id_)
+        {
+            constexpr std::size_t tx_capacity = 16;
+
+            // Make CAN transport.
+            //
+            auto maybe_transport =
+                libcyphal::transport::can::makeTransport({mr}, executor, state.media_collection_.span(), tx_capacity);
+            EXPECT_THAT(maybe_transport, testing::VariantWith<CanTransportPtr>(testing::_))
+                << "Failed to create CAN transport.";
+            state.transport_ = cetl::get<CanTransportPtr>(std::move(maybe_transport));
+            state.transport_->setLocalNodeId(local_node_id_);
+            state.transport_->setTransientErrorHandler(transientErrorReporter);
+        }
+
+        static cetl::optional<libcyphal::transport::AnyFailure> transientErrorReporter(
+            libcyphal::transport::can::ICanTransport::TransientErrorReport::Variant& report_var)
+        {
+            using Report = libcyphal::transport::can::ICanTransport::TransientErrorReport;
+
+            cetl::visit(  //
+                cetl::make_overloaded(
+                    [](const Report::CanardTxPush& report) {
+                        std::cerr << "Failed to push TX frame to canard "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::CanardRxAccept& report) {
+                        std::cerr << "Failed to accept RX frame at canard "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::MediaPop& report) {
+                        std::cerr << "Failed to pop frame from media "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::ConfigureMedia& report) {
+                        std::cerr << "Failed to configure CAN.\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::MediaConfig& report) {
+                        std::cerr << "Failed to configure media "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::MediaPush& report) {
+                        std::cerr << "Failed to push frame to media "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    }),
+                report_var);
+
+            return cetl::nullopt;
+        }
+
+    };  // Can
+
+    struct Udp
+    {
+        using IUdpTransport   = libcyphal::transport::udp::IUdpTransport;
+        using UdpTransportPtr = libcyphal::UniquePtr<IUdpTransport>;
+        using IMedia          = libcyphal::transport::udp::IMedia;
+
+        template <typename State>
+        static void makeTransport(State&                      state,
+                                  cetl::pmr::memory_resource& mr,
+                                  libcyphal::IExecutor&       executor,
+                                  const NodeId                local_node_id)
+        {
+            constexpr std::size_t tx_capacity = 16;
+
+            // Make UDP transport.
+            //
+            auto maybe_transport =
+                libcyphal::transport::udp::makeTransport({mr}, executor, state.media_collection_.span(), tx_capacity);
+            EXPECT_THAT(maybe_transport, testing::VariantWith<UdpTransportPtr>(testing::_))
+                << "Failed to create transport.";
+            state.transport_ = cetl::get<UdpTransportPtr>(std::move(maybe_transport));
+            state.transport_->setLocalNodeId(local_node_id);
+            state.transport_->setTransientErrorHandler(transientErrorReporter);
+        }
+
+        static cetl::optional<libcyphal::transport::AnyFailure> transientErrorReporter(
+            IUdpTransport::TransientErrorReport::Variant& report_var)
+        {
+            using Report = IUdpTransport::TransientErrorReport;
+
+            cetl::visit(  //
+                cetl::make_overloaded(
+                    [](const Report::UdpardTxPublish& report) {
+                        std::cerr << "Failed to TX message frame to udpard "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::UdpardTxRequest& report) {
+                        std::cerr << "Failed to TX request frame to udpard "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::UdpardTxRespond& report) {
+                        std::cerr << "Failed to TX response frame to udpard "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::UdpardRxMsgReceive& report) {
+                        std::cerr << "Failed to accept RX message frame at udpard "
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::UdpardRxSvcReceive& report) {
+                        std::cerr << "Failed to accept RX service frame at udpard "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::MediaMakeRxSocket& report) {
+                        std::cerr << "Failed to make RX socket " << "(mediaIdx=" << static_cast<int>(report.media_index)
+                                  << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::MediaMakeTxSocket& report) {
+                        std::cerr << "Failed to make TX socket " << "(mediaIdx=" << static_cast<int>(report.media_index)
+                                  << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::MediaTxSocketSend& report) {
+                        std::cerr << "Failed to TX frame to socket "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    },
+                    [](const Report::MediaRxSocketReceive& report) {
+                        std::cerr << "Failed to RX frame from socket "
+                                  << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
+                                  << Printers::describeAnyFailure(report.failure) << "\n";
+                    }),
+                report_var);
+
+            return cetl::nullopt;
+        }
+
+    };  // Udp
 
 };  // CommonHelpers
 

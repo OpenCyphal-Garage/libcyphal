@@ -16,7 +16,7 @@ jobs:
       contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts22.4.7
+    container: ghcr.io/opencyphal/toolshed:ts22.4.10
     steps:
       - uses: actions/checkout@v4
       - name: Cache ext modules
@@ -47,7 +47,7 @@ jobs:
       contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts22.4.7
+    container: ghcr.io/opencyphal/toolshed:ts22.4.10
     needs: [warmup]
     strategy:
       matrix:
@@ -101,7 +101,7 @@ jobs:
       contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts22.4.7
+    container: ghcr.io/opencyphal/toolshed:ts22.4.10
     needs: [warmup]
     steps:
     - uses: actions/checkout@v4

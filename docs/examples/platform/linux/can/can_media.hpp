@@ -7,6 +7,8 @@
 #ifndef EXAMPLE_PLATFORM_LINUX_CAN_MEDIA_HPP_INCLUDED
 #define EXAMPLE_PLATFORM_LINUX_CAN_MEDIA_HPP_INCLUDED
 
+#include "../../posix/posix_executor_extension.hpp"
+#include "../../posix/posix_platform_error.hpp"
 #include "socketcan.h"
 
 #include <canard.h>
@@ -38,6 +40,51 @@ namespace Linux
 class CanMedia final : public libcyphal::transport::can::IMedia
 {
 public:
+    struct Collection
+    {
+        Collection() = default;
+
+        bool make(libcyphal::IExecutor& executor, std::vector<std::string>& iface_addresses)
+        {
+            reset();
+
+            for (const auto& iface_address : iface_addresses)
+            {
+                auto maybe_media = CanMedia::make(executor, iface_address);
+                if (auto* const error = cetl::get_if<libcyphal::transport::PlatformError>(&maybe_media))
+                {
+                    std::cerr << "Failed to create CAN media '" << iface_address << "', errno=" << (*error)->code()
+                              << ".";
+                    return false;
+                }
+                media_vector_.emplace_back(cetl::get<Linux::CanMedia>(std::move(maybe_media)));
+            }
+
+            for (auto& media : media_vector_)
+            {
+                media_ifaces_.push_back(&media);
+            }
+
+            return true;
+        }
+
+        cetl::span<IMedia*> span()
+        {
+            return {media_ifaces_.data(), media_ifaces_.size()};
+        }
+
+        void reset()
+        {
+            media_vector_.clear();
+            media_ifaces_.clear();
+        }
+
+    private:
+        std::vector<CanMedia> media_vector_;
+        std::vector<IMedia*>  media_ifaces_;
+
+    };  // Collection
+
     CETL_NODISCARD static cetl::variant<CanMedia, libcyphal::transport::PlatformError> make(
         libcyphal::IExecutor& executor,
         const std::string&    iface_address)
@@ -206,8 +253,8 @@ private:
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerPopCallback(
         libcyphal::IExecutor::Callback::Function&& function) override
     {
-        using ReadableTrogger = posix::IPosixExecutorExtension::Trigger::Readable;
-        return registerAwaitableCallback(std::move(function), ReadableTrogger{socket_can_rx_fd_});
+        using ReadableTrigger = posix::IPosixExecutorExtension::Trigger::Readable;
+        return registerAwaitableCallback(std::move(function), ReadableTrigger{socket_can_rx_fd_});
     }
 
     // MARK: Data members:

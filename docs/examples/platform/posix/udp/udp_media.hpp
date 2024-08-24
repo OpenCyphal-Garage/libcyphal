@@ -27,6 +27,42 @@ namespace posix
 class UdpMedia final : public libcyphal::transport::udp::IMedia
 {
 public:
+    struct Collection
+    {
+        Collection() = default;
+
+        void make(cetl::pmr::memory_resource& memory,
+                  libcyphal::IExecutor&       executor,
+                  std::vector<std::string>&   iface_addresses)
+        {
+            reset();
+
+            for (const auto& iface_address : iface_addresses)
+            {
+                media_vector_.emplace_back(memory, executor, iface_address);
+            }
+            for (auto& media : media_vector_)
+            {
+                media_ifaces_.push_back(&media);
+            }
+        }
+
+        cetl::span<IMedia*> span()
+        {
+            return {media_ifaces_.data(), media_ifaces_.size()};
+        }
+
+        void reset()
+        {
+            media_vector_.clear();
+            media_ifaces_.clear();
+        }
+
+    private:
+        std::vector<UdpMedia> media_vector_;
+        std::vector<IMedia*>  media_ifaces_;
+    };
+
     UdpMedia(cetl::pmr::memory_resource& memory, libcyphal::IExecutor& executor, std::string iface_address)
         : memory_{memory}
         , executor_{executor}

@@ -140,8 +140,19 @@ private:
 
         TransportDelegate::UdpardMemory udpard_memory{delegate_, inout_transfer};
 
-        const MessageTransferMetadata meta{{inout_transfer.transfer_id, timestamp, priority}, publisher_node_id};
-        (void) last_rx_transfer_.emplace(MessageRxTransfer{meta, ScatteredBuffer{std::move(udpard_memory)}});
+        const MessageRxMetadata meta{{{inout_transfer.transfer_id, priority}, timestamp}, publisher_node_id};
+        MessageRxTransfer       msg_rx_transfer{meta, ScatteredBuffer{std::move(udpard_memory)}};
+        if (on_receive_cb_fn_)
+        {
+            on_receive_cb_fn_(OnReceiveCallback::Arg{msg_rx_transfer});
+            return;
+        }
+        (void) last_rx_transfer_.emplace(std::move(msg_rx_transfer));
+    }
+
+    void setOnReceiveCallback(OnReceiveCallback::Function&& function) override
+    {
+        on_receive_cb_fn_ = std::move(function);
     }
 
     // MARK: IMsgRxSessionDelegate
@@ -157,6 +168,7 @@ private:
     const MessageRxParams             params_;
     UdpardRxSubscription              subscription_;
     cetl::optional<MessageRxTransfer> last_rx_transfer_;
+    OnReceiveCallback::Function       on_receive_cb_fn_;
 
 };  // MessageRxSession
 

@@ -10,7 +10,10 @@
 #include "session.hpp"
 #include "types.hpp"
 
+#include "libcyphal/types.hpp"
+
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pmr/function.hpp>
 
 #include <cstddef>
 
@@ -54,6 +57,17 @@ public:
     ///
     virtual cetl::optional<MessageRxTransfer> receive() = 0;
 
+    // TODO: docs
+    struct OnReceiveCallback
+    {
+        struct Arg
+        {
+            MessageRxTransfer& transfer;
+        };
+        using Function = cetl::pmr::function<void(const Arg&), sizeof(void*) * 4>;
+    };
+    virtual void setOnReceiveCallback(OnReceiveCallback::Function&& function) = 0;
+
 protected:
     IMessageRxSession()  = default;
     ~IMessageRxSession() = default;
@@ -82,8 +96,8 @@ public:
     /// @param payload_fragments Segments of the message payload.
     /// @return `nullopt` in case of success; otherwise a transport failure.
     ///
-    virtual cetl::optional<AnyFailure> send(const TransferMetadata& metadata,
-                                            const PayloadFragments  payload_fragments) = 0;
+    virtual cetl::optional<AnyFailure> send(const TransferTxMetadata& metadata,
+                                            const PayloadFragments    payload_fragments) = 0;
 
 protected:
     IMessageTxSession()  = default;

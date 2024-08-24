@@ -150,7 +150,7 @@ private:
         auto* const buffer = static_cast<cetl::byte*>(transfer.payload);  // NOSONAR cpp:S5356 cpp:S5357
         TransportDelegate::CanardMemory canard_memory{delegate_, buffer, transfer.payload_size};
 
-        const ServiceTransferMetadata meta{{transfer_id, timestamp, priority}, remote_node_id};
+        const ServiceRxMetadata meta{{{transfer_id, priority}, timestamp}, remote_node_id};
         (void) last_rx_transfer_.emplace(ServiceRxTransfer{meta, ScatteredBuffer{std::move(canard_memory)}});
     }
 

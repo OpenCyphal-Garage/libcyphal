@@ -233,13 +233,13 @@ TEST_F(TestSingleThreadedExecutor, schedule_once_multiple)
     std::vector<std::tuple<std::string, TimePoint, TimePoint>> calls;
 
     auto cb1 = executor.registerCallback([&](const auto& arg) {  //
-        calls.emplace_back(std::make_tuple("1", arg.exec_time, arg.approx_now));
+        calls.emplace_back("1", arg.exec_time, arg.approx_now);
     });
     auto cb2 = executor.registerCallback([&](const auto& arg) {  //
-        calls.emplace_back(std::make_tuple("2", arg.exec_time, arg.approx_now));
+        calls.emplace_back("2", arg.exec_time, arg.approx_now);
     });
     auto cb3 = executor.registerCallback([&](const auto& arg) {  //
-        calls.emplace_back(std::make_tuple("3", arg.exec_time, arg.approx_now));
+        calls.emplace_back("3", arg.exec_time, arg.approx_now);
     });
 
     auto virtual_now = TimePoint{};
@@ -272,13 +272,13 @@ TEST_F(TestSingleThreadedExecutor, schedule_once_multiple_with_the_same_exec_tim
     std::vector<std::tuple<std::string, TimePoint, TimePoint>> calls;
 
     auto cb1 = executor.registerCallback([&](const auto& arg) {  //
-        calls.emplace_back(std::make_tuple("1", arg.exec_time, arg.approx_now));
+        calls.emplace_back("1", arg.exec_time, arg.approx_now);
     });
     auto cb2 = executor.registerCallback([&](const auto& arg) {  //
-        calls.emplace_back(std::make_tuple("2", arg.exec_time, arg.approx_now));
+        calls.emplace_back("2", arg.exec_time, arg.approx_now);
     });
     auto cb3 = executor.registerCallback([&](const auto& arg) {  //
-        calls.emplace_back(std::make_tuple("3", arg.exec_time, arg.approx_now));
+        calls.emplace_back("3", arg.exec_time, arg.approx_now);
     });
 
     auto       virtual_now = TimePoint{};
@@ -316,7 +316,7 @@ TEST_F(TestSingleThreadedExecutor, schedule_once_callback_recursively)
     cb = executor.registerCallback([&](const auto& arg) {
         //
         ++counter;
-        calls.emplace_back(std::make_tuple(counter, arg.exec_time, arg.approx_now));
+        calls.emplace_back(counter, arg.exec_time, arg.approx_now);
 
         EXPECT_TRUE(cb.schedule(Schedule::Once{arg.approx_now + 2ms}));
     });
@@ -353,7 +353,7 @@ TEST_F(TestSingleThreadedExecutor, reset_once_scheduling_from_callback)
     cb = executor.registerCallback([&](const auto& arg) {
         //
         ++counter;
-        calls.emplace_back(std::make_tuple(counter, arg.exec_time, arg.approx_now));
+        calls.emplace_back(counter, arg.exec_time, arg.approx_now);
 
         cb.reset();
     });
@@ -387,7 +387,7 @@ TEST_F(TestSingleThreadedExecutor, reset_repeat_scheduling_from_callback)
     Callback::Any cb      = executor.registerCallback([&](const auto& arg) {
         //
         ++counter;
-        calls.emplace_back(std::make_tuple(counter, arg.exec_time, arg.approx_now));
+        calls.emplace_back(counter, arg.exec_time, arg.approx_now);
 
         if (counter == 3)
         {
@@ -425,11 +425,11 @@ TEST_F(TestSingleThreadedExecutor, spinOnce_worsth_lateness)
 
     auto cb1 = executor.registerCallback([&](const auto& arg) {
         //
-        calls.emplace_back(std::make_tuple(1, arg.exec_time, arg.approx_now));
+        calls.emplace_back(1, arg.exec_time, arg.approx_now);
     });
     auto cb2 = executor.registerCallback([&](const auto& arg) {
         //
-        calls.emplace_back(std::make_tuple(2, arg.exec_time, arg.approx_now));
+        calls.emplace_back(2, arg.exec_time, arg.approx_now);
     });
 
     const TimePoint start_time = TimePoint{100ms};

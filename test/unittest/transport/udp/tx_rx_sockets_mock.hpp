@@ -6,9 +6,10 @@
 #ifndef LIBCYPHAL_TRANSPORT_UDP_TX_RX_SOCKETS_MOCK_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_UDP_TX_RX_SOCKETS_MOCK_HPP_INCLUDED
 
+#include "../../unique_ptr_reference_wrapper.hpp"
+
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
-#include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/tx_rx_sockets.hpp>
 #include <libcyphal/types.hpp>
@@ -30,54 +31,29 @@ namespace udp
 class TxSocketMock : public ITxSocket
 {
 public:
-    struct ReferenceWrapper : ITxSocket
+    struct RefWrapper final : UniquePtrReferenceWrapper<ITxSocket, TxSocketMock, RefWrapper>
     {
-        struct Spec : libcyphal::detail::UniquePtrSpec<ITxSocket, ReferenceWrapper>
-        {};
-
-        explicit ReferenceWrapper(TxSocketMock& tx_socket_mock)
-            : tx_socket_mock_{tx_socket_mock}
-        {
-        }
-        ReferenceWrapper(const ReferenceWrapper& other)
-            : tx_socket_mock_{other.tx_socket_mock_}
-        {
-        }
-
-        virtual ~ReferenceWrapper()                              = default;
-        ReferenceWrapper(ReferenceWrapper&&) noexcept            = delete;
-        ReferenceWrapper& operator=(const ReferenceWrapper&)     = delete;
-        ReferenceWrapper& operator=(ReferenceWrapper&&) noexcept = delete;
-
-        TxSocketMock& tx_socket_mock()
-        {
-            return tx_socket_mock_;
-        }
+        using UniquePtrReferenceWrapper::UniquePtrReferenceWrapper;
 
         // MARK: ITxSocket
 
         std::size_t getMtu() const noexcept override
         {
-            return tx_socket_mock_.getMtu();
+            return reference().getMtu();
         }
-
-        ITxSocket::SendResult::Type send(const TimePoint        deadline,
-                                         const IpEndpoint       multicast_endpoint,
-                                         const std::uint8_t     dscp,
-                                         const PayloadFragments payload_fragments) override
+        SendResult::Type send(const TimePoint        deadline,
+                              const IpEndpoint       multicast_endpoint,
+                              const std::uint8_t     dscp,
+                              const PayloadFragments payload_fragments) override
         {
-            return tx_socket_mock_.send(deadline, multicast_endpoint, dscp, payload_fragments);
+            return reference().send(deadline, multicast_endpoint, dscp, payload_fragments);
         }
-
         CETL_NODISCARD IExecutor::Callback::Any registerCallback(IExecutor::Callback::Function&& function) override
         {
-            return tx_socket_mock_.registerCallback(std::move(function));
+            return reference().registerCallback(std::move(function));
         }
 
-    private:
-        TxSocketMock& tx_socket_mock_;
-
-    };  // ReferenceWrapper
+    };  // RefWrapper
 
     explicit TxSocketMock(std::string name)
         : name_{std::move(name)}
@@ -115,6 +91,8 @@ public:
 
     MOCK_METHOD(IExecutor::Callback::Any, registerCallback, (IExecutor::Callback::Function && function), (override));
 
+    MOCK_METHOD(void, deinit, (), (noexcept));  // NOLINT(*-exception-escape)
+
 private:
     const std::string name_;
 
@@ -125,46 +103,22 @@ private:
 class RxSocketMock : public IRxSocket
 {
 public:
-    struct ReferenceWrapper : IRxSocket
+    struct RefWrapper final : UniquePtrReferenceWrapper<IRxSocket, RxSocketMock, RefWrapper>
     {
-        struct Spec : libcyphal::detail::UniquePtrSpec<IRxSocket, ReferenceWrapper>
-        {};
-
-        explicit ReferenceWrapper(RxSocketMock& rx_socket_mock)
-            : rx_socket_mock_{rx_socket_mock}
-        {
-        }
-        ReferenceWrapper(const ReferenceWrapper& other)
-            : rx_socket_mock_{other.rx_socket_mock_}
-        {
-        }
-
-        virtual ~ReferenceWrapper()                              = default;
-        ReferenceWrapper(ReferenceWrapper&&) noexcept            = delete;
-        ReferenceWrapper& operator=(const ReferenceWrapper&)     = delete;
-        ReferenceWrapper& operator=(ReferenceWrapper&&) noexcept = delete;
-
-        RxSocketMock& rx_socket_mock()
-        {
-            return rx_socket_mock_;
-        }
+        using UniquePtrReferenceWrapper::UniquePtrReferenceWrapper;
 
         // MARK: IRxSocket
 
         ReceiveResult::Type receive() override
         {
-            return rx_socket_mock_.receive();
+            return reference().receive();
         }
-
         CETL_NODISCARD IExecutor::Callback::Any registerCallback(IExecutor::Callback::Function&& function) override
         {
-            return rx_socket_mock_.registerCallback(std::move(function));
+            return reference().registerCallback(std::move(function));
         }
 
-    private:
-        RxSocketMock& rx_socket_mock_;
-
-    };  // ReferenceWrapper
+    };  // RefWrapper
 
     explicit RxSocketMock(std::string name)
         : name_{std::move(name)}
@@ -197,6 +151,8 @@ public:
     MOCK_METHOD(ReceiveResult::Type, receive, (), (override));
 
     MOCK_METHOD(IExecutor::Callback::Any, registerCallback, (IExecutor::Callback::Function && function), (override));
+
+    MOCK_METHOD(void, deinit, (), (noexcept));  // NOLINT(*-exception-escape)
 
 private:
     const std::string name_;

@@ -166,30 +166,29 @@ TEST_F(TestCanSvcTxSessions, send_request)
     auto session = cetl::get<UniquePtr<IRequestTxSession>>(std::move(maybe_session));
 
     constexpr auto timeout = 100ms;
-    session->setSendTimeout(timeout);
 
     const PayloadFragments empty_payload{};
-    TransferMetadata       metadata{0x66, {}, Priority::Slow};
+    TransferTxMetadata     metadata{{0x66, Priority::Slow}, {}};
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         EXPECT_CALL(media_mock_, push(_, _, _))  //
             .WillOnce([&](auto deadline, auto can_id, auto payload) {
-                EXPECT_THAT(now(), metadata.timestamp);
-                EXPECT_THAT(deadline, metadata.timestamp + timeout);
+                EXPECT_THAT(now(), metadata.deadline - timeout);
+                EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(can_id, ServiceOfCanIdEq(123));
                 EXPECT_THAT(can_id, AllOf(SourceNodeOfCanIdEq(13), DestinationNodeOfCanIdEq(31)));
-                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsServiceCanId()));
+                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsServiceCanId()));
 
-                auto tbm = TailByteEq(metadata.transfer_id);
+                auto tbm = TailByteEq(metadata.base.transfer_id);
                 EXPECT_THAT(payload, ElementsAre(tbm));
                 return IMedia::PushResult::Success{true /* is_accepted */};
             });
         EXPECT_CALL(media_mock_, registerPushCallback(_))  //
             .WillOnce(Invoke([](auto) { return libcyphal::IExecutor::Callback::Any{}; }));
 
-        metadata.timestamp = now();
-        auto failure       = session->send(metadata, empty_payload);
+        metadata.deadline  = now() + timeout;
+        const auto failure = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
     scheduler_.spinFor(10s);
@@ -211,12 +210,12 @@ TEST_F(TestCanSvcTxSessions, send_request_with_argument_error)
     constexpr auto timeout = 1s;
 
     const PayloadFragments empty_payload{};
-    TransferMetadata       metadata{0x66, {}, Priority::Immediate};
+    TransferTxMetadata     metadata{{0x66, Priority::Immediate}, {}};
 
     // Should fail due to anonymous node.
     scheduler_.scheduleAt(100ms, [&](const auto&) {
         //
-        metadata.timestamp = now();
+        metadata.deadline  = now() + timeout;
         const auto failure = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
     });
@@ -227,20 +226,20 @@ TEST_F(TestCanSvcTxSessions, send_request_with_argument_error)
 
         EXPECT_CALL(media_mock_, push(_, _, _))  //
             .WillOnce([&](auto deadline, auto can_id, auto payload) {
-                EXPECT_THAT(now(), metadata.timestamp);
-                EXPECT_THAT(deadline, metadata.timestamp + timeout);
+                EXPECT_THAT(now(), metadata.deadline - timeout);
+                EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(can_id, ServiceOfCanIdEq(123));
                 EXPECT_THAT(can_id, AllOf(SourceNodeOfCanIdEq(13), DestinationNodeOfCanIdEq(31)));
-                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.priority), IsServiceCanId()));
+                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsServiceCanId()));
 
-                auto tbm = TailByteEq(metadata.transfer_id);
+                auto tbm = TailByteEq(metadata.base.transfer_id);
                 EXPECT_THAT(payload, ElementsAre(tbm));
                 return IMedia::PushResult::Success{true /* is_accepted */};
             });
         EXPECT_CALL(media_mock_, registerPushCallback(_))  //
             .WillOnce(Invoke([](auto) { return libcyphal::IExecutor::Callback::Any{}; }));
 
-        metadata.timestamp = now();
+        metadata.deadline  = now() + timeout;
         const auto failure = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
@@ -303,22 +302,21 @@ TEST_F(TestCanSvcTxSessions, send_response)
     auto session = cetl::get<UniquePtr<IResponseTxSession>>(std::move(maybe_session));
 
     constexpr auto timeout = 100ms;
-    session->setSendTimeout(timeout);
 
-    const PayloadFragments  empty_payload{};
-    ServiceTransferMetadata metadata{{0x66, {}, Priority::Fast}, 13};
+    constexpr PayloadFragments empty_payload{};
+    ServiceTxMetadata          metadata{{{0x66, Priority::Fast}, {}}, 13};
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         EXPECT_CALL(media_mock_, push(_, _, _))  //
             .WillOnce([&](auto deadline, auto can_id, auto payload) {
-                EXPECT_THAT(now(), metadata.base.timestamp);
-                EXPECT_THAT(deadline, metadata.base.timestamp + timeout);
+                EXPECT_THAT(now(), metadata.tx_meta.deadline - timeout);
+                EXPECT_THAT(deadline, metadata.tx_meta.deadline);
                 EXPECT_THAT(can_id, ServiceOfCanIdEq(123));
                 EXPECT_THAT(can_id, AllOf(SourceNodeOfCanIdEq(31), DestinationNodeOfCanIdEq(13)));
-                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsServiceCanId()));
+                EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.tx_meta.base.priority), IsServiceCanId()));
 
-                auto tbm = TailByteEq(metadata.base.transfer_id);
+                auto tbm = TailByteEq(metadata.tx_meta.base.transfer_id);
                 EXPECT_THAT(payload, ElementsAre(tbm));
                 return IMedia::PushResult::Success{true /* is_accepted */};
             });
@@ -327,8 +325,8 @@ TEST_F(TestCanSvcTxSessions, send_response)
                 return scheduler_.registerAndScheduleNamedCallback("", now() + 10ms, std::move(function));
             }));
 
-        metadata.base.timestamp = now();
-        auto failure            = session->send(metadata, empty_payload);
+        metadata.tx_meta.deadline = now() + timeout;
+        auto failure              = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
     scheduler_.spinFor(10s);
@@ -347,14 +345,16 @@ TEST_F(TestCanSvcTxSessions, send_response_with_argument_error)
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseTxSession>>(NotNull()));
     auto session = cetl::get<UniquePtr<IResponseTxSession>>(std::move(maybe_session));
 
-    const PayloadFragments  empty_payload{};
-    ServiceTransferMetadata metadata{{0x66, now(), Priority::Immediate}, 13};
+    constexpr auto timeout = 1s;
+
+    const PayloadFragments empty_payload{};
+    ServiceTxMetadata      metadata{{{0x66, Priority::Immediate}, now()}, 13};
 
     // Should fail due to anonymous node.
     scheduler_.scheduleAt(100ms, [&](const auto&) {
         //
-        metadata.base.timestamp = now();
-        const auto failure      = session->send(metadata, empty_payload);
+        metadata.tx_meta.deadline = now() + timeout;
+        const auto failure        = session->send(metadata, empty_payload);
         EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
     });
     // Fix anonymous node, but break remote node id.
@@ -362,9 +362,9 @@ TEST_F(TestCanSvcTxSessions, send_response_with_argument_error)
         //
         EXPECT_THAT(transport->setLocalNodeId(31), Eq(cetl::nullopt));
 
-        metadata.remote_node_id = CANARD_NODE_ID_MAX + 1;
-        metadata.base.timestamp = now();
-        const auto maybe_error  = session->send(metadata, empty_payload);
+        metadata.remote_node_id   = CANARD_NODE_ID_MAX + 1;
+        metadata.tx_meta.deadline = now() + timeout;
+        const auto maybe_error    = session->send(metadata, empty_payload);
         EXPECT_THAT(maybe_error, Optional(VariantWith<ArgumentError>(_)));
     });
     scheduler_.spinFor(10s);

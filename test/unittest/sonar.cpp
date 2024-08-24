@@ -6,6 +6,13 @@
 #include <libcyphal/common/cavl/cavl.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/platform/single_threaded_executor.hpp>
+#include <libcyphal/presentation/presentation.hpp>
+#include <libcyphal/presentation/presentation_delegate.hpp>
+#include <libcyphal/presentation/publisher.hpp>
+#include <libcyphal/presentation/publisher_impl.hpp>
+#include <libcyphal/presentation/shared_object.hpp>
+#include <libcyphal/presentation/subscriber.hpp>
+#include <libcyphal/presentation/subscriber_impl.hpp>
 #include <libcyphal/time_provider.hpp>
 #include <libcyphal/transport/can/can_transport.hpp>
 #include <libcyphal/transport/can/can_transport_impl.hpp>

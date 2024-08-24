@@ -62,18 +62,10 @@ public:
     MessageTxSession(const Spec, TransportDelegate& delegate, const MessageTxParams& params)
         : delegate_{delegate}
         , params_{params}
-        , send_timeout_{std::chrono::seconds{1}}
     {
     }
 
 private:
-    // MARK: ITxSession
-
-    void setSendTimeout(const Duration timeout) override
-    {
-        send_timeout_ = timeout;
-    }
-
     // MARK: IMessageTxSession
 
     CETL_NODISCARD MessageTxParams getParams() const noexcept override
@@ -81,23 +73,22 @@ private:
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<AnyFailure> send(const TransferMetadata& metadata,
-                                                   const PayloadFragments  payload_fragments) override
+    CETL_NODISCARD cetl::optional<AnyFailure> send(const TransferTxMetadata& metadata,
+                                                   const PayloadFragments    payload_fragments) override
     {
-        const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.priority),
+        const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.base.priority),
                                                             CanardTransferKindMessage,
                                                             params_.subject_id,
                                                             CANARD_NODE_ID_UNSET,
-                                                            static_cast<CanardTransferID>(metadata.transfer_id)};
+                                                            static_cast<CanardTransferID>(metadata.base.transfer_id)};
 
-        return delegate_.sendTransfer(metadata.timestamp + send_timeout_, canard_metadata, payload_fragments);
+        return delegate_.sendTransfer(metadata.deadline, canard_metadata, payload_fragments);
     }
 
     // MARK: Data members:
 
     TransportDelegate&    delegate_;
     const MessageTxParams params_;
-    Duration              send_timeout_;
 
 };  // MessageTxSession
 

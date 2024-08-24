@@ -64,18 +64,10 @@ public:
     SvcRequestTxSession(const Spec, TransportDelegate& delegate, const RequestTxParams& params)
         : delegate_{delegate}
         , params_{params}
-        , send_timeout_{std::chrono::seconds{1}}
     {
     }
 
 private:
-    // MARK: ITxSession
-
-    void setSendTimeout(const Duration timeout) override
-    {
-        send_timeout_ = timeout;
-    }
-
     // MARK: IRequestTxSession
 
     CETL_NODISCARD RequestTxParams getParams() const noexcept override
@@ -83,8 +75,8 @@ private:
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<AnyFailure> send(const TransferMetadata& metadata,
-                                                   const PayloadFragments  payload_fragments) override
+    CETL_NODISCARD cetl::optional<AnyFailure> send(const TransferTxMetadata& metadata,
+                                                   const PayloadFragments    payload_fragments) override
     {
         // Before delegating to transport it makes sense to do some sanity checks.
         // Otherwise, transport may do some work (like possible payload allocation/copying,
@@ -95,20 +87,19 @@ private:
             return ArgumentError{};
         }
 
-        const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.priority),
+        const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.base.priority),
                                                             CanardTransferKindRequest,
                                                             params_.service_id,
                                                             static_cast<CanardNodeID>(params_.server_node_id),
-                                                            static_cast<CanardTransferID>(metadata.transfer_id)};
+                                                            static_cast<CanardTransferID>(metadata.base.transfer_id)};
 
-        return delegate_.sendTransfer(metadata.timestamp + send_timeout_, canard_metadata, payload_fragments);
+        return delegate_.sendTransfer(metadata.deadline, canard_metadata, payload_fragments);
     }
 
     // MARK: Data members:
 
     TransportDelegate&    delegate_;
     const RequestTxParams params_;
-    Duration              send_timeout_;
 
 };  // SvcRequestTxSession
 
@@ -148,18 +139,10 @@ public:
     SvcResponseTxSession(const Spec, TransportDelegate& delegate, const ResponseTxParams& params)
         : delegate_{delegate}
         , params_{params}
-        , send_timeout_{std::chrono::seconds{1}}
     {
     }
 
 private:
-    // MARK: ITxSession
-
-    void setSendTimeout(const Duration timeout) override
-    {
-        send_timeout_ = timeout;
-    }
-
     // MARK: IResponseTxSession
 
     CETL_NODISCARD ResponseTxParams getParams() const noexcept override
@@ -167,8 +150,8 @@ private:
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<AnyFailure> send(const ServiceTransferMetadata& metadata,
-                                                   const PayloadFragments         payload_fragments) override
+    CETL_NODISCARD cetl::optional<AnyFailure> send(const ServiceTxMetadata& metadata,
+                                                   const PayloadFragments   payload_fragments) override
     {
         // Before delegating to transport it makes sense to do some sanity checks.
         // Otherwise, transport may do some work (like possible payload allocation/copying,
@@ -179,20 +162,20 @@ private:
             return ArgumentError{};
         }
 
-        const auto canard_metadata = CanardTransferMetadata{static_cast<CanardPriority>(metadata.base.priority),
-                                                            CanardTransferKindResponse,
-                                                            params_.service_id,
-                                                            static_cast<CanardNodeID>(metadata.remote_node_id),
-                                                            static_cast<CanardTransferID>(metadata.base.transfer_id)};
+        const auto canard_metadata =
+            CanardTransferMetadata{static_cast<CanardPriority>(metadata.tx_meta.base.priority),
+                                   CanardTransferKindResponse,
+                                   params_.service_id,
+                                   static_cast<CanardNodeID>(metadata.remote_node_id),
+                                   static_cast<CanardTransferID>(metadata.tx_meta.base.transfer_id)};
 
-        return delegate_.sendTransfer(metadata.base.timestamp + send_timeout_, canard_metadata, payload_fragments);
+        return delegate_.sendTransfer(metadata.tx_meta.deadline, canard_metadata, payload_fragments);
     }
 
     // MARK: Data members:
 
     TransportDelegate&     delegate_;
     const ResponseTxParams params_;
-    Duration               send_timeout_;
 
 };  // SvcResponseTxSession
 

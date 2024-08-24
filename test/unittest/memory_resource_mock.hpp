@@ -51,7 +51,7 @@ public:
 
 #if (__cplusplus < CETL_CPP_STANDARD_17)
         EXPECT_CALL(*this, do_max_size())  //
-            .WillRepeatedly([&mr]() { return mr.max_size(); });
+            .WillRepeatedly([&mr] { return mr.max_size(); });
         EXPECT_CALL(*this, do_reallocate(_, _, _, _))
             .WillRepeatedly(
                 [&mr](void* ptr, std::size_t old_size_bytes, std::size_t new_size_bytes, std::size_t alignment) {

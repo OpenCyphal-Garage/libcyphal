@@ -8,30 +8,22 @@
 ///
 
 #include "platform/common_helpers.hpp"
+#include "platform/node_helpers.hpp"
 #include "platform/posix/posix_single_threaded_executor.hpp"
 #include "platform/posix/udp/udp_media.hpp"
 #include "platform/tracking_memory_resource.hpp"
 
-#include <cetl/pf17/cetlpf.hpp>
-#include <cetl/pf20/cetlpf.hpp>
-#include <cetl/visit_helpers.hpp>
-#include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/types.hpp>
-#include <libcyphal/transport/udp/media.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
-#include <libcyphal/transport/udp/udp_transport_impl.hpp>
 #include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <iostream>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace
@@ -51,10 +43,7 @@ using std::literals::chrono_literals::operator""s;
 using std::literals::chrono_literals::operator""ms;
 // NOLINTEND(misc-unused-using-decls, misc-include-cleaner)
 
-using testing::_;
-using testing::Eq;
 using testing::IsEmpty;
-using testing::VariantWith;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
@@ -84,81 +73,11 @@ protected:
 
     void TearDown() override
     {
+        executor_.releaseTemporaryResources();
+
         EXPECT_THAT(mr_.allocated_bytes, 0);
         EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
-    }
-
-    static cetl::optional<AnyFailure> transientErrorReporter(IUdpTransport::TransientErrorReport::Variant& report_var)
-    {
-        using Report = IUdpTransport::TransientErrorReport;
-
-        cetl::visit(  //
-            cetl::make_overloaded(
-                [](const Report::UdpardTxPublish& report) {
-                    std::cerr << "Failed to TX message frame to udpard "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::UdpardTxRequest& report) {
-                    std::cerr << "Failed to TX request frame to udpard "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::UdpardTxRespond& report) {
-                    std::cerr << "Failed to TX response frame to udpard "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::UdpardRxMsgReceive& report) {
-                    std::cerr << "Failed to accept RX message frame at udpard "
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::UdpardRxSvcReceive& report) {
-                    std::cerr << "Failed to accept RX service frame at udpard "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::MediaMakeRxSocket& report) {
-                    std::cerr << "Failed to make RX socket " << "(mediaIdx=" << static_cast<int>(report.media_index)
-                              << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::MediaMakeTxSocket& report) {
-                    std::cerr << "Failed to make TX socket " << "(mediaIdx=" << static_cast<int>(report.media_index)
-                              << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::MediaTxSocketSend& report) {
-                    std::cerr << "Failed to TX frame to socket " << "(mediaIdx=" << static_cast<int>(report.media_index)
-                              << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                },
-                [](const Report::MediaRxSocketReceive& report) {
-                    std::cerr << "Failed to RX frame from socket "
-                              << "(mediaIdx=" << static_cast<int>(report.media_index) << ").\n"
-                              << CommonHelpers::Printers::describeAnyFailure(report.failure) << "\n";
-                }),
-            report_var);
-
-        return cetl::nullopt;
-    }
-
-    void makeTransport()
-    {
-        constexpr std::size_t tx_capacity = 16;
-
-        std::vector<IMedia*> mis;
-        for (auto& media : state_.media_vector_)
-        {
-            mis.push_back(&media);
-        }
-
-        auto maybe_transport = udp::makeTransport({mr_}, executor_, {mis.data(), mis.size()}, tx_capacity);
-        EXPECT_THAT(maybe_transport, VariantWith<UdpTransportPtr>(_)) << "Failed to create transport.";
-        state_.transport_ = cetl::get<UdpTransportPtr>(std::move(maybe_transport));
-        state_.transport_->setLocalNodeId(local_node_id_);
-        state_.transport_->setTransientErrorHandler(transientErrorReporter);
     }
 
     // MARK: Data members:
@@ -166,26 +85,17 @@ protected:
 
     struct State
     {
-        void reset()
-        {
-            rx_heartbeat_.reset();
-            tx_heartbeat_.reset();
-            transport_.reset();
-            media_vector_.clear();
-        }
-
-        CommonHelpers::Heartbeat::Rx rx_heartbeat_;
-        CommonHelpers::Heartbeat::Tx tx_heartbeat_;
-        UdpTransportPtr              transport_;
-        std::vector<posix::UdpMedia> media_vector_;
+        posix::UdpMedia::Collection media_collection_;
+        UdpTransportPtr             transport_;
+        NodeHelpers::Heartbeat      heartbeat_;
+        NodeHelpers::GetInfo        get_info_;
 
     };  // State
 
     TrackingMemoryResource            mr_;
     posix::PollSingleThreadedExecutor executor_{mr_};
-    State                             state_{};
-    NodeId                            local_node_id_{42};
     TimePoint                         startup_time_{};
+    NodeId                            local_node_id_{42};
     Duration                          run_duration_{10s};
     std::vector<std::string>          iface_addresses_{"127.0.0.1"};
     // NOLINTEND
@@ -194,31 +104,33 @@ protected:
 
 // MARK: - Tests:
 
-TEST_F(Example_02_PosixUdpTransport, heartbeat)
+TEST_F(Example_02_PosixUdpTransport, heartbeat_and_getInfo)
 {
-    // Make UDP media.
-    //
-    for (const auto& iface_address : iface_addresses_)
-    {
-        state_.media_vector_.emplace_back(mr_, executor_, iface_address);
-    }
+    State state;
 
     // Make UDP transport with collection of media.
-    makeTransport();
+    //
+    state.media_collection_.make(mr_, executor_, iface_addresses_);
+    CommonHelpers::Udp::makeTransport(state, mr_, executor_, local_node_id_);
 
-    // Subscribe/Publish heartbeats.
-    state_.rx_heartbeat_.makeRxSession(*state_.transport_, startup_time_);
-    state_.tx_heartbeat_.makeTxSession(*state_.transport_, executor_, startup_time_);
+    // Publish/Subscribe heartbeats.
+    state.heartbeat_.makeTxSession(*state.transport_, executor_, startup_time_);
+    state.heartbeat_.makeRxSession(*state.transport_, [&](const auto& arg) {
+        //
+        state.heartbeat_.tryDeserializeAndPrint(executor_.now() - startup_time_, arg.transfer);
+    });
+
+    // Bring up 'GetInfo' server.
+    state.get_info_.setName("org.opencyphal.example_02_posix_udp_transport");
+    state.get_info_.makeRxSession(*state.transport_);
+    state.get_info_.makeTxSession(*state.transport_);
 
     // Main loop.
     //
-    CommonHelpers::runMainLoop(executor_, startup_time_ + run_duration_ + 500ms, [&] {
+    CommonHelpers::runMainLoop(executor_, startup_time_ + run_duration_ + 500ms, [&](const auto now) {
         //
-        state_.rx_heartbeat_.receive();
+        state.get_info_.receive(now);
     });
-
-    state_.reset();
-    executor_.releaseTemporaryResources();
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

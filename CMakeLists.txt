@@ -24,6 +24,38 @@ if (NOT NO_STATIC_ANALYSIS)
     message(STATUS "Using clang-tidy: ${clang_tidy}")
 endif ()
 
+# +---------------------------------------------------------------------------+
+# | BUILD DSDL TYPES
+# +---------------------------------------------------------------------------+
+
+find_package(public_regulated_data_types REQUIRED)
+find_package(nnvg REQUIRED)
+
+if (CETL_ENABLE_DEBUG_ASSERT)
+    set(NNVG_ASSERT_ARGS "ENABLE_SER_ASSERT")
+else()
+    set(NNVG_ASSERT_ARGS )
+endif()
+
+if (${CMAKE_MESSAGE_LOG_LEVEL} MATCHES "VERBOSE|TRACE|DEBUG")
+    set(NNVG_VERBOSE_ARGS "VERBOSE")
+else()
+    set(NNVG_VERBOSE_ARGS )
+endif()
+define_nunavut_support_target(
+    TARGET dsdl_support
+    ${NNVG_ASSERT_ARGS}
+    ${NNVG_VERBOSE_ARGS}
+)
+add_dsdl_cpp_codegen(
+    TARGET dsdl_public_types
+    DSDL_ROOT_DIR ${public_regulated_data_types_SOURCE_DIR}/uavcan
+    ${NNVG_ASSERT_ARGS}
+    ${NNVG_VERBOSE_ARGS}
+    DSDL_DEPENDENCIES
+        dsdl_support
+)
+
 add_subdirectory(test/unittest)
 add_subdirectory(docs)
 
