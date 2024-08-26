@@ -145,6 +145,7 @@ public:
                 CETL_DEBUG_ASSERT(context.next_node != nullptr, "");
                 constexpr auto this_deserializer_fn = &passRawMessageAsIs<Subscriber>;
                 CETL_DEBUG_ASSERT(context.next_node->deserializer_.function == this_deserializer_fn, "");
+                (void) this_deserializer_fn;
 
                 // "Consume" current node by preparing the context for the next iteration.
                 // It's important to do it before the callback b/c its activity may modify what is next.

@@ -833,15 +833,16 @@ public:
         return NodeType::template search<Pre, Fac>(origin_node_, predicate, factory);
     }
 
-    /// The function has no effect if the node pointer is `nullptr`, or node is not in the tree (aka unlinked).
-    /// It is safe to pass the result of search() directly as the `node` argument:
-    ///     `tree.remove(Node<T>::search(root, search_predicate));`
+    /// The function has no effect if the node pointer is nullptr, or node is not in the tree (aka unlinked).
+    /// It is safe to pass the result of search() directly as the node argument:
+    ///
+    ///     tree.remove(Node<T>::search(root, search_predicate));
+    ///
     /// but it could be done also by direct node removal:
-    /// ```
+    ///
     ///     if (auto* const node = Node<T>::search(root, search_predicate) {
     ///         node->remove();
     ///     }
-    /// ```
     ///
     /// Wraps NodeType<>::remove().
     ///
