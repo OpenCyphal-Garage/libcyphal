@@ -52,6 +52,8 @@ public:
     {
         cetl::optional<transport::AnyFailure> out_failure;
 
+        // Create a shared publisher implementation node or find an existing one.
+        //
         const auto publisher_existing = publisher_impl_nodes_.search(
             [subject_id](const detail::PublisherImpl& other_pub) {  // predicate
                 //
@@ -83,23 +85,12 @@ public:
     auto makeSubscriber(const transport::PortId subject_id) -> std::enable_if_t<!std::is_void<Message>::value, Result>
     {
         cetl::optional<transport::AnyFailure> out_failure;
-
-        const auto subscriber_existing = subscriber_impl_nodes_.search(
-            [subject_id](const detail::SubscriberImpl& other_sub) {  // predicate
-                //
-                return other_sub.compareBySubjectId(subject_id);
-            },
-            [this, subject_id, &out_failure]() -> detail::SubscriberImpl* {  // factory
-                //
-                return makeSubscriberImpl({Message::_traits_::ExtentBytes, subject_id}, out_failure);
-            });
+        const std::size_t                     extent_bytes = Message::_traits_::ExtentBytes;
+        auto* const subscriber_impl = createSharedSubscriberImpl(subject_id, extent_bytes, out_failure);
         if (out_failure)
         {
             return std::move(*out_failure);
         }
-
-        auto* const subscriber_impl = std::get<0>(subscriber_existing);
-        CETL_DEBUG_ASSERT(subscriber_impl != nullptr, "");
 
         return Subscriber<Message>{subscriber_impl};
     }
@@ -117,23 +108,11 @@ public:
                                                                      const std::size_t       extent_bytes)
     {
         cetl::optional<transport::AnyFailure> out_failure;
-
-        const auto subscriber_existing = subscriber_impl_nodes_.search(
-            [subject_id](const detail::SubscriberImpl& other_sub) {  // predicate
-                //
-                return other_sub.compareBySubjectId(subject_id);
-            },
-            [this, subject_id, extent_bytes, &out_failure]() -> detail::SubscriberImpl* {  // factory
-                //
-                return makeSubscriberImpl({extent_bytes, subject_id}, out_failure);
-            });
+        auto* const subscriber_impl = createSharedSubscriberImpl(subject_id, extent_bytes, out_failure);
         if (out_failure)
         {
             return std::move(*out_failure);
         }
-
-        auto* const subscriber_impl = std::get<0>(subscriber_existing);
-        CETL_DEBUG_ASSERT(subscriber_impl != nullptr, "");
 
         return Subscriber<void>{subscriber_impl};
     }
@@ -171,6 +150,31 @@ private:
             out_failure = transport::MemoryError{};
         }
         return publisher_impl;
+    }
+
+    detail::SubscriberImpl* createSharedSubscriberImpl(const transport::PortId                subject_id,
+                                                       const std::size_t                      extent_bytes,
+                                                       cetl::optional<transport::AnyFailure>& out_failure)
+    {
+        // Create a shared subscriber implementation node or find an existing one.
+        //
+        const auto subscriber_existing = subscriber_impl_nodes_.search(
+            [subject_id](const detail::SubscriberImpl& other_sub) {  // predicate
+                //
+                return other_sub.compareBySubjectId(subject_id);
+            },
+            [this, subject_id, extent_bytes, &out_failure]() -> detail::SubscriberImpl* {  // factory
+                //
+                return makeSubscriberImpl({extent_bytes, subject_id}, out_failure);
+            });
+        if (out_failure)
+        {
+            return nullptr;
+        }
+
+        auto* const subscriber_impl = std::get<0>(subscriber_existing);
+        CETL_DEBUG_ASSERT(subscriber_impl != nullptr, "");
+        return subscriber_impl;
     }
 
     CETL_NODISCARD detail::SubscriberImpl* makeSubscriberImpl(const transport::MessageRxParams       params,
