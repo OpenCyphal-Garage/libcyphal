@@ -1,5 +1,7 @@
 /// @file
-/// Example of creating a libcyphal node in your project using posix UDP sockets and transport.
+/// Example of creating a libcyphal node in your project using posix UDP sockets and presentation layer.
+/// This example demonstrates how to publish and subscribe to raw messages using presentation layer
+/// `Publisher` and `Subscriber` classes.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -7,29 +9,29 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#include "platform/common_helpers.hpp"
-#include "platform/node_helpers.hpp"
-#include "platform/posix/posix_single_threaded_executor.hpp"
-#include "platform/posix/udp/udp_media.hpp"
-#include "platform/tracking_memory_resource.hpp"
+#include "../platform/common_helpers.hpp"
+#include "../platform/posix/posix_single_threaded_executor.hpp"
+#include "../platform/posix/udp/udp_media.hpp"
+#include "../platform/tracking_memory_resource.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <libcyphal/executor.hpp>
 #include <libcyphal/presentation/presentation.hpp>
+#include <libcyphal/presentation/publisher.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
+#include <libcyphal/transport/udp/udp_transport_impl.hpp>
 #include <libcyphal/types.hpp>
-
-#include <uavcan/node/Health_1_0.hpp>
-#include <uavcan/node/Mode_1_0.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <string>
+#include <iostream>
+#include <utility>
 #include <vector>
 
 namespace
@@ -50,7 +52,7 @@ using testing::IsEmpty;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-class Example_12_PosixUdpPresentation : public testing::Test
+class Example_10_PosixUdpPresentation : public testing::Test
 {
 protected:
     using Callback        = libcyphal::IExecutor::Callback;
@@ -64,11 +66,6 @@ protected:
         if (const auto* const run_duration_str = std::getenv("CYPHAL__RUN"))
         {
             run_duration_ = std::chrono::duration<std::int64_t>{std::strtoll(run_duration_str, nullptr, 10)};
-        }
-        // Local node ID. Default is 42.
-        if (const auto* const node_id_str = std::getenv("CYPHAL__NODE__ID"))
-        {
-            local_node_id_ = static_cast<NodeId>(std::stoul(node_id_str));
         }
         // Space separated list of interface addresses, like "127.0.0.1 192.168.1.162". Default is "127.0.0.1".
         if (const auto* const iface_addresses_str = std::getenv("CYPHAL__UDP__IFACE"))
@@ -88,14 +85,6 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
-    NodeHelpers::Heartbeat::Message makeHeartbeatMsg(const libcyphal::TimePoint now, const bool is_warn = false) const
-    {
-        const auto uptime_in_secs = std::chrono::duration_cast<std::chrono::seconds>(now - startup_time_);
-        return {static_cast<std::uint32_t>(uptime_in_secs.count()),
-                {is_warn ? uavcan::node::Health_1_0::WARNING : uavcan::node::Health_1_0::NOMINAL},
-                {is_warn ? uavcan::node::Mode_1_0::MAINTENANCE : uavcan::node::Mode_1_0::OPERATIONAL}};
-    }
-
     // MARK: Data members:
     // NOLINTBEGIN
 
@@ -103,68 +92,75 @@ protected:
     {
         posix::UdpMedia::Collection media_collection_;
         UdpTransportPtr             transport_;
-        NodeHelpers::Heartbeat      heartbeat_;
-        NodeHelpers::GetInfo        get_info_;
 
     };  // State
 
     TrackingMemoryResource            mr_;
     posix::PollSingleThreadedExecutor executor_{mr_};
     TimePoint                         startup_time_{};
-    NodeId                            local_node_id_{42};
     Duration                          run_duration_{10s};
     std::vector<std::string>          iface_addresses_{"127.0.0.1"};
     // NOLINTEND
 
-};  // Example_12_PosixUdpPresentation
+};  // Example_10_PosixUdpPresentation
 
-// MARK: - Tests:
-
-TEST_F(Example_12_PosixUdpPresentation, heartbeat_and_getInfo)
+TEST_F(Example_10_PosixUdpPresentation, raw_messages)
 {
     State state;
 
-    // Make UDP transport with collection of media.
+    // 1. Make UDP transport with collection of media.
     //
+    constexpr std::size_t tx_capacity = 16;
     state.media_collection_.make(mr_, executor_, iface_addresses_);
-    CommonHelpers::Udp::makeTransport(state, mr_, executor_, local_node_id_);
+    auto maybe_transport = libcyphal::transport::udp::makeTransport(  //
+        {mr_},
+        executor_,
+        state.media_collection_.span(),
+        tx_capacity);
+    ASSERT_THAT(maybe_transport, testing::VariantWith<UdpTransportPtr>(testing::_)) << "Can't create transport.";
+    state.transport_ = cetl::get<UdpTransportPtr>(std::move(maybe_transport));
 
+    // 2. Create presentation layer object.
+    //
     Presentation presentation{mr_, executor_, *state.transport_};
 
-    // Publish heartbeats.
+    // 3. Publish a raw message via publisher; every 2s.
     //
-    auto heartbeat_publisher = NodeHelpers::Heartbeat::makePublisher(presentation);
-    ASSERT_THAT(heartbeat_publisher, testing::Optional(testing::_));
+    const PortId subject_id      = 123;
+    auto         maybe_publisher = presentation.makePublisher<void>(subject_id);
+    ASSERT_THAT(maybe_publisher, testing::VariantWith<Publisher<void>>(testing::_))
+        << "Can't create publisher (subject_id=" << subject_id << ").";
+    auto publisher = cetl::get<Publisher<void>>(std::move(maybe_publisher));
+    //
     auto publish_every_1s_cb = executor_.registerCallback([&](const auto& arg) {
         //
-        EXPECT_THAT(heartbeat_publisher->publish(arg.approx_now + 1s, makeHeartbeatMsg(arg.approx_now)),
+        std::cout << "Publishing Hello message" << std::endl;  // NOLINT
+        const TimePoint              msg_deadline = arg.approx_now + 1s;
+        const cetl::span<const char> message{"Hello, World!"};
+        EXPECT_THAT(publisher.publish(msg_deadline,
+                                      {reinterpret_cast<const cetl::byte*>(message.data()), message.size()}),
                     testing::Eq(cetl::nullopt));
     });
-    //
-    constexpr auto period = std::chrono::seconds{NodeHelpers::Heartbeat::Message::MAX_PUBLICATION_PERIOD};
-    publish_every_1s_cb.schedule(Callback::Schedule::Repeat{startup_time_ + period, period});
-
-    // Subscribe and print received heartbeats.
-    //
-    auto heartbeat_subscriber = NodeHelpers::Heartbeat::makeSubscriber(presentation);
-    ASSERT_THAT(heartbeat_subscriber, testing::Optional(testing::_));
-    heartbeat_subscriber->setOnReceiveCallback([&](const auto& arg) {
-        //
-        state.heartbeat_.print(arg.approx_now - startup_time_, arg.message, arg.metadata);
-    });
-
-    // Bring up 'GetInfo' server.
-    // TODO: Replace with service server when it will be available.
-    state.get_info_.setName("org.opencyphal.example_12_posix_udp_presentation");
-    state.get_info_.makeRxSession(*state.transport_);
-    state.get_info_.makeTxSession(*state.transport_);
+    publish_every_1s_cb.schedule(Callback::Schedule::Repeat{executor_.now(), 1s});
 
     // Main loop.
     //
-    CommonHelpers::runMainLoop(executor_, startup_time_ + run_duration_ + 500ms, [&](const auto now) {
-        //
-        state.get_info_.receive(now);
-    });
+    Duration        worst_lateness{0};
+    const TimePoint deadline = startup_time_ + run_duration_ + 500ms;
+    //
+    while (executor_.now() < deadline)
+    {
+        const auto spin_result = executor_.spinOnce();
+        worst_lateness         = std::max(worst_lateness, spin_result.worst_lateness);
+
+        cetl::optional<libcyphal::Duration> opt_timeout;
+        if (spin_result.next_exec_time.has_value())
+        {
+            opt_timeout = spin_result.next_exec_time.value() - executor_.now();
+        }
+        EXPECT_THAT(executor_.pollAwaitableResourcesFor(opt_timeout), testing::Eq(cetl::nullopt));
+    }
+    std::cout << "worst_callback_lateness=" << worst_lateness.count() << "us\n";
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
