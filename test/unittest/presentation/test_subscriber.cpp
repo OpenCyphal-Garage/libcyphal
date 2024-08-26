@@ -310,6 +310,80 @@ TEST_F(TestSubscriber, onReceive_deserialize_failure)
     EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);
 }
 
+TEST_F(TestSubscriber, onReceive_raw_message)
+{
+    Presentation presentation{mr_, scheduler_, transport_mock_};
+
+    IMessageRxSession::OnReceiveCallback::Function msg_rx_cb_fn;
+
+    constexpr PortId                 test_subject_id = 0x123;
+    StrictMock<MessageRxSessionMock> msg_rx_session_mock;
+    EXPECT_CALL(msg_rx_session_mock, getParams())  //
+        .WillOnce(Return(MessageRxParams{0, test_subject_id}));
+    EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_))  //
+        .WillOnce(Invoke([&](auto&& cb_fn) {                   //
+            msg_rx_cb_fn = std::forward<IMessageRxSession::OnReceiveCallback::Function>(cb_fn);
+        }));
+
+    EXPECT_CALL(transport_mock_, makeMessageRxSession(_))  //
+        .WillOnce(Invoke([&](const auto&) {
+            return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
+        }));
+
+    auto maybe_raw_sub = presentation.makeSubscriber(test_subject_id, 0);
+    ASSERT_THAT(maybe_raw_sub, VariantWith<Subscriber<void>>(_));
+    auto raw_subscriber = cetl::get<Subscriber<void>>(std::move(maybe_raw_sub));
+
+    EXPECT_TRUE(msg_rx_cb_fn);
+
+    NiceMock<ScatteredBufferStorageMock> storage_mock;
+    ScatteredBufferStorageMock::Wrapper  storage{&storage_mock};
+    EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(0));
+    EXPECT_CALL(storage_mock, copy(_, _, _)).WillRepeatedly(Return(0));
+
+    std::vector<std::tuple<TimePoint, TransferId>> messages;
+    raw_subscriber.setOnReceiveCallback([&](const auto& arg) {
+        //
+        messages.emplace_back(arg.approx_now, arg.metadata.rx_meta.base.transfer_id);
+        EXPECT_THAT(arg.metadata.rx_meta.base.priority, Priority::Fast);
+        EXPECT_THAT(arg.metadata.publisher_node_id, Optional(NodeId{0x31}));
+        EXPECT_THAT(arg.raw_message.size(), 0);
+    });
+
+    MessageRxTransfer transfer{{{{123, Priority::Fast}, {}}, NodeId{0x31}}, ScatteredBuffer{std::move(storage)}};
+
+    scheduler_.scheduleAt(1s, [&](const auto&) {
+        //
+        transfer.metadata.rx_meta.timestamp = now();
+        msg_rx_cb_fn({transfer});
+    });
+    scheduler_.scheduleAt(2s, [&](const auto&) {
+        //
+        transfer.metadata.rx_meta.base.transfer_id++;
+        transfer.metadata.rx_meta.timestamp = now();
+        msg_rx_cb_fn({transfer});
+    });
+    scheduler_.scheduleAt(3s, [&](const auto&) {
+        //
+        transfer.metadata.rx_meta.base.transfer_id++;
+        transfer.metadata.rx_meta.timestamp = now();
+        msg_rx_cb_fn({transfer});
+    });
+    scheduler_.scheduleAt(4s, [&](const auto&) {
+        //
+        // Cancel callback, so there should be no msg reception #4.
+        raw_subscriber.setOnReceiveCallback({});
+        msg_rx_cb_fn({transfer});
+    });
+    scheduler_.spinFor(10s);
+
+    EXPECT_THAT(messages,
+                ElementsAre(std::make_tuple(TimePoint{1s}, 123),
+                            std::make_tuple(TimePoint{2s}, 124),
+                            std::make_tuple(TimePoint{3s}, 125)));
+    EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);
+}
+
 TEST_F(TestSubscriber, onReceive_release_same_subject_subscriber_during_callback)
 {
     using Message = my_custom::bar_1_0;
@@ -493,39 +567,70 @@ TEST_F(TestSubscriber, onReceive_append_same_subject_subscriber_during_callback)
             return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
         }));
 
-    auto maybe_sub1 = presentation.makeSubscriber<Message>(0x123);
-    ASSERT_THAT(maybe_sub1, VariantWith<Subscriber<Message>>(_));
-    cetl::optional<Subscriber<Message>> sub1 = cetl::get<Subscriber<Message>>(std::move(maybe_sub1));
+    auto maybe_msg_sub1 = presentation.makeSubscriber<Message>(0x123);
+    ASSERT_THAT(maybe_msg_sub1, VariantWith<Subscriber<Message>>(_));
+    cetl::optional<Subscriber<Message>> msg_sub1 = cetl::get<Subscriber<Message>>(std::move(maybe_msg_sub1));
 
-    auto maybe_sub2 = presentation.makeSubscriber<Message>(0x123);
-    ASSERT_THAT(maybe_sub2, VariantWith<Subscriber<Message>>(_));
-    cetl::optional<Subscriber<Message>> sub2 = cetl::get<Subscriber<Message>>(std::move(maybe_sub2));
+    auto maybe_msg_sub2 = presentation.makeSubscriber<Message>(0x123);
+    ASSERT_THAT(maybe_msg_sub2, VariantWith<Subscriber<Message>>(_));
+    cetl::optional<Subscriber<Message>> msg_sub2 = cetl::get<Subscriber<Message>>(std::move(maybe_msg_sub2));
 
-    cetl::optional<Subscriber<Message>> sub3;
+    auto maybe_raw_sub1 = presentation.makeSubscriber(0x123, 0);
+    ASSERT_THAT(maybe_raw_sub1, VariantWith<Subscriber<void>>(_));
+    cetl::optional<Subscriber<void>> raw_sub1 = cetl::get<Subscriber<void>>(std::move(maybe_raw_sub1));
+
+    auto maybe_raw_sub2 = presentation.makeSubscriber(0x123, 0);
+    ASSERT_THAT(maybe_raw_sub2, VariantWith<Subscriber<void>>(_));
+    cetl::optional<Subscriber<void>> raw_sub2 = cetl::get<Subscriber<void>>(std::move(maybe_raw_sub2));
+
+    cetl::optional<Subscriber<Message>> msg_sub3;
+    cetl::optional<Subscriber<void>>    raw_sub3;
 
     std::vector<std::tuple<std::string, TimePoint, TransferId>> messages;
 
-    auto append_sub3 = [&] {
+    auto append_msg_sub3 = [&] {
         //
-        auto maybe_sub3 = presentation.makeSubscriber<Message>(0x123);
-        ASSERT_THAT(maybe_sub3, VariantWith<Subscriber<Message>>(_));
-        sub3 = cetl::get<Subscriber<Message>>(std::move(maybe_sub3));
-        sub3->setOnReceiveCallback([&](const auto& arg) {
+        auto maybe_msg_sub3 = presentation.makeSubscriber<Message>(0x123);
+        ASSERT_THAT(maybe_msg_sub3, VariantWith<Subscriber<Message>>(_));
+        msg_sub3 = cetl::get<Subscriber<Message>>(std::move(maybe_msg_sub3));
+        msg_sub3->setOnReceiveCallback([&](const auto& arg) {
             //
-            messages.emplace_back("#3", arg.approx_now, arg.metadata.rx_meta.base.transfer_id);
+            messages.emplace_back("Msg#3", arg.approx_now, arg.metadata.rx_meta.base.transfer_id);
         });
     };
-    sub1->setOnReceiveCallback([&](const auto& arg) {
+    auto append_raw_sub3 = [&] {
         //
-        messages.emplace_back("#1", arg.approx_now, arg.metadata.rx_meta.base.transfer_id);
+        auto maybe_raw_sub3 = presentation.makeSubscriber(0x123, 0);
+        ASSERT_THAT(maybe_raw_sub3, VariantWith<Subscriber<void>>(_));
+        raw_sub3 = cetl::get<Subscriber<void>>(std::move(maybe_raw_sub3));
+        raw_sub3->setOnReceiveCallback([&](const auto& arg) {
+            //
+            messages.emplace_back("Raw#3", arg.approx_now, arg.metadata.rx_meta.base.transfer_id);
+        });
+    };
+    msg_sub1->setOnReceiveCallback([&](const auto& arg) {
+        //
+        messages.emplace_back("Msg#1", arg.approx_now, arg.metadata.rx_meta.base.transfer_id);
         if (arg.approx_now == TimePoint{1s})
         {
-            append_sub3();
+            append_msg_sub3();
         }
     });
-    sub2->setOnReceiveCallback([&](const auto& arg) {
+    msg_sub2->setOnReceiveCallback([&](const auto& arg) {
         //
-        messages.emplace_back("#2", arg.approx_now, arg.metadata.rx_meta.base.transfer_id);
+        messages.emplace_back("Msg#2", arg.approx_now, arg.metadata.rx_meta.base.transfer_id);
+    });
+    raw_sub1->setOnReceiveCallback([&](const auto& arg) {
+        //
+        messages.emplace_back("Raw#1", arg.approx_now, arg.metadata.rx_meta.base.transfer_id);
+        if (arg.approx_now == TimePoint{2s})
+        {
+            append_raw_sub3();
+        }
+    });
+    raw_sub2->setOnReceiveCallback([&](const auto& arg) {
+        //
+        messages.emplace_back("Raw#2", arg.approx_now, arg.metadata.rx_meta.base.transfer_id);
     });
 
     MessageRxTransfer transfer{{{{42, Priority::Fast}, {}}, NodeId{0x31}}, {}};
@@ -542,14 +647,32 @@ TEST_F(TestSubscriber, onReceive_append_same_subject_subscriber_during_callback)
         transfer.metadata.rx_meta.timestamp = now();
         msg_rx_cb_fn({transfer});
     });
+    scheduler_.scheduleAt(3s, [&](const auto&) {
+        //
+        transfer.metadata.rx_meta.base.transfer_id++;
+        transfer.metadata.rx_meta.timestamp = now();
+        msg_rx_cb_fn({transfer});
+    });
     scheduler_.spinFor(10s);
 
     EXPECT_THAT(messages,
-                ElementsAre(std::make_tuple("#1", TimePoint{1s}, 43),
-                            std::make_tuple("#2", TimePoint{1s}, 43),
-                            std::make_tuple("#1", TimePoint{2s}, 44),
-                            std::make_tuple("#2", TimePoint{2s}, 44),
-                            std::make_tuple("#3", TimePoint{2s}, 44)));
+                UnorderedElementsAre(std::make_tuple("Msg#1", TimePoint{1s}, 43),
+                                     std::make_tuple("Msg#2", TimePoint{1s}, 43),
+                                     std::make_tuple("Raw#1", TimePoint{1s}, 43),
+                                     std::make_tuple("Raw#2", TimePoint{1s}, 43),
+                                     //
+                                     std::make_tuple("Msg#1", TimePoint{2s}, 44),
+                                     std::make_tuple("Msg#2", TimePoint{2s}, 44),
+                                     std::make_tuple("Msg#3", TimePoint{2s}, 44),
+                                     std::make_tuple("Raw#1", TimePoint{2s}, 44),
+                                     std::make_tuple("Raw#2", TimePoint{2s}, 44),
+                                     //
+                                     std::make_tuple("Msg#1", TimePoint{3s}, 45),
+                                     std::make_tuple("Msg#2", TimePoint{3s}, 45),
+                                     std::make_tuple("Msg#3", TimePoint{3s}, 45),
+                                     std::make_tuple("Raw#1", TimePoint{3s}, 45),
+                                     std::make_tuple("Raw#2", TimePoint{3s}, 45),
+                                     std::make_tuple("Raw#3", TimePoint{3s}, 45)));
     EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);
 }
 
@@ -599,6 +722,13 @@ TEST_F(TestSubscriber, onReceive_different_type_deserializers_on_same_subject)
         //
         messages.emplace_back("Heartbeat", arg.approx_now, arg.metadata.rx_meta.base.transfer_id);
     });
+    auto maybe_raw_sub = presentation.makeSubscriber(port_id, BarMsg::_traits_::ExtentBytes);
+    ASSERT_THAT(maybe_raw_sub, VariantWith<Subscriber<void>>(_));
+    auto raw_sub = cetl::get<Subscriber<void>>(std::move(maybe_raw_sub));
+    raw_sub.setOnReceiveCallback([&](const auto& arg) {
+        //
+        messages.emplace_back("Raw Msg", arg.approx_now, arg.metadata.rx_meta.base.transfer_id);
+    });
 
     NiceMock<ScatteredBufferStorageMock> storage_mock;
     ScatteredBufferStorageMock::Wrapper  storage{&storage_mock};
@@ -618,7 +748,8 @@ TEST_F(TestSubscriber, onReceive_different_type_deserializers_on_same_subject)
     EXPECT_THAT(messages,
                 UnorderedElementsAre(std::make_tuple("Bar_#1", TimePoint{1s}, 43),
                                      std::make_tuple("Bar_#2", TimePoint{1s}, 43),
-                                     std::make_tuple("Heartbeat", TimePoint{1s}, 43)));
+                                     std::make_tuple("Heartbeat", TimePoint{1s}, 43),
+                                     std::make_tuple("Raw Msg", TimePoint{1s}, 43)));
     EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);
 }
 

@@ -125,7 +125,7 @@ private:
 
     void onReceiveCallback(const TimePoint                     approx_now,
                            const Message&                      message,
-                           const transport::MessageRxMetadata& metadata)
+                           const transport::MessageRxMetadata& metadata) const
     {
         if (on_receive_cb_fn_)
         {
@@ -168,7 +168,7 @@ private:
 
     void onReceiveCallback(const TimePoint                     approx_now,
                            const transport::ScatteredBuffer&   raw_message,
-                           const transport::MessageRxMetadata& metadata)
+                           const transport::MessageRxMetadata& metadata) const
     {
         if (on_receive_cb_fn_)
         {
