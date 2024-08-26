@@ -15,8 +15,10 @@
 #include "../platform/tracking_memory_resource.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/executor.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/publisher.hpp>
+#include <libcyphal/presentation/subscriber.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
 #include <libcyphal/transport/udp/udp_transport_impl.hpp>
@@ -26,6 +28,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -67,6 +70,11 @@ protected:
         {
             run_duration_ = std::chrono::duration<std::int64_t>{std::strtoll(run_duration_str, nullptr, 10)};
         }
+        // Local node ID. Default is 42.
+        if (const auto* const node_id_str = std::getenv("CYPHAL__NODE__ID"))
+        {
+            local_node_id_ = static_cast<NodeId>(std::stoul(node_id_str));
+        }
         // Space separated list of interface addresses, like "127.0.0.1 192.168.1.162". Default is "127.0.0.1".
         if (const auto* const iface_addresses_str = std::getenv("CYPHAL__UDP__IFACE"))
         {
@@ -98,6 +106,7 @@ protected:
     TrackingMemoryResource            mr_;
     posix::PollSingleThreadedExecutor executor_{mr_};
     TimePoint                         startup_time_{};
+    NodeId                            local_node_id_{42};
     Duration                          run_duration_{10s};
     std::vector<std::string>          iface_addresses_{"127.0.0.1"};
     // NOLINTEND
@@ -119,31 +128,53 @@ TEST_F(Example_10_PosixUdpPresentation, raw_messages)
         tx_capacity);
     ASSERT_THAT(maybe_transport, testing::VariantWith<UdpTransportPtr>(testing::_)) << "Can't create transport.";
     state.transport_ = cetl::get<UdpTransportPtr>(std::move(maybe_transport));
+    state.transport_->setLocalNodeId(local_node_id_);
 
     // 2. Create presentation layer object.
     //
     Presentation presentation{mr_, executor_, *state.transport_};
 
-    // 3. Publish a raw message via publisher; every 2s.
+    // 3. Publish a raw message via publisher; every 1s.
     //
-    const PortId subject_id      = 123;
-    auto         maybe_publisher = presentation.makePublisher<void>(subject_id);
+    constexpr PortId test_subject_id = 147;
+    auto             maybe_publisher = presentation.makePublisher<void>(test_subject_id);
     ASSERT_THAT(maybe_publisher, testing::VariantWith<Publisher<void>>(testing::_))
-        << "Can't create publisher (subject_id=" << subject_id << ").";
-    auto publisher = cetl::get<Publisher<void>>(std::move(maybe_publisher));
+        << "Can't create publisher (subject_id=" << test_subject_id << ").";
+    auto raw_publisher = cetl::get<Publisher<void>>(std::move(maybe_publisher));
     //
-    auto publish_every_1s_cb = executor_.registerCallback([&](const auto& arg) {
+    std::size_t publish_msg_count   = 0;
+    auto        publish_every_1s_cb = executor_.registerCallback([&](const auto& arg) {
         //
-        std::cout << "Publishing Hello message" << std::endl;  // NOLINT
-        const TimePoint              msg_deadline = arg.approx_now + 1s;
-        const cetl::span<const char> message{"Hello, World!"};
-        EXPECT_THAT(publisher.publish(msg_deadline,
-                                      {reinterpret_cast<const cetl::byte*>(message.data()), message.size()}),
+        ++publish_msg_count;
+        std::cout << "Publishing Hello message # " << publish_msg_count << std::endl;  // NOLINT
+        const TimePoint                  msg_deadline = arg.approx_now + 1s;
+        constexpr cetl::span<const char> message{"Hello, World!"};
+        EXPECT_THAT(raw_publisher.publish(  //
+                        msg_deadline,
+                        {reinterpret_cast<const cetl::byte*>(message.data()), message.size()}),  // NOLINT
                     testing::Eq(cetl::nullopt));
     });
-    publish_every_1s_cb.schedule(Callback::Schedule::Repeat{executor_.now(), 1s});
+    publish_every_1s_cb.schedule(Callback::Schedule::Repeat{executor_.now() + 1s, 1s});
 
-    // Main loop.
+    // 4. Subscribe to raw messages via subscriber.
+    //
+    constexpr std::size_t extent_bytes     = 16;
+    auto                  maybe_subscriber = presentation.makeSubscriber(test_subject_id, extent_bytes);
+    ASSERT_THAT(maybe_subscriber, testing::VariantWith<Subscriber<void>>(testing::_))
+        << "Can't create subscriber (subject_id=" << test_subject_id << ").";
+    auto raw_subscriber = cetl::get<Subscriber<void>>(std::move(maybe_subscriber));
+    //
+    std::size_t received_msg_count = 0;
+    raw_subscriber.setOnReceiveCallback([&](const auto& arg) {
+        //
+        ++received_msg_count;
+        std::array<char, extent_bytes + 1> message{};
+        const auto                         msg_size = arg.raw_message.copy(0, message.data(), extent_bytes);
+        std::cout << "Received message '" << message.data() << "' (bytes=" << msg_size
+                  << ", msg_cnt=" << received_msg_count << ")." << std::endl;
+    });
+
+    // 5. Main loop.
     //
     Duration        worst_lateness{0};
     const TimePoint deadline = startup_time_ + run_duration_ + 500ms;

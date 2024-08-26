@@ -79,8 +79,8 @@ public:
     /// @tparam Message DSDL compiled (aka Nunavut generated) type of the message to subscribe.
     /// @param subject_id The subject ID to subscribe the message on.
     ///
-    template <typename Message>
-    Expected<Subscriber<Message>, transport::AnyFailure> makeSubscriber(const transport::PortId subject_id)
+    template <typename Message, typename Result = Expected<Subscriber<Message>, transport::AnyFailure>>
+    auto makeSubscriber(const transport::PortId subject_id) -> std::enable_if_t<!std::is_void<Message>::value, Result>
     {
         cetl::optional<transport::AnyFailure> out_failure;
 
@@ -102,6 +102,40 @@ public:
         CETL_DEBUG_ASSERT(subscriber_impl != nullptr, "");
 
         return Subscriber<Message>{subscriber_impl};
+    }
+
+    /// @brief Makes a raw message subscriber.
+    ///
+    /// The subscriber must never outlive this presentation object.
+    ///
+    /// @param subject_id The subject ID to subscribe the message on.
+    /// @param extent_bytes Defines the size of the transfer payload memory buffer;
+    ///                     or, in other words, the maximum possible size of received objects,
+    ///                     considering also possible future versions with new fields.
+    ///
+    Expected<Subscriber<void>, transport::AnyFailure> makeSubscriber(const transport::PortId subject_id,
+                                                                     const std::size_t       extent_bytes)
+    {
+        cetl::optional<transport::AnyFailure> out_failure;
+
+        const auto subscriber_existing = subscriber_impl_nodes_.search(
+            [subject_id](const detail::SubscriberImpl& other_sub) {  // predicate
+                //
+                return other_sub.compareBySubjectId(subject_id);
+            },
+            [this, subject_id, extent_bytes, &out_failure]() -> detail::SubscriberImpl* {  // factory
+                //
+                return makeSubscriberImpl({extent_bytes, subject_id}, out_failure);
+            });
+        if (out_failure)
+        {
+            return std::move(*out_failure);
+        }
+
+        auto* const subscriber_impl = std::get<0>(subscriber_existing);
+        CETL_DEBUG_ASSERT(subscriber_impl != nullptr, "");
+
+        return Subscriber<void>{subscriber_impl};
     }
 
 private:

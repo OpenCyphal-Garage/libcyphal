@@ -136,6 +136,49 @@ private:
     // MARK: Data members:
 
     typename OnReceiveCallback::Function on_receive_cb_fn_;
+};
+//
+template <>
+class Subscriber<void> final : public detail::SubscriberBase
+{
+public:
+    struct OnReceiveCallback
+    {
+        struct Arg
+        {
+            TimePoint                         approx_now;
+            const transport::ScatteredBuffer& raw_message;
+            transport::MessageRxMetadata      metadata;
+        };
+        using Function = cetl::pmr::function<void(const Arg&), sizeof(void*) * 4>;
+    };
+    void setOnReceiveCallback(OnReceiveCallback::Function&& on_receive_cb_fn)
+    {
+        on_receive_cb_fn_ = std::move(on_receive_cb_fn);
+    }
+
+private:
+    friend class Presentation;  // NOLINT cppcoreguidelines-virtual-class-destructor
+    friend class detail::SubscriberImpl;
+
+    explicit Subscriber(detail::SubscriberImpl* const impl)
+        : SubscriberBase{impl, {Deserializer::getTypeId<void>(), Deserializer::passRawMessageAsIs<Subscriber>}}
+    {
+    }
+
+    void onReceiveCallback(const TimePoint                     approx_now,
+                           const transport::ScatteredBuffer&   raw_message,
+                           const transport::MessageRxMetadata& metadata)
+    {
+        if (on_receive_cb_fn_)
+        {
+            on_receive_cb_fn_({approx_now, raw_message, metadata});
+        }
+    }
+
+    // MARK: Data members:
+
+    OnReceiveCallback::Function on_receive_cb_fn_;
 
 };  // Subscriber
 

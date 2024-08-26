@@ -139,6 +139,34 @@ public:
                 }
             }
 
+            template <typename Subscriber>
+            static void passRawMessageAsIs(Context& context)
+            {
+                CETL_DEBUG_ASSERT(context.next_node != nullptr, "");
+                constexpr auto this_deserializer_fn = &passRawMessageAsIs<Subscriber>;
+                CETL_DEBUG_ASSERT(context.next_node->deserializer_.function == this_deserializer_fn, "");
+
+                // "Consume" current node by preparing the context for the next iteration.
+                // It's important to do it before the callback b/c its activity may modify what is next.
+                auto* const curr_node = context.next_node;
+                context.next_node     = curr_node->getNextInOrderNode();
+
+                // Notify only those subscribers that were created before the message was received.
+                // This is to avoid nondeterministic delivery of messages to subscribers that were created
+                // after the message was sent to one of callbacks.
+                //
+                if (context.approx_now > curr_node->creation_time_)
+                {
+                    // This is safe downcast b/c we know that the `curr_node` is of type `Subscriber`.
+                    // Otherwise, the `deserializer_` would be different from `this_deserializer`.
+                    auto* const subscriber = static_cast<Subscriber*>(curr_node);
+                    subscriber->onReceiveCallback(context.approx_now, context.buffer, context.metadata);
+
+                    // NB! `curr_node` or `subscriber` must not be used anymore b/c they may be invalidated
+                    // by a callback activity, f.e. by moving or freeing the `Subscriber` object.
+                }
+            }
+
             TypeId      type_id;
             FunctionPtr function;
 
