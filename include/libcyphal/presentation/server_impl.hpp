@@ -56,7 +56,7 @@ public:
     {
         CETL_DEBUG_ASSERT(svc_req_rx_session_ != nullptr, "");
 
-        auto& time_provider = time_provider_;
+        const auto& time_provider = time_provider_;
         svc_req_rx_session_->setOnReceiveCallback([&time_provider, &callback](const auto& arg) {
             //
             callback.onRequestRxTransfer(time_provider.now(), arg.transfer);
