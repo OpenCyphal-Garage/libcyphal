@@ -81,7 +81,8 @@ public:
     /// Internally, multiple subscribers to the same subject id are using the same instance of shared RX session.
     /// Such sharing is transparent to the user of the library, but has implications on the extent bytes parameter -
     /// the very first subscriber to a subject id defines the extent bytes for all subscribers to that subject id.
-    /// So implicit extent bytes might be ignored if the subscriber is the second or later one to the subject id.
+    /// So implicit extent bytes might be ignored if the subscriber is the second or later one to the subject id. This
+    /// behavior may be improved in a future version such that the largest extent of all existing subscribers is used.
     ///
     /// @tparam Message DSDL compiled (aka Nunavut generated) type of the message to subscribe. Size of the transfer
     ///                 payload memory buffer (the `extent_bytes`) is automatically determined from the message type
@@ -109,7 +110,8 @@ public:
     /// Internally, multiple subscribers to the same subject id are using the same instance of shared RX session.
     /// Such sharing is transparent to the user of the library, but has implications on the extent bytes parameter -
     /// the very first subscriber to a subject id defines the extent bytes for all subscribers to that subject id.
-    /// So explicit `extent_bytes` might be ignored if the subscriber is the second or later one to the subject id.
+    /// So explicit `extent_bytes` might be ignored if the subscriber is the second or later one to the subject id. This
+    /// behavior may be improved in a future version such that the largest extent of all existing subscribers is used.
     ///
     /// @param subject_id The subject ID to subscribe the message on.
     /// @param extent_bytes Defines the size of the transfer payload memory buffer;

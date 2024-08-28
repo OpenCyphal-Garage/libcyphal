@@ -7,11 +7,11 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#include "../platform/common_helpers.hpp"
-#include "../platform/linux/can/can_media.hpp"
-#include "../platform/linux/epoll_single_threaded_executor.hpp"
-#include "../platform/node_helpers.hpp"
-#include "../platform/tracking_memory_resource.hpp"
+#include "platform/common_helpers.hpp"
+#include "platform/linux/can/can_media.hpp"
+#include "platform/linux/epoll_single_threaded_executor.hpp"
+#include "platform/node_helpers.hpp"
+#include "platform/tracking_memory_resource.hpp"
 
 #include <libcyphal/transport/can/can_transport.hpp>
 #include <libcyphal/transport/types.hpp>
