@@ -63,6 +63,17 @@ public:
     ///
     virtual cetl::optional<ServiceRxTransfer> receive() = 0;
 
+    // TODO: docs
+    struct OnReceiveCallback
+    {
+        struct Arg
+        {
+            ServiceRxTransfer& transfer;
+        };
+        using Function = cetl::pmr::function<void(const Arg&), sizeof(void*) * 4>;
+    };
+    virtual void setOnReceiveCallback(OnReceiveCallback::Function&& function) = 0;
+
 protected:
     ISvcRxSession()  = default;
     ~ISvcRxSession() = default;

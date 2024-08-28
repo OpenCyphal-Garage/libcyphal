@@ -32,7 +32,6 @@ namespace presentation
 namespace detail
 {
 
-// TODO: docs
 /// No Sonar cpp:S4963 "The "Rule-of-Zero" should be followed"
 /// b/c we do directly handle resources here.
 class PublisherBase  // NOSONAR cpp:S4963
@@ -113,6 +112,7 @@ protected:
         impl->retain();
     }
 
+    // TODO: Switch to `transport::PayloadFragments`.
     cetl::optional<Failure> publishRawData(const TimePoint deadline, const cetl::span<const cetl::byte> data) const
     {
         CETL_DEBUG_ASSERT(impl_ != nullptr, "");
@@ -137,7 +137,7 @@ class Publisher final : public detail::PublisherBase
     static_assert(!Message::_traits_::IsServiceType, "Service types are not supported by the Publisher.");
 
 public:
-    using Failure = libcyphal::detail::AppendType<transport::AnyFailure, nunavut::support::Error>::Result;
+    using Failure = libcyphal::detail::AppendType<Failure, nunavut::support::Error>::Result;
 
     cetl::optional<Failure> publish(const TimePoint deadline, const Message& message) const
     {
@@ -145,17 +145,17 @@ public:
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
         std::array<std::uint8_t, Message::_traits_::SerializationBufferSizeBytes> buffer;
 
-        const auto result = serialize(message, buffer);
-        if (!result)
+        const auto result_size = serialize(message, buffer);
+        if (!result_size)
         {
-            return result.error();
+            return result_size.error();
         }
 
         // Next nolint & NOSONAR are currently unavoidable.
         // TODO: Eliminate `reinterpret_cast` when Nunavut supports `cetl::byte` at its `serialize`.
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         const cetl::span<const cetl::byte> data{reinterpret_cast<cetl::byte*>(buffer.data()),  // NOSONAR cpp:S3630
-                                                result.value()};
+                                                result_size.value()};
         if (auto failure = publishRawData(deadline, data))
         {
             return failureFromVariant(std::move(*failure));
@@ -172,6 +172,7 @@ private:
     {
     }
 
+    // TODO: move this helper to `libcyphal/types.hpp` (near to `AppendType`)
     template <typename FailureVar>
     CETL_NODISCARD static Failure failureFromVariant(FailureVar&& failure_var)
     {
@@ -188,9 +189,10 @@ template <>
 class Publisher<void> final : public detail::PublisherBase
 {
 public:
+    // TODO: Switch to `transport::PayloadFragments`.
     cetl::optional<Failure> publish(const TimePoint deadline, const cetl::span<const cetl::byte> data) const
     {
-        return PublisherBase::publishRawData(deadline, data);
+        return publishRawData(deadline, data);
     }
 
 private:

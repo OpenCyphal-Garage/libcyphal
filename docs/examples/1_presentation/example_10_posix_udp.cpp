@@ -171,7 +171,8 @@ TEST_F(Example_10_PosixUdpPresentation, raw_messages)
         std::array<char, extent_bytes + 1> message{};
         const auto                         msg_size = arg.raw_message.copy(0, message.data(), extent_bytes);
         std::cout << "Received message '" << message.data() << "' (bytes=" << msg_size
-                  << ", msg_cnt=" << received_msg_count << ")." << std::endl;
+                  << ", msg_cnt=" << received_msg_count << ", node=" << arg.metadata.publisher_node_id.value_or(-1)
+                  << ")." << std::endl;
     });
 
     // 5. Main loop.

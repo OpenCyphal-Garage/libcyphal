@@ -33,11 +33,10 @@ namespace presentation
 namespace detail
 {
 
-// TODO: docs
-class PublisherImpl final : public cavl::Node<PublisherImpl>, public detail::SharedObject
+class PublisherImpl final : public cavl::Node<PublisherImpl>, public SharedObject
 {
 public:
-    explicit PublisherImpl(IPresentationDelegate& delegate, UniquePtr<transport::IMessageTxSession> msg_tx_session)
+    PublisherImpl(IPresentationDelegate& delegate, UniquePtr<transport::IMessageTxSession> msg_tx_session)
         : delegate_{delegate}
         , msg_tx_session_{std::move(msg_tx_session)}
         , subject_id_{msg_tx_session_->getParams().subject_id}

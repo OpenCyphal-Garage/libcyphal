@@ -153,7 +153,7 @@ TEST_F(TestSubscriber, onReceive)
     ASSERT_THAT(maybe_sub, VariantWith<Subscriber<Message>>(_));
     auto subscriber = cetl::get<Subscriber<Message>>(std::move(maybe_sub));
 
-    EXPECT_TRUE(msg_rx_cb_fn);
+    ASSERT_TRUE(msg_rx_cb_fn);
 
     Message test_message{7, {uavcan::node::Health_1_0::WARNING}, {uavcan::node::Mode_1_0::MAINTENANCE}, 42};
 

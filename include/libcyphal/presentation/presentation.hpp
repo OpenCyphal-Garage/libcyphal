@@ -9,6 +9,8 @@
 #include "presentation_delegate.hpp"
 #include "publisher.hpp"
 #include "publisher_impl.hpp"
+#include "server.hpp"
+#include "server_impl.hpp"
 #include "subscriber.hpp"
 #include "subscriber_impl.hpp"
 
@@ -129,11 +131,41 @@ public:
         return Subscriber<void>{subscriber_impl};
     }
 
+    /// @brief Makes a typed RPC server bound to service id.
+    ///
+    /// @param service_id The service ID of the server.
+    ///
+    template <typename Service, typename Result = Expected<Server<Service>, transport::AnyFailure>>
+    auto makeServer(const transport::PortId service_id) -> std::enable_if_t<!std::is_void<Service>::value, Result>
+    {
+        auto maybe_server_impl = makeServerImpl({Service::Request::_traits_::ExtentBytes, service_id});
+        if (auto* const failure = cetl::get_if<transport::AnyFailure>(&maybe_server_impl))
+        {
+            return std::move(*failure);
+        }
+
+        return Server<Service>{cetl::get<detail::ServerImpl>(std::move(maybe_server_impl))};
+    }
+
+    Expected<Server<void>, transport::AnyFailure> makeServer(const transport::PortId service_id,
+                                                             const std::size_t       extent_bytes)
+    {
+        auto maybe_server_impl = makeServerImpl({extent_bytes, service_id});
+        if (auto* const failure = cetl::get_if<transport::AnyFailure>(&maybe_server_impl))
+        {
+            return std::move(*failure);
+        }
+
+        return Server<void>{cetl::get<detail::ServerImpl>(std::move(maybe_server_impl))};
+    }
+
 private:
     template <typename T>
-    using PmrAllocator        = libcyphal::detail::PmrAllocator<T>;
-    using MessageRxSessionPtr = UniquePtr<transport::IMessageRxSession>;
-    using MessageTxSessionPtr = UniquePtr<transport::IMessageTxSession>;
+    using PmrAllocator         = libcyphal::detail::PmrAllocator<T>;
+    using MessageRxSessionPtr  = UniquePtr<transport::IMessageRxSession>;
+    using MessageTxSessionPtr  = UniquePtr<transport::IMessageTxSession>;
+    using RequestRxSessionPtr  = UniquePtr<transport::IRequestRxSession>;
+    using ResponseTxSessionPtr = UniquePtr<transport::IResponseTxSession>;
 
     CETL_NODISCARD detail::PublisherImpl* makePublisherImpl(const transport::MessageTxParams       params,
                                                             cetl::optional<transport::AnyFailure>& out_failure)
@@ -153,7 +185,7 @@ private:
             if (publisher_impl != nullptr)
             {
                 allocator.construct(publisher_impl,
-                                    static_cast<detail::IPresentationDelegate&>(*this),
+                                    static_cast<IPresentationDelegate&>(*this),
                                     std::move(msg_tx_session));
             }
         }
@@ -208,7 +240,7 @@ private:
             {
                 allocator.construct(subscriber_impl,
                                     memory_,
-                                    static_cast<detail::IPresentationDelegate&>(*this),
+                                    static_cast<IPresentationDelegate&>(*this),
                                     executor_,
                                     std::move(msg_rx_session));
             }
@@ -218,6 +250,36 @@ private:
             out_failure = transport::MemoryError{};
         }
         return subscriber_impl;
+    }
+
+    CETL_NODISCARD Expected<detail::ServerImpl, transport::AnyFailure> makeServerImpl(
+        const transport::RequestRxParams params)
+    {
+        // Make RX & TX sessions.
+        //
+        auto maybe_rx_session = transport_.makeRequestRxSession(params);
+        if (auto* const failure = cetl::get_if<transport::AnyFailure>(&maybe_rx_session))
+        {
+            return std::move(*failure);
+        }
+        auto rx_session = cetl::get<RequestRxSessionPtr>(std::move(maybe_rx_session));
+        if (rx_session == nullptr)
+        {
+            return transport::MemoryError{};
+        }
+        //
+        auto maybe_tx_session = transport_.makeResponseTxSession({params.service_id});
+        if (auto* const failure = cetl::get_if<transport::AnyFailure>(&maybe_tx_session))
+        {
+            return std::move(*failure);
+        }
+        auto tx_session = cetl::get<ResponseTxSessionPtr>(std::move(maybe_tx_session));
+        if (tx_session == nullptr)
+        {
+            return transport::MemoryError{};
+        }
+
+        return detail::ServerImpl{memory_, executor_, std::move(rx_session), std::move(tx_session)};
     }
 
     template <typename ImplNode>

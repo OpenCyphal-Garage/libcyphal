@@ -26,6 +26,7 @@ namespace detail
 
 /// @brief Converts a compatible (aka subset) failure variant to transport's `AnyFailure` one.
 ///
+/// TODO: move this helper to `libcyphal/types.hpp` (near to `AppendType`)
 template <typename FailureVar>
 CETL_NODISCARD static AnyFailure anyFailureFromVariant(FailureVar&& failure_var)
 {

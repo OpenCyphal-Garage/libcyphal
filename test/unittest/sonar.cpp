@@ -11,6 +11,8 @@
 #include <libcyphal/presentation/publisher.hpp>
 #include <libcyphal/presentation/publisher_impl.hpp>
 #include <libcyphal/presentation/shared_object.hpp>
+#include <libcyphal/presentation/server.hpp>
+#include <libcyphal/presentation/server_impl.hpp>
 #include <libcyphal/presentation/subscriber.hpp>
 #include <libcyphal/presentation/subscriber_impl.hpp>
 #include <libcyphal/time_provider.hpp>

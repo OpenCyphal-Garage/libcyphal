@@ -14,9 +14,7 @@
 
 #include <cetl/cetl.hpp>
 #include <cetl/pmr/function.hpp>
-#include <nunavut/support/serialization.hpp>
 
-#include <tuple>
 #include <utility>
 
 namespace libcyphal
@@ -30,7 +28,6 @@ namespace presentation
 namespace detail
 {
 
-// TODO: docs
 /// No Sonar cpp:S4963 "The "Rule-of-Zero" should be followed"
 /// b/c we do directly handle resources here.
 class SubscriberBase : public SubscriberImpl::CallbackNode  // NOSONAR cpp:S4963
