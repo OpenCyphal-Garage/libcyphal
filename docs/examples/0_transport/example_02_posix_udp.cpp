@@ -7,11 +7,11 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#include "../platform/common_helpers.hpp"
-#include "../platform/node_helpers.hpp"
-#include "../platform/posix/posix_single_threaded_executor.hpp"
-#include "../platform/posix/udp/udp_media.hpp"
-#include "../platform/tracking_memory_resource.hpp"
+#include "platform/common_helpers.hpp"
+#include "platform/node_helpers.hpp"
+#include "platform/posix/posix_single_threaded_executor.hpp"
+#include "platform/posix/udp/udp_media.hpp"
+#include "platform/tracking_memory_resource.hpp"
 
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
