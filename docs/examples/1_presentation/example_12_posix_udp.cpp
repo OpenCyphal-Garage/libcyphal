@@ -171,7 +171,7 @@ TEST_F(Example_12_PosixUdpPresentation, heartbeat_and_getInfo)
     ASSERT_THAT(maybe_get_info_srv, testing::VariantWith<Server<GetInfo_1_0>>(testing::_))
         << "Can't create 'GetInfo' server.";
     auto get_info_srv = cetl::get<Server<GetInfo_1_0>>(std::move(maybe_get_info_srv));
-    get_info_srv.setOnRequestCallback([this, &state](const auto& arg, auto continuation) {
+    get_info_srv.setOnRequestCallback([&state](const auto& arg, auto continuation) {
         //
         std::cout << "Received 'GetInfo' request (from_node_id=" << arg.metadata.remote_node_id << ")."
                   << std::endl;  // NOLINT
