@@ -1,5 +1,7 @@
 /// @file
-/// Example of creating a libcyphal node in your project using posix UDP sockets and transport.
+/// Example of creating a libcyphal node in your project using posix UDP sockets and presentation layer.
+/// This example demonstrates how to publish and subscribe to the Heartbeat messages using presentation layer
+/// `Publisher` and `Subscriber` classes. It also demonstrates how to bring up a `GetInfo` server.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
