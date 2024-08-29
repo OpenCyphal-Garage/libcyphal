@@ -126,7 +126,7 @@ TEST_F(Example_03_LinuxSocketCanTransport, heartbeat_and_getInfo)
     });
 
     // Bring up 'GetInfo' server.
-    state.get_info_.setName("org.opencyphal.example_03_linux_socketcan_transport");
+    state.get_info_.setName("org.opencyphal.Ex_0_Tran_2_HB_GetInfo_CAN");
     state.get_info_.makeRxSession(*state.transport_);
     state.get_info_.makeTxSession(*state.transport_);
 

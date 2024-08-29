@@ -164,7 +164,7 @@ TEST_F(Example_12_PosixUdpPresentation, heartbeat_and_getInfo)
     // Bring up 'GetInfo' server.
     //
     using GetInfo_1_0 = uavcan::node::GetInfo_1_0;
-    const std::string node_name{"org.opencyphal.Ex_1_Pres_2_HB_GetInfo_UDP"};
+    const std::string node_name{"org.opencyphal.Ex_1_Pres_1_HB_GetInfo_UDP"};
     std::copy_n(node_name.begin(), std::min(node_name.size(), 50UL), std::back_inserter(state.get_info_response.name));
     //
     auto maybe_get_info_srv = presentation.makeServer<GetInfo_1_0>(GetInfo_1_0::Request::_traits_::FixedPortId);

@@ -121,7 +121,7 @@ TEST_F(Example_02_PosixUdpTransport, heartbeat_and_getInfo)
     });
 
     // Bring up 'GetInfo' server.
-    state.get_info_.setName("org.opencyphal.example_02_posix_udp_transport");
+    state.get_info_.setName("org.opencyphal.Ex_0_Tran_1_HB_GetInfo_UDP");
     state.get_info_.makeRxSession(*state.transport_);
     state.get_info_.makeTxSession(*state.transport_);
 
