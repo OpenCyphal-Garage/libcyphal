@@ -197,7 +197,7 @@ struct NodeHelpers
                           const Message&                                 heartbeat_msg,
                           const libcyphal::transport::MessageRxMetadata& metadata)
         {
-            std::cout << "Received heartbeat from Node " << std::setw(5) << metadata.publisher_node_id.value_or(0)
+            std::cout << "❤️ Received heartbeat from Node " << std::setw(5) << metadata.publisher_node_id.value_or(0)
                       << ", Uptime " << std::setw(8) << heartbeat_msg.uptime
                       << CommonHelpers::Printers::describeDurationInMs(uptime) << ", tf_id=" << std::setw(8)
                       << metadata.rx_meta.base.transfer_id << "\n"

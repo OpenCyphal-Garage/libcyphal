@@ -144,7 +144,7 @@ TEST_F(Example_1_Presentation_0_HelloRawPubSub_Udp, main)
     auto        publish_every_1s_cb = executor_.registerCallback([&](const auto& arg) {
         //
         ++publish_msg_count;
-        std::cout << "Publishing Hello message # " << publish_msg_count << std::endl;  // NOLINT
+        std::cout << "📨 Publishing Hello message # " << publish_msg_count << std::endl;  // NOLINT
         const TimePoint                  msg_deadline = arg.approx_now + 1s;
         constexpr cetl::span<const char> message{"Hello, World!"};
         EXPECT_THAT(raw_publisher.publish(  //
@@ -168,7 +168,7 @@ TEST_F(Example_1_Presentation_0_HelloRawPubSub_Udp, main)
         ++received_msg_count;
         std::array<char, extent_bytes + 1> message{};
         const auto                         msg_size = arg.raw_message.copy(0, message.data(), extent_bytes);
-        std::cout << "Received message '" << message.data() << "' (bytes=" << msg_size
+        std::cout << "🔵 Received message '" << message.data() << "' (bytes=" << msg_size
                   << ", msg_cnt=" << received_msg_count << ", node=" << arg.metadata.publisher_node_id.value_or(-1)
                   << ")." << std::endl;
     });

@@ -233,7 +233,7 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
             //
             if (print_activities_)
             {
-                std::cerr << "Server <- Received 'Ping' req (id=" << arg.request.id
+                std::cout << "🔴 Server received 'Ping' req (id=" << arg.request.id
                           << ", from_node_id=" << arg.metadata.remote_node_id << ")."
                           << CommonHelpers::Printers::describeDurationInMs(arg.approx_now - startup_time_) << std::endl;
             }
@@ -274,7 +274,7 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
 
             if (print_activities_)
             {
-                std::cout << "Client <- Received 'ponG' res (id=" << pong.id
+                std::cout << " 🠈 Client received 'ponG' res (id=" << pong.id
                           << ", from_node_id=" << arg.transfer.metadata.remote_node_id << ")."
                           << CommonHelpers::Printers::describeDurationInMs(uptime()) << ", Δ "
                           << CommonHelpers::Printers::describeDurationInUs(request_duration) << std::endl;
@@ -301,7 +301,7 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
 
             if (print_activities_)
             {
-                std::cout << "Client -> Sending  'Ping' req (id=" << ping_req.id << ",   to_node_id=" << remote_node_id_
+                std::cout << "🠊  Client sending  'Ping' req (id=" << ping_req.id << ",   to_node_id=" << remote_node_id_
                           << ")." << CommonHelpers::Printers::describeDurationInMs(uptime()) << std::endl;  // NOLINT
             }
 
