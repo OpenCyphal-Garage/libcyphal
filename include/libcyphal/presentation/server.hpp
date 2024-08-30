@@ -74,7 +74,7 @@ class ServerBase : ServerImpl::Callback  // NOSONAR cpp:S4963
 public:
     /// @brief Defines failure type for a base server operations.
     ///
-    /// The set of possible failures the base server includes transport layer failures.
+    /// The set of possible failures of the base server includes transport layer failures.
     /// A strong-typed server extends this type with its own error types (serialization-related).
     ///
     using Failure = transport::AnyFailure;
@@ -280,28 +280,17 @@ private:
                     const transport::ServiceTxMetadata tx_metadata{{base_metadata, deadline}, client_node_id};
                     if (auto failure = respondWithPayload(tx_metadata, payload))
                     {
-                        return failureFromVariant(std::move(*failure));
+                        return libcyphal::detail::upcastVariant<Failure>(std::move(*failure));
                     }
                     return cetl::nullopt;
                 }});
     }
 
-    // TODO: move this helper to `libcyphal/types.hpp` (near to `AppendType`)
-    template <typename FailureVar>
-    CETL_NODISCARD static Failure failureFromVariant(FailureVar&& failure_var)
-    {
-        return cetl::visit(
-            [](auto&& failure) -> Failure {
-                //
-                return std::forward<decltype(failure)>(failure);
-            },
-            std::forward<FailureVar>(failure_var));
-    }
-
     // MARK: Data members:
 
     typename OnRequestCallback::Function on_request_cb_fn_;
-};
+
+};  // Server
 
 /// @brief Defines a service typed RPC server class.
 ///

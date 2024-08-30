@@ -135,6 +135,20 @@ struct AppendType<cetl::variant<A...>, B...>
 
 };  // AppendType
 
+/// @brief Upcasts a variant type value to a new variant type with additional types.
+///
+/// @tparam UpVariant The destination variant type upcast to.
+/// @tparam Variant The source variant type to be upcasted.
+/// @param variant Value of the source variant type.
+/// @return Value of the upcasted variant type.
+///
+template <typename UpVariant, typename Variant>
+CETL_NODISCARD static UpVariant upcastVariant(Variant&& variant)
+{
+    return cetl::visit([](auto&& value) -> UpVariant { return std::forward<decltype(value)>(value); },
+                       std::forward<Variant>(variant));
+}
+
 }  // namespace detail
 
 /// @brief A deleter which uses Polymorphic Memory Resource (PMR) for de-allocation of raw bytes memory buffers.

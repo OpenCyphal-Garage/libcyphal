@@ -21,7 +21,8 @@ namespace detail
 class PublisherImpl;
 class SubscriberImpl;
 
-// TODO: docs
+/// @brief Defines internal interface for the Presentation layer delegate.
+///
 class IPresentationDelegate
 {
 public:

@@ -63,10 +63,16 @@ struct IsFixedPortIdServiceTrait<T, true>
 
 }  // namespace detail
 
-// TODO: docs
+/// @brief Defines the main presentation layer class.
+///
+/// Instance of this class is supposed to be created once per transport instance (or even per application).
+/// Main purpose of the presentation object is to create publishers, subscribers, and RPC clients and servers.
+///
 class Presentation final : private detail::IPresentationDelegate
 {
 public:
+    /// @brief Constructs the presentation layer object.
+    ///
     Presentation(cetl::pmr::memory_resource& memory, IExecutor& executor, transport::ITransport& transport) noexcept
         : memory_{memory}
         , executor_{executor}
