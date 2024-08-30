@@ -6,7 +6,7 @@
 #ifndef LIBCYPHAL_TRANSPORT_SVC_SESSIONS_MOCK_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_SVC_SESSIONS_MOCK_HPP_INCLUDED
 
-#include "../unique_ptr_reference_wrapper.hpp"
+#include "unique_ptr_reference_wrapper.hpp"
 
 #include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>

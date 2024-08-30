@@ -3,13 +3,13 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "../cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
-#include "../tracking_memory_resource.hpp"
-#include "../transport/msg_sessions_mock.hpp"
-#include "../transport/transport_mock.hpp"
-#include "../verification_utilities.hpp"
-#include "../virtual_time_scheduler.hpp"
+#include "cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "my_custom/bar_1_0.hpp"
+#include "tracking_memory_resource.hpp"
+#include "transport/msg_sessions_mock.hpp"
+#include "transport/transport_mock.hpp"
+#include "verification_utilities.hpp"
+#include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/presentation/presentation.hpp>

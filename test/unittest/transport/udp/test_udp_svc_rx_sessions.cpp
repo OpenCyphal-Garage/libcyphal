@@ -3,14 +3,14 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "../../memory_resource_mock.hpp"
-#include "../../tracking_memory_resource.hpp"
-#include "../../verification_utilities.hpp"
-#include "../../virtual_time_scheduler.hpp"
 #include "media_mock.hpp"
+#include "memory_resource_mock.hpp"
+#include "tracking_memory_resource.hpp"
 #include "transient_error_handler_mock.hpp"
 #include "tx_rx_sockets_mock.hpp"
 #include "udp_gtest_helpers.hpp"
+#include "verification_utilities.hpp"
+#include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
@@ -365,6 +365,87 @@ TEST_F(TestUdpSvcRxSessions, receive_request)
             //
             const auto maybe_rx_transfer = session->receive();
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
+        });
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        session.reset();
+        EXPECT_CALL(rx_socket_mock_, deinit());
+        transport.reset();
+        testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
+    });
+    scheduler_.spinFor(10s);
+}
+
+TEST_F(TestUdpSvcRxSessions, receive_request_via_callback)
+{
+    StrictMock<MemoryResourceMock> payload_mr_mock;
+
+    auto transport = makeTransport({mr_, nullptr, nullptr, &payload_mr_mock}, NodeId{0x31});
+
+    EXPECT_THAT(rx_socket_mock_.getEndpoint().ip_address, 0);
+    EXPECT_THAT(rx_socket_mock_.getEndpoint().udp_port, 0);
+
+    EXPECT_CALL(rx_socket_mock_, registerCallback(_))  //
+        .WillOnce(Invoke([&](auto function) {          //
+            return scheduler_.registerNamedCallback("rx_socket", std::move(function));
+        }));
+
+    auto maybe_session = transport->makeRequestRxSession({8, 0x17B});
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
+    auto session = cetl::get<UniquePtr<IRequestRxSession>>(std::move(maybe_session));
+
+    EXPECT_THAT(rx_socket_mock_.getEndpoint().ip_address, 0xEF010031);
+    EXPECT_THAT(rx_socket_mock_.getEndpoint().udp_port, 9382);
+
+    constexpr std::size_t payload_size = 2;
+    constexpr std::size_t frame_size   = UdpardFrame::SizeOfHeaderAndTxCrc + payload_size;
+
+    TimePoint rx_timestamp;
+
+    session->setOnReceiveCallback([&](const IRequestRxSession::OnReceiveCallback::Arg& arg) {
+        //
+        EXPECT_THAT(arg.transfer.metadata.rx_meta.timestamp, rx_timestamp);
+        EXPECT_THAT(arg.transfer.metadata.rx_meta.base.transfer_id, 0x1D);
+        EXPECT_THAT(arg.transfer.metadata.rx_meta.base.priority, Priority::High);
+        EXPECT_THAT(arg.transfer.metadata.remote_node_id, 0x13);
+
+        std::array<std::uint8_t, 2> buffer{};
+        ASSERT_THAT(arg.transfer.payload.size(), payload_size);
+        EXPECT_THAT(arg.transfer.payload.copy(0, buffer.data(), buffer.size()), payload_size);
+        EXPECT_THAT(buffer, ElementsAre(42, 147));
+
+        EXPECT_CALL(payload_mr_mock, do_deallocate(_, frame_size, alignof(std::max_align_t)))
+            .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+                payload_mr_.deallocate(p, size_bytes, alignment);
+            });
+    });
+
+    scheduler_.scheduleAt(1s, [&](const auto&) {
+        //
+        SCOPED_TRACE("1-st iteration: one frame available @ 1s");
+
+        rx_timestamp = now() + 10ms;
+        EXPECT_CALL(rx_socket_mock_, receive())  //
+            .WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
+                EXPECT_THAT(now(), rx_timestamp);
+                auto frame         = UdpardFrame(0x13, 0x31, 0x1D, payload_size, &payload_mr_mock, Priority::High);
+                frame.payload()[0] = b(42);
+                frame.payload()[1] = b(147);
+                frame.setPortId(0x17B, true /*is_service*/, true /*is_request*/);
+                std::uint32_t tx_crc = UdpardFrame::InitialTxCrc;
+                return {rx_timestamp, std::move(frame).release(tx_crc)};
+            });
+        EXPECT_CALL(payload_mr_mock, do_allocate(frame_size, alignof(std::max_align_t)))
+            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
+                return payload_mr_.allocate(size_bytes, alignment);
+            });
+        scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
+
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const auto&) {
+            //
+            const auto maybe_rx_transfer = session->receive();
+            EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));  // b/c was "consumed" by the callback.
         });
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {

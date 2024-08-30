@@ -3,14 +3,14 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "../../memory_resource_mock.hpp"
-#include "../../tracking_memory_resource.hpp"
-#include "../../verification_utilities.hpp"
-#include "../../virtual_time_scheduler.hpp"
 #include "media_mock.hpp"
+#include "memory_resource_mock.hpp"
+#include "tracking_memory_resource.hpp"
 #include "transient_error_handler_mock.hpp"
 #include "tx_rx_sockets_mock.hpp"
 #include "udp_gtest_helpers.hpp"
+#include "verification_utilities.hpp"
+#include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>

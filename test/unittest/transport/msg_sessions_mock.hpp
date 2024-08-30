@@ -6,7 +6,7 @@
 #ifndef LIBCYPHAL_TRANSPORT_MSG_SESSIONS_MOCK_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_MSG_SESSIONS_MOCK_HPP_INCLUDED
 
-#include "../unique_ptr_reference_wrapper.hpp"
+#include "unique_ptr_reference_wrapper.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/transport/errors.hpp>

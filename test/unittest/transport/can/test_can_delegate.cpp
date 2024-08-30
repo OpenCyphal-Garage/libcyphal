@@ -3,9 +3,9 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "../../memory_resource_mock.hpp"
-#include "../../tracking_memory_resource.hpp"
-#include "../../verification_utilities.hpp"
+#include "memory_resource_mock.hpp"
+#include "tracking_memory_resource.hpp"
+#include "verification_utilities.hpp"
 
 #include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>

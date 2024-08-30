@@ -3,8 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "../../memory_resource_mock.hpp"
-#include "../../tracking_memory_resource.hpp"
+#include "memory_resource_mock.hpp"
+#include "tracking_memory_resource.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/transport/errors.hpp>

@@ -3,13 +3,13 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "../../cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
-#include "../../memory_resource_mock.hpp"
-#include "../../tracking_memory_resource.hpp"
-#include "../../verification_utilities.hpp"
-#include "../../virtual_time_scheduler.hpp"
 #include "can_gtest_helpers.hpp"
+#include "cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "media_mock.hpp"
+#include "memory_resource_mock.hpp"
+#include "tracking_memory_resource.hpp"
+#include "verification_utilities.hpp"
+#include "virtual_time_scheduler.hpp"
 
 #include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>

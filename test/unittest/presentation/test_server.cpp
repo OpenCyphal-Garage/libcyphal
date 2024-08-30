@@ -3,12 +3,12 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "../cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
-#include "../gtest_helpers.hpp"       // NOLINT(misc-include-cleaner)
-#include "../tracking_memory_resource.hpp"
-#include "../transport/svc_sessions_mock.hpp"
-#include "../transport/transport_mock.hpp"
-#include "../virtual_time_scheduler.hpp"
+#include "cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
+#include "gtest_helpers.hpp"       // NOLINT(misc-include-cleaner)
+#include "tracking_memory_resource.hpp"
+#include "transport/svc_sessions_mock.hpp"
+#include "transport/transport_mock.hpp"
+#include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/presentation/presentation.hpp>
@@ -88,9 +88,9 @@ TEST_F(TestServer, move)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    StrictMock<RequestRxSessionMock> req_rx_session_mock;
-    EXPECT_CALL(req_rx_session_mock, setOnReceiveCallback(_)).WillRepeatedly(Return());
     StrictMock<ResponseTxSessionMock> res_tx_session_mock;
+    StrictMock<RequestRxSessionMock>  req_rx_session_mock;
+    EXPECT_CALL(req_rx_session_mock, setOnReceiveCallback(_)).WillRepeatedly(Return());
 
     EXPECT_CALL(transport_mock_, makeRequestRxSession(_))  //
         .WillOnce(Invoke([&](const auto&) {
@@ -113,7 +113,7 @@ TEST_F(TestServer, move)
         .WillOnce(Return(AlreadyExistsError{}));
 
     auto maybe_srv2 = presentation.makeServer<Service>(Service::Request::_traits_::FixedPortId);
-    EXPECT_THAT(maybe_srv2, VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
+    EXPECT_THAT(maybe_srv2, VariantWith<Presentation::MakeFailure>(VariantWith<AlreadyExistsError>(_)));
 
     EXPECT_CALL(req_rx_session_mock, deinit()).Times(1);
     EXPECT_CALL(res_tx_session_mock, deinit()).Times(1);
