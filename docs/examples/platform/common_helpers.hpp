@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -110,6 +111,7 @@ struct CommonHelpers
         using std::literals::chrono_literals::operator""s;
 
         libcyphal::Duration worst_lateness{0};
+        std::cout << "-----------\nRunning..." << std::endl;  // NOLINT
 
         while (executor.now() < deadline)
         {
@@ -126,6 +128,7 @@ struct CommonHelpers
             EXPECT_THAT(executor.pollAwaitableResourcesFor(opt_timeout), testing::Eq(cetl::nullopt));
         }
 
+        std::cout << "Done.\n-----------\nStats:\n";
         std::cout << "worst_callback_lateness=" << worst_lateness.count() << "us\n";
     }
 
@@ -285,6 +288,58 @@ struct CommonHelpers
         }
 
     };  // Udp
+
+    class RunningStats final
+    {
+    public:
+        void append(const double item, const double weight = 1.0)
+        {
+            ++total_number;
+            if (total_number == 1)
+            {
+                running_mean                 = item;
+                total_weight                 = weight;
+                sum_of_square_devs_from_mean = 0.0;
+            }
+            else
+            {
+                const double delta            = item - running_mean;
+                const double new_total_weight = total_weight + weight;
+                sum_of_square_devs_from_mean += total_weight * weight * delta * delta / new_total_weight;
+                running_mean += delta * weight / new_total_weight;
+                total_weight = new_total_weight;
+            }
+        }
+
+        double variance() const
+        {
+            if (total_number == 0)
+            {
+                return not_a_number;
+            }
+
+            return sum_of_square_devs_from_mean / static_cast<double>(total_weight);
+        }
+
+        double standardDeviation() const
+        {
+            return sqrt(variance());
+        }
+
+        double mean() const
+        {
+            return running_mean;
+        }
+
+    private:
+        static constexpr auto not_a_number{std::numeric_limits<double>::quiet_NaN()};
+
+        std::size_t total_number{0};
+        double      total_weight{0.0};
+        double      running_mean{not_a_number};
+        double      sum_of_square_devs_from_mean{not_a_number};
+
+    };  // RunningStats
 
 };  // CommonHelpers
 

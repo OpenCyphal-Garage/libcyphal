@@ -34,6 +34,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <iomanip>
 #include <iostream>
 #include <string>
 #include <utility>
@@ -137,6 +138,11 @@ protected:
         {
             run_duration_ = std::chrono::duration<std::int64_t>{std::strtoll(run_duration_str, nullptr, 10)};
         }
+        // Duration in seconds for which the test will run. Default is 10 seconds.
+        if (const auto* const print_str = std::getenv("CYPHAL__PRINT"))
+        {
+            print_activities_ = 0 != std::strtoll(print_str, nullptr, 10);
+        }
         // Local node ID. Default is 42.
         if (const auto* const node_id_str = std::getenv("CYPHAL__NODE__ID"))
         {
@@ -192,6 +198,7 @@ protected:
     NodeId                            local_node_id_{42};
     NodeId                            remote_node_id_{42};
     Duration                          run_duration_{10s};
+    bool                              print_activities_{true};
     std::vector<std::string>          iface_addresses_{"127.0.0.1"};
     // NOLINTEND
 
@@ -202,7 +209,7 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
     State state;
 
     std::cout << "Local  node ID: " << local_node_id_ << "\n";
-    std::cout << "Remote node ID: " << remote_node_id_ << std::endl;  // NOLINT
+    std::cout << "Remote node ID: " << remote_node_id_ << "\n";
 
     // 1. Make UDP transport with collection of media.
     //
@@ -224,9 +231,12 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
         UserService::PingRequest::ServiceId,
         [this](const auto& arg, auto continuation) {
             //
-            std::cerr << "Server <- Received 'Ping' req (id=" << arg.request.id
-                      << ", from_node_id=" << arg.metadata.remote_node_id << ")."
-                      << CommonHelpers::Printers::describeDurationInMs(arg.approx_now - startup_time_) << std::endl;
+            if (print_activities_)
+            {
+                std::cerr << "Server <- Received 'Ping' req (id=" << arg.request.id
+                          << ", from_node_id=" << arg.metadata.remote_node_id << ")."
+                          << CommonHelpers::Printers::describeDurationInMs(arg.approx_now - startup_time_) << std::endl;
+            }
             continuation(arg.approx_now + 1s, UserService::PongResponse{arg.request.id});
         });
 
@@ -244,8 +254,9 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
     ASSERT_THAT(maybe_ping_req_tx_session, testing::VariantWith<RequestTxSessionPtr>(testing::NotNull()))
         << "Failed to create 'Ping' request TX session.";
     //
-    TimePoint request_start{};
-    auto      pong_res_rx_session = cetl::get<ResponseRxSessionPtr>(std::move(maybe_pong_res_rx_session));
+    TimePoint                   request_start{};
+    CommonHelpers::RunningStats call_duration_stats;
+    auto pong_res_rx_session = cetl::get<ResponseRxSessionPtr>(std::move(maybe_pong_res_rx_session));
     pong_res_rx_session->setOnReceiveCallback([&](const auto& arg) {
         //
         std::array<cetl::byte, UserService::PongResponse::_traits_::ExtentBytes> buffer;  // NOLINT
@@ -258,10 +269,16 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
         if (pong.deserialize(in_bitspan))
         {
             const auto request_duration = now() - request_start;
-            std::cout << "Client <- Received 'ponG' res (id=" << pong.id
-                      << ", from_node_id=" << arg.transfer.metadata.remote_node_id << ")."
-                      << CommonHelpers::Printers::describeDurationInMs(uptime()) << ", Δ "
-                      << CommonHelpers::Printers::describeDurationInUs(request_duration) << std::endl;
+            call_duration_stats.append(static_cast<double>(  //
+                std::chrono::duration_cast<std::chrono::microseconds>(request_duration).count()));
+
+            if (print_activities_)
+            {
+                std::cout << "Client <- Received 'ponG' res (id=" << pong.id
+                          << ", from_node_id=" << arg.transfer.metadata.remote_node_id << ")."
+                          << CommonHelpers::Printers::describeDurationInMs(uptime()) << ", Δ "
+                          << CommonHelpers::Printers::describeDurationInUs(request_duration) << std::endl;
+            }
         }
     });
     //
@@ -282,8 +299,11 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
             const cetl::span<const cetl::byte> data_span{data, result_size.value()};
             const std::array<const cetl::span<const cetl::byte>, 1> payload{data_span};
 
-            std::cout << "Client -> Sending  'Ping' req (id=" << ping_req.id << ",   to_node_id=" << remote_node_id_
-                      << ")." << CommonHelpers::Printers::describeDurationInMs(uptime()) << std::endl;  // NOLINT
+            if (print_activities_)
+            {
+                std::cout << "Client -> Sending  'Ping' req (id=" << ping_req.id << ",   to_node_id=" << remote_node_id_
+                          << ")." << CommonHelpers::Printers::describeDurationInMs(uptime()) << std::endl;  // NOLINT
+            }
 
             request_start = now();
             EXPECT_THAT(ping_req_tx_session->send({{transfer_id, Priority::Nominal}, arg.approx_now + 1s}, payload),
@@ -296,6 +316,7 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
     //
     Duration        worst_lateness{0};
     const TimePoint deadline = startup_time_ + run_duration_ + 500ms;
+    std::cout << "-----------\nRunning..." << std::endl;  // NOLINT
     //
     while (executor_.now() < deadline)
     {
@@ -309,7 +330,13 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
         }
         EXPECT_THAT(executor_.pollAwaitableResourcesFor(opt_timeout), testing::Eq(cetl::nullopt));
     }
-    std::cout << "worst_callback_lateness=" << worst_lateness.count() << "us\n";
+
+    std::cout << "Done.\n-----------\nStats:\n";
+    std::cout << "worst_callback_lateness  = " << worst_lateness.count() << " us\n";
+    std::cout << "call_duration_stats_mean = " << call_duration_stats.mean() << " us\n";
+    std::cout << "call_duration_stats_std  = ± " << call_duration_stats.standardDeviation() << " us (±"
+              << std::setprecision(3) << 100.0 * call_duration_stats.standardDeviation() / call_duration_stats.mean()
+              << "%)\n";
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

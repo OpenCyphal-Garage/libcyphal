@@ -177,6 +177,7 @@ TEST_F(Example_1_Presentation_0_HelloRawPubSub_Udp, main)
     //
     Duration        worst_lateness{0};
     const TimePoint deadline = startup_time_ + run_duration_ + 500ms;
+    std::cout << "-----------\nRunning..." << std::endl;  // NOLINT
     //
     while (executor_.now() < deadline)
     {
@@ -190,6 +191,8 @@ TEST_F(Example_1_Presentation_0_HelloRawPubSub_Udp, main)
         }
         EXPECT_THAT(executor_.pollAwaitableResourcesFor(opt_timeout), testing::Eq(cetl::nullopt));
     }
+
+    std::cout << "Done.\n-----------\nStats:\n";
     std::cout << "worst_callback_lateness=" << worst_lateness.count() << "us\n";
 }
 
