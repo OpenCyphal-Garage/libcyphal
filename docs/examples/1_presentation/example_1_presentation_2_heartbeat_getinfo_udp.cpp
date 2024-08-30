@@ -58,7 +58,7 @@ using testing::IsEmpty;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-class Example_12_PosixUdpPresentation : public testing::Test
+class Example_1_Presentation_2_Heartbeat_GetInfo_Udp : public testing::Test
 {
 protected:
     using Callback        = libcyphal::IExecutor::Callback;
@@ -124,11 +124,11 @@ protected:
     std::vector<std::string>          iface_addresses_{"127.0.0.1"};
     // NOLINTEND
 
-};  // Example_12_PosixUdpPresentation
+};  // Example_1_Presentation_2_Heartbeat_GetInfo_Udp
 
 // MARK: - Tests:
 
-TEST_F(Example_12_PosixUdpPresentation, heartbeat_and_getInfo)
+TEST_F(Example_1_Presentation_2_Heartbeat_GetInfo_Udp, main)
 {
     State state;
 
@@ -164,19 +164,17 @@ TEST_F(Example_12_PosixUdpPresentation, heartbeat_and_getInfo)
     // Bring up 'GetInfo' server.
     //
     using GetInfo_1_0 = uavcan::node::GetInfo_1_0;
-    const std::string node_name{"org.opencyphal.Ex_1_Pres_1_HB_GetInfo_UDP"};
+    const std::string node_name{"org.opencyphal.Ex_1_Pres_2_HB_GetInfo_UDP"};
     std::copy_n(node_name.begin(), std::min(node_name.size(), 50UL), std::back_inserter(state.get_info_response.name));
     //
-    auto maybe_get_info_srv = presentation.makeServer<GetInfo_1_0>(GetInfo_1_0::Request::_traits_::FixedPortId);
-    ASSERT_THAT(maybe_get_info_srv, testing::VariantWith<Server<GetInfo_1_0>>(testing::_))
-        << "Can't create 'GetInfo' server.";
-    auto get_info_srv = cetl::get<Server<GetInfo_1_0>>(std::move(maybe_get_info_srv));
-    get_info_srv.setOnRequestCallback([&state](const auto& arg, auto continuation) {
+    auto maybe_get_info_srv = presentation.makeServer<GetInfo_1_0>([&state](const auto& arg, auto continuation) {
         //
         std::cout << "Received 'GetInfo' request (from_node_id=" << arg.metadata.remote_node_id << ")."
                   << std::endl;  // NOLINT
         continuation(arg.approx_now + 1s, state.get_info_response);
     });
+    ASSERT_THAT(maybe_get_info_srv, testing::VariantWith<ServiceServer<GetInfo_1_0>>(testing::_))
+        << "Can't create 'GetInfo' server.";
 
     // Main loop.
     //

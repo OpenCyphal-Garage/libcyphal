@@ -1,5 +1,8 @@
 /// @file
 /// Example of creating a libcyphal node in your project using posix UDP sockets and transport.
+/// This example demonstrates how to send and receive Heartbeat messages using transport layer
+/// RX/TX message session classes. It also demonstrates how to bring up a "GetInfo" server by using
+/// RX/TX service request/response session classes.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -47,7 +50,7 @@ using testing::IsEmpty;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-class Example_02_PosixUdpTransport : public testing::Test
+class Example_0_Transport_1_Heartbeat_GetInfo_Udp : public testing::Test
 {
 protected:
     void SetUp() override
@@ -80,6 +83,11 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
+    Duration uptime() const
+    {
+        return executor_.now() - startup_time_;
+    }
+
     // MARK: Data members:
     // NOLINTBEGIN
 
@@ -100,11 +108,11 @@ protected:
     std::vector<std::string>          iface_addresses_{"127.0.0.1"};
     // NOLINTEND
 
-};  // Example_02_PosixUdpTransport
+};  // Example_0_Transport_1_Heartbeat_GetInfo_Udp
 
 // MARK: - Tests:
 
-TEST_F(Example_02_PosixUdpTransport, heartbeat_and_getInfo)
+TEST_F(Example_0_Transport_1_Heartbeat_GetInfo_Udp, main)
 {
     State state;
 
@@ -117,7 +125,7 @@ TEST_F(Example_02_PosixUdpTransport, heartbeat_and_getInfo)
     state.heartbeat_.makeTxSession(*state.transport_, executor_, startup_time_);
     state.heartbeat_.makeRxSession(*state.transport_, [&](const auto& arg) {
         //
-        state.heartbeat_.tryDeserializeAndPrint(executor_.now() - startup_time_, arg.transfer);
+        state.heartbeat_.tryDeserializeAndPrint(uptime(), arg.transfer);
     });
 
     // Bring up 'GetInfo' server.

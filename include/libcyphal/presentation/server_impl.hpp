@@ -77,6 +77,10 @@ public:
     bool tryDeserialize(const transport::ScatteredBuffer& buffer, Request& request)
     {
         // Make a copy of the scattered buffer into a single contiguous temp buffer.
+        // Strictly speaking, we could eliminate PMR allocation here in favor of a fixed-size stack buffer
+        // (`Request::_traits_::ExtentBytes`), but this might be dangerous in case of large requests.
+        // Maybe some kind of hybrid approach would be better,
+        // e.g. stack buffer for small requests and PMR for large ones.
         //
         const std::unique_ptr<cetl::byte, PmrRawBytesDeleter>
             tmp_buffer{static_cast<cetl::byte*>(memory_.allocate(buffer.size())),  // NOSONAR cpp:S5356 cpp:S5357,
@@ -89,9 +93,9 @@ public:
 
         const auto* const data_raw = static_cast<const void*>(tmp_buffer.get());
         const auto* const data_u8s = static_cast<const std::uint8_t*>(data_raw);  // NOSONAR cpp:S5356 cpp:S5357
-        const nunavut::support::const_bitspan bitspan{data_u8s, data_size};
+        const nunavut::support::const_bitspan in_bitspan{data_u8s, data_size};
 
-        return deserialize(request, bitspan);
+        return deserialize(request, in_bitspan);
     }
 
 private:

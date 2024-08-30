@@ -1,6 +1,6 @@
 /// @file
 /// Example of creating a libcyphal node in your project using posix UDP sockets and presentation layer.
-/// This example demonstrates how to publish and subscribe to raw messages using presentation layer
+/// This example demonstrates how to publish and subscribe to raw "Hello" messages using presentation layer
 /// `Publisher` and `Subscriber` classes.
 ///
 /// @copyright
@@ -34,6 +34,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -55,7 +56,7 @@ using testing::IsEmpty;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-class Example_10_PosixUdpPresentation : public testing::Test
+class Example_1_Presentation_0_HelloRawPubSub_Udp : public testing::Test
 {
 protected:
     using Callback        = libcyphal::IExecutor::Callback;
@@ -111,9 +112,9 @@ protected:
     std::vector<std::string>          iface_addresses_{"127.0.0.1"};
     // NOLINTEND
 
-};  // Example_10_PosixUdpPresentation
+};  // Example_1_Presentation_0_HelloRawPubSub_Udp
 
-TEST_F(Example_10_PosixUdpPresentation, raw_messages)
+TEST_F(Example_1_Presentation_0_HelloRawPubSub_Udp, main)
 {
     State state;
 
@@ -121,12 +122,9 @@ TEST_F(Example_10_PosixUdpPresentation, raw_messages)
     //
     constexpr std::size_t tx_capacity = 16;
     state.media_collection_.make(mr_, executor_, iface_addresses_);
-    auto maybe_transport = libcyphal::transport::udp::makeTransport(  //
-        {mr_},
-        executor_,
-        state.media_collection_.span(),
-        tx_capacity);
-    ASSERT_THAT(maybe_transport, testing::VariantWith<UdpTransportPtr>(testing::_)) << "Can't create transport.";
+    auto maybe_transport = makeTransport({mr_}, executor_, state.media_collection_.span(), tx_capacity);
+    ASSERT_THAT(maybe_transport, testing::VariantWith<UdpTransportPtr>(testing::NotNull()))
+        << "Can't create transport.";
     state.transport_ = cetl::get<UdpTransportPtr>(std::move(maybe_transport));
     state.transport_->setLocalNodeId(local_node_id_);
 
@@ -185,10 +183,10 @@ TEST_F(Example_10_PosixUdpPresentation, raw_messages)
         const auto spin_result = executor_.spinOnce();
         worst_lateness         = std::max(worst_lateness, spin_result.worst_lateness);
 
-        cetl::optional<libcyphal::Duration> opt_timeout;
+        cetl::optional<libcyphal::Duration> opt_timeout{1s};  // awake at least once per second
         if (spin_result.next_exec_time.has_value())
         {
-            opt_timeout = spin_result.next_exec_time.value() - executor_.now();
+            opt_timeout = std::min(*opt_timeout, spin_result.next_exec_time.value() - executor_.now());
         }
         EXPECT_THAT(executor_.pollAwaitableResourcesFor(opt_timeout), testing::Eq(cetl::nullopt));
     }

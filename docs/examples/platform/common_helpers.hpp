@@ -18,8 +18,11 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
+#include <iomanip>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -47,6 +50,21 @@ struct CommonHelpers
 
     struct Printers
     {
+        static std::string describeDurationInMs(const libcyphal::Duration& duration)
+        {
+            std::stringstream ss;
+            ss << "   @ " << std::setw(8) << std::right
+               << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() << " ms";
+            return ss.str();
+        }
+
+        static std::string describeDurationInUs(const libcyphal::Duration& duration)
+        {
+            std::stringstream ss;
+            ss << std::chrono::duration_cast<std::chrono::microseconds>(duration).count() << " us";
+            return ss.str();
+        }
+
         static std::string describeError(const libcyphal::transport::StateError&)
         {
             return "StateError";
@@ -89,6 +107,8 @@ struct CommonHelpers
                             const libcyphal::TimePoint                       deadline,
                             const std::function<void(libcyphal::TimePoint)>& spin_extra_action)
     {
+        using std::literals::chrono_literals::operator""s;
+
         libcyphal::Duration worst_lateness{0};
 
         while (executor.now() < deadline)
@@ -98,10 +118,10 @@ struct CommonHelpers
 
             spin_extra_action(spin_result.approx_now);
 
-            cetl::optional<libcyphal::Duration> opt_timeout;
+            cetl::optional<libcyphal::Duration> opt_timeout{1s};  // awake at least once per second
             if (spin_result.next_exec_time.has_value())
             {
-                opt_timeout = spin_result.next_exec_time.value() - executor.now();
+                opt_timeout = std::min(*opt_timeout, spin_result.next_exec_time.value() - executor.now());
             }
             EXPECT_THAT(executor.pollAwaitableResourcesFor(opt_timeout), testing::Eq(cetl::nullopt));
         }
@@ -125,9 +145,12 @@ struct CommonHelpers
 
             // Make CAN transport.
             //
-            auto maybe_transport =
-                libcyphal::transport::can::makeTransport({mr}, executor, state.media_collection_.span(), tx_capacity);
-            EXPECT_THAT(maybe_transport, testing::VariantWith<CanTransportPtr>(testing::_))
+            auto maybe_transport = libcyphal::transport::can::makeTransport(  //
+                {mr},
+                executor,
+                state.media_collection_.span(),
+                tx_capacity);
+            EXPECT_THAT(maybe_transport, testing::VariantWith<CanTransportPtr>(testing::NotNull()))
                 << "Failed to create CAN transport.";
             state.transport_ = cetl::get<CanTransportPtr>(std::move(maybe_transport));
             state.transport_->setLocalNodeId(local_node_id_);
@@ -193,9 +216,12 @@ struct CommonHelpers
 
             // Make UDP transport.
             //
-            auto maybe_transport =
-                libcyphal::transport::udp::makeTransport({mr}, executor, state.media_collection_.span(), tx_capacity);
-            EXPECT_THAT(maybe_transport, testing::VariantWith<UdpTransportPtr>(testing::_))
+            auto maybe_transport = libcyphal::transport::udp::makeTransport(  //
+                {mr},
+                executor,
+                state.media_collection_.span(),
+                tx_capacity);
+            EXPECT_THAT(maybe_transport, testing::VariantWith<UdpTransportPtr>(testing::NotNull()))
                 << "Failed to create transport.";
             state.transport_ = cetl::get<UdpTransportPtr>(std::move(maybe_transport));
             state.transport_->setLocalNodeId(local_node_id);

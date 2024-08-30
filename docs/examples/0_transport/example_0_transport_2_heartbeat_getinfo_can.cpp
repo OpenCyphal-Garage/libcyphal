@@ -1,5 +1,8 @@
 /// @file
 /// Example of creating a libcyphal node in your project using posix SOCKETCAN media and CAN transport.
+/// This example demonstrates how to send and receive Heartbeat messages using transport layer
+/// RX/TX message session classes. It also demonstrates how to bring up a "GetInfo" server by using
+/// RX/TX service request/response session classes.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -51,7 +54,7 @@ using testing::VariantWith;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-class Example_03_LinuxSocketCanTransport : public testing::Test
+class Example_0_Transport_2_Heartbeat_GetInfo_Can : public testing::Test
 {
 protected:
     void SetUp() override
@@ -82,6 +85,11 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
+    Duration uptime() const
+    {
+        return executor_.now() - startup_time_;
+    }
+
     // MARK: Data members:
     // NOLINTBEGIN
 
@@ -102,11 +110,11 @@ protected:
     std::vector<std::string>                              iface_addresses_{"vcan0"};
     // NOLINTEND
 
-};  // Example_03_LinuxSocketCanTransport
+};  // Example_0_Transport_2_Heartbeat_GetInfo_Can
 
 // MARK: - Tests:
 
-TEST_F(Example_03_LinuxSocketCanTransport, heartbeat_and_getInfo)
+TEST_F(Example_0_Transport_2_Heartbeat_GetInfo_Can, main)
 {
     State state;
 
@@ -122,7 +130,7 @@ TEST_F(Example_03_LinuxSocketCanTransport, heartbeat_and_getInfo)
     state.heartbeat_.makeTxSession(*state.transport_, executor_, startup_time_);
     state.heartbeat_.makeRxSession(*state.transport_, [&](const auto& arg) {
         //
-        state.heartbeat_.tryDeserializeAndPrint(executor_.now() - startup_time_, arg.transfer);
+        state.heartbeat_.tryDeserializeAndPrint(uptime(), arg.transfer);
     });
 
     // Bring up 'GetInfo' server.

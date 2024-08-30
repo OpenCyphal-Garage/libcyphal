@@ -79,11 +79,12 @@ TEST_F(TestServer, move)
 {
     using Service = uavcan::node::GetInfo_1_0;
 
-    static_assert(!std::is_copy_assignable<Server<Service>>::value, "Should not be copy assignable.");
-    static_assert(!std::is_copy_constructible<Server<Service>>::value, "Should not be copy constructible.");
-    static_assert(!std::is_move_assignable<Server<Service>>::value, "Should not be move assignable.");
-    static_assert(std::is_move_constructible<Server<Service>>::value, "Should be move constructible.");
-    static_assert(!std::is_default_constructible<Server<Service>>::value, "Should not be default constructible.");
+    static_assert(!std::is_copy_assignable<ServiceServer<Service>>::value, "Should not be copy assignable.");
+    static_assert(!std::is_copy_constructible<ServiceServer<Service>>::value, "Should not be copy constructible.");
+    static_assert(!std::is_move_assignable<ServiceServer<Service>>::value, "Should not be move assignable.");
+    static_assert(std::is_move_constructible<ServiceServer<Service>>::value, "Should be move constructible.");
+    static_assert(!std::is_default_constructible<ServiceServer<Service>>::value,
+                  "Should not be default constructible.");
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
@@ -101,10 +102,10 @@ TEST_F(TestServer, move)
         }));
 
     auto maybe_svr1 = presentation.makeServer<Service>(Service::Request::_traits_::FixedPortId);
-    ASSERT_THAT(maybe_svr1, VariantWith<Server<Service>>(_));
-    auto srv1a = cetl::get<Server<Service>>(std::move(maybe_svr1));
+    ASSERT_THAT(maybe_svr1, VariantWith<ServiceServer<Service>>(_));
+    auto srv1a = cetl::get<ServiceServer<Service>>(std::move(maybe_svr1));
 
-    cetl::optional<Server<Service>> srv1b{std::move(srv1a)};
+    cetl::optional<ServiceServer<Service>> srv1b{std::move(srv1a)};
 
     testing::Mock::VerifyAndClearExpectations(&transport_mock_);
 
@@ -145,13 +146,13 @@ TEST_F(TestServer, service_request_response)
             return libcyphal::detail::makeUniquePtr<ResponseTxSessionMock::RefWrapper::Spec>(mr_, res_tx_session_mock);
         }));
 
-    auto maybe_server = presentation.makeServer<Service>(Service::Request::_traits_::FixedPortId);
-    ASSERT_THAT(maybe_server, VariantWith<Server<Service>>(_));
-    auto server = cetl::get<Server<Service>>(std::move(maybe_server));
+    auto maybe_server = presentation.makeServer<Service>();
+    ASSERT_THAT(maybe_server, VariantWith<ServiceServer<Service>>(_));
+    auto server = cetl::get<ServiceServer<Service>>(std::move(maybe_server));
 
     ASSERT_TRUE(req_rx_cb_fn);
 
-    Server<Service>::OnRequestCallback::Continuation req_continuation;
+    ServiceServer<Service>::OnRequestCallback::Continuation req_continuation;
 
     ServiceRxTransfer request{{{{123, Priority::Fast}, {}}, NodeId{0x31}}, {}};
 
@@ -212,12 +213,12 @@ TEST_F(TestServer, raw_request_response)
         }));
 
     auto maybe_server = presentation.makeServer(0x123, 0x456);
-    ASSERT_THAT(maybe_server, VariantWith<Server<void>>(_));
-    auto raw_server = cetl::get<Server<void>>(std::move(maybe_server));
+    ASSERT_THAT(maybe_server, VariantWith<RawServiceServer>(_));
+    auto raw_server = cetl::get<RawServiceServer>(std::move(maybe_server));
 
     ASSERT_TRUE(req_rx_cb_fn);
 
-    Server<void>::OnRequestCallback::Continuation raw_req_continuation;
+    RawServiceServer::OnRequestCallback::Continuation raw_req_continuation;
 
     ServiceRxTransfer request{{{{123, Priority::Fast}, {}}, NodeId{0x31}}, {}};
 

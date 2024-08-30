@@ -76,6 +76,11 @@ public:
             {
                 // Make a copy of the scattered buffer into a single contiguous temp buffer.
                 //
+                // Strictly speaking, we could eliminate PMR allocation here in favor of a fixed-size stack buffer
+                // (`Message::_traits_::ExtentBytes`), but this might be dangerous in case of large messages.
+                // Maybe some kind of hybrid approach would be better,
+                // e.g. stack buffer for small messages and PMR for large ones.
+                //
                 const std::unique_ptr<cetl::byte, PmrRawBytesDeleter>
                     tmp_buffer{static_cast<cetl::byte*>(  // NOSONAR cpp:S5356 cpp:S5357
                                    context.memory.allocate(context.buffer.size())),

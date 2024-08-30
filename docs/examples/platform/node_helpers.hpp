@@ -129,8 +129,8 @@ struct NodeHelpers
         {
             auto maybe_msg_rx_session =
                 transport.makeMessageRxSession({Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId});
-            EXPECT_THAT(maybe_msg_rx_session, testing::VariantWith<MessageRxSessionPtr>(testing::_))
-                << "Failed to create Heartbeat RX session.";
+            EXPECT_THAT(maybe_msg_rx_session, testing::VariantWith<MessageRxSessionPtr>(testing::NotNull()))
+                << "Failed to create 'Heartbeat' RX session.";
             if (auto* const session = cetl::get_if<MessageRxSessionPtr>(&maybe_msg_rx_session))
             {
                 msg_rx_session_ = std::move(*session);
@@ -147,8 +147,8 @@ struct NodeHelpers
                            const libcyphal::TimePoint        startup_time)
         {
             auto maybe_msg_tx_session = transport.makeMessageTxSession({Message::_traits_::FixedPortId});
-            EXPECT_THAT(maybe_msg_tx_session, testing::VariantWith<MessageTxSessionPtr>(testing::_))
-                << "Failed to create Heartbeat TX session.";
+            EXPECT_THAT(maybe_msg_tx_session, testing::VariantWith<MessageTxSessionPtr>(testing::NotNull()))
+                << "Failed to create 'Heartbeat' TX session.";
             if (auto* const session = cetl::get_if<MessageTxSessionPtr>(&maybe_msg_tx_session))
             {
                 msg_tx_session_ = std::move(*session);
@@ -193,14 +193,14 @@ struct NodeHelpers
             }
         }
 
-        static void print(const libcyphal::Duration               uptime,
-                          const Message&                          heartbeat_msg,
-                          libcyphal::transport::MessageRxMetadata metadata)
+        static void print(const libcyphal::Duration                      uptime,
+                          const Message&                                 heartbeat_msg,
+                          const libcyphal::transport::MessageRxMetadata& metadata)
         {
             std::cout << "Received heartbeat from Node " << std::setw(5) << metadata.publisher_node_id.value_or(0)
-                      << ", Uptime " << std::setw(8) << heartbeat_msg.uptime << "   @ " << std::setw(8)
-                      << std::chrono::duration_cast<std::chrono::milliseconds>(uptime).count()
-                      << " ms, tf_id=" << std::setw(8) << metadata.rx_meta.base.transfer_id << "\n"
+                      << ", Uptime " << std::setw(8) << heartbeat_msg.uptime
+                      << CommonHelpers::Printers::describeDurationInMs(uptime) << ", tf_id=" << std::setw(8)
+                      << metadata.rx_meta.base.transfer_id << "\n"
                       << std::flush;
         }
 
@@ -217,7 +217,7 @@ struct NodeHelpers
             const TransferTxMetadata metadata{{transfer_id_, libcyphal::transport::Priority::Nominal}, now + 1s};
 
             EXPECT_THAT(serializeAndSend(heartbeat, *msg_tx_session_, metadata), testing::Eq(cetl::nullopt))
-                << "Failed to publish Heartbeat_1_0.";
+                << "Failed to publish 'Heartbeat_1_0'.";
         }
 
         MessageRxSessionPtr              msg_rx_session_;
@@ -242,8 +242,8 @@ struct NodeHelpers
         {
             auto maybe_svc_rx_session =
                 transport.makeRequestRxSession({Request::_traits_::ExtentBytes, Request::_traits_::FixedPortId});
-            EXPECT_THAT(maybe_svc_rx_session, testing::VariantWith<RequestRxSessionPtr>(testing::_))
-                << "Failed to create GetInfo request RX session.";
+            EXPECT_THAT(maybe_svc_rx_session, testing::VariantWith<RequestRxSessionPtr>(testing::NotNull()))
+                << "Failed to create 'GetInfo' request RX session.";
             if (auto* const session = cetl::get_if<RequestRxSessionPtr>(&maybe_svc_rx_session))
             {
                 svc_req_rx_session_ = std::move(*session);
@@ -253,8 +253,8 @@ struct NodeHelpers
         void makeTxSession(libcyphal::transport::ITransport& transport)
         {
             auto maybe_svc_tx_session = transport.makeResponseTxSession({Response::_traits_::FixedPortId});
-            EXPECT_THAT(maybe_svc_tx_session, testing::VariantWith<ResponseTxSessionPtr>(testing::_))
-                << "Failed to create GetInfo response TX session.";
+            EXPECT_THAT(maybe_svc_tx_session, testing::VariantWith<ResponseTxSessionPtr>(testing::NotNull()))
+                << "Failed to create 'GetInfo' response TX session.";
             if (auto* const session = cetl::get_if<ResponseTxSessionPtr>(&maybe_svc_tx_session))
             {
                 svc_res_tx_session_ = std::move(*session);
@@ -273,7 +273,7 @@ struct NodeHelpers
                                                      request->metadata.remote_node_id};
 
                     EXPECT_THAT(serializeAndSend(response, *svc_res_tx_session_, metadata), testing::Eq(cetl::nullopt))
-                        << "Failed to send GetInfo::Response_1_0.";
+                        << "Failed to send 'GetInfo::Response_1_0'.";
                 }
             }
         }

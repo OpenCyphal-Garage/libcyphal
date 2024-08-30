@@ -23,11 +23,60 @@ namespace presentation
 namespace detail
 {
 
+/// Trait which determines whether the given type has `T::_traits_::IsService` field.
+///
+template <typename T>
+auto HasIsServiceTrait(int) -> decltype(T::_traits_::IsService, std::true_type{});
+template <typename>
+std::false_type HasIsServiceTrait(...);
+
+/// Trait which determines whether the given (supposed to be a Service) type
+/// has nested `T::Request` default constructible type.
+///
+template <typename Service>
+auto HasServiceRequest(int) -> decltype(typename Service::Request{}, std::true_type{});
+template <typename>
+std::false_type HasServiceRequest(...);
+
+/// Trait which determines whether the given (supposed to be a Service) type
+/// has nested `T::Response` default constructible type.
+///
+template <typename Service>
+auto HasServiceResponse(int) -> decltype(typename Service::Response{}, std::true_type{});
+template <typename>
+std::false_type HasServiceResponse(...);
+
+/// Trait which determines whether the given type is a service one.
+///
+/// A service type is expected to have `T::Request` and `T::Response` nested types,
+/// as well as `Service::_traits_::IsService` boolean constant equal `true`.
+///
+template <typename T,
+          bool = decltype(HasServiceRequest<T>(0))::value && decltype(HasServiceResponse<T>(0))::value &&
+                 decltype(HasIsServiceTrait<T>(0))::value>
+struct IsServiceTrait
+{
+    static constexpr bool value = false;
+};
+template <typename T>
+struct IsServiceTrait<T, true>
+{
+    static constexpr bool value = T::_traits_::IsService;
+};
+
+/// @brief Defines internal base class for any concrete (final) RPC server.
+///
 /// No Sonar cpp:S4963 "The "Rule-of-Zero" should be followed"
 /// b/c we do directly handle resources here.
+///
 class ServerBase : ServerImpl::Callback  // NOSONAR cpp:S4963
 {
 public:
+    /// @brief Defines failure type for a base server operations.
+    ///
+    /// The set of possible failures the base server includes transport layer failures.
+    /// A strong-typed server extends this type with its own error types (serialization-related).
+    ///
     using Failure = transport::AnyFailure;
 
     ServerBase(ServerBase&& other) noexcept
@@ -43,7 +92,7 @@ public:
 protected:
     /// @brief Defines response continuation functor.
     ///
-    /// Supposed to be called only once.
+    /// NB! The functor is supposed to be called only once.
     ///
     template <typename Response, typename SomeFailure>
     class ContinuationImpl final
@@ -66,6 +115,14 @@ protected:
             return static_cast<bool>(fn_);
         }
 
+        /// Sends the response to the client.
+        ///
+        /// Depending on what was stored inside `fn_`, such sending might involve also serialization.
+        /// NB! Supposed to be called only once (will assert if called more than once).
+        ///
+        /// @param deadline The latest time to send the response. Will be dropped if exceeded.
+        /// @param response The response to serialize (optionally), and then send.
+        ///
         cetl::optional<SomeFailure> operator()(const TimePoint deadline, const Response& response)
         {
             CETL_DEBUG_ASSERT(fn_, "Continuation function is not set, or called more than once.");
@@ -73,8 +130,8 @@ protected:
             cetl::optional<SomeFailure> result;
             if (fn_)
             {
-                result = fn_(deadline, response);
-                fn_    = nullptr;
+                auto func = std::exchange(fn_, nullptr);
+                result    = func(deadline, response);
             }
             return result;
         }
@@ -111,19 +168,35 @@ private:
 
 }  // namespace detail
 
-// TODO: docs
-template <typename Service>
+/// @brief Defines a custom strong-typed RPC server class.
+///
+/// Although the server class is not requiring specifically Nunavut tool generated request/response types,
+/// it follows patterns of the tool (and has dependency on its `SerializeResult` and `bitspan` helper types),
+/// so it is highly recommended to use DSDL file and the tool to generate the types.
+/// Otherwise, see below requirements for the `Request` and `Response` types, as well as consult with
+/// Nunavut's generated code (f.e. for the signatures of expected `serialize` and `deserialize` functions).
+///
+/// @tparam Request The request type of the server. This type has the following requirements:
+///                 - default constructible
+///                 - contains `_traits_::ExtentBytes` constant
+///                 - has freestanding `deserialize` function under its namespace (so that ADL will find it).
+/// @tparam Response The response type of the server. This type has the following requirements:
+///                 - contains `_traits_::SerializationBufferSizeBytes` constant
+///                 - has freestanding `serialize` function under its namespace (so that ADL will find it)
+///
+template <typename Request, typename Response>
 class Server final : public detail::ServerBase
 {
-    static_assert(Service::_traits_::IsService, "Only Service types are supported by the Server.");
-    static_assert(Service::Request::_traits_::IsRequest, "Has to be a Request type.");
-    static_assert(Service::Response::_traits_::IsResponse, "Has to be a Response type.");
-
 public:
-    using Request  = typename Service::Request;
-    using Response = typename Service::Response;
-    using Failure  = libcyphal::detail::AppendType<Failure, nunavut::support::Error>::Result;
+    /// @brief Defines failure type for a strong-typed server operations.
+    ///
+    /// The set of possible failures includes transport layer failures (inherited from the base server),
+    /// as well as serialization-related ones.
+    ///
+    using Failure = libcyphal::detail::AppendType<Failure, nunavut::support::Error>::Result;
 
+    /// @brief Defines the strong-typed request callback (arguments, function, and response continuation).
+    ///
     struct OnRequestCallback
     {
         struct Arg
@@ -132,9 +205,20 @@ public:
             transport::ServiceRxMetadata metadata;
             TimePoint                    approx_now;
         };
+        /// Defines continuation functor for sending a strong-typed response.
         using Continuation = ContinuationImpl<Response, Failure>;
         using Function     = cetl::pmr::function<void(const Arg&, Continuation), sizeof(void*) * 4>;
     };
+
+    /// @brief Sets function which will be called on each request reception.
+    ///
+    /// Note that setting the callback will disable the previous one (if any).
+    /// Also, resetting it to `nullptr` does not release internal RX/TX sessions,
+    /// and so incoming requests will be still coming and silently dropped (without an attempt to be deserialized).
+    ///
+    /// @param on_request_cb_fn The function which will be called back.
+    ///                         Use `nullptr` (or `{}`) to disable the callback.
+    ///
     void setOnRequestCallback(typename OnRequestCallback::Function&& on_request_cb_fn)
     {
         on_request_cb_fn_ = std::move(on_request_cb_fn);
@@ -151,11 +235,15 @@ private:
 
     void onRequestRxTransfer(const TimePoint approx_now, const transport::ServiceRxTransfer& rx_transfer) override
     {
+        // No need to proceed (deserialization and continuation stuff) if there is no consumer.
         if (!on_request_cb_fn_)
         {
             return;
         }
 
+        // Try to deserialize the strong-typed request from raw bytes.
+        // We just drop it if deserialization fails.
+        //
         Request request{};
         if (!tryDeserialize(rx_transfer.payload, request))
         {
@@ -173,20 +261,21 @@ private:
                     //
                     // Try to serialize the response to raw payload buffer.
                     //
-                    // Next nolint b/c we use a buffer to serialize the message, so no need to zero it (and performance
-                    // better). NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
+                    // Next nolint b/c we use a buffer to serialize the message, so no need to zero it.
+                    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
                     std::array<std::uint8_t, Response::_traits_::SerializationBufferSizeBytes> buffer;
-                    const auto data_size = serialize(response, buffer);
-                    if (!data_size)
+                    const nunavut::support::bitspan                                            out_bitspan{buffer};
+                    const auto result_size = serialize(response, out_bitspan);
+                    if (!result_size)
                     {
-                        return data_size.error();
+                        return result_size.error();
                     }
 
                     // TODO: Eliminate `reinterpret_cast` when Nunavut supports `cetl::byte` at its `serialize`.
                     // Next nolint & NOSONAR are currently unavoidable.
                     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
                     const auto* const data = reinterpret_cast<const cetl::byte*>(buffer.data());  // NOSONAR cpp:S3630
-                    const cetl::span<const cetl::byte>                      data_span{data, data_size.value()};
+                    const cetl::span<const cetl::byte>                      data_span{data, result_size.value()};
                     const std::array<const cetl::span<const cetl::byte>, 1> payload{data_span};
                     const transport::ServiceTxMetadata tx_metadata{{base_metadata, deadline}, client_node_id};
                     if (auto failure = respondWithPayload(tx_metadata, payload))
@@ -213,22 +302,54 @@ private:
 
     typename OnRequestCallback::Function on_request_cb_fn_;
 };
-//
-template <>
-class Server<void> final : public detail::ServerBase
+
+/// @brief Defines a service typed RPC server class.
+///
+/// Although the server class is not requiring specifically Nunavut tool generated service type, it follows patterns
+/// of the tool, so it is highly recommended to use DSDL file and the tool to generate the service type.
+/// Otherwise, see below requirements for the `Service` type, and also `Server<Request, Response>` for details.
+///
+/// @tparam Service The service type of the server. This type has the following requirements:
+///                 - Has `_traits_::IsService` boolean constant equal `true`.
+///                 - Has nested `Request` type. See `Server<Request, ...>` for details.
+///                 - Has nested `Response` type. See `Server<..., Response>` for details.
+///
+template <typename Service, typename = std::enable_if_t<detail::IsServiceTrait<Service>::value>>
+using ServiceServer = Server<typename Service::Request, typename Service::Response>;
+
+/// @brief Defines a raw (aka untyped) RPC server class.
+///
+/// The server class has no requirements for the request and response data (neither any Nunavut dependencies).
+/// The request/response data is passed as raw bytes (without any serialization/deserialization steps).
+///
+class RawServiceServer final : public detail::ServerBase
 {
 public:
+    /// @brief Defines a raw untyped request callback (arguments, function, and response continuation).
+    ///
     struct OnRequestCallback
     {
         struct Arg
         {
+            /// Contains raw bytes of the request payload (aka pre-deserialized).
             const transport::ScatteredBuffer& raw_request;
             transport::ServiceRxMetadata      metadata;
             TimePoint                         approx_now;
         };
+        /// Defines continuation functor for sending raw (untyped) response bytes (aka pre-serialized).
         using Continuation = ContinuationImpl<transport::PayloadFragments, Failure>;
         using Function     = cetl::pmr::function<void(const Arg&, Continuation), sizeof(void*) * 4>;
     };
+
+    /// @brief Sets function which will be called on each request reception.
+    ///
+    /// Note that setting the callback will disable the previous one (if any).
+    /// Also, resetting it to `nullptr` does not release internal RX/TX sessions,
+    /// and so incoming requests will be still coming and silently dropped.
+    ///
+    /// @param on_request_cb_fn The function which will be called back.
+    ///                         Use `nullptr` (or `{}`) to disable the callback.
+    ///
     void setOnRequestCallback(OnRequestCallback::Function&& on_request_cb_fn)
     {
         on_request_cb_fn_ = std::move(on_request_cb_fn);
@@ -238,13 +359,14 @@ private:
     friend class Presentation;
     friend class detail::ServerImpl;
 
-    explicit Server(detail::ServerImpl&& server_impl)
+    explicit RawServiceServer(detail::ServerImpl&& server_impl)
         : ServerBase{std::move(server_impl)}
     {
     }
 
     void onRequestRxTransfer(const TimePoint approx_now, const transport::ServiceRxTransfer& rx_transfer) override
     {
+        // No need to proceed (deserialization and continuation stuff) if there is no consumer.
         if (!on_request_cb_fn_)
         {
             return;
@@ -253,12 +375,14 @@ private:
         const auto base_metadata  = rx_transfer.metadata.rx_meta.base;
         const auto client_node_id = rx_transfer.metadata.remote_node_id;
 
-        on_request_cb_fn_(  //
+        on_request_cb_fn_(
+            // We pass request payload from transport layer to callback as is (without deserialization).
             {rx_transfer.payload, rx_transfer.metadata, approx_now},
             OnRequestCallback::Continuation{
                 [this, base_metadata, client_node_id](const TimePoint                    deadline,
                                                       const transport::PayloadFragments& payload) {
                     //
+                    // We pass response payload to transport layer as is (without serialization).
                     const transport::ServiceTxMetadata tx_metadata{{base_metadata, deadline}, client_node_id};
                     return respondWithPayload(tx_metadata, payload);
                 }});
@@ -268,7 +392,7 @@ private:
 
     OnRequestCallback::Function on_request_cb_fn_;
 
-};  // Server
+};  // RawServiceServer
 
 }  // namespace presentation
 }  // namespace libcyphal
