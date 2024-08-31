@@ -92,6 +92,12 @@ TEST_F(TestPublisher, copy_move_getSetPriority)
     static_assert(std::is_move_constructible<Publisher<Message>>::value, "Should be move constructible.");
     static_assert(!std::is_default_constructible<Publisher<Message>>::value, "Should not be default constructible.");
 
+    static_assert(std::is_copy_assignable<Publisher<void>>::value, "Should be copy assignable.");
+    static_assert(std::is_move_assignable<Publisher<void>>::value, "Should be move assignable.");
+    static_assert(std::is_copy_constructible<Publisher<void>>::value, "Should be copy constructible.");
+    static_assert(std::is_move_constructible<Publisher<void>>::value, "Should be move constructible.");
+    static_assert(!std::is_default_constructible<Publisher<void>>::value, "Should not be default constructible.");
+
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;

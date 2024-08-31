@@ -223,28 +223,6 @@ public:
         });
     }
 
-    void onMessageRxTransfer(const transport::IMessageRxSession::OnReceiveCallback::Arg& arg)
-    {
-        CETL_DEBUG_ASSERT(next_cb_node_ == nullptr, "");
-
-        if (callback_nodes_.empty())
-        {
-            return;
-        }
-
-        next_cb_node_ = callback_nodes_.min();
-        CallbackNode::Deserializer::Context context{memory_,
-                                                    time_provider_.now(),
-                                                    arg.transfer.payload,
-                                                    arg.transfer.metadata,
-                                                    next_cb_node_};
-        while (next_cb_node_ != nullptr)
-        {
-            CETL_DEBUG_ASSERT(next_cb_node_->deserializer_.function != nullptr, "");
-            next_cb_node_->deserializer_.function(context);
-        }
-    }
-
     TimePoint now() const noexcept
     {
         return time_provider_.now();
@@ -299,11 +277,33 @@ public:
         SharedObject::release();
         if (getRefCount() == 0)
         {
-            delegate_.releaseSubscriber(this);
+            delegate_.releaseSubscriberImpl(this);
         }
     }
 
 private:
+    void onMessageRxTransfer(const transport::IMessageRxSession::OnReceiveCallback::Arg& arg)
+    {
+        CETL_DEBUG_ASSERT(next_cb_node_ == nullptr, "");
+
+        if (callback_nodes_.empty())
+        {
+            return;
+        }
+
+        next_cb_node_ = callback_nodes_.min();
+        CallbackNode::Deserializer::Context context{memory_,
+                                                    time_provider_.now(),
+                                                    arg.transfer.payload,
+                                                    arg.transfer.metadata,
+                                                    next_cb_node_};
+        while (next_cb_node_ != nullptr)
+        {
+            CETL_DEBUG_ASSERT(next_cb_node_->deserializer_.function != nullptr, "");
+            next_cb_node_->deserializer_.function(context);
+        }
+    }
+
     // MARK: Data members:
 
     cetl::pmr::memory_resource&                   memory_;

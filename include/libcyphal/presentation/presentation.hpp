@@ -6,6 +6,8 @@
 #ifndef LIBCYPHAL_PRESENTATION_PRESENTATION_HPP_INCLUDED
 #define LIBCYPHAL_PRESENTATION_PRESENTATION_HPP_INCLUDED
 
+#include "client.hpp"
+#include "client_impl.hpp"
 #include "presentation_delegate.hpp"
 #include "publisher.hpp"
 #include "publisher_impl.hpp"
@@ -17,6 +19,7 @@
 #include "libcyphal/common/cavl/cavl.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
+#include "libcyphal/transport/svc_sessions.hpp"
 #include "libcyphal/transport/transport.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
@@ -24,6 +27,8 @@
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 
+#include <cstddef>
+#include <type_traits>
 #include <utility>
 
 namespace libcyphal
@@ -326,48 +331,82 @@ public:
         return server;
     }
 
+    /// @brief Makes a raw (aka untyped) RPC client bound to a specific server node and service ids.
+    ///
+    /// @param server_node_id The server node ID to bind the client on.
+    /// @param service_id The service ID to bind the client on.
+    /// @param extent_bytes Defines the size of the transfer payload memory buffer;
+    ///                     or, in other words, the maximum possible size of received objects,
+    ///                     considering also possible future versions with new fields.
+    ///
+    auto makeClient(const transport::NodeId server_node_id,
+                    const transport::PortId service_id,
+                    const std::size_t       extent_bytes) -> Expected<RawServiceClient, MakeFailure>
+    {
+        cetl::optional<MakeFailure> out_failure;
+        auto* const client_impl = createSharedClientImpl({extent_bytes, service_id, server_node_id}, out_failure);
+        if (out_failure)
+        {
+            return std::move(*out_failure);
+        }
+
+        return RawServiceClient{client_impl};
+    }
+
 private:
     template <typename T>
-    using PmrAllocator         = libcyphal::detail::PmrAllocator<T>;
-    using MessageRxSessionPtr  = UniquePtr<transport::IMessageRxSession>;
-    using MessageTxSessionPtr  = UniquePtr<transport::IMessageTxSession>;
-    using RequestRxSessionPtr  = UniquePtr<transport::IRequestRxSession>;
-    using ResponseTxSessionPtr = UniquePtr<transport::IResponseTxSession>;
+    using PmrAllocator = libcyphal::detail::PmrAllocator<T>;
 
-    CETL_NODISCARD detail::PublisherImpl* makePublisherImpl(const transport::MessageTxParams params,
-                                                            cetl::optional<MakeFailure>&     out_failure)
+    IPresentationDelegate& asDelegate() noexcept
     {
-        auto maybe_session = transport_.makeMessageTxSession(params);
+        return static_cast<IPresentationDelegate&>(*this);
+    }
+
+    template <typename Session>
+    CETL_NODISCARD static UniquePtr<Session> getIfSession(
+        Expected<UniquePtr<Session>, transport::AnyFailure> maybe_session,
+        cetl::optional<MakeFailure>&                        out_failure)
+    {
         if (auto* const failure = cetl::get_if<transport::AnyFailure>(&maybe_session))
         {
             out_failure = std::move(*failure);
             return nullptr;
         }
 
-        detail::PublisherImpl* publisher_impl{nullptr};
-        if (auto msg_tx_session = cetl::get<MessageTxSessionPtr>(std::move(maybe_session)))
-        {
-            PmrAllocator<detail::PublisherImpl> allocator{&memory_};
-            publisher_impl = allocator.allocate(1);
-            if (publisher_impl != nullptr)
-            {
-                allocator.construct(publisher_impl,
-                                    static_cast<IPresentationDelegate&>(*this),
-                                    std::move(msg_tx_session));
-            }
-        }
-        if (publisher_impl == nullptr)
+        auto session = cetl::get<UniquePtr<Session>>(std::move(maybe_session));
+        if (session == nullptr)
         {
             out_failure = transport::MemoryError{};
         }
-        return publisher_impl;
+
+        return session;
+    }
+
+    CETL_NODISCARD detail::PublisherImpl* makePublisherImpl(const transport::MessageTxParams params,
+                                                            cetl::optional<MakeFailure>&     out_failure)
+    {
+        if (auto tx_session = getIfSession(transport_.makeMessageTxSession(params), out_failure))
+        {
+            PmrAllocator<detail::PublisherImpl> allocator{&memory_};
+            detail::PublisherImpl*              publisher_impl = allocator.allocate(1);
+            if (publisher_impl == nullptr)
+            {
+                out_failure = transport::MemoryError{};
+                return nullptr;
+            }
+
+            allocator.construct(publisher_impl, asDelegate(), std::move(tx_session));
+            return publisher_impl;
+        }
+        CETL_DEBUG_ASSERT(out_failure, "");
+        return nullptr;
     }
 
     detail::SubscriberImpl* createSharedSubscriberImpl(const transport::PortId      subject_id,
                                                        const std::size_t            extent_bytes,
                                                        cetl::optional<MakeFailure>& out_failure)
     {
-        // Create a shared subscriber implementation node or find an existing one.
+        // Create a shared subscriber implementation node; or find the existing one.
         //
         const auto subscriber_existing = subscriber_impl_nodes_.search(
             [subject_id](const detail::SubscriberImpl& other_sub) {  // predicate
@@ -391,61 +430,89 @@ private:
     CETL_NODISCARD detail::SubscriberImpl* makeSubscriberImpl(const transport::MessageRxParams params,
                                                               cetl::optional<MakeFailure>&     out_failure)
     {
-        auto maybe_session = transport_.makeMessageRxSession(params);
-        if (auto* const failure = cetl::get_if<transport::AnyFailure>(&maybe_session))
-        {
-            out_failure = std::move(*failure);
-            return nullptr;
-        }
-
-        detail::SubscriberImpl* subscriber_impl{nullptr};
-        if (auto msg_rx_session = cetl::get<MessageRxSessionPtr>(std::move(maybe_session)))
+        if (auto rx_session = getIfSession(transport_.makeMessageRxSession(params), out_failure))
         {
             PmrAllocator<detail::SubscriberImpl> allocator{&memory_};
-            subscriber_impl = allocator.allocate(1);
-            if (subscriber_impl != nullptr)
+            detail::SubscriberImpl*              subscriber_impl = allocator.allocate(1);
+            if (subscriber_impl == nullptr)
             {
-                allocator.construct(subscriber_impl,
-                                    memory_,
-                                    static_cast<IPresentationDelegate&>(*this),
-                                    executor_,
-                                    std::move(msg_rx_session));
+                out_failure = transport::MemoryError{};
+                return nullptr;
             }
+
+            allocator.construct(subscriber_impl, memory_, asDelegate(), executor_, std::move(rx_session));
+            return subscriber_impl;
         }
-        if (subscriber_impl == nullptr)
-        {
-            out_failure = transport::MemoryError{};
-        }
-        return subscriber_impl;
+        CETL_DEBUG_ASSERT(out_failure, "");
+        return nullptr;
     }
 
     CETL_NODISCARD Expected<detail::ServerImpl, MakeFailure> makeServerImpl(const transport::RequestRxParams params)
     {
-        // Make RX & TX sessions.
+        cetl::optional<MakeFailure> out_failure;
+        if (auto rx_session = getIfSession(transport_.makeRequestRxSession(params), out_failure))
+        {
+            const transport::ResponseTxParams tx_params{params.service_id};
+            if (auto tx_session = getIfSession(transport_.makeResponseTxSession(tx_params), out_failure))
+            {
+                return detail::ServerImpl{memory_, executor_, std::move(rx_session), std::move(tx_session)};
+            }
+        }
+        CETL_DEBUG_ASSERT(out_failure, "");
+        return *out_failure;
+    }
+
+    detail::ClientImpl* createSharedClientImpl(const transport::ResponseRxParams& rx_params,
+                                               cetl::optional<MakeFailure>&       out_failure)
+    {
+        // Create a shared client implementation node; or find the existing one.
         //
-        auto maybe_rx_session = transport_.makeRequestRxSession(params);
-        if (auto* const failure = cetl::get_if<transport::AnyFailure>(&maybe_rx_session))
+        const auto client_existing = client_impl_nodes_.search(
+            [&rx_params](const detail::ClientImpl& other_client) {  // predicate
+                //
+                return other_client.compareByNodeAndServiceIds(rx_params);
+            },
+            [this, &rx_params, &out_failure]() -> detail::ClientImpl* {  // factory
+                //
+                return makeClientImpl(rx_params, out_failure);
+            });
+        if (out_failure)
         {
-            return std::move(*failure);
-        }
-        auto rx_session = cetl::get<RequestRxSessionPtr>(std::move(maybe_rx_session));
-        if (rx_session == nullptr)
-        {
-            return transport::MemoryError{};
-        }
-        //
-        auto maybe_tx_session = transport_.makeResponseTxSession({params.service_id});
-        if (auto* const failure = cetl::get_if<transport::AnyFailure>(&maybe_tx_session))
-        {
-            return std::move(*failure);
-        }
-        auto tx_session = cetl::get<ResponseTxSessionPtr>(std::move(maybe_tx_session));
-        if (tx_session == nullptr)
-        {
-            return transport::MemoryError{};
+            return nullptr;
         }
 
-        return detail::ServerImpl{memory_, executor_, std::move(rx_session), std::move(tx_session)};
+        auto* const client_impl = std::get<0>(client_existing);
+        CETL_DEBUG_ASSERT(client_impl != nullptr, "");
+        return client_impl;
+    }
+
+    CETL_NODISCARD detail::ClientImpl* makeClientImpl(const transport::ResponseRxParams rx_params,
+                                                      cetl::optional<MakeFailure>&      out_failure)
+    {
+        const transport::RequestTxParams tx_params{rx_params.service_id, rx_params.server_node_id};
+        if (auto tx_session = getIfSession(transport_.makeRequestTxSession(tx_params), out_failure))
+        {
+            if (auto rx_session = getIfSession(transport_.makeResponseRxSession(rx_params), out_failure))
+            {
+                PmrAllocator<detail::ClientImpl> allocator{&memory_};
+                detail::ClientImpl*              client_impl = allocator.allocate(1);
+                if (client_impl == nullptr)
+                {
+                    out_failure = transport::MemoryError{};
+                    return nullptr;
+                }
+
+                allocator.construct(client_impl,
+                                    memory_,
+                                    asDelegate(),
+                                    executor_,
+                                    std::move(tx_session),
+                                    std::move(rx_session));
+                return client_impl;
+            }
+        }
+        CETL_DEBUG_ASSERT(out_failure, "");
+        return nullptr;
     }
 
     template <typename ImplNode>
@@ -466,12 +533,17 @@ private:
 
     // MARK: IPresentationDelegate
 
-    void releasePublisher(detail::PublisherImpl* const publisher_impl) noexcept override
+    void releaseClientImpl(detail::ClientImpl* const client_impl) noexcept override
+    {
+        releaseAnyImplNode(client_impl, client_impl_nodes_);
+    }
+
+    void releasePublisherImpl(detail::PublisherImpl* const publisher_impl) noexcept override
     {
         releaseAnyImplNode(publisher_impl, publisher_impl_nodes_);
     }
 
-    void releaseSubscriber(detail::SubscriberImpl* const subscriber_impl) noexcept override
+    void releaseSubscriberImpl(detail::SubscriberImpl* const subscriber_impl) noexcept override
     {
         releaseAnyImplNode(subscriber_impl, subscriber_impl_nodes_);
     }
@@ -481,6 +553,7 @@ private:
     cetl::pmr::memory_resource&        memory_;
     IExecutor&                         executor_;
     transport::ITransport&             transport_;
+    cavl::Tree<detail::ClientImpl>     client_impl_nodes_;
     cavl::Tree<detail::PublisherImpl>  publisher_impl_nodes_;
     cavl::Tree<detail::SubscriberImpl> subscriber_impl_nodes_;
 

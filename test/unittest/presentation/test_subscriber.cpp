@@ -99,6 +99,12 @@ TEST_F(TestSubscriber, move)
     static_assert(std::is_move_constructible<Subscriber<Message>>::value, "Should be move constructible.");
     static_assert(!std::is_default_constructible<Subscriber<Message>>::value, "Should not be default constructible.");
 
+    static_assert(!std::is_copy_assignable<Subscriber<void>>::value, "Should not be copy assignable.");
+    static_assert(!std::is_copy_constructible<Subscriber<void>>::value, "Should not be copy constructible.");
+    static_assert(std::is_move_assignable<Subscriber<void>>::value, "Should be move assignable.");
+    static_assert(std::is_move_constructible<Subscriber<void>>::value, "Should be move constructible.");
+    static_assert(!std::is_default_constructible<Subscriber<void>>::value, "Should not be default constructible.");
+
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;

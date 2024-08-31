@@ -86,6 +86,12 @@ TEST_F(TestServer, move)
     static_assert(!std::is_default_constructible<ServiceServer<Service>>::value,
                   "Should not be default constructible.");
 
+    static_assert(!std::is_copy_assignable<RawServiceServer>::value, "Should not be copy assignable.");
+    static_assert(!std::is_copy_constructible<RawServiceServer>::value, "Should not be copy constructible.");
+    static_assert(!std::is_move_assignable<RawServiceServer>::value, "Should not be move assignable.");
+    static_assert(std::is_move_constructible<RawServiceServer>::value, "Should be move constructible.");
+    static_assert(!std::is_default_constructible<RawServiceServer>::value, "Should not be default constructible.");
+
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<ResponseTxSessionMock> res_tx_session_mock;

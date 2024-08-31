@@ -73,7 +73,7 @@ public:
 
         if (getRefCount() == 0)
         {
-            delegate_.releasePublisher(this);
+            delegate_.releasePublisherImpl(this);
         }
     }
 

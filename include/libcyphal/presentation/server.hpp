@@ -8,9 +8,22 @@
 
 #include "server_impl.hpp"
 
+#include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/scattered_buffer.hpp"
+#include "libcyphal/transport/types.hpp"
+#include "libcyphal/types.hpp"
+
 #include <cetl/cetl.hpp>
+#include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
 #include <cetl/pmr/function.hpp>
 #include <nunavut/support/serialization.hpp>
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <type_traits>
+#include <utility>
 
 namespace libcyphal
 {
@@ -97,7 +110,7 @@ protected:
     template <typename Response, typename SomeFailure>
     class ContinuationImpl final
     {
-        constexpr static size_t FunctionMaxSize = sizeof(void*) * 5;
+        constexpr static std::size_t FunctionMaxSize = sizeof(void*) * 5;
         using FunctionSignature = cetl::optional<SomeFailure>(const TimePoint deadline, const Response& response);
 
     public:
@@ -226,7 +239,6 @@ public:
 
 private:
     friend class Presentation;
-    friend class detail::ServerImpl;
 
     explicit Server(detail::ServerImpl&& server_impl)
         : ServerBase{std::move(server_impl)}
@@ -346,7 +358,6 @@ public:
 
 private:
     friend class Presentation;
-    friend class detail::ServerImpl;
 
     explicit RawServiceServer(detail::ServerImpl&& server_impl)
         : ServerBase{std::move(server_impl)}
