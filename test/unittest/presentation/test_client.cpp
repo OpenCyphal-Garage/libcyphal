@@ -77,13 +77,74 @@ protected:
 
 // MARK: - Tests:
 
-TEST_F(TestClient, move)
+TEST_F(TestClient, copy_move_getSetPriority)
 {
+    using Service = uavcan::node::GetInfo_1_0;
+
+    static_assert(std::is_copy_assignable<ServiceClient<Service>>::value, "Should not be copy assignable.");
+    static_assert(std::is_copy_constructible<ServiceClient<Service>>::value, "Should not be copy constructible.");
+    static_assert(std::is_move_assignable<ServiceClient<Service>>::value, "Should not be move assignable.");
+    static_assert(std::is_move_constructible<ServiceClient<Service>>::value, "Should be move constructible.");
+    static_assert(!std::is_default_constructible<ServiceClient<Service>>::value,
+                  "Should not be default constructible.");
+
     static_assert(std::is_copy_assignable<RawServiceClient>::value, "Should be copy assignable.");
     static_assert(std::is_copy_constructible<RawServiceClient>::value, "Should be copy constructible.");
     static_assert(std::is_move_assignable<RawServiceClient>::value, "Should be move assignable.");
     static_assert(std::is_move_constructible<RawServiceClient>::value, "Should be move constructible.");
     static_assert(!std::is_default_constructible<RawServiceClient>::value, "Should not be default constructible.");
+
+    Presentation presentation{mr_, scheduler_, transport_mock_};
+
+    StrictMock<RequestTxSessionMock>  req_tx_session_mock;
+    StrictMock<ResponseRxSessionMock> res_rx_session_mock;
+    EXPECT_CALL(res_rx_session_mock, getParams())  //
+        .WillOnce(Return(
+            ResponseRxParams{Service::Response::_traits_::ExtentBytes, Service::Request::_traits_::FixedPortId, 0x31}));
+    EXPECT_CALL(res_rx_session_mock, setOnReceiveCallback(_)).WillRepeatedly(Return());
+
+    EXPECT_CALL(transport_mock_, makeRequestTxSession(_))  //
+        .WillOnce(Invoke([&](const auto&) {
+            return libcyphal::detail::makeUniquePtr<RequestTxSessionMock::RefWrapper::Spec>(mr_, req_tx_session_mock);
+        }));
+    EXPECT_CALL(transport_mock_, makeResponseRxSession(_))  //
+        .WillOnce(Invoke([&](const auto&) {
+            return libcyphal::detail::makeUniquePtr<ResponseRxSessionMock::RefWrapper::Spec>(mr_, res_rx_session_mock);
+        }));
+
+    auto maybe_client1 = presentation.makeClient<Service>(0x31);
+    ASSERT_THAT(maybe_client1, VariantWith<ServiceClient<Service>>(_));
+    auto client1a = cetl::get<ServiceClient<Service>>(std::move(maybe_client1));
+    // EXPECT_THAT(client1a.getPriority(), Priority::Nominal);
+    /*
+    pub1a.setPriority(Priority::Immediate);
+    EXPECT_THAT(pub1a.getPriority(), Priority::Immediate);
+
+    auto pub1b = std::move(pub1a);
+    EXPECT_THAT(pub1b.getPriority(), Priority::Immediate);
+
+    auto pub2 = pub1b;
+    EXPECT_THAT(pub2.getPriority(), Priority::Immediate);
+    pub2.setPriority(Priority::Slow);
+    EXPECT_THAT(pub2.getPriority(), Priority::Slow);
+    EXPECT_THAT(pub1b.getPriority(), Priority::Immediate);
+
+    pub1b = pub2;
+    EXPECT_THAT(pub1b.getPriority(), Priority::Slow);
+
+    // Verify self-assignment.
+    auto& pub1c = pub1b;
+    pub1c       = pub1b;
+
+    pub2.setPriority(Priority::Optional);
+    pub1c = std::move(pub2);
+    EXPECT_THAT(pub1c.getPriority(), Priority::Optional);
+
+
+    */
+
+    EXPECT_CALL(res_rx_session_mock, deinit()).Times(1);
+    EXPECT_CALL(req_tx_session_mock, deinit()).Times(1);
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

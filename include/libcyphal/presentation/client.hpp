@@ -7,11 +7,15 @@
 #define LIBCYPHAL_PRESENTATION_CLIENT_HPP_INCLUDED
 
 #include "client_impl.hpp"
+#include "presentation_delegate.hpp"
 
 #include "libcyphal/transport/errors.hpp"
+#include "libcyphal/types.hpp"
 
 #include <cetl/cetl.hpp>
+#include <nunavut/support/serialization.hpp>
 
+#include <type_traits>
 #include <utility>
 
 namespace libcyphal
@@ -106,6 +110,57 @@ private:
 
 }  // namespace detail
 
+/// @brief Defines a custom strong-typed RPC client class.
+///
+/// Although the client class is not requiring specifically Nunavut tool generated request/response types,
+/// it follows patterns of the tool (and has dependency on its `SerializeResult` and `bitspan` helper types),
+/// so it is highly recommended to use DSDL file and the tool to generate the types.
+/// Otherwise, see below requirements for the `Request` and `Response` types, as well as consult with
+/// Nunavut's generated code (f.e. for the signatures of expected `serialize` and `deserialize` functions).
+///
+/// @tparam Request The request type of the client. This type has the following requirements:
+///                 - contains `_traits_::SerializationBufferSizeBytes` constant
+///                 - has freestanding `serialize` function under its namespace (so that ADL will find it)
+/// @tparam Response The response type of the client. This type has the following requirements:
+///                 - default constructible
+///                 - contains `_traits_::ExtentBytes` constant
+///                 - has freestanding `deserialize` function under its namespace (so that ADL will find it).
+///
+template <typename Request, typename Response>
+class Client final : public detail::ClientBase
+{
+public:
+    /// @brief Defines failure type for a strong-typed client operations.
+    ///
+    /// The set of possible failures includes transport layer failures (inherited from the base client),
+    /// as well as serialization-related ones.
+    ///
+    using Failure = libcyphal::detail::AppendType<Failure, nunavut::support::Error>::Result;
+
+private:
+    friend class Presentation;
+
+    explicit Client(detail::ClientImpl* const impl)
+        : ClientBase{impl}
+    {
+    }
+
+};  // Client<Request, Response>
+
+/// @brief Defines a service typed RPC client class.
+///
+/// Although the client class is not requiring specifically Nunavut tool generated service type, it follows patterns
+/// of the tool, so it is highly recommended to use DSDL file and the tool to generate the client type.
+/// Otherwise, see below requirements for the `Service` type, and also `Client<Request, Response>` for details.
+///
+/// @tparam Service The service type of the client. This type has the following requirements:
+///                 - Has `_traits_::IsService` boolean constant equal `true`.
+///                 - Has nested `Request` type. See `Client<Request, ...>` for details.
+///                 - Has nested `Response` type. See `Client<..., Response>` for details.
+///
+template <typename Service, typename = std::enable_if_t<detail::IsServiceTrait<Service>::value>>
+using ServiceClient = Client<typename Service::Request, typename Service::Response>;
+
 /// @brief Defines a raw (aka untyped) RPC client class.
 ///
 /// The client class has no requirements for the request and response data (neither any Nunavut dependencies).
@@ -121,8 +176,6 @@ private:
         : ClientBase{impl}
     {
     }
-
-    // MARK: Data members:
 
 };  // RawServiceClient
 

@@ -231,7 +231,7 @@ private:
     {
     }
 
-};  // Publisher
+};  // Publisher<void>
 
 }  // namespace presentation
 }  // namespace libcyphal

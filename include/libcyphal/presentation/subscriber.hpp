@@ -224,7 +224,7 @@ private:
 
     OnReceiveCallback::Function on_receive_cb_fn_;
 
-};  // Subscriber
+};  // Subscriber<void>
 
 }  // namespace presentation
 }  // namespace libcyphal
