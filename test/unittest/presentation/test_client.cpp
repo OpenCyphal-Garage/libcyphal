@@ -26,7 +26,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <cstring>
 #include <type_traits>
 #include <utility>
 
@@ -56,6 +55,9 @@ using std::literals::chrono_literals::operator""ms;
 class TestClient : public testing::Test
 {
 protected:
+    using UniquePtrReqTxSpec = RequestTxSessionMock::RefWrapper::Spec;
+    using UniquePtrResRxSpec = ResponseRxSessionMock::RefWrapper::Spec;
+
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
@@ -109,12 +111,12 @@ TEST_F(TestClient, copy_move_getSetPriority)
 
     const RequestTxParams tx_params{rx_params.service_id, rx_params.server_node_id};
     EXPECT_CALL(transport_mock_, makeRequestTxSession(RequestTxParamsEq(tx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<RequestTxSessionMock::RefWrapper::Spec>(mr_, req_tx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrReqTxSpec>(mr_, req_tx_session_mock);
         }));
     EXPECT_CALL(transport_mock_, makeResponseRxSession(ResponseRxParamsEq(rx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<ResponseRxSessionMock::RefWrapper::Spec>(mr_, res_rx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                             //
+            return libcyphal::detail::makeUniquePtr<UniquePtrResRxSpec>(mr_, res_rx_session_mock);
         }));
 
     auto maybe_client1 = presentation.makeClient<Service>(rx_params.server_node_id);

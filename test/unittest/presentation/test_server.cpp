@@ -24,7 +24,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <cstring>
 #include <type_traits>
 #include <utility>
 
@@ -54,6 +53,9 @@ using std::literals::chrono_literals::operator""ms;
 class TestServer : public testing::Test
 {
 protected:
+    using UniquePtrReqRxSpec = RequestRxSessionMock::RefWrapper::Spec;
+    using UniquePtrResTxSpec = ResponseTxSessionMock::RefWrapper::Spec;
+
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
@@ -101,13 +103,13 @@ TEST_F(TestServer, move)
 
     const RequestRxParams rx_params{Service::Request::_traits_::ExtentBytes, Service::Request::_traits_::FixedPortId};
     EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<RequestRxSessionMock::RefWrapper::Spec>(mr_, req_rx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr_, req_rx_session_mock);
         }));
     const ResponseTxParams tx_params{Service::Request::_traits_::FixedPortId};
     EXPECT_CALL(transport_mock_, makeResponseTxSession(ResponseTxParamsEq(tx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<ResponseTxSessionMock::RefWrapper::Spec>(mr_, res_tx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                             //
+            return libcyphal::detail::makeUniquePtr<UniquePtrResTxSpec>(mr_, res_tx_session_mock);
         }));
 
     auto maybe_svr1 = presentation.makeServer<Service>(rx_params.service_id);
@@ -148,13 +150,13 @@ TEST_F(TestServer, service_request_response)
 
     const RequestRxParams rx_params{Service::Request::_traits_::ExtentBytes, Service::Request::_traits_::FixedPortId};
     EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<RequestRxSessionMock::RefWrapper::Spec>(mr_, req_rx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr_, req_rx_session_mock);
         }));
     const ResponseTxParams tx_params{Service::Request::_traits_::FixedPortId};
     EXPECT_CALL(transport_mock_, makeResponseTxSession(ResponseTxParamsEq(tx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<ResponseTxSessionMock::RefWrapper::Spec>(mr_, res_tx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                             //
+            return libcyphal::detail::makeUniquePtr<UniquePtrResTxSpec>(mr_, res_tx_session_mock);
         }));
 
     auto maybe_server = presentation.makeServer<Service>();
@@ -216,13 +218,13 @@ TEST_F(TestServer, raw_request_response)
 
     const RequestRxParams rx_params{0x456, 0x123};
     EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<RequestRxSessionMock::RefWrapper::Spec>(mr_, req_rx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr_, req_rx_session_mock);
         }));
     const ResponseTxParams tx_params{rx_params.service_id};
     EXPECT_CALL(transport_mock_, makeResponseTxSession(ResponseTxParamsEq(tx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<ResponseTxSessionMock::RefWrapper::Spec>(mr_, res_tx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                             //
+            return libcyphal::detail::makeUniquePtr<UniquePtrResTxSpec>(mr_, res_tx_session_mock);
         }));
 
     auto maybe_server = presentation.makeServer(rx_params.service_id, rx_params.extent_bytes);

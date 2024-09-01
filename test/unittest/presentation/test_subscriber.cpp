@@ -68,6 +68,8 @@ using std::literals::chrono_literals::operator""ms;
 class TestSubscriber : public testing::Test
 {
 protected:
+    using UniquePtrMsgRxSpec = MessageRxSessionMock::RefWrapper::Spec;
+
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
@@ -114,8 +116,8 @@ TEST_F(TestSubscriber, move)
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_)).Times(1);
 
     EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgRxSpec>(mr_, msg_rx_session_mock);
         }));
 
     auto maybe_sub1 = presentation.makeSubscriber<Message>(rx_params.subject_id);
@@ -152,8 +154,8 @@ TEST_F(TestSubscriber, onReceive)
         }));
 
     EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgRxSpec>(mr_, msg_rx_session_mock);
         }));
 
     auto maybe_sub = presentation.makeSubscriber<Message>(rx_params.subject_id);
@@ -244,8 +246,8 @@ TEST_F(TestSubscriber, onReceive_deserialize_failure)
         }));
 
     EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgRxSpec>(mr_, msg_rx_session_mock);
         }));
 
     auto maybe_sub = presentation.makeSubscriber<Message>(rx_params.subject_id);
@@ -332,8 +334,8 @@ TEST_F(TestSubscriber, onReceive_raw_message)
         }));
 
     EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgRxSpec>(mr_, msg_rx_session_mock);
         }));
 
     auto maybe_raw_sub = presentation.makeSubscriber(rx_params.subject_id, rx_params.extent_bytes);
@@ -407,8 +409,8 @@ TEST_F(TestSubscriber, onReceive_release_same_subject_subscriber_during_callback
         }));
 
     EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgRxSpec>(mr_, msg_rx_session_mock);
         }));
 
     auto maybe_sub_a = presentation.makeSubscriber<Message>(rx_params.subject_id);
@@ -500,8 +502,8 @@ TEST_F(TestSubscriber, onReceive_move_same_subject_subscriber_during_callback)
         }));
 
     EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgRxSpec>(mr_, msg_rx_session_mock);
         }));
 
     auto maybe_sub1 = presentation.makeSubscriber<Message>(rx_params.subject_id);
@@ -569,8 +571,8 @@ TEST_F(TestSubscriber, onReceive_append_same_subject_subscriber_during_callback)
         }));
 
     EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgRxSpec>(mr_, msg_rx_session_mock);
         }));
 
     auto maybe_msg_sub1 = presentation.makeSubscriber<Message>(rx_params.subject_id);
@@ -700,8 +702,8 @@ TEST_F(TestSubscriber, onReceive_different_type_deserializers_on_same_subject)
         }));
 
     EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgRxSpec>(mr_, msg_rx_session_mock);
         }));
 
     std::vector<std::tuple<std::string, TimePoint, TransferId>> messages;

@@ -61,6 +61,8 @@ using std::literals::chrono_literals::operator""ms;
 class TestPublisher : public testing::Test
 {
 protected:
+    using UniquePtrMsgTxSpec = MessageTxSessionMock::RefWrapper::Spec;
+
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
@@ -106,8 +108,8 @@ TEST_F(TestPublisher, copy_move_getSetPriority)
     EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
 
     EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageTxSessionMock::RefWrapper::Spec>(mr_, msg_tx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgTxSpec>(mr_, msg_tx_session_mock);
         }));
 
     auto maybe_pub1 = presentation.makePublisher<Message>(tx_params.subject_id);
@@ -152,8 +154,8 @@ TEST_F(TestPublisher, publish)
     EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
 
     EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageTxSessionMock::RefWrapper::Spec>(mr_, msg_tx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgTxSpec>(mr_, msg_tx_session_mock);
         }));
 
     auto maybe_pub = presentation.makePublisher<Message>(tx_params.subject_id);
@@ -217,8 +219,8 @@ TEST_F(TestPublisher, publish_with_serialization_failure)
     EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
 
     EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageTxSessionMock::RefWrapper::Spec>(mr_, msg_tx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgTxSpec>(mr_, msg_tx_session_mock);
         }));
 
     auto maybe_pub = presentation.makePublisher<Message>(tx_params.subject_id);
@@ -260,8 +262,8 @@ TEST_F(TestPublisher, publishRawData)
     EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
 
     EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageTxSessionMock::RefWrapper::Spec>(mr_, msg_tx_session_mock);
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgTxSpec>(mr_, msg_tx_session_mock);
         }));
 
     auto maybe_pub = presentation.makePublisher<void>(tx_params.subject_id);
