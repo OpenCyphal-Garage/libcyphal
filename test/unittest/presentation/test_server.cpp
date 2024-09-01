@@ -110,7 +110,7 @@ TEST_F(TestServer, move)
             return libcyphal::detail::makeUniquePtr<ResponseTxSessionMock::RefWrapper::Spec>(mr_, res_tx_session_mock);
         }));
 
-    auto maybe_svr1 = presentation.makeServer<Service>(Service::Request::_traits_::FixedPortId);
+    auto maybe_svr1 = presentation.makeServer<Service>(rx_params.service_id);
     ASSERT_THAT(maybe_svr1, VariantWith<ServiceServer<Service>>(_));
     auto srv1a = cetl::get<ServiceServer<Service>>(std::move(maybe_svr1));
 
@@ -121,7 +121,7 @@ TEST_F(TestServer, move)
     EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))  //
         .WillOnce(Return(AlreadyExistsError{}));
 
-    auto maybe_srv2 = presentation.makeServer<Service>(Service::Request::_traits_::FixedPortId);
+    auto maybe_srv2 = presentation.makeServer<Service>(rx_params.service_id);
     EXPECT_THAT(maybe_srv2, VariantWith<Presentation::MakeFailure>(VariantWith<AlreadyExistsError>(_)));
 
     EXPECT_CALL(req_rx_session_mock, deinit()).Times(1);

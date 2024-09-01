@@ -7,6 +7,7 @@
 #include "my_custom/bar_1_0.hpp"
 #include "tracking_memory_resource.hpp"
 #include "transport/msg_sessions_mock.hpp"
+#include "transport/transport_gtest_helpers.hpp"
 #include "transport/transport_mock.hpp"
 #include "verification_utilities.hpp"
 #include "virtual_time_scheduler.hpp"
@@ -101,15 +102,15 @@ TEST_F(TestPublisher, copy_move_getSetPriority)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
-    EXPECT_CALL(msg_tx_session_mock, getParams())  //
-        .WillOnce(Return(MessageTxParams{Message::_traits_::FixedPortId}));
+    const MessageTxParams            tx_params{Message::_traits_::FixedPortId};
+    EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
 
-    EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
+    EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<MessageTxSessionMock::RefWrapper::Spec>(mr_, msg_tx_session_mock);
         }));
 
-    auto maybe_pub1 = presentation.makePublisher<Message>(Message::_traits_::FixedPortId);
+    auto maybe_pub1 = presentation.makePublisher<Message>(tx_params.subject_id);
     ASSERT_THAT(maybe_pub1, VariantWith<Publisher<Message>>(_));
     auto pub1a = cetl::get<Publisher<Message>>(std::move(maybe_pub1));
     EXPECT_THAT(pub1a.getPriority(), Priority::Nominal);
@@ -147,15 +148,15 @@ TEST_F(TestPublisher, publish)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
-    EXPECT_CALL(msg_tx_session_mock, getParams())  //
-        .WillOnce(Return(MessageTxParams{Message::_traits_::FixedPortId}));
+    const MessageTxParams            tx_params{Message::_traits_::FixedPortId};
+    EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
 
-    EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
+    EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<MessageTxSessionMock::RefWrapper::Spec>(mr_, msg_tx_session_mock);
         }));
 
-    auto maybe_pub = presentation.makePublisher<Message>(Message::_traits_::FixedPortId);
+    auto maybe_pub = presentation.makePublisher<Message>(tx_params.subject_id);
     ASSERT_THAT(maybe_pub, VariantWith<Publisher<Message>>(_));
     cetl::optional<Publisher<Message>> publisher{cetl::get<Publisher<Message>>(std::move(maybe_pub))};
     EXPECT_THAT(publisher->getPriority(), Priority::Nominal);
@@ -212,15 +213,15 @@ TEST_F(TestPublisher, publish_with_serialization_failure)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
-    EXPECT_CALL(msg_tx_session_mock, getParams())  //
-        .WillOnce(Return(MessageTxParams{0x123}));
+    const MessageTxParams            tx_params{0x123};
+    EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
 
-    EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
+    EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<MessageTxSessionMock::RefWrapper::Spec>(mr_, msg_tx_session_mock);
         }));
 
-    auto maybe_pub = presentation.makePublisher<Message>(0x123);
+    auto maybe_pub = presentation.makePublisher<Message>(tx_params.subject_id);
     ASSERT_THAT(maybe_pub, VariantWith<Publisher<Message>>(_));
     cetl::optional<Publisher<Message>> publisher{cetl::get<Publisher<Message>>(std::move(maybe_pub))};
     EXPECT_THAT(publisher->getPriority(), Priority::Nominal);
@@ -255,15 +256,15 @@ TEST_F(TestPublisher, publishRawData)
     static_assert(!std::is_default_constructible<Publisher<void>>::value, "Should not be default constructible.");
 
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
-    EXPECT_CALL(msg_tx_session_mock, getParams())  //
-        .WillOnce(Return(MessageTxParams{123}));
+    const MessageTxParams            tx_params{123};
+    EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
 
-    EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
+    EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<MessageTxSessionMock::RefWrapper::Spec>(mr_, msg_tx_session_mock);
         }));
 
-    auto maybe_pub = presentation.makePublisher<void>(123);
+    auto maybe_pub = presentation.makePublisher<void>(tx_params.subject_id);
     ASSERT_THAT(maybe_pub, VariantWith<Publisher<void>>(_));
     cetl::optional<Publisher<void>> publisher{cetl::get<Publisher<void>>(std::move(maybe_pub))};
 

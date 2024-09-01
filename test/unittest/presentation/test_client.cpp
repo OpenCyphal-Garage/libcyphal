@@ -117,7 +117,7 @@ TEST_F(TestClient, copy_move_getSetPriority)
             return libcyphal::detail::makeUniquePtr<ResponseRxSessionMock::RefWrapper::Spec>(mr_, res_rx_session_mock);
         }));
 
-    auto maybe_client1 = presentation.makeClient<Service>(0x31);
+    auto maybe_client1 = presentation.makeClient<Service>(rx_params.server_node_id);
     ASSERT_THAT(maybe_client1, VariantWith<ServiceClient<Service>>(_));
     auto client1a = cetl::get<ServiceClient<Service>>(std::move(maybe_client1));
     EXPECT_THAT(client1a.getPriority(), Priority::Nominal);

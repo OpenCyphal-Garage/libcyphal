@@ -169,18 +169,18 @@ TEST_F(TestPresentation, makePublisher)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
-    EXPECT_CALL(msg_tx_session_mock, getParams())  //
-        .WillOnce(Return(MessageTxParams{Message::_traits_::FixedPortId}));
+    const MessageTxParams            tx_params{Message::_traits_::FixedPortId};
+    EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
 
-    EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
+    EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<MessageTxSessionMock::RefWrapper::Spec>(mr_, msg_tx_session_mock);
         }));
 
-    auto maybe_pub1 = presentation.makePublisher<Message>(Message::_traits_::FixedPortId);
+    auto maybe_pub1 = presentation.makePublisher<Message>(tx_params.subject_id);
     EXPECT_THAT(maybe_pub1, VariantWith<Publisher<Message>>(_));
 
-    auto maybe_pub2 = presentation.makePublisher<Message>(Message::_traits_::FixedPortId);
+    auto maybe_pub2 = presentation.makePublisher<Message>(tx_params.subject_id);
     EXPECT_THAT(maybe_pub2, VariantWith<Publisher<Message>>(_));
 
     EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
@@ -193,10 +193,10 @@ TEST_F(TestPresentation, makePublisher_custom)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
-    EXPECT_CALL(msg_tx_session_mock, getParams())  //
-        .WillOnce(Return(MessageTxParams{Message::_traits_::FixedPortId}));
+    const MessageTxParams            tx_params{Message::_traits_::FixedPortId};
+    EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
 
-    EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
+    EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<MessageTxSessionMock::RefWrapper::Spec>(mr_, msg_tx_session_mock);
         }));
@@ -216,15 +216,15 @@ TEST_F(TestPresentation, makePublisher_raw)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
-    EXPECT_CALL(msg_tx_session_mock, getParams())  //
-        .WillOnce(Return(MessageTxParams{147}));
+    const MessageTxParams            tx_params{147};
+    EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
 
-    EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
+    EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<MessageTxSessionMock::RefWrapper::Spec>(mr_, msg_tx_session_mock);
         }));
 
-    auto maybe_pub = presentation.makePublisher<void>(147);
+    auto maybe_pub = presentation.makePublisher<void>(tx_params.subject_id);
     EXPECT_THAT(maybe_pub, VariantWith<Publisher<void>>(_));
 
     EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
@@ -239,20 +239,22 @@ TEST_F(TestPresentation, makePublisher_with_failure)
 
     Presentation presentation{mr_mock, scheduler_, transport_mock_};
 
+    const MessageTxParams tx_params{Message::_traits_::FixedPortId};
+
     // AlreadyExistsError
     {
-        EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
+        EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
             .WillOnce(Return(AlreadyExistsError{}));
 
-        auto maybe_pub = presentation.makePublisher<Message>(Message::_traits_::FixedPortId);
+        auto maybe_pub = presentation.makePublisher<Message>(tx_params.subject_id);
         EXPECT_THAT(maybe_pub, VariantWith<Presentation::MakeFailure>(VariantWith<AlreadyExistsError>(_)));
     }
     // MemoryError due to nullptr
     {
-        EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
+        EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
             .WillOnce(Return(nullptr));
 
-        auto maybe_pub = presentation.makePublisher<Message>(Message::_traits_::FixedPortId);
+        auto maybe_pub = presentation.makePublisher<Message>(tx_params.subject_id);
         EXPECT_THAT(maybe_pub, VariantWith<Presentation::MakeFailure>(VariantWith<MemoryError>(_)));
     }
     // Emulate that there is no memory available for the `PublisherImpl`.
@@ -262,13 +264,13 @@ TEST_F(TestPresentation, makePublisher_with_failure)
         StrictMock<MessageTxSessionMock> msg_tx_session_mock;
         EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
 
-        EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
+        EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
             .WillOnce(Invoke([&](const auto&) {
                 return libcyphal::detail::makeUniquePtr<UniquePtrSpec>(mr_, msg_tx_session_mock);
             }));
         EXPECT_CALL(mr_mock, do_allocate(sizeof(detail::PublisherImpl), _)).WillOnce(Return(nullptr));
 
-        auto maybe_pub = presentation.makePublisher<Message>(Message::_traits_::FixedPortId);
+        auto maybe_pub = presentation.makePublisher<Message>(tx_params.subject_id);
         EXPECT_THAT(maybe_pub, VariantWith<Presentation::MakeFailure>(VariantWith<MemoryError>(_)));
     }
 }
@@ -280,16 +282,16 @@ TEST_F(TestPresentation, makeSubscriber)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    EXPECT_CALL(msg_rx_session_mock, getParams())  //
-        .WillOnce(Return(MessageRxParams{0, Message::_traits_::FixedPortId}));
+    const MessageRxParams            rx_params{Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId};
+    EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_)).Times(1);
 
-    EXPECT_CALL(transport_mock_, makeMessageRxSession(_))  //
+    EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
         }));
 
-    auto maybe_sub1 = presentation.makeSubscriber<Message>(Message::_traits_::FixedPortId);
+    auto maybe_sub1 = presentation.makeSubscriber<Message>(rx_params.subject_id);
     EXPECT_THAT(maybe_sub1, VariantWith<Subscriber<Message>>(_));
 
     auto maybe_sub2 = presentation.makeSubscriber<Message>([](const auto&) {});
@@ -305,11 +307,11 @@ TEST_F(TestPresentation, makeSubscriber_custom)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    EXPECT_CALL(msg_rx_session_mock, getParams())  //
-        .WillOnce(Return(MessageRxParams{0, Message::_traits_::FixedPortId}));
+    const MessageRxParams            rx_params{Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId};
+    EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_)).Times(1);
 
-    EXPECT_CALL(transport_mock_, makeMessageRxSession(_))  //
+    EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
         }));
@@ -325,19 +327,19 @@ TEST_F(TestPresentation, makeSubscriber_raw)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    EXPECT_CALL(msg_rx_session_mock, getParams())  //
-        .WillOnce(Return(MessageRxParams{0, 147}));
+    const MessageRxParams            rx_params{0, 147};
+    EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_)).Times(1);
 
-    EXPECT_CALL(transport_mock_, makeMessageRxSession(_))  //
+    EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
         }));
 
-    auto maybe_sub1 = presentation.makeSubscriber(147, 16);
+    auto maybe_sub1 = presentation.makeSubscriber(rx_params.subject_id, rx_params.extent_bytes);
     EXPECT_THAT(maybe_sub1, VariantWith<Subscriber<void>>(_));
 
-    auto maybe_sub2 = presentation.makeSubscriber(147, 16, [](const auto&) {});
+    auto maybe_sub2 = presentation.makeSubscriber(rx_params.subject_id, rx_params.extent_bytes, [](const auto&) {});
     EXPECT_THAT(maybe_sub2, VariantWith<Subscriber<void>>(_));
 
     EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);
@@ -353,26 +355,28 @@ TEST_F(TestPresentation, makeSubscriber_with_failure)
 
     Presentation presentation{mr_mock, scheduler_, transport_mock_};
 
+    const MessageRxParams rx_params{Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId};
+
     // AlreadyExistsError
     {
-        EXPECT_CALL(transport_mock_, makeMessageRxSession(_))  //
+        EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
             .WillOnce(Return(AlreadyExistsError{}));
 
-        auto maybe_sub = presentation.makeSubscriber<Message>(Message::_traits_::FixedPortId);
+        auto maybe_sub = presentation.makeSubscriber<Message>(rx_params.subject_id);
         EXPECT_THAT(maybe_sub, VariantWith<Presentation::MakeFailure>(VariantWith<AlreadyExistsError>(_)));
 
-        EXPECT_CALL(transport_mock_, makeMessageRxSession(_))  //
+        EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
             .WillOnce(Return(AlreadyExistsError{}));
 
-        auto maybe_raw_sub = presentation.makeSubscriber(Message::_traits_::FixedPortId, 16);
+        auto maybe_raw_sub = presentation.makeSubscriber(rx_params.subject_id, rx_params.extent_bytes);
         EXPECT_THAT(maybe_sub, VariantWith<Presentation::MakeFailure>(VariantWith<AlreadyExistsError>(_)));
     }
     // MemoryError due to nullptr
     {
-        EXPECT_CALL(transport_mock_, makeMessageRxSession(_))  //
+        EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
             .WillOnce(Return(nullptr));
 
-        auto maybe_sub = presentation.makeSubscriber<Message>(Message::_traits_::FixedPortId);
+        auto maybe_sub = presentation.makeSubscriber<Message>(rx_params.subject_id);
         EXPECT_THAT(maybe_sub, VariantWith<Presentation::MakeFailure>(VariantWith<MemoryError>(_)));
     }
     // Emulate that there is no memory available for the `SubscriberImpl`.
@@ -380,13 +384,13 @@ TEST_F(TestPresentation, makeSubscriber_with_failure)
         StrictMock<MessageRxSessionMock> msg_rx_session_mock;
         EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);
 
-        EXPECT_CALL(transport_mock_, makeMessageRxSession(_))  //
+        EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
             .WillOnce(Invoke([&](const auto&) {
                 return libcyphal::detail::makeUniquePtr<UniquePtrSpec>(mr_, msg_rx_session_mock);
             }));
         EXPECT_CALL(mr_mock, do_allocate(sizeof(detail::SubscriberImpl), _)).WillOnce(Return(nullptr));
 
-        auto maybe_sub = presentation.makeSubscriber(Message::_traits_::FixedPortId, 16);
+        auto maybe_sub = presentation.makeSubscriber(rx_params.subject_id, rx_params.extent_bytes);
         EXPECT_THAT(maybe_sub, VariantWith<Presentation::MakeFailure>(VariantWith<MemoryError>(_)));
     }
 }
@@ -556,7 +560,7 @@ TEST_F(TestPresentation, makeClient)
             return libcyphal::detail::makeUniquePtr<RequestTxSessionMock::RefWrapper::Spec>(mr_, req_tx_session_mock);
         }));
 
-    auto maybe_client = presentation.makeClient<Service>(0x31);
+    auto maybe_client = presentation.makeClient<Service>(rx_params.server_node_id);
     ASSERT_THAT(maybe_client, VariantWith<ServiceClient<Service>>(_));
 
     EXPECT_CALL(req_tx_session_mock, deinit()).Times(1);
