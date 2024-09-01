@@ -7,10 +7,12 @@
 #include "tracking_memory_resource.hpp"
 #include "transport/msg_sessions_mock.hpp"
 #include "transport/svc_sessions_mock.hpp"
+#include "transport/transport_gtest_helpers.hpp"
 #include "transport/transport_mock.hpp"
 #include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/presentation/client.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/publisher.hpp>
 #include <libcyphal/presentation/publisher_impl.hpp>
@@ -19,6 +21,7 @@
 #include <libcyphal/presentation/subscriber_impl.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
+#include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/types.hpp>
 
 #include <nunavut/support/serialization.hpp>
@@ -399,11 +402,13 @@ TEST_F(TestPresentation, makeServer)
     EXPECT_CALL(req_rx_session_mock, setOnReceiveCallback(_))  //
         .WillRepeatedly(Return());
 
-    EXPECT_CALL(transport_mock_, makeRequestRxSession(_))  //
+    const RequestRxParams rx_params{Service::Request::_traits_::ExtentBytes, Service::Request::_traits_::FixedPortId};
+    EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<RequestRxSessionMock::RefWrapper::Spec>(mr_, req_rx_session_mock);
         }));
-    EXPECT_CALL(transport_mock_, makeResponseTxSession(_))  //
+    const ResponseTxParams tx_params{rx_params.service_id};
+    EXPECT_CALL(transport_mock_, makeResponseTxSession(ResponseTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<ResponseTxSessionMock::RefWrapper::Spec>(mr_, res_tx_session_mock);
         }));
@@ -426,11 +431,13 @@ TEST_F(TestPresentation, makeServer_custom)
     EXPECT_CALL(req_rx_session_mock, setOnReceiveCallback(_))  //
         .WillRepeatedly(Return());
 
-    EXPECT_CALL(transport_mock_, makeRequestRxSession(_))  //
+    const RequestRxParams rx_params{Service::Request::_traits_::ExtentBytes, Service::Request::_traits_::FixedPortId};
+    EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<RequestRxSessionMock::RefWrapper::Spec>(mr_, req_rx_session_mock);
         }));
-    EXPECT_CALL(transport_mock_, makeResponseTxSession(_))  //
+    const ResponseTxParams tx_params{rx_params.service_id};
+    EXPECT_CALL(transport_mock_, makeResponseTxSession(ResponseTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<ResponseTxSessionMock::RefWrapper::Spec>(mr_, res_tx_session_mock);
         }));
@@ -451,16 +458,18 @@ TEST_F(TestPresentation, makeServer_raw)
     EXPECT_CALL(req_rx_session_mock, setOnReceiveCallback(_))  //
         .WillRepeatedly(Return());
 
-    EXPECT_CALL(transport_mock_, makeRequestRxSession(_))  //
+    const RequestRxParams rx_params{16, 147};
+    EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<RequestRxSessionMock::RefWrapper::Spec>(mr_, req_rx_session_mock);
         }));
-    EXPECT_CALL(transport_mock_, makeResponseTxSession(_))  //
+    const ResponseTxParams tx_params{rx_params.service_id};
+    EXPECT_CALL(transport_mock_, makeResponseTxSession(ResponseTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<ResponseTxSessionMock::RefWrapper::Spec>(mr_, res_tx_session_mock);
         }));
 
-    auto maybe_server = presentation.makeServer(147, 16, [](const auto&, auto) {});
+    auto maybe_server = presentation.makeServer(rx_params.service_id, rx_params.extent_bytes, [](const auto&, auto) {});
     ASSERT_THAT(maybe_server, VariantWith<RawServiceServer>(_));
 
     EXPECT_CALL(req_rx_session_mock, deinit()).Times(1);
@@ -474,22 +483,25 @@ TEST_F(TestPresentation, makeServer_with_failure)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
+    const RequestRxParams  rx_params{Service::Request::_traits_::ExtentBytes, Service::Request::_traits_::FixedPortId};
+    const ResponseTxParams tx_params{rx_params.service_id};
+
     // RX AlreadyExistsError & MemoryError (due to nullptr)
     {
         // AlreadyExistsError with typed Service
-        EXPECT_CALL(transport_mock_, makeRequestRxSession(_))  //
+        EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))  //
             .WillOnce(Return(AlreadyExistsError{}));
         auto maybe_server1 = presentation.makeServer<Service>();
         EXPECT_THAT(maybe_server1, VariantWith<Presentation::MakeFailure>(VariantWith<AlreadyExistsError>(_)));
 
         // AlreadyExistsError with raw Service
-        EXPECT_CALL(transport_mock_, makeRequestRxSession(_))  //
+        EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))  //
             .WillOnce(Return(AlreadyExistsError{}));
-        auto maybe_server2 = presentation.makeServer(147, 16);
+        auto maybe_server2 = presentation.makeServer(rx_params.service_id, rx_params.extent_bytes);
         EXPECT_THAT(maybe_server2, VariantWith<Presentation::MakeFailure>(VariantWith<AlreadyExistsError>(_)));
 
         // MemoryError due to nullptr
-        EXPECT_CALL(transport_mock_, makeRequestRxSession(_))  //
+        EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))  //
             .WillOnce(Return(nullptr));
         auto maybe_server3 = presentation.makeServer<Service>();
         EXPECT_THAT(maybe_server3, VariantWith<Presentation::MakeFailure>(VariantWith<MemoryError>(_)));
@@ -497,24 +509,58 @@ TEST_F(TestPresentation, makeServer_with_failure)
     // TX AlreadyExistsError & MemoryError (due to nullptr)
     {
         StrictMock<RequestRxSessionMock> req_rx_session_mock;
-        EXPECT_CALL(transport_mock_, makeRequestRxSession(_))  //
+        EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))  //
             .WillRepeatedly(Invoke([&](const auto&) {
                 return libcyphal::detail::makeUniquePtr<UniquePtrRxSpec>(mr_, req_rx_session_mock);
             }));
         EXPECT_CALL(req_rx_session_mock, deinit()).Times(2);
 
         // AlreadyExistsError
-        EXPECT_CALL(transport_mock_, makeResponseTxSession(_))  //
+        EXPECT_CALL(transport_mock_, makeResponseTxSession(ResponseTxParamsEq(tx_params)))  //
             .WillOnce(Return(AlreadyExistsError{}));
         auto maybe_server1 = presentation.makeServer<Service>();
         EXPECT_THAT(maybe_server1, VariantWith<Presentation::MakeFailure>(VariantWith<AlreadyExistsError>(_)));
 
         // MemoryError due to nullptr
-        EXPECT_CALL(transport_mock_, makeResponseTxSession(_))  //
+        EXPECT_CALL(transport_mock_, makeResponseTxSession(ResponseTxParamsEq(tx_params)))  //
             .WillOnce(Return(nullptr));
         auto maybe_server2 = presentation.makeServer<Service>();
         EXPECT_THAT(maybe_server2, VariantWith<Presentation::MakeFailure>(VariantWith<MemoryError>(_)));
     }
+}
+
+TEST_F(TestPresentation, makeClient)
+{
+    using Service = uavcan::node::GetInfo_1_0;
+
+    Presentation presentation{mr_, scheduler_, transport_mock_};
+
+    StrictMock<ResponseRxSessionMock> res_rx_session_mock;
+    StrictMock<RequestTxSessionMock>  req_tx_session_mock;
+
+    const ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes,
+                                     Service::Request::_traits_::FixedPortId,
+                                     0x31};
+    EXPECT_CALL(res_rx_session_mock, setOnReceiveCallback(_))  //
+        .WillRepeatedly(Return());
+    EXPECT_CALL(res_rx_session_mock, getParams())  //
+        .WillOnce(Return(rx_params));
+
+    EXPECT_CALL(transport_mock_, makeResponseRxSession(ResponseRxParamsEq(rx_params)))  //
+        .WillOnce(Invoke([&](const auto&) {
+            return libcyphal::detail::makeUniquePtr<ResponseRxSessionMock::RefWrapper::Spec>(mr_, res_rx_session_mock);
+        }));
+    const RequestTxParams tx_params{rx_params.service_id, rx_params.server_node_id};
+    EXPECT_CALL(transport_mock_, makeRequestTxSession(RequestTxParamsEq(tx_params)))  //
+        .WillOnce(Invoke([&](const auto&) {
+            return libcyphal::detail::makeUniquePtr<RequestTxSessionMock::RefWrapper::Spec>(mr_, req_tx_session_mock);
+        }));
+
+    auto maybe_client = presentation.makeClient<Service>(0x31);
+    ASSERT_THAT(maybe_client, VariantWith<ServiceClient<Service>>(_));
+
+    EXPECT_CALL(req_tx_session_mock, deinit()).Times(1);
+    EXPECT_CALL(res_rx_session_mock, deinit()).Times(1);
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

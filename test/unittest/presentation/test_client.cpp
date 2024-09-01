@@ -9,6 +9,7 @@
 #include "gtest_helpers.hpp"       // NOLINT(misc-include-cleaner)
 #include "tracking_memory_resource.hpp"
 #include "transport/svc_sessions_mock.hpp"
+#include "transport/transport_gtest_helpers.hpp"
 #include "transport/transport_mock.hpp"
 #include "virtual_time_scheduler.hpp"
 
@@ -98,16 +99,20 @@ TEST_F(TestClient, copy_move_getSetPriority)
 
     StrictMock<RequestTxSessionMock>  req_tx_session_mock;
     StrictMock<ResponseRxSessionMock> res_rx_session_mock;
+
+    const ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes,
+                                     Service::Request::_traits_::FixedPortId,
+                                     0x31};
     EXPECT_CALL(res_rx_session_mock, getParams())  //
-        .WillOnce(Return(
-            ResponseRxParams{Service::Response::_traits_::ExtentBytes, Service::Request::_traits_::FixedPortId, 0x31}));
+        .WillOnce(Return(rx_params));
     EXPECT_CALL(res_rx_session_mock, setOnReceiveCallback(_)).WillRepeatedly(Return());
 
-    EXPECT_CALL(transport_mock_, makeRequestTxSession(_))  //
+    const RequestTxParams tx_params{rx_params.service_id, rx_params.server_node_id};
+    EXPECT_CALL(transport_mock_, makeRequestTxSession(RequestTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<RequestTxSessionMock::RefWrapper::Spec>(mr_, req_tx_session_mock);
         }));
-    EXPECT_CALL(transport_mock_, makeResponseRxSession(_))  //
+    EXPECT_CALL(transport_mock_, makeResponseRxSession(ResponseRxParamsEq(rx_params)))  //
         .WillOnce(Invoke([&](const auto&) {
             return libcyphal::detail::makeUniquePtr<ResponseRxSessionMock::RefWrapper::Spec>(mr_, res_rx_session_mock);
         }));

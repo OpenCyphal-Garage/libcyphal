@@ -10,18 +10,13 @@
 
 #include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>
-#include <libcyphal/transport/can/can_transport_impl.hpp>
 #include <libcyphal/transport/can/media.hpp>
 #include <libcyphal/transport/types.hpp>
-#include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest-matchers.h>
 #include <gtest/gtest-printers.h>
 
-#include <array>
-#include <chrono>
-#include <cstddef>
 #include <cstdint>
 #include <iomanip>
 #include <ios>

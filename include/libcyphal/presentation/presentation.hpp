@@ -508,7 +508,7 @@ private:
             }
         }
         CETL_DEBUG_ASSERT(out_failure, "");
-        return out_failure.value();
+        return out_failure.value_or(transport::MemoryError{});
     }
 
     detail::ClientImpl* createSharedClientImpl(const transport::ResponseRxParams& rx_params,
