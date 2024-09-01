@@ -60,6 +60,7 @@ public:
         , priority_{other.priority_}
     {
         CETL_DEBUG_ASSERT(impl_ != nullptr, "Not supposed to move from already moved `other`.");
+        // No need to retain the moved object, as it is already retained.
     }
 
     PublisherBase& operator=(const PublisherBase& other)
@@ -89,6 +90,7 @@ public:
         impl_     = std::exchange(other.impl_, nullptr);
         priority_ = other.priority_;
 
+        // No need to retain the moved object, as it is already retained.
         return *this;
     }
 
@@ -115,9 +117,9 @@ protected:
         : impl_{impl}
         , priority_{transport::Priority::Nominal}
     {
-        CETL_DEBUG_ASSERT(impl != nullptr, "");
+        CETL_DEBUG_ASSERT(impl_ != nullptr, "");
 
-        impl->retain();
+        impl_->retain();
     }
 
     // TODO: Switch to `transport::PayloadFragments`.

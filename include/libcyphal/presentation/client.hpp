@@ -10,6 +10,7 @@
 #include "presentation_delegate.hpp"
 
 #include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
 
 #include <cetl/cetl.hpp>
@@ -45,6 +46,7 @@ public:
 
     ClientBase(const ClientBase& other)
         : impl_{other.impl_}
+        , priority_{other.priority_}
     {
         CETL_DEBUG_ASSERT(other.impl_ != nullptr, "Not supposed to copy construct from already moved `other`.");
 
@@ -53,6 +55,7 @@ public:
 
     ClientBase(ClientBase&& other) noexcept
         : impl_{std::exchange(other.impl_, nullptr)}
+        , priority_{other.priority_}
     {
         CETL_DEBUG_ASSERT(impl_ != nullptr, "Not supposed to move construct from already moved `other`.");
         // No need to retain the moved object, as it is already retained.
@@ -66,7 +69,10 @@ public:
         if (this != &other)
         {
             impl_->release();
-            impl_ = other.impl_;
+
+            impl_     = other.impl_;
+            priority_ = other.priority_;
+
             impl_->retain();
         }
         return *this;
@@ -78,10 +84,22 @@ public:
         CETL_DEBUG_ASSERT(other.impl_ != nullptr, "Not supposed to move construct from already moved `other`.");
 
         impl_->release();
-        impl_ = std::exchange(other.impl_, nullptr);
-        // No need to retain the moved object, as it is already retained.
 
+        impl_     = std::exchange(other.impl_, nullptr);
+        priority_ = other.priority_;
+
+        // No need to retain the moved object, as it is already retained.
         return *this;
+    }
+
+    transport::Priority getPriority() const noexcept
+    {
+        return priority_;
+    }
+
+    void setPriority(const transport::Priority priority) noexcept
+    {
+        priority_ = priority;
     }
 
 protected:
@@ -95,6 +113,7 @@ protected:
 
     explicit ClientBase(ClientImpl* const impl)
         : impl_{impl}
+        , priority_{transport::Priority::Nominal}
     {
         CETL_DEBUG_ASSERT(impl_ != nullptr, "");
 
@@ -104,7 +123,8 @@ protected:
 private:
     // MARK: Data members:
 
-    ClientImpl* impl_;
+    ClientImpl*         impl_;
+    transport::Priority priority_;
 
 };  // ClientBase
 
@@ -138,7 +158,7 @@ public:
     using Failure = libcyphal::detail::AppendType<Failure, nunavut::support::Error>::Result;
 
 private:
-    friend class Presentation;
+    friend class Presentation;  // NOLINT cppcoreguidelines-virtual-class-destructor
 
     explicit Client(detail::ClientImpl* const impl)
         : ClientBase{impl}
@@ -170,7 +190,7 @@ class RawServiceClient final : public detail::ClientBase
 {
 public:
 private:
-    friend class Presentation;  // NOLINT cppcoreguidelines-virtual-class-destructor
+    friend class Presentation;
 
     explicit RawServiceClient(detail::ClientImpl* const impl)
         : ClientBase{impl}

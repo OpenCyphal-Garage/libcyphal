@@ -115,33 +115,30 @@ TEST_F(TestClient, copy_move_getSetPriority)
     auto maybe_client1 = presentation.makeClient<Service>(0x31);
     ASSERT_THAT(maybe_client1, VariantWith<ServiceClient<Service>>(_));
     auto client1a = cetl::get<ServiceClient<Service>>(std::move(maybe_client1));
-    // EXPECT_THAT(client1a.getPriority(), Priority::Nominal);
-    /*
-    pub1a.setPriority(Priority::Immediate);
-    EXPECT_THAT(pub1a.getPriority(), Priority::Immediate);
+    EXPECT_THAT(client1a.getPriority(), Priority::Nominal);
 
-    auto pub1b = std::move(pub1a);
-    EXPECT_THAT(pub1b.getPriority(), Priority::Immediate);
+    client1a.setPriority(Priority::Immediate);
+    EXPECT_THAT(client1a.getPriority(), Priority::Immediate);
 
-    auto pub2 = pub1b;
-    EXPECT_THAT(pub2.getPriority(), Priority::Immediate);
-    pub2.setPriority(Priority::Slow);
-    EXPECT_THAT(pub2.getPriority(), Priority::Slow);
-    EXPECT_THAT(pub1b.getPriority(), Priority::Immediate);
+    auto client1b = std::move(client1a);
+    EXPECT_THAT(client1b.getPriority(), Priority::Immediate);
 
-    pub1b = pub2;
-    EXPECT_THAT(pub1b.getPriority(), Priority::Slow);
+    auto client2 = client1b;
+    EXPECT_THAT(client2.getPriority(), Priority::Immediate);
+    client2.setPriority(Priority::Slow);
+    EXPECT_THAT(client2.getPriority(), Priority::Slow);
+    EXPECT_THAT(client1b.getPriority(), Priority::Immediate);
+
+    client1b = client2;
+    EXPECT_THAT(client1b.getPriority(), Priority::Slow);
 
     // Verify self-assignment.
-    auto& pub1c = pub1b;
-    pub1c       = pub1b;
+    auto& client1c = client1b;
+    client1c       = client1b;
 
-    pub2.setPriority(Priority::Optional);
-    pub1c = std::move(pub2);
-    EXPECT_THAT(pub1c.getPriority(), Priority::Optional);
-
-
-    */
+    client2.setPriority(Priority::Optional);
+    client1c = std::move(client2);
+    EXPECT_THAT(client1c.getPriority(), Priority::Optional);
 
     EXPECT_CALL(res_rx_session_mock, deinit()).Times(1);
     EXPECT_CALL(req_tx_session_mock, deinit()).Times(1);
