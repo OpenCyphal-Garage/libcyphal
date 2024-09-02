@@ -12,6 +12,7 @@
 #include <libcyphal/presentation/presentation_delegate.hpp>
 #include <libcyphal/presentation/publisher.hpp>
 #include <libcyphal/presentation/publisher_impl.hpp>
+#include <libcyphal/presentation/response_promise.hpp>
 #include <libcyphal/presentation/shared_object.hpp>
 #include <libcyphal/presentation/server.hpp>
 #include <libcyphal/presentation/server_impl.hpp>

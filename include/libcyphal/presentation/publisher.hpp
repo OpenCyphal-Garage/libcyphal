@@ -105,7 +105,7 @@ public:
     }
 
 protected:
-    ~PublisherBase() noexcept
+    ~PublisherBase()
     {
         if (impl_ != nullptr)
         {

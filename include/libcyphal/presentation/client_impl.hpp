@@ -33,6 +33,49 @@ namespace detail
 class ClientImpl final : public cavl::Node<ClientImpl>, public SharedObject
 {
 public:
+    /// No Sonar cpp:S4963 "The "Rule-of-Zero" should be followed"
+    /// b/c we do directly handle resources here.
+    ///
+    class CallbackNode : public Node<CallbackNode>  // NOSONAR cpp:S4963
+    {
+    public:
+        explicit CallbackNode(const transport::TransferId transfer_id)
+            : transfer_id_{transfer_id}
+        {
+        }
+
+        CallbackNode(CallbackNode&&) noexcept = default;
+
+        CallbackNode(const CallbackNode&)                = delete;
+        CallbackNode& operator=(const CallbackNode&)     = delete;
+        CallbackNode& operator=(CallbackNode&&) noexcept = delete;
+
+        CETL_NODISCARD std::int8_t compareByTransferId(const CallbackNode& other) const noexcept
+        {
+            if (other.transfer_id_ == transfer_id_)
+            {
+                return 0;
+            }
+            return (other.transfer_id_ > transfer_id_) ? +1 : -1;
+        }
+
+        virtual void onResponseTimeout(const TimePoint approx_now)                                            = 0;
+        virtual void onResponseRxTransfer(const TimePoint approx_now, transport::ServiceRxTransfer& transfer) = 0;
+
+        using Node::isLinked;
+
+    protected:
+        ~CallbackNode() = default;
+
+    private:
+        // friend class ClientImpl;
+
+        // MARK: Data members:
+
+        transport::TransferId transfer_id_;
+
+    };  // CallbackNode
+
     ClientImpl(cetl::pmr::memory_resource&              memory,
                IPresentationDelegate&                   delegate,
                IExecutor&                               executor,
@@ -52,10 +95,13 @@ public:
             //
             onResponseRxTransfer(arg.transfer);
         });
+        nearest_deadline_callback_ = executor_.registerCallback([](const auto&) {
+            //
+            // TODO: implement!
+        });
 
-        // TODO: delete these lines
+        // TODO: delete this line
         (void) memory_;
-        (void) executor_;
     }
 
     CETL_NODISCARD std::int32_t compareByNodeAndServiceIds(const transport::ResponseRxParams& rx_params) const
@@ -70,11 +116,40 @@ public:
                static_cast<std::int32_t>(rx_params.service_id);
     }
 
+    void retainCallbackNode(CallbackNode& callback_node) noexcept
+    {
+        CETL_DEBUG_ASSERT(!callback_node.isLinked(), "");
+
+        SharedObject::retain();
+
+        const auto cb_node_existing = cb_nodes_by_transfer_id_.search(  //
+            [&callback_node](const CallbackNode& other_node) {          // predicate
+                //
+                return other_node.compareByTransferId(callback_node);
+            },
+            [&callback_node]() { return &callback_node; });  // "factory"
+
+        (void) cb_node_existing;
+        CETL_DEBUG_ASSERT(!std::get<1>(cb_node_existing), "Unexpected existing callback node.");
+        CETL_DEBUG_ASSERT(&callback_node == std::get<0>(cb_node_existing), "Unexpected callback node.");
+    }
+
+    void releaseCallbackNode(CallbackNode& callback_node) noexcept
+    {
+        CETL_DEBUG_ASSERT(callback_node.isLinked(), "");
+
+        cb_nodes_by_transfer_id_.remove(&callback_node);
+
+        release();
+    }
+
     void release() noexcept override
     {
         SharedObject::release();
         if (getRefCount() == 0)
         {
+            CETL_DEBUG_ASSERT(cb_nodes_by_transfer_id_.empty(), "");
+
             delegate_.releaseClientImpl(this);
         }
     }
@@ -90,6 +165,8 @@ private:
     const UniquePtr<transport::IRequestTxSession>  svc_request_tx_session_;
     const UniquePtr<transport::IResponseRxSession> svc_response_rx_session_;
     const transport::ResponseRxParams              response_rx_params_;
+    cavl::Tree<CallbackNode>                       cb_nodes_by_transfer_id_;
+    IExecutor::Callback::Any                       nearest_deadline_callback_;
 
 };  // ClientImpl
 

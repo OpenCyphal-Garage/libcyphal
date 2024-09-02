@@ -277,6 +277,8 @@ public:
         SharedObject::release();
         if (getRefCount() == 0)
         {
+            CETL_DEBUG_ASSERT(callback_nodes_.empty(), "");
+
             delegate_.releaseSubscriberImpl(this);
         }
     }

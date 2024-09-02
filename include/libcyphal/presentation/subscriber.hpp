@@ -68,7 +68,7 @@ public:
     SubscriberBase& operator=(const SubscriberBase& other) = delete;
 
 protected:
-    ~SubscriberBase() noexcept
+    ~SubscriberBase()
     {
         if (impl_ != nullptr)
         {

@@ -11,6 +11,7 @@
 #include "types.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pmr/function.hpp>
 
 #include <cstddef>
 

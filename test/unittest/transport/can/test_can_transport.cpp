@@ -79,7 +79,7 @@ public:
         : code_{code}
     {
     }
-    virtual ~MyPlatformError() noexcept                    = default;
+    virtual ~MyPlatformError()                             = default;
     MyPlatformError(const MyPlatformError&)                = default;
     MyPlatformError(MyPlatformError&&) noexcept            = default;
     MyPlatformError& operator=(const MyPlatformError&)     = default;

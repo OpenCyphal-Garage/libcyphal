@@ -8,6 +8,7 @@
 
 #include "client_impl.hpp"
 #include "presentation_delegate.hpp"
+#include "response_promise.hpp"
 
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -103,7 +104,7 @@ public:
     }
 
 protected:
-    ~ClientBase() noexcept
+    ~ClientBase()
     {
         if (impl_ != nullptr)
         {
