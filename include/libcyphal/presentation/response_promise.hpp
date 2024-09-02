@@ -24,23 +24,34 @@ namespace libcyphal
 namespace presentation
 {
 
-/// Internal implementation details of the Presentation layer.
-/// Not supposed to be used directly by the users of the library.
-///
-namespace detail
-{
-
 /// @brief Defines internal base class for any concrete (final) response promise.
 ///
 /// No Sonar cpp:S4963 "The "Rule-of-Zero" should be followed"
 /// b/c we do directly handle resources here.
 ///
-class ResponsePromiseBase : public ClientImpl::CallbackNode  // NOSONAR cpp:S4963
+class ResponsePromiseBase : public detail::ClientImpl::CallbackNode  // NOSONAR cpp:S4963
 {
 public:
+    /// @brief Defines intermediate 'waiting' state of the response promise.
+    ///
+    struct Waiting
+    {
+        /// Holds current duration of the response waiting since corresponding request time.
+        Duration duration;
+    };
+
+    /// @brief Defines terminal 'expired' state of the response promise.
+    ///
+    struct Expired
+    {
+        /// Holds deadline of the expired (aka timed out) response waiting.
+        TimePoint deadline;
+    };
+
     ResponsePromiseBase(ResponsePromiseBase&& other) noexcept
         : CallbackNode{std::move(static_cast<CallbackNode&>(other))}
         , client_impl_{std::exchange(other.client_impl_, nullptr)}
+        , request_time_{other.request_time_}
     {
         CETL_DEBUG_ASSERT(client_impl_ != nullptr, "Not supposed to move from already moved `other`.");
         // No need to retain the moved object, as it is already retained.
@@ -51,6 +62,18 @@ public:
     ResponsePromiseBase& operator=(ResponsePromiseBase&& other) noexcept = delete;
 
 protected:
+    ResponsePromiseBase(detail::ClientImpl* const   client_impl,
+                        const transport::TransferId transfer_id,
+                        const TimePoint             request_time)
+        : CallbackNode{transfer_id}
+        , client_impl_{client_impl}
+        , request_time_{request_time}
+    {
+        CETL_DEBUG_ASSERT(client_impl_ != nullptr, "");
+
+        client_impl_->retainCallbackNode(*this);
+    }
+
     ~ResponsePromiseBase()
     {
         if (client_impl_ != nullptr)
@@ -59,193 +82,148 @@ protected:
         }
     }
 
-    ResponsePromiseBase(ClientImpl* const client_impl, const transport::TransferId transfer_id)
-        : CallbackNode{transfer_id}
-        , client_impl_{client_impl}
+    Waiting makeWaiting() const
     {
         CETL_DEBUG_ASSERT(client_impl_ != nullptr, "");
 
-        client_impl_->retainCallbackNode(*this);
+        return {client_impl_->now() - request_time_};
     }
 
 private:
     // MARK: Data members:
 
-    ClientImpl* client_impl_;
+    detail::ClientImpl* client_impl_;
+    const TimePoint     request_time_;
 
 };  // ResponsePromiseBase
 
-}  // namespace detail
+// MARK: -
 
 /// @brief Defines promise class of a strong-typed response.
 ///
 /// @tparam Response The response type of the promise.
 ///
 template <typename Response>
-class ResponsePromise final : public detail::ResponsePromiseBase
+class ResponsePromise final : public ResponsePromiseBase
 {
 public:
-    /// @brief Defines the strong-typed response and its metadata.
+    /// @brief Defines successful strong-typed response and its metadata.
     ///
-    using Reply = std::tuple<Response, transport::ServiceRxMetadata>;
-
-    /// @brief Defines result of the promise. Could be either a reply or a timeout duration.
-    ///
-    using Result = cetl::variant<Reply, Duration>;
-
-    /// @brief Defines the strong-typed response callback (arguments, function).
-    ///
-    struct Callback
+    struct Success
     {
-        struct Arg
-        {
-            TimePoint approx_now;
-            Result    result;
-        };
-        using Function = cetl::pmr::function<void(const Arg&), sizeof(void*) * 4>;
+        Response                     response;
+        transport::ServiceRxMetadata metadata;
     };
 
-    /// @brief Sets function which will be called either on response reception, or on timeout.
+    /// @brief Defines result of the promise.
     ///
-    /// Note that setting the callback will disable the previous one (if any).
+    /// Could be either a successful received response, or final expired condition.
     ///
-    /// @param callback_fn The function which will be called back.
-    ///                    Use `nullptr` (or `{}`) to disable the callback.
-    /// @param deadline    Optional deadline by which this promise will be broken,
-    ///                    and as a result the callback will be called with timeout condition.
-    ///
-    void setCallback(typename Callback::Function&& callback_fn, const cetl::optional<TimePoint>)
-    {
-        callback_fn_ = std::move(callback_fn);
-    }
+    using Result = Expected<Success, Expired>;
 
 private:
-    explicit ResponsePromise(detail::ClientImpl* const client_impl, const transport::TransferId transfer_id)
-        : ResponsePromiseBase{client_impl, transfer_id}
+    explicit ResponsePromise(detail::ClientImpl* const   client_impl,
+                             const transport::TransferId transfer_id,
+                             const TimePoint             request_time)
+        : ResponsePromiseBase{client_impl, transfer_id, request_time}
     {
     }
 
     // MARK: CallbackNode
 
-    void onTimeout() noexcept override
+    void onResponseTimeout(const TimePoint approx_now, const TimePoint deadline) override
     {
+        CETL_DEBUG_ASSERT(!opt_result_, "Already received result timeout.");
+        if (opt_result_)
+        {
+            return;
+        }
+        opt_result_ = Expired{deadline};
+
         // TODO: Implement timeout handling.
+        (void) approx_now;
     }
 
-    void onResponseRxTransfer(const transport::ServiceRxTransfer&) noexcept override
+    void onResponseRxTransfer(const TimePoint approx_now, const transport::ServiceRxTransfer& transfer) override
     {
+        CETL_DEBUG_ASSERT(!opt_result_, "Already received result transfer.");
+        if (opt_result_)
+        {
+            return;
+        }
+
         // TODO: Implement reply handling.
+        (void) approx_now;
+        (void) transfer;
     }
 
     // MARK: Data members:
 
-    cetl::optional<Result>      opt_result_;
-    typename Callback::Function callback_fn_;
+    cetl::optional<Result> opt_result_;
 
 };  // ResponsePromise<Response>
+
+// MARK: -
 
 /// @brief Defines promise class of a raw (aka untyped) response.
 ///
 template <>
-class ResponsePromise<void> final : public detail::ResponsePromiseBase
+class ResponsePromise<void> final : public ResponsePromiseBase
 {
 public:
-    struct Result
+    /// @brief Defines successful raw response and its metadata.
+    ///
+    struct Success
     {
-        struct Success
-        {
-            transport::ScatteredBuffer;
-            transport::ServiceRxMetadata;
-        };
-        struct Time Failure = cetl::variant<PlatformError, ArgumentError>;
-
-        using Type = Expected<Success, Failure>;
+        transport::ScatteredBuffer   payload;
+        transport::ServiceRxMetadata metadata;
     };
 
-
-    /// @brief Defines successful strong-typed response and its metadata.
+    /// @brief Defines result of the promise.
     ///
-    using Success = std::tuple<transport::ScatteredBuffer, transport::ServiceRxMetadata>;
-
-    /// @brief Defines result of the promise. Could be either a successful reply, or a timeout duration.
+    /// Could be either a successful received response, or final expired condition.
     ///
-    using Result = Expected<Success, Duration>;
-
-    /// @brief Defines the strong-typed response callback (arguments, function).
-    ///
-    struct Callback
-    {
-        struct Arg
-        {
-            TimePoint approx_now;
-            Result    result;
-        };
-        using Function = cetl::pmr::function<void(const Arg&), sizeof(void*) * 4>;
-    };
-
-    /// @brief Sets function which will be called either on response reception, or on timeout.
-    ///
-    /// Note that setting the callback will disable the previous one (if any).
-    ///
-    /// @param callback_fn The function which will be called back.
-    ///                    Use `nullptr` (or `{}`) to disable the callback.
-    /// @param deadline    Optional deadline by which this promise will be broken,
-    ///                    and as a result the callback will be called with timeout condition.
-    ///
-    void setCallback(typename Callback::Function&& callback_fn, const cetl::optional<TimePoint>)
-    {
-        callback_fn_ = std::move(callback_fn);
-    }
+    using Result = Expected<Success, Expired>;
 
 private:
-    explicit ResponsePromise(detail::ClientImpl* const client_impl, const transport::TransferId transfer_id)
-        : ResponsePromiseBase{client_impl, transfer_id}, was_result_{false}
+    explicit ResponsePromise(detail::ClientImpl* const   client_impl,
+                             const transport::TransferId transfer_id,
+                             const TimePoint             request_time)
+        : ResponsePromiseBase{client_impl, transfer_id, request_time}
     {
     }
 
     // MARK: CallbackNode
 
-    void onResponseTimeout(const TimePoint approx_now) override
+    void onResponseTimeout(const TimePoint approx_now, const TimePoint deadline) override
     {
-        CETL_DEBUG_ASSERT(!was_result_, "Already received result timeout.");
-        if (was_result_)
+        CETL_DEBUG_ASSERT(!opt_result_, "Already received result timeout.");
+        if (opt_result_)
         {
             return;
         }
-        was_result_ = true;
+        opt_result_ = Expired{deadline};
 
-        if (callback_fn_)
-        {
-            auto func = std::exchange(callback_fn_, nullptr);
-            func({approx_now, Duration{0}});
-            return;
-        }
-        (void) opt_result_.emplace(Reply{std::move(transfer.payload), transfer.metadata});
+        // TODO: Implement timeout handling.
+        (void) approx_now;
     }
 
-    void onResponseRxTransfer(const TimePoint approx_now, transport::ServiceRxTransfer& transfer) override
+    void onResponseRxTransfer(const TimePoint approx_now, const transport::ServiceRxTransfer& transfer) override
     {
-        CETL_DEBUG_ASSERT(!was_result_, "Already received result transfer.");
-        if (was_result_)
+        CETL_DEBUG_ASSERT(!opt_result_, "Already received result transfer.");
+        if (opt_result_)
         {
             return;
         }
-        was_result_ = true;
 
-        if (callback_fn_)
-        {
-            auto func = std::exchange(callback_fn_, nullptr);
-            func({approx_now, Reply{std::move(transfer.payload), transfer.metadata}});
-            return;
-        }
-        (void) opt_result_.emplace(Reply{std::move(transfer.payload), transfer.metadata});
+        // TODO: Implement reply handling.
+        (void) approx_now;
+        (void) transfer;
     }
 
     // MARK: Data members:
 
-    bool was_result_;
-    cetl::optional<Result>      opt_result_;
-    typename Callback::Function callback_fn_;
+    cetl::optional<Result> opt_result_;
 
 };  // ResponsePromise<void>
 

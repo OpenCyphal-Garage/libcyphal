@@ -39,12 +39,7 @@ public:
     class CallbackNode : public Node<CallbackNode>  // NOSONAR cpp:S4963
     {
     public:
-        explicit CallbackNode(const transport::TransferId transfer_id)
-            : transfer_id_{transfer_id}
-        {
-        }
-
-        CallbackNode(CallbackNode&&) noexcept = default;
+        using Node::isLinked;
 
         CallbackNode(const CallbackNode&)                = delete;
         CallbackNode& operator=(const CallbackNode&)     = delete;
@@ -59,13 +54,17 @@ public:
             return (other.transfer_id_ > transfer_id_) ? +1 : -1;
         }
 
-        virtual void onResponseTimeout(const TimePoint approx_now)                                            = 0;
-        virtual void onResponseRxTransfer(const TimePoint approx_now, transport::ServiceRxTransfer& transfer) = 0;
-
-        using Node::isLinked;
+        virtual void onResponseTimeout(const TimePoint approx_now, const TimePoint deadline)                        = 0;
+        virtual void onResponseRxTransfer(const TimePoint approx_now, const transport::ServiceRxTransfer& transfer) = 0;
 
     protected:
-        ~CallbackNode() = default;
+        explicit CallbackNode(const transport::TransferId transfer_id)
+            : transfer_id_{transfer_id}
+        {
+        }
+
+        ~CallbackNode()                       = default;
+        CallbackNode(CallbackNode&&) noexcept = default;
 
     private:
         // friend class ClientImpl;
@@ -104,6 +103,11 @@ public:
         (void) memory_;
     }
 
+    CETL_NODISCARD TimePoint now() const noexcept
+    {
+        return executor_.now();
+    }
+
     CETL_NODISCARD std::int32_t compareByNodeAndServiceIds(const transport::ResponseRxParams& rx_params) const
     {
         if (response_rx_params_.server_node_id != rx_params.server_node_id)
@@ -120,7 +124,7 @@ public:
     {
         CETL_DEBUG_ASSERT(!callback_node.isLinked(), "");
 
-        SharedObject::retain();
+        retain();
 
         const auto cb_node_existing = cb_nodes_by_transfer_id_.search(  //
             [&callback_node](const CallbackNode& other_node) {          // predicate
