@@ -178,7 +178,7 @@ TEST_F(TestPresentation, makePublisher)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
-    const MessageTxParams            tx_params{Message::_traits_::FixedPortId};
+    constexpr MessageTxParams        tx_params{Message::_traits_::FixedPortId};
     EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
 
     EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
@@ -202,7 +202,7 @@ TEST_F(TestPresentation, makePublisher_custom)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
-    const MessageTxParams            tx_params{Message::_traits_::FixedPortId};
+    constexpr MessageTxParams        tx_params{Message::_traits_::FixedPortId};
     EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
 
     EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
@@ -225,7 +225,7 @@ TEST_F(TestPresentation, makePublisher_raw)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
-    const MessageTxParams            tx_params{147};
+    constexpr MessageTxParams        tx_params{147};
     EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
 
     EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
@@ -248,7 +248,7 @@ TEST_F(TestPresentation, makePublisher_with_failure)
 
     Presentation presentation{mr_mock, scheduler_, transport_mock_};
 
-    const MessageTxParams tx_params{Message::_traits_::FixedPortId};
+    constexpr MessageTxParams tx_params{Message::_traits_::FixedPortId};
 
     // AlreadyExistsError
     {
@@ -289,7 +289,7 @@ TEST_F(TestPresentation, makeSubscriber)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    const MessageRxParams            rx_params{Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId};
+    constexpr MessageRxParams        rx_params{Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId};
     EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_)).Times(1);
 
@@ -314,7 +314,7 @@ TEST_F(TestPresentation, makeSubscriber_custom)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    const MessageRxParams            rx_params{Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId};
+    constexpr MessageRxParams        rx_params{Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId};
     EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_)).Times(1);
 
@@ -334,7 +334,7 @@ TEST_F(TestPresentation, makeSubscriber_raw)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    const MessageRxParams            rx_params{0, 147};
+    constexpr MessageRxParams        rx_params{0, 147};
     EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_)).Times(1);
 
@@ -361,7 +361,7 @@ TEST_F(TestPresentation, makeSubscriber_with_failure)
 
     Presentation presentation{mr_mock, scheduler_, transport_mock_};
 
-    const MessageRxParams rx_params{Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId};
+    constexpr MessageRxParams rx_params{Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId};
 
     // AlreadyExistsError
     {
@@ -412,7 +412,8 @@ TEST_F(TestPresentation, makeServer)
     EXPECT_CALL(req_rx_session_mock, setOnReceiveCallback(_))  //
         .WillRepeatedly(Return());
 
-    const RequestRxParams rx_params{Service::Request::_traits_::ExtentBytes, Service::Request::_traits_::FixedPortId};
+    constexpr RequestRxParams rx_params{Service::Request::_traits_::ExtentBytes,
+                                        Service::Request::_traits_::FixedPortId};
     EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                           //
             return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr_, req_rx_session_mock);
@@ -441,7 +442,8 @@ TEST_F(TestPresentation, makeServer_custom)
     EXPECT_CALL(req_rx_session_mock, setOnReceiveCallback(_))  //
         .WillRepeatedly(Return());
 
-    const RequestRxParams rx_params{Service::Request::_traits_::ExtentBytes, Service::Request::_traits_::FixedPortId};
+    constexpr RequestRxParams rx_params{Service::Request::_traits_::ExtentBytes,
+                                        Service::Request::_traits_::FixedPortId};
     EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                           //
             return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr_, req_rx_session_mock);
@@ -468,7 +470,7 @@ TEST_F(TestPresentation, makeServer_raw)
     EXPECT_CALL(req_rx_session_mock, setOnReceiveCallback(_))  //
         .WillRepeatedly(Return());
 
-    const RequestRxParams rx_params{16, 147};
+    constexpr RequestRxParams rx_params{16, 147};
     EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                           //
             return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr_, req_rx_session_mock);
@@ -492,8 +494,9 @@ TEST_F(TestPresentation, makeServer_with_failure)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    const RequestRxParams  rx_params{Service::Request::_traits_::ExtentBytes, Service::Request::_traits_::FixedPortId};
-    const ResponseTxParams tx_params{rx_params.service_id};
+    constexpr RequestRxParams  rx_params{Service::Request::_traits_::ExtentBytes,
+                                        Service::Request::_traits_::FixedPortId};
+    constexpr ResponseTxParams tx_params{rx_params.service_id};
 
     // RX AlreadyExistsError & MemoryError (due to nullptr)
     {
@@ -547,9 +550,9 @@ TEST_F(TestPresentation, makeClient)
     StrictMock<ResponseRxSessionMock> res_rx_session_mock;
     StrictMock<RequestTxSessionMock>  req_tx_session_mock;
 
-    const ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes,
-                                     Service::Request::_traits_::FixedPortId,
-                                     0x31};
+    constexpr ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes,
+                                         Service::Request::_traits_::FixedPortId,
+                                         0x31};
     EXPECT_CALL(res_rx_session_mock, setOnReceiveCallback(_))  //
         .WillRepeatedly(Return());
     EXPECT_CALL(res_rx_session_mock, getParams())  //
@@ -579,9 +582,9 @@ TEST_F(TestPresentation, makeClient_multiple_custom)
     StrictMock<ResponseRxSessionMock> res_rx_session_mock;
     StrictMock<RequestTxSessionMock>  req_tx_session_mock;
 
-    const ResponseRxParams rx_params{Custom::Service::Response::_traits_::ExtentBytes,
-                                     Custom::Service::Request::_traits_::FixedPortId,
-                                     0x31};
+    constexpr ResponseRxParams rx_params{Custom::Service::Response::_traits_::ExtentBytes,
+                                         Custom::Service::Request::_traits_::FixedPortId,
+                                         0x31};
     EXPECT_CALL(res_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(res_rx_session_mock, setOnReceiveCallback(_)).WillRepeatedly(Return());
 
@@ -638,7 +641,7 @@ TEST_F(TestPresentation, makeClient_raw)
     StrictMock<ResponseRxSessionMock> res_rx_session_mock;
     StrictMock<RequestTxSessionMock>  req_tx_session_mock;
 
-    const ResponseRxParams rx_params{8, 147, 0x31};
+    constexpr ResponseRxParams rx_params{8, 147, 0x31};
     EXPECT_CALL(res_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(res_rx_session_mock, setOnReceiveCallback(_)).WillRepeatedly(Return());
 
@@ -668,10 +671,10 @@ TEST_F(TestPresentation, makeClient_with_failure)
 
     Presentation presentation{mr_mock, scheduler_, transport_mock_};
 
-    const ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes,
-                                     Service::Request::_traits_::FixedPortId,
-                                     0x31};
-    const RequestTxParams  tx_params{rx_params.service_id, rx_params.server_node_id};
+    constexpr ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes,
+                                         Service::Request::_traits_::FixedPortId,
+                                         0x31};
+    const RequestTxParams      tx_params{rx_params.service_id, rx_params.server_node_id};
 
     // TX AlreadyExistsError & MemoryError (due to nullptr)
     {

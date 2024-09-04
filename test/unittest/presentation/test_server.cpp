@@ -101,12 +101,13 @@ TEST_F(TestServer, move)
     StrictMock<RequestRxSessionMock>  req_rx_session_mock;
     EXPECT_CALL(req_rx_session_mock, setOnReceiveCallback(_)).WillRepeatedly(Return());
 
-    const RequestRxParams rx_params{Service::Request::_traits_::ExtentBytes, Service::Request::_traits_::FixedPortId};
+    constexpr RequestRxParams rx_params{Service::Request::_traits_::ExtentBytes,
+                                        Service::Request::_traits_::FixedPortId};
     EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                           //
             return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr_, req_rx_session_mock);
         }));
-    const ResponseTxParams tx_params{Service::Request::_traits_::FixedPortId};
+    constexpr ResponseTxParams tx_params{Service::Request::_traits_::FixedPortId};
     EXPECT_CALL(transport_mock_, makeResponseTxSession(ResponseTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                             //
             return libcyphal::detail::makeUniquePtr<UniquePtrResTxSpec>(mr_, res_tx_session_mock);
@@ -148,12 +149,13 @@ TEST_F(TestServer, service_request_response)
 
     StrictMock<ResponseTxSessionMock> res_tx_session_mock;
 
-    const RequestRxParams rx_params{Service::Request::_traits_::ExtentBytes, Service::Request::_traits_::FixedPortId};
+    constexpr RequestRxParams rx_params{Service::Request::_traits_::ExtentBytes,
+                                        Service::Request::_traits_::FixedPortId};
     EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                           //
             return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr_, req_rx_session_mock);
         }));
-    const ResponseTxParams tx_params{Service::Request::_traits_::FixedPortId};
+    constexpr ResponseTxParams tx_params{Service::Request::_traits_::FixedPortId};
     EXPECT_CALL(transport_mock_, makeResponseTxSession(ResponseTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                             //
             return libcyphal::detail::makeUniquePtr<UniquePtrResTxSpec>(mr_, res_tx_session_mock);
@@ -216,12 +218,12 @@ TEST_F(TestServer, raw_request_response)
 
     StrictMock<ResponseTxSessionMock> res_tx_session_mock;
 
-    const RequestRxParams rx_params{0x456, 0x123};
+    constexpr RequestRxParams rx_params{0x456, 0x123};
     EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                           //
             return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr_, req_rx_session_mock);
         }));
-    const ResponseTxParams tx_params{rx_params.service_id};
+    constexpr ResponseTxParams tx_params{rx_params.service_id};
     EXPECT_CALL(transport_mock_, makeResponseTxSession(ResponseTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                             //
             return libcyphal::detail::makeUniquePtr<UniquePtrResTxSpec>(mr_, res_tx_session_mock);

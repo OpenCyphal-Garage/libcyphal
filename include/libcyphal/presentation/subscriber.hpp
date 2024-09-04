@@ -56,10 +56,12 @@ public:
 
         impl_->releaseCallbackNode(*this);
 
-        static_cast<CallbackNode&>(*this) = std::move(static_cast<CallbackNode&&>(other));
-
         impl_ = std::exchange(other.impl_, nullptr);
-        impl_->updateCallbackNode(&other, this);
+
+        const CallbackNode* const old_cb_node = &other;
+        static_cast<CallbackNode&>(*this)     = std::move(static_cast<CallbackNode&&>(other));
+
+        impl_->updateCallbackNode(old_cb_node, this);
 
         return *this;
     }

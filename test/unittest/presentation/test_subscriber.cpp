@@ -111,7 +111,7 @@ TEST_F(TestSubscriber, move)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    const MessageRxParams            rx_params{Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId};
+    constexpr MessageRxParams        rx_params{Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId};
     EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_)).Times(1);
 
@@ -146,7 +146,7 @@ TEST_F(TestSubscriber, onReceive)
     IMessageRxSession::OnReceiveCallback::Function msg_rx_cb_fn;
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    const MessageRxParams            rx_params{Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId};
+    constexpr MessageRxParams        rx_params{Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId};
     EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_))  //
         .WillOnce(Invoke([&](auto&& cb_fn) {                   //
@@ -238,7 +238,7 @@ TEST_F(TestSubscriber, onReceive_deserialize_failure)
     IMessageRxSession::OnReceiveCallback::Function msg_rx_cb_fn;
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    const MessageRxParams            rx_params{Message::_traits_::ExtentBytes, 0x123};
+    constexpr MessageRxParams        rx_params{Message::_traits_::ExtentBytes, 0x123};
     EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_))  //
         .WillOnce(Invoke([&](auto&& cb_fn) {                   //
@@ -326,7 +326,7 @@ TEST_F(TestSubscriber, onReceive_raw_message)
     IMessageRxSession::OnReceiveCallback::Function msg_rx_cb_fn;
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    const MessageRxParams            rx_params{0, 0x123};
+    constexpr MessageRxParams        rx_params{0, 0x123};
     EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_))  //
         .WillOnce(Invoke([&](auto&& cb_fn) {                   //
@@ -401,7 +401,7 @@ TEST_F(TestSubscriber, onReceive_release_same_subject_subscriber_during_callback
     IMessageRxSession::OnReceiveCallback::Function msg_rx_cb_fn;
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    const MessageRxParams            rx_params{Message::_traits_::ExtentBytes, 0x123};
+    constexpr MessageRxParams        rx_params{Message::_traits_::ExtentBytes, 0x123};
     EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_))  //
         .WillOnce(Invoke([&](auto&& cb_fn) {                   //
@@ -494,7 +494,7 @@ TEST_F(TestSubscriber, onReceive_move_same_subject_subscriber_during_callback)
     IMessageRxSession::OnReceiveCallback::Function msg_rx_cb_fn;
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    const MessageRxParams            rx_params{Message::_traits_::ExtentBytes, 0x123};
+    constexpr MessageRxParams        rx_params{Message::_traits_::ExtentBytes, 0x123};
     EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_))  //
         .WillOnce(Invoke([&](auto&& cb_fn) {                   //
@@ -563,7 +563,7 @@ TEST_F(TestSubscriber, onReceive_append_same_subject_subscriber_during_callback)
     IMessageRxSession::OnReceiveCallback::Function msg_rx_cb_fn;
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    const MessageRxParams            rx_params{Message::_traits_::ExtentBytes, 0x123};
+    constexpr MessageRxParams        rx_params{Message::_traits_::ExtentBytes, 0x123};
     EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_))  //
         .WillOnce(Invoke([&](auto&& cb_fn) {                   //
@@ -694,7 +694,7 @@ TEST_F(TestSubscriber, onReceive_different_type_deserializers_on_same_subject)
     IMessageRxSession::OnReceiveCallback::Function msg_rx_cb_fn;
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    const MessageRxParams            rx_params{BarMsg::_traits_::ExtentBytes, 0x123};
+    constexpr MessageRxParams        rx_params{BarMsg::_traits_::ExtentBytes, 0x123};
     EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_))  //
         .WillOnce(Invoke([&](auto&& cb_fn) {                   //

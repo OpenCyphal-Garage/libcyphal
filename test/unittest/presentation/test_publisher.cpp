@@ -104,7 +104,7 @@ TEST_F(TestPublisher, copy_move_getSetPriority)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
-    const MessageTxParams            tx_params{Message::_traits_::FixedPortId};
+    constexpr MessageTxParams        tx_params{Message::_traits_::FixedPortId};
     EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
 
     EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
@@ -150,7 +150,7 @@ TEST_F(TestPublisher, publish)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
-    const MessageTxParams            tx_params{Message::_traits_::FixedPortId};
+    constexpr MessageTxParams        tx_params{Message::_traits_::FixedPortId};
     EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
 
     EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
@@ -215,7 +215,7 @@ TEST_F(TestPublisher, publish_with_serialization_failure)
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
-    const MessageTxParams            tx_params{0x123};
+    constexpr MessageTxParams        tx_params{0x123};
     EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
 
     EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
@@ -258,7 +258,7 @@ TEST_F(TestPublisher, publishRawData)
     static_assert(!std::is_default_constructible<Publisher<void>>::value, "Should not be default constructible.");
 
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
-    const MessageTxParams            tx_params{123};
+    constexpr MessageTxParams        tx_params{123};
     EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
 
     EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //

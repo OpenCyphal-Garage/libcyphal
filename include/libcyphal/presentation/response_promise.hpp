@@ -191,7 +191,7 @@ protected:
             return;
         }
 
-        opt_result_.emplace(std::move(result));
+        (void) opt_result_.emplace(std::move(result));
     }
 
     void acceptNewCallback(typename Callback::Function&& callback_fn)

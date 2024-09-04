@@ -334,7 +334,7 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
     std::cout << "Done.\n-----------\nStats:\n";
     std::cout << "worst_callback_lateness  = " << worst_lateness.count() << " us\n";
     std::cout << "call_duration_stats_mean = " << call_duration_stats.mean() << " us\n";
-    std::cout << "call_duration_stats_std  = ± " << call_duration_stats.standardDeviation() << " us (±"
+    std::cout << "call_duration_stats_std  ± " << call_duration_stats.standardDeviation() << " us (±"
               << std::setprecision(3) << 100.0 * call_duration_stats.standardDeviation() / call_duration_stats.mean()
               << "%)\n";
 }

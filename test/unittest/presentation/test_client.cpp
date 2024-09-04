@@ -110,9 +110,9 @@ TEST_F(TestClient, copy_move_getSetPriority)
     StrictMock<RequestTxSessionMock>  req_tx_session_mock;
     StrictMock<ResponseRxSessionMock> res_rx_session_mock;
 
-    const ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes,
-                                     Service::Request::_traits_::FixedPortId,
-                                     0x31};
+    constexpr ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes,
+                                         Service::Request::_traits_::FixedPortId,
+                                         0x31};
     EXPECT_CALL(res_rx_session_mock, getParams())  //
         .WillOnce(Return(rx_params));
     EXPECT_CALL(res_rx_session_mock, setOnReceiveCallback(_)).WillRepeatedly(Return());
@@ -169,9 +169,9 @@ TEST_F(TestClient, request_response_get_fetch_result)
     StrictMock<RequestTxSessionMock>  req_tx_session_mock;
     StrictMock<ResponseRxSessionMock> res_rx_session_mock;
 
-    const ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes,
-                                     Service::Request::_traits_::FixedPortId,
-                                     0x31};
+    constexpr ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes,
+                                         Service::Request::_traits_::FixedPortId,
+                                         0x31};
     EXPECT_CALL(res_rx_session_mock, getParams())  //
         .WillOnce(Return(rx_params));
     IResponseRxSession::OnReceiveCallback::Function res_rx_cb_fn;
@@ -257,9 +257,9 @@ TEST_F(TestClient, request_response_via_callabck)
     StrictMock<RequestTxSessionMock>  req_tx_session_mock;
     StrictMock<ResponseRxSessionMock> res_rx_session_mock;
 
-    const ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes,
-                                     Service::Request::_traits_::FixedPortId,
-                                     0x31};
+    constexpr ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes,
+                                         Service::Request::_traits_::FixedPortId,
+                                         0x31};
     EXPECT_CALL(res_rx_session_mock, getParams())  //
         .WillOnce(Return(rx_params));
     IResponseRxSession::OnReceiveCallback::Function res_rx_cb_fn;
@@ -372,7 +372,7 @@ TEST_F(TestClient, raw_request_response_via_callabck)
     StrictMock<RequestTxSessionMock>  req_tx_session_mock;
     StrictMock<ResponseRxSessionMock> res_rx_session_mock;
 
-    const ResponseRxParams rx_params{16, 147, 0x31};
+    constexpr ResponseRxParams rx_params{16, 147, 0x31};
     EXPECT_CALL(res_rx_session_mock, getParams())  //
         .WillOnce(Return(rx_params));
     IResponseRxSession::OnReceiveCallback::Function res_rx_cb_fn;
