@@ -35,7 +35,7 @@ namespace detail
 class ClientImpl final : public cavl::Node<ClientImpl>, public SharedObject
 {
 public:
-    /// No Sonar cpp:S4963 "The "Rule-of-Zero" should be followed"
+    /// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
     /// b/c we do directly handle resources here.
     ///
     class CallbackNode : public Node<CallbackNode>  // NOSONAR cpp:S4963
@@ -172,6 +172,13 @@ public:
                                                              const transport::PayloadFragments    payload) const
     {
         return svc_request_tx_session_->send(tx_metadata, payload);
+    }
+
+    void updateDeadlineOfCallbackNode(CallbackNode& callback_node, const TimePoint new_deadline) const
+    {
+        callback_node.setResponseDeadline(new_deadline);
+        // TODO: reinsert into the `cb_nodes_by_transfer_id_`; reschedule (if needed) the nearest deadline callback.
+        (void) this;
     }
 
     void releaseCallbackNode(CallbackNode& callback_node) noexcept

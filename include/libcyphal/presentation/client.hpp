@@ -33,7 +33,7 @@ namespace detail
 
 /// @brief Defines internal base class for any concrete (final) service client.
 ///
-/// No Sonar cpp:S4963 "The "Rule-of-Zero" should be followed"
+/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
 /// b/c we do directly handle resources here.
 ///
 class ClientBase  // NOSONAR cpp:S4963

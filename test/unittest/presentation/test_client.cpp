@@ -3,8 +3,6 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-// NOLINTBEGIN(misc-include-cleaner, misc-unused-using-decls)
-
 #include "cetl_gtest_helpers.hpp"          // NOLINT(misc-include-cleaner)
 #include "gtest_helpers.hpp"               // NOLINT(misc-include-cleaner)
 #include "presentation_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
@@ -18,6 +16,7 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/presentation/client.hpp>
 #include <libcyphal/presentation/presentation.hpp>
+#include <libcyphal/presentation/response_promise.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
@@ -27,6 +26,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -58,7 +58,7 @@ using std::literals::chrono_literals::operator""s;
 using std::literals::chrono_literals::operator""ms;
 // NOLINTEND(misc-unused-using-decls, misc-include-cleaner)
 
-// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers, *-function-cognitive-complexity)
 
 class TestClient : public testing::Test
 {
@@ -159,7 +159,7 @@ TEST_F(TestClient, copy_move_getSetPriority)
     EXPECT_CALL(req_tx_session_mock, deinit()).Times(1);
 }
 
-TEST_F(TestClient, request_response_get_fetch)
+TEST_F(TestClient, request_response_get_fetch_result)
 {
     using Service       = uavcan::node::GetInfo_1_0;
     using SvcResPromise = ResponsePromise<Service::Response>;
@@ -214,12 +214,13 @@ TEST_F(TestClient, request_response_get_fetch)
         response_promise.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
 
         EXPECT_THAT(response_promise->getRequestTime(), now());
-        EXPECT_THAT(response_promise->get(), Eq(cetl::nullopt));
-        EXPECT_THAT(response_promise->fetch(), Eq(cetl::nullopt));
+        EXPECT_THAT(response_promise->getResult(), Eq(cetl::nullopt));
+        EXPECT_THAT(response_promise->fetchResult(), Eq(cetl::nullopt));
     });
     scheduler_.scheduleAt(1s + 300ms, [&](const auto&) {
         //
-        EXPECT_THAT(response_promise->get(), Eq(cetl::nullopt));
+        EXPECT_THAT(response_promise->getResult(), Eq(cetl::nullopt));
+        EXPECT_THAT(response_promise->fetchResult(), Eq(cetl::nullopt));
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
@@ -228,8 +229,11 @@ TEST_F(TestClient, request_response_get_fetch)
     });
     scheduler_.scheduleAt(2s + 1ms, [&](const auto&) {
         //
-        EXPECT_THAT(response_promise->get(), Optional(VariantWith<SvcResPromise::Success>(_)));
-        EXPECT_THAT(response_promise->fetch(), Optional(VariantWith<SvcResPromise::Success>(_)));
+        EXPECT_THAT(response_promise->getResult(), Optional(VariantWith<SvcResPromise::Success>(_)));
+        EXPECT_THAT(response_promise->fetchResult(), Optional(VariantWith<SvcResPromise::Success>(_)));
+
+        EXPECT_THAT(response_promise->getResult(), Eq(cetl::nullopt));
+        EXPECT_THAT(response_promise->fetchResult(), Eq(cetl::nullopt));
     });
     scheduler_.scheduleAt(2s + 10ms, [&](const auto&) {
         //
@@ -243,7 +247,7 @@ TEST_F(TestClient, request_response_get_fetch)
     EXPECT_CALL(req_tx_session_mock, deinit()).Times(1);
 }
 
-TEST_F(TestClient, request_response_setCallabck)
+TEST_F(TestClient, request_response_via_callabck)
 {
     using Service       = uavcan::node::GetInfo_1_0;
     using SvcResPromise = ResponsePromise<Service::Response>;
@@ -309,7 +313,7 @@ TEST_F(TestClient, request_response_setCallabck)
         response_promise
             ->setCallback([](const auto&) {
                 //
-                FAIL() << "Unexpected callback.";
+                FAIL() << "Unexpected dummy callback.";
             })
             .setCallback([&responses](const auto& arg) {
                 //
@@ -331,6 +335,9 @@ TEST_F(TestClient, request_response_setCallabck)
         EXPECT_THAT(responses,
                     ElementsAre(FieldsAre(ServiceRxMetadataEq({{{0, Priority::Nominal}, TimePoint{2s}}, 0x31}),
                                           TimePoint{2s})));
+
+        EXPECT_THAT(response_promise->getResult(), Eq(cetl::nullopt));
+        EXPECT_THAT(response_promise->fetchResult(), Eq(cetl::nullopt));
     });
     scheduler_.scheduleAt(2s + 10ms, [&](const auto&) {
         //
@@ -349,16 +356,14 @@ TEST_F(TestClient, request_response_setCallabck)
     scheduler_.spinFor(10s);
 
     EXPECT_THAT(responses,
-                ElementsAre(FieldsAre(ServiceRxMetadataEq({{{0, Priority::Nominal}, TimePoint{2s}}, 0x31}),
-                                      TimePoint{2s}),
-                            FieldsAre(ServiceRxMetadataEq({{{0, Priority::Nominal}, TimePoint{2s}}, 0x31}),
-                                      TimePoint{2s + 10ms})));
+                ElementsAre(
+                    FieldsAre(ServiceRxMetadataEq({{{0, Priority::Nominal}, TimePoint{2s}}, 0x31}), TimePoint{2s})));
 
     EXPECT_CALL(res_rx_session_mock, deinit()).Times(1);
     EXPECT_CALL(req_tx_session_mock, deinit()).Times(1);
 }
 
-TEST_F(TestClient, raw_request_response_setCallabck)
+TEST_F(TestClient, raw_request_response_via_callabck)
 {
     using SvcResPromise = ResponsePromise<void>;
 
@@ -421,7 +426,7 @@ TEST_F(TestClient, raw_request_response_setCallabck)
         response_promise
             ->setCallback([](const auto&) {
                 //
-                FAIL() << "Unexpected callback.";
+                FAIL() << "Unexpected dummy callback.";
             })
             .setCallback([&responses](const auto& arg) {
                 //
@@ -462,18 +467,13 @@ TEST_F(TestClient, raw_request_response_setCallabck)
     scheduler_.spinFor(10s);
 
     EXPECT_THAT(responses,
-                ElementsAre(FieldsAre(7,
-                                      ServiceRxMetadataEq({{{0, Priority::Nominal}, TimePoint{2s}}, 0x31}),
-                                      TimePoint{2s}),
-                            FieldsAre(0,
-                                      ServiceRxMetadataEq({{{0, Priority::Nominal}, TimePoint{2s}}, 0x31}),
-                                      TimePoint{2s + 10ms})));
+                ElementsAre(
+                    FieldsAre(7, ServiceRxMetadataEq({{{0, Priority::Nominal}, TimePoint{2s}}, 0x31}), TimePoint{2s})));
 
     EXPECT_CALL(res_rx_session_mock, deinit()).Times(1);
     EXPECT_CALL(req_tx_session_mock, deinit()).Times(1);
 }
 
-// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
-// NOLINTEND(misc-include-cleaner, misc-unused-using-decls)
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers, *-function-cognitive-complexity)
 
 }  // namespace

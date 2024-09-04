@@ -34,7 +34,7 @@ namespace detail
 
 /// @brief Defines internal base class for any concrete (final) message publisher.
 ///
-/// No Sonar cpp:S4963 "The "Rule-of-Zero" should be followed"
+/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
 /// b/c we do directly handle resources here.
 ///
 class PublisherBase  // NOSONAR cpp:S4963

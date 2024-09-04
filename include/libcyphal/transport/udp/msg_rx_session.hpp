@@ -112,7 +112,13 @@ private:
 
     CETL_NODISCARD cetl::optional<MessageRxTransfer> receive() override
     {
-        return std::exchange(last_rx_transfer_, cetl::nullopt);
+        if (last_rx_transfer_)
+        {
+            auto transfer = std::move(*last_rx_transfer_);
+            last_rx_transfer_.reset();
+            return transfer;
+        }
+        return cetl::nullopt;
     }
 
     void setOnReceiveCallback(OnReceiveCallback::Function&& function) override

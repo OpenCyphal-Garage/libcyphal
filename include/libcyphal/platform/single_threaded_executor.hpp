@@ -133,7 +133,7 @@ protected:
         };
 
         CallbackNode(CallbackNode&& other) noexcept
-            : Node{std::move(static_cast<Node&>(other))}
+            : Node{std::move(static_cast<Node&&>(other))}
             , executor_{other.executor_}
             , function_{std::move(other.function_)}
             , next_exec_time_{other.next_exec_time_}
