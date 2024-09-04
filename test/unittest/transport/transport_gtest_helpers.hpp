@@ -25,6 +25,37 @@ namespace transport
 
 // MARK: - GTest Printers:
 
+inline void PrintTo(const Priority priority, std::ostream* os)
+{
+    switch (priority)
+    {
+    case Priority::Exceptional:
+        *os << "Exceptional(0)";
+        break;
+    case Priority::Immediate:
+        *os << "Immediate(1)";
+        break;
+    case Priority::Fast:
+        *os << "Fast(2)";
+        break;
+    case Priority::High:
+        *os << "High(3)";
+        break;
+    case Priority::Nominal:
+        *os << "Nominal(4)";
+        break;
+    case Priority::Low:
+        *os << "Low(5)";
+        break;
+    case Priority::Slow:
+        *os << "Slow(6)";
+        break;
+    case Priority::Optional:
+        *os << "Optional(7)";
+        break;
+    }
+}
+
 inline void PrintTo(const MessageRxParams& params, std::ostream* os)
 {
     *os << "MessageRxParams{extent_bytes=" << params.extent_bytes;
@@ -58,6 +89,29 @@ inline void PrintTo(const ResponseRxParams& params, std::ostream* os)
 inline void PrintTo(const ResponseTxParams& params, std::ostream* os)
 {
     *os << "ResponseTxParams{service_id=" << params.service_id << "}";
+}
+
+inline void PrintTo(const TransferMetadata& meta, std::ostream* os)
+{
+    *os << "TransferMetadata{transfer_id=" << meta.transfer_id << ", priority=" << testing::PrintToString(meta.priority)
+        << "}";
+}
+
+inline void PrintTo(const TransferRxMetadata& meta, std::ostream* os)
+{
+    *os << "TransferRxMetadata{base=" << testing::PrintToString(meta.base)
+        << ", timestamp=" << testing::PrintToString(meta.timestamp) << "}";
+}
+
+inline void PrintTo(const ServiceRxMetadata& meta, std::ostream* os)
+{
+    *os << "SvcRxMetadata{rx_meta=" << testing::PrintToString(meta.rx_meta)
+        << ", remote_node_id=" << meta.remote_node_id << "}";
+}
+
+inline void PrintTo(const ScatteredBuffer& buffer, std::ostream* os)
+{
+    *os << "ScatteredBuffer{size=" << buffer.size() << "}";
 }
 
 // MARK: - GTest Matchers:
@@ -252,6 +306,40 @@ private:
 inline testing::Matcher<const ResponseTxParams&> ResponseTxParamsEq(const ResponseTxParams& params)
 {
     return ResponseTxParamsMatcher(params);
+
+}  // ResponseTxParamsMatcher
+
+class ServiceRxMetadataMatcher
+{
+public:
+    using is_gtest_matcher = void;
+
+    explicit ServiceRxMetadataMatcher(const ServiceRxMetadata& meta)
+        : meta_{meta}
+    {
+    }
+
+    bool MatchAndExplain(const ServiceRxMetadata& meta, std::ostream*) const
+    {
+        return meta.rx_meta.base.transfer_id == meta_.rx_meta.base.transfer_id &&
+               meta.rx_meta.base.priority == meta_.rx_meta.base.priority &&
+               meta.rx_meta.timestamp == meta_.rx_meta.timestamp && meta.remote_node_id == meta_.remote_node_id;
+    }
+    void DescribeTo(std::ostream* os) const
+    {
+        *os << "is " << testing::PrintToString(meta_);
+    }
+    void DescribeNegationTo(std::ostream* os) const
+    {
+        *os << "is NOT " << testing::PrintToString(meta_);
+    }
+
+private:
+    const ServiceRxMetadata meta_;
+};
+inline testing::Matcher<const ServiceRxMetadata&> ServiceRxMetadataEq(const ServiceRxMetadata& meta)
+{
+    return ServiceRxMetadataMatcher(meta);
 
 }  // ResponseTxParamsMatcher
 

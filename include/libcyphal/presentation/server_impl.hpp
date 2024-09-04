@@ -16,8 +16,6 @@
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 
-#include <nunavut/support/serialization.hpp>
-
 #include <cstdint>
 #include <memory>
 #include <utility>
@@ -55,23 +53,23 @@ public:
 
     ServerImpl(cetl::pmr::memory_resource&              memory,
                ITimeProvider&                           time_provider,
-               UniquePtr<transport::IRequestRxSession>  svc_request_rx_session,
-               UniquePtr<transport::IResponseTxSession> svc_response_tx_session)
+               UniquePtr<transport::IRequestRxSession>  svc_req_rx_session,
+               UniquePtr<transport::IResponseTxSession> svc_res_tx_session)
         : memory_{memory}
         , time_provider_{time_provider}
-        , svc_request_rx_session_{std::move(svc_request_rx_session)}
-        , svc_response_tx_session_{std::move(svc_response_tx_session)}
+        , svc_req_rx_session_{std::move(svc_req_rx_session)}
+        , svc_res_tx_session_{std::move(svc_res_tx_session)}
     {
-        CETL_DEBUG_ASSERT(svc_request_rx_session_ != nullptr, "");
-        CETL_DEBUG_ASSERT(svc_response_tx_session_ != nullptr, "");
+        CETL_DEBUG_ASSERT(svc_req_rx_session_ != nullptr, "");
+        CETL_DEBUG_ASSERT(svc_res_tx_session_ != nullptr, "");
     }
 
     void setOnReceiveCallback(Callback& callback) const
     {
-        CETL_DEBUG_ASSERT(svc_request_rx_session_ != nullptr, "");
+        CETL_DEBUG_ASSERT(svc_req_rx_session_ != nullptr, "");
 
         const auto& time_provider = time_provider_;
-        svc_request_rx_session_->setOnReceiveCallback([&time_provider, &callback](const auto& arg) {
+        svc_req_rx_session_->setOnReceiveCallback([&time_provider, &callback](const auto& arg) {
             //
             callback.onRequestRxTransfer(time_provider.now(), arg.transfer);
         });
@@ -80,18 +78,17 @@ public:
     cetl::optional<transport::AnyFailure> respondWithPayload(const transport::ServiceTxMetadata& tx_metadata,
                                                              const transport::PayloadFragments   payload) const
     {
-        return svc_response_tx_session_->send(tx_metadata, payload);
+        return svc_res_tx_session_->send(tx_metadata, payload);
     }
 
     // No Sonar `cpp:S5356` and `cpp:S5357` b/c of raw PMR memory allocation,
     // as well as data pointer type mismatches between scattered buffer and `const_bitspan`.
     // TODO: Eliminate PMR allocation - when `deserialize` will support scattered buffers.
-    // TODO: Move this method to some common place (this `ServerImpl` and `SubscriberImpl` have it).
+    // TODO: Move this method to some common place (\this `ServerImpl` and `SubscriberImpl` have it).
     template <typename Request>
     bool tryDeserialize(const transport::ScatteredBuffer& buffer, Request& request)
     {
         // Make a copy of the scattered buffer into a single contiguous temp buffer.
-        //
         // Strictly speaking, we could eliminate PMR allocation here in favor of a fixed-size stack buffer
         // (`Request::_traits_::ExtentBytes`), but this might be dangerous in case of large requests.
         // Maybe some kind of hybrid approach would be better,
@@ -118,8 +115,8 @@ private:
 
     cetl::pmr::memory_resource&              memory_;
     ITimeProvider&                           time_provider_;
-    UniquePtr<transport::IRequestRxSession>  svc_request_rx_session_;
-    UniquePtr<transport::IResponseTxSession> svc_response_tx_session_;
+    UniquePtr<transport::IRequestRxSession>  svc_req_rx_session_;
+    UniquePtr<transport::IResponseTxSession> svc_res_tx_session_;
 
 };  // ServerImpl
 

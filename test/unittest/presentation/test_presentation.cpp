@@ -94,10 +94,9 @@ struct Service final
     {
         struct _traits_
         {
-            static constexpr bool          HasFixedPortID               = true;
-            static constexpr std::uint16_t FixedPortId                  = 147U;
-            static constexpr std::size_t   ExtentBytes                  = sizeof(std::uint64_t) * 2;
-            static constexpr std::size_t   SerializationBufferSizeBytes = sizeof(std::uint64_t);
+            static constexpr bool          HasFixedPortID = true;
+            static constexpr std::uint16_t FixedPortId    = 147U;
+            static constexpr std::size_t   ExtentBytes    = sizeof(std::uint64_t) * 2;
         };
 
         std::uint64_t id{};  // NOLINT
@@ -108,10 +107,8 @@ struct Service final
     {
         struct _traits_
         {
-            static constexpr bool          HasFixedPortID               = true;
-            static constexpr std::uint16_t FixedPortId                  = 147U;
-            static constexpr std::size_t   ExtentBytes                  = sizeof(std::uint64_t) * 3;
-            static constexpr std::size_t   SerializationBufferSizeBytes = sizeof(std::uint64_t);
+            static constexpr std::size_t ExtentBytes                  = sizeof(std::uint64_t) * 3;
+            static constexpr std::size_t SerializationBufferSizeBytes = sizeof(std::uint64_t);
         };
 
         std::uint64_t id{};  // NOLINT

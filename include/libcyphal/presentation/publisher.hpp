@@ -170,7 +170,7 @@ public:
     ///
     cetl::optional<Failure> publish(const TimePoint deadline, const Message& message) const
     {
-        // Try to serialize the response to raw payload buffer.
+        // Try to serialize the message to raw payload buffer.
         //
         // Next nolint b/c we use a buffer to serialize the message, so no need to zero it (and performance better).
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
