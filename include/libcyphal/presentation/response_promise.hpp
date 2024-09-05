@@ -154,8 +154,8 @@ protected:
     ResponsePromiseBase(detail::ClientImpl* const   client_impl,
                         const TimePoint             request_time,
                         const transport::TransferId transfer_id,
-                        const TimePoint             request_deadline)
-        : CallbackNode{transfer_id, request_deadline}
+                        const TimePoint             response_deadline)
+        : CallbackNode{transfer_id, response_deadline}
         , client_impl_{client_impl}
         , request_time_{request_time}
     {
@@ -215,7 +215,7 @@ protected:
     void acceptNewDeadline(const TimePoint deadline)
     {
         CETL_DEBUG_ASSERT(client_impl_ != nullptr, "");
-        client_impl_->updateDeadlineOfCallbackNode(*this, deadline);
+        client_impl_->updateDeadlineOfTimeoutNode(*this, deadline);
     }
 
     // MARK: CallbackNode

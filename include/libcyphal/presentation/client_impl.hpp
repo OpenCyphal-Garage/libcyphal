@@ -35,31 +35,60 @@ namespace detail
 class ClientImpl final : public cavl::Node<ClientImpl>, public SharedObject
 {
 public:
+    class TimeoutNode : public Node<TimeoutNode>
+    {
+    public:
+        bool isTimeoutLinked() const noexcept
+        {
+            return isLinked();
+        }
+
+        TimePoint getDeadline() const noexcept
+        {
+            return deadline_;
+        }
+
+        void setDeadline(const TimePoint response_deadline) noexcept
+        {
+            deadline_ = response_deadline;
+        }
+
+        CETL_NODISCARD std::int8_t compareByDeadline(const TimePoint deadline) const noexcept
+        {
+            return (deadline_ <= deadline) ? -1 : 1;
+        }
+
+    protected:
+        explicit TimeoutNode(const TimePoint deadline)
+            : deadline_{deadline}
+        {
+        }
+
+    private:
+        // MARK: Data members:
+
+        TimePoint deadline_;
+
+    };  // TimeoutNode
+
     /// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
     /// b/c we do directly handle resources here.
     ///
-    class CallbackNode : public Node<CallbackNode>  // NOSONAR cpp:S4963
+    class CallbackNode : public Node<CallbackNode>, public TimeoutNode  // NOSONAR cpp:S4963
     {
     public:
-        using Node::isLinked;
-
         CallbackNode(const CallbackNode&)                = delete;
         CallbackNode& operator=(const CallbackNode&)     = delete;
         CallbackNode& operator=(CallbackNode&&) noexcept = delete;
 
+        bool isCallbackLinked() const noexcept
+        {
+            return Node<CallbackNode>::isLinked();
+        }
+
         transport::TransferId getTransferId() const noexcept
         {
             return transfer_id_;
-        }
-
-        TimePoint getResponseDeadline() const noexcept
-        {
-            return response_deadline_;
-        }
-
-        void setResponseDeadline(const TimePoint response_deadline) noexcept
-        {
-            response_deadline_ = response_deadline;
         }
 
         CETL_NODISCARD std::int8_t compareByTransferId(const transport::TransferId transfer_id) const noexcept
@@ -75,9 +104,9 @@ public:
         virtual void onResponseRxTransfer(transport::ServiceRxTransfer& transfer, const TimePoint approx_now) = 0;
 
     protected:
-        explicit CallbackNode(const transport::TransferId transfer_id, const TimePoint response_deadline)
-            : transfer_id_{transfer_id}
-            , response_deadline_{response_deadline}
+        CallbackNode(const transport::TransferId transfer_id, const TimePoint response_deadline)
+            : TimeoutNode{response_deadline}
+            , transfer_id_{transfer_id}
         {
         }
 
@@ -88,7 +117,6 @@ public:
         // MARK: Data members:
 
         transport::TransferId transfer_id_;
-        TimePoint             response_deadline_;
 
     };  // CallbackNode
 
@@ -104,6 +132,7 @@ public:
         , svc_response_rx_session_{std::move(svc_response_rx_session)}
         , response_rx_params_{svc_response_rx_session_->getParams()}
         , next_transfer_id_{0}
+        , nearest_deadline_{DistantFuture()}
     {
         CETL_DEBUG_ASSERT(svc_request_tx_session_ != nullptr, "");
         CETL_DEBUG_ASSERT(svc_response_rx_session_ != nullptr, "");
@@ -112,9 +141,9 @@ public:
             //
             onResponseRxTransfer(arg.transfer);
         });
-        nearest_deadline_callback_ = executor_.registerCallback([](const auto&) {
+        nearest_deadline_callback_ = executor_.registerCallback([this](const auto& arg) {
             //
-            // TODO: implement!
+            onNearestDeadline(arg.approx_now);
         });
 
         // TODO: delete this line
@@ -152,20 +181,10 @@ public:
 
     void retainCallbackNode(CallbackNode& callback_node) noexcept
     {
-        CETL_DEBUG_ASSERT(!callback_node.isLinked(), "");
+        CETL_DEBUG_ASSERT(!callback_node.isCallbackLinked(), "");
 
         retain();
-
-        const auto cb_node_existing = cb_nodes_by_transfer_id_.search(                       //
-            [transfer_id = callback_node.getTransferId()](const CallbackNode& other_node) {  // predicate
-                //
-                return other_node.compareByTransferId(transfer_id);
-            },
-            [&callback_node]() { return &callback_node; });  // "factory"
-
-        (void) cb_node_existing;
-        CETL_DEBUG_ASSERT(!std::get<1>(cb_node_existing), "Unexpected existing callback node.");
-        CETL_DEBUG_ASSERT(&callback_node == std::get<0>(cb_node_existing), "Unexpected callback node.");
+        insertNewCallbackNode(callback_node);
     }
 
     cetl::optional<transport::AnyFailure> sendRequestPayload(const transport::TransferTxMetadata& tx_metadata,
@@ -174,20 +193,20 @@ public:
         return svc_request_tx_session_->send(tx_metadata, payload);
     }
 
-    void updateDeadlineOfCallbackNode(CallbackNode& callback_node, const TimePoint new_deadline) const
+    void updateDeadlineOfTimeoutNode(TimeoutNode& timeout_node, const TimePoint new_deadline)
     {
-        callback_node.setResponseDeadline(new_deadline);
-        // TODO: reinsert into the `cb_nodes_by_transfer_id_`; reschedule (if needed) the nearest deadline callback.
-        (void) this;
+        // Remove previous timeout node (if any),
+        // and then reinsert the node with updated/given new deadline time.
+        //
+        CETL_DEBUG_ASSERT(timeout_node.isTimeoutLinked(), "");
+        timeout_nodes_by_deadline_.remove(&timeout_node);
+        timeout_node.setDeadline(new_deadline);
+        insertNewTimeoutNodeAndReschedule(timeout_node);
     }
 
     void releaseCallbackNode(CallbackNode& callback_node) noexcept
     {
-        if (callback_node.isLinked())
-        {
-            cb_nodes_by_transfer_id_.remove(&callback_node);
-        }
-
+        removeCallbackNode(callback_node);
         release();
     }
 
@@ -203,6 +222,11 @@ public:
     }
 
 private:
+    static constexpr TimePoint DistantFuture()
+    {
+        return TimePoint::max();
+    }
+
     void onResponseRxTransfer(transport::ServiceRxTransfer& transfer)
     {
         const auto transfer_id = transfer.metadata.rx_meta.base.transfer_id;
@@ -212,9 +236,116 @@ private:
                     return other_node.compareByTransferId(transfer_id);
                 }))
         {
-            cb_nodes_by_transfer_id_.remove(callback_node);
-
+            removeCallbackNode(*callback_node);
             callback_node->onResponseRxTransfer(transfer, now());
+        }
+    }
+
+    void onNearestDeadline(const TimePoint approx_now)
+    {
+        while (auto* const nearest_deadline_node = timeout_nodes_by_deadline_.min())
+        {
+            if (approx_now < nearest_deadline_node->getDeadline())
+            {
+                break;
+            }
+
+            // Downcast is safe here b/c every timeout node is always a callback node.
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast)
+            auto& callback_node = static_cast<CallbackNode&>(*nearest_deadline_node);
+
+            removeCallbackNode(callback_node);
+            callback_node.onResponseTimeout(callback_node.getDeadline(), approx_now);
+        }
+    }
+
+    void insertNewCallbackNode(CallbackNode& callback_node)
+    {
+        CETL_DEBUG_ASSERT(!callback_node.isCallbackLinked(), "");
+
+        const auto cb_node_existing = cb_nodes_by_transfer_id_.search(                       //
+            [transfer_id = callback_node.getTransferId()](const CallbackNode& other_node) {  // predicate
+                //
+                return other_node.compareByTransferId(transfer_id);
+            },
+            [&callback_node]() { return &callback_node; });  // "factory"
+
+        (void) cb_node_existing;
+        CETL_DEBUG_ASSERT(callback_node.isCallbackLinked(), "");
+        CETL_DEBUG_ASSERT(!std::get<1>(cb_node_existing), "Unexpected existing callback node.");
+        CETL_DEBUG_ASSERT(&callback_node == std::get<0>(cb_node_existing), "Unexpected callback node.");
+
+        insertNewTimeoutNodeAndReschedule(callback_node);
+    }
+
+    void insertNewTimeoutNodeAndReschedule(TimeoutNode& timeout_node)
+    {
+        CETL_DEBUG_ASSERT(!timeout_node.isTimeoutLinked(), "");
+
+        const auto new_node_deadline = timeout_node.getDeadline();
+
+        // 1. Insert the new timeout node.
+        //
+        const std::tuple<TimeoutNode*, bool> timeout_node_existing = timeout_nodes_by_deadline_.search(  //
+            [new_node_deadline](const TimeoutNode& other_node) {                                         // predicate
+                return other_node.compareByDeadline(new_node_deadline);
+            },
+            [&timeout_node]() { return &timeout_node; });  // "factory"
+
+        (void) timeout_node_existing;
+        CETL_DEBUG_ASSERT(timeout_node.isTimeoutLinked(), "");
+        CETL_DEBUG_ASSERT(!std::get<1>(timeout_node_existing), "Unexpected existing timeout node.");
+        CETL_DEBUG_ASSERT(&timeout_node == std::get<0>(timeout_node_existing), "Unexpected timeout node.");
+
+        // 2. Reschedule the nearest deadline callback if it's gonna happen earlier than it was before.
+        //
+        if (nearest_deadline_ > new_node_deadline)
+        {
+            nearest_deadline_ = new_node_deadline;
+            nearest_deadline_callback_.schedule(IExecutor::Callback::Schedule::Once{new_node_deadline});
+        }
+    }
+
+    void removeCallbackNode(CallbackNode& callback_node)
+    {
+        cb_nodes_by_transfer_id_.remove(&callback_node);
+        if (callback_node.isTimeoutLinked())
+        {
+            removeTimeoutNodeAndReschedule(callback_node);
+        }
+    }
+
+    void removeTimeoutNodeAndReschedule(TimeoutNode& timeout_node)
+    {
+        CETL_DEBUG_ASSERT(timeout_node.isTimeoutLinked(), "");
+
+        timeout_nodes_by_deadline_.remove(&timeout_node);
+        const auto old_cb_node_deadline = timeout_node.getDeadline();
+
+        // No need to reschedule the nearest deadline callback if deadline of the removed node is not the nearest.
+        //
+        CETL_DEBUG_ASSERT(old_cb_node_deadline >= nearest_deadline_, "");
+        if (nearest_deadline_ < old_cb_node_deadline)
+        {
+            return;
+        }
+
+        if (const auto* const nearest_deadline_node = timeout_nodes_by_deadline_.min())
+        {
+            // Already existing schedule will work fine if the nearest deadline is not changed.
+            //
+            if (nearest_deadline_ < nearest_deadline_node->getDeadline())
+            {
+                nearest_deadline_ = nearest_deadline_node->getDeadline();
+                nearest_deadline_callback_.schedule(IExecutor::Callback::Schedule::Once{nearest_deadline_});
+            }
+        }
+        else
+        {
+            // No more timeout nodes left, so cancel the schedule (by moving it to the distant future).
+            //
+            nearest_deadline_ = DistantFuture();
+            nearest_deadline_callback_.schedule(IExecutor::Callback::Schedule::Once{nearest_deadline_});
         }
     }
 
@@ -228,6 +359,8 @@ private:
     const transport::ResponseRxParams              response_rx_params_;
     transport::TransferId                          next_transfer_id_;
     cavl::Tree<CallbackNode>                       cb_nodes_by_transfer_id_;
+    TimePoint                                      nearest_deadline_;
+    cavl::Tree<TimeoutNode>                        timeout_nodes_by_deadline_;
     IExecutor::Callback::Any                       nearest_deadline_callback_;
 
 };  // ClientImpl

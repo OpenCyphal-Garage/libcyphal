@@ -418,7 +418,7 @@ TEST_F(TestPresentation, makeServer)
         .WillOnce(Invoke([&](const auto&) {                                           //
             return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr_, req_rx_session_mock);
         }));
-    const ResponseTxParams tx_params{rx_params.service_id};
+    constexpr ResponseTxParams tx_params{rx_params.service_id};
     EXPECT_CALL(transport_mock_, makeResponseTxSession(ResponseTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                             //
             return libcyphal::detail::makeUniquePtr<UniquePtrResTxSpec>(mr_, res_tx_session_mock);
@@ -448,7 +448,7 @@ TEST_F(TestPresentation, makeServer_custom)
         .WillOnce(Invoke([&](const auto&) {                                           //
             return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr_, req_rx_session_mock);
         }));
-    const ResponseTxParams tx_params{rx_params.service_id};
+    constexpr ResponseTxParams tx_params{rx_params.service_id};
     EXPECT_CALL(transport_mock_, makeResponseTxSession(ResponseTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                             //
             return libcyphal::detail::makeUniquePtr<UniquePtrResTxSpec>(mr_, res_tx_session_mock);
@@ -475,7 +475,7 @@ TEST_F(TestPresentation, makeServer_raw)
         .WillOnce(Invoke([&](const auto&) {                                           //
             return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr_, req_rx_session_mock);
         }));
-    const ResponseTxParams tx_params{rx_params.service_id};
+    constexpr ResponseTxParams tx_params{rx_params.service_id};
     EXPECT_CALL(transport_mock_, makeResponseTxSession(ResponseTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                             //
             return libcyphal::detail::makeUniquePtr<UniquePtrResTxSpec>(mr_, res_tx_session_mock);
@@ -562,7 +562,7 @@ TEST_F(TestPresentation, makeClient)
         .WillOnce(Invoke([&](const auto&) {                                             //
             return libcyphal::detail::makeUniquePtr<UniquePtrResRxSpec>(mr_, res_rx_session_mock);
         }));
-    const RequestTxParams tx_params{rx_params.service_id, rx_params.server_node_id};
+    constexpr RequestTxParams tx_params{rx_params.service_id, rx_params.server_node_id};
     EXPECT_CALL(transport_mock_, makeRequestTxSession(RequestTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                           //
             return libcyphal::detail::makeUniquePtr<UniquePtrReqTxSpec>(mr_, req_tx_session_mock);
@@ -592,7 +592,7 @@ TEST_F(TestPresentation, makeClient_multiple_custom)
         .WillOnce(Invoke([&](const auto&) {                                             //
             return libcyphal::detail::makeUniquePtr<UniquePtrResRxSpec>(mr_, res_rx_session_mock);
         }));
-    const RequestTxParams tx_params{rx_params.service_id, rx_params.server_node_id};
+    constexpr RequestTxParams tx_params{rx_params.service_id, rx_params.server_node_id};
     EXPECT_CALL(transport_mock_, makeRequestTxSession(RequestTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                           //
             return libcyphal::detail::makeUniquePtr<UniquePtrReqTxSpec>(mr_, req_tx_session_mock);
@@ -609,7 +609,7 @@ TEST_F(TestPresentation, makeClient_multiple_custom)
         StrictMock<ResponseRxSessionMock> res_rx_session_mock2;
         StrictMock<RequestTxSessionMock>  req_tx_session_mock2;
 
-        const ResponseRxParams rx_params2{rx_params.extent_bytes, rx_params.service_id, 0x32};
+        constexpr ResponseRxParams rx_params2{rx_params.extent_bytes, rx_params.service_id, 0x32};
         EXPECT_CALL(res_rx_session_mock2, getParams()).WillOnce(Return(rx_params2));
         EXPECT_CALL(res_rx_session_mock2, setOnReceiveCallback(_)).WillRepeatedly(Return());
 
@@ -617,7 +617,7 @@ TEST_F(TestPresentation, makeClient_multiple_custom)
             .WillOnce(Invoke([&](const auto&) {                                              //
                 return libcyphal::detail::makeUniquePtr<UniquePtrResRxSpec>(mr_, res_rx_session_mock2);
             }));
-        const RequestTxParams tx_params2{rx_params2.service_id, rx_params2.server_node_id};
+        constexpr RequestTxParams tx_params2{rx_params2.service_id, rx_params2.server_node_id};
         EXPECT_CALL(transport_mock_, makeRequestTxSession(RequestTxParamsEq(tx_params2)))  //
             .WillOnce(Invoke([&](const auto&) {                                            //
                 return libcyphal::detail::makeUniquePtr<UniquePtrReqTxSpec>(mr_, req_tx_session_mock2);
@@ -649,7 +649,7 @@ TEST_F(TestPresentation, makeClient_raw)
         .WillOnce(Invoke([&](const auto&) {                                             //
             return libcyphal::detail::makeUniquePtr<UniquePtrResRxSpec>(mr_, res_rx_session_mock);
         }));
-    const RequestTxParams tx_params{rx_params.service_id, rx_params.server_node_id};
+    constexpr RequestTxParams tx_params{rx_params.service_id, rx_params.server_node_id};
     EXPECT_CALL(transport_mock_, makeRequestTxSession(RequestTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                           //
             return libcyphal::detail::makeUniquePtr<UniquePtrReqTxSpec>(mr_, req_tx_session_mock);
