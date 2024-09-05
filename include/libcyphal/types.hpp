@@ -143,7 +143,7 @@ struct AppendType<cetl::variant<A...>, B...>
 /// @return Value of the upcasted variant type.
 ///
 template <typename UpVariant, typename Variant>
-CETL_NODISCARD static UpVariant upcastVariant(Variant&& variant)
+CETL_NODISCARD UpVariant upcastVariant(Variant&& variant)
 {
     return cetl::visit([](auto&& value) -> UpVariant { return std::forward<decltype(value)>(value); },
                        std::forward<Variant>(variant));

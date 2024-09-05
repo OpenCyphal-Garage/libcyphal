@@ -140,7 +140,7 @@ private:
 
 /// @brief Defines a custom strong-typed message publisher class.
 ///
-/// Although the publisher class is not requiring specifically Nunavut tool generated message type,
+/// Although the publisher class does not specifically require a Nunavut tool generated message type,
 /// it follows patterns of the tool (and has dependency on its `SerializeResult` and `bitspan` helper types),
 /// so it is highly recommended to use DSDL file and the tool to generate the types.
 /// Otherwise, see below requirements for the `Message` type, as well as consult with

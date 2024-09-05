@@ -96,7 +96,7 @@ private:
 
 /// @brief Defines a custom strong-typed message subscriber class.
 ///
-/// Although the subscriber class is not requiring specifically Nunavut tool generated message type,
+/// Although the subscriber class does not specifically require a Nunavut tool generated message type,
 /// it follows patterns of the tool (and has dependency on its `SerializeResult` and `bitspan` helper types),
 /// so it is highly recommended to use DSDL file and the tool to generate the types.
 /// Otherwise, see below requirements for the `Message` type, as well as consult with
@@ -128,7 +128,7 @@ public:
     ///
     /// Note that setting the callback will disable the previous one (if any).
     /// Also, resetting it to `nullptr` does not release internal RX session,
-    /// and so incoming messages will be still coming and silently dropped.
+    /// and so incoming messages will still be coming and silently dropped.
     ///
     /// @param on_receive_cb_fn The function which will be called back.
     ///                         Use `nullptr` (or `{}`) to disable the callback.
@@ -191,7 +191,7 @@ public:
     ///
     /// Note that setting the callback will disable the previous one (if any).
     /// Also, resetting it to `nullptr` does not release internal RX session,
-    /// and so incoming messages will be still coming and silently dropped.
+    /// and so incoming messages will still be coming and silently dropped.
     ///
     /// @param on_receive_cb_fn The function which will be called back.
     ///                         Use `nullptr` (or `{}`) to disable the callback.

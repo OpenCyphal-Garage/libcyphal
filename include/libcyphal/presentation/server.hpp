@@ -170,7 +170,7 @@ private:
 
 /// @brief Defines a custom strong-typed RPC server class.
 ///
-/// Although the server class is not requiring specifically Nunavut tool generated request/response types,
+/// Although the server class does not specifically require Nunavut tool generated request/response types,
 /// it follows patterns of the tool (and has dependency on its `SerializeResult` and `bitspan` helper types),
 /// so it is highly recommended to use DSDL file and the tool to generate the types.
 /// Otherwise, see below requirements for the `Request` and `Response` types, as well as consult with
@@ -214,7 +214,7 @@ public:
     ///
     /// Note that setting the callback will disable the previous one (if any).
     /// Also, resetting it to `nullptr` does not release internal RX/TX sessions,
-    /// and so incoming requests will be still coming and silently dropped (without an attempt to be deserialized).
+    /// and so incoming requests will still be coming and silently dropped (without an attempt to be deserialized).
     ///
     /// @param on_request_cb_fn The function which will be called back.
     ///                         Use `nullptr` (or `{}`) to disable the callback.
@@ -294,7 +294,7 @@ private:
 
 /// @brief Defines a service typed RPC server class.
 ///
-/// Although the server class is not requiring specifically Nunavut tool generated service type, it follows patterns
+/// Although the server class does not specifically require a Nunavut tool generated service type, it follows patterns
 /// of the tool, so it is highly recommended to use DSDL file and the tool to generate the service type.
 /// Otherwise, see below requirements for the `Service` type, and also `Server<Request, Response>` for details.
 ///
@@ -334,7 +334,7 @@ public:
     ///
     /// Note that setting the callback will disable the previous one (if any).
     /// Also, resetting it to `nullptr` does not release internal RX/TX sessions,
-    /// and so incoming requests will be still coming and silently dropped.
+    /// and so incoming requests will still be coming and silently dropped.
     ///
     /// @param on_request_cb_fn The function which will be called back.
     ///                         Use `nullptr` (or `{}`) to disable the callback.
