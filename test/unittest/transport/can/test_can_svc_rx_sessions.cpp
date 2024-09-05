@@ -3,13 +3,13 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "../../cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
-#include "../../memory_resource_mock.hpp"
-#include "../../tracking_memory_resource.hpp"
-#include "../../verification_utilities.hpp"
-#include "../../virtual_time_scheduler.hpp"
 #include "can_gtest_helpers.hpp"
+#include "cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "media_mock.hpp"
+#include "memory_resource_mock.hpp"
+#include "tracking_memory_resource.hpp"
+#include "verification_utilities.hpp"
+#include "virtual_time_scheduler.hpp"
 
 #include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>
@@ -236,6 +236,64 @@ TEST_F(TestCanSvcRxSessions, receive_request)
             //
             const auto maybe_rx_transfer = session->receive();
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
+        });
+    });
+    scheduler_.spinFor(10s);
+}
+
+TEST_F(TestCanSvcRxSessions, receive_request_via_callback)
+{
+    auto transport = makeTransport(mr_, 0x31);
+
+    EXPECT_CALL(media_mock_, registerPopCallback(_))  //
+        .WillOnce(Invoke([&](auto function) {         //
+            return scheduler_.registerNamedCallback("rx", std::move(function));
+        }));
+
+    auto maybe_session = transport->makeRequestRxSession({8, 0x17B});
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestRxSession>>(NotNull()));
+    auto session = cetl::get<UniquePtr<IRequestRxSession>>(std::move(maybe_session));
+
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1)))  //
+        .WillOnce([&](Filters filters) {
+            EXPECT_THAT(filters,
+                        Contains(FilterEq({0b1'0'0'101111011'0110001'0000000, 0b1'0'1'111111111'1111111'0000000})));
+            return cetl::nullopt;
+        });
+
+    TimePoint rx_timestamp;
+
+    session->setOnReceiveCallback([&](const IRequestRxSession::OnReceiveCallback::Arg& arg) {
+        //
+        EXPECT_THAT(arg.transfer.metadata.rx_meta.timestamp, rx_timestamp);
+        EXPECT_THAT(arg.transfer.metadata.rx_meta.base.transfer_id, 0x1D);
+        EXPECT_THAT(arg.transfer.metadata.rx_meta.base.priority, Priority::High);
+        EXPECT_THAT(arg.transfer.metadata.remote_node_id, 0x13);
+
+        std::array<char, 2> buffer{};
+        ASSERT_THAT(arg.transfer.payload.size(), buffer.size());
+        EXPECT_THAT(arg.transfer.payload.copy(0, buffer.data(), buffer.size()), buffer.size());
+        EXPECT_THAT(buffer, ElementsAre(42, 147));
+    });
+
+    scheduler_.scheduleAt(1s, [&](const auto&) {
+        //
+        rx_timestamp = now() + 10ms;
+        EXPECT_CALL(media_mock_, pop(_))  //
+            .WillOnce([&](auto p) {
+                EXPECT_THAT(now(), rx_timestamp);
+                EXPECT_THAT(p.size(), CANARD_MTU_MAX);
+                p[0] = b(42);
+                p[1] = b(147);
+                p[2] = b(0b111'11101);
+                return IMedia::PopResult::Metadata{rx_timestamp, 0b011'1'1'0'101111011'0110001'0010011, 3};
+            });
+        scheduler_.scheduleNamedCallback("rx", rx_timestamp);
+
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const auto&) {
+            //
+            const auto maybe_rx_transfer = session->receive();
+            ASSERT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));  // b/c was "consumed" by the callback.
         });
     });
     scheduler_.spinFor(10s);

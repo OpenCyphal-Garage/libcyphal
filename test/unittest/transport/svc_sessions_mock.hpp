@@ -6,7 +6,7 @@
 #ifndef LIBCYPHAL_TRANSPORT_SVC_SESSIONS_MOCK_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_SVC_SESSIONS_MOCK_HPP_INCLUDED
 
-#include "../unique_ptr_reference_wrapper.hpp"
+#include "unique_ptr_reference_wrapper.hpp"
 
 #include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
@@ -40,6 +40,10 @@ public:
         {
             return reference().receive();
         }
+        void setOnReceiveCallback(OnReceiveCallback::Function&& function) override
+        {
+            reference().setOnReceiveCallback(std::move(function));
+        }
 
     };  // RefWrapper
 
@@ -54,6 +58,8 @@ public:
     MOCK_METHOD(void, setTransferIdTimeout, (const Duration timeout), (override));
     MOCK_METHOD(RequestRxParams, getParams, (), (const, noexcept, override));
     MOCK_METHOD(cetl::optional<ServiceRxTransfer>, receive, (), (override));
+    MOCK_METHOD(void, setOnReceiveCallback, (OnReceiveCallback::Function&&), (override));
+    MOCK_METHOD(void, deinit, (), (noexcept));  // NOLINT(*-exception-escape)
 
 };  // RequestRxSessionMock
 
@@ -93,6 +99,7 @@ public:
                 send,
                 (const TransferTxMetadata& metadata, const PayloadFragments payload_fragments),
                 (override));
+    MOCK_METHOD(void, deinit, (), ());
 
 };  // RequestTxSessionMock
 
@@ -119,6 +126,10 @@ public:
         {
             return reference().receive();
         }
+        void setOnReceiveCallback(OnReceiveCallback::Function&& function) override
+        {
+            reference().setOnReceiveCallback(std::move(function));
+        }
 
     };  // RefWrapper
 
@@ -133,6 +144,8 @@ public:
     MOCK_METHOD(void, setTransferIdTimeout, (const Duration timeout), (override));
     MOCK_METHOD(ResponseRxParams, getParams, (), (const, noexcept, override));
     MOCK_METHOD(cetl::optional<ServiceRxTransfer>, receive, (), (override));
+    MOCK_METHOD(void, setOnReceiveCallback, (OnReceiveCallback::Function&&), (override));
+    MOCK_METHOD(void, deinit, (), (noexcept));  // NOLINT(*-exception-escape)
 
 };  // ResponseRxSessionMock
 
@@ -172,6 +185,7 @@ public:
                 send,
                 (const ServiceTxMetadata& metadata, const PayloadFragments payload_fragments),
                 (override));
+    MOCK_METHOD(void, deinit, (), ());
 
 };  // ResponseTxSessionMock
 

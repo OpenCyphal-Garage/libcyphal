@@ -15,7 +15,6 @@
 #include "svc_tx_sessions.hpp"
 
 #include "libcyphal/executor.hpp"
-#include "libcyphal/transport/common/tools.hpp"
 #include "libcyphal/transport/contiguous_payload.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
@@ -461,7 +460,7 @@ private:
     template <typename Report>
     void tryHandleTransientMediaFailure(const Media& media, MediaFailure&& media_failure)
     {
-        AnyFailure failure = common::detail::anyFailureFromVariant(std::move(media_failure));
+        auto failure = libcyphal::detail::upcastVariant<AnyFailure>(std::move(media_failure));
         (void) tryHandleTransientFailure<Report>(std::move(failure), media.index(), media.interface());
     }
 

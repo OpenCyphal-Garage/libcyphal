@@ -115,6 +115,11 @@ private:
         return std::exchange(last_rx_transfer_, cetl::nullopt);
     }
 
+    void setOnReceiveCallback(OnReceiveCallback::Function&& function) override
+    {
+        on_receive_cb_fn_ = std::move(function);
+    }
+
     // MARK: IRxSession
 
     void setTransferIdTimeout(const Duration timeout) override
@@ -130,8 +135,9 @@ private:
 
     void acceptRxTransfer(UdpardRxTransfer& inout_transfer) override
     {
-        const auto priority  = static_cast<Priority>(inout_transfer.priority);
-        const auto timestamp = TimePoint{std::chrono::microseconds{inout_transfer.timestamp_usec}};
+        const auto transfer_id = inout_transfer.transfer_id;
+        const auto priority    = static_cast<Priority>(inout_transfer.priority);
+        const auto timestamp   = TimePoint{std::chrono::microseconds{inout_transfer.timestamp_usec}};
 
         const cetl::optional<NodeId> publisher_node_id =
             inout_transfer.source_node_id > UDPARD_NODE_ID_MAX
@@ -140,7 +146,7 @@ private:
 
         TransportDelegate::UdpardMemory udpard_memory{delegate_, inout_transfer};
 
-        const MessageRxMetadata meta{{{inout_transfer.transfer_id, priority}, timestamp}, publisher_node_id};
+        const MessageRxMetadata meta{{{transfer_id, priority}, timestamp}, publisher_node_id};
         MessageRxTransfer       msg_rx_transfer{meta, ScatteredBuffer{std::move(udpard_memory)}};
         if (on_receive_cb_fn_)
         {
@@ -148,11 +154,6 @@ private:
             return;
         }
         (void) last_rx_transfer_.emplace(std::move(msg_rx_transfer));
-    }
-
-    void setOnReceiveCallback(OnReceiveCallback::Function&& function) override
-    {
-        on_receive_cb_fn_ = std::move(function);
     }
 
     // MARK: IMsgRxSessionDelegate

@@ -17,7 +17,6 @@
 #include "udp_transport.hpp"
 
 #include "libcyphal/executor.hpp"
-#include "libcyphal/transport/common/tools.hpp"
 #include "libcyphal/transport/contiguous_payload.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
@@ -559,7 +558,7 @@ private:
                                                             ErrorVariant&& error_var,
                                                             Culprit&&      culprit)
     {
-        AnyFailure failure = common::detail::anyFailureFromVariant(std::forward<ErrorVariant>(error_var));
+        auto failure = libcyphal::detail::upcastVariant<AnyFailure>(std::forward<ErrorVariant>(error_var));
         if (!transient_error_handler_)
         {
             return failure;

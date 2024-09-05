@@ -122,6 +122,11 @@ private:
         return std::exchange(last_rx_transfer_, cetl::nullopt);
     }
 
+    void setOnReceiveCallback(ISvcRxSession::OnReceiveCallback::Function&& function) override
+    {
+        on_receive_cb_fn_ = std::move(function);
+    }
+
     // MARK: IRxSession
 
     void setTransferIdTimeout(const Duration timeout) override
@@ -137,22 +142,30 @@ private:
 
     void acceptRxTransfer(UdpardRxTransfer& inout_transfer) override
     {
-        const auto priority  = static_cast<Priority>(inout_transfer.priority);
-        const auto timestamp = TimePoint{std::chrono::microseconds{inout_transfer.timestamp_usec}};
+        const auto transfer_id    = inout_transfer.transfer_id;
+        const auto remote_node_id = inout_transfer.source_node_id;
+        const auto priority       = static_cast<Priority>(inout_transfer.priority);
+        const auto timestamp      = TimePoint{std::chrono::microseconds{inout_transfer.timestamp_usec}};
 
         TransportDelegate::UdpardMemory udpard_memory{delegate_, inout_transfer};
 
-        const ServiceRxMetadata meta{{{inout_transfer.transfer_id, priority}, timestamp},
-                                     inout_transfer.source_node_id};
-        (void) last_rx_transfer_.emplace(ServiceRxTransfer{meta, ScatteredBuffer{std::move(udpard_memory)}});
+        const ServiceRxMetadata meta{{{transfer_id, priority}, timestamp}, remote_node_id};
+        ServiceRxTransfer       svc_rx_transfer{meta, ScatteredBuffer{std::move(udpard_memory)}};
+        if (on_receive_cb_fn_)
+        {
+            on_receive_cb_fn_(ISvcRxSession::OnReceiveCallback::Arg{svc_rx_transfer});
+            return;
+        }
+        (void) last_rx_transfer_.emplace(std::move(svc_rx_transfer));
     }
 
     // MARK: Data members:
 
-    TransportDelegate&                delegate_;
-    const Params                      params_;
-    UdpardRxRPCPort                   rpc_port_;
-    cetl::optional<ServiceRxTransfer> last_rx_transfer_;
+    TransportDelegate&                         delegate_;
+    const Params                               params_;
+    UdpardRxRPCPort                            rpc_port_;
+    cetl::optional<ServiceRxTransfer>          last_rx_transfer_;
+    ISvcRxSession::OnReceiveCallback::Function on_receive_cb_fn_;
 
 };  // SvcRxSession
 

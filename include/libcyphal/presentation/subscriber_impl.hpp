@@ -33,11 +33,10 @@ namespace presentation
 namespace detail
 {
 
-// TODO: docs
-class SubscriberImpl final : public cavl::Node<SubscriberImpl>, public detail::SharedObject
+class SubscriberImpl final : public cavl::Node<SubscriberImpl>, public SharedObject
 {
 public:
-    class CallbackNode : public cavl::Node<CallbackNode>
+    class CallbackNode : public Node<CallbackNode>
     {
     public:
         struct Deserializer
@@ -71,10 +70,16 @@ public:
             // No Sonar `cpp:S5356` and `cpp:S5357` b/c of raw PMR memory allocation,
             // as well as data pointer type mismatches between scattered buffer and `const_bitspan`.
             // TODO: Eliminate PMR allocation - when `deserialize` will support scattered buffers.
+            // TODO: Move this method to some common place (this `SubscriberImpl` and `ServerImpl` have it).
             template <typename Message>
-            static bool tryDeserializeMessage(Message& message, Context& context)
+            static bool tryDeserialize(Context& context, Message& out_message)
             {
                 // Make a copy of the scattered buffer into a single contiguous temp buffer.
+                //
+                // Strictly speaking, we could eliminate PMR allocation here in favor of a fixed-size stack buffer
+                // (`Message::_traits_::ExtentBytes`), but this might be dangerous in case of large messages.
+                // Maybe some kind of hybrid approach would be better,
+                // e.g. stack buffer for small messages and PMR for large ones.
                 //
                 const std::unique_ptr<cetl::byte, PmrRawBytesDeleter>
                     tmp_buffer{static_cast<cetl::byte*>(  // NOSONAR cpp:S5356 cpp:S5357
@@ -90,7 +95,7 @@ public:
                 const auto* const data_u8s = static_cast<const std::uint8_t*>(data_raw);  // NOSONAR cpp:S5356 cpp:S5357
                 const nunavut::support::const_bitspan bitspan{data_u8s, data_size};
 
-                return deserialize(message, bitspan);
+                return deserialize(out_message, bitspan);
             }
 
             template <typename Message, typename Subscriber>
@@ -103,7 +108,7 @@ public:
                 // Deserialize the message from the buffer - only once!
                 //
                 Message    message{};
-                const bool got_message = tryDeserializeMessage(message, context);
+                const bool got_message = tryDeserialize(context, message);
 
                 // Enumerate all nodes with the same deserializer, and deliver the message to them.
                 // It's important to do it even in case of deserialization failure -
@@ -199,10 +204,10 @@ public:
 
     };  // CallbackNode
 
-    explicit SubscriberImpl(cetl::pmr::memory_resource&             memory,
-                            IPresentationDelegate&                  delegate,
-                            ITimeProvider&                          time_provider,
-                            UniquePtr<transport::IMessageRxSession> msg_rx_session)
+    SubscriberImpl(cetl::pmr::memory_resource&             memory,
+                   IPresentationDelegate&                  delegate,
+                   ITimeProvider&                          time_provider,
+                   UniquePtr<transport::IMessageRxSession> msg_rx_session)
         : memory_{memory}
         , delegate_{delegate}
         , time_provider_{time_provider}

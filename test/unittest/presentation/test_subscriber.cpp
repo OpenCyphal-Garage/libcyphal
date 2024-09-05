@@ -3,15 +3,15 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "../cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
-#include "../gtest_helpers.hpp"       // NOLINT(misc-include-cleaner)
-#include "../memory_resource_mock.hpp"
-#include "../tracking_memory_resource.hpp"
-#include "../transport/msg_sessions_mock.hpp"
-#include "../transport/scattered_buffer_storage_mock.hpp"
-#include "../transport/transport_mock.hpp"
-#include "../virtual_time_scheduler.hpp"
+#include "cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
+#include "gtest_helpers.hpp"       // NOLINT(misc-include-cleaner)
+#include "memory_resource_mock.hpp"
 #include "my_custom/bar_1_0.hpp"
+#include "tracking_memory_resource.hpp"
+#include "transport/msg_sessions_mock.hpp"
+#include "transport/scattered_buffer_storage_mock.hpp"
+#include "transport/transport_mock.hpp"
+#include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/presentation/presentation.hpp>
@@ -153,7 +153,7 @@ TEST_F(TestSubscriber, onReceive)
     ASSERT_THAT(maybe_sub, VariantWith<Subscriber<Message>>(_));
     auto subscriber = cetl::get<Subscriber<Message>>(std::move(maybe_sub));
 
-    EXPECT_TRUE(msg_rx_cb_fn);
+    ASSERT_TRUE(msg_rx_cb_fn);
 
     Message test_message{7, {uavcan::node::Health_1_0::WARNING}, {uavcan::node::Mode_1_0::MAINTENANCE}, 42};
 

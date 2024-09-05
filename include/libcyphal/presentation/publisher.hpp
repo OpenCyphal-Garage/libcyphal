@@ -32,12 +32,19 @@ namespace presentation
 namespace detail
 {
 
-// TODO: docs
+/// @brief Defines internal base class for any concrete (final) message publisher.
+///
 /// No Sonar cpp:S4963 "The "Rule-of-Zero" should be followed"
 /// b/c we do directly handle resources here.
+///
 class PublisherBase  // NOSONAR cpp:S4963
 {
 public:
+    /// @brief Defines failure type for a base publisher operations.
+    ///
+    /// The set of possible failures of the base publisher includes transport layer failures.
+    /// A strong-typed publisher extends this type with its own error types (serialization-related).
+    ///
     using Failure = transport::AnyFailure;
 
     PublisherBase(const PublisherBase& other)
@@ -113,6 +120,7 @@ protected:
         impl->retain();
     }
 
+    // TODO: Switch to `transport::PayloadFragments`.
     cetl::optional<Failure> publishRawData(const TimePoint deadline, const cetl::span<const cetl::byte> data) const
     {
         CETL_DEBUG_ASSERT(impl_ != nullptr, "");
@@ -130,35 +138,55 @@ private:
 
 }  // namespace detail
 
-// TODO: docs
+/// @brief Defines a custom strong-typed message publisher class.
+///
+/// Although the publisher class does not specifically require a Nunavut tool generated message type,
+/// it follows patterns of the tool (and has dependency on its `SerializeResult` and `bitspan` helper types),
+/// so it is highly recommended to use DSDL file and the tool to generate the types.
+/// Otherwise, see below requirements for the `Message` type, as well as consult with
+/// Nunavut's generated code (f.e. for the signatures of expected `serialize` function).
+///
+/// @tparam Message The message type of the publisher. This type has the following requirements:
+///                 - contains `_traits_::SerializationBufferSizeBytes` constant
+///                 - has freestanding `serialize` function under its namespace (so that ADL will find it)
+///
 template <typename Message>
 class Publisher final : public detail::PublisherBase
 {
-    static_assert(!Message::_traits_::IsServiceType, "Service types are not supported by the Publisher.");
-
 public:
-    using Failure = libcyphal::detail::AppendType<transport::AnyFailure, nunavut::support::Error>::Result;
+    /// @brief Defines failure type for a strong-typed publisher operations.
+    ///
+    /// The set of possible failures includes transport layer failures (inherited from the base publisher),
+    /// as well as serialization-related ones.
+    ///
+    using Failure = libcyphal::detail::AppendType<Failure, nunavut::support::Error>::Result;
 
+    /// Publishes the message on libcyphal network.
+    ///
+    /// @param deadline The latest time to send the message. Will be dropped if exceeded.
+    /// @param message The message to serialize and then send.
+    ///
     cetl::optional<Failure> publish(const TimePoint deadline, const Message& message) const
     {
+        // Try to serialize the response to raw payload buffer.
+        //
         // Next nolint b/c we use a buffer to serialize the message, so no need to zero it (and performance better).
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
         std::array<std::uint8_t, Message::_traits_::SerializationBufferSizeBytes> buffer;
-
-        const auto result = serialize(message, buffer);
-        if (!result)
+        const auto result_size = serialize(message, buffer);
+        if (!result_size)
         {
-            return result.error();
+            return result_size.error();
         }
 
         // Next nolint & NOSONAR are currently unavoidable.
         // TODO: Eliminate `reinterpret_cast` when Nunavut supports `cetl::byte` at its `serialize`.
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         const cetl::span<const cetl::byte> data{reinterpret_cast<cetl::byte*>(buffer.data()),  // NOSONAR cpp:S3630
-                                                result.value()};
+                                                result_size.value()};
         if (auto failure = publishRawData(deadline, data))
         {
-            return failureFromVariant(std::move(*failure));
+            return libcyphal::detail::upcastVariant<Failure>(std::move(*failure));
         }
 
         return cetl::nullopt;
@@ -172,25 +200,27 @@ private:
     {
     }
 
-    template <typename FailureVar>
-    CETL_NODISCARD static Failure failureFromVariant(FailureVar&& failure_var)
-    {
-        return cetl::visit(
-            [](auto&& failure) -> Failure {
-                //
-                return std::forward<decltype(failure)>(failure);
-            },
-            std::forward<FailureVar>(failure_var));
-    }
-};
-//
+};  // Publisher<Message>
+
+/// @brief Defines a raw (aka untyped) publisher class.
+///
+/// The publisher class has no requirements for the message data (neither any Nunavut dependencies).
+/// The message data is passed as raw bytes (without any serialization step).
+///
 template <>
 class Publisher<void> final : public detail::PublisherBase
 {
 public:
+    /// Publishes the raw message on libcyphal network.
+    ///
+    /// @param deadline The latest time to send the message. Will be dropped if exceeded.
+    /// @param data The message data to publish.
+    ///
+    /// TODO: Switch to `transport::PayloadFragments`.
+    ///
     cetl::optional<Failure> publish(const TimePoint deadline, const cetl::span<const cetl::byte> data) const
     {
-        return PublisherBase::publishRawData(deadline, data);
+        return publishRawData(deadline, data);
     }
 
 private:

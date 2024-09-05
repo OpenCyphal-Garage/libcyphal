@@ -18,20 +18,26 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/presentation/presentation.hpp>
+#include <libcyphal/presentation/server.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
 #include <libcyphal/types.hpp>
 
+#include <uavcan/node/GetInfo_1_0.hpp>
 #include <uavcan/node/Health_1_0.hpp>
 #include <uavcan/node/Mode_1_0.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
+#include <iostream>
+#include <iterator>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -52,7 +58,7 @@ using testing::IsEmpty;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-class Example_12_PosixUdpPresentation : public testing::Test
+class Example_1_Presentation_2_Heartbeat_GetInfo_Udp : public testing::Test
 {
 protected:
     using Callback        = libcyphal::IExecutor::Callback;
@@ -103,10 +109,10 @@ protected:
 
     struct State
     {
-        posix::UdpMedia::Collection media_collection_;
-        UdpTransportPtr             transport_;
-        NodeHelpers::Heartbeat      heartbeat_;
-        NodeHelpers::GetInfo        get_info_;
+        posix::UdpMedia::Collection         media_collection_;
+        UdpTransportPtr                     transport_;
+        NodeHelpers::Heartbeat              heartbeat_;
+        uavcan::node::GetInfo_1_0::Response get_info_response{{1, 0}};
 
     };  // State
 
@@ -118,11 +124,11 @@ protected:
     std::vector<std::string>          iface_addresses_{"127.0.0.1"};
     // NOLINTEND
 
-};  // Example_12_PosixUdpPresentation
+};  // Example_1_Presentation_2_Heartbeat_GetInfo_Udp
 
 // MARK: - Tests:
 
-TEST_F(Example_12_PosixUdpPresentation, heartbeat_and_getInfo)
+TEST_F(Example_1_Presentation_2_Heartbeat_GetInfo_Udp, main)
 {
     State state;
 
@@ -156,17 +162,23 @@ TEST_F(Example_12_PosixUdpPresentation, heartbeat_and_getInfo)
     });
 
     // Bring up 'GetInfo' server.
-    // TODO: Replace with service server when it will be available.
-    state.get_info_.setName("org.opencyphal.example_12_posix_udp_presentation");
-    state.get_info_.makeRxSession(*state.transport_);
-    state.get_info_.makeTxSession(*state.transport_);
+    //
+    using GetInfo_1_0 = uavcan::node::GetInfo_1_0;
+    const std::string node_name{"org.opencyphal.Ex_1_Pres_2_HB_GetInfo_UDP"};
+    std::copy_n(node_name.begin(), std::min(node_name.size(), 50UL), std::back_inserter(state.get_info_response.name));
+    //
+    auto maybe_get_info_srv = presentation.makeServer<GetInfo_1_0>([&state](const auto& arg, auto continuation) {
+        //
+        std::cout << "Received 'GetInfo' request (from_node_id=" << arg.metadata.remote_node_id << ")."
+                  << std::endl;  // NOLINT
+        continuation(arg.approx_now + 1s, state.get_info_response);
+    });
+    ASSERT_THAT(maybe_get_info_srv, testing::VariantWith<ServiceServer<GetInfo_1_0>>(testing::_))
+        << "Can't create 'GetInfo' server.";
 
     // Main loop.
     //
-    CommonHelpers::runMainLoop(executor_, startup_time_ + run_duration_ + 500ms, [&](const auto now) {
-        //
-        state.get_info_.receive(now);
-    });
+    CommonHelpers::runMainLoop(executor_, startup_time_ + run_duration_ + 500ms, [](const auto) {});
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

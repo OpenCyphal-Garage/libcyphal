@@ -6,6 +6,8 @@
 #ifndef LIBCYPHAL_TRANSPORT_CAN_GTEST_HELPERS_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_CAN_GTEST_HELPERS_HPP_INCLUDED
 
+#include "cetl_gtest_helpers.hpp"
+
 #include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/transport/can/can_transport_impl.hpp>

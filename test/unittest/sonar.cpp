@@ -11,6 +11,8 @@
 #include <libcyphal/presentation/publisher.hpp>
 #include <libcyphal/presentation/publisher_impl.hpp>
 #include <libcyphal/presentation/shared_object.hpp>
+#include <libcyphal/presentation/server.hpp>
+#include <libcyphal/presentation/server_impl.hpp>
 #include <libcyphal/presentation/subscriber.hpp>
 #include <libcyphal/presentation/subscriber_impl.hpp>
 #include <libcyphal/time_provider.hpp>
@@ -22,7 +24,6 @@
 #include <libcyphal/transport/can/msg_tx_session.hpp>
 #include <libcyphal/transport/can/svc_rx_sessions.hpp>
 #include <libcyphal/transport/can/svc_tx_sessions.hpp>
-#include <libcyphal/transport/common/tools.hpp>
 #include <libcyphal/transport/contiguous_payload.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>

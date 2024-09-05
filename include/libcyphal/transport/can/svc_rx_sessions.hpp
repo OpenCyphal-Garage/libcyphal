@@ -126,6 +126,11 @@ private:
         return std::exchange(last_rx_transfer_, cetl::nullopt);
     }
 
+    void setOnReceiveCallback(ISvcRxSession::OnReceiveCallback::Function&& function) override
+    {
+        on_receive_cb_fn_ = std::move(function);
+    }
+
     // MARK: IRxSession
 
     void setTransferIdTimeout(const Duration timeout) override
@@ -151,15 +156,22 @@ private:
         TransportDelegate::CanardMemory canard_memory{delegate_, buffer, transfer.payload_size};
 
         const ServiceRxMetadata meta{{{transfer_id, priority}, timestamp}, remote_node_id};
-        (void) last_rx_transfer_.emplace(ServiceRxTransfer{meta, ScatteredBuffer{std::move(canard_memory)}});
+        ServiceRxTransfer       svc_rx_transfer{meta, ScatteredBuffer{std::move(canard_memory)}};
+        if (on_receive_cb_fn_)
+        {
+            on_receive_cb_fn_(ISvcRxSession::OnReceiveCallback::Arg{svc_rx_transfer});
+            return;
+        }
+        (void) last_rx_transfer_.emplace(std::move(svc_rx_transfer));
     }
 
     // MARK: Data members:
 
-    TransportDelegate&                delegate_;
-    const Params                      params_;
-    CanardRxSubscription              subscription_;
-    cetl::optional<ServiceRxTransfer> last_rx_transfer_;
+    TransportDelegate&                         delegate_;
+    const Params                               params_;
+    CanardRxSubscription                       subscription_;
+    cetl::optional<ServiceRxTransfer>          last_rx_transfer_;
+    ISvcRxSession::OnReceiveCallback::Function on_receive_cb_fn_;
 
 };  // SvcRxSession
 

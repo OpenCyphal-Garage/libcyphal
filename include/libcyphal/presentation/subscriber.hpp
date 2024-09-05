@@ -14,9 +14,7 @@
 
 #include <cetl/cetl.hpp>
 #include <cetl/pmr/function.hpp>
-#include <nunavut/support/serialization.hpp>
 
-#include <tuple>
 #include <utility>
 
 namespace libcyphal
@@ -30,12 +28,18 @@ namespace presentation
 namespace detail
 {
 
-// TODO: docs
+/// @brief Defines internal base class for any concrete (final) message subscriber.
+///
 /// No Sonar cpp:S4963 "The "Rule-of-Zero" should be followed"
 /// b/c we do directly handle resources here.
+///
 class SubscriberBase : public SubscriberImpl::CallbackNode  // NOSONAR cpp:S4963
 {
 public:
+    /// @brief Defines failure type for a base subscriber operations.
+    ///
+    /// The set of possible failures of the base subscriber includes transport layer failures.
+    ///
     using Failure = transport::AnyFailure;
 
     SubscriberBase(SubscriberBase&& other) noexcept
@@ -90,13 +94,25 @@ private:
 
 }  // namespace detail
 
-// TODO: docs
+/// @brief Defines a custom strong-typed message subscriber class.
+///
+/// Although the subscriber class does not specifically require a Nunavut tool generated message type,
+/// it follows patterns of the tool (and has dependency on its `SerializeResult` and `bitspan` helper types),
+/// so it is highly recommended to use DSDL file and the tool to generate the types.
+/// Otherwise, see below requirements for the `Message` type, as well as consult with
+/// Nunavut's generated code (f.e. for the signatures of expected `deserialize` function).
+///
+/// @tparam Message The message type of the subscriber. This type has the following requirements:
+///                 - default constructible
+///                 - contains `_traits_::ExtentBytes` constant
+///                 - has freestanding `deserialize` function under its namespace (so that ADL will find it).
+///
 template <typename Message>
 class Subscriber final : public detail::SubscriberBase
 {
-    static_assert(!Message::_traits_::IsServiceType, "Service types are not supported by the Subscriber.");
-
 public:
+    /// @brief Defines the strong-typed message callback (arguments, function).
+    ///
     struct OnReceiveCallback
     {
         struct Arg
@@ -107,6 +123,16 @@ public:
         };
         using Function = cetl::pmr::function<void(const Arg&), sizeof(void*) * 4>;
     };
+
+    /// @brief Sets function which will be called on each message reception.
+    ///
+    /// Note that setting the callback will disable the previous one (if any).
+    /// Also, resetting it to `nullptr` does not release internal RX session,
+    /// and so incoming messages will still be coming and silently dropped.
+    ///
+    /// @param on_receive_cb_fn The function which will be called back.
+    ///                         Use `nullptr` (or `{}`) to disable the callback.
+    ///
     void setOnReceiveCallback(typename OnReceiveCallback::Function&& on_receive_cb_fn)
     {
         on_receive_cb_fn_ = std::move(on_receive_cb_fn);
@@ -136,12 +162,20 @@ private:
     // MARK: Data members:
 
     typename OnReceiveCallback::Function on_receive_cb_fn_;
-};
-//
+
+};  // Subscriber<Message>
+
+/// @brief Defines a raw (aka untyped) subscriber class.
+///
+/// The publisher class has no requirements for the message data (neither any Nunavut dependencies).
+/// The message data is passed as raw bytes (without any serialization step).
+///
 template <>
 class Subscriber<void> final : public detail::SubscriberBase
 {
 public:
+    /// @brief Defines a raw untyped message callback (arguments, function).
+    ///
     struct OnReceiveCallback
     {
         struct Arg
@@ -152,6 +186,16 @@ public:
         };
         using Function = cetl::pmr::function<void(const Arg&), sizeof(void*) * 4>;
     };
+
+    /// @brief Sets function which will be called on each message reception.
+    ///
+    /// Note that setting the callback will disable the previous one (if any).
+    /// Also, resetting it to `nullptr` does not release internal RX session,
+    /// and so incoming messages will still be coming and silently dropped.
+    ///
+    /// @param on_receive_cb_fn The function which will be called back.
+    ///                         Use `nullptr` (or `{}`) to disable the callback.
+    ///
     void setOnReceiveCallback(OnReceiveCallback::Function&& on_receive_cb_fn)
     {
         on_receive_cb_fn_ = std::move(on_receive_cb_fn);
