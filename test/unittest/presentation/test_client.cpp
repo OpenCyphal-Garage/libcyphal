@@ -3,8 +3,9 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "cetl_gtest_helpers.hpp"          // NOLINT(misc-include-cleaner)
-#include "gtest_helpers.hpp"               // NOLINT(misc-include-cleaner)
+#include "cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
+#include "gtest_helpers.hpp"       // NOLINT(misc-include-cleaner)
+#include "my_custom/baz_1_0.hpp"
 #include "presentation_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "tracking_memory_resource.hpp"
 #include "transport/scattered_buffer_storage_mock.hpp"
@@ -17,10 +18,12 @@
 #include <libcyphal/presentation/client.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/response_promise.hpp>
+#include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
+#include <nunavut/support/serialization.hpp>
 #include <uavcan/node/GetInfo_1_0.hpp>
 
 #include <gmock/gmock.h>
@@ -339,6 +342,41 @@ TEST_F(TestClient, request_response_via_callabck)
                     FieldsAre(ServiceRxMetadataEq({{{0, Priority::Nominal}, TimePoint{2s}}, 0x31}), TimePoint{2s})));
 }
 
+TEST_F(TestClient, request_response_failures)
+{
+    using Service = my_custom::baz_1_0;
+
+    Presentation presentation{mr_, scheduler_, transport_mock_};
+
+    constexpr ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes, 147, 0x31};
+
+    State state{mr_, transport_mock_, rx_params};
+
+    auto maybe_client = presentation.makeClient<Service>(rx_params.server_node_id, rx_params.service_id);
+    ASSERT_THAT(maybe_client, VariantWith<ServiceClient<Service>>(_));
+    const auto client = cetl::get<ServiceClient<Service>>(std::move(maybe_client));
+
+    scheduler_.scheduleAt(1s, [&](const auto&) {
+        //
+        Service::Request request{};
+        request.some_stuff.resize(32);  // this will make it fail to serialize
+        const auto maybe_promise = client.request(now() + 100ms, request);
+        EXPECT_THAT(maybe_promise,
+                    VariantWith<ServiceClient<Service>::Failure>(
+                        VariantWith<nunavut::support::Error>(nunavut::support::Error::SerializationBadArrayLength)));
+    });
+    scheduler_.scheduleAt(2s, [&](const auto&) {
+        //
+        // Emulate problem with sending the request.
+        EXPECT_CALL(state.req_tx_session_mock_, send(_, _))  //
+            .WillOnce(Return(CapacityError{}));
+
+        const auto maybe_promise = client.request(now() + 100ms, Service::Request{});
+        EXPECT_THAT(maybe_promise, VariantWith<ServiceClient<Service>::Failure>(VariantWith<CapacityError>(_)));
+    });
+    scheduler_.spinFor(10s);
+}
+
 TEST_F(TestClient, raw_request_response_via_callabck)
 {
     using SvcResPromise = ResponsePromise<void>;
@@ -427,6 +465,30 @@ TEST_F(TestClient, raw_request_response_via_callabck)
     EXPECT_THAT(responses,
                 ElementsAre(
                     FieldsAre(7, ServiceRxMetadataEq({{{0, Priority::Nominal}, TimePoint{2s}}, 0x31}), TimePoint{2s})));
+}
+
+TEST_F(TestClient, raw_request_response_failures)
+{
+    Presentation presentation{mr_, scheduler_, transport_mock_};
+
+    constexpr ResponseRxParams rx_params{4, 147, 0x31};
+
+    State state{mr_, transport_mock_, rx_params};
+
+    auto maybe_client = presentation.makeClient(rx_params.server_node_id, rx_params.service_id, rx_params.extent_bytes);
+    ASSERT_THAT(maybe_client, VariantWith<RawServiceClient>(_));
+    const auto client = cetl::get<RawServiceClient>(std::move(maybe_client));
+
+    scheduler_.scheduleAt(1s, [&](const auto&) {
+        //
+        // Emulate problem with sending the request.
+        EXPECT_CALL(state.req_tx_session_mock_, send(_, _))  //
+            .WillOnce(Return(CapacityError{}));
+
+        const auto maybe_promise = client.request(now() + 100ms, {});
+        EXPECT_THAT(maybe_promise, VariantWith<RawServiceClient::Failure>(VariantWith<CapacityError>(_)));
+    });
+    scheduler_.spinFor(10s);
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers, *-function-cognitive-complexity)

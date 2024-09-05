@@ -1,0 +1,11 @@
+int8[<32] some_stuff
+
+# reserve twice as much as we need.
+@extent _offset_.max * 2
+
+---
+
+int32[<4] some_other_crap
+
+# reserve twice as much as we need.
+@extent _offset_.max * 2
