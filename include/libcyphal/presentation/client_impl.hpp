@@ -55,7 +55,10 @@ public:
 
         CETL_NODISCARD std::int8_t compareByDeadline(const TimePoint deadline) const noexcept
         {
-            return (deadline_ <= deadline) ? -1 : 1;
+            // No two deadline times compare equal, which allows us to have multiple nodes
+            // with the same deadline time in the tree. With two nodes sharing the same deadline time,
+            // the one added later is considered to be later.
+            return (deadline >= deadline_) ? +1 : -1;
         }
 
     protected:
@@ -288,6 +291,7 @@ private:
         //
         const std::tuple<TimeoutNode*, bool> timeout_node_existing = timeout_nodes_by_deadline_.search(  //
             [new_node_deadline](const TimeoutNode& other_node) {                                         // predicate
+                //
                 return other_node.compareByDeadline(new_node_deadline);
             },
             [&timeout_node]() { return &timeout_node; });  // "factory"
@@ -322,7 +326,7 @@ private:
         timeout_nodes_by_deadline_.remove(&timeout_node);
         const auto old_cb_node_deadline = timeout_node.getDeadline();
 
-        // No need to reschedule the nearest deadline callback if deadline of the removed node is not the nearest.
+        // No need to reschedule the nearest deadline callback if deadline of the removed node was not the nearest.
         //
         CETL_DEBUG_ASSERT(old_cb_node_deadline >= nearest_deadline_, "");
         if (nearest_deadline_ < old_cb_node_deadline)

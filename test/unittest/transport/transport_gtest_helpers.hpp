@@ -103,6 +103,12 @@ inline void PrintTo(const TransferRxMetadata& meta, std::ostream* os)
         << ", timestamp=" << testing::PrintToString(meta.timestamp) << "}";
 }
 
+inline void PrintTo(const TransferTxMetadata& meta, std::ostream* os)
+{
+    *os << "TransferTxMetadata{base=" << testing::PrintToString(meta.base)
+        << ", deadline=" << testing::PrintToString(meta.deadline) << "}";
+}
+
 inline void PrintTo(const ServiceRxMetadata& meta, std::ostream* os)
 {
     *os << "SvcRxMetadata{rx_meta=" << testing::PrintToString(meta.rx_meta)
@@ -341,7 +347,40 @@ inline testing::Matcher<const ServiceRxMetadata&> ServiceRxMetadataEq(const Serv
 {
     return ServiceRxMetadataMatcher(meta);
 
-}  // ResponseTxParamsMatcher
+}  // ServiceRxMetadataMatcher
+
+class TransferTxMetadataMatcher
+{
+public:
+    using is_gtest_matcher = void;
+
+    explicit TransferTxMetadataMatcher(const TransferTxMetadata& meta)
+        : meta_{meta}
+    {
+    }
+
+    bool MatchAndExplain(const TransferTxMetadata& meta, std::ostream*) const
+    {
+        return meta.base.transfer_id == meta_.base.transfer_id && meta.base.priority == meta_.base.priority &&
+               meta.deadline == meta_.deadline;
+    }
+    void DescribeTo(std::ostream* os) const
+    {
+        *os << "is " << testing::PrintToString(meta_);
+    }
+    void DescribeNegationTo(std::ostream* os) const
+    {
+        *os << "is NOT " << testing::PrintToString(meta_);
+    }
+
+private:
+    const TransferTxMetadata meta_;
+};
+inline testing::Matcher<const TransferTxMetadata&> TransferTxMetadataEq(const TransferTxMetadata& meta)
+{
+    return TransferTxMetadataMatcher(meta);
+
+}  // TransferTxMetadataMatcher
 
 }  // namespace transport
 }  // namespace libcyphal

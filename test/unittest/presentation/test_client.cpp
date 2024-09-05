@@ -30,6 +30,7 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
+#include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -375,6 +376,106 @@ TEST_F(TestClient, request_response_failures)
         EXPECT_THAT(maybe_promise, VariantWith<ServiceClient<Service>::Failure>(VariantWith<CapacityError>(_)));
     });
     scheduler_.spinFor(10s);
+}
+
+TEST_F(TestClient, multiple_requests_responses_expired)
+{
+    using Service       = uavcan::node::GetInfo_1_0;
+    using SvcResPromise = ResponsePromise<Service::Response>;
+
+    Presentation presentation{mr_, scheduler_, transport_mock_};
+
+    constexpr ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes,
+                                         Service::Request::_traits_::FixedPortId,
+                                         0x31};
+
+    State state{mr_, transport_mock_, rx_params};
+
+    auto maybe_client = presentation.makeClient<Service>(rx_params.server_node_id);
+    ASSERT_THAT(maybe_client, VariantWith<ServiceClient<Service>>(_));
+    auto client = cetl::get<ServiceClient<Service>>(std::move(maybe_client));
+
+    constexpr TransferId          transfer_id = 0;
+    cetl::optional<SvcResPromise> response_promise1;
+    cetl::optional<SvcResPromise> response_promise2;
+    cetl::optional<SvcResPromise> response_promise3;
+    cetl::optional<SvcResPromise> response_promise4;
+
+    std::vector<std::tuple<std::string, TimePoint, TimePoint>> responses;
+
+    scheduler_.scheduleAt(1s, [&](const auto&) {
+        //
+        const TransferTxMetadata meta{{transfer_id + 0, Priority::Nominal}, now() + 100ms};
+        EXPECT_CALL(state.req_tx_session_mock_, send(TransferTxMetadataEq(meta), _))  //
+            .WillOnce(Return(cetl::nullopt));
+
+        auto maybe_promise = client.request(now() + 100ms, Service::Request{}, now() + 4s);
+        EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
+        response_promise1.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
+        response_promise1->setCallback([&responses](const auto& arg) {
+            //
+            ASSERT_THAT(arg.result, VariantWith<SvcResPromise::Expired>(_));
+            auto expired = cetl::get<SvcResPromise::Expired>(std::move(arg.result));
+            responses.emplace_back("1", expired.deadline, arg.approx_now);
+        });
+    });
+    scheduler_.scheduleAt(2s, [&](const auto&) {
+        //
+        client.setPriority(Priority::Fast);
+        const TransferTxMetadata meta{{transfer_id + 1, client.getPriority()}, now() + 200ms};
+        EXPECT_CALL(state.req_tx_session_mock_, send(TransferTxMetadataEq(meta), _))  //
+            .WillOnce(Return(cetl::nullopt));
+
+        auto maybe_promise = client.request(now() + 200ms, Service::Request{}, now() + 2s);
+        EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
+        response_promise2.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
+        response_promise2->setCallback([&responses](const auto& arg) {
+            //
+            ASSERT_THAT(arg.result, VariantWith<SvcResPromise::Expired>(_));
+            auto expired = cetl::get<SvcResPromise::Expired>(std::move(arg.result));
+            responses.emplace_back("2", expired.deadline, arg.approx_now);
+        });
+    });
+    scheduler_.scheduleAt(3s, [&](const auto&) {
+        //
+        const TransferTxMetadata meta{{transfer_id + 2, client.getPriority()}, now() + 300ms};
+        EXPECT_CALL(state.req_tx_session_mock_, send(TransferTxMetadataEq(meta), _))  //
+            .WillOnce(Return(cetl::nullopt));
+
+        auto maybe_promise = client.request(now() + 300ms, Service::Request{}, now() + 1s);
+        EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
+        response_promise3.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
+        response_promise3->setCallback([&responses](const auto& arg) {
+            //
+            ASSERT_THAT(arg.result, VariantWith<SvcResPromise::Expired>(_));
+            auto expired = cetl::get<SvcResPromise::Expired>(std::move(arg.result));
+            responses.emplace_back("3", expired.deadline, arg.approx_now);
+        });
+    });
+    scheduler_.scheduleAt(4s, [&](const auto&) {
+        //
+        const TransferTxMetadata meta{{transfer_id + 3, client.getPriority()}, now() + 400ms};
+        EXPECT_CALL(state.req_tx_session_mock_, send(TransferTxMetadataEq(meta), _))  //
+            .WillOnce(Return(cetl::nullopt));
+
+        auto maybe_promise = client.request(now() + 400ms, Service::Request{}, now() + 2s);
+        EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
+        response_promise4.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
+        response_promise4->setCallback([](const auto&) {
+            //
+            FAIL() << "Unexpected dummy callback for cancelled promise.";
+        });
+    });
+    scheduler_.scheduleAt(5s, [&](const auto&) {
+        //
+        response_promise4.reset();
+    });
+    scheduler_.spinFor(10s);
+
+    EXPECT_THAT(responses,
+                ElementsAre(FieldsAre("2", TimePoint{4000ms}, TimePoint{4000ms}),
+                            FieldsAre("3", TimePoint{4000ms}, TimePoint{4000ms}),
+                            FieldsAre("1", TimePoint{5000ms}, TimePoint{5000ms})));
 }
 
 TEST_F(TestClient, raw_request_response_via_callabck)
