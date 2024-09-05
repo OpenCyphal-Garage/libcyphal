@@ -72,6 +72,41 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
+    struct State
+    {
+        // NOLINTBEGIN
+        StrictMock<RequestTxSessionMock>                req_tx_session_mock_;
+        StrictMock<ResponseRxSessionMock>               res_rx_session_mock_;
+        IResponseRxSession::OnReceiveCallback::Function res_rx_cb_fn_;
+        // NOLINTEND
+
+        State(cetl::pmr::memory_resource& memory,
+              StrictMock<TransportMock>&  transport_mock,
+              const ResponseRxParams&     rx_params)
+        {
+            EXPECT_CALL(res_rx_session_mock_, getParams())  //
+                .WillOnce(Return(rx_params));
+            EXPECT_CALL(res_rx_session_mock_, setOnReceiveCallback(_))  //
+                .WillRepeatedly(Invoke([&](auto&& cb_fn) {              //
+                    res_rx_cb_fn_ = std::forward<IResponseRxSession::OnReceiveCallback::Function>(cb_fn);
+                }));
+
+            const RequestTxParams tx_params{rx_params.service_id, rx_params.server_node_id};
+            EXPECT_CALL(transport_mock, makeRequestTxSession(RequestTxParamsEq(tx_params)))  //
+                .WillOnce(Invoke([&](const auto&) {                                          //
+                    return libcyphal::detail::makeUniquePtr<UniquePtrReqTxSpec>(memory, req_tx_session_mock_);
+                }));
+            EXPECT_CALL(transport_mock, makeResponseRxSession(ResponseRxParamsEq(rx_params)))  //
+                .WillOnce(Invoke([&](const auto&) {                                            //
+                    return libcyphal::detail::makeUniquePtr<UniquePtrResRxSpec>(memory, res_rx_session_mock_);
+                }));
+
+            EXPECT_CALL(res_rx_session_mock_, deinit()).Times(1);
+            EXPECT_CALL(req_tx_session_mock_, deinit()).Times(1);
+        }
+
+    };  // State
+
     TimePoint now() const
     {
         return scheduler_.now();
@@ -107,25 +142,11 @@ TEST_F(TestClient, copy_move_getSetPriority)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    StrictMock<RequestTxSessionMock>  req_tx_session_mock;
-    StrictMock<ResponseRxSessionMock> res_rx_session_mock;
-
     constexpr ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes,
                                          Service::Request::_traits_::FixedPortId,
                                          0x31};
-    EXPECT_CALL(res_rx_session_mock, getParams())  //
-        .WillOnce(Return(rx_params));
-    EXPECT_CALL(res_rx_session_mock, setOnReceiveCallback(_)).WillRepeatedly(Return());
 
-    const RequestTxParams tx_params{rx_params.service_id, rx_params.server_node_id};
-    EXPECT_CALL(transport_mock_, makeRequestTxSession(RequestTxParamsEq(tx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {                                           //
-            return libcyphal::detail::makeUniquePtr<UniquePtrReqTxSpec>(mr_, req_tx_session_mock);
-        }));
-    EXPECT_CALL(transport_mock_, makeResponseRxSession(ResponseRxParamsEq(rx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {                                             //
-            return libcyphal::detail::makeUniquePtr<UniquePtrResRxSpec>(mr_, res_rx_session_mock);
-        }));
+    const State state{mr_, transport_mock_, rx_params};
 
     auto maybe_client1 = presentation.makeClient<Service>(rx_params.server_node_id);
     ASSERT_THAT(maybe_client1, VariantWith<ServiceClient<Service>>(_));
@@ -154,9 +175,6 @@ TEST_F(TestClient, copy_move_getSetPriority)
     client2.setPriority(Priority::Optional);
     client1c = std::move(client2);
     EXPECT_THAT(client1c.getPriority(), Priority::Optional);
-
-    EXPECT_CALL(res_rx_session_mock, deinit()).Times(1);
-    EXPECT_CALL(req_tx_session_mock, deinit()).Times(1);
 }
 
 TEST_F(TestClient, request_response_get_fetch_result)
@@ -166,41 +184,23 @@ TEST_F(TestClient, request_response_get_fetch_result)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    StrictMock<RequestTxSessionMock>  req_tx_session_mock;
-    StrictMock<ResponseRxSessionMock> res_rx_session_mock;
-
     constexpr ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes,
                                          Service::Request::_traits_::FixedPortId,
                                          0x31};
-    EXPECT_CALL(res_rx_session_mock, getParams())  //
-        .WillOnce(Return(rx_params));
-    IResponseRxSession::OnReceiveCallback::Function res_rx_cb_fn;
-    EXPECT_CALL(res_rx_session_mock, setOnReceiveCallback(_))  //
-        .WillRepeatedly(Invoke([&](auto&& cb_fn) {             //
-            res_rx_cb_fn = std::forward<IResponseRxSession::OnReceiveCallback::Function>(cb_fn);
-        }));
 
-    const RequestTxParams tx_params{rx_params.service_id, rx_params.server_node_id};
-    EXPECT_CALL(transport_mock_, makeRequestTxSession(RequestTxParamsEq(tx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {                                           //
-            return libcyphal::detail::makeUniquePtr<UniquePtrReqTxSpec>(mr_, req_tx_session_mock);
-        }));
-    EXPECT_CALL(transport_mock_, makeResponseRxSession(ResponseRxParamsEq(rx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {                                             //
-            return libcyphal::detail::makeUniquePtr<UniquePtrResRxSpec>(mr_, res_rx_session_mock);
-        }));
+    State state{mr_, transport_mock_, rx_params};
 
     auto maybe_client = presentation.makeClient<Service>(rx_params.server_node_id);
     ASSERT_THAT(maybe_client, VariantWith<ServiceClient<Service>>(_));
-    auto client = cetl::get<ServiceClient<Service>>(std::move(maybe_client));
+    const auto client = cetl::get<ServiceClient<Service>>(std::move(maybe_client));
 
     constexpr TransferId transfer_id = 0;
-    ASSERT_TRUE(res_rx_cb_fn);
+    ASSERT_TRUE(state.res_rx_cb_fn_);
     cetl::optional<SvcResPromise> response_promise;
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        EXPECT_CALL(req_tx_session_mock, send(_, _))  //
+        EXPECT_CALL(state.req_tx_session_mock_, send(_, _))  //
             .WillOnce(Invoke([now = now()](const auto& metadata, const auto) {
                 //
                 EXPECT_THAT(metadata.base.transfer_id, transfer_id);
@@ -225,7 +225,7 @@ TEST_F(TestClient, request_response_get_fetch_result)
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
         ServiceRxTransfer transfer{{{{transfer_id, Priority::Nominal}, now()}, 0x31}, {}};
-        res_rx_cb_fn({transfer});
+        state.res_rx_cb_fn_({transfer});
     });
     scheduler_.scheduleAt(2s + 1ms, [&](const auto&) {
         //
@@ -239,12 +239,9 @@ TEST_F(TestClient, request_response_get_fetch_result)
         //
         // Emulate double reception of the same transfer (from hypothetical other redundant transport).
         ServiceRxTransfer transfer{{{{transfer_id, Priority::Nominal}, now()}, 0x31}, {}};
-        res_rx_cb_fn({transfer});
+        state.res_rx_cb_fn_({transfer});
     });
     scheduler_.spinFor(10s);
-
-    EXPECT_CALL(res_rx_session_mock, deinit()).Times(1);
-    EXPECT_CALL(req_tx_session_mock, deinit()).Times(1);
 }
 
 TEST_F(TestClient, request_response_via_callabck)
@@ -254,36 +251,18 @@ TEST_F(TestClient, request_response_via_callabck)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    StrictMock<RequestTxSessionMock>  req_tx_session_mock;
-    StrictMock<ResponseRxSessionMock> res_rx_session_mock;
-
     constexpr ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes,
                                          Service::Request::_traits_::FixedPortId,
                                          0x31};
-    EXPECT_CALL(res_rx_session_mock, getParams())  //
-        .WillOnce(Return(rx_params));
-    IResponseRxSession::OnReceiveCallback::Function res_rx_cb_fn;
-    EXPECT_CALL(res_rx_session_mock, setOnReceiveCallback(_))  //
-        .WillRepeatedly(Invoke([&](auto&& cb_fn) {             //
-            res_rx_cb_fn = std::forward<IResponseRxSession::OnReceiveCallback::Function>(cb_fn);
-        }));
 
-    const RequestTxParams tx_params{rx_params.service_id, rx_params.server_node_id};
-    EXPECT_CALL(transport_mock_, makeRequestTxSession(RequestTxParamsEq(tx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {                                           //
-            return libcyphal::detail::makeUniquePtr<UniquePtrReqTxSpec>(mr_, req_tx_session_mock);
-        }));
-    EXPECT_CALL(transport_mock_, makeResponseRxSession(ResponseRxParamsEq(rx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {                                             //
-            return libcyphal::detail::makeUniquePtr<UniquePtrResRxSpec>(mr_, res_rx_session_mock);
-        }));
+    State state{mr_, transport_mock_, rx_params};
 
     auto maybe_client = presentation.makeClient<Service>(rx_params.server_node_id);
     ASSERT_THAT(maybe_client, VariantWith<ServiceClient<Service>>(_));
     auto client = cetl::get<ServiceClient<Service>>(std::move(maybe_client));
 
     constexpr TransferId transfer_id = 0;
-    ASSERT_TRUE(res_rx_cb_fn);
+    ASSERT_TRUE(state.res_rx_cb_fn_);
     cetl::optional<SvcResPromise> response_promise;
 
     NiceMock<ScatteredBufferStorageMock> storage_mock;
@@ -295,7 +274,7 @@ TEST_F(TestClient, request_response_via_callabck)
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        EXPECT_CALL(req_tx_session_mock, send(_, _))  //
+        EXPECT_CALL(state.req_tx_session_mock_, send(_, _))  //
             .WillOnce(Invoke([now = now()](const auto& metadata, const auto) {
                 //
                 EXPECT_THAT(metadata.base.transfer_id, transfer_id);
@@ -328,7 +307,7 @@ TEST_F(TestClient, request_response_via_callabck)
 
         ServiceRxTransfer transfer{{{{transfer_id, Priority::Nominal}, now()}, 0x31},
                                    ScatteredBuffer{std::move(storage)}};
-        res_rx_cb_fn({transfer});
+        state.res_rx_cb_fn_({transfer});
     });
     scheduler_.scheduleAt(2s + 1ms, [&](const auto&) {
         //
@@ -343,7 +322,7 @@ TEST_F(TestClient, request_response_via_callabck)
         //
         // Emulate double reception of the same transfer (from hypothetical other redundant transport).
         ServiceRxTransfer transfer{{{{transfer_id, Priority::Nominal}, now()}, 0x31}, {}};
-        res_rx_cb_fn({transfer});
+        state.res_rx_cb_fn_({transfer});
 
         // Try set callback after the response has been received.
         response_promise->setCallback([&responses](const auto& arg) {
@@ -358,9 +337,6 @@ TEST_F(TestClient, request_response_via_callabck)
     EXPECT_THAT(responses,
                 ElementsAre(
                     FieldsAre(ServiceRxMetadataEq({{{0, Priority::Nominal}, TimePoint{2s}}, 0x31}), TimePoint{2s})));
-
-    EXPECT_CALL(res_rx_session_mock, deinit()).Times(1);
-    EXPECT_CALL(req_tx_session_mock, deinit()).Times(1);
 }
 
 TEST_F(TestClient, raw_request_response_via_callabck)
@@ -369,34 +345,16 @@ TEST_F(TestClient, raw_request_response_via_callabck)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    StrictMock<RequestTxSessionMock>  req_tx_session_mock;
-    StrictMock<ResponseRxSessionMock> res_rx_session_mock;
-
     constexpr ResponseRxParams rx_params{16, 147, 0x31};
-    EXPECT_CALL(res_rx_session_mock, getParams())  //
-        .WillOnce(Return(rx_params));
-    IResponseRxSession::OnReceiveCallback::Function res_rx_cb_fn;
-    EXPECT_CALL(res_rx_session_mock, setOnReceiveCallback(_))  //
-        .WillRepeatedly(Invoke([&](auto&& cb_fn) {             //
-            res_rx_cb_fn = std::forward<IResponseRxSession::OnReceiveCallback::Function>(cb_fn);
-        }));
 
-    const RequestTxParams tx_params{rx_params.service_id, rx_params.server_node_id};
-    EXPECT_CALL(transport_mock_, makeRequestTxSession(RequestTxParamsEq(tx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {                                           //
-            return libcyphal::detail::makeUniquePtr<UniquePtrReqTxSpec>(mr_, req_tx_session_mock);
-        }));
-    EXPECT_CALL(transport_mock_, makeResponseRxSession(ResponseRxParamsEq(rx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {                                             //
-            return libcyphal::detail::makeUniquePtr<UniquePtrResRxSpec>(mr_, res_rx_session_mock);
-        }));
+    State state{mr_, transport_mock_, rx_params};
 
     auto maybe_client = presentation.makeClient(rx_params.server_node_id, rx_params.service_id, rx_params.extent_bytes);
     ASSERT_THAT(maybe_client, VariantWith<RawServiceClient>(_));
     auto client = cetl::get<RawServiceClient>(std::move(maybe_client));
 
     constexpr TransferId transfer_id = 0;
-    ASSERT_TRUE(res_rx_cb_fn);
+    ASSERT_TRUE(state.res_rx_cb_fn_);
     cetl::optional<SvcResPromise> response_promise;
 
     NiceMock<ScatteredBufferStorageMock> storage_mock;
@@ -408,7 +366,7 @@ TEST_F(TestClient, raw_request_response_via_callabck)
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        EXPECT_CALL(req_tx_session_mock, send(_, _))  //
+        EXPECT_CALL(state.req_tx_session_mock_, send(_, _))  //
             .WillOnce(Invoke([now = now()](const auto& metadata, const auto) {
                 //
                 EXPECT_THAT(metadata.base.transfer_id, transfer_id);
@@ -441,7 +399,7 @@ TEST_F(TestClient, raw_request_response_via_callabck)
 
         ServiceRxTransfer transfer{{{{transfer_id, Priority::Nominal}, now()}, 0x31},
                                    ScatteredBuffer{std::move(storage)}};
-        res_rx_cb_fn({transfer});
+        state.res_rx_cb_fn_({transfer});
     });
     scheduler_.scheduleAt(2s + 1ms, [&](const auto&) {
         //
@@ -454,7 +412,7 @@ TEST_F(TestClient, raw_request_response_via_callabck)
         //
         // Emulate double reception of the same transfer (from hypothetical other redundant transport).
         ServiceRxTransfer transfer{{{{transfer_id, Priority::Nominal}, now()}, 0x31}, {}};
-        res_rx_cb_fn({transfer});
+        state.res_rx_cb_fn_({transfer});
 
         // Try set callback after the response has been received.
         response_promise->setCallback([&responses](const auto& arg) {
@@ -469,9 +427,6 @@ TEST_F(TestClient, raw_request_response_via_callabck)
     EXPECT_THAT(responses,
                 ElementsAre(
                     FieldsAre(7, ServiceRxMetadataEq({{{0, Priority::Nominal}, TimePoint{2s}}, 0x31}), TimePoint{2s})));
-
-    EXPECT_CALL(res_rx_session_mock, deinit()).Times(1);
-    EXPECT_CALL(req_tx_session_mock, deinit()).Times(1);
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers, *-function-cognitive-complexity)
