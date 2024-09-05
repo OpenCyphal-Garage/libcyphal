@@ -17,6 +17,7 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
+#include <libcyphal/presentation/client.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
@@ -206,6 +207,9 @@ protected:
 
 TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
 {
+    using PingClient  = Client<UserService::PingRequest, UserService::PongResponse>;
+    using PongPromise = ResponsePromise<UserService::PongResponse>;
+
     State state;
 
     std::cout << "Local  node ID: " << local_node_id_ << "\n";
@@ -233,7 +237,7 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
             //
             if (print_activities_)
             {
-                std::cout << "🔴 Server received 'Ping' req (id=" << arg.request.id
+                std::cout << "🔴 Server received 'Ping' req (ping_id=" << arg.request.id
                           << ", from_node_id=" << arg.metadata.remote_node_id << ")."
                           << CommonHelpers::Printers::describeDurationInMs(arg.approx_now - startup_time_) << std::endl;
             }
@@ -242,77 +246,68 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
 
     // 4. Make "Ping" client, send periodic requests, and print replies.
     //
-    // TODO: Rework and drastically simplify when `ServiceClient` will be available.
-    //       For now just use transport facilities to implement the RPC service client.
-    //
-    auto maybe_pong_res_rx_session = state.transport_->makeResponseRxSession(  //
-        {UserService::PongResponse::_traits_::ExtentBytes, UserService::PongResponse::ServiceId, remote_node_id_});
-    ASSERT_THAT(maybe_pong_res_rx_session, testing::VariantWith<ResponseRxSessionPtr>(testing::NotNull()))
-        << "Failed to create 'Pong' response RX session.";
-    auto maybe_ping_req_tx_session = state.transport_->makeRequestTxSession(  //
-        {UserService::PingRequest::ServiceId, remote_node_id_});
-    ASSERT_THAT(maybe_ping_req_tx_session, testing::VariantWith<RequestTxSessionPtr>(testing::NotNull()))
-        << "Failed to create 'Ping' request TX session.";
-    //
-    TimePoint                   request_start{};
-    CommonHelpers::RunningStats call_duration_stats;
-    auto pong_res_rx_session = cetl::get<ResponseRxSessionPtr>(std::move(maybe_pong_res_rx_session));
-    pong_res_rx_session->setOnReceiveCallback([&](const auto& arg) {
-        //
-        std::array<cetl::byte, UserService::PongResponse::_traits_::ExtentBytes> buffer;  // NOLINT
-        const auto        data_size = arg.transfer.payload.copy(0, buffer.data(), buffer.size());
-        const auto* const data_raw  = static_cast<const void*>(buffer.data());
-        const auto* const data_u8s  = static_cast<const std::uint8_t*>(data_raw);  // NOSONAR cpp:S5356 cpp:S5357
-        const nunavut::support::const_bitspan in_bitspan{data_u8s, data_size};
+    auto maybe_ping_client = presentation.makeClient<UserService::PingRequest, UserService::PongResponse>(  //
+        remote_node_id_,
+        UserService::PingRequest::ServiceId);
+    ASSERT_THAT(maybe_ping_client, testing::VariantWith<PingClient>(testing::_)) << "Failed to create 'Ping' client.";
+    auto ping_client = cetl::get<PingClient>(std::move(maybe_ping_client));
 
-        UserService::PongResponse pong{};
-        if (pong.deserialize(in_bitspan))
+    // 5. Send periodic "Ping" requests, and print "Pong" replies.
+    //
+    struct PingPongState
+    {
+        TimePoint                   start;
+        UserService::PingRequest    request{1000};
+        cetl::optional<PongPromise> promise;
+        CommonHelpers::RunningStats stats;
+
+    } ping_pong_state;
+    //
+    auto request_every_1s_cb_ = executor_.registerCallback([&](const auto&) {
+        //
+        ++ping_pong_state.request.id;
+        if (print_activities_)
         {
-            const auto request_duration = now() - request_start;
-            call_duration_stats.append(static_cast<double>(  //
+            std::cout << "🠊  Client sending  'Ping' req (ping_id=" << ping_pong_state.request.id
+                      << ",   to_node_id=" << remote_node_id_ << ")."
+                      << CommonHelpers::Printers::describeDurationInMs(uptime()) << std::endl;  // NOLINT
+        }
+        ping_pong_state.start = now();
+        auto maybe_promise    = ping_client.request(ping_pong_state.start + 300ms, ping_pong_state.request);
+        ASSERT_THAT(maybe_promise, testing::VariantWith<PongPromise>(testing::_)) << "Failed to make 'Ping' request.";
+        ping_pong_state.promise.emplace(cetl::get<PongPromise>(std::move(maybe_promise)));
+
+        ping_pong_state.promise->setCallback([&](const auto& arg) {
+            //
+            const auto request_duration = arg.approx_now - ping_pong_state.start;
+            ping_pong_state.stats.append(static_cast<double>(  //
                 std::chrono::duration_cast<std::chrono::microseconds>(request_duration).count()));
 
+            if (const auto* const reply_ptr = cetl::get_if<PongPromise::Success>(&arg.result))
+            {
+                if (print_activities_)
+                {
+                    const auto& reply = *reply_ptr;
+                    std::cout << " 🠈 Client received 'ponG' res (pong_id=" << reply.response.id
+                              << ", from_node_id=" << reply.metadata.remote_node_id << ")."
+                              << CommonHelpers::Printers::describeDurationInMs(uptime()) << ", Δ "
+                              << CommonHelpers::Printers::describeDurationInUs(request_duration)
+                              << ", tf_id=" << reply.metadata.rx_meta.base.transfer_id << std::endl;
+                }
+                return;
+            }
             if (print_activities_)
             {
-                std::cout << " 🠈 Client received 'ponG' res (id=" << pong.id
-                          << ", from_node_id=" << arg.transfer.metadata.remote_node_id << ")."
+                std::cout << "🚫 Client 'ping' req timeout  (ping_id=" << ping_pong_state.request.id
+                          << ",   to_node_id=" << remote_node_id_ << ")."
                           << CommonHelpers::Printers::describeDurationInMs(uptime()) << ", Δ "
                           << CommonHelpers::Printers::describeDurationInUs(request_duration) << std::endl;
             }
-        }
-    });
-    //
-    TransferId               transfer_id{0};
-    UserService::PingRequest ping_req{1000};
-    //
-    auto ping_req_tx_session  = cetl::get<RequestTxSessionPtr>(std::move(maybe_ping_req_tx_session));
-    auto request_every_1s_cb_ = executor_.registerCallback([&](const auto& arg) {
-        //
-        ++transfer_id;
-        ++ping_req.id;
-        std::array<std::uint8_t, UserService::PingRequest::_traits_::SerializationBufferSizeBytes> buffer;  // NOLINT
-        const nunavut::support::bitspan                                                            out_bitspan{buffer};
-        const auto result_size = serialize(ping_req, out_bitspan);
-        if (result_size)
-        {
-            const auto* const                  data = reinterpret_cast<const cetl::byte*>(buffer.data());  // NOLINT
-            const cetl::span<const cetl::byte> data_span{data, result_size.value()};
-            const std::array<const cetl::span<const cetl::byte>, 1> payload{data_span};
-
-            if (print_activities_)
-            {
-                std::cout << "🠊  Client sending  'Ping' req (id=" << ping_req.id << ",   to_node_id=" << remote_node_id_
-                          << ")." << CommonHelpers::Printers::describeDurationInMs(uptime()) << std::endl;  // NOLINT
-            }
-
-            request_start = now();
-            EXPECT_THAT(ping_req_tx_session->send({{transfer_id, Priority::Nominal}, arg.approx_now + 1s}, payload),
-                        testing::Eq(cetl::nullopt));
-        }
+        });
     });
     request_every_1s_cb_.schedule(Callback::Schedule::Repeat{startup_time_ + 1s, 1s});
 
-    // 5. Main loop.
+    // 6. Main loop.
     //
     Duration        worst_lateness{0};
     const TimePoint deadline = startup_time_ + run_duration_ + 500ms;
@@ -333,10 +328,10 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
 
     std::cout << "Done.\n-----------\nStats:\n";
     std::cout << "worst_callback_lateness  = " << worst_lateness.count() << " us\n";
-    std::cout << "call_duration_stats_mean = " << call_duration_stats.mean() << " us\n";
-    std::cout << "call_duration_stats_std  ± " << call_duration_stats.standardDeviation() << " us (±"
-              << std::setprecision(3) << 100.0 * call_duration_stats.standardDeviation() / call_duration_stats.mean()
-              << "%)\n";
+    std::cout << "call_duration_stats_mean = " << ping_pong_state.stats.mean() << " us\n";
+    std::cout << "call_duration_stats_std  ± " << ping_pong_state.stats.standardDeviation() << " us (±"
+              << std::setprecision(3)
+              << 100.0 * ping_pong_state.stats.standardDeviation() / ping_pong_state.stats.mean() << "%)\n";
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

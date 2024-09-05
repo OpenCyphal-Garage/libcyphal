@@ -169,7 +169,7 @@ TEST_F(Example_1_Presentation_2_Heartbeat_GetInfo_Udp, main)
     //
     auto maybe_get_info_srv = presentation.makeServer<GetInfo_1_0>([&state](const auto& arg, auto continuation) {
         //
-        std::cout << "Received 'GetInfo' request (from_node_id=" << arg.metadata.remote_node_id << ")."
+        std::cout << "ⓘ  Received 'GetInfo' request (from_node_id=" << arg.metadata.remote_node_id << ")."
                   << std::endl;  // NOLINT
         continuation(arg.approx_now + 1s, state.get_info_response);
     });
