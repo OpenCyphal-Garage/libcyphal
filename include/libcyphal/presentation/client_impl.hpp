@@ -144,10 +144,12 @@ public:
             //
             onResponseRxTransfer(arg.transfer);
         });
+
         nearest_deadline_callback_ = executor_.registerCallback([this](const auto& arg) {
             //
             onNearestDeadline(arg.approx_now);
         });
+        CETL_DEBUG_ASSERT(nearest_deadline_callback_, "Should not fail b/c we pass proper lambda.");
 
         // TODO: delete this line
         (void) memory_;
@@ -225,6 +227,8 @@ public:
     }
 
 private:
+    using Schedule = IExecutor::Callback::Schedule;
+
     static constexpr TimePoint DistantFuture()
     {
         return TimePoint::max();
@@ -306,7 +310,9 @@ private:
         if (nearest_deadline_ > new_node_deadline)
         {
             nearest_deadline_ = new_node_deadline;
-            nearest_deadline_callback_.schedule(IExecutor::Callback::Schedule::Once{new_node_deadline});
+            const auto result = nearest_deadline_callback_.schedule(Schedule::Once{new_node_deadline});
+            CETL_DEBUG_ASSERT(result, "Should not fail b/c we never reset `nearest_deadline_callback_`.");
+            (void) result;
         }
     }
 
@@ -341,7 +347,9 @@ private:
             if (nearest_deadline_ < nearest_deadline_node->getDeadline())
             {
                 nearest_deadline_ = nearest_deadline_node->getDeadline();
-                nearest_deadline_callback_.schedule(IExecutor::Callback::Schedule::Once{nearest_deadline_});
+                const auto result = nearest_deadline_callback_.schedule(Schedule::Once{nearest_deadline_});
+                CETL_DEBUG_ASSERT(result, "Should not fail b/c we never reset `nearest_deadline_callback_`.");
+                (void) result;
             }
         }
         else
@@ -349,7 +357,9 @@ private:
             // No more timeout nodes left, so cancel the schedule (by moving it to the distant future).
             //
             nearest_deadline_ = DistantFuture();
-            nearest_deadline_callback_.schedule(IExecutor::Callback::Schedule::Once{nearest_deadline_});
+            const auto result = nearest_deadline_callback_.schedule(Schedule::Once{nearest_deadline_});
+            CETL_DEBUG_ASSERT(result, "Should not fail b/c we never reset `nearest_deadline_callback_`.");
+            (void) result;
         }
     }
 
