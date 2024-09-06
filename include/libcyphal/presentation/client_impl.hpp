@@ -11,7 +11,9 @@
 
 #include "libcyphal/common/cavl/cavl.hpp"
 #include "libcyphal/executor.hpp"
+#include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
+#include "libcyphal/transport/transfer_id_allocator.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
 
@@ -32,7 +34,7 @@ namespace presentation
 namespace detail
 {
 
-class ClientImpl final : public cavl::Node<ClientImpl>, public SharedObject
+class SharedClient : public cavl::Node<SharedClient>, public SharedObject
 {
 public:
     class TimeoutNode : public Node<TimeoutNode>
@@ -123,18 +125,17 @@ public:
 
     };  // CallbackNode
 
-    ClientImpl(cetl::pmr::memory_resource&              memory,
-               IPresentationDelegate&                   delegate,
-               IExecutor&                               executor,
-               UniquePtr<transport::IRequestTxSession>  svc_request_tx_session,
-               UniquePtr<transport::IResponseRxSession> svc_response_rx_session)
+    SharedClient(cetl::pmr::memory_resource&              memory,
+                 IPresentationDelegate&                   delegate,
+                 IExecutor&                               executor,
+                 UniquePtr<transport::IRequestTxSession>  svc_request_tx_session,
+                 UniquePtr<transport::IResponseRxSession> svc_response_rx_session)
         : memory_{memory}
         , delegate_{delegate}
         , executor_{executor}
         , svc_request_tx_session_{std::move(svc_request_tx_session)}
         , svc_response_rx_session_{std::move(svc_response_rx_session)}
         , response_rx_params_{svc_response_rx_session_->getParams()}
-        , next_transfer_id_{0}
         , nearest_deadline_{DistantFuture()}
     {
         CETL_DEBUG_ASSERT(svc_request_tx_session_ != nullptr, "");
@@ -163,13 +164,6 @@ public:
     CETL_NODISCARD cetl::pmr::memory_resource& memory() const noexcept
     {
         return memory_;
-    }
-
-    CETL_NODISCARD cetl::optional<transport::TransferId> allocateTransferId()
-    {
-        // TODO: Implement allocation algorithm which takes into account transfer id modulo.
-        // For now just increment, which works totally fine in case of UDP transport.
-        return next_transfer_id_++;
     }
 
     CETL_NODISCARD std::int32_t compareByNodeAndServiceIds(const transport::ResponseRxParams& rx_params) const
@@ -215,6 +209,10 @@ public:
         release();
     }
 
+    CETL_NODISCARD virtual cetl::optional<transport::TransferId> allocateTransferId() = 0;
+
+    // MARK: SharedObject
+
     void release() noexcept override
     {
         SharedObject::release();
@@ -222,7 +220,36 @@ public:
         {
             CETL_DEBUG_ASSERT(cb_nodes_by_transfer_id_.empty(), "");
 
-            delegate_.releaseClientImpl(this);
+            delegate_.releaseSharedClient(this);
+        }
+    }
+
+protected:
+    virtual void insertNewCallbackNode(CallbackNode& callback_node)
+    {
+        CETL_DEBUG_ASSERT(!callback_node.isCallbackLinked(), "");
+
+        const auto cb_node_existing = cb_nodes_by_transfer_id_.search(                       //
+            [transfer_id = callback_node.getTransferId()](const CallbackNode& other_node) {  // predicate
+                //
+                return other_node.compareByTransferId(transfer_id);
+            },
+            [&callback_node]() { return &callback_node; });  // "factory"
+
+        (void) cb_node_existing;
+        CETL_DEBUG_ASSERT(callback_node.isCallbackLinked(), "");
+        CETL_DEBUG_ASSERT(!std::get<1>(cb_node_existing), "Unexpected existing callback node.");
+        CETL_DEBUG_ASSERT(&callback_node == std::get<0>(cb_node_existing), "Unexpected callback node.");
+
+        insertNewTimeoutNodeAndReschedule(callback_node);
+    }
+
+    virtual void removeCallbackNode(CallbackNode& callback_node)
+    {
+        cb_nodes_by_transfer_id_.remove(&callback_node);
+        if (callback_node.isTimeoutLinked())
+        {
+            removeTimeoutNodeAndReschedule(callback_node);
         }
     }
 
@@ -266,25 +293,6 @@ private:
         }
     }
 
-    void insertNewCallbackNode(CallbackNode& callback_node)
-    {
-        CETL_DEBUG_ASSERT(!callback_node.isCallbackLinked(), "");
-
-        const auto cb_node_existing = cb_nodes_by_transfer_id_.search(                       //
-            [transfer_id = callback_node.getTransferId()](const CallbackNode& other_node) {  // predicate
-                //
-                return other_node.compareByTransferId(transfer_id);
-            },
-            [&callback_node]() { return &callback_node; });  // "factory"
-
-        (void) cb_node_existing;
-        CETL_DEBUG_ASSERT(callback_node.isCallbackLinked(), "");
-        CETL_DEBUG_ASSERT(!std::get<1>(cb_node_existing), "Unexpected existing callback node.");
-        CETL_DEBUG_ASSERT(&callback_node == std::get<0>(cb_node_existing), "Unexpected callback node.");
-
-        insertNewTimeoutNodeAndReschedule(callback_node);
-    }
-
     void insertNewTimeoutNodeAndReschedule(TimeoutNode& timeout_node)
     {
         CETL_DEBUG_ASSERT(!timeout_node.isTimeoutLinked(), "");
@@ -293,8 +301,8 @@ private:
 
         // 1. Insert the new timeout node.
         //
-        const std::tuple<TimeoutNode*, bool> timeout_node_existing = timeout_nodes_by_deadline_.search(  //
-            [new_node_deadline](const TimeoutNode& other_node) {                                         // predicate
+        const auto timeout_node_existing = timeout_nodes_by_deadline_.search(  //
+            [new_node_deadline](const TimeoutNode& other_node) {               // predicate
                 //
                 return other_node.compareByDeadline(new_node_deadline);
             },
@@ -313,15 +321,6 @@ private:
             const auto result = nearest_deadline_callback_.schedule(Schedule::Once{new_node_deadline});
             CETL_DEBUG_ASSERT(result, "Should not fail b/c we never reset `nearest_deadline_callback_`.");
             (void) result;
-        }
-    }
-
-    void removeCallbackNode(CallbackNode& callback_node)
-    {
-        cb_nodes_by_transfer_id_.remove(&callback_node);
-        if (callback_node.isTimeoutLinked())
-        {
-            removeTimeoutNodeAndReschedule(callback_node);
         }
     }
 
@@ -371,13 +370,82 @@ private:
     const UniquePtr<transport::IRequestTxSession>  svc_request_tx_session_;
     const UniquePtr<transport::IResponseRxSession> svc_response_rx_session_;
     const transport::ResponseRxParams              response_rx_params_;
-    transport::TransferId                          next_transfer_id_;
     cavl::Tree<CallbackNode>                       cb_nodes_by_transfer_id_;
     TimePoint                                      nearest_deadline_;
     cavl::Tree<TimeoutNode>                        timeout_nodes_by_deadline_;
     IExecutor::Callback::Any                       nearest_deadline_callback_;
 
-};  // ClientImpl
+};  // SharedClient
+
+// MARK: -
+
+template <typename TransferIdAllocatorMixin>
+class ClientImpl final : public SharedClient, public TransferIdAllocatorMixin
+{
+public:
+    ClientImpl(cetl::pmr::memory_resource&              memory,
+               IPresentationDelegate&                   delegate,
+               IExecutor&                               executor,
+               UniquePtr<transport::IRequestTxSession>  svc_request_tx_session,
+               UniquePtr<transport::IResponseRxSession> svc_response_rx_session,
+               const transport::TransferId              transfer_id_modulo)
+        : SharedClient{memory,
+                       delegate,
+                       executor,
+                       std::move(svc_request_tx_session),
+                       std::move(svc_response_rx_session)}
+        , TransferIdAllocatorMixin{transfer_id_modulo}
+    {
+    }
+
+private:
+    CETL_NODISCARD cetl::optional<transport::TransferId> allocateTransferId() override
+    {
+        return TransferIdAllocatorMixin::allocateTransferId();
+    }
+
+    void insertNewCallbackNode(CallbackNode& callback_node) override
+    {
+        SharedClient::insertNewCallbackNode(callback_node);
+        TransferIdAllocatorMixin::retainTransferId(callback_node.getTransferId());
+    }
+
+    void removeCallbackNode(CallbackNode& callback_node) override
+    {
+        TransferIdAllocatorMixin::releaseTransferId(callback_node.getTransferId());
+        SharedClient::removeCallbackNode(callback_node);
+    }
+
+};  // ClientImpl<TransferIdAllocatorMixin>
+
+template <>
+class ClientImpl<transport::detail::TrivialTransferIdAllocator> final
+    : public SharedClient,
+      public transport::detail::TrivialTransferIdAllocator
+{
+public:
+    ClientImpl(cetl::pmr::memory_resource&              memory,
+               IPresentationDelegate&                   delegate,
+               IExecutor&                               executor,
+               UniquePtr<transport::IRequestTxSession>  svc_request_tx_session,
+               UniquePtr<transport::IResponseRxSession> svc_response_rx_session,
+               const transport::TransferId              transfer_id_modulo)
+        : SharedClient{memory,
+                       delegate,
+                       executor,
+                       std::move(svc_request_tx_session),
+                       std::move(svc_response_rx_session)}
+        , TrivialTransferIdAllocator{transfer_id_modulo}
+    {
+    }
+
+private:
+    CETL_NODISCARD cetl::optional<transport::TransferId> allocateTransferId() override
+    {
+        return TrivialTransferIdAllocator::allocateTransferId();
+    }
+
+};  // ClientImpl<TrivialTransferIdAllocator>
 
 }  // namespace detail
 }  // namespace presentation

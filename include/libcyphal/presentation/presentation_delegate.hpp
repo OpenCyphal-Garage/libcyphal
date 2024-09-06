@@ -61,7 +61,7 @@ struct IsServiceTrait<T, true>
 };
 
 // Forward declaration.
-class ClientImpl;
+class SharedClient;
 class PublisherImpl;
 class SubscriberImpl;
 
@@ -75,7 +75,7 @@ public:
     IPresentationDelegate& operator=(const IPresentationDelegate&)     = delete;
     IPresentationDelegate& operator=(IPresentationDelegate&&) noexcept = delete;
 
-    virtual void releaseClientImpl(ClientImpl* client_impl) noexcept             = 0;
+    virtual void releaseSharedClient(SharedClient* shared_client) noexcept       = 0;
     virtual void releasePublisherImpl(PublisherImpl* publisher_impl) noexcept    = 0;
     virtual void releaseSubscriberImpl(SubscriberImpl* subscriber_impl) noexcept = 0;
 

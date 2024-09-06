@@ -23,6 +23,8 @@
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
+#include <libcyphal/transport/transfer_id_allocator.hpp>
+#include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
 #include <nunavut/support/serialization.hpp>
@@ -149,6 +151,12 @@ protected:
     using UniquePtrResRxSpec = ResponseRxSessionMock::RefWrapper::Spec;
     using UniquePtrResTxSpec = ResponseTxSessionMock::RefWrapper::Spec;
 
+    void SetUp() override
+    {
+        EXPECT_CALL(transport_mock_, getProtocolParams())
+            .WillRepeatedly(Return(ProtocolParams{std::numeric_limits<TransferId>::max(), 0, 0}));
+    }
+
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
@@ -268,6 +276,8 @@ TEST_F(TestPresentation, makePublisher_with_failure)
     }
     // Emulate that there is no memory available for the `PublisherImpl`.
     {
+        using PublisherImpl = libcyphal::presentation::detail::PublisherImpl;
+
         StrictMock<MessageTxSessionMock> msg_tx_session_mock;
         EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
 
@@ -275,7 +285,7 @@ TEST_F(TestPresentation, makePublisher_with_failure)
             .WillOnce(Invoke([&](const auto&) {                                           //
                 return libcyphal::detail::makeUniquePtr<UniquePtrMsgTxSpec>(mr_, msg_tx_session_mock);
             }));
-        EXPECT_CALL(mr_mock, do_allocate(sizeof(detail::PublisherImpl), _)).WillOnce(Return(nullptr));
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(PublisherImpl), _)).WillOnce(Return(nullptr));
 
         auto maybe_pub = presentation.makePublisher<Message>(tx_params.subject_id);
         EXPECT_THAT(maybe_pub, VariantWith<Presentation::MakeFailure>(VariantWith<MemoryError>(_)));
@@ -387,6 +397,8 @@ TEST_F(TestPresentation, makeSubscriber_with_failure)
     }
     // Emulate that there is no memory available for the `SubscriberImpl`.
     {
+        using SubscriberImpl = libcyphal::presentation::detail::SubscriberImpl;
+
         StrictMock<MessageRxSessionMock> msg_rx_session_mock;
         EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);
 
@@ -394,7 +406,7 @@ TEST_F(TestPresentation, makeSubscriber_with_failure)
             .WillOnce(Invoke([&](const auto&) {                                           //
                 return libcyphal::detail::makeUniquePtr<UniquePtrMsgRxSpec>(mr_, msg_rx_session_mock);
             }));
-        EXPECT_CALL(mr_mock, do_allocate(sizeof(detail::SubscriberImpl), _)).WillOnce(Return(nullptr));
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(SubscriberImpl), _)).WillOnce(Return(nullptr));
 
         auto maybe_sub = presentation.makeSubscriber(rx_params.subject_id, rx_params.extent_bytes);
         EXPECT_THAT(maybe_sub, VariantWith<Presentation::MakeFailure>(VariantWith<MemoryError>(_)));
@@ -720,6 +732,9 @@ TEST_F(TestPresentation, makeClient_with_failure)
     }
     // Emulate that there is no memory available for the `ClientImpl`.
     {
+        using TransferIdAllocatorMixin = libcyphal::transport::detail::TrivialTransferIdAllocator;
+        using ClientImpl = libcyphal::presentation::detail::ClientImpl<TransferIdAllocatorMixin>;
+
         StrictMock<ResponseRxSessionMock> res_rx_session_mock;
         StrictMock<RequestTxSessionMock>  req_tx_session_mock;
 
@@ -736,7 +751,7 @@ TEST_F(TestPresentation, makeClient_with_failure)
                 return libcyphal::detail::makeUniquePtr<UniquePtrReqTxSpec>(mr_, req_tx_session_mock);
             }));
 
-        EXPECT_CALL(mr_mock, do_allocate(sizeof(detail::ClientImpl), _)).WillOnce(Return(nullptr));
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(ClientImpl), _)).WillOnce(Return(nullptr));
 
         auto maybe_client = presentation.makeClient(  //
             rx_params.server_node_id,

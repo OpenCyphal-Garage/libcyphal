@@ -36,7 +36,7 @@ namespace presentation
 /// b/c we do directly handle resources here (like `client_impl_` retain/release etc.).
 ///
 template <typename Response>
-class ResponsePromiseBase : public detail::ClientImpl::CallbackNode  // NOSONAR cpp:S4963
+class ResponsePromiseBase : public detail::SharedClient::CallbackNode  // NOSONAR cpp:S4963
 {
 public:
     /// @brief Defines successful response and its metadata.
@@ -90,12 +90,12 @@ public:
     ///
     ResponsePromiseBase(ResponsePromiseBase&& other) noexcept
         : CallbackNode{std::move(static_cast<CallbackNode&&>(other))}
-        , client_impl_{std::exchange(other.client_impl_, nullptr)}
+        , shared_client_{std::exchange(other.shared_client_, nullptr)}
         , request_time_{other.request_time_}
         , callback_fn_{std::move(other.callback_fn_)}
         , opt_result_{std::move(other.opt_result_)}
     {
-        CETL_DEBUG_ASSERT(client_impl_ != nullptr, "Not supposed to move construct from already moved `other`.");
+        CETL_DEBUG_ASSERT(shared_client_ != nullptr, "Not supposed to move construct from already moved `other`.");
         // No need to retain the moved object, as it is supposed to be already retained.
     }
 
@@ -151,30 +151,29 @@ public:
     }
 
 protected:
-    ResponsePromiseBase(detail::ClientImpl* const   client_impl,
-                        const TimePoint             request_time,
+    ResponsePromiseBase(detail::SharedClient* const shared_client,
                         const transport::TransferId transfer_id,
                         const TimePoint             response_deadline)
         : CallbackNode{transfer_id, response_deadline}
-        , client_impl_{client_impl}
-        , request_time_{request_time}
+        , shared_client_{shared_client}
+        , request_time_{shared_client->now()}
     {
-        CETL_DEBUG_ASSERT(client_impl_ != nullptr, "");
-        client_impl_->retainCallbackNode(*this);
+        CETL_DEBUG_ASSERT(shared_client_ != nullptr, "");
+        shared_client_->retainCallbackNode(*this);
     }
 
     ~ResponsePromiseBase()
     {
-        if (client_impl_ != nullptr)
+        if (shared_client_ != nullptr)
         {
-            client_impl_->releaseCallbackNode(*this);
+            shared_client_->releaseCallbackNode(*this);
         }
     }
 
     cetl::pmr::memory_resource& memory() const noexcept
     {
-        CETL_DEBUG_ASSERT(client_impl_ != nullptr, "");
-        return client_impl_->memory();
+        CETL_DEBUG_ASSERT(shared_client_ != nullptr, "");
+        return shared_client_->memory();
     }
 
     void acceptResult(Result&& result, const TimePoint approx_now)
@@ -203,7 +202,7 @@ protected:
             //
             if (auto result = fetchResult())
             {
-                const typename Callback::Arg arg{std::move(*result), client_impl_->now()};
+                const typename Callback::Arg arg{std::move(*result), shared_client_->now()};
                 callback_fn(arg);
                 return;
             }
@@ -214,8 +213,8 @@ protected:
 
     void acceptNewDeadline(const TimePoint deadline)
     {
-        CETL_DEBUG_ASSERT(client_impl_ != nullptr, "");
-        client_impl_->updateDeadlineOfTimeoutNode(*this, deadline);
+        CETL_DEBUG_ASSERT(shared_client_ != nullptr, "");
+        shared_client_->updateDeadlineOfTimeoutNode(*this, deadline);
     }
 
     // MARK: CallbackNode
@@ -228,7 +227,7 @@ protected:
 private:
     // MARK: Data members:
 
-    detail::ClientImpl*         client_impl_;
+    detail::SharedClient*       shared_client_;
     const TimePoint             request_time_;
     typename Callback::Function callback_fn_;
     cetl::optional<Result>      opt_result_;

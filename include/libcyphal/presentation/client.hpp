@@ -56,48 +56,50 @@ public:
     using Failure = libcyphal::detail::AppendType<transport::AnyFailure, TooManyPendingRequestsError>::Result;
 
     ClientBase(const ClientBase& other)
-        : impl_{other.impl_}
+        : shared_client_{other.shared_client_}
         , priority_{other.priority_}
     {
-        CETL_DEBUG_ASSERT(other.impl_ != nullptr, "Not supposed to copy construct from already moved `other`.");
+        CETL_DEBUG_ASSERT(other.shared_client_ != nullptr,
+                          "Not supposed to copy construct from already moved `other`.");
 
-        impl_->retain();
+        shared_client_->retain();
     }
 
     ClientBase(ClientBase&& other) noexcept
-        : impl_{std::exchange(other.impl_, nullptr)}
+        : shared_client_{std::exchange(other.shared_client_, nullptr)}
         , priority_{other.priority_}
     {
-        CETL_DEBUG_ASSERT(impl_ != nullptr, "Not supposed to move construct from already moved `other`.");
+        CETL_DEBUG_ASSERT(shared_client_ != nullptr, "Not supposed to move construct from already moved `other`.");
         // No need to retain the moved object, as it is already retained.
     }
 
     ClientBase& operator=(const ClientBase& other)
     {
-        CETL_DEBUG_ASSERT(impl_ != nullptr, "Not supposed to copy assign to already moved `this`.");
-        CETL_DEBUG_ASSERT(other.impl_ != nullptr, "Not supposed to copy assign from already moved `other`.");
+        CETL_DEBUG_ASSERT(shared_client_ != nullptr, "Not supposed to copy assign to already moved `this`.");
+        CETL_DEBUG_ASSERT(other.shared_client_ != nullptr, "Not supposed to copy assign from already moved `other`.");
 
         if (this != &other)
         {
-            impl_->release();
+            shared_client_->release();
 
-            impl_     = other.impl_;
-            priority_ = other.priority_;
+            shared_client_ = other.shared_client_;
+            priority_      = other.priority_;
 
-            impl_->retain();
+            shared_client_->retain();
         }
         return *this;
     }
 
     ClientBase& operator=(ClientBase&& other) noexcept
     {
-        CETL_DEBUG_ASSERT(impl_ != nullptr, "Not supposed to move construct to already moved `this`.");
-        CETL_DEBUG_ASSERT(other.impl_ != nullptr, "Not supposed to move construct from already moved `other`.");
+        CETL_DEBUG_ASSERT(shared_client_ != nullptr, "Not supposed to move construct to already moved `this`.");
+        CETL_DEBUG_ASSERT(other.shared_client_ != nullptr,
+                          "Not supposed to move construct from already moved `other`.");
 
-        impl_->release();
+        shared_client_->release();
 
-        impl_     = std::exchange(other.impl_, nullptr);
-        priority_ = other.priority_;
+        shared_client_ = std::exchange(other.shared_client_, nullptr);
+        priority_      = other.priority_;
 
         // No need to retain the moved object, as it is already retained.
         return *this;
@@ -116,30 +118,30 @@ public:
 protected:
     ~ClientBase()
     {
-        if (impl_ != nullptr)
+        if (shared_client_ != nullptr)
         {
-            impl_->release();
+            shared_client_->release();
         }
     }
 
-    explicit ClientBase(ClientImpl* const impl)
-        : impl_{impl}
+    explicit ClientBase(SharedClient* const shared_client)
+        : shared_client_{shared_client}
         , priority_{transport::Priority::Nominal}
     {
-        CETL_DEBUG_ASSERT(impl_ != nullptr, "");
-        impl_->retain();
+        CETL_DEBUG_ASSERT(shared_client_ != nullptr, "");
+        shared_client_->retain();
     }
 
-    ClientImpl& getClientImpl() const noexcept
+    SharedClient& getSharedClient() const noexcept
     {
-        CETL_DEBUG_ASSERT(impl_ != nullptr, "");
-        return *impl_;
+        CETL_DEBUG_ASSERT(shared_client_ != nullptr, "");
+        return *shared_client_;
     }
 
 private:
     // MARK: Data members:
 
-    ClientImpl*         impl_;
+    SharedClient*       shared_client_;
     transport::Priority priority_;
 
 };  // ClientBase
@@ -200,8 +202,8 @@ public:
         // 2. For request (and following response) we need to allocate a transfer ID,
         //    which will be in use to pair the request with the response.
         //
-        auto& client_impl     = getClientImpl();
-        auto  opt_transfer_id = client_impl.allocateTransferId();
+        auto& shared_client   = getSharedClient();
+        auto  opt_transfer_id = shared_client.allocateTransferId();
         if (!opt_transfer_id)
         {
             return TooManyPendingRequestsError{};
@@ -212,13 +214,12 @@ public:
         //    Its done specifically before sending the request, so that we will be ready to handle a response
         //    immediately, even if it happens to be received in context (during) the request sending call.
         //
-        ResponsePromise<Response> response_promise{&client_impl,
-                                                   client_impl.now(),
+        ResponsePromise<Response> response_promise{&shared_client,
                                                    transfer_id,
                                                    response_deadline.value_or(request_deadline)};
         //
         const transport::TransferTxMetadata tx_metadata{{transfer_id, getPriority()}, request_deadline};
-        if (auto failure = client_impl.sendRequestPayload(tx_metadata, payload))
+        if (auto failure = shared_client.sendRequestPayload(tx_metadata, payload))
         {
             return libcyphal::detail::upcastVariant<Failure>(std::move(*failure));
         }
@@ -229,8 +230,8 @@ public:
 private:
     friend class Presentation;  // NOLINT cppcoreguidelines-virtual-class-destructor
 
-    explicit Client(detail::ClientImpl* const impl)
-        : ClientBase{impl}
+    explicit Client(detail::SharedClient* const shared_client)
+        : ClientBase{shared_client}
     {
     }
 
@@ -266,8 +267,8 @@ public:
         // 1. For request (and following response) we need to allocate a transfer ID,
         //    which will be in use to pair the request with the response.
         //
-        auto& client_impl     = getClientImpl();
-        auto  opt_transfer_id = client_impl.allocateTransferId();
+        auto& shared_client   = getSharedClient();
+        auto  opt_transfer_id = shared_client.allocateTransferId();
         if (!opt_transfer_id)
         {
             return TooManyPendingRequestsError{};
@@ -278,13 +279,12 @@ public:
         //    Its done specifically before sending the request, so that we will be ready to handle a response
         //    immediately, even if it happens to be received in context (during) the request sending call.
         //
-        ResponsePromise<void> response_promise{&client_impl,
-                                               client_impl.now(),
+        ResponsePromise<void> response_promise{&shared_client,
                                                transfer_id,
                                                response_deadline.value_or(request_deadline)};
         //
         const transport::TransferTxMetadata tx_metadata{{transfer_id, getPriority()}, request_deadline};
-        if (auto failure = client_impl.sendRequestPayload(tx_metadata, request_payload))
+        if (auto failure = shared_client.sendRequestPayload(tx_metadata, request_payload))
         {
             return libcyphal::detail::upcastVariant<Failure>(std::move(*failure));
         }
@@ -295,8 +295,8 @@ public:
 private:
     friend class Presentation;
 
-    explicit RawServiceClient(detail::ClientImpl* const impl)
-        : ClientBase{impl}
+    explicit RawServiceClient(detail::SharedClient* const shared_client)
+        : ClientBase{shared_client}
     {
     }
 

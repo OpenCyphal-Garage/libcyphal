@@ -20,6 +20,7 @@
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
+#include "libcyphal/transport/transfer_id_allocator.hpp"
 #include "libcyphal/transport/transport.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
@@ -345,13 +346,13 @@ public:
     {
         cetl::optional<MakeFailure>       out_failure;
         const transport::ResponseRxParams rx_params{Response::_traits_::ExtentBytes, service_id, server_node_id};
-        auto* const                       client_impl = createSharedClientImpl(rx_params, out_failure);
+        auto* const                       shared_client = createSharedClient(rx_params, out_failure);
         if (out_failure)
         {
             return std::move(*out_failure);
         }
 
-        return Client<Request, Response>{client_impl};
+        return Client<Request, Response>{shared_client};
     }
 
     /// @brief Makes a service typed RPC client bound to a specific server node and service ids.
@@ -393,13 +394,13 @@ public:
     {
         cetl::optional<MakeFailure>       out_failure;
         const transport::ResponseRxParams rx_params{extent_bytes, service_id, server_node_id};
-        auto* const                       client_impl = createSharedClientImpl(rx_params, out_failure);
+        auto* const                       shared_client = createSharedClient(rx_params, out_failure);
         if (out_failure)
         {
             return std::move(*out_failure);
         }
 
-        return RawServiceClient{client_impl};
+        return RawServiceClient{shared_client};
     }
 
 private:
@@ -511,52 +512,56 @@ private:
         return out_failure.value_or(transport::MemoryError{});
     }
 
-    detail::ClientImpl* createSharedClientImpl(const transport::ResponseRxParams& rx_params,
-                                               cetl::optional<MakeFailure>&       out_failure)
+    detail::SharedClient* createSharedClient(const transport::ResponseRxParams& rx_params,
+                                             cetl::optional<MakeFailure>&       out_failure)
     {
         // Create a shared client implementation node; or find the existing one.
         //
-        const auto client_existing = client_impl_nodes_.search(
-            [&rx_params](const detail::ClientImpl& other_client) {  // predicate
+        const auto shared_client_existing = shared_client_nodes_.search(
+            [&rx_params](const detail::SharedClient& other_client) {  // predicate
                 //
                 return other_client.compareByNodeAndServiceIds(rx_params);
             },
-            [this, &rx_params, &out_failure]() -> detail::ClientImpl* {  // factory
+            [this, &rx_params, &out_failure]() -> detail::SharedClient* {  // factory
                 //
-                return makeClientImpl(rx_params, out_failure);
+                return makeSharedClient(rx_params, out_failure);
             });
         if (out_failure)
         {
             return nullptr;
         }
 
-        auto* const client_impl = std::get<0>(client_existing);
-        CETL_DEBUG_ASSERT(client_impl != nullptr, "");
-        return client_impl;
+        auto* const shared_client = std::get<0>(shared_client_existing);
+        CETL_DEBUG_ASSERT(shared_client != nullptr, "");
+        return shared_client;
     }
 
-    CETL_NODISCARD detail::ClientImpl* makeClientImpl(const transport::ResponseRxParams rx_params,
-                                                      cetl::optional<MakeFailure>&      out_failure)
+    CETL_NODISCARD detail::SharedClient* makeSharedClient(const transport::ResponseRxParams rx_params,
+                                                          cetl::optional<MakeFailure>&      out_failure)
     {
         const transport::RequestTxParams tx_params{rx_params.service_id, rx_params.server_node_id};
         if (auto tx_session = getIfSession(transport_.makeRequestTxSession(tx_params), out_failure))
         {
             if (auto rx_session = getIfSession(transport_.makeResponseRxSession(rx_params), out_failure))
             {
-                PmrAllocator<detail::ClientImpl> allocator{&memory_};
-                detail::ClientImpl* const        client_impl = allocator.allocate(1);
+                using ClientImpl = detail::ClientImpl<transport::detail::TrivialTransferIdAllocator>;
+
+                PmrAllocator<ClientImpl> allocator{&memory_};
+                ClientImpl* const        client_impl = allocator.allocate(1);
                 if (client_impl == nullptr)
                 {
                     out_failure = transport::MemoryError{};
                     return nullptr;
                 }
 
+                const auto transfer_id_modulo = transport_.getProtocolParams().transfer_id_modulo;
                 allocator.construct(client_impl,
                                     memory_,
                                     asDelegate(),
                                     executor_,
                                     std::move(tx_session),
-                                    std::move(rx_session));
+                                    std::move(rx_session),
+                                    transfer_id_modulo);
                 return client_impl;
             }
         }
@@ -582,9 +587,9 @@ private:
 
     // MARK: IPresentationDelegate
 
-    void releaseClientImpl(detail::ClientImpl* const client_impl) noexcept override
+    void releaseSharedClient(detail::SharedClient* const shared_client) noexcept override
     {
-        releaseAnyImplNode(client_impl, client_impl_nodes_);
+        releaseAnyImplNode(shared_client, shared_client_nodes_);
     }
 
     void releasePublisherImpl(detail::PublisherImpl* const publisher_impl) noexcept override
@@ -602,7 +607,7 @@ private:
     cetl::pmr::memory_resource&        memory_;
     IExecutor&                         executor_;
     transport::ITransport&             transport_;
-    cavl::Tree<detail::ClientImpl>     client_impl_nodes_;
+    cavl::Tree<detail::SharedClient>   shared_client_nodes_;
     cavl::Tree<detail::PublisherImpl>  publisher_impl_nodes_;
     cavl::Tree<detail::SubscriberImpl> subscriber_impl_nodes_;
 
