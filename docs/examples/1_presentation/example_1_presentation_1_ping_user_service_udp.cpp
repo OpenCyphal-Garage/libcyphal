@@ -124,10 +124,10 @@ nunavut::support::SerializeResult deserialize(Ping<IsRequest>& ping, nunavut::su
 class Example_1_Presentation_1_PingUserService_Udp : public testing::Test
 {
 protected:
-    using Callback             = libcyphal::IExecutor::Callback;
-    using Duration             = libcyphal::Duration;
-    using TimePoint            = libcyphal::TimePoint;
-    using UdpTransportPtr      = libcyphal::UniquePtr<IUdpTransport>;
+    using Callback        = libcyphal::IExecutor::Callback;
+    using Duration        = libcyphal::Duration;
+    using TimePoint       = libcyphal::TimePoint;
+    using UdpTransportPtr = libcyphal::UniquePtr<IUdpTransport>;
 
     void SetUp() override
     {

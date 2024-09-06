@@ -80,7 +80,7 @@ public:
 
         if (this != &other)
         {
-            shared_client_->release();
+            (void) shared_client_->release();
 
             shared_client_ = other.shared_client_;
             priority_      = other.priority_;
@@ -96,7 +96,7 @@ public:
         CETL_DEBUG_ASSERT(other.shared_client_ != nullptr,
                           "Not supposed to move construct from already moved `other`.");
 
-        shared_client_->release();
+        (void) shared_client_->release();
 
         shared_client_ = std::exchange(other.shared_client_, nullptr);
         priority_      = other.priority_;
@@ -120,7 +120,7 @@ protected:
     {
         if (shared_client_ != nullptr)
         {
-            shared_client_->release();
+            (void) shared_client_->release();
         }
     }
 
@@ -203,7 +203,7 @@ public:
         //    which will be in use to pair the request with the response.
         //
         auto& shared_client   = getSharedClient();
-        auto  opt_transfer_id = shared_client.allocateTransferId();
+        auto  opt_transfer_id = shared_client.nextTransferId();
         if (!opt_transfer_id)
         {
             return TooManyPendingRequestsError{};
@@ -268,7 +268,7 @@ public:
         //    which will be in use to pair the request with the response.
         //
         auto& shared_client   = getSharedClient();
-        auto  opt_transfer_id = shared_client.allocateTransferId();
+        auto  opt_transfer_id = shared_client.nextTransferId();
         if (!opt_transfer_id)
         {
             return TooManyPendingRequestsError{};

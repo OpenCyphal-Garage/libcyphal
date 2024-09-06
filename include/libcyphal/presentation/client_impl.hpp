@@ -13,7 +13,7 @@
 #include "libcyphal/executor.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
-#include "libcyphal/transport/transfer_id_allocator.hpp"
+#include "libcyphal/transport/transfer_id_generators.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
 
@@ -195,16 +195,16 @@ public:
         CETL_DEBUG_ASSERT(timeout_node.isTimeoutLinked(), "");
         timeout_nodes_by_deadline_.remove(&timeout_node);
         timeout_node.setDeadline(new_deadline);
-        insertNewTimeoutNodeAndReschedule(timeout_node);
+        insertTimeoutNodeAndReschedule(timeout_node);
     }
 
     void releaseCallbackNode(CallbackNode& callback_node) noexcept
     {
         removeCallbackNode(callback_node);
-        release();
+        (void) release();
     }
 
-    CETL_NODISCARD virtual cetl::optional<transport::TransferId> allocateTransferId() = 0;
+    CETL_NODISCARD virtual cetl::optional<transport::TransferId> nextTransferId() noexcept = 0;
 
     // MARK: SharedObject
 
@@ -243,7 +243,7 @@ protected:
         CETL_DEBUG_ASSERT(!std::get<1>(cb_node_existing), "Unexpected existing callback node.");
         CETL_DEBUG_ASSERT(&callback_node == std::get<0>(cb_node_existing), "Unexpected callback node.");
 
-        insertNewTimeoutNodeAndReschedule(callback_node);
+        insertTimeoutNodeAndReschedule(callback_node);
     }
 
     virtual void removeCallbackNode(CallbackNode& callback_node)
@@ -295,7 +295,7 @@ private:
         }
     }
 
-    void insertNewTimeoutNodeAndReschedule(TimeoutNode& timeout_node)
+    void insertTimeoutNodeAndReschedule(TimeoutNode& timeout_node)
     {
         CETL_DEBUG_ASSERT(!timeout_node.isTimeoutLinked(), "");
 
@@ -380,8 +380,10 @@ private:
 
 // MARK: -
 
-template <typename TransferIdAllocatorMixin>
-class ClientImpl final : public SharedClient, public TransferIdAllocatorMixin
+/// @brief Defines a shared client implementation that uses a generic transfer ID generator.
+///
+template <typename TransferIdGeneratorMixin>
+class ClientImpl final : public SharedClient, public TransferIdGeneratorMixin
 {
 public:
     ClientImpl(IPresentationDelegate&                   delegate,
@@ -390,7 +392,7 @@ public:
                UniquePtr<transport::IResponseRxSession> svc_response_rx_session,
                const transport::TransferId              transfer_id_modulo)
         : SharedClient{delegate, executor, std::move(svc_request_tx_session), std::move(svc_response_rx_session)}
-        , TransferIdAllocatorMixin{transfer_id_modulo}
+        , TransferIdGeneratorMixin{transfer_id_modulo}
     {
     }
 
@@ -404,29 +406,31 @@ public:
 private:
     // MARK: SharedClient
 
-    CETL_NODISCARD cetl::optional<transport::TransferId> allocateTransferId() override
+    CETL_NODISCARD cetl::optional<transport::TransferId> nextTransferId() noexcept override
     {
-        return TransferIdAllocatorMixin::allocateTransferId();
+        return TransferIdGeneratorMixin::nextTransferId();
     }
 
     void insertNewCallbackNode(CallbackNode& callback_node) override
     {
         SharedClient::insertNewCallbackNode(callback_node);
-        TransferIdAllocatorMixin::retainTransferId(callback_node.getTransferId());
+        TransferIdGeneratorMixin::retainTransferId(callback_node.getTransferId());
     }
 
     void removeCallbackNode(CallbackNode& callback_node) override
     {
-        TransferIdAllocatorMixin::releaseTransferId(callback_node.getTransferId());
+        TransferIdGeneratorMixin::releaseTransferId(callback_node.getTransferId());
         SharedClient::removeCallbackNode(callback_node);
     }
 
-};  // ClientImpl<TransferIdAllocatorMixin>
+};  // ClientImpl<TransferIdGeneratorMixin>
 
+/// @brief Defines a shared client specialization that uses a trivial transfer ID generator.
+///
 template <>
-class ClientImpl<transport::detail::TrivialTransferIdAllocator> final
+class ClientImpl<transport::detail::TrivialTransferIdGenerator> final
     : public SharedClient,
-      public transport::detail::TrivialTransferIdAllocator
+      public transport::detail::TrivialTransferIdGenerator
 {
 public:
     ClientImpl(IPresentationDelegate&                   delegate,
@@ -435,7 +439,7 @@ public:
                UniquePtr<transport::IResponseRxSession> svc_response_rx_session,
                const transport::TransferId              transfer_id_modulo)
         : SharedClient{delegate, executor, std::move(svc_request_tx_session), std::move(svc_response_rx_session)}
-        , TrivialTransferIdAllocator{transfer_id_modulo}
+        , TrivialTransferIdGenerator{transfer_id_modulo}
     {
     }
 
@@ -449,12 +453,12 @@ public:
 private:
     // MARK: SharedClient
 
-    CETL_NODISCARD cetl::optional<transport::TransferId> allocateTransferId() override
+    CETL_NODISCARD cetl::optional<transport::TransferId> nextTransferId() noexcept override
     {
-        return TrivialTransferIdAllocator::allocateTransferId();
+        return TrivialTransferIdGenerator::nextTransferId();
     }
 
-};  // ClientImpl<TrivialTransferIdAllocator>
+};  // ClientImpl<TrivialTransferIdGenerator>
 
 }  // namespace detail
 }  // namespace presentation

@@ -22,7 +22,7 @@
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
-#include "libcyphal/transport/transfer_id_allocator.hpp"
+#include "libcyphal/transport/transfer_id_generators.hpp"
 #include "libcyphal/transport/transport.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
@@ -535,7 +535,7 @@ private:
         {
             if (auto rx_session = getIfSession(transport_.makeResponseRxSession(rx_params), out_failure))
             {
-                using ClientImpl = detail::ClientImpl<transport::detail::TrivialTransferIdAllocator>;
+                using ClientImpl = detail::ClientImpl<transport::detail::TrivialTransferIdGenerator>;
 
                 const auto transfer_id_modulo = transport_.getProtocolParams().transfer_id_modulo;
                 return detail::SharedObject::createWithPmr<ClientImpl>(memory_,

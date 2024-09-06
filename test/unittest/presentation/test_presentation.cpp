@@ -24,7 +24,7 @@
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
-#include <libcyphal/transport/transfer_id_allocator.hpp>
+#include <libcyphal/transport/transfer_id_generators.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
@@ -735,8 +735,8 @@ TEST_F(TestPresentation, makeClient_with_failure)
     }
     // Emulate that there is no memory available for the `ClientImpl`.
     {
-        using TransferIdAllocatorMixin = libcyphal::transport::detail::TrivialTransferIdAllocator;
-        using ClientImpl               = libcyphal::presentation::detail::ClientImpl<TransferIdAllocatorMixin>;
+        using TransferIdGeneratorMixin = libcyphal::transport::detail::TrivialTransferIdGenerator;
+        using ClientImpl               = libcyphal::presentation::detail::ClientImpl<TransferIdGeneratorMixin>;
 
         StrictMock<ResponseRxSessionMock> res_rx_session_mock;
         StrictMock<RequestTxSessionMock>  req_tx_session_mock;
