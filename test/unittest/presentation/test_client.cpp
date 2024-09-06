@@ -30,6 +30,7 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
+#include <limits>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -69,6 +70,12 @@ class TestClient : public testing::Test
 protected:
     using UniquePtrReqTxSpec = RequestTxSessionMock::RefWrapper::Spec;
     using UniquePtrResRxSpec = ResponseRxSessionMock::RefWrapper::Spec;
+
+    void SetUp() override
+    {
+        EXPECT_CALL(transport_mock_, getProtocolParams())
+            .WillRepeatedly(Return(ProtocolParams{std::numeric_limits<TransferId>::max(), 0, 0}));
+    }
 
     void TearDown() override
     {

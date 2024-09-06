@@ -125,13 +125,11 @@ public:
 
     };  // CallbackNode
 
-    SharedClient(cetl::pmr::memory_resource&              memory,
-                 IPresentationDelegate&                   delegate,
+    SharedClient(IPresentationDelegate&                   delegate,
                  IExecutor&                               executor,
                  UniquePtr<transport::IRequestTxSession>  svc_request_tx_session,
                  UniquePtr<transport::IResponseRxSession> svc_response_rx_session)
-        : memory_{memory}
-        , delegate_{delegate}
+        : delegate_{delegate}
         , executor_{executor}
         , svc_request_tx_session_{std::move(svc_request_tx_session)}
         , svc_response_rx_session_{std::move(svc_response_rx_session)}
@@ -151,9 +149,6 @@ public:
             onNearestDeadline(arg.approx_now);
         });
         CETL_DEBUG_ASSERT(nearest_deadline_callback_, "Should not fail b/c we pass proper lambda.");
-
-        // TODO: delete this line
-        (void) memory_;
     }
 
     CETL_NODISCARD TimePoint now() const noexcept
@@ -163,7 +158,7 @@ public:
 
     CETL_NODISCARD cetl::pmr::memory_resource& memory() const noexcept
     {
-        return memory_;
+        return delegate_.memory();
     }
 
     CETL_NODISCARD std::int32_t compareByNodeAndServiceIds(const transport::ResponseRxParams& rx_params) const
@@ -213,15 +208,22 @@ public:
 
     // MARK: SharedObject
 
-    void release() noexcept override
+    /// @brief Decrements the reference count, and releases this shared client if the count is zero.
+    ///
+    /// On return from this function, the object may be deleted, so it must not be used anymore.
+    ///
+    bool release() noexcept override
     {
-        SharedObject::release();
-        if (getRefCount() == 0)
+        if (SharedObject::release())
         {
             CETL_DEBUG_ASSERT(cb_nodes_by_transfer_id_.empty(), "");
+            CETL_DEBUG_ASSERT(timeout_nodes_by_deadline_.empty(), "");
 
             delegate_.releaseSharedClient(this);
+            return true;
         }
+
+        return false;
     }
 
 protected:
@@ -364,7 +366,6 @@ private:
 
     // MARK: Data members:
 
-    cetl::pmr::memory_resource&                    memory_;
     IPresentationDelegate&                         delegate_;
     IExecutor&                                     executor_;
     const UniquePtr<transport::IRequestTxSession>  svc_request_tx_session_;
@@ -383,22 +384,26 @@ template <typename TransferIdAllocatorMixin>
 class ClientImpl final : public SharedClient, public TransferIdAllocatorMixin
 {
 public:
-    ClientImpl(cetl::pmr::memory_resource&              memory,
-               IPresentationDelegate&                   delegate,
+    ClientImpl(IPresentationDelegate&                   delegate,
                IExecutor&                               executor,
                UniquePtr<transport::IRequestTxSession>  svc_request_tx_session,
                UniquePtr<transport::IResponseRxSession> svc_response_rx_session,
                const transport::TransferId              transfer_id_modulo)
-        : SharedClient{memory,
-                       delegate,
-                       executor,
-                       std::move(svc_request_tx_session),
-                       std::move(svc_response_rx_session)}
+        : SharedClient{delegate, executor, std::move(svc_request_tx_session), std::move(svc_response_rx_session)}
         , TransferIdAllocatorMixin{transfer_id_modulo}
     {
     }
 
+    // MARK: SharedObject
+
+    void destroy() noexcept override
+    {
+        destroyWithPmr(this, memory());
+    }
+
 private:
+    // MARK: SharedClient
+
     CETL_NODISCARD cetl::optional<transport::TransferId> allocateTransferId() override
     {
         return TransferIdAllocatorMixin::allocateTransferId();
@@ -424,22 +429,26 @@ class ClientImpl<transport::detail::TrivialTransferIdAllocator> final
       public transport::detail::TrivialTransferIdAllocator
 {
 public:
-    ClientImpl(cetl::pmr::memory_resource&              memory,
-               IPresentationDelegate&                   delegate,
+    ClientImpl(IPresentationDelegate&                   delegate,
                IExecutor&                               executor,
                UniquePtr<transport::IRequestTxSession>  svc_request_tx_session,
                UniquePtr<transport::IResponseRxSession> svc_response_rx_session,
                const transport::TransferId              transfer_id_modulo)
-        : SharedClient{memory,
-                       delegate,
-                       executor,
-                       std::move(svc_request_tx_session),
-                       std::move(svc_response_rx_session)}
+        : SharedClient{delegate, executor, std::move(svc_request_tx_session), std::move(svc_response_rx_session)}
         , TrivialTransferIdAllocator{transfer_id_modulo}
     {
     }
 
+    // MARK: SharedObject
+
+    void destroy() noexcept override
+    {
+        destroyWithPmr(this, memory());
+    }
+
 private:
+    // MARK: SharedClient
+
     CETL_NODISCARD cetl::optional<transport::TransferId> allocateTransferId() override
     {
         return TrivialTransferIdAllocator::allocateTransferId();

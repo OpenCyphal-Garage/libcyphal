@@ -9,6 +9,7 @@
 
 #include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/errors.hpp>
 #include <libcyphal/transport/can/delegate.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/types.hpp>
@@ -27,6 +28,7 @@ namespace
 {
 
 using libcyphal::TimePoint;
+using libcyphal::MemoryError;
 using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
 using namespace libcyphal::transport::can;  // NOLINT This our main concern here in the unit tests.
 

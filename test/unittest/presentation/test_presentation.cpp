@@ -12,6 +12,7 @@
 #include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/errors.hpp>
 #include <libcyphal/presentation/client.hpp>
 #include <libcyphal/presentation/client_impl.hpp>
 #include <libcyphal/presentation/presentation.hpp>
@@ -37,12 +38,14 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 
 namespace
 {
 
 using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
+using libcyphal::MemoryError;
 using namespace libcyphal::presentation;  // NOLINT This our main concern here in the unit tests.
 using namespace libcyphal::transport;     // NOLINT This our main concern here in the unit tests.
 
@@ -733,7 +736,7 @@ TEST_F(TestPresentation, makeClient_with_failure)
     // Emulate that there is no memory available for the `ClientImpl`.
     {
         using TransferIdAllocatorMixin = libcyphal::transport::detail::TrivialTransferIdAllocator;
-        using ClientImpl = libcyphal::presentation::detail::ClientImpl<TransferIdAllocatorMixin>;
+        using ClientImpl               = libcyphal::presentation::detail::ClientImpl<TransferIdAllocatorMixin>;
 
         StrictMock<ResponseRxSessionMock> res_rx_session_mock;
         StrictMock<RequestTxSessionMock>  req_tx_session_mock;

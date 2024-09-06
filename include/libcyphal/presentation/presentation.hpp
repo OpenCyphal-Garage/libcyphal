@@ -13,10 +13,12 @@
 #include "publisher_impl.hpp"
 #include "server.hpp"
 #include "server_impl.hpp"
+#include "shared_object.hpp"
 #include "subscriber.hpp"
 #include "subscriber_impl.hpp"
 
 #include "libcyphal/common/cavl/cavl.hpp"
+#include "libcyphal/errors.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
@@ -426,7 +428,7 @@ private:
         auto session = cetl::get<UniquePtr<Session>>(std::move(maybe_session));
         if (session == nullptr)
         {
-            out_failure = transport::MemoryError{};
+            out_failure = MemoryError{};
         }
 
         return session;
@@ -437,16 +439,10 @@ private:
     {
         if (auto tx_session = getIfSession(transport_.makeMessageTxSession(params), out_failure))
         {
-            PmrAllocator<detail::PublisherImpl> allocator{&memory_};
-            detail::PublisherImpl* const        publisher_impl = allocator.allocate(1);
-            if (publisher_impl == nullptr)
-            {
-                out_failure = transport::MemoryError{};
-                return nullptr;
-            }
-
-            allocator.construct(publisher_impl, asDelegate(), std::move(tx_session));
-            return publisher_impl;
+            return detail::SharedObject::createWithPmr<detail::PublisherImpl>(memory_,
+                                                                              out_failure,
+                                                                              asDelegate(),
+                                                                              std::move(tx_session));
         }
         CETL_DEBUG_ASSERT(out_failure, "");
         return nullptr;
@@ -482,16 +478,11 @@ private:
     {
         if (auto rx_session = getIfSession(transport_.makeMessageRxSession(params), out_failure))
         {
-            PmrAllocator<detail::SubscriberImpl> allocator{&memory_};
-            detail::SubscriberImpl* const        subscriber_impl = allocator.allocate(1);
-            if (subscriber_impl == nullptr)
-            {
-                out_failure = transport::MemoryError{};
-                return nullptr;
-            }
-
-            allocator.construct(subscriber_impl, memory_, asDelegate(), executor_, std::move(rx_session));
-            return subscriber_impl;
+            return detail::SharedObject::createWithPmr<detail::SubscriberImpl>(memory_,
+                                                                               out_failure,
+                                                                               asDelegate(),
+                                                                               executor_,
+                                                                               std::move(rx_session));
         }
         CETL_DEBUG_ASSERT(out_failure, "");
         return nullptr;
@@ -509,7 +500,7 @@ private:
             }
         }
         CETL_DEBUG_ASSERT(out_failure, "");
-        return out_failure.value_or(transport::MemoryError{});
+        return out_failure.value_or(MemoryError{});
     }
 
     detail::SharedClient* createSharedClient(const transport::ResponseRxParams& rx_params,
@@ -546,60 +537,50 @@ private:
             {
                 using ClientImpl = detail::ClientImpl<transport::detail::TrivialTransferIdAllocator>;
 
-                PmrAllocator<ClientImpl> allocator{&memory_};
-                ClientImpl* const        client_impl = allocator.allocate(1);
-                if (client_impl == nullptr)
-                {
-                    out_failure = transport::MemoryError{};
-                    return nullptr;
-                }
-
                 const auto transfer_id_modulo = transport_.getProtocolParams().transfer_id_modulo;
-                allocator.construct(client_impl,
-                                    memory_,
-                                    asDelegate(),
-                                    executor_,
-                                    std::move(tx_session),
-                                    std::move(rx_session),
-                                    transfer_id_modulo);
-                return client_impl;
+                return detail::SharedObject::createWithPmr<ClientImpl>(memory_,
+                                                                       out_failure,
+                                                                       asDelegate(),
+                                                                       executor_,
+                                                                       std::move(tx_session),
+                                                                       std::move(rx_session),
+                                                                       transfer_id_modulo);
             }
         }
         CETL_DEBUG_ASSERT(out_failure, "");
         return nullptr;
     }
 
-    template <typename ImplNode>
-    void releaseAnyImplNode(ImplNode* const impl, cavl::Tree<ImplNode>& tree) noexcept
+    template <typename SharedNode>
+    void releaseSharedNode(SharedNode* const shared_node, cavl::Tree<SharedNode>& tree) noexcept
     {
-        CETL_DEBUG_ASSERT(impl, "");
+        CETL_DEBUG_ASSERT(shared_node != nullptr, "");
 
         // TODO: make it async (deferred to "on idle" callback).
-        tree.remove(impl);
-        // No Sonar
-        // - cpp:S3432   "Destructors should not be called explicitly"
-        // - cpp:M23_329 "Advanced memory management" shall not be used"
-        // b/c we do our own low-level PMR management here.
-        impl->~ImplNode();  // NOSONAR cpp:S3432 cpp:M23_329
-        PmrAllocator<ImplNode> allocator{&memory_};
-        allocator.deallocate(impl, 1);
+        tree.remove(shared_node);
+        shared_node->destroy();
     }
 
     // MARK: IPresentationDelegate
 
+    cetl::pmr::memory_resource& memory() const noexcept override
+    {
+        return memory_;
+    }
+
     void releaseSharedClient(detail::SharedClient* const shared_client) noexcept override
     {
-        releaseAnyImplNode(shared_client, shared_client_nodes_);
+        releaseSharedNode(shared_client, shared_client_nodes_);
     }
 
     void releasePublisherImpl(detail::PublisherImpl* const publisher_impl) noexcept override
     {
-        releaseAnyImplNode(publisher_impl, publisher_impl_nodes_);
+        releaseSharedNode(publisher_impl, publisher_impl_nodes_);
     }
 
     void releaseSubscriberImpl(detail::SubscriberImpl* const subscriber_impl) noexcept override
     {
-        releaseAnyImplNode(subscriber_impl, subscriber_impl_nodes_);
+        releaseSharedNode(subscriber_impl, subscriber_impl_nodes_);
     }
 
     // MARK: Data members:

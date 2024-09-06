@@ -67,14 +67,20 @@ public:
     ///
     /// On return from this function, the object may be deleted, so it must not be used anymore.
     ///
-    void release() noexcept override
+    bool release() noexcept override
     {
-        SharedObject::release();
-
-        if (getRefCount() == 0)
+        if (SharedObject::release())
         {
             delegate_.releasePublisherImpl(this);
+            return true;
         }
+
+        return false;
+    }
+
+    void destroy() noexcept override
+    {
+        destroyWithPmr(this, delegate_.memory());
     }
 
 private:

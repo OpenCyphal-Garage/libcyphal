@@ -8,6 +8,7 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/visit_helpers.hpp>
+#include <libcyphal/errors.hpp>
 #include <libcyphal/transport/can/can_transport.hpp>
 #include <libcyphal/transport/can/can_transport_impl.hpp>
 #include <libcyphal/transport/errors.hpp>
@@ -66,6 +67,10 @@ struct CommonHelpers
             return ss.str();
         }
 
+        static std::string describeError(const libcyphal::MemoryError&)
+        {
+            return "MemoryError";
+        }
         static std::string describeError(const libcyphal::transport::StateError&)
         {
             return "StateError";
@@ -77,10 +82,6 @@ struct CommonHelpers
         static std::string describeError(const libcyphal::transport::ArgumentError&)
         {
             return "ArgumentError";
-        }
-        static std::string describeError(const libcyphal::transport::MemoryError&)
-        {
-            return "MemoryError";
         }
         static std::string describeError(const libcyphal::transport::CapacityError&)
         {

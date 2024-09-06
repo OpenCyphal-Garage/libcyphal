@@ -204,12 +204,10 @@ public:
 
     };  // CallbackNode
 
-    SubscriberImpl(cetl::pmr::memory_resource&             memory,
-                   IPresentationDelegate&                  delegate,
+    SubscriberImpl(IPresentationDelegate&                  delegate,
                    ITimeProvider&                          time_provider,
                    UniquePtr<transport::IMessageRxSession> msg_rx_session)
-        : memory_{memory}
-        , delegate_{delegate}
+        : delegate_{delegate}
         , time_provider_{time_provider}
         , msg_rx_session_{std::move(msg_rx_session)}
         , subject_id_{msg_rx_session_->getParams().subject_id}
@@ -274,13 +272,31 @@ public:
         }
         callback_nodes_.remove(&callback_node);
 
-        SharedObject::release();
-        if (getRefCount() == 0)
+        release();
+    }
+
+    // MARK: SharedObject
+
+    /// @brief Decrements the reference count, and releases this shared subscriber if the count is zero.
+    ///
+    /// On return from this function, the object may be deleted, so it must not be used anymore.
+    ///
+    bool release() noexcept override
+    {
+        if (SharedObject::release())
         {
             CETL_DEBUG_ASSERT(callback_nodes_.empty(), "");
 
             delegate_.releaseSubscriberImpl(this);
+            return true;
         }
+
+        return false;
+    }
+
+    void destroy() noexcept override
+    {
+        destroyWithPmr(this, delegate_.memory());
     }
 
 private:
@@ -294,7 +310,7 @@ private:
         }
 
         next_cb_node_ = callback_nodes_.min();
-        CallbackNode::Deserializer::Context context{memory_,
+        CallbackNode::Deserializer::Context context{delegate_.memory(),
                                                     time_provider_.now(),
                                                     arg.transfer.payload,
                                                     arg.transfer.metadata,
@@ -308,7 +324,6 @@ private:
 
     // MARK: Data members:
 
-    cetl::pmr::memory_resource&                   memory_;
     IPresentationDelegate&                        delegate_;
     ITimeProvider&                                time_provider_;
     const UniquePtr<transport::IMessageRxSession> msg_rx_session_;

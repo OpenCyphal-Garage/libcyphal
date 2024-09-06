@@ -19,7 +19,8 @@
 #include <libcyphal/executor.hpp>
 #include <libcyphal/presentation/client.hpp>
 #include <libcyphal/presentation/presentation.hpp>
-#include <libcyphal/transport/svc_sessions.hpp>
+#include <libcyphal/presentation/response_promise.hpp>
+#include <libcyphal/presentation/server.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
 #include <libcyphal/transport/udp/udp_transport_impl.hpp>
@@ -30,9 +31,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
-#include <array>
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <iomanip>
@@ -129,8 +128,6 @@ protected:
     using Duration             = libcyphal::Duration;
     using TimePoint            = libcyphal::TimePoint;
     using UdpTransportPtr      = libcyphal::UniquePtr<IUdpTransport>;
-    using RequestTxSessionPtr  = libcyphal::UniquePtr<IRequestTxSession>;
-    using ResponseRxSessionPtr = libcyphal::UniquePtr<IResponseRxSession>;
 
     void SetUp() override
     {
@@ -207,8 +204,9 @@ protected:
 
 TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
 {
-    using PingClient  = Client<UserService::PingRequest, UserService::PongResponse>;
     using PongPromise = ResponsePromise<UserService::PongResponse>;
+    using PingClient  = Client<UserService::PingRequest, UserService::PongResponse>;
+    using PingServer  = Server<UserService::PingRequest, UserService::PongResponse>;
 
     State state;
 
@@ -237,12 +235,13 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
             //
             if (print_activities_)
             {
-                std::cout << "🔴 Server received 'Ping' req (ping_id=" << arg.request.id
+                std::cout << "🔴  Server received 'Ping' req (ping_id=" << arg.request.id
                           << ", from_node_id=" << arg.metadata.remote_node_id << ")."
                           << CommonHelpers::Printers::describeDurationInMs(arg.approx_now - startup_time_) << std::endl;
             }
             continuation(arg.approx_now + 1s, UserService::PongResponse{arg.request.id});
         });
+    ASSERT_THAT(maybe_ping_server, testing::VariantWith<PingServer>(testing::_)) << "Failed to create 'Ping' server.";
 
     // 4. Make "Ping" client, send periodic requests, and print replies.
     //
@@ -268,7 +267,7 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
         ++ping_pong_state.request.id;
         if (print_activities_)
         {
-            std::cout << "🠊  Client sending  'Ping' req (ping_id=" << ping_pong_state.request.id
+            std::cout << "➡️  Client sending  'Ping' req (ping_id=" << ping_pong_state.request.id
                       << ",   to_node_id=" << remote_node_id_ << ")."
                       << CommonHelpers::Printers::describeDurationInMs(uptime()) << std::endl;  // NOLINT
         }
@@ -288,7 +287,7 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
                 if (print_activities_)
                 {
                     const auto& reply = *reply_ptr;
-                    std::cout << " 🠈 Client received 'ponG' res (pong_id=" << reply.response.id
+                    std::cout << " ⬅️ Client received 'ponG' res (pong_id=" << reply.response.id
                               << ", from_node_id=" << reply.metadata.remote_node_id << ")."
                               << CommonHelpers::Printers::describeDurationInMs(uptime()) << ", Δ "
                               << CommonHelpers::Printers::describeDurationInUs(request_duration)
@@ -298,7 +297,7 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
             }
             if (print_activities_)
             {
-                std::cout << "🚫 Client 'ping' req timeout  (ping_id=" << ping_pong_state.request.id
+                std::cout << " 🚫 Client 'ping' req timeout  (ping_id=" << ping_pong_state.request.id
                           << ",   to_node_id=" << remote_node_id_ << ")."
                           << CommonHelpers::Printers::describeDurationInMs(uptime()) << ", Δ "
                           << CommonHelpers::Printers::describeDurationInUs(request_duration) << std::endl;

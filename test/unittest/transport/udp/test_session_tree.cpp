@@ -7,6 +7,7 @@
 #include "tracking_memory_resource.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/errors.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/udp/session_tree.hpp>
 
@@ -20,6 +21,7 @@
 namespace
 {
 
+using libcyphal::MemoryError;
 using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
 using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
