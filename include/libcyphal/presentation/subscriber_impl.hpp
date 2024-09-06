@@ -272,7 +272,7 @@ public:
         }
         callback_nodes_.remove(&callback_node);
 
-        release();
+        (void) release();
     }
 
     // MARK: SharedObject

@@ -70,7 +70,7 @@ public:
             CETL_DEBUG_ASSERT(impl_ != nullptr, "Not supposed to copy to already moved `this`.");
             CETL_DEBUG_ASSERT(other.impl_ != nullptr, "Not supposed to copy from already moved `other`.");
 
-            impl_->release();
+            (void) impl_->release();
 
             impl_     = other.impl_;
             priority_ = other.priority_;
@@ -85,7 +85,7 @@ public:
         CETL_DEBUG_ASSERT(impl_ != nullptr, "Not supposed to move to already moved `this`.");
         CETL_DEBUG_ASSERT(other.impl_ != nullptr, "Not supposed to move from already moved `other`.");
 
-        impl_->release();
+        (void) impl_->release();
 
         impl_     = std::exchange(other.impl_, nullptr);
         priority_ = other.priority_;
@@ -109,7 +109,7 @@ protected:
     {
         if (impl_ != nullptr)
         {
-            impl_->release();
+            (void) impl_->release();
         }
     }
 

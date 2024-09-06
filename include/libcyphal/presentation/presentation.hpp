@@ -552,7 +552,7 @@ private:
     }
 
     template <typename SharedNode>
-    void releaseSharedNode(SharedNode* const shared_node, cavl::Tree<SharedNode>& tree) noexcept
+    void releaseSharedNode(SharedNode* const shared_node, cavl::Tree<SharedNode>& tree) const noexcept
     {
         CETL_DEBUG_ASSERT(shared_node != nullptr, "");
 
