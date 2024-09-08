@@ -31,12 +31,16 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -128,6 +132,7 @@ protected:
     using Duration        = libcyphal::Duration;
     using TimePoint       = libcyphal::TimePoint;
     using UdpTransportPtr = libcyphal::UniquePtr<IUdpTransport>;
+    using PongPromise     = ResponsePromise<UserService::PongResponse>;
 
     void SetUp() override
     {
@@ -180,6 +185,42 @@ protected:
         return executor_.now() - startup_time_;
     }
 
+    struct PingPongState
+    {
+        const std::string            name;
+        CommonHelpers::RunningStats& stats;
+        TimePoint                    req_start;
+        UserService::PingRequest     request{};
+        cetl::optional<PongPromise>  promise;
+    };
+    void processPingPongResult(PingPongState& state, const PongPromise::Callback::Arg& arg)
+    {
+        const auto request_duration = arg.approx_now - state.req_start;
+        state.stats.append(static_cast<double>(  //
+            std::chrono::duration_cast<std::chrono::microseconds>(request_duration).count()));
+
+        if (const auto* const reply_ptr = cetl::get_if<PongPromise::Success>(&arg.result))
+        {
+            if (print_activities_)
+            {
+                const auto& reply = *reply_ptr;
+                std::cout << " ⬅️ Client '" << state.name << "' received   'ponG' res (pong_id=" << reply.response.id
+                          << ", from_node_id=" << reply.metadata.remote_node_id << ")."
+                          << CommonHelpers::Printers::describeDurationInMs(uptime()) << ", Δ "
+                          << CommonHelpers::Printers::describeDurationInUs(request_duration)
+                          << ", tf_id=" << reply.metadata.rx_meta.base.transfer_id << std::endl;  // NOLINT
+            }
+            return;
+        }
+        if (print_activities_)
+        {
+            std::cout << " 🚫 Client '" << state.name << "' timeout of 'ping' req  (ping_id=" << state.request.id
+                      << ",   to_node_id=" << remote_node_id_ << ")."
+                      << CommonHelpers::Printers::describeDurationInMs(uptime()) << ", Δ "
+                      << CommonHelpers::Printers::describeDurationInUs(request_duration) << std::endl;  // NOLINT
+        }
+    }
+
     // MARK: Data members:
     // NOLINTBEGIN
 
@@ -204,9 +245,9 @@ protected:
 
 TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
 {
-    using PongPromise = ResponsePromise<UserService::PongResponse>;
-    using PingClient  = Client<UserService::PingRequest, UserService::PongResponse>;
-    using PingServer  = Server<UserService::PingRequest, UserService::PongResponse>;
+    using PingClient       = Client<UserService::PingRequest, UserService::PongResponse>;
+    using PingServer       = Server<UserService::PingRequest, UserService::PongResponse>;
+    using PongContinuation = PingServer::OnRequestCallback::Continuation;
 
     State state;
 
@@ -229,21 +270,42 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
 
     // 3. Bring up "Ping" server.
     //
-    auto maybe_ping_server = presentation.makeServer<UserService::PingRequest, UserService::PongResponse>(  //
+    // Fot the sake of demonstration, we will keep track of all "Ping" requests inside the `ping_contexts` map,
+    // and respond to them with "Pong" after variable delay, namely after `10ms + 10ms * (ping_id % 3)`.
+    // As a result, we will have 3 different delays for 3 different "Ping" requests, which in turn reshuffle the order
+    // of incoming responses - useful for testing multiple overlapping/concurrent requests on the same service.
+    // It also demonstrates how to use `Continuation` to store it, and reply in async manner (after some delay).
+    //
+    std::map<std::size_t, std::tuple<PongContinuation, Callback::Any, UserService::PingRequest>> ping_contexts;
+    //
+    std::size_t unique_request_id = 0;
+    auto        maybe_ping_server = presentation.makeServer<UserService::PingRequest,
+                                                            UserService::PongResponse>(  //
         UserService::PingRequest::ServiceId,
-        [this](const auto& arg, auto continuation) {
+        [&](const auto& arg, auto continuation) {
             //
             if (print_activities_)
             {
-                std::cout << "🔴  Server received 'Ping' req (ping_id=" << arg.request.id
+                std::cout << "🔴  Server received       'Ping' req (ping_id=" << arg.request.id
                           << ", from_node_id=" << arg.metadata.remote_node_id << ")."
-                          << CommonHelpers::Printers::describeDurationInMs(arg.approx_now - startup_time_) << std::endl;
+                          << CommonHelpers::Printers::describeDurationInMs(arg.approx_now - startup_time_)
+                          << ", tf_id=" << arg.metadata.rx_meta.base.transfer_id << std::endl;  // NOLINT
             }
-            continuation(arg.approx_now + 1s, UserService::PongResponse{arg.request.id});
+            auto delay_cb = executor_.registerCallback([&ping_contexts, id = unique_request_id](const auto& cb_arg) {
+                //
+                auto& ping_context = ping_contexts[id];
+                auto& continuation = std::get<0>(ping_context);
+                continuation(cb_arg.approx_now + 1s, UserService::PongResponse{std::get<2>(ping_context).id});
+                ping_contexts.erase(id);
+            });
+            delay_cb.schedule(Callback::Schedule::Once{arg.approx_now + 10ms + (10ms * (arg.request.id % 3))});
+            ping_contexts[unique_request_id++] =
+                std::make_tuple(std::move(continuation), std::move(delay_cb), arg.request);
         });
     ASSERT_THAT(maybe_ping_server, testing::VariantWith<PingServer>(testing::_)) << "Failed to create 'Ping' server.";
+    // we don't need the actual server object further - just keep it alive (inside `maybe_ping_server`).
 
-    // 4. Make "Ping" client, send periodic requests, and print replies.
+    // 4. Make "Ping" client.
     //
     auto maybe_ping_client = presentation.makeClient<UserService::PingRequest, UserService::PongResponse>(  //
         remote_node_id_,
@@ -253,56 +315,39 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
 
     // 5. Send periodic "Ping" requests, and print "Pong" replies.
     //
-    struct PingPongState
-    {
-        TimePoint                   start;
-        UserService::PingRequest    request{1000};
-        cetl::optional<PongPromise> promise;
-        CommonHelpers::RunningStats stats;
-
-    } ping_pong_state;
+    // Fot the sake of demonstration, we will send every second 3 concurrent "Ping" requests with different payloads
+    // (the `id` field), which will implicitly affect the order of responses (see server setup).
     //
-    auto request_every_1s_cb_ = executor_.registerCallback([&](const auto&) {
+    CommonHelpers::RunningStats  ping_pong_stats;
+    std::array<PingPongState, 3> ping_pong_states{PingPongState{"A", ping_pong_stats, {}, {1000}, {}},
+                                                  PingPongState{"B", ping_pong_stats, {}, {2000}, {}},
+                                                  PingPongState{"C", ping_pong_stats, {}, {3000}, {}}};
+    //
+    const auto make_ping_request = [this, &ping_client](PingPongState& state) {
         //
-        ++ping_pong_state.request.id;
+        ++state.request.id;
         if (print_activities_)
         {
-            std::cout << "➡️  Client sending  'Ping' req (ping_id=" << ping_pong_state.request.id
+            std::cout << "➡️  Client '" << state.name << "' sending    'Ping' req (ping_id=" << state.request.id
                       << ",   to_node_id=" << remote_node_id_ << ")."
                       << CommonHelpers::Printers::describeDurationInMs(uptime()) << std::endl;  // NOLINT
         }
-        ping_pong_state.start = now();
-        auto maybe_promise    = ping_client.request(ping_pong_state.start + 300ms, ping_pong_state.request);
+        state.req_start    = now();
+        auto maybe_promise = ping_client.request(state.req_start + 300ms, state.request);
         ASSERT_THAT(maybe_promise, testing::VariantWith<PongPromise>(testing::_)) << "Failed to make 'Ping' request.";
-        ping_pong_state.promise.emplace(cetl::get<PongPromise>(std::move(maybe_promise)));
-
-        ping_pong_state.promise->setCallback([&](const auto& arg) {
-            //
-            const auto request_duration = arg.approx_now - ping_pong_state.start;
-            ping_pong_state.stats.append(static_cast<double>(  //
-                std::chrono::duration_cast<std::chrono::microseconds>(request_duration).count()));
-
-            if (const auto* const reply_ptr = cetl::get_if<PongPromise::Success>(&arg.result))
-            {
-                if (print_activities_)
-                {
-                    const auto& reply = *reply_ptr;
-                    std::cout << " ⬅️ Client received 'ponG' res (pong_id=" << reply.response.id
-                              << ", from_node_id=" << reply.metadata.remote_node_id << ")."
-                              << CommonHelpers::Printers::describeDurationInMs(uptime()) << ", Δ "
-                              << CommonHelpers::Printers::describeDurationInUs(request_duration)
-                              << ", tf_id=" << reply.metadata.rx_meta.base.transfer_id << std::endl;
-                }
-                return;
-            }
-            if (print_activities_)
-            {
-                std::cout << " 🚫 Client 'ping' req timeout  (ping_id=" << ping_pong_state.request.id
-                          << ",   to_node_id=" << remote_node_id_ << ")."
-                          << CommonHelpers::Printers::describeDurationInMs(uptime()) << ", Δ "
-                          << CommonHelpers::Printers::describeDurationInUs(request_duration) << std::endl;
-            }
-        });
+        state.promise.emplace(cetl::get<PongPromise>(std::move(maybe_promise)));
+    };
+    //
+    auto request_every_1s_cb_ = executor_.registerCallback([&](const auto&) {
+        //
+        for (auto& ping_pong_state : ping_pong_states)
+        {
+            make_ping_request(ping_pong_state);
+            ping_pong_state.promise->setCallback([&](const auto& arg) {
+                //
+                processPingPongResult(ping_pong_state, arg);
+            });
+        }
     });
     request_every_1s_cb_.schedule(Callback::Schedule::Repeat{startup_time_ + 1s, 1s});
 
@@ -327,10 +372,9 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
 
     std::cout << "Done.\n-----------\nStats:\n";
     std::cout << "worst_callback_lateness  = " << worst_lateness.count() << " us\n";
-    std::cout << "call_duration_stats_mean = " << ping_pong_state.stats.mean() << " us\n";
-    std::cout << "call_duration_stats_std  ± " << ping_pong_state.stats.standardDeviation() << " us (±"
-              << std::setprecision(3)
-              << 100.0 * ping_pong_state.stats.standardDeviation() / ping_pong_state.stats.mean() << "%)\n";
+    std::cout << "call_duration_stats_mean = " << ping_pong_stats.mean() << " us\n";
+    std::cout << "call_duration_stats_std  ± " << ping_pong_stats.standardDeviation() << " us (±"
+              << std::setprecision(3) << 100.0 * ping_pong_stats.standardDeviation() / ping_pong_stats.mean() << "%)\n";
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
