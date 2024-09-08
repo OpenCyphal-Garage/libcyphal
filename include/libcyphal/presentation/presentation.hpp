@@ -535,16 +535,46 @@ private:
         {
             if (auto rx_session = getIfSession(transport_.makeResponseRxSession(rx_params), out_failure))
             {
-                using ClientImpl = detail::ClientImpl<transport::detail::TrivialTransferIdGenerator>;
+                // We currently support only two types of transfer ID generators:
+                // - "Trivial" generator - in use for large (>= 2^48) transfer ID modulo values - applicable for UDP
+                //   transport with its 2^64-1 modulo. B/c modulo is big, collisions of transfer ids are unlikely.
+                // - "Small Range" generator - in use for small (<= 256) transfer ID modulo values - applicable for CAN
+                //   transport with its 2^5 modulo. B/c modulo is small, the generator tracks allocated transfer ids.
+                //
+                constexpr transport::TransferId MinModuloOfTrivialGenerator    = 1ULL << 48ULL;
+                constexpr transport::TransferId MaxModuloOfSmallRangeGenerator = 1ULL << 8ULL;
 
-                const auto transfer_id_modulo = transport_.getProtocolParams().transfer_id_modulo;
+                const auto tf_id_modulo = transport_.getProtocolParams().transfer_id_modulo;
+                CETL_DEBUG_ASSERT(tf_id_modulo > 0, "Invalid transfer ID modulo");
+                CETL_DEBUG_ASSERT((tf_id_modulo <= MaxModuloOfSmallRangeGenerator) ||
+                                      (tf_id_modulo >= MinModuloOfTrivialGenerator),
+                                  "Unsupported transfer ID modulo");
+                (void) MinModuloOfTrivialGenerator;
+
+                if (tf_id_modulo <= MaxModuloOfSmallRangeGenerator)
+                {
+                    using ClientImpl = detail::ClientImpl<  //
+                        transport::detail::SmallRangeTransferIdGenerator<MaxModuloOfSmallRangeGenerator>>;
+
+                    return detail::SharedObject::createWithPmr<ClientImpl>(memory_,
+                                                                           out_failure,
+                                                                           asDelegate(),
+                                                                           executor_,
+                                                                           std::move(tx_session),
+                                                                           std::move(rx_session),
+                                                                           tf_id_modulo);
+                }
+
+                using ClientImpl = detail::ClientImpl<  //
+                    transport::detail::TrivialTransferIdGenerator>;
+
                 return detail::SharedObject::createWithPmr<ClientImpl>(memory_,
                                                                        out_failure,
                                                                        asDelegate(),
                                                                        executor_,
                                                                        std::move(tx_session),
                                                                        std::move(rx_session),
-                                                                       transfer_id_modulo);
+                                                                       tf_id_modulo);
             }
         }
         CETL_DEBUG_ASSERT(out_failure, "");

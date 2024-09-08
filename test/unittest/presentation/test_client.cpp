@@ -354,13 +354,18 @@ TEST_F(TestClient, request_response_via_callabck)
 
 TEST_F(TestClient, request_response_failures)
 {
-    using Service = my_custom::baz_1_0;
+    using Service       = my_custom::baz_1_0;
+    using SvcResPromise = ResponsePromise<Service::Response>;
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     constexpr ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes, 147, 0x31};
 
     State state{mr_, transport_mock_, rx_params};
+
+    // Emulate that transport supports only 2 concurrent transfers by having module equal to 2^1.
+    // This will make the client fail to make more than 2 request.
+    EXPECT_CALL(transport_mock_, getProtocolParams()).WillRepeatedly(Return(ProtocolParams{2, 0, 0}));
 
     auto maybe_client = presentation.makeClient<Service>(rx_params.server_node_id, rx_params.service_id);
     ASSERT_THAT(maybe_client, VariantWith<ServiceClient<Service>>(_));
@@ -383,6 +388,21 @@ TEST_F(TestClient, request_response_failures)
 
         const auto maybe_promise = client.request(now() + 100ms, Service::Request{});
         EXPECT_THAT(maybe_promise, VariantWith<ServiceClient<Service>::Failure>(VariantWith<CapacityError>(_)));
+    });
+    scheduler_.scheduleAt(3s, [&](const auto&) {
+        //
+        EXPECT_CALL(state.req_tx_session_mock_, send(_, _)).WillRepeatedly(Return(cetl::nullopt));
+
+        const auto maybe_promise1 = client.request(now() + 100ms, Service::Request{});
+        EXPECT_THAT(maybe_promise1, VariantWith<SvcResPromise>(_));
+
+        const auto maybe_promise2 = client.request(now() + 100ms, Service::Request{});
+        EXPECT_THAT(maybe_promise2, VariantWith<SvcResPromise>(_));
+
+        const auto maybe_promise3 = client.request(now() + 100ms, Service::Request{});
+        EXPECT_THAT(maybe_promise3,
+                    VariantWith<ServiceClient<Service>::Failure>(
+                        VariantWith<ServiceClient<Service>::TooManyPendingRequestsError>(_)));
     });
     scheduler_.spinFor(10s);
 }
@@ -579,11 +599,17 @@ TEST_F(TestClient, raw_request_response_via_callabck)
 
 TEST_F(TestClient, raw_request_response_failures)
 {
+    using SvcResPromise = ResponsePromise<void>;
+
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     constexpr ResponseRxParams rx_params{4, 147, 0x31};
 
     State state{mr_, transport_mock_, rx_params};
+
+    // Emulate that transport supports only 2 concurrent transfers by having module equal to 2^1.
+    // This will make the client fail to make more than 2 request.
+    EXPECT_CALL(transport_mock_, getProtocolParams()).WillRepeatedly(Return(ProtocolParams{2, 0, 0}));
 
     auto maybe_client = presentation.makeClient(rx_params.server_node_id, rx_params.service_id, rx_params.extent_bytes);
     ASSERT_THAT(maybe_client, VariantWith<RawServiceClient>(_));
@@ -597,6 +623,21 @@ TEST_F(TestClient, raw_request_response_failures)
 
         const auto maybe_promise = client.request(now() + 100ms, {});
         EXPECT_THAT(maybe_promise, VariantWith<RawServiceClient::Failure>(VariantWith<CapacityError>(_)));
+    });
+    scheduler_.scheduleAt(2s, [&](const auto&) {
+        //
+        EXPECT_CALL(state.req_tx_session_mock_, send(_, _)).WillRepeatedly(Return(cetl::nullopt));
+
+        const auto maybe_promise1 = client.request(now() + 100ms, {});
+        EXPECT_THAT(maybe_promise1, VariantWith<SvcResPromise>(_));
+
+        const auto maybe_promise2 = client.request(now() + 100ms, {});
+        EXPECT_THAT(maybe_promise2, VariantWith<SvcResPromise>(_));
+
+        const auto maybe_promise3 = client.request(now() + 100ms, {});
+        EXPECT_THAT(maybe_promise3,
+                    VariantWith<RawServiceClient::Failure>(
+                        VariantWith<RawServiceClient::TooManyPendingRequestsError>(_)));
     });
     scheduler_.spinFor(10s);
 }
