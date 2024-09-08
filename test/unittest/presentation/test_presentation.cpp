@@ -568,10 +568,12 @@ TEST_F(TestPresentation, makeClient)
     constexpr ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes,
                                          Service::Request::_traits_::FixedPortId,
                                          0x31};
-    EXPECT_CALL(res_rx_session_mock, setOnReceiveCallback(_))  //
-        .WillRepeatedly(Return());
     EXPECT_CALL(res_rx_session_mock, getParams())  //
         .WillOnce(Return(rx_params));
+    EXPECT_CALL(res_rx_session_mock, setTransferIdTimeout(_))  //
+        .WillOnce(Return());
+    EXPECT_CALL(res_rx_session_mock, setOnReceiveCallback(_))  //
+        .WillOnce(Return());
 
     EXPECT_CALL(transport_mock_, makeResponseRxSession(ResponseRxParamsEq(rx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                             //
@@ -601,7 +603,8 @@ TEST_F(TestPresentation, makeClient_multiple_custom)
                                          Custom::Service::Request::_traits_::FixedPortId,
                                          0x31};
     EXPECT_CALL(res_rx_session_mock, getParams()).WillOnce(Return(rx_params));
-    EXPECT_CALL(res_rx_session_mock, setOnReceiveCallback(_)).WillRepeatedly(Return());
+    EXPECT_CALL(res_rx_session_mock, setTransferIdTimeout(_)).WillOnce(Return());
+    EXPECT_CALL(res_rx_session_mock, setOnReceiveCallback(_)).WillOnce(Return());
 
     EXPECT_CALL(transport_mock_, makeResponseRxSession(ResponseRxParamsEq(rx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                             //
@@ -626,7 +629,8 @@ TEST_F(TestPresentation, makeClient_multiple_custom)
 
         constexpr ResponseRxParams rx_params2{rx_params.extent_bytes, rx_params.service_id, 0x32};
         EXPECT_CALL(res_rx_session_mock2, getParams()).WillOnce(Return(rx_params2));
-        EXPECT_CALL(res_rx_session_mock2, setOnReceiveCallback(_)).WillRepeatedly(Return());
+        EXPECT_CALL(res_rx_session_mock2, setTransferIdTimeout(_)).WillOnce(Return());
+        EXPECT_CALL(res_rx_session_mock2, setOnReceiveCallback(_)).WillOnce(Return());
 
         EXPECT_CALL(transport_mock_, makeResponseRxSession(ResponseRxParamsEq(rx_params2)))  //
             .WillOnce(Invoke([&](const auto&) {                                              //
@@ -658,7 +662,8 @@ TEST_F(TestPresentation, makeClient_raw)
 
     constexpr ResponseRxParams rx_params{8, 147, 0x31};
     EXPECT_CALL(res_rx_session_mock, getParams()).WillOnce(Return(rx_params));
-    EXPECT_CALL(res_rx_session_mock, setOnReceiveCallback(_)).WillRepeatedly(Return());
+    EXPECT_CALL(res_rx_session_mock, setTransferIdTimeout(_)).WillOnce(Return());
+    EXPECT_CALL(res_rx_session_mock, setOnReceiveCallback(_)).WillOnce(Return());
 
     EXPECT_CALL(transport_mock_, makeResponseRxSession(ResponseRxParamsEq(rx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                             //

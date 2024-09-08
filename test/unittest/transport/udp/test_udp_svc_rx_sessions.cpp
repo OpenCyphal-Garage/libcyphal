@@ -143,8 +143,18 @@ TEST_F(TestUdpSvcRxSessions, make_request_setTransferIdTimeout)
     EXPECT_THAT(session->getParams().extent_bytes, 42);
     EXPECT_THAT(session->getParams().service_id, 123);
 
+    // NOLINTNEXTLINE
+    const auto& rpc_port = static_cast<udp::detail::SvcRequestRxSession*>(session.get())->asRpcPort();
+    EXPECT_THAT(rpc_port.port.transfer_id_timeout_usec, UDPARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC);
+
+    session->setTransferIdTimeout(-1ms);  // negative value is not allowed (rejected)
+    EXPECT_THAT(rpc_port.port.transfer_id_timeout_usec, UDPARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC);
+
     session->setTransferIdTimeout(0s);
+    EXPECT_THAT(rpc_port.port.transfer_id_timeout_usec, 0);
+
     session->setTransferIdTimeout(500ms);
+    EXPECT_THAT(rpc_port.port.transfer_id_timeout_usec, 500'000);
 }
 
 TEST_F(TestUdpSvcRxSessions, make_response_no_memory)

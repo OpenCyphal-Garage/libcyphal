@@ -97,6 +97,8 @@ protected:
         {
             EXPECT_CALL(res_rx_session_mock_, getParams())  //
                 .WillOnce(Return(rx_params));
+            EXPECT_CALL(res_rx_session_mock_, setTransferIdTimeout(Eq(0s)))  //
+                .WillOnce(Return());
             EXPECT_CALL(res_rx_session_mock_, setOnReceiveCallback(_))  //
                 .WillRepeatedly(Invoke([&](auto&& cb_fn) {              //
                     res_rx_cb_fn_ = std::forward<IResponseRxSession::OnReceiveCallback::Function>(cb_fn);

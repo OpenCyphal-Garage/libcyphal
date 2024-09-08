@@ -8,6 +8,7 @@
 
 #include "delegate.hpp"
 
+#include "libcyphal/errors.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -135,7 +136,7 @@ private:
     void setTransferIdTimeout(const Duration timeout) override
     {
         const auto timeout_us = std::chrono::duration_cast<std::chrono::microseconds>(timeout);
-        if (timeout_us.count() > 0)
+        if (timeout_us.count() >= 0)
         {
             subscription_.transfer_id_timeout_usec = static_cast<CanardMicrosecond>(timeout_us.count());
         }

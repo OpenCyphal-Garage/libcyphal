@@ -8,11 +8,14 @@
 
 #include "unique_ptr_reference_wrapper.hpp"
 
+#include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>
+
+#include <utility>
 
 namespace libcyphal
 {

@@ -139,6 +139,14 @@ public:
         CETL_DEBUG_ASSERT(svc_request_tx_session_ != nullptr, "");
         CETL_DEBUG_ASSERT(svc_response_rx_session_ != nullptr, "");
 
+        // Override the default (2s) timeout value of the response session.
+        // This is done to allow multiple overlapping responses to be handled properly.
+        // Otherwise, the responses would be rejected (as "duplicates") if their transfer IDs are in order.
+        // Real duplicates (f.e. caused by redundant transports) won't cause any issues
+        // b/c shared RPC client expects/accepts only one response per transfer ID,
+        // and corresponding promise callback node will be removed after the first response.
+        svc_response_rx_session_->setTransferIdTimeout({});
+
         svc_response_rx_session_->setOnReceiveCallback([this](const auto& arg) {
             //
             onResponseRxTransfer(arg.transfer);

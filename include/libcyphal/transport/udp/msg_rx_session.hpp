@@ -9,6 +9,7 @@
 #include "delegate.hpp"
 #include "session_tree.hpp"
 
+#include "libcyphal/errors.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -102,6 +103,12 @@ public:
         delegate_.onSessionEvent(TransportDelegate::SessionEvent::MsgDestroyed{params_.subject_id});
     }
 
+    // In use (public) for unit tests only.
+    const UdpardRxSubscription& asSubscription() const noexcept
+    {
+        return subscription_;
+    }
+
 private:
     // MARK: IMessageRxSession
 
@@ -131,7 +138,7 @@ private:
     void setTransferIdTimeout(const Duration timeout) override
     {
         const auto timeout_us = std::chrono::duration_cast<std::chrono::microseconds>(timeout);
-        if (timeout_us.count() > 0)
+        if (timeout_us.count() >= 0)
         {
             subscription_.port.transfer_id_timeout_usec = static_cast<UdpardMicrosecond>(timeout_us.count());
         }
