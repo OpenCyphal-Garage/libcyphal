@@ -45,27 +45,27 @@ public:
             return isLinked();
         }
 
-        TimePoint getDeadline() const noexcept
+        TimePoint getTimeoutDeadline() const noexcept
         {
             return deadline_;
         }
 
-        void setDeadline(const TimePoint response_deadline) noexcept
+        void setTimeoutDeadline(const TimePoint timeout_deadline) noexcept
         {
-            deadline_ = response_deadline;
+            deadline_ = timeout_deadline;
         }
 
-        CETL_NODISCARD std::int8_t compareByDeadline(const TimePoint deadline) const noexcept
+        CETL_NODISCARD std::int8_t compareByTimeoutDeadline(const TimePoint timeout_deadline) const noexcept
         {
             // No two deadline times compare equal, which allows us to have multiple nodes
             // with the same deadline time in the tree. With two nodes sharing the same deadline time,
             // the one added later is considered to be later.
-            return (deadline >= deadline_) ? +1 : -1;
+            return (timeout_deadline >= deadline_) ? +1 : -1;
         }
 
     protected:
-        explicit TimeoutNode(const TimePoint deadline)
-            : deadline_{deadline}
+        explicit TimeoutNode(const TimePoint timeout_deadline)
+            : deadline_{timeout_deadline}
         {
         }
 
@@ -197,13 +197,15 @@ public:
 
     void updateDeadlineOfTimeoutNode(TimeoutNode& timeout_node, const TimePoint new_deadline)
     {
-        // Remove previous timeout node (if any),
-        // and then reinsert the node with updated/given new deadline time.
-        //
-        CETL_DEBUG_ASSERT(timeout_node.isTimeoutLinked(), "");
-        timeout_nodes_by_deadline_.remove(&timeout_node);
-        timeout_node.setDeadline(new_deadline);
-        insertTimeoutNodeAndReschedule(timeout_node);
+        if (timeout_node.isTimeoutLinked())
+        {
+            // Remove previous timeout node (if any),
+            // and then reinsert the node with updated/given new deadline time.
+            //
+            timeout_nodes_by_deadline_.remove(&timeout_node);
+            timeout_node.setTimeoutDeadline(new_deadline);
+            insertTimeoutNodeAndReschedule(timeout_node);
+        }
     }
 
     void releaseCallbackNode(CallbackNode& callback_node) noexcept
@@ -289,7 +291,7 @@ private:
     {
         while (auto* const nearest_deadline_node = timeout_nodes_by_deadline_.min())
         {
-            if (approx_now < nearest_deadline_node->getDeadline())
+            if (approx_now < nearest_deadline_node->getTimeoutDeadline())
             {
                 break;
             }
@@ -299,7 +301,7 @@ private:
             auto& callback_node = static_cast<CallbackNode&>(*nearest_deadline_node);
 
             removeCallbackNode(callback_node);
-            callback_node.onResponseTimeout(callback_node.getDeadline(), approx_now);
+            callback_node.onResponseTimeout(callback_node.getTimeoutDeadline(), approx_now);
         }
     }
 
@@ -307,14 +309,14 @@ private:
     {
         CETL_DEBUG_ASSERT(!timeout_node.isTimeoutLinked(), "");
 
-        const auto new_node_deadline = timeout_node.getDeadline();
+        const auto new_node_deadline = timeout_node.getTimeoutDeadline();
 
         // 1. Insert the new timeout node.
         //
         const auto timeout_node_existing = timeout_nodes_by_deadline_.search(  //
             [new_node_deadline](const TimeoutNode& other_node) {               // predicate
                 //
-                return other_node.compareByDeadline(new_node_deadline);
+                return other_node.compareByTimeoutDeadline(new_node_deadline);
             },
             [&timeout_node]() { return &timeout_node; });  // "factory"
 
@@ -339,7 +341,7 @@ private:
         CETL_DEBUG_ASSERT(timeout_node.isTimeoutLinked(), "");
 
         timeout_nodes_by_deadline_.remove(&timeout_node);
-        const auto old_cb_node_deadline = timeout_node.getDeadline();
+        const auto old_cb_node_deadline = timeout_node.getTimeoutDeadline();
 
         // No need to reschedule the nearest deadline callback if deadline of the removed node was not the nearest.
         //
@@ -353,9 +355,9 @@ private:
         {
             // Already existing schedule will work fine if the nearest deadline is not changed.
             //
-            if (nearest_deadline_ < nearest_deadline_node->getDeadline())
+            if (nearest_deadline_ < nearest_deadline_node->getTimeoutDeadline())
             {
-                nearest_deadline_ = nearest_deadline_node->getDeadline();
+                nearest_deadline_ = nearest_deadline_node->getTimeoutDeadline();
                 const auto result = nearest_deadline_callback_.schedule(Schedule::Once{nearest_deadline_});
                 CETL_DEBUG_ASSERT(result, "Should not fail b/c we never reset `nearest_deadline_callback_`.");
                 (void) result;

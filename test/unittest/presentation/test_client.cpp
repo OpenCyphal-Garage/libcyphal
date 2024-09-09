@@ -296,7 +296,7 @@ TEST_F(TestClient, request_response_via_callabck)
                 return cetl::nullopt;
             }));
 
-        auto maybe_promise = client.request(now() + 100ms, Service::Request{}, now() + 2s);
+        auto maybe_promise = client.request(now() + 100ms, Service::Request{}, now() + 500ms);
         EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
         response_promise.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
     });
@@ -312,7 +312,8 @@ TEST_F(TestClient, request_response_via_callabck)
                 ASSERT_THAT(arg.result, VariantWith<SvcResPromise::Success>(_));
                 auto success = cetl::get<SvcResPromise::Success>(std::move(arg.result));
                 responses.emplace_back(success.metadata, arg.approx_now);
-            });
+            })
+            .setDeadline(now() + 707ms);  // override previous +500ms deadline with new one (@2.007s)
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
@@ -338,6 +339,72 @@ TEST_F(TestClient, request_response_via_callabck)
         state.res_rx_cb_fn_({transfer});
 
         // Try set callback after the response has been received.
+        response_promise->setCallback([](const auto&) {
+            //
+            FAIL() << "Unexpected dummy callback.";
+        });
+
+        // Also try set deadline after the response has been received.
+        response_promise->setDeadline(now() + 1s);
+    });
+    scheduler_.spinFor(10s);
+
+    EXPECT_THAT(responses,
+                ElementsAre(
+                    FieldsAre(ServiceRxMetadataEq({{{0, Priority::Nominal}, TimePoint{2s}}, 0x31}), TimePoint{2s})));
+}
+
+TEST_F(TestClient, request_response_set_callabck_after_reception)
+{
+    using Service       = uavcan::node::GetInfo_1_0;
+    using SvcResPromise = ResponsePromise<Service::Response>;
+
+    Presentation presentation{mr_, scheduler_, transport_mock_};
+
+    constexpr ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes,
+                                         Service::Request::_traits_::FixedPortId,
+                                         0x31};
+
+    State state{mr_, transport_mock_, rx_params};
+
+    auto maybe_client = presentation.makeClient<Service>(rx_params.server_node_id);
+    ASSERT_THAT(maybe_client, VariantWith<ServiceClient<Service>>(_));
+    auto client = cetl::get<ServiceClient<Service>>(std::move(maybe_client));
+
+    constexpr TransferId transfer_id = 0;
+    ASSERT_TRUE(state.res_rx_cb_fn_);
+    cetl::optional<SvcResPromise> response_promise;
+
+    NiceMock<ScatteredBufferStorageMock> storage_mock;
+    EXPECT_CALL(storage_mock, deinit()).Times(1);
+    EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(0));
+    ScatteredBufferStorageMock::Wrapper storage{&storage_mock};
+
+    std::vector<std::tuple<ServiceRxMetadata, TimePoint>> responses;
+
+    scheduler_.scheduleAt(1s, [&](const auto&) {
+        //
+        EXPECT_CALL(state.req_tx_session_mock_, send(_, _))  //
+            .WillOnce(Invoke([now = now()](const auto& metadata, const auto) {
+                //
+                EXPECT_THAT(metadata.base.transfer_id, transfer_id);
+                EXPECT_THAT(metadata.base.priority, Priority::Nominal);
+                EXPECT_THAT(metadata.deadline, now + 100ms);
+                return cetl::nullopt;
+            }));
+
+        auto maybe_promise = client.request(now() + 100ms, Service::Request{}, now() + 200ms);
+        EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
+        response_promise.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
+    });
+    scheduler_.scheduleAt(1s + 100ms, [&](const auto&) {
+        //
+        ServiceRxTransfer transfer{{{{transfer_id, Priority::Nominal}, now()}, 0x31},
+                                   ScatteredBuffer{std::move(storage)}};
+        state.res_rx_cb_fn_({transfer});
+    });
+    scheduler_.scheduleAt(1s + 300ms, [&](const auto&) {
+        //
         response_promise->setCallback([&responses](const auto& arg) {
             //
             ASSERT_THAT(arg.result, VariantWith<SvcResPromise::Success>(_));
@@ -348,8 +415,8 @@ TEST_F(TestClient, request_response_via_callabck)
     scheduler_.spinFor(10s);
 
     EXPECT_THAT(responses,
-                ElementsAre(
-                    FieldsAre(ServiceRxMetadataEq({{{0, Priority::Nominal}, TimePoint{2s}}, 0x31}), TimePoint{2s})));
+                ElementsAre(FieldsAre(ServiceRxMetadataEq({{{0, Priority::Nominal}, TimePoint{1s + 100ms}}, 0x31}),
+                                      TimePoint{1s + 300ms})));
 }
 
 TEST_F(TestClient, request_response_failures)

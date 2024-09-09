@@ -18,7 +18,9 @@
 
 #include <nunavut/support/serialization.hpp>
 
-#include <tuple>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <utility>
 
 namespace libcyphal
@@ -195,7 +197,7 @@ protected:
 
     void acceptNewCallback(typename Callback::Function&& callback_fn)
     {
-        if (callback_fn_)
+        if (callback_fn)
         {
             // If we already have result then we don't need to store the callback,
             // as well as continue store the result - just call the callback with just fetched result value.
