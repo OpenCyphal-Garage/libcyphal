@@ -5,8 +5,11 @@
 
 #include "cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "gtest_helpers.hpp"       // NOLINT(misc-include-cleaner)
+#include "memory_resource_mock.hpp"
+#include "my_custom/baz_1_0.hpp"
 #include "tracking_memory_resource.hpp"
 #include "transport/svc_sessions_mock.hpp"
+#include "transport/scattered_buffer_storage_mock.hpp"
 #include "transport/transport_gtest_helpers.hpp"
 #include "transport/transport_mock.hpp"
 #include "virtual_time_scheduler.hpp"
@@ -39,6 +42,9 @@ using testing::_;
 using testing::Invoke;
 using testing::Return;
 using testing::IsEmpty;
+using testing::NotNull;
+using testing::NiceMock;
+using testing::Optional;
 using testing::StrictMock;
 using testing::VariantWith;
 
@@ -198,6 +204,104 @@ TEST_F(TestServer, service_request_response)
                 return cetl::nullopt;
             }));
         req_continuation(now() + 200ms, Service::Response{});
+    });
+    scheduler_.spinFor(10s);
+
+    EXPECT_CALL(req_rx_session_mock, deinit()).Times(1);
+    EXPECT_CALL(res_tx_session_mock, deinit()).Times(1);
+}
+
+TEST_F(TestServer, service_request_response_failures)
+{
+    using Service = my_custom::baz_1_0;
+
+    StrictMock<MemoryResourceMock> mr_mock;
+    mr_mock.redirectExpectedCallsTo(mr_);
+
+    Presentation presentation{mr_mock, scheduler_, transport_mock_};
+
+    IRequestRxSession::OnReceiveCallback::Function req_rx_cb_fn;
+    StrictMock<RequestRxSessionMock>               req_rx_session_mock;
+    EXPECT_CALL(req_rx_session_mock, setOnReceiveCallback(_))  //
+        .WillRepeatedly(Invoke([&](auto&& cb_fn) {             //
+            req_rx_cb_fn = std::forward<IRequestRxSession::OnReceiveCallback::Function>(cb_fn);
+        }));
+
+    StrictMock<ResponseTxSessionMock> res_tx_session_mock;
+
+    constexpr RequestRxParams rx_params{Service::Request::_traits_::ExtentBytes, 123};
+    EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))  //
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr_, req_rx_session_mock);
+        }));
+    constexpr ResponseTxParams tx_params{rx_params.service_id};
+    EXPECT_CALL(transport_mock_, makeResponseTxSession(ResponseTxParamsEq(tx_params)))  //
+        .WillOnce(Invoke([&](const auto&) {                                             //
+            return libcyphal::detail::makeUniquePtr<UniquePtrResTxSpec>(mr_, res_tx_session_mock);
+        }));
+
+    ServiceServer<Service>::OnRequestCallback::Continuation req_continuation;
+
+    auto maybe_server = presentation.makeServer<Service>(rx_params.service_id);
+    ASSERT_THAT(maybe_server, VariantWith<ServiceServer<Service>>(_));
+    auto server = cetl::get<ServiceServer<Service>>(std::move(maybe_server));
+    server.setOnRequestCallback([&req_continuation](const auto&, auto cont) {
+        //
+        req_continuation = std::move(cont);
+    });
+    ASSERT_TRUE(req_rx_cb_fn);
+
+    NiceMock<ScatteredBufferStorageMock> storage_mock;
+    EXPECT_CALL(storage_mock, deinit()).Times(2);
+
+    scheduler_.scheduleAt(1s, [&](const auto&) {
+        //
+        EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(1));
+        EXPECT_CALL(storage_mock, copy(0, NotNull(), 1))
+            .WillOnce(Invoke([](const auto, auto* const dst, const auto) {  //
+                // this will make it fail to deserialize request with SerializationBadArrayLength
+                *dst = cetl::byte(255);
+                return 1;
+            }));
+        ScatteredBufferStorageMock::Wrapper storage{&storage_mock};
+        ServiceRxTransfer request{{{{123, Priority::Fast}, now()}, NodeId{0x31}}, ScatteredBuffer{std::move(storage)}};
+        req_rx_cb_fn({request});
+    });
+    scheduler_.scheduleAt(2s, [&](const auto&) {
+        //
+        // Emulate that there is no memory available for the request deserialization.
+        EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(123));
+        EXPECT_CALL(mr_mock, do_allocate(123, _)).WillOnce(Return(nullptr));
+        ScatteredBufferStorageMock::Wrapper storage{&storage_mock};
+
+        ServiceRxTransfer request{{{{123, Priority::Fast}, now()}, NodeId{0x31}}, ScatteredBuffer{std::move(storage)}};
+        req_rx_cb_fn({request});
+    });
+    scheduler_.scheduleAt(3s, [&](const auto&) {
+        //
+        ServiceRxTransfer request{{{{123, Priority::Fast}, now()}, NodeId{0x31}}, {}};
+        req_rx_cb_fn({request});
+        ASSERT_TRUE(req_continuation);
+
+        // Emulate failure of response sending.
+        EXPECT_CALL(res_tx_session_mock, send(_, _))  //
+            .WillOnce(Return(libcyphal::ArgumentError{}));
+        EXPECT_THAT(req_continuation(now() + 200ms, Service::Response{}),
+                    Optional(VariantWith<libcyphal::ArgumentError>(_)));
+    });
+    scheduler_.scheduleAt(3s, [&](const auto&) {
+        //
+        ServiceRxTransfer request{{{{123, Priority::Fast}, now()}, NodeId{0x31}}, {}};
+        req_rx_cb_fn({request});
+        ASSERT_TRUE(req_continuation);
+
+        // Emulate failure to serialize the response.
+        // This will make it fail to serialize the response with `SerializationBadArrayLength`.
+        Service::Response response{};
+        response.some_other_crap.resize(255);
+        EXPECT_THAT(req_continuation(now() + 200ms, response),
+                    Optional(
+                        VariantWith<nunavut::support::Error>(nunavut::support::Error::SerializationBadArrayLength)));
     });
     scheduler_.spinFor(10s);
 

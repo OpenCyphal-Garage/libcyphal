@@ -528,7 +528,7 @@ TEST_F(TestClient, request_response_failures)
         EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
         response_promise.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
 
-        // Emulate that there is no memory available for the message session.
+        // Emulate that there is no memory available for the response deserialization.
         EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(123));
         EXPECT_CALL(mr_mock, do_allocate(123, _)).WillOnce(Return(nullptr));
         ScatteredBufferStorageMock::Wrapper storage{&storage_mock};
