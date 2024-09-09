@@ -5,6 +5,7 @@
 
 #include "cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "gtest_helpers.hpp"       // NOLINT(misc-include-cleaner)
+#include "memory_resource_mock.hpp"
 #include "my_custom/baz_1_0.hpp"
 #include "presentation_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "tracking_memory_resource.hpp"
@@ -15,6 +16,7 @@
 #include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/errors.hpp>
 #include <libcyphal/presentation/client.hpp>
 #include <libcyphal/presentation/errors.hpp>
 #include <libcyphal/presentation/presentation.hpp>
@@ -349,6 +351,28 @@ TEST_F(TestClient, request_response_via_callabck)
         // Also try set deadline after the response has been received.
         response_promise->setDeadline(now() + 1s);
     });
+    scheduler_.scheduleAt(3s, [&](const auto&) {
+        //
+        EXPECT_CALL(state.req_tx_session_mock_, send(_, _)).WillOnce(Return(cetl::nullopt));
+
+        auto maybe_promise = client.request(now() + 100ms, Service::Request{}, now() + 500ms);
+        EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
+        response_promise.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
+
+        response_promise->setCallback([](const auto&) {
+            //
+            FAIL() << "Unexpected dummy callback.";
+        });
+        response_promise->setCallback({});  // clear callback, so that `fetchResult` will return the result.
+
+        ServiceRxTransfer transfer{{{{transfer_id + 1, Priority::Nominal}, now()}, 0x31}, {}};
+        state.res_rx_cb_fn_({transfer});
+    });
+    scheduler_.scheduleAt(3s + 1ms, [&](const auto&) {
+        //
+        EXPECT_THAT(response_promise->getResult(), Optional(VariantWith<SvcResPromise::Success>(_)));
+        EXPECT_THAT(response_promise->fetchResult(), Optional(VariantWith<SvcResPromise::Success>(_)));
+    });
     scheduler_.spinFor(10s);
 
     EXPECT_THAT(responses,
@@ -426,7 +450,10 @@ TEST_F(TestClient, request_response_failures)
     using Service       = my_custom::baz_1_0;
     using SvcResPromise = ResponsePromise<Service::Response>;
 
-    Presentation presentation{mr_, scheduler_, transport_mock_};
+    StrictMock<MemoryResourceMock> mr_mock;
+    mr_mock.redirectExpectedCallsTo(mr_);
+
+    Presentation presentation{mr_mock, scheduler_, transport_mock_};
 
     constexpr ResponseRxParams rx_params{Service::Response::_traits_::ExtentBytes, 147, 0x31};
 
@@ -444,8 +471,7 @@ TEST_F(TestClient, request_response_failures)
     cetl::optional<SvcResPromise> response_promise;
 
     NiceMock<ScatteredBufferStorageMock> storage_mock;
-    EXPECT_CALL(storage_mock, deinit()).Times(1);
-    ScatteredBufferStorageMock::Wrapper storage{&storage_mock};
+    EXPECT_CALL(storage_mock, deinit()).Times(2);
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
@@ -480,6 +506,7 @@ TEST_F(TestClient, request_response_failures)
                 *dst = cetl::byte(255);
                 return 1;
             }));
+        ScatteredBufferStorageMock::Wrapper storage{&storage_mock};
 
         ServiceRxTransfer transfer{{{{transfer_id + 1, Priority::Nominal}, now()}, 0x31},
                                    ScatteredBuffer{std::move(storage)}};
@@ -487,13 +514,36 @@ TEST_F(TestClient, request_response_failures)
 
         scheduler_.scheduleAt(now() + 200ms, [&](const auto&) {
             //
-            auto result = response_promise->fetchResult();
+            const auto result = response_promise->fetchResult();
             ASSERT_THAT(result,
                         Optional(VariantWith<ResponsePromiseFailure>(VariantWith<nunavut::support::Error>(
                             nunavut::support::Error::SerializationBadArrayLength))));
         });
     });
     scheduler_.scheduleAt(4s, [&](const auto&) {
+        //
+        EXPECT_CALL(state.req_tx_session_mock_, send(_, _)).WillOnce(Return(cetl::nullopt));
+
+        auto maybe_promise = client.request(now() + 100ms, Service::Request{});
+        EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
+        response_promise.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
+
+        // Emulate that there is no memory available for the message session.
+        EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(123));
+        EXPECT_CALL(mr_mock, do_allocate(123, _)).WillOnce(Return(nullptr));
+        ScatteredBufferStorageMock::Wrapper storage{&storage_mock};
+
+        ServiceRxTransfer transfer{{{{transfer_id + 0, Priority::Nominal}, now()}, 0x31},
+                                   ScatteredBuffer{std::move(storage)}};
+        state.res_rx_cb_fn_({transfer});
+
+        scheduler_.scheduleAt(now() + 200ms, [&](const auto&) {
+            //
+            const auto result = response_promise->fetchResult();
+            ASSERT_THAT(result, Optional(VariantWith<ResponsePromiseFailure>(VariantWith<libcyphal::MemoryError>(_))));
+        });
+    });
+    scheduler_.scheduleAt(5s, [&](const auto&) {
         //
         EXPECT_CALL(state.req_tx_session_mock_, send(_, _)).WillRepeatedly(Return(cetl::nullopt));
 

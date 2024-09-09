@@ -287,11 +287,12 @@ private:
     friend class Client;
     using Base::Base;
 
+    // MARK: CallbackNode
+
     // No Sonar `cpp:S5356` and `cpp:S5357` b/c of raw PMR memory allocation,
     // as well as data pointer type mismatches between scattered buffer and `const_bitspan`.
-    // TODO: Eliminate PMR allocation - when `deserialize` will support scattered buffers.
-    // TODO: Move this method to some common place (`SubscriberImpl` and `ServerImpl` also have it).
-    nunavut::support::SerializeResult tryDeserialize(Response& out_response, const transport::ScatteredBuffer& buffer)
+    //
+    void onResponseRxTransfer(transport::ServiceRxTransfer& transfer, const TimePoint approx_now) override
     {
         // Make a copy of the scattered buffer into a single contiguous temp buffer.
         //
@@ -300,28 +301,23 @@ private:
         // Maybe some kind of hybrid approach would be better,
         // e.g. stack buffer for small messages and PMR for large ones.
         //
+        const auto payload_size = transfer.payload.size();
         const std::unique_ptr<cetl::byte, PmrRawBytesDeleter>
-            tmp_buffer{static_cast<cetl::byte*>(memory().allocate(buffer.size())),  // NOSONAR cpp:S5356 cpp:S5357
-                       {buffer.size(), &memory()}};
+            tmp_buffer{static_cast<cetl::byte*>(memory().allocate(payload_size)),  // NOSONAR cpp:S5356 cpp:S5357
+                       {payload_size, &memory()}};
         if (!tmp_buffer)
         {
-            return false;
+            acceptResult(MemoryError{}, approx_now);
+            return;
         }
-        const auto data_size = buffer.copy(0, tmp_buffer.get(), buffer.size());
+        const auto data_size = transfer.payload.copy(0, tmp_buffer.get(), payload_size);
+
+        Success success{Response{}, transfer.metadata};
 
         const auto* const data_raw = static_cast<const void*>(tmp_buffer.get());
         const auto* const data_u8s = static_cast<const std::uint8_t*>(data_raw);  // NOSONAR cpp:S5356 cpp:S5357
         const nunavut::support::const_bitspan bitspan{data_u8s, data_size};
-
-        return deserialize(out_response, bitspan);
-    }
-
-    // MARK: CallbackNode
-
-    void onResponseRxTransfer(transport::ServiceRxTransfer& transfer, const TimePoint approx_now) override
-    {
-        Success    success{Response{}, transfer.metadata};
-        const auto deserialize_result = tryDeserialize(success.response, transfer.payload);
+        const auto                            deserialize_result = deserialize(success.response, bitspan);
         if (!deserialize_result)
         {
             acceptResult(deserialize_result.error(), approx_now);
