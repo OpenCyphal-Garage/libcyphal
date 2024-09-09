@@ -9,9 +9,14 @@
 namespace libcyphal
 {
 
-/// @brief Defines a generic memory error that is issued when a memory allocation fails.
+/// @brief Defines a generic error that is issued when a memory allocation fails.
 ///
 struct MemoryError final
+{};
+
+/// @brief Defines a generic error that is issued when an argument is invalid.
+///
+struct ArgumentError final
 {};
 
 }  // namespace libcyphal

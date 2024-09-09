@@ -11,7 +11,6 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/errors.hpp>
 #include <libcyphal/transport/can/delegate.hpp>
-#include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
@@ -185,7 +184,7 @@ TEST_F(TestCanDelegate, optAnyFailureFromCanard)
                 Optional(VariantWith<MemoryError>(_)));
 
     EXPECT_THAT(can::detail::TransportDelegate::optAnyFailureFromCanard(-CANARD_ERROR_INVALID_ARGUMENT),
-                Optional(VariantWith<ArgumentError>(_)));
+                Optional(VariantWith<libcyphal::ArgumentError>(_)));
 
     EXPECT_THAT(can::detail::TransportDelegate::optAnyFailureFromCanard(0), Eq(cetl::nullopt));
     EXPECT_THAT(can::detail::TransportDelegate::optAnyFailureFromCanard(1), Eq(cetl::nullopt));

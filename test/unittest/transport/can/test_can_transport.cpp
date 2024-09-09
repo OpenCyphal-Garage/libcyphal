@@ -176,7 +176,7 @@ TEST_F(TestCanTransport, makeTransport_too_many_media)
     std::fill(media_array.begin(), media_array.end(), &media_mock_);
 
     auto maybe_transport = can::makeTransport(mr_, scheduler_, media_array, 0);
-    EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<libcyphal::ArgumentError>(_)));
 }
 
 TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
@@ -235,7 +235,8 @@ TEST_F(TestCanTransport, setLocalNodeId)
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX + 1), Optional(testing::A<ArgumentError>()));
+        EXPECT_THAT(transport->setLocalNodeId(CANARD_NODE_ID_MAX + 1),
+                    Optional(testing::A<libcyphal::ArgumentError>()));
         EXPECT_THAT(transport->getLocalNodeId(), Eq(cetl::nullopt));
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
@@ -250,7 +251,7 @@ TEST_F(TestCanTransport, setLocalNodeId)
     });
     scheduler_.scheduleAt(4s, [&](const auto&) {
         //
-        EXPECT_THAT(transport->setLocalNodeId(0), Optional(testing::A<ArgumentError>()));
+        EXPECT_THAT(transport->setLocalNodeId(0), Optional(testing::A<libcyphal::ArgumentError>()));
         EXPECT_THAT(transport->getLocalNodeId(), Optional(CANARD_NODE_ID_MAX));
     });
     scheduler_.spinFor(10s);
@@ -260,7 +261,7 @@ TEST_F(TestCanTransport, makeTransport_with_invalid_arguments)
 {
     // No media
     const auto maybe_transport = can::makeTransport(mr_, scheduler_, {}, 0);
-    EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<libcyphal::ArgumentError>(_)));
 }
 
 TEST_F(TestCanTransport, getProtocolParams)
@@ -331,7 +332,7 @@ TEST_F(TestCanTransport, makeMessageRxSession_invalid_subject_id)
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         auto maybe_rx_session = transport->makeMessageRxSession({0, CANARD_SUBJECT_ID_MAX + 1});
-        EXPECT_THAT(maybe_rx_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(maybe_rx_session, VariantWith<AnyFailure>(VariantWith<libcyphal::ArgumentError>(_)));
     });
     scheduler_.spinFor(10s);
 }
@@ -495,7 +496,7 @@ TEST_F(TestCanTransport, sending_multiframe_payload_should_fail_for_anonymous)
         //
         metadata.deadline = now() + 1s;
         auto failure      = session->send(metadata, makeSpansFrom(payload));
-        EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(failure, Optional(VariantWith<libcyphal::ArgumentError>(_)));
     });
     scheduler_.spinFor(10s);
 }
@@ -763,11 +764,11 @@ TEST_F(TestCanTransport, send_payload_to_out_of_capacity_canard_tx)
                                     }));
                         return true;
                     }))))
-            .WillOnce(Return(StateError{}));
+            .WillOnce(Return(libcyphal::ArgumentError{}));
 
         metadata.deadline = now() + timeout;
         auto failure      = session->send(metadata, makeSpansFrom(payload));
-        EXPECT_THAT(failure, Optional(VariantWith<StateError>(_)));
+        EXPECT_THAT(failure, Optional(VariantWith<libcyphal::ArgumentError>(_)));
     });
     // 2nd. Try to send a frame with "succeeding" handler - both media indices will be used.
     scheduler_.scheduleAt(1s, [&](const auto&) {
@@ -954,7 +955,7 @@ TEST_F(TestCanTransport, receive_svc_responses_from_redundant_fallible_media)
     // 1st run: media #0 pop has failed and there is no transient error handler.
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(ArgumentError{}));
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(libcyphal::ArgumentError{}));
         scheduler_.scheduleNamedCallback("rx1");
     });
     // 2nd run: media #0 pop and transient error handler have failed.
@@ -962,28 +963,28 @@ TEST_F(TestCanTransport, receive_svc_responses_from_redundant_fallible_media)
         //
         transport->setTransientErrorHandler(std::ref(handler_mock));
         EXPECT_CALL(handler_mock, invoke(VariantWith<MediaPopReport>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.failure, VariantWith<ArgumentError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<libcyphal::ArgumentError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         EXPECT_THAT(report.culprit, Ref(media_mock_));
                         return true;
                     }))))
             .WillOnce(Return(CapacityError{}));
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(ArgumentError{}));
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(libcyphal::ArgumentError{}));
         scheduler_.scheduleNamedCallback("rx1");
     });
     // 3rd run: media #0 pop failed but transient error handler succeeded.
     scheduler_.scheduleAt(3s, [&](const auto&) {
         //
         EXPECT_CALL(handler_mock, invoke(VariantWith<MediaPopReport>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.failure, VariantWith<ArgumentError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<libcyphal::ArgumentError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         EXPECT_THAT(report.culprit, Ref(media_mock_));
                         return true;
                     }))))
             .WillOnce(Return(cetl::nullopt));
 
-        EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(ArgumentError{}));
+        EXPECT_CALL(media_mock_, pop(_)).WillOnce(Return(libcyphal::ArgumentError{}));
         EXPECT_CALL(media_mock2, pop(_)).WillOnce(Return(cetl::nullopt));
         scheduler_.scheduleNamedCallback("rx1");
         scheduler_.scheduleNamedCallback("rx2");
@@ -1039,7 +1040,7 @@ TEST_F(TestCanTransport, receive_svc_responses_with_fallible_oom_canard)
         //
         transport->setTransientErrorHandler(std::ref(handler_mock));
         scheduler_.scheduleNamedCallback("rx");
-        EXPECT_CALL(handler_mock, invoke(_)).WillOnce(Return(StateError{}));
+        EXPECT_CALL(handler_mock, invoke(_)).WillOnce(Return(libcyphal::ArgumentError{}));
         scheduler_.scheduleAt(now() + 1ms, [&](const auto&) {
             //
             EXPECT_THAT(session->receive(), Eq(cetl::nullopt));
@@ -1204,7 +1205,7 @@ TEST_F(TestCanTransport, setFilters_with_transient_handler)
                         EXPECT_THAT(report.culprit, Ref(media_mock_));
                         return true;
                     })));
-        return StateError{};
+        return libcyphal::ArgumentError{};
     });
     EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(expected_error));
     EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));

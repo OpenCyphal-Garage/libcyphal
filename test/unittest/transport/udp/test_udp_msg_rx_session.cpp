@@ -14,7 +14,6 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/errors.hpp>
-#include <libcyphal/executor.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
@@ -190,7 +189,7 @@ TEST_F(TestUdpMsgRxSession, make_fails_due_to_argument_error)
 
     // Try invalid subject id
     auto maybe_session = transport->makeMessageRxSession({64, UDPARD_SUBJECT_ID_MAX + 1});
-    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<libcyphal::ArgumentError>(_)));
 }
 
 TEST_F(TestUdpMsgRxSession, make_fails_due_to_rx_socket_error)
@@ -316,7 +315,7 @@ TEST_F(TestUdpMsgRxSession, receive)
                 return {rx_timestamp, {nullptr, libcyphal::PmrRawBytesDeleter{0, &payload_mr_mock}}};
             });
         EXPECT_CALL(handler_mock, invoke(VariantWith<Report>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.failure, VariantWith<ArgumentError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<libcyphal::ArgumentError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         EXPECT_THAT(report.culprit.udp_ip_endpoint.ip_address, 0xEF000023);
                         return true;

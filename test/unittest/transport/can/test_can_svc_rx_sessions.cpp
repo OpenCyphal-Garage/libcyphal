@@ -18,7 +18,6 @@
 #include <libcyphal/transport/can/can_transport_impl.hpp>
 #include <libcyphal/transport/can/media.hpp>
 #include <libcyphal/transport/can/svc_rx_sessions.hpp>
-#include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
@@ -167,7 +166,7 @@ TEST_F(TestCanSvcRxSessions, make_request_fails_due_to_argument_error)
 
     // Try invalid subject id
     auto maybe_session = transport->makeRequestRxSession({64, CANARD_SERVICE_ID_MAX + 1});
-    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<libcyphal::ArgumentError>(_)));
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)

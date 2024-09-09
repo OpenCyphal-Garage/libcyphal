@@ -7,7 +7,9 @@
 #define LIBCYPHAL_PRESENTATION_RESPONSE_PROMISE_HPP_INCLUDED
 
 #include "client_impl.hpp"
+#include "errors.hpp"
 
+#include "libcyphal/errors.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
@@ -30,14 +32,14 @@ namespace presentation
 
 /// @brief Defines internal base class for any concrete (final) response promise.
 ///
-/// @tparam Response Type of the response that the promise is supposed to handle. It's expected to be
-///                  either a deserializable type (like a Nunavut tool generated service response struct),
-///                  or `transport::ScatteredBuffer` for raw bytes (aka untyped) responses.
+/// @tparam ResponsePayload Type of the response payload that the promise is supposed to handle. It's expected to be
+///                         either a deserializable type (like a Nunavut tool generated service response struct),
+///                         or `transport::ScatteredBuffer` for raw bytes (aka untyped) responses.
 ///
 /// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
 /// b/c we do directly handle resources here (like `client_impl_` retain/release etc.).
 ///
-template <typename Response>
+template <typename ResponsePayload, typename Failure>
 class ResponsePromiseBase : public detail::SharedClient::CallbackNode  // NOSONAR cpp:S4963
 {
 public:
@@ -45,26 +47,15 @@ public:
     ///
     struct Success
     {
-        Response                     response;
+        ResponsePayload              response;
         transport::ServiceRxMetadata metadata;
-    };
-
-    /// @brief Defines terminal 'expired' state of the response promise.
-    ///
-    /// See `response_deadline` parameter of the `Client::request` method,
-    /// or `setDeadline()` method of the promise itself.
-    ///
-    struct Expired
-    {
-        /// Holds deadline of the expired (aka timed out) response waiting.
-        TimePoint deadline;
     };
 
     /// @brief Defines result of the promise.
     ///
     /// Could be either a successful received response, or final expired condition.
     ///
-    using Result = Expected<Success, Expired>;
+    using Result = Expected<Success, Failure>;
 
     /// @brief Umbrella type for various response callback entities.
     ///
@@ -223,7 +214,7 @@ protected:
 
     void onResponseTimeout(const TimePoint deadline, const TimePoint approx_now) override
     {
-        acceptResult(Expired{deadline}, approx_now);
+        acceptResult(ResponsePromiseExpired{deadline}, approx_now);
     }
 
 private:
@@ -243,9 +234,9 @@ private:
 /// @tparam Response Deserializable response type of the promise.
 ///
 template <typename Response>
-class ResponsePromise final : public ResponsePromiseBase<Response>
+class ResponsePromise final : public ResponsePromiseBase<Response, ResponsePromiseFailure>
 {
-    using Base = ResponsePromiseBase<Response>;
+    using Base = ResponsePromiseBase<Response, ResponsePromiseFailure>;
     using Base::memory;
     using Base::acceptResult;
     using Base::acceptNewCallback;
@@ -254,7 +245,6 @@ class ResponsePromise final : public ResponsePromiseBase<Response>
 public:
     using typename Base::Result;
     using typename Base::Success;
-    using typename Base::Expired;
     using typename Base::Callback;
 
     /// @brief Sets the callback function for the promise.
@@ -301,7 +291,7 @@ private:
     // as well as data pointer type mismatches between scattered buffer and `const_bitspan`.
     // TODO: Eliminate PMR allocation - when `deserialize` will support scattered buffers.
     // TODO: Move this method to some common place (`SubscriberImpl` and `ServerImpl` also have it).
-    bool tryDeserialize(Response& out_response, const transport::ScatteredBuffer& buffer)
+    nunavut::support::SerializeResult tryDeserialize(Response& out_response, const transport::ScatteredBuffer& buffer)
     {
         // Make a copy of the scattered buffer into a single contiguous temp buffer.
         //
@@ -330,9 +320,11 @@ private:
 
     void onResponseRxTransfer(transport::ServiceRxTransfer& transfer, const TimePoint approx_now) override
     {
-        Success success{Response{}, transfer.metadata};
-        if (!tryDeserialize(success.response, transfer.payload))
+        Success    success{Response{}, transfer.metadata};
+        const auto deserialize_result = tryDeserialize(success.response, transfer.payload);
+        if (!deserialize_result)
         {
+            acceptResult(deserialize_result.error(), approx_now);
             return;
         }
 
@@ -346,14 +338,13 @@ private:
 /// @brief Defines promise class of a raw (aka untyped) response.
 ///
 template <>
-class ResponsePromise<void> final : public ResponsePromiseBase<transport::ScatteredBuffer>
+class ResponsePromise<void> final : public ResponsePromiseBase<transport::ScatteredBuffer, RawResponsePromiseFailure>
 {
     using Base = ResponsePromiseBase;
 
 public:
     using Base::Result;
     using Base::Success;
-    using Base::Expired;
     using Base::Callback;
 
     /// @brief Sets the callback function for the promise.

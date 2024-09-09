@@ -12,6 +12,7 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/rtti.hpp>
+#include <libcyphal/errors.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/platform/single_threaded_executor.hpp>
 #include <libcyphal/types.hpp>
@@ -52,7 +53,7 @@ public:
         }
     }
 
-    using PollFailure = cetl::variant<libcyphal::transport::PlatformError, libcyphal::transport::ArgumentError>;
+    using PollFailure = cetl::variant<libcyphal::transport::PlatformError, libcyphal::ArgumentError>;
 
     cetl::optional<PollFailure> pollAwaitableResourcesFor(const cetl::optional<libcyphal::Duration> timeout) const
     {
@@ -63,7 +64,7 @@ public:
         {
             if (!timeout)
             {
-                return libcyphal::transport::ArgumentError{};
+                return libcyphal::ArgumentError{};
             }
 
             std::this_thread::sleep_for(*timeout);

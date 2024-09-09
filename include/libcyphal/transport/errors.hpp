@@ -20,13 +20,7 @@ namespace libcyphal
 namespace transport
 {
 
-struct StateError final
-{};
-
 struct AnonymousError final
-{};
-
-struct ArgumentError final
 {};
 
 struct CapacityError final
@@ -82,13 +76,7 @@ struct AlreadyExistsError final
 ///   `Success`, `Failure` and `Type` nested types/aliases (see f.e. `ITxSocket` or `IRxSocket` interfaces).
 ///
 using AnyFailure =  //
-    cetl::variant<StateError,
-                  AnonymousError,
-                  ArgumentError,
-                  MemoryError,
-                  CapacityError,
-                  PlatformError,
-                  AlreadyExistsError>;
+    cetl::variant<AnonymousError, ArgumentError, MemoryError, CapacityError, PlatformError, AlreadyExistsError>;
 
 /// @brief Defines any possible factory error at Cyphal transport layer.
 ///

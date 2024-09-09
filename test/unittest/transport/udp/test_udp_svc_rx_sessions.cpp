@@ -213,7 +213,7 @@ TEST_F(TestUdpSvcRxSessions, make_request_fails_due_to_argument_error)
 
     // Try invalid subject id
     auto maybe_session = transport->makeRequestRxSession({64, UDPARD_SERVICE_ID_MAX + 1});
-    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<libcyphal::ArgumentError>(_)));
 }
 
 TEST_F(TestUdpSvcRxSessions, make_request_fails_due_to_rx_socket_error)
@@ -558,7 +558,7 @@ TEST_F(TestUdpSvcRxSessions, receive_response)
         EXPECT_CALL(rx_socket_mock_, receive())  //
             .WillOnce([&, rx_timestamp] {
                 EXPECT_THAT(now(), rx_timestamp);
-                return ArgumentError{};
+                return libcyphal::ArgumentError{};
             });
         scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
 

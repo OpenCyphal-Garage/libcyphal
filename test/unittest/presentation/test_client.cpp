@@ -16,6 +16,7 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/presentation/client.hpp>
+#include <libcyphal/presentation/errors.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/response_promise.hpp>
 #include <libcyphal/transport/errors.hpp>
@@ -50,6 +51,7 @@ using testing::Eq;
 using testing::Invoke;
 using testing::Return;
 using testing::IsEmpty;
+using testing::NotNull;
 using testing::NiceMock;
 using testing::Optional;
 using testing::FieldsAre;
@@ -438,6 +440,13 @@ TEST_F(TestClient, request_response_failures)
     ASSERT_THAT(maybe_client, VariantWith<ServiceClient<Service>>(_));
     const auto client = cetl::get<ServiceClient<Service>>(std::move(maybe_client));
 
+    constexpr TransferId          transfer_id = 0;
+    cetl::optional<SvcResPromise> response_promise;
+
+    NiceMock<ScatteredBufferStorageMock> storage_mock;
+    EXPECT_CALL(storage_mock, deinit()).Times(1);
+    ScatteredBufferStorageMock::Wrapper storage{&storage_mock};
+
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         Service::Request request{};
@@ -457,6 +466,34 @@ TEST_F(TestClient, request_response_failures)
         EXPECT_THAT(maybe_promise, VariantWith<ServiceClient<Service>::Failure>(VariantWith<CapacityError>(_)));
     });
     scheduler_.scheduleAt(3s, [&](const auto&) {
+        //
+        EXPECT_CALL(state.req_tx_session_mock_, send(_, _)).WillOnce(Return(cetl::nullopt));
+
+        auto maybe_promise = client.request(now() + 100ms, Service::Request{});
+        EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
+        response_promise.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
+
+        EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(1));
+        EXPECT_CALL(storage_mock, copy(0, NotNull(), 1))
+            .WillOnce(Invoke([](const auto, auto* const dst, const auto) {  //
+                // this will make it fail to deserialize response with SerializationBadArrayLength
+                *dst = cetl::byte(255);
+                return 1;
+            }));
+
+        ServiceRxTransfer transfer{{{{transfer_id + 1, Priority::Nominal}, now()}, 0x31},
+                                   ScatteredBuffer{std::move(storage)}};
+        state.res_rx_cb_fn_({transfer});
+
+        scheduler_.scheduleAt(now() + 200ms, [&](const auto&) {
+            //
+            auto result = response_promise->fetchResult();
+            ASSERT_THAT(result,
+                        Optional(VariantWith<ResponsePromiseFailure>(VariantWith<nunavut::support::Error>(
+                            nunavut::support::Error::SerializationBadArrayLength))));
+        });
+    });
+    scheduler_.scheduleAt(4s, [&](const auto&) {
         //
         EXPECT_CALL(state.req_tx_session_mock_, send(_, _)).WillRepeatedly(Return(cetl::nullopt));
 
@@ -510,8 +547,9 @@ TEST_F(TestClient, multiple_requests_responses_expired)
         response_promise1.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
         response_promise1->setCallback([&responses](const auto& arg) {
             //
-            ASSERT_THAT(arg.result, VariantWith<SvcResPromise::Expired>(_));
-            auto expired = cetl::get<SvcResPromise::Expired>(std::move(arg.result));
+            ASSERT_THAT(arg.result, VariantWith<ResponsePromiseFailure>(VariantWith<ResponsePromiseExpired>(_)));
+            auto failure = cetl::get<ResponsePromiseFailure>(std::move(arg.result));
+            auto expired = cetl::get<ResponsePromiseExpired>(std::move(failure));
             responses.emplace_back("1", expired.deadline, arg.approx_now);
         });
     });
@@ -527,8 +565,9 @@ TEST_F(TestClient, multiple_requests_responses_expired)
         response_promise2.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
         response_promise2->setCallback([&responses](const auto& arg) {
             //
-            ASSERT_THAT(arg.result, VariantWith<SvcResPromise::Expired>(_));
-            auto expired = cetl::get<SvcResPromise::Expired>(std::move(arg.result));
+            ASSERT_THAT(arg.result, VariantWith<ResponsePromiseFailure>(VariantWith<ResponsePromiseExpired>(_)));
+            auto failure = cetl::get<ResponsePromiseFailure>(std::move(arg.result));
+            auto expired = cetl::get<ResponsePromiseExpired>(std::move(failure));
             responses.emplace_back("2", expired.deadline, arg.approx_now);
         });
     });
@@ -543,8 +582,9 @@ TEST_F(TestClient, multiple_requests_responses_expired)
         response_promise3.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
         response_promise3->setCallback([&responses](const auto& arg) {
             //
-            ASSERT_THAT(arg.result, VariantWith<SvcResPromise::Expired>(_));
-            auto expired = cetl::get<SvcResPromise::Expired>(std::move(arg.result));
+            ASSERT_THAT(arg.result, VariantWith<ResponsePromiseFailure>(VariantWith<ResponsePromiseExpired>(_)));
+            auto failure = cetl::get<ResponsePromiseFailure>(std::move(arg.result));
+            auto expired = cetl::get<ResponsePromiseExpired>(std::move(failure));
             responses.emplace_back("3", expired.deadline, arg.approx_now);
         });
     });

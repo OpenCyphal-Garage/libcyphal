@@ -67,21 +67,17 @@ struct CommonHelpers
             return ss.str();
         }
 
+        static std::string describeError(const libcyphal::ArgumentError&)
+        {
+            return "ArgumentError";
+        }
         static std::string describeError(const libcyphal::MemoryError&)
         {
             return "MemoryError";
         }
-        static std::string describeError(const libcyphal::transport::StateError&)
-        {
-            return "StateError";
-        }
         static std::string describeError(const libcyphal::transport::AnonymousError&)
         {
             return "AnonymousError";
-        }
-        static std::string describeError(const libcyphal::transport::ArgumentError&)
-        {
-            return "ArgumentError";
         }
         static std::string describeError(const libcyphal::transport::CapacityError&)
         {

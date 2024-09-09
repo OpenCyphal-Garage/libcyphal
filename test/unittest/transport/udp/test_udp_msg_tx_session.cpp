@@ -15,7 +15,6 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/errors.hpp>
 #include <libcyphal/executor.hpp>
-#include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/media.hpp>
@@ -168,7 +167,7 @@ TEST_F(TestUdpMsgTxSession, make_fails_due_to_argument_error)
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         auto maybe_session = transport->makeMessageTxSession({UDPARD_SUBJECT_ID_MAX + 1});
-        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<libcyphal::ArgumentError>(_)));
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {
         //

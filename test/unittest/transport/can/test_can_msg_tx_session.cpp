@@ -19,7 +19,6 @@
 #include <libcyphal/transport/can/can_transport_impl.hpp>
 #include <libcyphal/transport/can/media.hpp>
 #include <libcyphal/transport/can/msg_tx_session.hpp>
-#include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
@@ -148,7 +147,7 @@ TEST_F(TestCanMsgTxSession, make_fails_due_to_argument_error)
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         auto maybe_session = transport->makeMessageTxSession({CANARD_SUBJECT_ID_MAX + 1});
-        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<libcyphal::ArgumentError>(_)));
     });
     scheduler_.spinFor(10s);
 }

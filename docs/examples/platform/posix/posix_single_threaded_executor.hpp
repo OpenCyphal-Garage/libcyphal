@@ -57,7 +57,7 @@ public:
     PollSingleThreadedExecutor& operator=(PollSingleThreadedExecutor&&) noexcept = delete;
 
     using PollFailure =
-        cetl::variant<libcyphal::MemoryError, libcyphal::transport::PlatformError, libcyphal::transport::ArgumentError>;
+        cetl::variant<libcyphal::MemoryError, libcyphal::transport::PlatformError, libcyphal::ArgumentError>;
 
     cetl::optional<PollFailure> pollAwaitableResourcesFor(const cetl::optional<libcyphal::Duration> timeout)
     {
@@ -68,7 +68,7 @@ public:
         {
             if (!timeout)
             {
-                return libcyphal::transport::ArgumentError{};
+                return libcyphal::ArgumentError{};
             }
 
             std::this_thread::sleep_for(*timeout);

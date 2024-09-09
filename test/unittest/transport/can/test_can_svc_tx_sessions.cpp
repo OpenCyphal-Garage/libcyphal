@@ -129,13 +129,13 @@ TEST_F(TestCanSvcTxSessions, make_request_fails_due_to_argument_error)
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         auto maybe_session = transport->makeRequestTxSession({CANARD_SERVICE_ID_MAX + 1, 0});
-        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<libcyphal::ArgumentError>(_)));
     });
     // Try invalid server node id
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
         auto maybe_session = transport->makeRequestTxSession({0, CANARD_NODE_ID_MAX + 1});
-        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<libcyphal::ArgumentError>(_)));
     });
     scheduler_.spinFor(10s);
 }
@@ -219,7 +219,7 @@ TEST_F(TestCanSvcTxSessions, send_request_with_argument_error)
         //
         metadata.deadline  = now() + timeout;
         const auto failure = session->send(metadata, empty_payload);
-        EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(failure, Optional(VariantWith<libcyphal::ArgumentError>(_)));
     });
     // Fix anonymous node
     scheduler_.scheduleAt(200ms, [&](const auto&) {
@@ -271,7 +271,7 @@ TEST_F(TestCanSvcTxSessions, make_response_fails_due_to_argument_error)
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         auto maybe_session = transport->makeResponseTxSession({CANARD_SERVICE_ID_MAX + 1});
-        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<libcyphal::ArgumentError>(_)));
     });
     scheduler_.spinFor(10s);
 }
@@ -357,7 +357,7 @@ TEST_F(TestCanSvcTxSessions, send_response_with_argument_error)
         //
         metadata.tx_meta.deadline = now() + timeout;
         const auto failure        = session->send(metadata, empty_payload);
-        EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(failure, Optional(VariantWith<libcyphal::ArgumentError>(_)));
     });
     // Fix anonymous node, but break remote node id.
     scheduler_.scheduleAt(200ms, [&](const auto&) {
@@ -367,7 +367,7 @@ TEST_F(TestCanSvcTxSessions, send_response_with_argument_error)
         metadata.remote_node_id   = CANARD_NODE_ID_MAX + 1;
         metadata.tx_meta.deadline = now() + timeout;
         const auto maybe_error    = session->send(metadata, empty_payload);
-        EXPECT_THAT(maybe_error, Optional(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(maybe_error, Optional(VariantWith<libcyphal::ArgumentError>(_)));
     });
     scheduler_.spinFor(10s);
 }
