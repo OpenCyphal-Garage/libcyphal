@@ -8,8 +8,8 @@
 #include "memory_resource_mock.hpp"
 #include "my_custom/baz_1_0.hpp"
 #include "tracking_memory_resource.hpp"
-#include "transport/svc_sessions_mock.hpp"
 #include "transport/scattered_buffer_storage_mock.hpp"
+#include "transport/svc_sessions_mock.hpp"
 #include "transport/transport_gtest_helpers.hpp"
 #include "transport/transport_mock.hpp"
 #include "virtual_time_scheduler.hpp"
@@ -22,6 +22,7 @@
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
+#include <nunavut/support/serialization.hpp>
 #include <uavcan/node/GetInfo_1_0.hpp>
 
 #include <gmock/gmock.h>

@@ -13,6 +13,7 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/errors.hpp>
 #include <libcyphal/executor.hpp>
+#include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/media.hpp>
