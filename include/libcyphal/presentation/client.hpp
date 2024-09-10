@@ -109,11 +109,23 @@ public:
         return *this;
     }
 
+    /// @brief Gets current priority of requests of this client.
+    ///
+    /// The priority is used to determine the order of the requests in the transport layer.
+    ///
     transport::Priority getPriority() const noexcept
     {
         return priority_;
     }
 
+    /// @brief Sets the priority of requests of this client.
+    ///
+    /// The priority is used to determine the order of the requests in the transport layer.
+    /// It can be changed at any time, and the new priority will be used for the next request.
+    /// Prior requests will not be affected by this change.
+    ///
+    /// @param priority The new priority to be set.
+    ///
     void setPriority(const transport::Priority priority) noexcept
     {
         priority_ = priority;
@@ -174,12 +186,22 @@ class Client final : public detail::ClientBase
 public:
     /// @brief Defines failure type for a strong-typed client operations.
     ///
-    /// The set of possible failures includes transport layer failures (inherited from the base client),
+    /// The set of possible failures includes transport layer failures (inherited from the base client)
     /// as well as serialization-related ones.
     ///
     using Failure = libcyphal::detail::AppendType<Failure, nunavut::support::Error>::Result;
 
-    // TODO: docs
+    /// @brief Initiates a strong-typed request to the server, and returns a promise object to handle the response.
+    ///
+    /// @param request_deadline The deadline for the request sending operation. Request will be dropped if not sent
+    ///                         before this deadline, which will inevitably timeout the response waiting deadline.
+    /// @param request The request object to be serialized and then sent to the server.
+    /// @param response_deadline The deadline for the response receiving operation. If `nullopt` (or `{}`) then
+    ///                          `request_deadline` will be used for both request & response deadlines.
+    /// @return If request sending has succeeded then result will be a promise object to handle the response,
+    ///         which will be filled in the future with a received response. See `ResponsePromise` for details.
+    ///         If request sending has failed then result will be a failure object, which will contain the reason.
+    ///
     Expected<ResponsePromise<Response>, Failure> request(const TimePoint                 request_deadline,
                                                          const Request&                  request,
                                                          const cetl::optional<TimePoint> response_deadline = {}) const
@@ -263,7 +285,17 @@ using ServiceClient = Client<typename Service::Request, typename Service::Respon
 class RawServiceClient final : public detail::ClientBase
 {
 public:
-    // TODO: docs
+    /// @brief Initiates a raw request to the server, and returns a promise object to handle the response.
+    ///
+    /// @param request_deadline The deadline for the request sending operation. Request will be dropped if not sent
+    ///                         before this deadline, which will inevitably timeout the response waiting deadline.
+    /// @param request_payload The raw request payload object to be sent to the server.
+    /// @param response_deadline The deadline for the response receiving operation. If `nullopt` (or `{}`) then
+    ///                          `request_deadline` will be used for both request & response deadlines.
+    /// @return If request sending has succeeded then result will be a promise object to handle the response,
+    ///         which will be filled in the future with a received response. See `ResponsePromise` for details.
+    ///         If request sending has failed then result will be a failure object, which will contain the reason.
+    ///
     Expected<ResponsePromise<void>, Failure> request(const TimePoint                    request_deadline,
                                                      const transport::PayloadFragments& request_payload,
                                                      const cetl::optional<TimePoint>    response_deadline = {}) const
