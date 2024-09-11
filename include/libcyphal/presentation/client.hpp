@@ -193,6 +193,19 @@ public:
 
     /// @brief Initiates a strong-typed request to the server, and returns a promise object to handle the response.
     ///
+    /// Issuing a new request involves the following steps:
+    /// 1. Serialize the request object to a raw payload buffer, which might fail with `nunavut::support::Error`.
+    /// 2. Allocation of not in use the next transfer ID, so that request and response can be paired. Depending on
+    ///    the transport layer (UDP, CAN, etc.), this operation might be O(1) complexity (like for UDP transport,
+    ///    where range of transfer ids is 2^64 huge, so simple increment is in use to generate next "unique" id),
+    ///    OR it could take O(N) complexity in the worst-case (where N is the number of pending requests), like for
+    ///    CAN transport, where N is limited by 2^5. Such limited range of CAN transfer ids is the cause of possible
+    ///    `TooManyPendingRequestsError` failure to allocate a new not in use id.
+    /// 3. Creation and registration of a response promise object, which will be used to handle the raw response, from
+    ///    the server, try to deserialize it to the strong-typed response, and deliver end result to the user.
+    /// 4. Sending the raw request payload to the server, which might fail with a transport layer error.
+    ///    If it does fail, then the response promise object will be destroyed, and the user will get the failure.
+    ///
     /// @param request_deadline The deadline for the request sending operation. Request will be dropped if not sent
     ///                         before this deadline, which will inevitably timeout the response waiting deadline.
     /// @param request The request object to be serialized and then sent to the server.
@@ -286,6 +299,18 @@ class RawServiceClient final : public detail::ClientBase
 {
 public:
     /// @brief Initiates a raw request to the server, and returns a promise object to handle the response.
+    ///
+    /// Issuing a new request involves the following steps:
+    /// 1. Allocation of not in use the next transfer ID, so that request and response can be paired. Depending on
+    ///    the transport layer (UDP, CAN, etc.), this operation might be O(1) complexity (like for UDP transport,
+    ///    where range of transfer ids is 2^64 huge, so simple increment is in use to generate next "unique" id),
+    ///    OR it could take O(N) complexity in the worst-case (where N is the number of pending requests), like for
+    ///    CAN transport, where N is limited by 2^5. Such limited range of CAN transfer ids is the cause of possible
+    ///    `TooManyPendingRequestsError` failure to allocate a new not in use id.
+    /// 3. Creation and registration of a response promise object,
+    ///    which will be used to handle the raw response from server, and deliver it to the user.
+    /// 4. Sending the raw request payload to the server, which might fail with a transport layer error.
+    ///    If it does fail, then the response promise object will be destroyed, and the user will get the failure.
     ///
     /// @param request_deadline The deadline for the request sending operation. Request will be dropped if not sent
     ///                         before this deadline, which will inevitably timeout the response waiting deadline.

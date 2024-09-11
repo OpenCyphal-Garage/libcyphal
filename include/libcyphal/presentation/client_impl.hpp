@@ -446,10 +446,8 @@ public:
     ClientImpl(IPresentationDelegate&                   delegate,
                IExecutor&                               executor,
                UniquePtr<transport::IRequestTxSession>  svc_request_tx_session,
-               UniquePtr<transport::IResponseRxSession> svc_response_rx_session,
-               const transport::TransferId              transfer_id_modulo)
+               UniquePtr<transport::IResponseRxSession> svc_response_rx_session)
         : SharedClient{delegate, executor, std::move(svc_request_tx_session), std::move(svc_response_rx_session)}
-        , TrivialTransferIdGenerator{transfer_id_modulo}
     {
     }
 

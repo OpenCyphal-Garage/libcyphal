@@ -214,7 +214,7 @@ protected:
         }
         if (print_activities_)
         {
-            std::cout << " 🚫 Client '" << state.name << "' timeout  'ping' req (ping_id=" << state.request.id
+            std::cout << " 🔴 Client '" << state.name << "' timeout  'ping' req (ping_id=" << state.request.id
                       << ",   to_node_id=" << remote_node_id_ << ")."
                       << CommonHelpers::Printers::describeDurationInMs(uptime()) << ", Δ "
                       << CommonHelpers::Printers::describeDurationInUs(request_duration) << std::endl;  // NOLINT
@@ -263,6 +263,7 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
         << "Can't create transport.";
     state.transport_ = cetl::get<UdpTransportPtr>(std::move(maybe_transport));
     state.transport_->setLocalNodeId(local_node_id_);
+    state.transport_->setTransientErrorHandler(CommonHelpers::Udp::transientErrorReporter);
 
     // 2. Create presentation layer object.
     //
@@ -286,7 +287,7 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
             //
             if (print_activities_)
             {
-                std::cout << "🔴  Server received     'Ping' req (ping_id=" << arg.request.id
+                std::cout << " ◯  Server received     'Ping' req (ping_id=" << arg.request.id
                           << ", from_node_id=" << arg.metadata.remote_node_id << ")."
                           << CommonHelpers::Printers::describeDurationInMs(arg.approx_now - startup_time_)
                           << ", tf_id=" << arg.metadata.rx_meta.base.transfer_id << std::endl;  // NOLINT

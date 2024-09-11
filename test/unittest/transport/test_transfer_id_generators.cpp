@@ -28,59 +28,34 @@ class TestTransferIdGenerators : public testing::Test
 
 // MARK: - Tests:
 
-TEST_F(TestTransferIdGenerators, trivial_modulo_4)
+TEST_F(TestTransferIdGenerators, trivial_default)
 {
     // Default starting value is 0.
-    {
-        detail::TrivialTransferIdGenerator tf_id_gen{4};
+    detail::TrivialTransferIdGenerator tf_id_gen;
 
-        EXPECT_THAT(tf_id_gen.nextTransferId(), 0);
-        EXPECT_THAT(tf_id_gen.nextTransferId(), 1);
-        EXPECT_THAT(tf_id_gen.nextTransferId(), 2);
-        EXPECT_THAT(tf_id_gen.nextTransferId(), 3);
-        EXPECT_THAT(tf_id_gen.nextTransferId(), 0);
-        EXPECT_THAT(tf_id_gen.nextTransferId(), 1);
-        EXPECT_THAT(tf_id_gen.nextTransferId(), 2);
-        EXPECT_THAT(tf_id_gen.nextTransferId(), 3);
-    }
-    // Starting value is 2 (6 % 4).
-    {
-        detail::TrivialTransferIdGenerator tf_id_gen{4};
-        tf_id_gen.setNextTransferId(2);
-
-        EXPECT_THAT(tf_id_gen.nextTransferId(), 2);
-        EXPECT_THAT(tf_id_gen.nextTransferId(), 3);
-        EXPECT_THAT(tf_id_gen.nextTransferId(), 0);
-        EXPECT_THAT(tf_id_gen.nextTransferId(), 1);
-        EXPECT_THAT(tf_id_gen.nextTransferId(), 2);
-    }
+    EXPECT_THAT(tf_id_gen.nextTransferId(), 0);
+    EXPECT_THAT(tf_id_gen.nextTransferId(), 1);
+    EXPECT_THAT(tf_id_gen.nextTransferId(), 2);
+    EXPECT_THAT(tf_id_gen.nextTransferId(), 3);
+    EXPECT_THAT(tf_id_gen.nextTransferId(), 4);
+    EXPECT_THAT(tf_id_gen.nextTransferId(), 5);
 }
 
 TEST_F(TestTransferIdGenerators, trivial_max_tf_id)
 {
-    // Default starting value is 0.
-    {
-        detail::TrivialTransferIdGenerator tf_id_gen{std::numeric_limits<TransferId>::max()};
-
-        for (TransferId i = 0; i < 2000; ++i)
-        {
-            EXPECT_THAT(tf_id_gen.nextTransferId(), i);
-        }
-    }
     // Starting value is 2^64 - 3.
-    {
-        constexpr auto max = std::numeric_limits<TransferId>::max();
+    constexpr auto max = std::numeric_limits<TransferId>::max();
 
-        detail::TrivialTransferIdGenerator tf_id_gen{max};
-        tf_id_gen.setNextTransferId(max - 3);
+    detail::TrivialTransferIdGenerator tf_id_gen;
+    tf_id_gen.setNextTransferId(max - 3);
 
-        EXPECT_THAT(tf_id_gen.nextTransferId(), max - 3);
-        EXPECT_THAT(tf_id_gen.nextTransferId(), max - 2);
-        EXPECT_THAT(tf_id_gen.nextTransferId(), max - 1);
-        EXPECT_THAT(tf_id_gen.nextTransferId(), 0);
-        EXPECT_THAT(tf_id_gen.nextTransferId(), 1);
-        EXPECT_THAT(tf_id_gen.nextTransferId(), 2);
-    }
+    EXPECT_THAT(tf_id_gen.nextTransferId(), max - 3);
+    EXPECT_THAT(tf_id_gen.nextTransferId(), max - 2);
+    EXPECT_THAT(tf_id_gen.nextTransferId(), max - 1);
+    EXPECT_THAT(tf_id_gen.nextTransferId(), max);
+    EXPECT_THAT(tf_id_gen.nextTransferId(), 0);
+    EXPECT_THAT(tf_id_gen.nextTransferId(), 1);
+    EXPECT_THAT(tf_id_gen.nextTransferId(), 2);
 }
 
 TEST_F(TestTransferIdGenerators, small_range)

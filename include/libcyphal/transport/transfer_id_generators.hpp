@@ -28,25 +28,18 @@ namespace detail
 
 /// @brief Defines a trivial transfer ID generator.
 ///
-/// The generator is trivial in the sense that it simply modulo increments the transfer ID.
+/// The generator is trivial in the sense that it simply increments the transfer ID.
 /// B/c modulo is expected to be quite big (like >= 2^48), collisions of transfer ids are unlikely.
 /// Normally in use for UDP transport, where the modulo is `2^64 - 1`.
 ///
 class TrivialTransferIdGenerator
 {
 public:
-    explicit TrivialTransferIdGenerator(const TransferId modulo) noexcept
-        : modulo_{modulo}
-        , next_transfer_id_{0}
-    {
-        CETL_DEBUG_ASSERT(modulo > 0, "Transfer ID modulo must be greater than 0.");
-    }
-
     /// @brief Returns the next transfer ID.
     ///
     CETL_NODISCARD TransferId nextTransferId() noexcept
     {
-        return std::exchange(next_transfer_id_, (next_transfer_id_ + 1) % modulo_);
+        return std::exchange(next_transfer_id_, next_transfer_id_ + 1);
     }
 
     /// @brief Sets next transfer ID.
@@ -55,15 +48,13 @@ public:
     ///
     void setNextTransferId(const TransferId transfer_id) noexcept
     {
-        CETL_DEBUG_ASSERT(transfer_id < modulo_, "Valid Transfer ID must be less than modulo.");
         next_transfer_id_ = transfer_id;
     }
 
 private:
     // MARK: Data members:
 
-    const TransferId modulo_;
-    TransferId       next_transfer_id_;
+    TransferId next_transfer_id_{0};
 
 };  // TrivialTransferIdGenerator
 
@@ -91,6 +82,8 @@ public:
     }
 
     /// @brief Returns the next available (not in use) transfer ID.
+    ///
+    /// The worst-case complexity is linear of the number of pending requests.
     ///
     CETL_NODISCARD cetl::optional<TransferId> nextTransferId() noexcept
     {

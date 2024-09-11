@@ -138,7 +138,7 @@ private:
     void setTransferIdTimeout(const Duration timeout) override
     {
         const auto timeout_us = std::chrono::duration_cast<std::chrono::microseconds>(timeout);
-        if (timeout_us.count() >= 0)
+        if (timeout_us >= Duration::zero())
         {
             subscription_.port.transfer_id_timeout_usec = static_cast<UdpardMicrosecond>(timeout_us.count());
         }
