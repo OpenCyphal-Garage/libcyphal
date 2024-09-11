@@ -10,7 +10,6 @@
 #include "transport/transport_gtest_helpers.hpp"
 
 #include <libcyphal/errors.hpp>
-#include <libcyphal/presentation/errors.hpp>
 #include <libcyphal/presentation/response_promise.hpp>
 
 #include <cetl/pf17/cetlpf.hpp>

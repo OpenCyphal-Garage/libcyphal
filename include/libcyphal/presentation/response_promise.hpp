@@ -7,7 +7,6 @@
 #define LIBCYPHAL_PRESENTATION_RESPONSE_PROMISE_HPP_INCLUDED
 
 #include "client_impl.hpp"
-#include "errors.hpp"
 
 #include "libcyphal/errors.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
@@ -29,6 +28,35 @@ namespace libcyphal
 {
 namespace presentation
 {
+
+/// @brief Defines terminal 'expired' error state of the response promise.
+///
+/// See `response_deadline` parameter of the `Client::request` method,
+/// or `setDeadline()` method of the promise itself.
+///
+struct ResponsePromiseExpired final
+{
+    /// Holds deadline of the expired (aka timed out) response waiting.
+    TimePoint deadline;
+};
+
+/// @brief Defines terminal failure state of the raw (aka un-typed) response promise.
+///
+/// Raw response promise failure state could be only expired. In contrast see `ResponsePromiseFailure`,
+/// where the set of possible failure states is extended with additional points of failures.
+///
+using RawResponsePromiseFailure = cetl::variant<  //
+    ResponsePromiseExpired>;
+
+/// @brief Defines terminal failure state of the strong-typed response promise.
+///
+/// In addition to the raw failure states, this type also includes possible memory allocation errors,
+/// aa well as errors from the `nunavut` library in case of response deserialization issues.
+///
+using ResponsePromiseFailure = libcyphal::detail::AppendType<  //
+    RawResponsePromiseFailure,
+    MemoryError,
+    nunavut::support::Error>::Result;
 
 /// @brief Defines internal base class for any concrete (final) response promise.
 ///

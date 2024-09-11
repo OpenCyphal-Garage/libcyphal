@@ -9,7 +9,6 @@
 #include <libcyphal/platform/single_threaded_executor.hpp>
 #include <libcyphal/presentation/client.hpp>
 #include <libcyphal/presentation/client_impl.hpp>
-#include <libcyphal/presentation/errors.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/presentation_delegate.hpp>
 #include <libcyphal/presentation/publisher.hpp>
