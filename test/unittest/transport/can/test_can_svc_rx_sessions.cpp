@@ -123,9 +123,9 @@ protected:
         auto        data = std::stoull(data_str, &end_pos, 16);
         CETL_DEBUG_ASSERT(end_pos == data_len * 2, "");
 
-        for (std::size_t i = data_len; i > 0; --i, data >>= 8ull)
+        for (std::size_t i = data_len; i > 0; --i, data >>= 8U)
         {
-            payload[i - 1] = static_cast<cetl::byte>(data & 0xFFull);
+            payload[i - 1] = static_cast<cetl::byte>(data & 0xFFU);
         }
 
         return {now(), static_cast<CanId>(can_id), data_len};
