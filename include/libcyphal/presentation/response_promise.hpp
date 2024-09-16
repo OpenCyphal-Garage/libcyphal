@@ -51,7 +51,7 @@ using RawResponsePromiseFailure = cetl::variant<  //
 /// @brief Defines terminal failure state of the strong-typed response promise.
 ///
 /// In addition to the raw failure states, this type also includes possible memory allocation errors,
-/// aa well as errors from the `nunavut` library in case of response deserialization issues.
+/// as well as errors from the `nunavut` library in case of response deserialization issues.
 ///
 using ResponsePromiseFailure = libcyphal::detail::AppendType<  //
     RawResponsePromiseFailure,

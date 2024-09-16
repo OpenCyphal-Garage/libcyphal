@@ -166,7 +166,7 @@ private:
 
 /// @brief Defines a custom strong-typed RPC client class.
 ///
-/// Although the client class is not requiring specifically Nunavut tool generated request/response types,
+/// Although the client class does not specifically require the Nunavut tool generated request/response types,
 /// it follows patterns of the tool (and has dependency on its `SerializeResult` and `bitspan` helper types),
 /// so it is highly recommended to use DSDL file and the tool to generate the types.
 /// Otherwise, see below requirements for the `Request` and `Response` types, as well as consult with
@@ -195,7 +195,7 @@ public:
     ///
     /// Issuing a new request involves the following steps:
     /// 1. Serialize the request object to a raw payload buffer, which might fail with `nunavut::support::Error`.
-    /// 2. Allocation of not in use the next transfer ID, so that request and response can be paired. Depending on
+    /// 2. Allocation of the next transfer ID not in use, so that request and response can be paired. Depending on
     ///    the transport layer (UDP, CAN, etc.), this operation might be O(1) complexity (like for UDP transport,
     ///    where range of transfer ids is 2^64 huge, so simple increment is in use to generate next "unique" id),
     ///    OR it could take O(N) complexity in the worst-case (where N is the number of pending requests), like for
@@ -278,8 +278,8 @@ private:
 
 /// @brief Defines a service typed RPC client class.
 ///
-/// Although the client class is not requiring specifically Nunavut tool generated service type, it follows patterns
-/// of the tool, so it is highly recommended to use DSDL file and the tool to generate the client type.
+/// Although the client class does not specifically require the Nunavut tool generated service type, it follows
+/// patterns of the tool, so it is highly recommended to use DSDL file and the tool to generate the client type.
 /// Otherwise, see below requirements for the `Service` type, and also `Client<Request, Response>` for details.
 ///
 /// @tparam Service The service type of the client. This type has the following requirements:
@@ -301,7 +301,7 @@ public:
     /// @brief Initiates a raw request to the server, and returns a promise object to handle the response.
     ///
     /// Issuing a new request involves the following steps:
-    /// 1. Allocation of not in use the next transfer ID, so that request and response can be paired. Depending on
+    /// 1. Allocation of the next transfer ID not in use, so that request and response can be paired. Depending on
     ///    the transport layer (UDP, CAN, etc.), this operation might be O(1) complexity (like for UDP transport,
     ///    where range of transfer ids is 2^64 huge, so simple increment is in use to generate next "unique" id),
     ///    OR it could take O(N) complexity in the worst-case (where N is the number of pending requests), like for
