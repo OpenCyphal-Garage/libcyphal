@@ -7,6 +7,7 @@
 #define LIBCYPHAL_PRESENTATION_RESPONSE_PROMISE_HPP_INCLUDED
 
 #include "client_impl.hpp"
+#include "common_helpers.hpp"
 
 #include "libcyphal/errors.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
@@ -20,8 +21,6 @@
 #include <nunavut/support/serialization.hpp>
 
 #include <cstddef>
-#include <cstdint>
-#include <memory>
 #include <utility>
 
 namespace libcyphal
@@ -317,38 +316,17 @@ private:
 
     // MARK: CallbackNode
 
-    // No Sonar `cpp:S5356` and `cpp:S5357` b/c of raw PMR memory allocation,
-    // as well as data pointer type mismatches between scattered buffer and `const_bitspan`.
-    //
     void onResponseRxTransfer(transport::ServiceRxTransfer& transfer, const TimePoint approx_now) override
     {
-        // Make a copy of the scattered buffer into a single contiguous temp buffer.
-        //
-        // Strictly speaking, we could eliminate PMR allocation here in favor of a fixed-size stack buffer
-        // (`Message::_traits_::ExtentBytes`), but this might be dangerous in case of large messages.
-        // Maybe some kind of hybrid approach would be better,
-        // e.g. stack buffer for small messages and PMR for large ones.
-        //
-        const auto payload_size = transfer.payload.size();
-        const std::unique_ptr<cetl::byte, PmrRawBytesDeleter>
-            tmp_buffer{static_cast<cetl::byte*>(memory().allocate(payload_size)),  // NOSONAR cpp:S5356 cpp:S5357
-                       {payload_size, &memory()}};
-        if (!tmp_buffer)
-        {
-            acceptResult(MemoryError{}, approx_now);
-            return;
-        }
-        const auto data_size = transfer.payload.copy(0, tmp_buffer.get(), payload_size);
-
         Success success{Response{}, transfer.metadata};
-
-        const auto* const data_raw = static_cast<const void*>(tmp_buffer.get());
-        const auto* const data_u8s = static_cast<const std::uint8_t*>(data_raw);  // NOSONAR cpp:S5356 cpp:S5357
-        const nunavut::support::const_bitspan bitspan{data_u8s, data_size};
-        const auto                            deserialize_result = deserialize(success.response, bitspan);
-        if (!deserialize_result)
+        if (auto failure = detail::tryDeserializePayload(transfer.payload, memory(), success.response))
         {
-            acceptResult(deserialize_result.error(), approx_now);
+            cetl::visit(
+                [this, approx_now](const auto& error) {
+                    //
+                    acceptResult(error, approx_now);
+                },
+                *failure);
             return;
         }
 

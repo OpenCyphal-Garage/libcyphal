@@ -6,6 +6,8 @@
 #ifndef LIBCYPHAL_PRESENTATION_SERVER_IMPL_HPP_INCLUDED
 #define LIBCYPHAL_PRESENTATION_SERVER_IMPL_HPP_INCLUDED
 
+#include "common_helpers.hpp"
+
 #include "libcyphal/time_provider.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
@@ -16,8 +18,6 @@
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 
-#include <cstdint>
-#include <memory>
 #include <utility>
 
 namespace libcyphal
@@ -81,33 +81,10 @@ public:
         return svc_res_tx_session_->send(tx_metadata, payload);
     }
 
-    // No Sonar `cpp:S5356` and `cpp:S5357` b/c of raw PMR memory allocation,
-    // as well as data pointer type mismatches between scattered buffer and `const_bitspan`.
-    // TODO: Eliminate PMR allocation - when `deserialize` will support scattered buffers.
-    // TODO: Move this method to some common place (\this `ServerImpl` and `SubscriberImpl` have it).
     template <typename Request>
     bool tryDeserialize(const transport::ScatteredBuffer& buffer, Request& request)
     {
-        // Make a copy of the scattered buffer into a single contiguous temp buffer.
-        // Strictly speaking, we could eliminate PMR allocation here in favor of a fixed-size stack buffer
-        // (`Request::_traits_::ExtentBytes`), but this might be dangerous in case of large requests.
-        // Maybe some kind of hybrid approach would be better,
-        // e.g. stack buffer for small requests and PMR for large ones.
-        //
-        const std::unique_ptr<cetl::byte, PmrRawBytesDeleter>
-            tmp_buffer{static_cast<cetl::byte*>(memory_.allocate(buffer.size())),  // NOSONAR cpp:S5356 cpp:S5357,
-                       {buffer.size(), &memory_}};
-        if (!tmp_buffer)
-        {
-            return false;
-        }
-        const auto data_size = buffer.copy(0, tmp_buffer.get(), buffer.size());
-
-        const auto* const data_raw = static_cast<const void*>(tmp_buffer.get());
-        const auto* const data_u8s = static_cast<const std::uint8_t*>(data_raw);  // NOSONAR cpp:S5356 cpp:S5357
-        const nunavut::support::const_bitspan in_bitspan{data_u8s, data_size};
-
-        return deserialize(request, in_bitspan);
+        return tryDeserializePayload(buffer, memory_, request) == cetl::nullopt;
     }
 
 private:
