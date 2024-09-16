@@ -39,6 +39,7 @@ using namespace libcyphal::transport;     // NOLINT This our main concern here i
 
 using libcyphal::verification_utilities::b;
 using libcyphal::verification_utilities::makeIotaArray;
+using libcyphal::verification_utilities::makeSpansFrom;
 
 using testing::_;
 using testing::Eq;
@@ -284,7 +285,7 @@ TEST_F(TestPublisher, publishRawData)
             }));
 
         const auto payload = makeIotaArray<6>(b('1'));
-        EXPECT_THAT(publisher->publish(now() + 200ms, payload), Eq(cetl::nullopt));
+        EXPECT_THAT(publisher->publish(now() + 200ms, makeSpansFrom(payload)), Eq(cetl::nullopt));
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {
         //
