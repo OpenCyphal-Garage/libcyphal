@@ -271,7 +271,7 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
 
     // 3. Bring up "Ping" server.
     //
-    // Fot the sake of demonstration, we will keep track of all "Ping" requests inside the `ping_contexts` map,
+    // For the sake of demonstration, we will keep track of all "Ping" requests inside the `ping_contexts` map,
     // and respond to them with "Pong" after variable delay, namely after `10ms + 10ms * (ping_id % 3)`.
     // As a result, we will have 3 different delays for 3 different "Ping" requests, which in turn reshuffle the order
     // of incoming responses - useful for testing multiple overlapping/concurrent requests on the same service.
@@ -316,7 +316,7 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
 
     // 5. Send periodic "Ping" requests, and print "Pong" replies.
     //
-    // Fot the sake of demonstration, we will send every second 3 concurrent "Ping" requests with different payloads
+    // For the sake of demonstration, we will send every second 3 concurrent "Ping" requests with different payloads
     // (the `id` field), which will implicitly affect the order of responses (see server setup).
     //
     CommonHelpers::RunningStats  ping_pong_stats;
