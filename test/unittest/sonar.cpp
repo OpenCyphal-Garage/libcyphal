@@ -4,15 +4,19 @@
 /// SPDX-License-Identifier: MIT
 
 #include <libcyphal/common/cavl/cavl.hpp>
+#include <libcyphal/errors.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/platform/single_threaded_executor.hpp>
+#include <libcyphal/presentation/client.hpp>
+#include <libcyphal/presentation/client_impl.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/presentation_delegate.hpp>
 #include <libcyphal/presentation/publisher.hpp>
 #include <libcyphal/presentation/publisher_impl.hpp>
-#include <libcyphal/presentation/shared_object.hpp>
+#include <libcyphal/presentation/response_promise.hpp>
 #include <libcyphal/presentation/server.hpp>
 #include <libcyphal/presentation/server_impl.hpp>
+#include <libcyphal/presentation/shared_object.hpp>
 #include <libcyphal/presentation/subscriber.hpp>
 #include <libcyphal/presentation/subscriber_impl.hpp>
 #include <libcyphal/time_provider.hpp>
@@ -30,6 +34,7 @@
 #include <libcyphal/transport/scattered_buffer.hpp>
 #include <libcyphal/transport/session.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
+#include <libcyphal/transport/transfer_id_generators.hpp>
 #include <libcyphal/transport/transport.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/delegate.hpp>

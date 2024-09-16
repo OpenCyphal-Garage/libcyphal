@@ -13,7 +13,7 @@
 #include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <libcyphal/executor.hpp>
+#include <libcyphal/errors.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
@@ -40,6 +40,7 @@ namespace
 
 using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
+using libcyphal::MemoryError;
 using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
 using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
@@ -147,8 +148,18 @@ TEST_F(TestUdpMsgRxSession, make_setTransferIdTimeout)
     EXPECT_THAT(session->getParams().extent_bytes, 42);
     EXPECT_THAT(session->getParams().subject_id, 123);
 
+    // NOLINTNEXTLINE
+    const auto& subscription = static_cast<udp::detail::MessageRxSession*>(session.get())->asSubscription();
+    EXPECT_THAT(subscription.port.transfer_id_timeout_usec, UDPARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC);
+
+    session->setTransferIdTimeout(-1ms);  // negative value is not allowed (rejected)
+    EXPECT_THAT(subscription.port.transfer_id_timeout_usec, UDPARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC);
+
     session->setTransferIdTimeout(0s);
+    EXPECT_THAT(subscription.port.transfer_id_timeout_usec, 0);
+
     session->setTransferIdTimeout(500ms);
+    EXPECT_THAT(subscription.port.transfer_id_timeout_usec, 500'000);
 
     EXPECT_THAT(scheduler_.hasNamedCallback("rx"), true);
     EXPECT_CALL(rx_socket_mock_, deinit());
@@ -178,7 +189,7 @@ TEST_F(TestUdpMsgRxSession, make_fails_due_to_argument_error)
 
     // Try invalid subject id
     auto maybe_session = transport->makeMessageRxSession({64, UDPARD_SUBJECT_ID_MAX + 1});
-    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<libcyphal::ArgumentError>(_)));
 }
 
 TEST_F(TestUdpMsgRxSession, make_fails_due_to_rx_socket_error)
@@ -304,7 +315,7 @@ TEST_F(TestUdpMsgRxSession, receive)
                 return {rx_timestamp, {nullptr, libcyphal::PmrRawBytesDeleter{0, &payload_mr_mock}}};
             });
         EXPECT_CALL(handler_mock, invoke(VariantWith<Report>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.failure, VariantWith<ArgumentError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<libcyphal::ArgumentError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         EXPECT_THAT(report.culprit.udp_ip_endpoint.ip_address, 0xEF000023);
                         return true;

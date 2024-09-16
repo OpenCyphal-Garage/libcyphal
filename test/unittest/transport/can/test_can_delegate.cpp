@@ -9,6 +9,7 @@
 
 #include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/errors.hpp>
 #include <libcyphal/transport/can/delegate.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/types.hpp>
@@ -27,6 +28,7 @@ namespace
 {
 
 using libcyphal::TimePoint;
+using libcyphal::MemoryError;
 using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
 using namespace libcyphal::transport::can;  // NOLINT This our main concern here in the unit tests.
 
@@ -183,7 +185,7 @@ TEST_F(TestCanDelegate, optAnyFailureFromCanard)
                 Optional(VariantWith<MemoryError>(_)));
 
     EXPECT_THAT(can::detail::TransportDelegate::optAnyFailureFromCanard(-CANARD_ERROR_INVALID_ARGUMENT),
-                Optional(VariantWith<ArgumentError>(_)));
+                Optional(VariantWith<libcyphal::ArgumentError>(_)));
 
     EXPECT_THAT(can::detail::TransportDelegate::optAnyFailureFromCanard(0), Eq(cetl::nullopt));
     EXPECT_THAT(can::detail::TransportDelegate::optAnyFailureFromCanard(1), Eq(cetl::nullopt));

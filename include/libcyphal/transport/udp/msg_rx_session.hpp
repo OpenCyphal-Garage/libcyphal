@@ -9,6 +9,7 @@
 #include "delegate.hpp"
 #include "session_tree.hpp"
 
+#include "libcyphal/errors.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -102,6 +103,12 @@ public:
         delegate_.onSessionEvent(TransportDelegate::SessionEvent::MsgDestroyed{params_.subject_id});
     }
 
+    // In use (public) for unit tests only.
+    const UdpardRxSubscription& asSubscription() const noexcept
+    {
+        return subscription_;
+    }
+
 private:
     // MARK: IMessageRxSession
 
@@ -112,7 +119,13 @@ private:
 
     CETL_NODISCARD cetl::optional<MessageRxTransfer> receive() override
     {
-        return std::exchange(last_rx_transfer_, cetl::nullopt);
+        if (last_rx_transfer_)
+        {
+            auto transfer = std::move(*last_rx_transfer_);
+            last_rx_transfer_.reset();
+            return transfer;
+        }
+        return cetl::nullopt;
     }
 
     void setOnReceiveCallback(OnReceiveCallback::Function&& function) override
@@ -125,7 +138,7 @@ private:
     void setTransferIdTimeout(const Duration timeout) override
     {
         const auto timeout_us = std::chrono::duration_cast<std::chrono::microseconds>(timeout);
-        if (timeout_us.count() > 0)
+        if (timeout_us >= Duration::zero())
         {
             subscription_.port.transfer_id_timeout_usec = static_cast<UdpardMicrosecond>(timeout_us.count());
         }

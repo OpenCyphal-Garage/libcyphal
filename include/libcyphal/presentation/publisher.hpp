@@ -34,7 +34,7 @@ namespace detail
 
 /// @brief Defines internal base class for any concrete (final) message publisher.
 ///
-/// No Sonar cpp:S4963 "The "Rule-of-Zero" should be followed"
+/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
 /// b/c we do directly handle resources here.
 ///
 class PublisherBase  // NOSONAR cpp:S4963
@@ -60,6 +60,7 @@ public:
         , priority_{other.priority_}
     {
         CETL_DEBUG_ASSERT(impl_ != nullptr, "Not supposed to move from already moved `other`.");
+        // No need to retain the moved object, as it is already retained.
     }
 
     PublisherBase& operator=(const PublisherBase& other)
@@ -69,7 +70,7 @@ public:
             CETL_DEBUG_ASSERT(impl_ != nullptr, "Not supposed to copy to already moved `this`.");
             CETL_DEBUG_ASSERT(other.impl_ != nullptr, "Not supposed to copy from already moved `other`.");
 
-            impl_->release();
+            (void) impl_->release();
 
             impl_     = other.impl_;
             priority_ = other.priority_;
@@ -84,11 +85,12 @@ public:
         CETL_DEBUG_ASSERT(impl_ != nullptr, "Not supposed to move to already moved `this`.");
         CETL_DEBUG_ASSERT(other.impl_ != nullptr, "Not supposed to move from already moved `other`.");
 
-        impl_->release();
+        (void) impl_->release();
 
         impl_     = std::exchange(other.impl_, nullptr);
         priority_ = other.priority_;
 
+        // No need to retain the moved object, as it is already retained.
         return *this;
     }
 
@@ -103,11 +105,11 @@ public:
     }
 
 protected:
-    ~PublisherBase() noexcept
+    ~PublisherBase()
     {
         if (impl_ != nullptr)
         {
-            impl_->release();
+            (void) impl_->release();
         }
     }
 
@@ -115,9 +117,9 @@ protected:
         : impl_{impl}
         , priority_{transport::Priority::Nominal}
     {
-        CETL_DEBUG_ASSERT(impl != nullptr, "");
+        CETL_DEBUG_ASSERT(impl_ != nullptr, "");
 
-        impl->retain();
+        impl_->retain();
     }
 
     // TODO: Switch to `transport::PayloadFragments`.
@@ -168,7 +170,7 @@ public:
     ///
     cetl::optional<Failure> publish(const TimePoint deadline, const Message& message) const
     {
-        // Try to serialize the response to raw payload buffer.
+        // Try to serialize the message to raw payload buffer.
         //
         // Next nolint b/c we use a buffer to serialize the message, so no need to zero it (and performance better).
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
@@ -231,7 +233,7 @@ private:
     {
     }
 
-};  // Publisher
+};  // Publisher<void>
 
 }  // namespace presentation
 }  // namespace libcyphal

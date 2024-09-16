@@ -14,6 +14,7 @@
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/rtti.hpp>
+#include <libcyphal/errors.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/types.hpp>
@@ -54,7 +55,7 @@ public:
         if (tx_socket == nullptr)
         {
             ::udpTxClose(&handle);
-            return libcyphal::transport::MemoryError{};
+            return libcyphal::MemoryError{};
         }
 
         return tx_socket;
@@ -147,7 +148,7 @@ public:
         if (rx_socket == nullptr)
         {
             ::udpRxClose(&handle);
-            return libcyphal::transport::MemoryError{};
+            return libcyphal::MemoryError{};
         }
 
         return rx_socket;
@@ -199,7 +200,7 @@ private:
         auto* const allocated_buffer = memory_.allocate(inout_size);
         if (nullptr == allocated_buffer)
         {
-            return libcyphal::transport::MemoryError{};
+            return libcyphal::MemoryError{};
         }
         (void) std::memmove(allocated_buffer, buffer.data(), inout_size);
 

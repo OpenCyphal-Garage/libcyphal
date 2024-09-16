@@ -13,6 +13,7 @@
 #include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/errors.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
@@ -40,6 +41,7 @@ namespace
 
 using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
+using libcyphal::MemoryError;
 using Callback = libcyphal::IExecutor::Callback;
 using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
 using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
@@ -141,8 +143,18 @@ TEST_F(TestUdpSvcRxSessions, make_request_setTransferIdTimeout)
     EXPECT_THAT(session->getParams().extent_bytes, 42);
     EXPECT_THAT(session->getParams().service_id, 123);
 
+    // NOLINTNEXTLINE
+    const auto& rpc_port = static_cast<udp::detail::SvcRequestRxSession*>(session.get())->asRpcPort();
+    EXPECT_THAT(rpc_port.port.transfer_id_timeout_usec, UDPARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC);
+
+    session->setTransferIdTimeout(-1ms);  // negative value is not allowed (rejected)
+    EXPECT_THAT(rpc_port.port.transfer_id_timeout_usec, UDPARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC);
+
     session->setTransferIdTimeout(0s);
+    EXPECT_THAT(rpc_port.port.transfer_id_timeout_usec, 0);
+
     session->setTransferIdTimeout(500ms);
+    EXPECT_THAT(rpc_port.port.transfer_id_timeout_usec, 500'000);
 }
 
 TEST_F(TestUdpSvcRxSessions, make_response_no_memory)
@@ -201,7 +213,7 @@ TEST_F(TestUdpSvcRxSessions, make_request_fails_due_to_argument_error)
 
     // Try invalid subject id
     auto maybe_session = transport->makeRequestRxSession({64, UDPARD_SERVICE_ID_MAX + 1});
-    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<libcyphal::ArgumentError>(_)));
 }
 
 TEST_F(TestUdpSvcRxSessions, make_request_fails_due_to_rx_socket_error)
@@ -546,7 +558,7 @@ TEST_F(TestUdpSvcRxSessions, receive_response)
         EXPECT_CALL(rx_socket_mock_, receive())  //
             .WillOnce([&, rx_timestamp] {
                 EXPECT_THAT(now(), rx_timestamp);
-                return ArgumentError{};
+                return libcyphal::ArgumentError{};
             });
         scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
 

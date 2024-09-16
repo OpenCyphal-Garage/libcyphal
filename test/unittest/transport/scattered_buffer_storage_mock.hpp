@@ -22,7 +22,7 @@ namespace transport
 class ScatteredBufferStorageMock : public ScatteredBuffer::IStorage
 {
 public:
-    class Wrapper final : public ScatteredBuffer::IStorage
+    class Wrapper final : public IStorage
     {
         // 277C3545-564C-4617-993D-27B1043ECEBA
         // clang-format off

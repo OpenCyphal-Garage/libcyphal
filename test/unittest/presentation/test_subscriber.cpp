@@ -10,6 +10,7 @@
 #include "tracking_memory_resource.hpp"
 #include "transport/msg_sessions_mock.hpp"
 #include "transport/scattered_buffer_storage_mock.hpp"
+#include "transport/transport_gtest_helpers.hpp"
 #include "transport/transport_mock.hpp"
 #include "virtual_time_scheduler.hpp"
 
@@ -67,6 +68,8 @@ using std::literals::chrono_literals::operator""ms;
 class TestSubscriber : public testing::Test
 {
 protected:
+    using UniquePtrMsgRxSpec = MessageRxSessionMock::RefWrapper::Spec;
+
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
@@ -99,25 +102,31 @@ TEST_F(TestSubscriber, move)
     static_assert(std::is_move_constructible<Subscriber<Message>>::value, "Should be move constructible.");
     static_assert(!std::is_default_constructible<Subscriber<Message>>::value, "Should not be default constructible.");
 
+    static_assert(!std::is_copy_assignable<Subscriber<void>>::value, "Should not be copy assignable.");
+    static_assert(!std::is_copy_constructible<Subscriber<void>>::value, "Should not be copy constructible.");
+    static_assert(std::is_move_assignable<Subscriber<void>>::value, "Should be move assignable.");
+    static_assert(std::is_move_constructible<Subscriber<void>>::value, "Should be move constructible.");
+    static_assert(!std::is_default_constructible<Subscriber<void>>::value, "Should not be default constructible.");
+
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    EXPECT_CALL(msg_rx_session_mock, getParams())  //
-        .WillOnce(Return(MessageRxParams{0, Message::_traits_::FixedPortId}));
+    constexpr MessageRxParams        rx_params{Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId};
+    EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_)).Times(1);
 
-    EXPECT_CALL(transport_mock_, makeMessageRxSession(_))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
+    EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgRxSpec>(mr_, msg_rx_session_mock);
         }));
 
-    auto maybe_sub1 = presentation.makeSubscriber<Message>(Message::_traits_::FixedPortId);
+    auto maybe_sub1 = presentation.makeSubscriber<Message>(rx_params.subject_id);
     ASSERT_THAT(maybe_sub1, VariantWith<Subscriber<Message>>(_));
     auto sub1a = cetl::get<Subscriber<Message>>(std::move(maybe_sub1));
 
     cetl::optional<Subscriber<Message>> sub1b{std::move(sub1a)};
 
-    auto maybe_sub2 = presentation.makeSubscriber<Message>(Message::_traits_::FixedPortId);
+    auto maybe_sub2 = presentation.makeSubscriber<Message>(rx_params.subject_id);
     ASSERT_THAT(maybe_sub2, VariantWith<Subscriber<Message>>(_));
     auto sub2 = cetl::get<Subscriber<Message>>(std::move(maybe_sub2));
 
@@ -137,19 +146,19 @@ TEST_F(TestSubscriber, onReceive)
     IMessageRxSession::OnReceiveCallback::Function msg_rx_cb_fn;
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    EXPECT_CALL(msg_rx_session_mock, getParams())  //
-        .WillOnce(Return(MessageRxParams{0, Message::_traits_::FixedPortId}));
+    constexpr MessageRxParams        rx_params{Message::_traits_::ExtentBytes, Message::_traits_::FixedPortId};
+    EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_))  //
         .WillOnce(Invoke([&](auto&& cb_fn) {                   //
             msg_rx_cb_fn = std::forward<IMessageRxSession::OnReceiveCallback::Function>(cb_fn);
         }));
 
-    EXPECT_CALL(transport_mock_, makeMessageRxSession(_))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
+    EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgRxSpec>(mr_, msg_rx_session_mock);
         }));
 
-    auto maybe_sub = presentation.makeSubscriber<Message>(Message::_traits_::FixedPortId);
+    auto maybe_sub = presentation.makeSubscriber<Message>(rx_params.subject_id);
     ASSERT_THAT(maybe_sub, VariantWith<Subscriber<Message>>(_));
     auto subscriber = cetl::get<Subscriber<Message>>(std::move(maybe_sub));
 
@@ -229,19 +238,19 @@ TEST_F(TestSubscriber, onReceive_deserialize_failure)
     IMessageRxSession::OnReceiveCallback::Function msg_rx_cb_fn;
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    EXPECT_CALL(msg_rx_session_mock, getParams())  //
-        .WillOnce(Return(MessageRxParams{0, 0x123}));
+    constexpr MessageRxParams        rx_params{Message::_traits_::ExtentBytes, 0x123};
+    EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_))  //
         .WillOnce(Invoke([&](auto&& cb_fn) {                   //
             msg_rx_cb_fn = std::forward<IMessageRxSession::OnReceiveCallback::Function>(cb_fn);
         }));
 
-    EXPECT_CALL(transport_mock_, makeMessageRxSession(_))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
+    EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgRxSpec>(mr_, msg_rx_session_mock);
         }));
 
-    auto maybe_sub = presentation.makeSubscriber<Message>(0x123);
+    auto maybe_sub = presentation.makeSubscriber<Message>(rx_params.subject_id);
     ASSERT_THAT(maybe_sub, VariantWith<Subscriber<Message>>(_));
     auto subscriber = cetl::get<Subscriber<Message>>(std::move(maybe_sub));
 
@@ -316,21 +325,20 @@ TEST_F(TestSubscriber, onReceive_raw_message)
 
     IMessageRxSession::OnReceiveCallback::Function msg_rx_cb_fn;
 
-    constexpr PortId                 test_subject_id = 0x123;
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    EXPECT_CALL(msg_rx_session_mock, getParams())  //
-        .WillOnce(Return(MessageRxParams{0, test_subject_id}));
+    constexpr MessageRxParams        rx_params{0, 0x123};
+    EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_))  //
         .WillOnce(Invoke([&](auto&& cb_fn) {                   //
             msg_rx_cb_fn = std::forward<IMessageRxSession::OnReceiveCallback::Function>(cb_fn);
         }));
 
-    EXPECT_CALL(transport_mock_, makeMessageRxSession(_))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
+    EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgRxSpec>(mr_, msg_rx_session_mock);
         }));
 
-    auto maybe_raw_sub = presentation.makeSubscriber(test_subject_id, 0);
+    auto maybe_raw_sub = presentation.makeSubscriber(rx_params.subject_id, rx_params.extent_bytes);
     ASSERT_THAT(maybe_raw_sub, VariantWith<Subscriber<void>>(_));
     auto raw_subscriber = cetl::get<Subscriber<void>>(std::move(maybe_raw_sub));
 
@@ -393,23 +401,23 @@ TEST_F(TestSubscriber, onReceive_release_same_subject_subscriber_during_callback
     IMessageRxSession::OnReceiveCallback::Function msg_rx_cb_fn;
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    EXPECT_CALL(msg_rx_session_mock, getParams())  //
-        .WillOnce(Return(MessageRxParams{0, 0x123}));
+    constexpr MessageRxParams        rx_params{Message::_traits_::ExtentBytes, 0x123};
+    EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_))  //
         .WillOnce(Invoke([&](auto&& cb_fn) {                   //
             msg_rx_cb_fn = std::forward<IMessageRxSession::OnReceiveCallback::Function>(cb_fn);
         }));
 
-    EXPECT_CALL(transport_mock_, makeMessageRxSession(_))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
+    EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgRxSpec>(mr_, msg_rx_session_mock);
         }));
 
-    auto maybe_sub_a = presentation.makeSubscriber<Message>(0x123);
+    auto maybe_sub_a = presentation.makeSubscriber<Message>(rx_params.subject_id);
     ASSERT_THAT(maybe_sub_a, VariantWith<Subscriber<Message>>(_));
     cetl::optional<Subscriber<Message>> sub_a = cetl::get<Subscriber<Message>>(std::move(maybe_sub_a));
 
-    auto maybe_sub_b = presentation.makeSubscriber<Message>(0x123);
+    auto maybe_sub_b = presentation.makeSubscriber<Message>(rx_params.subject_id);
     ASSERT_THAT(maybe_sub_b, VariantWith<Subscriber<Message>>(_));
     cetl::optional<Subscriber<Message>> sub_b = cetl::get<Subscriber<Message>>(std::move(maybe_sub_b));
 
@@ -486,23 +494,23 @@ TEST_F(TestSubscriber, onReceive_move_same_subject_subscriber_during_callback)
     IMessageRxSession::OnReceiveCallback::Function msg_rx_cb_fn;
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    EXPECT_CALL(msg_rx_session_mock, getParams())  //
-        .WillOnce(Return(MessageRxParams{0, 0x123}));
+    constexpr MessageRxParams        rx_params{Message::_traits_::ExtentBytes, 0x123};
+    EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_))  //
         .WillOnce(Invoke([&](auto&& cb_fn) {                   //
             msg_rx_cb_fn = std::forward<IMessageRxSession::OnReceiveCallback::Function>(cb_fn);
         }));
 
-    EXPECT_CALL(transport_mock_, makeMessageRxSession(_))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
+    EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgRxSpec>(mr_, msg_rx_session_mock);
         }));
 
-    auto maybe_sub1 = presentation.makeSubscriber<Message>(0x123);
+    auto maybe_sub1 = presentation.makeSubscriber<Message>(rx_params.subject_id);
     ASSERT_THAT(maybe_sub1, VariantWith<Subscriber<Message>>(_));
     cetl::optional<Subscriber<Message>> sub1 = cetl::get<Subscriber<Message>>(std::move(maybe_sub1));
 
-    auto maybe_sub2 = presentation.makeSubscriber<Message>(0x123);
+    auto maybe_sub2 = presentation.makeSubscriber<Message>(rx_params.subject_id);
     ASSERT_THAT(maybe_sub2, VariantWith<Subscriber<Message>>(_));
     cetl::optional<Subscriber<Message>> sub2a = cetl::get<Subscriber<Message>>(std::move(maybe_sub2));
     cetl::optional<Subscriber<Message>> sub2b;
@@ -555,31 +563,31 @@ TEST_F(TestSubscriber, onReceive_append_same_subject_subscriber_during_callback)
     IMessageRxSession::OnReceiveCallback::Function msg_rx_cb_fn;
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    EXPECT_CALL(msg_rx_session_mock, getParams())  //
-        .WillOnce(Return(MessageRxParams{0, 0x123}));
+    constexpr MessageRxParams        rx_params{Message::_traits_::ExtentBytes, 0x123};
+    EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_))  //
         .WillOnce(Invoke([&](auto&& cb_fn) {                   //
             msg_rx_cb_fn = std::forward<IMessageRxSession::OnReceiveCallback::Function>(cb_fn);
         }));
 
-    EXPECT_CALL(transport_mock_, makeMessageRxSession(_))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
+    EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgRxSpec>(mr_, msg_rx_session_mock);
         }));
 
-    auto maybe_msg_sub1 = presentation.makeSubscriber<Message>(0x123);
+    auto maybe_msg_sub1 = presentation.makeSubscriber<Message>(rx_params.subject_id);
     ASSERT_THAT(maybe_msg_sub1, VariantWith<Subscriber<Message>>(_));
     cetl::optional<Subscriber<Message>> msg_sub1 = cetl::get<Subscriber<Message>>(std::move(maybe_msg_sub1));
 
-    auto maybe_msg_sub2 = presentation.makeSubscriber<Message>(0x123);
+    auto maybe_msg_sub2 = presentation.makeSubscriber<Message>(rx_params.subject_id);
     ASSERT_THAT(maybe_msg_sub2, VariantWith<Subscriber<Message>>(_));
     cetl::optional<Subscriber<Message>> msg_sub2 = cetl::get<Subscriber<Message>>(std::move(maybe_msg_sub2));
 
-    auto maybe_raw_sub1 = presentation.makeSubscriber(0x123, 0);
+    auto maybe_raw_sub1 = presentation.makeSubscriber(rx_params.subject_id, rx_params.extent_bytes);
     ASSERT_THAT(maybe_raw_sub1, VariantWith<Subscriber<void>>(_));
     cetl::optional<Subscriber<void>> raw_sub1 = cetl::get<Subscriber<void>>(std::move(maybe_raw_sub1));
 
-    auto maybe_raw_sub2 = presentation.makeSubscriber(0x123, 0);
+    auto maybe_raw_sub2 = presentation.makeSubscriber(rx_params.subject_id, rx_params.extent_bytes);
     ASSERT_THAT(maybe_raw_sub2, VariantWith<Subscriber<void>>(_));
     cetl::optional<Subscriber<void>> raw_sub2 = cetl::get<Subscriber<void>>(std::move(maybe_raw_sub2));
 
@@ -590,7 +598,7 @@ TEST_F(TestSubscriber, onReceive_append_same_subject_subscriber_during_callback)
 
     auto append_msg_sub3 = [&] {
         //
-        auto maybe_msg_sub3 = presentation.makeSubscriber<Message>(0x123);
+        auto maybe_msg_sub3 = presentation.makeSubscriber<Message>(rx_params.subject_id);
         ASSERT_THAT(maybe_msg_sub3, VariantWith<Subscriber<Message>>(_));
         msg_sub3 = cetl::get<Subscriber<Message>>(std::move(maybe_msg_sub3));
         msg_sub3->setOnReceiveCallback([&](const auto& arg) {
@@ -600,7 +608,7 @@ TEST_F(TestSubscriber, onReceive_append_same_subject_subscriber_during_callback)
     };
     auto append_raw_sub3 = [&] {
         //
-        auto maybe_raw_sub3 = presentation.makeSubscriber(0x123, 0);
+        auto maybe_raw_sub3 = presentation.makeSubscriber(rx_params.subject_id, rx_params.extent_bytes);
         ASSERT_THAT(maybe_raw_sub3, VariantWith<Subscriber<void>>(_));
         raw_sub3 = cetl::get<Subscriber<void>>(std::move(maybe_raw_sub3));
         raw_sub3->setOnReceiveCallback([&](const auto& arg) {
@@ -686,43 +694,42 @@ TEST_F(TestSubscriber, onReceive_different_type_deserializers_on_same_subject)
     IMessageRxSession::OnReceiveCallback::Function msg_rx_cb_fn;
 
     StrictMock<MessageRxSessionMock> msg_rx_session_mock;
-    EXPECT_CALL(msg_rx_session_mock, getParams())  //
-        .WillOnce(Return(MessageRxParams{0, 0x123}));
+    constexpr MessageRxParams        rx_params{BarMsg::_traits_::ExtentBytes, 0x123};
+    EXPECT_CALL(msg_rx_session_mock, getParams()).WillOnce(Return(rx_params));
     EXPECT_CALL(msg_rx_session_mock, setOnReceiveCallback(_))  //
         .WillOnce(Invoke([&](auto&& cb_fn) {                   //
             msg_rx_cb_fn = std::forward<IMessageRxSession::OnReceiveCallback::Function>(cb_fn);
         }));
 
-    EXPECT_CALL(transport_mock_, makeMessageRxSession(_))  //
-        .WillOnce(Invoke([&](const auto&) {
-            return libcyphal::detail::makeUniquePtr<MessageRxSessionMock::RefWrapper::Spec>(mr_, msg_rx_session_mock);
+    EXPECT_CALL(transport_mock_, makeMessageRxSession(MessageRxParamsEq(rx_params)))  //
+        .WillOnce(Invoke([&](const auto&) {                                           //
+            return libcyphal::detail::makeUniquePtr<UniquePtrMsgRxSpec>(mr_, msg_rx_session_mock);
         }));
 
     std::vector<std::tuple<std::string, TimePoint, TransferId>> messages;
 
-    constexpr PortId port_id        = 0x123;
-    auto             maybe_bar_sub1 = presentation.makeSubscriber<BarMsg>(port_id);
+    auto maybe_bar_sub1 = presentation.makeSubscriber<BarMsg>(rx_params.subject_id);
     ASSERT_THAT(maybe_bar_sub1, VariantWith<Subscriber<BarMsg>>(_));
     auto bar_sub1 = cetl::get<Subscriber<BarMsg>>(std::move(maybe_bar_sub1));
     bar_sub1.setOnReceiveCallback([&](const auto& arg) {
         //
         messages.emplace_back("Bar_#1", arg.approx_now, arg.metadata.rx_meta.base.transfer_id);
     });
-    auto maybe_bar_sub2 = presentation.makeSubscriber<BarMsg>(port_id);
+    auto maybe_bar_sub2 = presentation.makeSubscriber<BarMsg>(rx_params.subject_id);
     ASSERT_THAT(maybe_bar_sub2, VariantWith<Subscriber<BarMsg>>(_));
     auto bar_sub2 = cetl::get<Subscriber<BarMsg>>(std::move(maybe_bar_sub2));
     bar_sub2.setOnReceiveCallback([&](const auto& arg) {
         //
         messages.emplace_back("Bar_#2", arg.approx_now, arg.metadata.rx_meta.base.transfer_id);
     });
-    auto maybe_hb_sub = presentation.makeSubscriber<HeartbeatMsg>(port_id);
+    auto maybe_hb_sub = presentation.makeSubscriber<HeartbeatMsg>(rx_params.subject_id);
     ASSERT_THAT(maybe_hb_sub, VariantWith<Subscriber<HeartbeatMsg>>(_));
     auto hb_sub = cetl::get<Subscriber<HeartbeatMsg>>(std::move(maybe_hb_sub));
     hb_sub.setOnReceiveCallback([&](const auto& arg) {
         //
         messages.emplace_back("Heartbeat", arg.approx_now, arg.metadata.rx_meta.base.transfer_id);
     });
-    auto maybe_raw_sub = presentation.makeSubscriber(port_id, BarMsg::_traits_::ExtentBytes);
+    auto maybe_raw_sub = presentation.makeSubscriber(rx_params.subject_id, 0x200);
     ASSERT_THAT(maybe_raw_sub, VariantWith<Subscriber<void>>(_));
     auto raw_sub = cetl::get<Subscriber<void>>(std::move(maybe_raw_sub));
     raw_sub.setOnReceiveCallback([&](const auto& arg) {

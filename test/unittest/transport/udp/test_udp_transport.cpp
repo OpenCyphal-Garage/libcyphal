@@ -13,7 +13,7 @@
 #include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <libcyphal/executor.hpp>
+#include <libcyphal/errors.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
@@ -41,6 +41,7 @@ namespace
 
 using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
+using libcyphal::MemoryError;
 using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
 using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
@@ -77,7 +78,7 @@ public:
         : code_{code}
     {
     }
-    virtual ~MyPlatformError() noexcept                    = default;
+    virtual ~MyPlatformError()                             = default;
     MyPlatformError(const MyPlatformError&)                = default;
     MyPlatformError(MyPlatformError&&) noexcept            = default;
     MyPlatformError& operator=(const MyPlatformError&)     = default;
@@ -184,7 +185,7 @@ TEST_F(TestUpdTransport, makeTransport_too_many_media)
     std::fill(media_array.begin(), media_array.end(), &media_mock_);
 
     auto maybe_transport = udp::makeTransport({mr_}, scheduler_, media_array, 0);
-    EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<libcyphal::ArgumentError>(_)));
 }
 
 TEST_F(TestUpdTransport, makeTransport_getLocalNodeId)
@@ -237,7 +238,8 @@ TEST_F(TestUpdTransport, setLocalNodeId)
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        EXPECT_THAT(transport->setLocalNodeId(UDPARD_NODE_ID_MAX + 1), Optional(testing::A<ArgumentError>()));
+        EXPECT_THAT(transport->setLocalNodeId(UDPARD_NODE_ID_MAX + 1),
+                    Optional(testing::A<libcyphal::ArgumentError>()));
         EXPECT_THAT(transport->getLocalNodeId(), Eq(cetl::nullopt));
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
@@ -255,7 +257,7 @@ TEST_F(TestUpdTransport, setLocalNodeId)
     });
     scheduler_.scheduleAt(4s, [&](const auto&) {
         //
-        EXPECT_THAT(transport->setLocalNodeId(0), Optional(testing::A<ArgumentError>()));
+        EXPECT_THAT(transport->setLocalNodeId(0), Optional(testing::A<libcyphal::ArgumentError>()));
         EXPECT_THAT(transport->getLocalNodeId(), Optional(UDPARD_NODE_ID_MAX));
     });
     scheduler_.spinFor(10s);
@@ -265,7 +267,7 @@ TEST_F(TestUpdTransport, makeTransport_with_invalid_arguments)
 {
     // No media
     const auto maybe_transport = udp::makeTransport({mr_}, scheduler_, {}, 0);
-    EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_transport, VariantWith<FactoryFailure>(VariantWith<libcyphal::ArgumentError>(_)));
 }
 
 TEST_F(TestUpdTransport, getProtocolParams)
@@ -346,7 +348,7 @@ TEST_F(TestUpdTransport, makeMessageRxSession_invalid_subject_id)
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         auto maybe_rx_session = transport->makeMessageRxSession({0, UDPARD_SUBJECT_ID_MAX + 1});
-        EXPECT_THAT(maybe_rx_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(maybe_rx_session, VariantWith<AnyFailure>(VariantWith<libcyphal::ArgumentError>(_)));
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {
         //
@@ -737,9 +739,9 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
         // Socket #0 failed to send, but not socket #2 - its frame should be dropped (but not for #2).
         //
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))  //
-            .WillOnce(Return(ArgumentError{}));
+            .WillOnce(Return(libcyphal::ArgumentError{}));
         EXPECT_CALL(handler_mock, invoke(VariantWith<SocketSendReport>(Truly([&](auto& report) {
-                        EXPECT_THAT(report.failure, VariantWith<ArgumentError>(_));
+                        EXPECT_THAT(report.failure, VariantWith<libcyphal::ArgumentError>(_));
                         EXPECT_THAT(report.media_index, 0);
                         auto& culprit = static_cast<TxSocketMock::RefWrapper&>(report.culprit);
                         EXPECT_THAT(culprit.reference(), Ref(tx_socket_mock_));

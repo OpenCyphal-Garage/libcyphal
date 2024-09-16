@@ -8,6 +8,7 @@
 #include "verification_utilities.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/errors.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/delegate.hpp>
@@ -26,6 +27,7 @@ namespace
 {
 
 using libcyphal::TimePoint;
+using libcyphal::MemoryError;
 using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
 using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
@@ -332,7 +334,7 @@ TEST_F(TestUdpDelegate, optAnyFailureFromUdpard)
                 Optional(VariantWith<MemoryError>(_)));
 
     EXPECT_THAT(udp::detail::TransportDelegate::optAnyFailureFromUdpard(-UDPARD_ERROR_ARGUMENT),
-                Optional(VariantWith<ArgumentError>(_)));
+                Optional(VariantWith<libcyphal::ArgumentError>(_)));
 
     EXPECT_THAT(udp::detail::TransportDelegate::optAnyFailureFromUdpard(-UDPARD_ERROR_CAPACITY),
                 Optional(VariantWith<CapacityError>(_)));

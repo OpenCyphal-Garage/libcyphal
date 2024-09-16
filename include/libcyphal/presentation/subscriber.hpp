@@ -30,7 +30,7 @@ namespace detail
 
 /// @brief Defines internal base class for any concrete (final) message subscriber.
 ///
-/// No Sonar cpp:S4963 "The "Rule-of-Zero" should be followed"
+/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
 /// b/c we do directly handle resources here.
 ///
 class SubscriberBase : public SubscriberImpl::CallbackNode  // NOSONAR cpp:S4963
@@ -43,7 +43,7 @@ public:
     using Failure = transport::AnyFailure;
 
     SubscriberBase(SubscriberBase&& other) noexcept
-        : CallbackNode{std::move(static_cast<CallbackNode&>(other))}
+        : CallbackNode{std::move(static_cast<CallbackNode&&>(other))}
         , impl_{std::exchange(other.impl_, nullptr)}
     {
         CETL_DEBUG_ASSERT(impl_ != nullptr, "Not supposed to move from already moved `other`.");
@@ -56,10 +56,12 @@ public:
 
         impl_->releaseCallbackNode(*this);
 
-        static_cast<CallbackNode&>(*this) = std::move(static_cast<CallbackNode&>(other));
-
         impl_ = std::exchange(other.impl_, nullptr);
-        impl_->updateCallbackNode(&other, this);
+
+        const CallbackNode* const old_cb_node = &other;
+        static_cast<CallbackNode&>(*this)     = std::move(static_cast<CallbackNode&&>(other));
+
+        impl_->updateCallbackNode(old_cb_node, this);
 
         return *this;
     }
@@ -68,7 +70,7 @@ public:
     SubscriberBase& operator=(const SubscriberBase& other) = delete;
 
 protected:
-    ~SubscriberBase() noexcept
+    ~SubscriberBase()
     {
         if (impl_ != nullptr)
         {
@@ -224,7 +226,7 @@ private:
 
     OnReceiveCallback::Function on_receive_cb_fn_;
 
-};  // Subscriber
+};  // Subscriber<void>
 
 }  // namespace presentation
 }  // namespace libcyphal

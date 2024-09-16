@@ -182,6 +182,12 @@ public:
                           "Service sessions must be destroyed before transport.");
     }
 
+    // In use (public) for unit tests only.
+    CETL_NODISCARD TransportDelegate& asDelegate()
+    {
+        return *this;
+    }
+
 private:
     using Callback = IExecutor::Callback;
 
@@ -292,11 +298,6 @@ private:
     }
 
     // MARK: TransportDelegate
-
-    CETL_NODISCARD TransportDelegate& asDelegate()
-    {
-        return *this;
-    }
 
     CETL_NODISCARD cetl::optional<AnyFailure> sendTransfer(const TimePoint               deadline,
                                                            const CanardTransferMetadata& metadata,

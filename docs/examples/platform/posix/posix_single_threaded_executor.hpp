@@ -14,6 +14,7 @@
 #include <cetl/rtti.hpp>
 #include <cetl/variable_length_array.hpp>
 #include <cetl/visit_helpers.hpp>
+#include <libcyphal/errors.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/platform/single_threaded_executor.hpp>
 #include <libcyphal/transport/errors.hpp>
@@ -55,9 +56,8 @@ public:
     PollSingleThreadedExecutor& operator=(const PollSingleThreadedExecutor&)     = delete;
     PollSingleThreadedExecutor& operator=(PollSingleThreadedExecutor&&) noexcept = delete;
 
-    using PollFailure = cetl::variant<libcyphal::transport::MemoryError,
-                                      libcyphal::transport::PlatformError,
-                                      libcyphal::transport::ArgumentError>;
+    using PollFailure =
+        cetl::variant<libcyphal::MemoryError, libcyphal::transport::PlatformError, libcyphal::ArgumentError>;
 
     cetl::optional<PollFailure> pollAwaitableResourcesFor(const cetl::optional<libcyphal::Duration> timeout)
     {
@@ -68,7 +68,7 @@ public:
         {
             if (!timeout)
             {
-                return libcyphal::transport::ArgumentError{};
+                return libcyphal::ArgumentError{};
             }
 
             std::this_thread::sleep_for(*timeout);
@@ -89,7 +89,7 @@ public:
         }
         if ((total_awaitables_ != poll_fds_.size()) || (total_awaitables_ != callback_interfaces_.size()))
         {
-            return libcyphal::transport::MemoryError{};
+            return libcyphal::MemoryError{};
         }
 
         // Make sure that timeout is within the range of `::poll()`'s `int` timeout parameter.

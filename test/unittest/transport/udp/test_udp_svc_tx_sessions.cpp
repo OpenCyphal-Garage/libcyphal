@@ -11,6 +11,7 @@
 #include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/errors.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
@@ -36,6 +37,7 @@ namespace
 
 using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
+using libcyphal::MemoryError;
 using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
 using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
@@ -144,13 +146,13 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_argument_error)
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         auto maybe_session = transport->makeRequestTxSession({UDPARD_SERVICE_ID_MAX + 1, 0});
-        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<libcyphal::ArgumentError>(_)));
     });
     // Try invalid server node id
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
         auto maybe_session = transport->makeRequestTxSession({0, UDPARD_NODE_ID_MAX + 1});
-        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<libcyphal::ArgumentError>(_)));
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {
         //
@@ -252,7 +254,7 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_request)
         //
         metadata.deadline = now() + 1s;
         auto failure      = session->send(metadata, empty_payload);
-        EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(failure, Optional(VariantWith<libcyphal::ArgumentError>(_)));
     });
     // 2nd. Try again but now with a valid node id.
     scheduler_.scheduleAt(2s, [&](const auto&) {
@@ -314,7 +316,7 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_responce)
         //
         metadata.tx_meta.deadline = now() + 1s;
         auto failure              = session->send(metadata, empty_payload);
-        EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(failure, Optional(VariantWith<libcyphal::ArgumentError>(_)));
     });
     // 2nd. Try again but now with a valid node id.
     scheduler_.scheduleAt(2s, [&](const auto&) {
@@ -423,7 +425,7 @@ TEST_F(TestUdpSvcTxSessions, send_request_with_argument_error)
         //
         metadata.deadline  = now() + 1s;
         const auto failure = session->send(metadata, empty_payload);
-        EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(failure, Optional(VariantWith<libcyphal::ArgumentError>(_)));
     });
     // Fix anonymous node
     scheduler_.scheduleAt(200ms, [&](const auto&) {
@@ -483,7 +485,7 @@ TEST_F(TestUdpSvcTxSessions, make_response_fails_due_to_argument_error)
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         auto maybe_session = transport->makeResponseTxSession({UDPARD_SERVICE_ID_MAX + 1});
-        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<libcyphal::ArgumentError>(_)));
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {
         //
@@ -630,7 +632,7 @@ TEST_F(TestUdpSvcTxSessions, send_response_with_argument_error)
         //
         metadata.tx_meta.deadline = now() + 1s;
         const auto failure        = session->send(metadata, empty_payload);
-        EXPECT_THAT(failure, Optional(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(failure, Optional(VariantWith<libcyphal::ArgumentError>(_)));
     });
     // Fix anonymous node, but break remote node id.
     scheduler_.scheduleAt(200ms, [&](const auto&) {
@@ -640,7 +642,7 @@ TEST_F(TestUdpSvcTxSessions, send_response_with_argument_error)
         metadata.tx_meta.deadline = now() + 1s;
         metadata.remote_node_id   = UDPARD_NODE_ID_MAX + 1;
         const auto maybe_error    = session->send(metadata, empty_payload);
-        EXPECT_THAT(maybe_error, Optional(VariantWith<ArgumentError>(_)));
+        EXPECT_THAT(maybe_error, Optional(VariantWith<libcyphal::ArgumentError>(_)));
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {
         //

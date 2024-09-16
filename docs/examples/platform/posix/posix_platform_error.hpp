@@ -27,7 +27,7 @@ public:
     {
         CETL_DEBUG_ASSERT(err > 0, "");
     }
-    virtual ~PosixPlatformError() noexcept                       = default;
+    virtual ~PosixPlatformError()                                = default;
     PosixPlatformError(const PosixPlatformError&)                = default;
     PosixPlatformError(PosixPlatformError&&) noexcept            = default;
     PosixPlatformError& operator=(const PosixPlatformError&)     = default;

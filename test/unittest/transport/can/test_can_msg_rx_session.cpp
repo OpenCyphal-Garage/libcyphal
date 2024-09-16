@@ -14,6 +14,7 @@
 
 #include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/errors.hpp>
 #include <libcyphal/transport/can/can_transport.hpp>
 #include <libcyphal/transport/can/can_transport_impl.hpp>
 #include <libcyphal/transport/can/media.hpp>
@@ -35,6 +36,7 @@ namespace
 
 using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
+using libcyphal::MemoryError;
 using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
 using namespace libcyphal::transport::can;  // NOLINT This our main concern here in the unit tests.
 
@@ -117,8 +119,22 @@ TEST_F(TestCanMsgRxSession, make_setTransferIdTimeout)
     EXPECT_THAT(session->getParams().extent_bytes, 42);
     EXPECT_THAT(session->getParams().subject_id, 123);
 
+    // NOLINTNEXTLINE
+    auto&                 delegate        = static_cast<can::detail::TransportImpl*>(transport.get())->asDelegate();
+    auto&                 canard_instance = delegate.canard_instance();
+    CanardRxSubscription* subscription    = nullptr;
+    EXPECT_THAT(canardRxGetSubscription(&canard_instance, CanardTransferKindMessage, 123, &subscription), 1);
+    ASSERT_THAT(subscription, NotNull());
+    EXPECT_THAT(subscription->transfer_id_timeout_usec, CANARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC);
+
+    session->setTransferIdTimeout(-1ms);  // negative value is not allowed (rejected)
+    EXPECT_THAT(subscription->transfer_id_timeout_usec, CANARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC);
+
     session->setTransferIdTimeout(0s);
+    EXPECT_THAT(subscription->transfer_id_timeout_usec, 0);
+
     session->setTransferIdTimeout(500ms);
+    EXPECT_THAT(subscription->transfer_id_timeout_usec, 500'000);
 
     EXPECT_THAT(scheduler_.hasNamedCallback("rx"), true);
     session.reset();
@@ -146,7 +162,7 @@ TEST_F(TestCanMsgRxSession, make_fails_due_to_argument_error)
 
     // Try invalid subject id
     auto maybe_session = transport->makeMessageRxSession({64, CANARD_SUBJECT_ID_MAX + 1});
-    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<ArgumentError>(_)));
+    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<libcyphal::ArgumentError>(_)));
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)

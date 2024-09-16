@@ -127,6 +127,7 @@ TEST_F(Example_1_Presentation_0_HelloRawPubSub_Udp, main)
         << "Can't create transport.";
     state.transport_ = cetl::get<UdpTransportPtr>(std::move(maybe_transport));
     state.transport_->setLocalNodeId(local_node_id_);
+    state.transport_->setTransientErrorHandler(CommonHelpers::Udp::transientErrorReporter);
 
     // 2. Create presentation layer object.
     //
