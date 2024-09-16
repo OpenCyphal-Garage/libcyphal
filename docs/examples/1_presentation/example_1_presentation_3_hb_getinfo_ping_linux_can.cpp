@@ -19,6 +19,7 @@
 #include <libcyphal/executor.hpp>
 #include <libcyphal/presentation/client.hpp>
 #include <libcyphal/presentation/presentation.hpp>
+#include <libcyphal/presentation/publisher.hpp>
 #include <libcyphal/presentation/response_promise.hpp>
 #include <libcyphal/presentation/server.hpp>
 #include <libcyphal/transport/can/can_transport.hpp>
@@ -29,6 +30,7 @@
 #include <nunavut/support/serialization.hpp>
 #include <uavcan/node/GetInfo_1_0.hpp>
 #include <uavcan/node/Health_1_0.hpp>
+#include <uavcan/node/Heartbeat_1_0.hpp>
 #include <uavcan/node/Mode_1_0.hpp>
 
 #include <gmock/gmock.h>
@@ -42,6 +44,7 @@
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <map>
 #include <string>
 #include <tuple>
@@ -178,6 +181,14 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
+    uavcan::node::Heartbeat_1_0 makeHeartbeatMsg(const libcyphal::TimePoint now) const
+    {
+        const auto uptime_in_secs = std::chrono::duration_cast<std::chrono::seconds>(now - startup_time_);
+        return {static_cast<std::uint32_t>(uptime_in_secs.count()),
+                {uavcan::node::Health_1_0::NOMINAL},
+                {uavcan::node::Mode_1_0::OPERATIONAL}};
+    }
+
     TimePoint now() const
     {
         return executor_.now();
@@ -250,9 +261,10 @@ protected:
 
 TEST_F(Example_1_Presentation_3_HB_GetInfo_Ping_Can, main)
 {
-    using PingClient       = Client<UserService::PingRequest, UserService::PongResponse>;
-    using PingServer       = Server<UserService::PingRequest, UserService::PongResponse>;
-    using PongContinuation = PingServer::OnRequestCallback::Continuation;
+    using PingClient         = Client<UserService::PingRequest, UserService::PongResponse>;
+    using PingServer         = Server<UserService::PingRequest, UserService::PongResponse>;
+    using PongContinuation   = PingServer::OnRequestCallback::Continuation;
+    using HeartbeatPublisher = Publisher<uavcan::node::Heartbeat_1_0>;
 
     State state;
 
@@ -369,7 +381,38 @@ TEST_F(Example_1_Presentation_3_HB_GetInfo_Ping_Can, main)
     });
     request_periodically_cb_.schedule(Callback::Schedule::Repeat{startup_time_ + 1s, 3s});
 
-    // 6. Main loop.
+    // 6. Publish heartbeats.
+    //
+    auto maybe_heartbeat_pub = presentation.makePublisher<uavcan::node::Heartbeat_1_0>();
+    ASSERT_THAT(maybe_heartbeat_pub, testing::VariantWith<HeartbeatPublisher>(testing::_))
+        << "Can't create 'Heartbeat' publisher.";
+    auto heartbeat_pub                 = cetl::get<HeartbeatPublisher>(std::move(maybe_heartbeat_pub));
+    auto publish_heartbeat_every_1s_cb = executor_.registerCallback([&](const auto& arg) {
+        //
+        EXPECT_THAT(heartbeat_pub.publish(arg.approx_now + 1s, makeHeartbeatMsg(arg.approx_now)),
+                    testing::Eq(cetl::nullopt));
+    });
+    //
+    constexpr auto hb_period = std::chrono::seconds{uavcan::node::Heartbeat_1_0::MAX_PUBLICATION_PERIOD};
+    publish_heartbeat_every_1s_cb.schedule(Callback::Schedule::Repeat{startup_time_ + hb_period, hb_period});
+
+    // 7. Bring up 'GetInfo' server.
+    //
+    using GetInfo_1_0 = uavcan::node::GetInfo_1_0;
+    uavcan::node::GetInfo_1_0::Response get_info_response{{1, 0}};
+    const std::string                   node_name{"org.opencyphal.Ex_1_Pres_3_HB_GetInfo_Ping_CAN"};
+    std::copy_n(node_name.begin(), std::min(node_name.size(), 50UL), std::back_inserter(get_info_response.name));
+    //
+    auto maybe_get_info_srv = presentation.makeServer<GetInfo_1_0>([&](const auto& arg, auto continuation) {
+        //
+        std::cout << "ⓘ  Received 'GetInfo' request (from_node_id=" << arg.metadata.remote_node_id << ")."
+                  << std::endl;  // NOLINT
+        continuation(arg.approx_now + 1s, get_info_response);
+    });
+    ASSERT_THAT(maybe_get_info_srv, testing::VariantWith<ServiceServer<GetInfo_1_0>>(testing::_))
+        << "Can't create 'GetInfo' server.";
+
+    // 8. Main loop.
     //
     Duration        worst_lateness{0};
     const TimePoint deadline = startup_time_ + run_duration_ + 500ms;
