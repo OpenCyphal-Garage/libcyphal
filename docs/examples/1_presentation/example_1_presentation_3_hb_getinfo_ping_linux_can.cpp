@@ -146,7 +146,8 @@ protected:
         {
             run_duration_ = std::chrono::duration<std::int64_t>{std::strtoll(run_duration_str, nullptr, 10)};
         }
-        // Duration in seconds for which the test will run. Default is 10 seconds.
+        // Boolean (0 is `false`, otherwise `true`) which turns on/off printing of intermediate activities.
+        // Default is `true`.
         if (const auto* const print_str = std::getenv("CYPHAL__PRINT"))
         {
             print_activities_ = 0 != std::strtoll(print_str, nullptr, 10);

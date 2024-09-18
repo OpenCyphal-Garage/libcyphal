@@ -111,6 +111,20 @@ public:
     {
     }
 
+    /// @brief Gets reference to the executor instance of this presentation object.
+    ///
+    IExecutor& getExecutor() const noexcept
+    {
+        return executor_;
+    }
+
+    /// @brief Gets reference to the transport instance of this presentation object.
+    ///
+    transport::ITransport& getTransport() const noexcept
+    {
+        return transport_;
+    }
+
     /// @brief Makes a message publisher.
     ///
     /// The publisher must never outlive this presentation object.

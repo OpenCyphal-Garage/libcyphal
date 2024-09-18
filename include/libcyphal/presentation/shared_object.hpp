@@ -7,6 +7,7 @@
 #define LIBCYPHAL_PRESENTATION_SHARED_OBJECT_HPP_INCLUDED
 
 #include "libcyphal/errors.hpp"
+#include "libcyphal/types.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>

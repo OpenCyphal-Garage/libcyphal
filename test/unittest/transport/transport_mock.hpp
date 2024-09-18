@@ -7,6 +7,7 @@
 #define LIBCYPHAL_TRANSPORT_TRANSPORT_MOCK_HPP_INCLUDED
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/errors.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>

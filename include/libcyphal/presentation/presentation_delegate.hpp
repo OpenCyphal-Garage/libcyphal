@@ -6,6 +6,8 @@
 #ifndef LIBCYPHAL_PRESENTATION_DELEGATE_HPP_INCLUDED
 #define LIBCYPHAL_PRESENTATION_DELEGATE_HPP_INCLUDED
 
+#include <cetl/pf17/cetlpf.hpp>
+
 #include <type_traits>
 
 namespace libcyphal
