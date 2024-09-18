@@ -48,8 +48,12 @@ namespace detail
 
 /// Trait which determines whether the given type has `T::_traits_::HasFixedPortID` field.
 ///
+/// No Sonar "Reconsider this operator for `bool` operand'
+/// b/c we do need to check the existence of the field with help of `decltype` and `,` (comma) operator.
+///
 template <typename T>
-auto HasFixedPortIdTrait(bool dummy) -> decltype(std::decay_t<T>::_traits_::HasFixedPortID, std::true_type{});
+auto HasFixedPortIdTrait(bool dummy)                                           //
+    -> decltype(std::decay_t<T>::_traits_::HasFixedPortID, std::true_type{});  // NOSONAR cpp:S872
 template <typename>
 std::false_type HasFixedPortIdTrait(...);
 
