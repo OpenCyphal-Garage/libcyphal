@@ -24,7 +24,7 @@ namespace detail
 /// Trait which determines whether the given type has `T::_traits_::IsService` field.
 ///
 template <typename T>
-auto HasIsServiceTrait(int) -> decltype(T::_traits_::IsService, std::true_type{});
+auto HasIsServiceTrait(bool dummy) -> decltype(T::_traits_::IsService, std::true_type{});
 template <typename>
 std::false_type HasIsServiceTrait(...);
 
@@ -32,7 +32,7 @@ std::false_type HasIsServiceTrait(...);
 /// has nested `T::Request` default constructible type.
 ///
 template <typename Service>
-auto HasServiceRequest(int) -> decltype(typename Service::Request{}, std::true_type{});
+auto HasServiceRequest(bool dummy) -> decltype(typename Service::Request{}, std::true_type{});
 template <typename>
 std::false_type HasServiceRequest(...);
 
@@ -40,7 +40,7 @@ std::false_type HasServiceRequest(...);
 /// has nested `T::Response` default constructible type.
 ///
 template <typename Service>
-auto HasServiceResponse(int) -> decltype(typename Service::Response{}, std::true_type{});
+auto HasServiceResponse(bool dummy) -> decltype(typename Service::Response{}, std::true_type{});
 template <typename>
 std::false_type HasServiceResponse(...);
 
@@ -50,8 +50,8 @@ std::false_type HasServiceResponse(...);
 /// as well as `Service::_traits_::IsService` boolean constant equal `true`.
 ///
 template <typename T,
-          bool = decltype(HasServiceRequest<T>(0))::value && decltype(HasServiceResponse<T>(0))::value &&
-                 decltype(HasIsServiceTrait<T>(0))::value>
+          bool = decltype(HasServiceRequest<T>(true))::value && decltype(HasServiceResponse<T>(true))::value &&
+                 decltype(HasIsServiceTrait<T>(true))::value>
 struct IsServiceTrait
 {
     static constexpr bool value = false;
