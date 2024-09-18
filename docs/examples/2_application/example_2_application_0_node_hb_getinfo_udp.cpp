@@ -28,7 +28,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
-#include <ostream>
+#include <iostream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -66,7 +66,7 @@ protected:
         // Local node ID. Default is 42.
         if (const auto* const node_id_str = std::getenv("CYPHAL__NODE__ID"))
         {
-            local_node_id_  = static_cast<libcyphal::transport::NodeId>(std::stoul(node_id_str));
+            local_node_id_ = static_cast<libcyphal::transport::NodeId>(std::stoul(node_id_str));
         }
         // Space separated list of interface addresses, like "127.0.0.1 192.168.1.162". Default is "127.0.0.1".
         if (const auto* const iface_addresses_str = std::getenv("CYPHAL__UDP__IFACE"))
@@ -128,7 +128,8 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
     //
     constexpr std::size_t tx_capacity = 16;
     state.media_collection_.make(mr_, executor_, iface_addresses_);
-    auto maybe_transport = libcyphal::transport::udp::makeTransport({mr_}, executor_, state.media_collection_.span(), tx_capacity);
+    auto maybe_transport =
+        libcyphal::transport::udp::makeTransport({mr_}, executor_, state.media_collection_.span(), tx_capacity);
     ASSERT_THAT(maybe_transport, testing::VariantWith<UdpTransportPtr>(testing::NotNull()))
         << "Can't create transport.";
     state.transport_ = cetl::get<UdpTransportPtr>(std::move(maybe_transport));
@@ -139,7 +140,12 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
     //
     libcyphal::presentation::Presentation presentation{mr_, executor_, *state.transport_};
 
-    // 3. Main loop.
+    // 3. Create the node.
+    //
+    auto node_maybe = Node::make(presentation);
+    ASSERT_THAT(node_maybe, testing::VariantWith<Node>(testing::_)) << "Can't create node.";
+
+    // 4. Main loop.
     //
     Duration        worst_lateness{0};
     const TimePoint deadline = startup_time_ + run_duration_ + 500ms;

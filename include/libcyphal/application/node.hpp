@@ -44,7 +44,7 @@ public:
     static Expected<Node, MakeFailure> make(presentation::Presentation& presentation)
     {
         auto maybe_heartbeat = node::Heartbeat::make(presentation);
-        if (auto* failure = cetl::get_if<presentation::Presentation::MakeFailure>(&maybe_heartbeat))
+        if (auto* const failure = cetl::get_if<presentation::Presentation::MakeFailure>(&maybe_heartbeat))
         {
             return std::move(*failure);
         }

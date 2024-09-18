@@ -12,6 +12,7 @@
 #include "libcyphal/transport/transport.hpp"
 #include "libcyphal/types.hpp"
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pmr/function.hpp>
 
@@ -33,7 +34,10 @@ namespace node
 
 /// @brief Defines Heartbeat component for the application node.
 ///
-class Heartbeat final
+/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
+/// b/c we do directly handle resources here (namely capturing of `this` in the periodic callback).
+///
+class Heartbeat final  // NOSONAR cpp:S4963
 {
 public:
     /// @brief Defines the message type for the Heartbeat.
@@ -50,7 +54,7 @@ public:
         -> Expected<Heartbeat, presentation::Presentation::MakeFailure>
     {
         auto maybe_heartbeat_pub = presentation.makePublisher<Publisher::Message>();
-        if (auto* failure = cetl::get_if<presentation::Presentation::MakeFailure>(&maybe_heartbeat_pub))
+        if (auto* const failure = cetl::get_if<presentation::Presentation::MakeFailure>(&maybe_heartbeat_pub))
         {
             return std::move(*failure);
         }
@@ -63,9 +67,14 @@ public:
         , startup_time_{other.startup_time_}
         , publisher_{other.publisher_}
         , message_{other.message_}
+        , update_callback_fn_{std::move(other.update_callback_fn_)}
+        , next_exec_time_{other.next_exec_time_}
+
     {
-        other.periodic_cb_.reset();
-        schedulePublishing();
+        // We can't move `periodic_cb_` callback (b/c it captures its own `this` pointer),
+        // so we need to stop it in the moved-from object, and start in the new one.
+        other.stopPublishing();
+        startPublishing();
     }
 
     ~Heartbeat() = default;
@@ -113,17 +122,29 @@ private:
         , startup_time_{presentation.getExecutor().now()}
         , publisher_{std::move(publisher)}
         , message_{0, {uavcan::node::Health_1_0::NOMINAL}, {uavcan::node::Mode_1_0::OPERATIONAL}, 0}
+        , next_exec_time_{startup_time_}
     {
-        schedulePublishing();
+        startPublishing();
     }
 
-    void schedulePublishing()
+    static constexpr Duration getPeriod()
     {
-        periodic_cb_ = presentation_.getExecutor().registerCallback([this](const auto& arg) {
+        return std::chrono::seconds(1);
+    }
+
+    void startPublishing()
+    {
+        periodic_cb_      = presentation_.getExecutor().registerCallback([this](const auto& arg) {
             //
+            // We keep track of the next execution time to allow
+            // smooth rescheduling to the new instance in the move constructor.
+            next_exec_time_ = arg.exec_time + getPeriod();
+
             publishMessage(arg.approx_now);
         });
-        periodic_cb_.schedule(Callback::Schedule::Repeat{startup_time_, std::chrono::seconds(1)});
+        const auto result = periodic_cb_.schedule(Callback::Schedule::Repeat{next_exec_time_, getPeriod()});
+        CETL_DEBUG_ASSERT(result, "");
+        (void) result;
     }
 
     void publishMessage(const TimePoint approx_now)
@@ -146,7 +167,13 @@ private:
 
         // Deadline for the next publication is the current time plus 1s publication period -
         // it has no sense to keep the message in the queue for longer than that.
-        publisher_.publish(approx_now + std::chrono::seconds(1), message_);
+        // There is nothing we can do about possible publishing failures - we just ignore them.
+        (void) publisher_.publish(approx_now + getPeriod(), message_);
+    }
+
+    void stopPublishing()
+    {
+        periodic_cb_.reset();
     }
 
     // MARK: Data members:
@@ -157,6 +184,7 @@ private:
     Callback::Any               periodic_cb_;
     Message                     message_;
     UpdateCallback::Function    update_callback_fn_;
+    TimePoint                   next_exec_time_;
 
 };  // Heartbeat
 
