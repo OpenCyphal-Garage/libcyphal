@@ -49,7 +49,7 @@ namespace detail
 /// Trait which determines whether the given type has `T::_traits_::HasFixedPortID` field.
 ///
 template <typename T>
-auto HasFixedPortIdTrait(bool dummy) -> decltype(std::decay_t<T>::_traits_::HasFixedPortID, std::true_type{});
+auto HasFixedPortIdTrait(int) -> decltype(std::decay_t<T>::_traits_::HasFixedPortID, std::true_type{});
 template <typename>
 std::false_type HasFixedPortIdTrait(...);
 
@@ -59,7 +59,7 @@ std::false_type HasFixedPortIdTrait(...);
 /// In use to enable `makeServer` method for service types with a standard fixed port id.
 ///
 template <typename T,
-          bool = IsServiceTrait<T>::value && decltype(HasFixedPortIdTrait<typename T::Request>(true))::value>
+          bool = IsServiceTrait<T>::value && decltype(HasFixedPortIdTrait<typename T::Request>(0))::value>
 struct IsFixedPortIdServiceTrait
 {
     static constexpr bool value = false;
@@ -75,7 +75,7 @@ struct IsFixedPortIdServiceTrait<T, true>
 /// The message type is expected to have `T::_traits_::HasFixedPortID` boolean constant equal `true`.
 /// In use to enable `makePublisher` and `makeSubscriber` methods for message types with a standard fixed port id.
 ///
-template <typename T, bool = decltype(HasFixedPortIdTrait<T>(true))::value>
+template <typename T, bool = decltype(HasFixedPortIdTrait<T>(0))::value>
 struct IsFixedPortIdMessageTrait
 {
     static constexpr bool value = false;
