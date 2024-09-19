@@ -78,9 +78,10 @@ protected:
     // MARK: Data members:
 
     // NOLINTBEGIN
-    libcyphal::VirtualTimeScheduler scheduler_{};
-    TrackingMemoryResource          mr_;
-    StrictMock<TransportMock>       transport_mock_;
+    libcyphal::VirtualTimeScheduler        scheduler_{};
+    TrackingMemoryResource                 mr_;
+    StrictMock<TransportMock>              transport_mock_;
+    cetl::pmr::polymorphic_allocator<void> mr_alloc_{&mr_};
     // NOLINTEND
 };
 
@@ -234,7 +235,7 @@ TEST_F(TestPublisher, publish_with_serialization_failure)
         //
         Message message{&mr_};
         // This will cause a serialization failure.
-        message.some_stuff = Message::_traits_::TypeOf::some_stuff{{&mr_}};
+        message.some_stuff = Message::_traits_::TypeOf::some_stuff{mr_alloc_};
         message.some_stuff.resize(Message::_traits_::SerializationBufferSizeBytes);
 
         EXPECT_THAT(publisher->publish(now() + 200ms, message),

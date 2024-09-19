@@ -101,7 +101,7 @@ struct Ping final
 
     Ping() = default;
 
-    Ping(std::uint64_t _id)
+    explicit Ping(const std::uint64_t _id)
         : id{_id}
     {
     }
@@ -224,7 +224,7 @@ protected:
         cetl::pmr::memory_resource&  mr;
         const std::string            name;
         CommonHelpers::RunningStats& stats;
-        UserService::PingRequest     request{{&mr}};
+        UserService::PingRequest     request{UserService::PingRequest::allocator_type{&mr}};
         Priority                     priority;
         TimePoint                    req_start;
         cetl::optional<PongPromise>  promise;
@@ -282,6 +282,7 @@ protected:
 
 TEST_F(Example_1_Presentation_3_HB_GetInfo_Ping_Can, main)
 {
+    using PingRequest        = UserService::PingRequest;
     using PingClient         = Client<UserService::PingRequest, UserService::PongResponse>;
     using PingServer         = Server<UserService::PingRequest, UserService::PongResponse>;
     using PongContinuation   = PingServer::OnRequestCallback::Continuation;
@@ -370,11 +371,11 @@ TEST_F(Example_1_Presentation_3_HB_GetInfo_Ping_Can, main)
     constexpr std::size_t       concurrent_requests = 5;
     CommonHelpers::RunningStats ping_pong_stats;
     std::array<PingPongState, concurrent_requests>
-        ping_pong_states{PingPongState{mr_, "A", ping_pong_stats, {1000}, Priority::Nominal, {}, {}},
-                         PingPongState{mr_, "B", ping_pong_stats, {2000}, Priority::Nominal, {}, {}},
-                         PingPongState{mr_, "C", ping_pong_stats, {3000}, Priority::Nominal, {}, {}},
-                         PingPongState{mr_, "D", ping_pong_stats, {4000}, Priority::Nominal, {}, {}},
-                         PingPongState{mr_, "E", ping_pong_stats, {5000}, Priority::Nominal, {}, {}}};
+        ping_pong_states{PingPongState{mr_, "A", ping_pong_stats, PingRequest{1000}, Priority::Nominal, {}, {}},
+                         PingPongState{mr_, "B", ping_pong_stats, PingRequest{2000}, Priority::Nominal, {}, {}},
+                         PingPongState{mr_, "C", ping_pong_stats, PingRequest{3000}, Priority::Nominal, {}, {}},
+                         PingPongState{mr_, "D", ping_pong_stats, PingRequest{4000}, Priority::Nominal, {}, {}},
+                         PingPongState{mr_, "E", ping_pong_stats, PingRequest{5000}, Priority::Nominal, {}, {}}};
     //
     const auto make_ping_request = [this, &ping_client](PingPongState& state) {
         //

@@ -33,7 +33,7 @@ std::false_type HasIsServiceTrait(...);
 ///
 template <typename Service>
 auto HasServiceRequest(bool dummy)
-    -> decltype(typename Service::Request{{static_cast<cetl::pmr::memory_resource*>(nullptr)}}, std::true_type{});
+    -> decltype(typename Service::Request{typename Service::Request::allocator_type{nullptr}}, std::true_type{});
 template <typename>
 std::false_type HasServiceRequest(...);
 
@@ -42,7 +42,7 @@ std::false_type HasServiceRequest(...);
 ///
 template <typename Service>
 auto HasServiceResponse(bool dummy)
-    -> decltype(typename Service::Response{{static_cast<cetl::pmr::memory_resource*>(nullptr)}}, std::true_type{});
+    -> decltype(typename Service::Response{typename Service::Response::allocator_type{nullptr}}, std::true_type{});
 template <typename>
 std::false_type HasServiceResponse(...);
 

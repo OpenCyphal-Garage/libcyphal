@@ -100,7 +100,7 @@ protected:
     {
         using Message = NodeHelpers::Heartbeat::Message;
 
-        Message message{{&mr_}};
+        Message message{mr_alloc_};
 
         const auto uptime_in_secs = std::chrono::duration_cast<std::chrono::seconds>(now - startup_time_);
 
@@ -116,20 +116,22 @@ protected:
 
     struct State
     {
-        cetl::pmr::memory_resource&         mr_;
-        posix::UdpMedia::Collection         media_collection_{};
-        UdpTransportPtr                     transport_{nullptr};
-        NodeHelpers::Heartbeat              heartbeat_{mr_};
-        uavcan::node::GetInfo_1_0::Response get_info_response{{&mr_}};
+        cetl::pmr::memory_resource&            mr_;
+        posix::UdpMedia::Collection            media_collection_{};
+        UdpTransportPtr                        transport_{nullptr};
+        NodeHelpers::Heartbeat                 heartbeat_{mr_};
+        cetl::pmr::polymorphic_allocator<void> mr_alloc_{&mr_};
+        uavcan::node::GetInfo_1_0::Response    get_info_response{mr_alloc_};
 
     };  // State
 
-    TrackingMemoryResource            mr_;
-    posix::PollSingleThreadedExecutor executor_{mr_};
-    TimePoint                         startup_time_{};
-    NodeId                            local_node_id_{42};
-    Duration                          run_duration_{10s};
-    std::vector<std::string>          iface_addresses_{"127.0.0.1"};
+    TrackingMemoryResource                 mr_;
+    posix::PollSingleThreadedExecutor      executor_{mr_};
+    TimePoint                              startup_time_{};
+    NodeId                                 local_node_id_{42};
+    Duration                               run_duration_{10s};
+    std::vector<std::string>               iface_addresses_{"127.0.0.1"};
+    cetl::pmr::polymorphic_allocator<void> mr_alloc_{&mr_};
     // NOLINTEND
 
 };  // Example_1_Presentation_2_Heartbeat_GetInfo_Udp

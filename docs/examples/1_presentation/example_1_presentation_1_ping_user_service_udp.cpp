@@ -93,7 +93,7 @@ struct Ping final
 
     Ping() = default;
 
-    explicit Ping(std::uint64_t _id)
+    explicit Ping(const std::uint64_t _id)
         : id{_id}
     {
     }
@@ -206,7 +206,7 @@ protected:
         const std::string            name;
         CommonHelpers::RunningStats& stats;
         TimePoint                    req_start;
-        UserService::PingRequest     request{{&mr}};
+        UserService::PingRequest     request{UserService::PingRequest::allocator_type{&mr}};
         cetl::optional<PongPromise>  promise;
     };
     void processPingPongResult(PingPongState& state, const PongPromise::Callback::Arg& arg)
@@ -261,6 +261,7 @@ protected:
 
 TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
 {
+    using PingRequest      = UserService::PingRequest;
     using PingClient       = Client<UserService::PingRequest, UserService::PongResponse>;
     using PingServer       = Server<UserService::PingRequest, UserService::PongResponse>;
     using PongContinuation = PingServer::OnRequestCallback::Continuation;
@@ -341,11 +342,10 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
     // For the sake of demonstration, we will send every second 3 concurrent "Ping" requests with different payloads
     // (the `id` field), which will implicitly affect the order of responses (see server setup).
     //
-    CommonHelpers::RunningStats ping_pong_stats;
-    std::array<PingPongState, 3>
-        ping_pong_states{PingPongState{mr_, "A", ping_pong_stats, {}, UserService::PingRequest{1000}, {}},
-                         PingPongState{mr_, "B", ping_pong_stats, {}, UserService::PingRequest{2000}, {}},
-                         PingPongState{mr_, "C", ping_pong_stats, {}, UserService::PingRequest{3000}, {}}};
+    CommonHelpers::RunningStats  ping_pong_stats;
+    std::array<PingPongState, 3> ping_pong_states{PingPongState{mr_, "A", ping_pong_stats, {}, PingRequest{1000}, {}},
+                                                  PingPongState{mr_, "B", ping_pong_stats, {}, PingRequest{2000}, {}},
+                                                  PingPongState{mr_, "C", ping_pong_stats, {}, PingRequest{3000}, {}}};
     //
     const auto make_ping_request = [this, &ping_client](PingPongState& state) {
         //

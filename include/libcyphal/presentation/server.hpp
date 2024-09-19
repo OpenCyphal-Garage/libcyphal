@@ -155,7 +155,8 @@ private:
 /// Nunavut's generated code (f.e. for the signatures of expected `serialize` and `deserialize` functions).
 ///
 /// @tparam Request The request type of the server. This type has the following requirements:
-///                 - constructible with PMR allocator
+///                 - contains nested `allocator_type`, which is a PMR allocator
+///                 - constructible with the PMR allocator
 ///                 - contains `_traits_::ExtentBytes` constant
 ///                 - has freestanding `deserialize` function under its namespace (so that ADL will find it).
 /// @tparam Response The response type of the server. This type has the following requirements:
@@ -221,7 +222,7 @@ private:
         // Try to deserialize the strong-typed request from raw bytes.
         // We just drop it if deserialization fails.
         //
-        Request request{{&memory()}};
+        Request request{typename Request::allocator_type{&memory()}};
         if (!tryDeserialize(rx_transfer.payload, request))
         {
             return;

@@ -191,7 +191,7 @@ struct NodeHelpers
         void tryDeserializeAndPrint(const libcyphal::Duration                      uptime,
                                     const libcyphal::transport::MessageRxTransfer& rx_heartbeat) const
         {
-            Message heartbeat_msg{{&mr_}};
+            Message heartbeat_msg{mr_alloc_};
             if (tryDeserialize(heartbeat_msg, rx_heartbeat.payload))
             {
                 print(uptime, heartbeat_msg, rx_heartbeat.metadata);
@@ -216,7 +216,7 @@ struct NodeHelpers
 
             const auto uptime_in_secs = std::chrono::duration_cast<std::chrono::seconds>(uptime);
 
-            Message heartbeat{{&mr_}};
+            Message heartbeat{mr_alloc_};
             heartbeat.uptime = static_cast<std::uint32_t>(uptime_in_secs.count());
 
             const TransferTxMetadata metadata{{transfer_id_, libcyphal::transport::Priority::Nominal}, now + 1s};
@@ -225,11 +225,12 @@ struct NodeHelpers
                 << "Failed to publish 'Heartbeat_1_0'.";
         }
 
-        cetl::pmr::memory_resource&      mr_;
-        MessageRxSessionPtr              msg_rx_session_;
-        libcyphal::transport::TransferId transfer_id_{0};
-        MessageTxSessionPtr              msg_tx_session_;
-        Callback::Any                    publish_every_1s_cb_;
+        cetl::pmr::memory_resource&            mr_;
+        MessageRxSessionPtr                    msg_rx_session_;
+        libcyphal::transport::TransferId       transfer_id_{0};
+        MessageTxSessionPtr                    msg_tx_session_;
+        Callback::Any                          publish_every_1s_cb_;
+        cetl::pmr::polymorphic_allocator<void> mr_alloc_{&mr_};
 
     };  // Heartbeat
 
@@ -239,7 +240,7 @@ struct NodeHelpers
         using Response = uavcan::node::GetInfo::Response_1_0;
 
         explicit GetInfo(cetl::pmr::memory_resource& mr)
-            : response_{{&mr}}
+            : response_{cetl::pmr::polymorphic_allocator<void>{&mr}}
         {
             response_.protocol_version.major = 1;
         }
