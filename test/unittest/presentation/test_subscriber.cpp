@@ -164,7 +164,11 @@ TEST_F(TestSubscriber, onReceive)
 
     ASSERT_TRUE(msg_rx_cb_fn);
 
-    Message test_message{7, {uavcan::node::Health_1_0::WARNING}, {uavcan::node::Mode_1_0::MAINTENANCE}, 42};
+    Message test_message{{&mr_}};
+    test_message.uptime                      = 7;
+    test_message.health.value                = uavcan::node::Health_1_0::WARNING;
+    test_message.mode.value                  = uavcan::node::Mode_1_0::MAINTENANCE;
+    test_message.vendor_specific_status_code = 42;
 
     NiceMock<ScatteredBufferStorageMock> storage_mock;
     ScatteredBufferStorageMock::Wrapper  storage{&storage_mock};

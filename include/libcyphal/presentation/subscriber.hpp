@@ -105,7 +105,7 @@ private:
 /// Nunavut's generated code (f.e. for the signatures of expected `deserialize` function).
 ///
 /// @tparam Message The message type of the subscriber. This type has the following requirements:
-///                 - default constructible
+///                 - constructible with PMR allocator.
 ///                 - contains `_traits_::ExtentBytes` constant
 ///                 - has freestanding `deserialize` function under its namespace (so that ADL will find it).
 ///

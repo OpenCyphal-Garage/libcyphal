@@ -81,6 +81,8 @@ namespace UserService
 template <bool IsRequest>
 struct Ping final
 {
+    using allocator_type = cetl::pmr::polymorphic_allocator<void>;
+
     static constexpr PortId ServiceId = 147;
 
     struct _traits_
@@ -88,6 +90,19 @@ struct Ping final
         static constexpr std::size_t ExtentBytes                  = sizeof(std::uint64_t);
         static constexpr std::size_t SerializationBufferSizeBytes = sizeof(std::uint64_t);
     };
+
+    Ping() = default;
+
+    explicit Ping(std::uint64_t _id)
+        : id{_id}
+    {
+    }
+
+    // Allocator constructor
+    explicit Ping(const allocator_type& allocator)
+    {
+        (void) allocator;
+    }
 
     std::uint64_t id{};  // NOLINT
 
@@ -187,10 +202,11 @@ protected:
 
     struct PingPongState
     {
+        cetl::pmr::memory_resource&  mr;
         const std::string            name;
         CommonHelpers::RunningStats& stats;
         TimePoint                    req_start;
-        UserService::PingRequest     request{};
+        UserService::PingRequest     request{{&mr}};
         cetl::optional<PongPromise>  promise;
     };
     void processPingPongResult(PingPongState& state, const PongPromise::Callback::Arg& arg)
@@ -297,8 +313,12 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
             auto delay_cb = executor_.registerCallback([&ping_contexts, id = unique_request_id](const auto& cb_arg) {
                 //
                 auto& ping_context = ping_contexts[id];
+
+                UserService::PongResponse response{};
+                response.id = std::get<2>(ping_context).id;
+
                 auto& continuation = std::get<0>(ping_context);
-                continuation(cb_arg.approx_now + 1s, UserService::PongResponse{std::get<2>(ping_context).id});
+                continuation(cb_arg.approx_now + 1s, response);
                 ping_contexts.erase(id);
             });
             delay_cb.schedule(Callback::Schedule::Once{arg.approx_now + 10ms + (10ms * (arg.request.id % 3))});
@@ -321,10 +341,11 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
     // For the sake of demonstration, we will send every second 3 concurrent "Ping" requests with different payloads
     // (the `id` field), which will implicitly affect the order of responses (see server setup).
     //
-    CommonHelpers::RunningStats  ping_pong_stats;
-    std::array<PingPongState, 3> ping_pong_states{PingPongState{"A", ping_pong_stats, {}, {1000}, {}},
-                                                  PingPongState{"B", ping_pong_stats, {}, {2000}, {}},
-                                                  PingPongState{"C", ping_pong_stats, {}, {3000}, {}}};
+    CommonHelpers::RunningStats ping_pong_stats;
+    std::array<PingPongState, 3>
+        ping_pong_states{PingPongState{mr_, "A", ping_pong_stats, {}, UserService::PingRequest{1000}, {}},
+                         PingPongState{mr_, "B", ping_pong_stats, {}, UserService::PingRequest{2000}, {}},
+                         PingPongState{mr_, "C", ping_pong_stats, {}, UserService::PingRequest{3000}, {}}};
     //
     const auto make_ping_request = [this, &ping_client](PingPongState& state) {
         //

@@ -95,10 +95,11 @@ protected:
 
     struct State
     {
-        Linux::CanMedia::Collection media_collection_;
-        CanTransportPtr             transport_;
-        NodeHelpers::Heartbeat      heartbeat_;
-        NodeHelpers::GetInfo        get_info_;
+        cetl::pmr::memory_resource& mr_;
+        Linux::CanMedia::Collection media_collection_{};
+        CanTransportPtr             transport_{nullptr};
+        NodeHelpers::Heartbeat      heartbeat_{mr_};
+        NodeHelpers::GetInfo        get_info_{mr_};
 
     };  // State
 
@@ -116,7 +117,7 @@ protected:
 
 TEST_F(Example_0_Transport_2_Heartbeat_GetInfo_Can, main)
 {
-    State state;
+    State state{mr_};
 
     // Make CAN transport with collection of media.
     //

@@ -119,9 +119,9 @@ private:
 
     Heartbeat(presentation::Presentation& presentation, Publisher&& publisher)
         : presentation_{presentation}
-        , startup_time_{presentation.getExecutor().now()}
+        , startup_time_{presentation.executor().now()}
         , publisher_{std::move(publisher)}
-        , message_{0, {uavcan::node::Health_1_0::NOMINAL}, {uavcan::node::Mode_1_0::OPERATIONAL}, 0}
+        , message_{{&presentation.memory()}}
         , next_exec_time_{startup_time_}
     {
         startPublishing();
@@ -134,7 +134,7 @@ private:
 
     void startPublishing()
     {
-        periodic_cb_      = presentation_.getExecutor().registerCallback([this](const auto& arg) {
+        periodic_cb_ = presentation_.executor().registerCallback([this](const auto& arg) {
             //
             // We keep track of the next execution time to allow
             // smooth rescheduling to the new instance in the move constructor.
@@ -142,6 +142,7 @@ private:
 
             publishMessage(arg.approx_now);
         });
+
         const auto result = periodic_cb_.schedule(Callback::Schedule::Repeat{next_exec_time_, getPeriod()});
         CETL_DEBUG_ASSERT(result, "");
         (void) result;
@@ -150,7 +151,7 @@ private:
     void publishMessage(const TimePoint approx_now)
     {
         // Publishing of heartbeats makes sense only if the local node ID is known.
-        if (presentation_.getTransport().getLocalNodeId() == cetl::nullopt)
+        if (presentation_.transport().getLocalNodeId() == cetl::nullopt)
         {
             return;
         }

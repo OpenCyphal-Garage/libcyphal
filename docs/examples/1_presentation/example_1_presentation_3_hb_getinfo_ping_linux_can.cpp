@@ -89,6 +89,8 @@ namespace UserService
 template <bool IsRequest>
 struct Ping final
 {
+    using allocator_type = cetl::pmr::polymorphic_allocator<void>;
+
     static constexpr PortId ServiceId = 147;
 
     struct _traits_
@@ -96,6 +98,19 @@ struct Ping final
         static constexpr std::size_t ExtentBytes                  = sizeof(std::uint64_t);
         static constexpr std::size_t SerializationBufferSizeBytes = sizeof(std::uint64_t);
     };
+
+    Ping() = default;
+
+    Ping(std::uint64_t _id)
+        : id{_id}
+    {
+    }
+
+    // Allocator constructor
+    explicit Ping(const allocator_type& allocator)
+    {
+        (void) allocator;
+    }
 
     std::uint64_t id{};  // NOLINT
 
@@ -182,12 +197,16 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
-    uavcan::node::Heartbeat_1_0 makeHeartbeatMsg(const libcyphal::TimePoint now) const
+    uavcan::node::Heartbeat_1_0 makeHeartbeatMsg(const libcyphal::TimePoint now)
     {
+        using Message = uavcan::node::Heartbeat_1_0;
+
+        Message message{{&mr_}};
+
         const auto uptime_in_secs = std::chrono::duration_cast<std::chrono::seconds>(now - startup_time_);
-        return {static_cast<std::uint32_t>(uptime_in_secs.count()),
-                {uavcan::node::Health_1_0::NOMINAL},
-                {uavcan::node::Mode_1_0::OPERATIONAL}};
+        message.uptime            = static_cast<std::uint32_t>(uptime_in_secs.count());
+
+        return message;
     }
 
     TimePoint now() const
@@ -202,9 +221,10 @@ protected:
 
     struct PingPongState
     {
+        cetl::pmr::memory_resource&  mr;
         const std::string            name;
         CommonHelpers::RunningStats& stats;
-        UserService::PingRequest     request;
+        UserService::PingRequest     request{{&mr}};
         Priority                     priority;
         TimePoint                    req_start;
         cetl::optional<PongPromise>  promise;
@@ -319,8 +339,12 @@ TEST_F(Example_1_Presentation_3_HB_GetInfo_Ping_Can, main)
             auto delay_cb = executor_.registerCallback([&ping_contexts, id = unique_request_id](const auto& cb_arg) {
                 //
                 auto& ping_context = ping_contexts[id];
+
+                UserService::PongResponse response{};
+                response.id = std::get<2>(ping_context).id;
+
                 auto& continuation = std::get<0>(ping_context);
-                continuation(cb_arg.approx_now + 1s, UserService::PongResponse{std::get<2>(ping_context).id});
+                continuation(cb_arg.approx_now + 1s, response);
                 ping_contexts.erase(id);
             });
             delay_cb.schedule(Callback::Schedule::Once{arg.approx_now + 1us + (10us * (arg.request.id % 7))});
@@ -346,11 +370,11 @@ TEST_F(Example_1_Presentation_3_HB_GetInfo_Ping_Can, main)
     constexpr std::size_t       concurrent_requests = 5;
     CommonHelpers::RunningStats ping_pong_stats;
     std::array<PingPongState, concurrent_requests>
-        ping_pong_states{PingPongState{"A", ping_pong_stats, {1000}, Priority::Nominal, {}, {}},
-                         PingPongState{"B", ping_pong_stats, {2000}, Priority::Nominal, {}, {}},
-                         PingPongState{"C", ping_pong_stats, {3000}, Priority::Nominal, {}, {}},
-                         PingPongState{"D", ping_pong_stats, {4000}, Priority::Nominal, {}, {}},
-                         PingPongState{"E", ping_pong_stats, {5000}, Priority::Nominal, {}, {}}};
+        ping_pong_states{PingPongState{mr_, "A", ping_pong_stats, {1000}, Priority::Nominal, {}, {}},
+                         PingPongState{mr_, "B", ping_pong_stats, {2000}, Priority::Nominal, {}, {}},
+                         PingPongState{mr_, "C", ping_pong_stats, {3000}, Priority::Nominal, {}, {}},
+                         PingPongState{mr_, "D", ping_pong_stats, {4000}, Priority::Nominal, {}, {}},
+                         PingPongState{mr_, "E", ping_pong_stats, {5000}, Priority::Nominal, {}, {}}};
     //
     const auto make_ping_request = [this, &ping_client](PingPongState& state) {
         //
@@ -400,8 +424,9 @@ TEST_F(Example_1_Presentation_3_HB_GetInfo_Ping_Can, main)
     // 7. Bring up 'GetInfo' server.
     //
     using GetInfo_1_0 = uavcan::node::GetInfo_1_0;
-    uavcan::node::GetInfo_1_0::Response get_info_response{{1, 0}};
-    const std::string                   node_name{"org.opencyphal.Ex_1_Pres_3_HB_GetInfo_Ping_CAN"};
+    uavcan::node::GetInfo_1_0::Response get_info_response{{&mr_}};
+    get_info_response.protocol_version.major = 1;
+    const std::string node_name{"org.opencyphal.Ex_1_Pres_3_HB_GetInfo_Ping_CAN"};
     std::copy_n(node_name.begin(), std::min(node_name.size(), 50UL), std::back_inserter(get_info_response.name));
     //
     auto maybe_get_info_srv = presentation.makeServer<GetInfo_1_0>([&](const auto& arg, auto continuation) {

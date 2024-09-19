@@ -117,14 +117,14 @@ public:
 
     /// @brief Gets reference to the executor instance of this presentation object.
     ///
-    IExecutor& getExecutor() const noexcept
+    IExecutor& executor() const noexcept
     {
         return executor_;
     }
 
     /// @brief Gets reference to the transport instance of this presentation object.
     ///
-    transport::ITransport& getTransport() const noexcept
+    transport::ITransport& transport() const noexcept
     {
         return transport_;
     }
@@ -448,6 +448,13 @@ public:
         return RawServiceClient{shared_client};
     }
 
+    // MARK: IPresentationDelegate
+
+    cetl::pmr::memory_resource& memory() const noexcept override
+    {
+        return memory_;
+    }
+
 private:
     IPresentationDelegate& asDelegate() noexcept
     {
@@ -631,11 +638,6 @@ private:
     }
 
     // MARK: IPresentationDelegate
-
-    cetl::pmr::memory_resource& memory() const noexcept override
-    {
-        return memory_;
-    }
 
     void releaseSharedClient(detail::SharedClient* const shared_client) noexcept override
     {

@@ -87,6 +87,11 @@ public:
         return tryDeserializePayload(buffer, memory_, request) == cetl::nullopt;
     }
 
+    CETL_NODISCARD cetl::pmr::memory_resource& memory() const noexcept
+    {
+        return memory_;
+    }
+
 private:
     // MARK: Data members:
 

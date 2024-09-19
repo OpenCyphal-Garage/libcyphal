@@ -29,18 +29,20 @@ template <typename>
 std::false_type HasIsServiceTrait(...);
 
 /// Trait which determines whether the given (supposed to be a Service) type
-/// has nested `T::Request` default constructible type.
+/// has nested `T::Request` type, constructible with PMR allocator.
 ///
 template <typename Service>
-auto HasServiceRequest(bool dummy) -> decltype(typename Service::Request{}, std::true_type{});
+auto HasServiceRequest(bool dummy)
+    -> decltype(typename Service::Request{{static_cast<cetl::pmr::memory_resource*>(nullptr)}}, std::true_type{});
 template <typename>
 std::false_type HasServiceRequest(...);
 
 /// Trait which determines whether the given (supposed to be a Service) type
-/// has nested `T::Response` default constructible type.
+/// has nested `T::Response` type, constructible with PMR allocator.
 ///
 template <typename Service>
-auto HasServiceResponse(bool dummy) -> decltype(typename Service::Response{}, std::true_type{});
+auto HasServiceResponse(bool dummy)
+    -> decltype(typename Service::Response{{static_cast<cetl::pmr::memory_resource*>(nullptr)}}, std::true_type{});
 template <typename>
 std::false_type HasServiceResponse(...);
 

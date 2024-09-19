@@ -205,7 +205,7 @@ TEST_F(TestServer, service_request_response)
                 EXPECT_THAT(metadata.remote_node_id, NodeId{0x31});
                 return cetl::nullopt;
             }));
-        req_continuation(now() + 200ms, Service::Response{});
+        req_continuation(now() + 200ms, Service::Response{{&mr_}});
     });
     scheduler_.spinFor(10s);
 
@@ -288,7 +288,7 @@ TEST_F(TestServer, service_request_response_failures)
         // Emulate failure of response sending.
         EXPECT_CALL(res_tx_session_mock, send(_, _))  //
             .WillOnce(Return(libcyphal::ArgumentError{}));
-        EXPECT_THAT(req_continuation(now() + 200ms, Service::Response{}),
+        EXPECT_THAT(req_continuation(now() + 200ms, Service::Response{{&mr_}}),
                     Optional(VariantWith<libcyphal::ArgumentError>(_)));
     });
     scheduler_.scheduleAt(3s, [&](const auto&) {
@@ -299,7 +299,8 @@ TEST_F(TestServer, service_request_response_failures)
 
         // Emulate failure to serialize the response.
         // This will make it fail to serialize the response with `SerializationBadArrayLength`.
-        Service::Response response{};
+        Service::Response response{{&mr_}};
+        response.some_other_crap = Service::Response::_traits_::TypeOf::some_other_crap{{&mr_}};
         response.some_other_crap.resize(255);
         EXPECT_THAT(req_continuation(now() + 200ms, response),
                     Optional(
