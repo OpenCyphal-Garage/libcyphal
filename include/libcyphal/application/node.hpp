@@ -8,6 +8,7 @@
 
 #include "libcyphal/presentation/presentation.hpp"
 #include "libcyphal/types.hpp"
+#include "node/get_info.hpp"
 #include "node/heartbeat.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -49,26 +50,44 @@ public:
             return std::move(*failure);
         }
 
-        return Node{cetl::get<node::Heartbeat>(std::move(maybe_heartbeat))};
+        auto maybe_get_info = node::GetInfo::make(presentation);
+        if (auto* const failure = cetl::get_if<presentation::Presentation::MakeFailure>(&maybe_get_info))
+        {
+            return std::move(*failure);
+        }
+
+        return Node{cetl::get<node::GetInfo>(std::move(maybe_get_info)),
+                    cetl::get<node::Heartbeat>(std::move(maybe_heartbeat))};
+    }
+
+    /// @brief Gets reference to the 'GetInfo' component.
+    ///
+    /// Could be used to setup node's information which is returned by the GetInfo server.
+    ///
+    node::GetInfo& getInfo() noexcept
+    {
+        return get_info_;
     }
 
     /// @brief Gets reference to the 'Heartbeat' component.
     ///
     /// Could be used to setup the heartbeat update callback.
     ///
-    node::Heartbeat& getHeartbeat() noexcept
+    node::Heartbeat& heartbeat() noexcept
     {
         return heartbeat_;
     }
 
 private:
-    explicit Node(node::Heartbeat&& heartbeat) noexcept
-        : heartbeat_{std::move(heartbeat)}
+    Node(node::GetInfo&& get_info, node::Heartbeat&& heartbeat) noexcept
+        : get_info_{std::move(get_info)}
+        , heartbeat_{std::move(heartbeat)}
     {
     }
 
     // MARK: Data members:
 
+    node::GetInfo   get_info_;
     node::Heartbeat heartbeat_;
 
 };  // Node

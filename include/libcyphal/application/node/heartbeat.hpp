@@ -12,13 +12,10 @@
 #include "libcyphal/transport/transport.hpp"
 #include "libcyphal/types.hpp"
 
-#include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pmr/function.hpp>
 
-#include <uavcan/node/Health_1_0.hpp>
 #include <uavcan/node/Heartbeat_1_0.hpp>
-#include <uavcan/node/Mode_1_0.hpp>
 
 #include <chrono>
 #include <cstddef>
@@ -32,7 +29,7 @@ namespace application
 namespace node
 {
 
-/// @brief Defines Heartbeat component for the application node.
+/// @brief Defines 'Heartbeat' component for the application node.
 ///
 /// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
 /// b/c we do directly handle resources here (namely capturing of `this` in the periodic callback).
@@ -46,9 +43,8 @@ public:
 
     /// @brief Factory method to create a Heartbeat instance.
     ///
-    /// @param presentation The presentation layer instance. In use to create various node components, such as
-    ///                     'Heartbeat' publisher and 'GetInfo' service server.
-    /// @return The Node instance or a failure.
+    /// @param presentation The presentation layer instance. In use to create 'Heartbeat' publisher.
+    /// @return The Heartbeat instance or a failure.
     ///
     static auto make(presentation::Presentation& presentation)
         -> Expected<Heartbeat, presentation::Presentation::MakeFailure>
@@ -121,7 +117,7 @@ private:
         : presentation_{presentation}
         , startup_time_{presentation.executor().now()}
         , publisher_{std::move(publisher)}
-        , message_{{&presentation.memory()}}
+        , message_{Message::allocator_type{&presentation.memory()}}
         , next_exec_time_{startup_time_}
     {
         startPublishing();

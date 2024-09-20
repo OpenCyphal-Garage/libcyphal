@@ -29,6 +29,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
+#include <iterator>
 #include <string>
 #include <utility>
 #include <vector>
@@ -140,10 +141,16 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
     //
     libcyphal::presentation::Presentation presentation{mr_, executor_, *state.transport_};
 
-    // 3. Create the node.
+    // 3. Create a node with name.
     //
-    auto node_maybe = Node::make(presentation);
-    ASSERT_THAT(node_maybe, testing::VariantWith<Node>(testing::_)) << "Can't create node.";
+    auto maybe_node = Node::make(presentation);
+    ASSERT_THAT(maybe_node, testing::VariantWith<Node>(testing::_)) << "Can't create node.";
+    auto node = cetl::get<Node>(std::move(maybe_node));
+    //
+    const std::string node_name{"org.opencyphal.Ex_2_App_0_Node_UDP"};
+    std::copy_n(node_name.begin(),
+                std::min(node_name.size(), 50UL),
+                std::back_inserter(node.getInfo().response().name));
 
     // 4. Main loop.
     //

@@ -6,6 +6,7 @@
 #include "gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "tracking_memory_resource.hpp"
 #include "transport/msg_sessions_mock.hpp"
+#include "transport/svc_sessions_mock.hpp"
 #include "transport/transport_gtest_helpers.hpp"
 #include "transport/transport_mock.hpp"
 #include "virtual_time_scheduler.hpp"
@@ -59,6 +60,8 @@ class TestNode : public testing::Test
 {
 protected:
     using UniquePtrMsgTxSpec = MessageTxSessionMock::RefWrapper::Spec;
+    using UniquePtrReqRxSpec = RequestRxSessionMock::RefWrapper::Spec;
+    using UniquePtrResTxSpec = ResponseTxSessionMock::RefWrapper::Spec;
 
     void SetUp() override
     {
@@ -77,47 +80,68 @@ protected:
         return scheduler_.now();
     }
 
+    void setupDefaultExpectations()
+    {
+        EXPECT_CALL(getinfo_req_rx_session_mock_, setOnReceiveCallback(_)).WillRepeatedly(Return());
+        EXPECT_CALL(getinfo_req_rx_session_mock_, deinit()).Times(1);
+
+        EXPECT_CALL(getinfo_res_tx_session_mock_, deinit()).Times(1);
+
+        constexpr MessageTxParams tx_params{uavcan::node::Heartbeat_1_0::_traits_::FixedPortId};
+        EXPECT_CALL(heartbeat_msg_tx_session_mock_, getParams()).WillOnce(Return(tx_params));
+        EXPECT_CALL(heartbeat_msg_tx_session_mock_, deinit()).Times(1);
+
+        EXPECT_CALL(transport_mock_, makeRequestRxSession(_))  //
+            .WillOnce(Invoke([&](const auto&) {                //
+                return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr_, getinfo_req_rx_session_mock_);
+            }));
+        EXPECT_CALL(transport_mock_, makeResponseTxSession(_))  //
+            .WillOnce(Invoke([&](const auto&) {                 //
+                return libcyphal::detail::makeUniquePtr<UniquePtrResTxSpec>(mr_, getinfo_res_tx_session_mock_);
+            }));
+        EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
+            .WillOnce(Invoke([&](const auto&) {                //
+                return libcyphal::detail::makeUniquePtr<UniquePtrMsgTxSpec>(mr_, heartbeat_msg_tx_session_mock_);
+            }));
+    }
+
     // MARK: Data members:
 
     // NOLINTBEGIN
-    libcyphal::VirtualTimeScheduler scheduler_{};
-    TrackingMemoryResource          mr_;
-    StrictMock<TransportMock>       transport_mock_;
+    libcyphal::VirtualTimeScheduler   scheduler_{};
+    TrackingMemoryResource            mr_;
+    StrictMock<TransportMock>         transport_mock_;
+    StrictMock<RequestRxSessionMock>  getinfo_req_rx_session_mock_;
+    StrictMock<ResponseTxSessionMock> getinfo_res_tx_session_mock_;
+    StrictMock<MessageTxSessionMock>  heartbeat_msg_tx_session_mock_;
     // NOLINTEND
 };
 
 // MARK: - Tests:
 
-TEST_F(TestNode, heartbeat)
+TEST_F(TestNode, make)
 {
-    Presentation presentation{mr_, scheduler_, transport_mock_};
+    setupDefaultExpectations();
 
-    StrictMock<MessageTxSessionMock> msg_tx_session_mock;
-    constexpr MessageTxParams        tx_params{uavcan::node::Heartbeat_1_0::_traits_::FixedPortId};
-    EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
-    EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
-
-    EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx_params)))  //
-        .WillOnce(Invoke([&](const auto&) {                                           //
-            return libcyphal::detail::makeUniquePtr<UniquePtrMsgTxSpec>(mr_, msg_tx_session_mock);
-        }));
     EXPECT_CALL(transport_mock_, getLocalNodeId())  //
         .WillRepeatedly(Return(cetl::optional<NodeId>{NodeId{42U}}));
 
     cetl::optional<Node>                    node;
     std::vector<std::tuple<TimePoint, int>> calls;
 
+    Presentation presentation{mr_, scheduler_, transport_mock_};
+
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         auto maybe_node = Node::make(presentation);
         ASSERT_THAT(maybe_node, VariantWith<Node>(_));
         node.emplace(cetl::get<Node>(std::move(maybe_node)));
-        node->getHeartbeat().setUpdateCallback([&](const auto& arg) {
+        node->heartbeat().setUpdateCallback([&](const auto& arg) {
             //
             calls.emplace_back(arg.approx_now, arg.message.health.value);
         });
 
-        EXPECT_CALL(msg_tx_session_mock, send(_, _))  //
+        EXPECT_CALL(heartbeat_msg_tx_session_mock_, send(_, _))  //
             .WillRepeatedly(Return(cetl::nullopt));
     });
     scheduler_.scheduleAt(3s + 500ms, [&](const auto&) {
@@ -133,14 +157,33 @@ TEST_F(TestNode, heartbeat)
                     std::make_tuple(TimePoint{3s}, static_cast<int>(uavcan::node::Health_1_0::NOMINAL))));
 }
 
-TEST_F(TestNode, make_heartbeat_failure)
+TEST_F(TestNode, make_failures)
 {
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
-        .WillOnce(Return(libcyphal::ArgumentError{}));
+    scheduler_.scheduleAt(1s, [&](const auto&) {
+        //
+        EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
+            .WillOnce(Return(libcyphal::ArgumentError{}));
 
-    EXPECT_THAT(Node::make(presentation), VariantWith<Node::MakeFailure>(VariantWith<libcyphal::ArgumentError>(_)));
+        EXPECT_THAT(Node::make(presentation), VariantWith<Node::MakeFailure>(VariantWith<libcyphal::ArgumentError>(_)));
+    });
+    scheduler_.scheduleAt(2s, [&](const auto&) {
+        //
+        constexpr MessageTxParams tx_params{uavcan::node::Heartbeat_1_0::_traits_::FixedPortId};
+        EXPECT_CALL(heartbeat_msg_tx_session_mock_, getParams()).WillOnce(Return(tx_params));
+        EXPECT_CALL(heartbeat_msg_tx_session_mock_, deinit()).Times(1);
+
+        EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
+            .WillOnce(Invoke([&](const auto&) {                //
+                return libcyphal::detail::makeUniquePtr<UniquePtrMsgTxSpec>(mr_, heartbeat_msg_tx_session_mock_);
+            }));
+        EXPECT_CALL(transport_mock_, makeRequestRxSession(_))  //
+            .WillOnce(Return(libcyphal::ArgumentError{}));
+
+        EXPECT_THAT(Node::make(presentation), VariantWith<Node::MakeFailure>(VariantWith<libcyphal::ArgumentError>(_)));
+    });
+    scheduler_.spinFor(10s);
 }
 
 TEST_F(TestNode, move)
@@ -151,20 +194,12 @@ TEST_F(TestNode, move)
     static_assert(!std::is_copy_constructible<Node>::value, "Should not be copy constructible.");
     static_assert(!std::is_default_constructible<Node>::value, "Should not be default constructible.");
 
-    Presentation presentation{mr_, scheduler_, transport_mock_};
+    setupDefaultExpectations();
 
-    StrictMock<MessageTxSessionMock> msg_tx_session_mock;
-    EXPECT_CALL(msg_tx_session_mock, getParams())
-        .WillOnce(Return(MessageTxParams{uavcan::node::Heartbeat_1_0::_traits_::FixedPortId}));
-    EXPECT_CALL(msg_tx_session_mock, send(_, _))  //
+    EXPECT_CALL(heartbeat_msg_tx_session_mock_, send(_, _))  //
         .Times(4)
         .WillRepeatedly(Return(cetl::nullopt));
-    EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
 
-    EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
-        .WillOnce(Invoke([&](const auto&) {                //
-            return libcyphal::detail::makeUniquePtr<UniquePtrMsgTxSpec>(mr_, msg_tx_session_mock);
-        }));
     EXPECT_CALL(transport_mock_, getLocalNodeId())  //
         .WillRepeatedly(Return(cetl::optional<NodeId>{NodeId{42U}}));
 
@@ -172,12 +207,14 @@ TEST_F(TestNode, move)
     cetl::optional<Node>   node2;
     std::vector<TimePoint> calls;
 
+    Presentation presentation{mr_, scheduler_, transport_mock_};
+
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         auto maybe_node = Node::make(presentation);
         ASSERT_THAT(maybe_node, VariantWith<Node>(_));
         node1.emplace(cetl::get<Node>(std::move(maybe_node)));
-        node1->getHeartbeat().setUpdateCallback([&](const auto& arg) {
+        node1->heartbeat().setUpdateCallback([&](const auto& arg) {
             //
             calls.emplace_back(arg.approx_now);
         });

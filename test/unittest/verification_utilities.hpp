@@ -9,10 +9,15 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
+#include <nunavut/support/serialization.hpp>
+
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <numeric>
+#include <vector>
 
 namespace libcyphal
 {
@@ -50,6 +55,20 @@ std::array<cetl::span<const cetl::byte>, 2> makeSpansFrom(const std::array<cetl:
                                                           const std::array<cetl::byte, N2>& payload2)
 {
     return {payload1, payload2};
+}
+
+template <typename T>
+static bool tryDeserialize(T& obj, const cetl::span<const cetl::span<const cetl::byte>> fragments)
+{
+    std::vector<cetl::byte> bytes;
+    for (const auto& fragment : fragments)
+    {
+        std::copy_n(fragment.begin(), fragment.size(), std::back_inserter(bytes));
+    }
+    const auto* const buffer = reinterpret_cast<const std::uint8_t*>(bytes.data());  // NOLINT
+
+    const nunavut::support::const_bitspan bitspan{buffer, bytes.size()};
+    return deserialize(obj, bitspan);
 }
 
 }  // namespace verification_utilities

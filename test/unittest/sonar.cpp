@@ -4,6 +4,7 @@
 /// SPDX-License-Identifier: MIT
 
 #include <libcyphal/application/node.hpp>
+#include "libcyphal/application/node/get_info.hpp"
 #include "libcyphal/application/node/heartbeat.hpp"
 #include <libcyphal/common/cavl/cavl.hpp>
 #include <libcyphal/errors.hpp>
