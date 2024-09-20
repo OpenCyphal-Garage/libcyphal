@@ -93,6 +93,11 @@ public:
             /// Holds the approximate time when the callback was called.
             TimePoint approx_now;
         };
+
+        /// @brief Defines signature of the heartbeat update callback function.
+        ///
+        /// Size of the function is arbitrary (4 pointers), but should be enough to simple lambdas.
+        ///
         static constexpr std::size_t FunctionSize = sizeof(void*) * 4;
         using Function                            = cetl::pmr::function<void(const Arg& arg), FunctionSize>;
     };

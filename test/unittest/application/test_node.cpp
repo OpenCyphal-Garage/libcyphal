@@ -7,7 +7,7 @@
 #include "tracking_memory_resource.hpp"
 #include "transport/msg_sessions_mock.hpp"
 #include "transport/svc_sessions_mock.hpp"
-#include "transport/transport_gtest_helpers.hpp"
+#include "transport/transport_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "transport/transport_mock.hpp"
 #include "virtual_time_scheduler.hpp"
 
