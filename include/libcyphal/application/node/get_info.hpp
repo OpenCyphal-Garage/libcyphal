@@ -107,7 +107,9 @@ private:
     {
         server_.setOnRequestCallback([this](const auto& arg, auto continuation) {
             //
-            continuation(arg.approx_now + response_timeout_, response_);
+            // There is nothing we can do about possible continuation failures - we just ignore them.
+            // TODO: Introduce error handler at the node level.
+            (void) continuation(arg.approx_now + response_timeout_, response_);
         });
     }
 

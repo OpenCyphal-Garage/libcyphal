@@ -170,6 +170,7 @@ private:
         // Deadline for the next publication is the current time plus 1s publication period -
         // it has no sense to keep the message in the queue for longer than that.
         // There is nothing we can do about possible publishing failures - we just ignore them.
+        // TODO: Introduce error handler at the node level.
         (void) publisher_.publish(approx_now + getPeriod(), message_);
     }
 
