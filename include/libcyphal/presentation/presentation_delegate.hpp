@@ -23,8 +23,11 @@ namespace detail
 
 /// Trait which determines whether the given type has `T::_traits_::IsService` field.
 ///
+/// No Sonar cpp:S872 "Reconsider this operator for `bool` operand'
+/// b/c we do need to check the existence of the field with help of `decltype` and `,` (comma) operator.
+///
 template <typename T>
-auto HasIsServiceTrait(bool dummy) -> decltype(T::_traits_::IsService, std::true_type{});
+auto HasIsServiceTrait(bool dummy) -> decltype(T::_traits_::IsService, std::true_type{});  // NOSONAR cpp:S872
 template <typename>
 std::false_type HasIsServiceTrait(...);
 
