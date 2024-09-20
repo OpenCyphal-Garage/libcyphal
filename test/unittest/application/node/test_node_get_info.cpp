@@ -24,7 +24,6 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
-#include <chrono>
 #include <iterator>
 #include <limits>
 #include <utility>
