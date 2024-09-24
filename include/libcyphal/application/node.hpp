@@ -8,8 +8,8 @@
 
 #include "libcyphal/presentation/presentation.hpp"
 #include "libcyphal/types.hpp"
-#include "node/get_info.hpp"
-#include "node/heartbeat.hpp"
+#include "node/get_info_provider.hpp"
+#include "node/heartbeat_producer.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 
@@ -44,51 +44,51 @@ public:
     ///
     static Expected<Node, MakeFailure> make(presentation::Presentation& presentation)
     {
-        auto maybe_heartbeat = node::Heartbeat::make(presentation);
-        if (auto* const failure = cetl::get_if<presentation::Presentation::MakeFailure>(&maybe_heartbeat))
+        auto maybe_heartbeat_producer = node::HeartbeatProducer::make(presentation);
+        if (auto* const failure = cetl::get_if<presentation::Presentation::MakeFailure>(&maybe_heartbeat_producer))
         {
             return std::move(*failure);
         }
 
-        auto maybe_get_info = node::GetInfo::make(presentation);
-        if (auto* const failure = cetl::get_if<presentation::Presentation::MakeFailure>(&maybe_get_info))
+        auto maybe_get_info_provider = node::GetInfoProvider::make(presentation);
+        if (auto* const failure = cetl::get_if<presentation::Presentation::MakeFailure>(&maybe_get_info_provider))
         {
             return std::move(*failure);
         }
 
-        return Node{cetl::get<node::GetInfo>(std::move(maybe_get_info)),
-                    cetl::get<node::Heartbeat>(std::move(maybe_heartbeat))};
+        return Node{cetl::get<node::GetInfoProvider>(std::move(maybe_get_info_provider)),
+                    cetl::get<node::HeartbeatProducer>(std::move(maybe_heartbeat_producer))};
     }
 
-    /// @brief Gets reference to the 'GetInfo' component.
+    /// @brief Gets reference to the 'GetInfo' provider component.
     ///
     /// Could be used to setup node's information which is returned by the GetInfo server.
     ///
-    node::GetInfo& getInfo() noexcept
+    node::GetInfoProvider& getInfoProvider() noexcept
     {
-        return get_info_;
+        return get_info_provider_;
     }
 
-    /// @brief Gets reference to the 'Heartbeat' component.
+    /// @brief Gets reference to the 'Heartbeat' producer component.
     ///
     /// Could be used to setup the heartbeat update callback.
     ///
-    node::Heartbeat& heartbeat() noexcept
+    node::HeartbeatProducer& heartbeatProducer() noexcept
     {
-        return heartbeat_;
+        return heartbeat_producer_;
     }
 
 private:
-    Node(node::GetInfo&& get_info, node::Heartbeat&& heartbeat) noexcept
-        : get_info_{std::move(get_info)}
-        , heartbeat_{std::move(heartbeat)}
+    Node(node::GetInfoProvider&& get_info_provider, node::HeartbeatProducer&& heartbeat_producer) noexcept
+        : get_info_provider_{std::move(get_info_provider)}
+        , heartbeat_producer_{std::move(heartbeat_producer)}
     {
     }
 
     // MARK: Data members:
 
-    node::GetInfo   get_info_;
-    node::Heartbeat heartbeat_;
+    node::GetInfoProvider   get_info_provider_;
+    node::HeartbeatProducer heartbeat_producer_;
 
 };  // Node
 

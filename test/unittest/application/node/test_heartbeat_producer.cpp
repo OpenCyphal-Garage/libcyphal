@@ -11,7 +11,7 @@
 #include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <libcyphal/application/node/heartbeat.hpp>
+#include <libcyphal/application/node/heartbeat_producer.hpp>
 #include <libcyphal/errors.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
@@ -56,7 +56,7 @@ using std::literals::chrono_literals::operator""ms;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-class TestNodeHeartbeat : public testing::Test
+class TestHeartbeatProducer : public testing::Test
 {
 protected:
     using UniquePtrMsgTxSpec = MessageTxSessionMock::RefWrapper::Spec;
@@ -89,7 +89,7 @@ protected:
 
 // MARK: - Tests:
 
-TEST_F(TestNodeHeartbeat, make)
+TEST_F(TestHeartbeatProducer, make)
 {
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
@@ -105,17 +105,17 @@ TEST_F(TestNodeHeartbeat, make)
     EXPECT_CALL(transport_mock_, getLocalNodeId())  //
         .WillRepeatedly(Return(cetl::nullopt));
 
-    cetl::optional<node::Heartbeat> heartbeat;
-    TimePoint                       start_time{};
+    cetl::optional<node::HeartbeatProducer> heartbeat_producer;
+    TimePoint                               start_time{};
 
     std::vector<std::tuple<TimePoint, int>> calls;
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        start_time           = now();
-        auto maybe_heartbeat = node::Heartbeat::make(presentation);
-        ASSERT_THAT(maybe_heartbeat, VariantWith<node::Heartbeat>(_));
-        heartbeat.emplace(cetl::get<node::Heartbeat>(std::move(maybe_heartbeat)));
+        start_time                    = now();
+        auto maybe_heartbeat_producer = node::HeartbeatProducer::make(presentation);
+        ASSERT_THAT(maybe_heartbeat_producer, VariantWith<node::HeartbeatProducer>(_));
+        heartbeat_producer.emplace(cetl::get<node::HeartbeatProducer>(std::move(maybe_heartbeat_producer)));
     });
     scheduler_.scheduleAt(2s + 500ms, [&](const auto&) {
         //
@@ -129,7 +129,7 @@ TEST_F(TestNodeHeartbeat, make)
     });
     scheduler_.scheduleAt(3s + 500ms, [&](const auto&) {
         //
-        heartbeat->setUpdateCallback([&](const auto& arg) {
+        heartbeat_producer->setUpdateCallback([&](const auto& arg) {
             //
             calls.emplace_back(arg.approx_now, arg.message.health.value);
             EXPECT_THAT(arg.approx_now, now());
@@ -151,7 +151,7 @@ TEST_F(TestNodeHeartbeat, make)
     });
     scheduler_.scheduleAt(5s + 500ms, [&](const auto&) {
         //
-        heartbeat->setUpdateCallback([&](const auto& arg) {
+        heartbeat_producer->setUpdateCallback([&](const auto& arg) {
             //
             arg.message.health.value = uavcan::node::Health_1_0::WARNING;
             calls.emplace_back(arg.approx_now, arg.message.health.value);
@@ -164,7 +164,7 @@ TEST_F(TestNodeHeartbeat, make)
     });
     scheduler_.scheduleAt(6s + 500ms, [&](const auto&) {
         //
-        heartbeat->setUpdateCallback([&](const auto& arg) {
+        heartbeat_producer->setUpdateCallback([&](const auto& arg) {
             //
             calls.emplace_back(arg.approx_now, arg.message.health.value);
         });
@@ -176,7 +176,7 @@ TEST_F(TestNodeHeartbeat, make)
     });
     scheduler_.scheduleAt(7s + 500ms, [&](const auto&) {
         //
-        heartbeat.reset();
+        heartbeat_producer.reset();
     });
     scheduler_.spinFor(10s);
 
@@ -188,24 +188,25 @@ TEST_F(TestNodeHeartbeat, make)
                     std::make_tuple(TimePoint{7s}, static_cast<int>(uavcan::node::Health_1_0::WARNING))));
 }
 
-TEST_F(TestNodeHeartbeat, make_failure)
+TEST_F(TestHeartbeatProducer, make_failure)
 {
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
     EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
         .WillOnce(Return(libcyphal::ArgumentError{}));
 
-    EXPECT_THAT(node::Heartbeat::make(presentation),
+    EXPECT_THAT(node::HeartbeatProducer::make(presentation),
                 VariantWith<Presentation::MakeFailure>(VariantWith<libcyphal::ArgumentError>(_)));
 }
 
-TEST_F(TestNodeHeartbeat, move)
+TEST_F(TestHeartbeatProducer, move)
 {
-    static_assert(std::is_move_constructible<node::Heartbeat>::value, "Should be move constructible.");
-    static_assert(!std::is_copy_assignable<node::Heartbeat>::value, "Should not be copy assignable.");
-    static_assert(!std::is_move_assignable<node::Heartbeat>::value, "Should not be move assignable.");
-    static_assert(!std::is_copy_constructible<node::Heartbeat>::value, "Should not be copy constructible.");
-    static_assert(!std::is_default_constructible<node::Heartbeat>::value, "Should not be default constructible.");
+    static_assert(std::is_move_constructible<node::HeartbeatProducer>::value, "Should be move constructible.");
+    static_assert(!std::is_copy_assignable<node::HeartbeatProducer>::value, "Should not be copy assignable.");
+    static_assert(!std::is_move_assignable<node::HeartbeatProducer>::value, "Should not be move assignable.");
+    static_assert(!std::is_copy_constructible<node::HeartbeatProducer>::value, "Should not be copy constructible.");
+    static_assert(!std::is_default_constructible<node::HeartbeatProducer>::value,
+                  "Should not be default constructible.");
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
@@ -224,23 +225,23 @@ TEST_F(TestNodeHeartbeat, move)
     EXPECT_CALL(transport_mock_, getLocalNodeId())  //
         .WillRepeatedly(Return(cetl::optional<NodeId>{NodeId{42U}}));
 
-    std::vector<TimePoint>          calls;
-    cetl::optional<node::Heartbeat> heartbeat1;
-    cetl::optional<node::Heartbeat> heartbeat2;
+    std::vector<TimePoint>                  calls;
+    cetl::optional<node::HeartbeatProducer> heartbeat_producer1;
+    cetl::optional<node::HeartbeatProducer> heartbeat_producer2;
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        auto maybe_heartbeat = node::Heartbeat::make(presentation);
-        ASSERT_THAT(maybe_heartbeat, VariantWith<node::Heartbeat>(_));
-        heartbeat1.emplace(cetl::get<node::Heartbeat>(std::move(maybe_heartbeat)));
-        heartbeat1->setUpdateCallback([&](const auto& arg) {
+        auto maybe_heartbeat = node::HeartbeatProducer::make(presentation);
+        ASSERT_THAT(maybe_heartbeat, VariantWith<node::HeartbeatProducer>(_));
+        heartbeat_producer1.emplace(cetl::get<node::HeartbeatProducer>(std::move(maybe_heartbeat)));
+        heartbeat_producer1->setUpdateCallback([&](const auto& arg) {
             //
             calls.push_back(arg.approx_now);
         });
     });
     scheduler_.scheduleAt(2s + 500ms, [&](const auto&) {
         //
-        heartbeat2.emplace(std::move(*heartbeat1));
+        heartbeat_producer2.emplace(std::move(*heartbeat_producer1));
     });
     scheduler_.spinFor(5s);
 

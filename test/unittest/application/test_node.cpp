@@ -136,7 +136,7 @@ TEST_F(TestNode, make)
         auto maybe_node = Node::make(presentation);
         ASSERT_THAT(maybe_node, VariantWith<Node>(_));
         node.emplace(cetl::get<Node>(std::move(maybe_node)));
-        node->heartbeat().setUpdateCallback([&](const auto& arg) {
+        node->heartbeatProducer().setUpdateCallback([&](const auto& arg) {
             //
             calls.emplace_back(arg.approx_now, arg.message.health.value);
         });
@@ -214,7 +214,7 @@ TEST_F(TestNode, move)
         auto maybe_node = Node::make(presentation);
         ASSERT_THAT(maybe_node, VariantWith<Node>(_));
         node1.emplace(cetl::get<Node>(std::move(maybe_node)));
-        node1->heartbeat().setUpdateCallback([&](const auto& arg) {
+        node1->heartbeatProducer().setUpdateCallback([&](const auto& arg) {
             //
             calls.emplace_back(arg.approx_now);
         });

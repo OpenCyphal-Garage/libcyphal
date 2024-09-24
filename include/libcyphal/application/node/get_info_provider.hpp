@@ -24,12 +24,14 @@ namespace application
 namespace node
 {
 
-/// @brief Defines 'GetInfo' component for the application node.
+/// @brief Defines 'GetInfo' provider component for the application node.
+///
+/// Internally, it uses the 'GetInfo' service server to handle incoming requests.
 ///
 /// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
 /// b/c we do directly handle resources here (namely capturing of `this` in the request callback).
 ///
-class GetInfo final  // NOSONAR cpp:S4963
+class GetInfoProvider final  // NOSONAR cpp:S4963
 {
     using Service = uavcan::node::GetInfo_1_0;
 
@@ -44,7 +46,7 @@ public:
     /// @return The GetInfo instance or a failure.
     ///
     static auto make(presentation::Presentation& presentation)
-        -> Expected<GetInfo, presentation::Presentation::MakeFailure>
+        -> Expected<GetInfoProvider, presentation::Presentation::MakeFailure>
     {
         auto maybe_get_info_srv = presentation.makeServer<Service>();
         if (auto* const failure = cetl::get_if<presentation::Presentation::MakeFailure>(&maybe_get_info_srv))
@@ -52,10 +54,10 @@ public:
             return std::move(*failure);
         }
 
-        return GetInfo{presentation, cetl::get<Server>(std::move(maybe_get_info_srv))};
+        return GetInfoProvider{presentation, cetl::get<Server>(std::move(maybe_get_info_srv))};
     }
 
-    GetInfo(GetInfo&& other) noexcept
+    GetInfoProvider(GetInfoProvider&& other) noexcept
         : presentation_{other.presentation_}
         , server_{std::move(other.server_)}
         , response_{std::move(other.response_)}
@@ -65,11 +67,11 @@ public:
         setupOnRequestCallback();
     }
 
-    ~GetInfo() = default;
+    ~GetInfoProvider() = default;
 
-    GetInfo(const GetInfo&)                = delete;
-    GetInfo& operator=(const GetInfo&)     = delete;
-    GetInfo& operator=(GetInfo&&) noexcept = delete;
+    GetInfoProvider(const GetInfoProvider&)                = delete;
+    GetInfoProvider& operator=(const GetInfoProvider&)     = delete;
+    GetInfoProvider& operator=(GetInfoProvider&&) noexcept = delete;
 
     /// @brief Gets reference to the GetInfo response instance.
     ///
@@ -93,7 +95,7 @@ public:
 private:
     using Server = presentation::ServiceServer<Service>;
 
-    GetInfo(presentation::Presentation& presentation, Server&& server)
+    GetInfoProvider(presentation::Presentation& presentation, Server&& server)
         : presentation_{presentation}
         , server_{std::move(server)}
         , response_{Response::allocator_type{&presentation.memory()}}
@@ -120,7 +122,7 @@ private:
     Response                    response_;
     Duration                    response_timeout_;
 
-};  // GetInfo
+};  // GetInfoProvider
 
 }  // namespace node
 }  // namespace application

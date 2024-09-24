@@ -29,12 +29,14 @@ namespace application
 namespace node
 {
 
-/// @brief Defines 'Heartbeat' component for the application node.
+/// @brief Defines 'Heartbeat' producer component for the application node.
+///
+/// Internally, it uses the 'Heartbeat' message publisher to periodically publish heartbeat messages.
 ///
 /// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
 /// b/c we do directly handle resources here (namely capturing of `this` in the periodic callback).
 ///
-class Heartbeat final  // NOSONAR cpp:S4963
+class HeartbeatProducer final  // NOSONAR cpp:S4963
 {
 public:
     /// @brief Defines the message type for the Heartbeat.
@@ -47,7 +49,7 @@ public:
     /// @return The Heartbeat instance or a failure.
     ///
     static auto make(presentation::Presentation& presentation)
-        -> Expected<Heartbeat, presentation::Presentation::MakeFailure>
+        -> Expected<HeartbeatProducer, presentation::Presentation::MakeFailure>
     {
         auto maybe_heartbeat_pub = presentation.makePublisher<Publisher::Message>();
         if (auto* const failure = cetl::get_if<presentation::Presentation::MakeFailure>(&maybe_heartbeat_pub))
@@ -55,10 +57,10 @@ public:
             return std::move(*failure);
         }
 
-        return Heartbeat{presentation, cetl::get<Publisher>(std::move(maybe_heartbeat_pub))};
+        return HeartbeatProducer{presentation, cetl::get<Publisher>(std::move(maybe_heartbeat_pub))};
     }
 
-    Heartbeat(Heartbeat&& other) noexcept
+    HeartbeatProducer(HeartbeatProducer&& other) noexcept
         : presentation_{other.presentation_}
         , startup_time_{other.startup_time_}
         , publisher_{other.publisher_}
@@ -73,11 +75,11 @@ public:
         startPublishing();
     }
 
-    ~Heartbeat() = default;
+    ~HeartbeatProducer() = default;
 
-    Heartbeat(const Heartbeat&)                = delete;
-    Heartbeat& operator=(const Heartbeat&)     = delete;
-    Heartbeat& operator=(Heartbeat&&) noexcept = delete;
+    HeartbeatProducer(const HeartbeatProducer&)                = delete;
+    HeartbeatProducer& operator=(const HeartbeatProducer&)     = delete;
+    HeartbeatProducer& operator=(HeartbeatProducer&&) noexcept = delete;
 
     /// @brief Umbrella type for heartbeat update entities.
     ///
@@ -118,7 +120,7 @@ private:
     using Callback  = IExecutor::Callback;
     using Publisher = presentation::Publisher<Message>;
 
-    Heartbeat(presentation::Presentation& presentation, Publisher&& publisher)
+    HeartbeatProducer(presentation::Presentation& presentation, Publisher&& publisher)
         : presentation_{presentation}
         , startup_time_{presentation.executor().now()}
         , publisher_{std::move(publisher)}
@@ -189,7 +191,7 @@ private:
     UpdateCallback::Function    update_callback_fn_;
     TimePoint                   next_exec_time_;
 
-};  // Heartbeat
+};  // HeartbeatProducer
 
 }  // namespace node
 }  // namespace application

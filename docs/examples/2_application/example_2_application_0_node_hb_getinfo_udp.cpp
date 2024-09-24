@@ -150,7 +150,7 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
     const std::string node_name{"org.opencyphal.Ex_2_App_0_Node_UDP"};
     std::copy_n(node_name.begin(),
                 std::min(node_name.size(), 50UL),
-                std::back_inserter(node.getInfo().response().name));
+                std::back_inserter(node.getInfoProvider().response().name));
 
     // 4. Main loop.
     //

@@ -12,7 +12,7 @@
 #include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <libcyphal/application/node/get_info.hpp>
+#include <libcyphal/application/node/get_info_provider.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
@@ -52,7 +52,7 @@ using std::literals::chrono_literals::operator""ms;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-class TestNodeGetInfo : public testing::Test
+class TestGetInfoProvider : public testing::Test
 {
 protected:
     using UniquePtrReqRxSpec = RequestRxSessionMock::RefWrapper::Spec;
@@ -86,7 +86,7 @@ protected:
 
 // MARK: - Tests:
 
-TEST_F(TestNodeGetInfo, make)
+TEST_F(TestGetInfoProvider, make)
 {
     using Service = uavcan::node::GetInfo_1_0;
 
@@ -113,15 +113,15 @@ TEST_F(TestNodeGetInfo, make)
             return libcyphal::detail::makeUniquePtr<UniquePtrResTxSpec>(mr_, res_tx_session_mock);
         }));
 
-    cetl::optional<node::GetInfo> get_info;
+    cetl::optional<node::GetInfoProvider> get_info_provider;
 
     ServiceRxTransfer request{{{{123, Priority::Fast}, {}}, NodeId{0x31}}, {}};
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        auto maybe_get_info = node::GetInfo::make(presentation);
-        ASSERT_THAT(maybe_get_info, VariantWith<node::GetInfo>(_));
-        get_info.emplace(cetl::get<node::GetInfo>(std::move(maybe_get_info)));
+        auto maybe_get_info_provider = node::GetInfoProvider::make(presentation);
+        ASSERT_THAT(maybe_get_info_provider, VariantWith<node::GetInfoProvider>(_));
+        get_info_provider.emplace(cetl::get<node::GetInfoProvider>(std::move(maybe_get_info_provider)));
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
@@ -140,11 +140,11 @@ TEST_F(TestNodeGetInfo, make)
     });
     scheduler_.scheduleAt(3s, [&](const auto&) {
         //
-        auto& info                  = get_info->response();
+        auto& info                  = get_info_provider->response();
         info.software_version.major = 7;
         std::copy_n("test", 4, std::back_inserter(info.name));
 
-        get_info->setResponseTimeout(100ms);
+        get_info_provider->setResponseTimeout(100ms);
 
         EXPECT_CALL(res_tx_session_mock,
                     send(ServiceTxMetadataEq({{{124, Priority::Nominal}, now() + 100ms}, NodeId{0x31}}), _))  //
@@ -168,7 +168,7 @@ TEST_F(TestNodeGetInfo, make)
         EXPECT_CALL(req_rx_session_mock, deinit()).Times(1);
         EXPECT_CALL(res_tx_session_mock, deinit()).Times(1);
 
-        get_info.reset();
+        get_info_provider.reset();
     });
     scheduler_.spinFor(10s);
 }
