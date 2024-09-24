@@ -81,6 +81,18 @@ public:
     HeartbeatProducer& operator=(const HeartbeatProducer&)     = delete;
     HeartbeatProducer& operator=(HeartbeatProducer&&) noexcept = delete;
 
+    /// @brief Gets reference to the Heartbeat message instance.
+    ///
+    /// Could be used to setup the message data. Initially, the message has default values.
+    /// `Message.uptime` field is periodically updated by this producer to reflect duration
+    /// since the node startup, so user should not modify it - it will be overridden on the next update.
+    /// As an alternative, the user can set the update callback to modify the message before it is published.
+    ///
+    Message& message() noexcept
+    {
+        return message_;
+    }
+
     /// @brief Umbrella type for heartbeat update entities.
     ///
     struct UpdateCallback
@@ -104,12 +116,15 @@ public:
         using Function                            = cetl::pmr::function<void(const Arg& arg), FunctionSize>;
     };
 
-    /// @brief Sets the update callback for the heartbeat.
+    /// @brief Sets the message update callback for the heartbeat.
+    ///
+    /// As an alternative, the user can modify the `message()` directly - the next periodic update will reflect.
     ///
     /// @param update_callback_fn The update callback function, which will be called before publication of the next
     ///                           heartbeat message. Allows to modify the `message` before it will be published.
     ///                           `arg.message.uptime` field is automatically prepopulated to reflect duration
-    ///                           since the node startup, but application can modify it as well (if needed).
+    ///                           since the node startup, so although the field could be modified by the user,
+    ///                           it will be anyway overridden on the next update.
     ///
     void setUpdateCallback(UpdateCallback::Function&& update_callback_fn)
     {

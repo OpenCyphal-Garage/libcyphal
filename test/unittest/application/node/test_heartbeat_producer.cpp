@@ -174,7 +174,14 @@ TEST_F(TestHeartbeatProducer, make)
         EXPECT_CALL(msg_tx_session_mock, send(TransferTxMetadataEq({{5, Priority::Nominal}, now() + 1s}), _))  //
             .WillOnce(Return(cetl::nullopt));
     });
-    scheduler_.scheduleAt(7s + 500ms, [&](const auto&) {
+    scheduler_.scheduleAt(8s, [&](const auto&) {
+        //
+        EXPECT_CALL(msg_tx_session_mock, send(TransferTxMetadataEq({{6, Priority::Nominal}, now() + 1s}), _))  //
+            .WillOnce(Return(cetl::nullopt));
+
+        heartbeat_producer->message().health.value = uavcan::node::Health_1_0::CAUTION;
+    });
+    scheduler_.scheduleAt(8s + 500ms, [&](const auto&) {
         //
         heartbeat_producer.reset();
     });
@@ -185,7 +192,8 @@ TEST_F(TestHeartbeatProducer, make)
                     std::make_tuple(TimePoint{4s}, static_cast<int>(uavcan::node::Health_1_0::NOMINAL)),
                     std::make_tuple(TimePoint{5s}, static_cast<int>(uavcan::node::Health_1_0::NOMINAL)),
                     std::make_tuple(TimePoint{6s}, static_cast<int>(uavcan::node::Health_1_0::WARNING)),
-                    std::make_tuple(TimePoint{7s}, static_cast<int>(uavcan::node::Health_1_0::WARNING))));
+                    std::make_tuple(TimePoint{7s}, static_cast<int>(uavcan::node::Health_1_0::WARNING)),
+                    std::make_tuple(TimePoint{8s}, static_cast<int>(uavcan::node::Health_1_0::CAUTION))));
 }
 
 TEST_F(TestHeartbeatProducer, make_failure)
