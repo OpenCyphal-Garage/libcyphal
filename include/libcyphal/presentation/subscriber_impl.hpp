@@ -19,7 +19,6 @@
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <cstdint>
-#include <memory>
 #include <utility>
 
 namespace libcyphal
@@ -67,37 +66,6 @@ public:
                 return reinterpret_cast<TypeId>(&placeholder);  // NOSONAR : cpp:S3630
             }
 
-            // No Sonar `cpp:S5356` and `cpp:S5357` b/c of raw PMR memory allocation,
-            // as well as data pointer type mismatches between scattered buffer and `const_bitspan`.
-            // TODO: Eliminate PMR allocation - when `deserialize` will support scattered buffers.
-            // TODO: Move this method to some common place (this `SubscriberImpl` and `ServerImpl` have it).
-            template <typename Message>
-            static bool tryDeserialize(Context& context, Message& out_message)
-            {
-                // Make a copy of the scattered buffer into a single contiguous temp buffer.
-                //
-                // Strictly speaking, we could eliminate PMR allocation here in favor of a fixed-size stack buffer
-                // (`Message::_traits_::ExtentBytes`), but this might be dangerous in case of large messages.
-                // Maybe some kind of hybrid approach would be better,
-                // e.g. stack buffer for small messages and PMR for large ones.
-                //
-                const std::unique_ptr<cetl::byte, PmrRawBytesDeleter>
-                    tmp_buffer{static_cast<cetl::byte*>(  // NOSONAR cpp:S5356 cpp:S5357
-                                   context.memory.allocate(context.buffer.size())),
-                               {context.buffer.size(), &context.memory}};
-                if (!tmp_buffer)
-                {
-                    return false;
-                }
-                const auto data_size = context.buffer.copy(0, tmp_buffer.get(), context.buffer.size());
-
-                const auto* const data_raw = static_cast<const void*>(tmp_buffer.get());
-                const auto* const data_u8s = static_cast<const std::uint8_t*>(data_raw);  // NOSONAR cpp:S5356 cpp:S5357
-                const nunavut::support::const_bitspan bitspan{data_u8s, data_size};
-
-                return deserialize(out_message, bitspan);
-            }
-
             template <typename Message, typename Subscriber>
             static void deserializeMsgOnceForManySubs(Context& context)
             {
@@ -108,7 +76,8 @@ public:
                 // Deserialize the message from the buffer - only once!
                 //
                 Message    message{};
-                const bool got_message = tryDeserialize(context, message);
+                const bool got_message =
+                    tryDeserializePayload(context.buffer, context.memory, message) == cetl::nullopt;
 
                 // Enumerate all nodes with the same deserializer, and deliver the message to them.
                 // It's important to do it even in case of deserialization failure -

@@ -14,6 +14,7 @@
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
 #include <libcyphal/transport/udp/udp_transport_impl.hpp>
+#include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
 #include <gmock/gmock.h>
@@ -21,9 +22,9 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cstdint>
 #include <cstdlib>
 #include <iomanip>
+#include <iterator>
 #include <limits>
 #include <sstream>
 #include <string>
@@ -48,6 +49,15 @@ struct CommonHelpers
             iface_addresses.push_back(str);
         }
         return iface_addresses;
+    }
+
+    static std::string joinInterfaceAddresses(const std::vector<std::string>& iface_addresses)  // NOLINT
+    {
+        // join the interface addresses into a single string using algorithms.
+        std::ostringstream oss;
+        std::copy(iface_addresses.begin(), iface_addresses.end(), std::ostream_iterator<std::string>(oss, " "));
+        const auto str = oss.str();
+        return str.substr(0, str.size() - 1);
     }
 
     struct Printers

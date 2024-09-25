@@ -50,15 +50,14 @@ public:
         return static_cast<std::int32_t>(subject_id_) - static_cast<std::int32_t>(subject_id);
     }
 
-    cetl::optional<transport::AnyFailure> publishRawData(const TimePoint                    deadline,
-                                                         const transport::Priority          priority,
-                                                         const cetl::span<const cetl::byte> data)
+    cetl::optional<transport::AnyFailure> publishRawData(const TimePoint                   deadline,
+                                                         const transport::Priority         priority,
+                                                         const transport::PayloadFragments payload_fragments)
     {
         transfer_id_ += 1;
         const transport::TransferTxMetadata metadata{{transfer_id_, priority}, deadline};
 
-        const std::array<const cetl::span<const cetl::byte>, 1> payload{data};
-        return msg_tx_session_->send(metadata, payload);
+        return msg_tx_session_->send(metadata, payload_fragments);
     }
 
     // MARK: SharedObject

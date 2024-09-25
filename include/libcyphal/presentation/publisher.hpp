@@ -122,12 +122,12 @@ protected:
         impl_->retain();
     }
 
-    // TODO: Switch to `transport::PayloadFragments`.
-    cetl::optional<Failure> publishRawData(const TimePoint deadline, const cetl::span<const cetl::byte> data) const
+    cetl::optional<Failure> publishRawData(const TimePoint                   deadline,
+                                           const transport::PayloadFragments payload_fragments) const
     {
         CETL_DEBUG_ASSERT(impl_ != nullptr, "");
 
-        return impl_->publishRawData(deadline, priority_, data);
+        return impl_->publishRawData(deadline, priority_, payload_fragments);
     }
 
 private:
@@ -186,7 +186,8 @@ public:
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         const cetl::span<const cetl::byte> data{reinterpret_cast<cetl::byte*>(buffer.data()),  // NOSONAR cpp:S3630
                                                 result_size.value()};
-        if (auto failure = publishRawData(deadline, data))
+        const std::array<const cetl::span<const cetl::byte>, 1> payload_fragments{data};
+        if (auto failure = publishRawData(deadline, payload_fragments))
         {
             return libcyphal::detail::upcastVariant<Failure>(std::move(*failure));
         }
@@ -216,13 +217,11 @@ public:
     /// Publishes the raw message on libcyphal network.
     ///
     /// @param deadline The latest time to send the message. Will be dropped if exceeded.
-    /// @param data The message data to publish.
+    /// @param payload_fragments The message data to publish.
     ///
-    /// TODO: Switch to `transport::PayloadFragments`.
-    ///
-    cetl::optional<Failure> publish(const TimePoint deadline, const cetl::span<const cetl::byte> data) const
+    cetl::optional<Failure> publish(const TimePoint deadline, const transport::PayloadFragments payload_fragments) const
     {
-        return publishRawData(deadline, data);
+        return publishRawData(deadline, payload_fragments);
     }
 
 private:

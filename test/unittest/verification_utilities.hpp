@@ -6,9 +6,12 @@
 #ifndef LIBCYPHAL_VERIFICATION_UTILITIES_HPP_INCLUDED
 #define LIBCYPHAL_VERIFICATION_UTILITIES_HPP_INCLUDED
 
+#include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
-#include <libcyphal/types.hpp>
 
+#include <array>
+#include <cstddef>
+#include <cstdint>
 #include <numeric>
 
 namespace libcyphal
@@ -23,8 +26,8 @@ inline cetl::byte b(std::uint8_t b)
 
 inline void fillIotaBytes(const cetl::span<cetl::byte> span, const cetl::byte init)
 {
-    std::iota(reinterpret_cast<std::uint8_t*>(span.data()),
-              reinterpret_cast<std::uint8_t*>(span.data() + span.size()),
+    std::iota(reinterpret_cast<std::uint8_t*>(span.data()),                // NOLINT
+              reinterpret_cast<std::uint8_t*>(span.data() + span.size()),  // NOLINT
               static_cast<std::uint8_t>(init));
 }
 

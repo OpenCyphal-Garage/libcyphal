@@ -148,10 +148,11 @@ TEST_F(Example_1_Presentation_0_HelloRawPubSub_Udp, main)
         std::cout << "📨 Publishing Hello message # " << publish_msg_count << std::endl;  // NOLINT
         const TimePoint                  msg_deadline = arg.approx_now + 1s;
         constexpr cetl::span<const char> message{"Hello, World!"};
-        EXPECT_THAT(raw_publisher.publish(  //
-                        msg_deadline,
-                        {reinterpret_cast<const cetl::byte*>(message.data()), message.size()}),  // NOLINT
-                    testing::Eq(cetl::nullopt));
+        //
+        const std::array<const cetl::span<const cetl::byte>, 1> payload_fragments{
+            cetl::span<const cetl::byte>{reinterpret_cast<const cetl::byte*>(message.data()),  // NOLINT
+                                         message.size()}};
+        EXPECT_THAT(raw_publisher.publish(msg_deadline, payload_fragments), testing::Eq(cetl::nullopt));
     });
     publish_every_1s_cb.schedule(Callback::Schedule::Repeat{executor_.now() + 1s, 1s});
 

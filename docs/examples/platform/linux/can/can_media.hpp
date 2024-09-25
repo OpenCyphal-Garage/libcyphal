@@ -98,10 +98,11 @@ public:
 
         // We gonna register separate callbacks for rx & tx (aka pop & push),
         // so at executor (especially in case of the "epoll" one) we need separate file descriptors.
-        const SocketCANFD socket_can_tx_fd = ::dup(socket_can_rx_fd);
-        if (socket_can_tx_fd == -1)
+        //
+        const SocketCANFD socket_can_tx_fd = ::socketcanOpen(iface_address.c_str(), false);
+        if (socket_can_tx_fd < 0)
         {
-            const int error_code = errno;
+            const int error_code = -socket_can_tx_fd;
             (void) ::close(socket_can_rx_fd);
             return libcyphal::transport::PlatformError{posix::PosixPlatformError{error_code}};
         }
@@ -151,7 +152,12 @@ public:
         {
             socket_can_rx_fd_ = socket_can_rx_fd;
         }
-        socket_can_tx_fd_ = ::dup(socket_can_rx_fd);
+
+        const SocketCANFD socket_can_tx_fd = ::socketcanOpen(iface_address_.c_str(), false);
+        if (socket_can_tx_fd >= 0)
+        {
+            socket_can_tx_fd_ = socket_can_tx_fd;
+        }
     }
 
 private:

@@ -3,16 +3,19 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include "can_gtest_helpers.hpp"
+#include "can_gtest_helpers.hpp"   // NOLINT(misc-include-cleaner)
 #include "cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
+#include "gtest_helpers.hpp"       // NOLINT(misc-include-cleaner)
 #include "media_mock.hpp"
 #include "memory_resource_mock.hpp"
 #include "tracking_memory_resource.hpp"
+#include "transport/transport_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "verification_utilities.hpp"
 #include "virtual_time_scheduler.hpp"
 
 #include <canard.h>
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
 #include <libcyphal/errors.hpp>
 #include <libcyphal/transport/can/can_transport.hpp>
 #include <libcyphal/transport/can/can_transport_impl.hpp>
@@ -30,11 +33,16 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <string>
+#include <tuple>
 #include <utility>
+#include <vector>
 
 namespace
 {
 
+using libcyphal::Duration;
 using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
 using libcyphal::MemoryError;
@@ -60,6 +68,7 @@ using testing::VariantWith;
 // NOLINTBEGIN(misc-unused-using-decls, misc-include-cleaner)
 using std::literals::chrono_literals::operator""s;
 using std::literals::chrono_literals::operator""ms;
+using std::literals::chrono_literals::operator""us;
 // NOLINTEND(misc-unused-using-decls, misc-include-cleaner)
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
@@ -84,9 +93,11 @@ protected:
         return scheduler_.now();
     }
 
-    UniquePtr<ICanTransport> makeTransport(cetl::pmr::memory_resource& mr, const NodeId local_node_id)
+    UniquePtr<ICanTransport> makeTransport(cetl::pmr::memory_resource& mr,
+                                           const NodeId                local_node_id,
+                                           IMedia*                     extra_media = nullptr)
     {
-        std::array<IMedia*, 1> media_array{&media_mock_};
+        std::array<IMedia*, 2> media_array{&media_mock_, extra_media};
 
         auto maybe_transport = can::makeTransport(mr, scheduler_, media_array, 0);
         EXPECT_THAT(maybe_transport, VariantWith<UniquePtr<ICanTransport>>(NotNull()));
@@ -95,6 +106,29 @@ protected:
         transport->setLocalNodeId(local_node_id);
 
         return transport;
+    }
+
+    IMedia::PopResult::Metadata makeFragmentFromCanDumpLine(const std::string&     can_dump_line,
+                                                            cetl::span<cetl::byte> payload)
+    {
+        const auto pound = can_dump_line.find('#');
+
+        const auto can_id = std::stoul(can_dump_line.substr(0, pound), nullptr, 16);
+
+        const auto data_str = can_dump_line.substr(pound + 1);
+        const auto data_len = data_str.size() / 2;
+        CETL_DEBUG_ASSERT(data_len <= CANARD_MTU_CAN_CLASSIC, "");
+
+        std::size_t end_pos{0};
+        auto        data = std::stoull(data_str, &end_pos, 16);
+        CETL_DEBUG_ASSERT(end_pos == data_len * 2, "");
+
+        for (std::size_t i = data_len; i > 0; --i, data >>= 8U)
+        {
+            payload[i - 1] = static_cast<cetl::byte>(data & 0xFFU);
+        }
+
+        return {now(), static_cast<CanId>(can_id), data_len};
     }
 
     // MARK: Data members:
@@ -517,6 +551,111 @@ TEST_F(TestCanSvcRxSessions, unsubscribe)
         session.reset();
     });
     scheduler_.spinFor(10s);
+}
+
+TEST_F(TestCanSvcRxSessions, receive_multiple_tids_frames)
+{
+    StrictMock<MediaMock> media_mock2{};
+    EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+
+    auto transport = makeTransport(mr_, 42, &media_mock2);
+
+    EXPECT_CALL(media_mock_, registerPopCallback(_))  //
+        .WillOnce(Invoke([&](auto function) {         //
+            return scheduler_.registerNamedCallback("slcan0", std::move(function));
+        }));
+    EXPECT_CALL(media_mock_, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
+    EXPECT_CALL(media_mock2, registerPopCallback(_))  //
+        .WillOnce(Invoke([&](auto function) {         //
+            return scheduler_.registerNamedCallback("slcan2", std::move(function));
+        }));
+    EXPECT_CALL(media_mock2, setFilters(SizeIs(1))).WillOnce(Return(cetl::nullopt));
+
+    constexpr std::size_t extent_bytes  = 8;
+    auto                  maybe_session = transport->makeResponseRxSession({extent_bytes, 147, 47});
+    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
+    auto session = cetl::get<UniquePtr<IResponseRxSession>>(std::move(maybe_session));
+    session->setTransferIdTimeout(0s);
+
+    std::vector<std::tuple<TimePoint, std::string>> calls;
+    session->setOnReceiveCallback([&](const auto& arg) {
+        //
+        calls.push_back(std::make_tuple(now(), testing::PrintToString(arg.transfer.metadata)));
+    });
+
+    const std::array<std::tuple<MediaMock&, Duration, std::string, std::string>, 20> frames = {
+        //
+        // response 1001, tid=0, accepted
+        std::make_tuple(std::ref(media_mock_), 350755us, "slcan0", "1224D52F#E9030000000000A0"),  // ☑️create!
+        std::make_tuple(std::ref(media_mock_), 350764us, "slcan0", "1224D52F#00C08C40"),          // ⚡️0️⃣tid←1
+        //
+        // CAN2 response 1001, tid=0, dropped as duplicate
+        std::make_tuple(std::ref(media_mock2), 350783us, "slcan2", "1224D52F#E9030000000000A0"),  // ❌tid≠1
+        std::make_tuple(std::ref(media_mock2), 351331us, "slcan2", "1224D52F#00C08C40"),          // ❌tid≠1
+        //
+        // CAN2 response 2001, tid=1, dropped as wrong interface (expected #0)
+        std::make_tuple(std::ref(media_mock2), 351336us, "slcan2", "1224D52F#D1070000000000A1"),  // ❌iface≠0
+        std::make_tuple(std::ref(media_mock2), 351338us, "slcan2", "1224D52F#00594C41"),          // ❌iface≠0
+        //
+        // CAN2 partial response 3001, tid=2, resync as new tid # 2
+        std::make_tuple(std::ref(media_mock2), 351340us, "slcan2", "1224D52F#B90B0000000000A2"),  // ☑️️️tid←2,iface←2
+        //
+        // CAN0 response 2001, tid=1, dropped as wrong interface (expected #2)
+        std::make_tuple(std::ref(media_mock_), 351473us, "slcan0", "1224D52F#D1070000000000A1"),  // ❌iface≠2
+        std::make_tuple(std::ref(media_mock_), 351476us, "slcan0", "1224D52F#00594C41"),          // ❌iface≠2
+        //
+        // CAN0 response 3001, tid=2, dropped as wrong interface (expected #2)
+        std::make_tuple(std::ref(media_mock_), 351478us, "slcan0", "1224D52F#B90B0000000000A2"),  // ❌iface≠2
+        std::make_tuple(std::ref(media_mock_), 351479us, "slcan0", "1224D52F#00984542"),          // ❌iface≠2
+        //
+        // CAN2 final fragment response 3001, tid=2, accepted
+        std::make_tuple(std::ref(media_mock2), 351697us, "slcan2", "1224D52F#00984542"),  //      // ⚡️2️⃣tid←3
+        //
+        // CAN2 response 4001, tid=3, accepted
+        std::make_tuple(std::ref(media_mock2), 351700us, "slcan2", "1224D52F#A10F0000000000A3"),  // ☑️
+        std::make_tuple(std::ref(media_mock2), 351702us, "slcan2", "1224D52F#007AED43"),          // ⚡️3️⃣tid←4
+        //
+        // CAN0 response 4001, tid=3, dropped as duplicate
+        std::make_tuple(std::ref(media_mock_), 351730us, "slcan0", "1224D52F#A10F0000000000A3"),  // ❌tid≠4
+        std::make_tuple(std::ref(media_mock_), 351732us, "slcan0", "1224D52F#007AED43"),          // ❌tid≠4
+        //
+        // CAN2 response 5001, tid=4, accepted
+        std::make_tuple(std::ref(media_mock2), 352747us, "slcan2", "1224D52F#89130000000000A4"),  // ☑️
+        std::make_tuple(std::ref(media_mock2), 352777us, "slcan2", "1224D52F#007A4F44"),          // ⚡️4️⃣tid←5
+        //
+        // CAN0 response 5001, tid=4, dropped as duplicate
+        std::make_tuple(std::ref(media_mock_), 352800us, "slcan0", "1224D52F#89130000000000A4"),  // ❌tid≠5
+        std::make_tuple(std::ref(media_mock_), 352812us, "slcan0", "1224D52F#007A4F44"),          // ❌tid≠5
+    };
+    for (const auto& frame : frames)
+    {
+        scheduler_.scheduleAt(TimePoint{std::get<1>(frame)}, [this, &frame](const auto&) {
+            //
+            scheduler_.scheduleNamedCallback(std::get<2>(frame), TimePoint{std::get<1>(frame)});
+            EXPECT_CALL(std::get<0>(frame), pop(_)).WillOnce([&](auto p) {  //
+                return makeFragmentFromCanDumpLine(std::get<3>(frame), p);
+            });
+        });
+    }
+    scheduler_.spinFor(10s);
+
+    EXPECT_THAT(calls,
+                ElementsAre(std::make_tuple(  //
+                                TimePoint{350764us},
+                                "SvcRxMetadata{rx_meta=TransferRxMetadata{base=TransferMetadata{transfer_id=0, "
+                                "priority=Nominal(4)}, timestamp=350755us}, remote_node_id=47}"),
+                            std::make_tuple(  //
+                                TimePoint{351697us},
+                                "SvcRxMetadata{rx_meta=TransferRxMetadata{base=TransferMetadata{transfer_id=2, "
+                                "priority=Nominal(4)}, timestamp=351340us}, remote_node_id=47}"),
+                            std::make_tuple(  //
+                                TimePoint{351702us},
+                                "SvcRxMetadata{rx_meta=TransferRxMetadata{base=TransferMetadata{transfer_id=3, "
+                                "priority=Nominal(4)}, timestamp=351700us}, remote_node_id=47}"),
+                            std::make_tuple(  //
+                                TimePoint{352777us},
+                                "SvcRxMetadata{rx_meta=TransferRxMetadata{base=TransferMetadata{transfer_id=4, "
+                                "priority=Nominal(4)}, timestamp=352747us}, remote_node_id=47}")));
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

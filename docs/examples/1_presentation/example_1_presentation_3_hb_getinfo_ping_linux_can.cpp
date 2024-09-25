@@ -11,21 +11,27 @@
 ///
 
 #include "platform/common_helpers.hpp"
-#include "platform/posix/posix_single_threaded_executor.hpp"
-#include "platform/posix/udp/udp_media.hpp"
+#include "platform/linux/can/can_media.hpp"
+#include "platform/linux/epoll_single_threaded_executor.hpp"
 #include "platform/tracking_memory_resource.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/presentation/client.hpp>
 #include <libcyphal/presentation/presentation.hpp>
+#include <libcyphal/presentation/publisher.hpp>
 #include <libcyphal/presentation/response_promise.hpp>
 #include <libcyphal/presentation/server.hpp>
+#include <libcyphal/transport/can/can_transport.hpp>
+#include <libcyphal/transport/can/can_transport_impl.hpp>
 #include <libcyphal/transport/types.hpp>
-#include <libcyphal/transport/udp/udp_transport.hpp>
-#include <libcyphal/transport/udp/udp_transport_impl.hpp>
 #include <libcyphal/types.hpp>
+
 #include <nunavut/support/serialization.hpp>
+#include <uavcan/node/GetInfo_1_0.hpp>
+#include <uavcan/node/Health_1_0.hpp>
+#include <uavcan/node/Heartbeat_1_0.hpp>
+#include <uavcan/node/Mode_1_0.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -38,6 +44,7 @@
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <map>
 #include <string>
 #include <tuple>
@@ -50,12 +57,13 @@ namespace
 using namespace example::platform;          // NOLINT This our main concern here in this test.
 using namespace libcyphal::presentation;    // NOLINT This our main concern here in this test.
 using namespace libcyphal::transport;       // NOLINT This our main concern here in this test.
-using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in this test.
+using namespace libcyphal::transport::can;  // NOLINT This our main concern here in this test.
 
 // https://github.com/llvm/llvm-project/issues/53444
 // NOLINTBEGIN(misc-unused-using-decls, misc-include-cleaner)
 using std::literals::chrono_literals::operator""s;
 using std::literals::chrono_literals::operator""ms;
+using std::literals::chrono_literals::operator""us;
 // NOLINTEND(misc-unused-using-decls, misc-include-cleaner)
 
 using testing::IsEmpty;
@@ -125,13 +133,13 @@ nunavut::support::SerializeResult deserialize(Ping<IsRequest>& ping, nunavut::su
 
 }  // namespace UserService
 
-class Example_1_Presentation_1_PingUserService_Udp : public testing::Test
+class Example_1_Presentation_3_HB_GetInfo_Ping_Can : public testing::Test
 {
 protected:
     using Callback        = libcyphal::IExecutor::Callback;
     using Duration        = libcyphal::Duration;
     using TimePoint       = libcyphal::TimePoint;
-    using UdpTransportPtr = libcyphal::UniquePtr<IUdpTransport>;
+    using CanTransportPtr = libcyphal::UniquePtr<ICanTransport>;
     using PongPromise     = ResponsePromise<UserService::PongResponse>;
 
     void SetUp() override
@@ -157,8 +165,8 @@ protected:
         {
             remote_node_id_ = static_cast<NodeId>(std::stoul(node_id_str));
         }
-        // Space separated list of interface addresses, like "127.0.0.1 192.168.1.162". Default is "127.0.0.1".
-        if (const auto* const iface_addresses_str = std::getenv("CYPHAL__UDP__IFACE"))
+        // Space separated list of interface addresses, like "slcan0 slcan1". Default is "vcan0".
+        if (const auto* const iface_addresses_str = std::getenv("CYPHAL__CAN__IFACE"))
         {
             iface_addresses_ = CommonHelpers::splitInterfaceAddresses(iface_addresses_str);
         }
@@ -168,11 +176,17 @@ protected:
 
     void TearDown() override
     {
-        executor_.releaseTemporaryResources();
-
         EXPECT_THAT(mr_.allocated_bytes, 0);
         EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+    }
+
+    uavcan::node::Heartbeat_1_0 makeHeartbeatMsg(const libcyphal::TimePoint now) const
+    {
+        const auto uptime_in_secs = std::chrono::duration_cast<std::chrono::seconds>(now - startup_time_);
+        return {static_cast<std::uint32_t>(uptime_in_secs.count()),
+                {uavcan::node::Health_1_0::NOMINAL},
+                {uavcan::node::Mode_1_0::OPERATIONAL}};
     }
 
     TimePoint now() const
@@ -189,18 +203,20 @@ protected:
     {
         const std::string            name;
         CommonHelpers::RunningStats& stats;
+        UserService::PingRequest     request;
+        Priority                     priority;
         TimePoint                    req_start;
-        UserService::PingRequest     request{};
         cetl::optional<PongPromise>  promise;
     };
     void processPingPongResult(PingPongState& state, const PongPromise::Callback::Arg& arg)
     {
         const auto request_duration = arg.approx_now - state.req_start;
-        state.stats.append(static_cast<double>(  //
-            std::chrono::duration_cast<std::chrono::microseconds>(request_duration).count()));
 
         if (const auto* const reply_ptr = cetl::get_if<PongPromise::Success>(&arg.result))
         {
+            state.stats.append(static_cast<double>(  //
+                std::chrono::duration_cast<std::chrono::microseconds>(request_duration).count()));
+
             if (print_activities_)
             {
                 const auto& reply = *reply_ptr;
@@ -226,28 +242,29 @@ protected:
 
     struct State
     {
-        posix::UdpMedia::Collection media_collection_;
-        UdpTransportPtr             transport_;
+        Linux::CanMedia::Collection media_collection_;
+        CanTransportPtr             transport_;
 
     };  // State
 
-    TrackingMemoryResource            mr_;
-    posix::PollSingleThreadedExecutor executor_{mr_};
-    TimePoint                         startup_time_{};
-    NodeId                            local_node_id_{42};
-    NodeId                            remote_node_id_{42};
-    Duration                          run_duration_{10s};
-    bool                              print_activities_{true};
-    std::vector<std::string>          iface_addresses_{"127.0.0.1"};
+    TrackingMemoryResource                                mr_;
+    example::platform::Linux::EpollSingleThreadedExecutor executor_;
+    TimePoint                                             startup_time_{};
+    NodeId                                                local_node_id_{42};
+    NodeId                                                remote_node_id_{42};
+    Duration                                              run_duration_{10s};
+    bool                                                  print_activities_{true};
+    std::vector<std::string>                              iface_addresses_{"vcan0"};
     // NOLINTEND
 
-};  // Example_1_Presentation_1_PingUserService_Udp
+};  // Example_1_Presentation_3_HB_GetInfo_Ping_Can
 
-TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
+TEST_F(Example_1_Presentation_3_HB_GetInfo_Ping_Can, main)
 {
-    using PingClient       = Client<UserService::PingRequest, UserService::PongResponse>;
-    using PingServer       = Server<UserService::PingRequest, UserService::PongResponse>;
-    using PongContinuation = PingServer::OnRequestCallback::Continuation;
+    using PingClient         = Client<UserService::PingRequest, UserService::PongResponse>;
+    using PingServer         = Server<UserService::PingRequest, UserService::PongResponse>;
+    using PongContinuation   = PingServer::OnRequestCallback::Continuation;
+    using HeartbeatPublisher = Publisher<uavcan::node::Heartbeat_1_0>;
 
     State state;
 
@@ -256,16 +273,19 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
     std::cout << "Remote node ID: " << remote_node_id_ << "\n";
     std::cout << "Interfaces    : '" << CommonHelpers::joinInterfaceAddresses(iface_addresses_) << "'\n";
 
-    // 1. Make UDP transport with collection of media.
+    // 1. Make CAN transport with collection of media.
     //
+    if (!state.media_collection_.make(executor_, iface_addresses_))
+    {
+        GTEST_SKIP();
+    }
     constexpr std::size_t tx_capacity = 16;
-    state.media_collection_.make(mr_, executor_, iface_addresses_);
-    auto maybe_transport = makeTransport({mr_}, executor_, state.media_collection_.span(), tx_capacity);
-    ASSERT_THAT(maybe_transport, testing::VariantWith<UdpTransportPtr>(testing::NotNull()))
+    auto maybe_transport              = makeTransport({mr_}, executor_, state.media_collection_.span(), tx_capacity);
+    ASSERT_THAT(maybe_transport, testing::VariantWith<CanTransportPtr>(testing::NotNull()))
         << "Can't create transport.";
-    state.transport_ = cetl::get<UdpTransportPtr>(std::move(maybe_transport));
+    state.transport_ = cetl::get<CanTransportPtr>(std::move(maybe_transport));
     state.transport_->setLocalNodeId(local_node_id_);
-    state.transport_->setTransientErrorHandler(CommonHelpers::Udp::transientErrorReporter);
+    state.transport_->setTransientErrorHandler(CommonHelpers::Can::transientErrorReporter);
 
     // 2. Create presentation layer object.
     //
@@ -273,7 +293,7 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
 
     // 3. Bring up "Ping" server.
     //
-    // For the sake of demonstration, we will keep track of all "Ping" requests inside the `ping_contexts` map,
+    // Fot the sake of demonstration, we will keep track of all "Ping" requests inside the `ping_contexts` map,
     // and respond to them with "Pong" after variable delay, namely after `10ms + 10ms * (ping_id % 3)`.
     // As a result, we will have 3 different delays for 3 different "Ping" requests, which in turn reshuffle the order
     // of incoming responses - useful for testing multiple overlapping/concurrent requests on the same service.
@@ -292,7 +312,8 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
                 std::cout << " ◯  Server received     'Ping' req (ping_id=" << arg.request.id
                           << ", from_node_id=" << arg.metadata.remote_node_id << ")."
                           << CommonHelpers::Printers::describeDurationInMs(arg.approx_now - startup_time_)
-                          << ", tf_id=" << arg.metadata.rx_meta.base.transfer_id << std::endl;  // NOLINT
+                          << ", tf_id=" << arg.metadata.rx_meta.base.transfer_id
+                          << ", pri=" << static_cast<int>(arg.metadata.rx_meta.base.priority) << std::endl;  // NOLINT
             }
             auto delay_cb = executor_.registerCallback([&ping_contexts, id = unique_request_id](const auto& cb_arg) {
                 //
@@ -301,7 +322,7 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
                 continuation(cb_arg.approx_now + 1s, UserService::PongResponse{std::get<2>(ping_context).id});
                 ping_contexts.erase(id);
             });
-            delay_cb.schedule(Callback::Schedule::Once{arg.approx_now + 10ms + (10ms * (arg.request.id % 3))});
+            delay_cb.schedule(Callback::Schedule::Once{arg.approx_now + 1us + (10us * (arg.request.id % 7))});
             ping_contexts[unique_request_id++] =
                 std::make_tuple(std::move(continuation), std::move(delay_cb), arg.request);
         });
@@ -318,13 +339,17 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
 
     // 5. Send periodic "Ping" requests, and print "Pong" replies.
     //
-    // For the sake of demonstration, we will send every second 3 concurrent "Ping" requests with different payloads
+    // Fot the sake of demonstration, we will send every second 3 concurrent "Ping" requests with different payloads
     // (the `id` field), which will implicitly affect the order of responses (see server setup).
     //
-    CommonHelpers::RunningStats  ping_pong_stats;
-    std::array<PingPongState, 3> ping_pong_states{PingPongState{"A", ping_pong_stats, {}, {1000}, {}},
-                                                  PingPongState{"B", ping_pong_stats, {}, {2000}, {}},
-                                                  PingPongState{"C", ping_pong_stats, {}, {3000}, {}}};
+    constexpr std::size_t       concurrent_requests = 5;
+    CommonHelpers::RunningStats ping_pong_stats;
+    std::array<PingPongState, concurrent_requests>
+        ping_pong_states{PingPongState{"A", ping_pong_stats, {1000}, Priority::Nominal, {}, {}},
+                         PingPongState{"B", ping_pong_stats, {2000}, Priority::Nominal, {}, {}},
+                         PingPongState{"C", ping_pong_stats, {3000}, Priority::Nominal, {}, {}},
+                         PingPongState{"D", ping_pong_stats, {4000}, Priority::Nominal, {}, {}},
+                         PingPongState{"E", ping_pong_stats, {5000}, Priority::Nominal, {}, {}}};
     //
     const auto make_ping_request = [this, &ping_client](PingPongState& state) {
         //
@@ -335,13 +360,14 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
                       << ",   to_node_id=" << remote_node_id_ << ")."
                       << CommonHelpers::Printers::describeDurationInMs(uptime()) << std::endl;  // NOLINT
         }
-        state.req_start    = now();
+        state.req_start = now();
+        ping_client.setPriority(state.priority);
         auto maybe_promise = ping_client.request(state.req_start + 300ms, state.request);
         ASSERT_THAT(maybe_promise, testing::VariantWith<PongPromise>(testing::_)) << "Failed to make 'Ping' request.";
         state.promise.emplace(cetl::get<PongPromise>(std::move(maybe_promise)));
     };
     //
-    auto request_every_1s_cb_ = executor_.registerCallback([&](const auto&) {
+    auto request_periodically_cb_ = executor_.registerCallback([&](const auto&) {
         //
         std::cout << "---------------\n";
         for (auto& ping_pong_state : ping_pong_states)
@@ -353,13 +379,44 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
             });
         }
     });
-    request_every_1s_cb_.schedule(Callback::Schedule::Repeat{startup_time_ + 1s, 1s});
+    request_periodically_cb_.schedule(Callback::Schedule::Repeat{startup_time_ + 1s, 3s});
 
-    // 6. Main loop.
+    // 6. Publish heartbeats.
+    //
+    auto maybe_heartbeat_pub = presentation.makePublisher<uavcan::node::Heartbeat_1_0>();
+    ASSERT_THAT(maybe_heartbeat_pub, testing::VariantWith<HeartbeatPublisher>(testing::_))
+        << "Can't create 'Heartbeat' publisher.";
+    auto heartbeat_pub                 = cetl::get<HeartbeatPublisher>(std::move(maybe_heartbeat_pub));
+    auto publish_heartbeat_every_1s_cb = executor_.registerCallback([&](const auto& arg) {
+        //
+        EXPECT_THAT(heartbeat_pub.publish(arg.approx_now + 1s, makeHeartbeatMsg(arg.approx_now)),
+                    testing::Eq(cetl::nullopt));
+    });
+    //
+    constexpr auto hb_period = std::chrono::seconds{uavcan::node::Heartbeat_1_0::MAX_PUBLICATION_PERIOD};
+    publish_heartbeat_every_1s_cb.schedule(Callback::Schedule::Repeat{startup_time_ + hb_period, hb_period});
+
+    // 7. Bring up 'GetInfo' server.
+    //
+    using GetInfo_1_0 = uavcan::node::GetInfo_1_0;
+    uavcan::node::GetInfo_1_0::Response get_info_response{{1, 0}};
+    const std::string                   node_name{"org.opencyphal.Ex_1_Pres_3_HB_GetInfo_Ping_CAN"};
+    std::copy_n(node_name.begin(), std::min(node_name.size(), 50UL), std::back_inserter(get_info_response.name));
+    //
+    auto maybe_get_info_srv = presentation.makeServer<GetInfo_1_0>([&](const auto& arg, auto continuation) {
+        //
+        std::cout << "ⓘ  Received 'GetInfo' request (from_node_id=" << arg.metadata.remote_node_id << ")."
+                  << std::endl;  // NOLINT
+        continuation(arg.approx_now + 1s, get_info_response);
+    });
+    ASSERT_THAT(maybe_get_info_srv, testing::VariantWith<ServiceServer<GetInfo_1_0>>(testing::_))
+        << "Can't create 'GetInfo' server.";
+
+    // 8. Main loop.
     //
     Duration        worst_lateness{0};
     const TimePoint deadline = startup_time_ + run_duration_ + 500ms;
-    std::cout << "-----------\nRunning..." << std::endl;  // NOLINT
+    std::cout << "================>\nRunning..." << std::endl;  // NOLINT
     //
     while (executor_.now() < deadline)
     {
@@ -374,7 +431,7 @@ TEST_F(Example_1_Presentation_1_PingUserService_Udp, main)
         EXPECT_THAT(executor_.pollAwaitableResourcesFor(opt_timeout), testing::Eq(cetl::nullopt));
     }
 
-    std::cout << "Done.\n-----------\nStats:\n";
+    std::cout << ">===============|\nDone.\nStats:\n";
     std::cout << "worst_callback_lateness  = " << worst_lateness.count() << " us\n";
     std::cout << "call_duration_stats_mean = " << ping_pong_stats.mean() << " us\n";
     std::cout << "call_duration_stats_std  ± " << ping_pong_stats.standardDeviation() << " us (±"
