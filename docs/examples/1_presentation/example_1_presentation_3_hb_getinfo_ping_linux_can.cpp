@@ -282,6 +282,7 @@ protected:
 
 TEST_F(Example_1_Presentation_3_HB_GetInfo_Ping_Can, main)
 {
+    using PingRequest        = UserService::PingRequest;
     using PingClient         = Client<UserService::PingRequest, UserService::PongResponse>;
     using PingServer         = Server<UserService::PingRequest, UserService::PongResponse>;
     using PongContinuation   = PingServer::OnRequestCallback::Continuation;
