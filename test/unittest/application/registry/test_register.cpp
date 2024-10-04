@@ -7,6 +7,7 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/application/registry/register_impl.hpp>
+#include <libcyphal/application/registry/registry_impl.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -34,8 +35,8 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
 
         EXPECT_THAT(mr_default_.allocations, IsEmpty());
-        EXPECT_THAT(mr_default_.total_allocated_bytes, 0);
         EXPECT_THAT(mr_default_.total_allocated_bytes, mr_default_.total_deallocated_bytes);
+        EXPECT_THAT(mr_default_.total_allocated_bytes, 0);
     }
 
     // MARK: Data members:
@@ -53,7 +54,7 @@ TEST_F(TestRegister, makeParam)
 {
     Registry rgy{mr_};
 
-    ParamRegister bool_param{rgy, "bool_param", true};
+    ParamRegister<bool> bool_param{rgy, "bool_param", true};
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

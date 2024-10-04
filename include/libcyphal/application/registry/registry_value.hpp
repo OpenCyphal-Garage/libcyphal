@@ -12,7 +12,9 @@
 #include <cassert>
 #include <uavcan/_register/Value_1_0.hpp>
 
+#include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <type_traits>
 
 namespace libcyphal
@@ -26,7 +28,6 @@ using Value = uavcan::_register::Value_1_0;
 
 namespace detail
 {
-
 /// True iff the value is of a resizable type such as string or unstructured.
 template <typename T>
 constexpr bool isVariableSize()
@@ -55,8 +56,7 @@ struct Coercer final
     {
         for (std::size_t i = 0; i < std::min(a.value.size(), b.value.size()); i++)
         {
-            // NOLINTNEXTLINE(bugprone-signed-char-misuse,cert-str34-c)
-            a.value[i] = static_cast<AE>(b.value[i]);
+            a.value[i] = convert<AE>(b.value[i]);
         }
         return true;
     }
@@ -89,6 +89,21 @@ struct Coercer final
         return false;
     }
 
+    template <typename To, typename From>
+    static auto convert(const From& src)
+        -> std::enable_if_t<std::is_same<To, bool>::value && std::is_floating_point<From>::value, To>
+    {
+        return std::abs(src) >= std::numeric_limits<From>::min();
+    }
+
+    template <typename To, typename From>
+    static auto convert(const From& src)
+        -> std::enable_if_t<!std::is_same<To, bool>::value || !std::is_floating_point<From>::value, To>
+    {
+        // NOLINTNEXTLINE(bugprone-signed-char-misuse,cert-str34-c)
+        return static_cast<To>(src);
+    }
+
 };  // Coercer
 
 /// Deduces the index of the numerical array-typed Value union member that can hold elements of type T.
@@ -100,24 +115,26 @@ struct ArraySelector final
 {
     static constexpr std::size_t Index = ArraySelector<T, N + 1>::Index;
 };
+static const cetl::pmr::polymorphic_allocator<void> xxx_alloc{cetl::pmr::null_memory_resource()};
+
 template <typename T, std::size_t N>
 struct ArraySelector<
     T,
     N,
-    std::enable_if_t<std::is_same<typename std::decay_t<decltype(std::declval<Value::VariantType>().emplace<N>())>::
-                                      _traits_::TypeOf::value::value_type,
-                                  T>::value &&
-                     !isVariableSize<std::decay_t<decltype(std::declval<Value::VariantType>().emplace<N>())>>()>>
-    final
+    std::enable_if_t<
+        std::is_same<typename std::decay_t<decltype(std::declval<Value::VariantType>().emplace<N>(
+                         xxx_alloc))>::_traits_::TypeOf::value::value_type,
+                     T>::value &&
+        !isVariableSize<std::decay_t<decltype(std::declval<Value::VariantType>().emplace<N>(xxx_alloc))>>()>> final
 {
     static constexpr std::size_t Index = N;
 };
-static_assert(ArraySelector<bool>::Index == Value::VariantType::IndexOf::bit);
-static_assert(ArraySelector<std::uint8_t>::Index == Value::VariantType::IndexOf::natural8);
-static_assert(ArraySelector<std::uint32_t>::Index == Value::VariantType::IndexOf::natural32);
-static_assert(ArraySelector<std::int8_t>::Index == Value::VariantType::IndexOf::integer8);
-static_assert(ArraySelector<std::int64_t>::Index == Value::VariantType::IndexOf::integer64);
-static_assert(ArraySelector<double>::Index == Value::VariantType::IndexOf::real64);
+static_assert(ArraySelector<bool>::Index == Value::VariantType::IndexOf::bit, "");
+static_assert(ArraySelector<std::uint8_t>::Index == Value::VariantType::IndexOf::natural8, "");
+static_assert(ArraySelector<std::uint32_t>::Index == Value::VariantType::IndexOf::natural32, "");
+static_assert(ArraySelector<std::int8_t>::Index == Value::VariantType::IndexOf::integer8, "");
+static_assert(ArraySelector<std::int64_t>::Index == Value::VariantType::IndexOf::integer64, "");
+static_assert(ArraySelector<double>::Index == Value::VariantType::IndexOf::real64, "");
 
 /// Callable that converts a Value into an array of the specified size and element type.
 ///
@@ -128,31 +145,57 @@ template <typename T, std::size_t N>
 struct ArrayGetter final
 {
     using Result = cetl::optional<std::array<T, N>>;
-    template <typename S, typename = decltype(static_cast<T>(std::declval<S>().value[0]))>
+
+    template <typename S, typename = decltype(Coercer::convert<T>(std::declval<S>().value[0]))>
     Result operator()(const S& src) const
     {
         std::array<T, N> out{};
-        if constexpr (N > 0)
+        for (std::size_t i = 0; i < N; i++)
         {
-            for (std::size_t i = 0; i < N; i++)
-            {
-                out.at(i) = (i < src.value.size()) ? static_cast<T>(src.value[i]) : T{};
-            }
+            out.at(i) = (i < src.value.size()) ? Coercer::convert<T>(src.value[i]) : T{};
         }
-        (void) src;
         return out;
     }
+
     Result operator()(const uavcan::primitive::Empty_1_0&) const
     {
-        return std::nullopt;
+        return cetl::nullopt;
     }
+
     Result operator()(const uavcan::primitive::Unstructured_1_0&) const
     {
-        return std::nullopt;
+        return cetl::nullopt;
     }
+
     Result operator()(const uavcan::primitive::String_1_0&) const
     {
-        return std::nullopt;
+        return cetl::nullopt;
+    }
+};
+template <typename T>
+struct ArrayGetter<T, 0> final
+{
+    using Result = cetl::optional<std::array<T, 0>>;
+
+    template <typename S>
+    Result operator()(const S&) const
+    {
+        return std::array<T, 0>{};
+    }
+
+    Result operator()(const uavcan::primitive::Empty_1_0&) const
+    {
+        return cetl::nullopt;
+    }
+
+    Result operator()(const uavcan::primitive::Unstructured_1_0&) const
+    {
+        return cetl::nullopt;
+    }
+
+    Result operator()(const uavcan::primitive::String_1_0&) const
+    {
+        return cetl::nullopt;
     }
 
 };  // ArrayGetter
@@ -168,7 +211,7 @@ CETL_NODISCARD bool get(const Value& src, std::array<T, N>& dst)
     }
     return false;
 }
-template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+template <typename T, typename = std::enable_if_t<std::is_arithmetic<T>::value>>
 CETL_NODISCARD bool get(const Value& src, T& dst)
 {
     std::array<T, 1> tmp{};
@@ -247,7 +290,7 @@ template <typename Container,
           std::size_t Index = detail::ArraySelector<T>::Index>
 void set(Value& dst, const Container& src)
 {
-    auto& arr = dst.union_value.emplace<Index>();
+    auto& arr = dst.union_value.emplace<Index>(dst.allocator_);
     // TODO: use reserve() if the iterator is random access or size() is defined to improve performance and heap use.
     std::copy(std::begin(src), std::end(src), std::back_inserter(arr.value));
 }
@@ -258,7 +301,7 @@ void set(Value& dst, const Container& src)
 /// The existing content of the value is discarded.
 ///
 template <typename T>
-std::enable_if_t<std::is_arithmetic_v<T>> set(Value& dst, const T src)
+std::enable_if_t<std::is_arithmetic<T>::value> set(Value& dst, const T src)
 {
     set(dst, std::array<T, 1>{{src}});
 }

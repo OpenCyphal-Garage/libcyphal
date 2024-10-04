@@ -112,6 +112,8 @@ private:
     }};
 
 };  // CRC64WE
+//
+std::array<std::uint64_t, 256> constexpr CRC64WE::Table;
 
 }  // namespace common
 }  // namespace libcyphal

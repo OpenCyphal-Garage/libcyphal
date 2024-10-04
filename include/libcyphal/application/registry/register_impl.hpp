@@ -7,9 +7,7 @@
 #define LIBCYPHAL_APPLICATION_REGISTRY_REGISTER_IMPL_HPP_INCLUDED
 
 #include "registry_impl.hpp"
-#include "value.hpp"
-
-#include <gmock/gmock-matchers.h>
+#include "registry_value.hpp"
 
 #include <utility>
 
@@ -100,10 +98,10 @@ class Register<Getter, void, false> final : public RegisterBase
     using Base = RegisterBase;
 
 public:
-    virtual ~Register()           = default;
-             Register(Register&&) = default;
+    virtual ~Register()  = default;
+    Register(Register&&) = default;
 
-              Register(const Register&)  = delete;
+    Register(const Register&)            = delete;
     Register& operator=(const Register&) = delete;
     Register& operator=(Register&&)      = delete;
 
@@ -140,10 +138,10 @@ class Register<Getter, Setter, true> final : public RegisterBase
     using Base = RegisterBase;
 
 public:
-    virtual ~Register()           = default;
-             Register(Register&&) = default;
+    virtual ~Register()  = default;
+    Register(Register&&) = default;
 
-              Register(const Register&)  = delete;
+    Register(const Register&)            = delete;
     Register& operator=(const Register&) = delete;
     Register& operator=(Register&&)      = delete;
 
@@ -193,12 +191,12 @@ public:
         (void) rgy;
     }
 
-    virtual ~ParamRegister()                = default;
-             ParamRegister(ParamRegister&&) = default;
+    virtual ~ParamRegister()       = default;
+    ParamRegister(ParamRegister&&) = default;
 
-                   ParamRegister(const ParamRegister&) = delete;
-    ParamRegister& operator=(const ParamRegister&)     = delete;
-    ParamRegister& operator=(ParamRegister&&)          = delete;
+    ParamRegister(const ParamRegister&)            = delete;
+    ParamRegister& operator=(const ParamRegister&) = delete;
+    ParamRegister& operator=(ParamRegister&&)      = delete;
 
     // MARK: IRegister
 

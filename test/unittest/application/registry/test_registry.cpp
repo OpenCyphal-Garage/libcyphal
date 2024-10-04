@@ -34,8 +34,8 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
 
         EXPECT_THAT(mr_default_.allocations, IsEmpty());
-        EXPECT_THAT(mr_default_.total_allocated_bytes, 0);
         EXPECT_THAT(mr_default_.total_allocated_bytes, mr_default_.total_deallocated_bytes);
+        EXPECT_THAT(mr_default_.total_allocated_bytes, 0);
     }
 
     // MARK: Data members:

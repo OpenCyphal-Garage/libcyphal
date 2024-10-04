@@ -20,8 +20,8 @@ namespace registry
 class IRegistry
 {
 public:
-               IRegistry(IRegistry&&)      = delete;
-               IRegistry(const IRegistry&) = delete;
+    IRegistry(IRegistry&&)                 = delete;
+    IRegistry(const IRegistry&)            = delete;
     IRegistry& operator=(IRegistry&&)      = delete;
     IRegistry& operator=(const IRegistry&) = delete;
 
@@ -42,7 +42,7 @@ public:
     virtual cetl::optional<SetError> set(const IRegister::Name name, const Value& new_value) = 0;
 
 protected:
-     IRegistry() = default;
+    IRegistry()  = default;
     ~IRegistry() = default;
 
 };  // IRegistry

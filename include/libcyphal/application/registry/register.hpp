@@ -8,7 +8,7 @@
 
 #include "libcyphal/common/cavl/cavl.hpp"
 #include "libcyphal/common/crc.hpp"
-#include "value.hpp"
+#include "registry_value.hpp"
 
 #include <cstdint>
 
@@ -45,30 +45,6 @@ public:
         Value value_;
         Flags flags_;
     };
-
-               IRegister(const IRegister&)           = delete;
-    IRegister& operator=(const IRegister&)           = delete;
-    IRegister& operator=(IRegister&& other) noexcept = delete;
-
-    virtual ValueAndFlags            get() const                 = 0;
-    virtual cetl::optional<SetError> set(const Value& new_value) = 0;
-    virtual Name                     getName() const             = 0;
-
-protected:
-    friend class Registry;
-
-    explicit IRegister(const Name name)
-        : key_{name}
-    {
-    }
-
-    IRegister(IRegister&& other) noexcept
-        : Node{std::move(static_cast<Node&&>(other))}
-        , key_{other.key_}
-    {
-    }
-
-    ~IRegister() = default;
 
     /// The registers are accessed by key, which is a name hash.
     ///
@@ -114,10 +90,32 @@ protected:
 
     };  // Key
 
+    IRegister(const IRegister&)                      = delete;
+    IRegister& operator=(const IRegister&)           = delete;
+    IRegister& operator=(IRegister&& other) noexcept = delete;
+
+    virtual ValueAndFlags            get() const                 = 0;
+    virtual cetl::optional<SetError> set(const Value& new_value) = 0;
+    virtual Name                     getName() const             = 0;
+
     CETL_NODISCARD std::int8_t compareBy(const Key other_key) const noexcept
     {
         return key_.compare(other_key);
     }
+
+protected:
+    explicit IRegister(const Name name)
+        : key_{name}
+    {
+    }
+
+    IRegister(IRegister&& other) noexcept
+        : Node{std::move(static_cast<Node&&>(other))}
+        , key_{other.key_}
+    {
+    }
+
+    ~IRegister() = default;
 
 private:
     // MARK: Data members:
