@@ -52,7 +52,7 @@ protected:
 
 TEST_F(TestRegister, makeParam)
 {
-    Registry rgy{mr_};
+    const Registry rgy{mr_};
 
     const ParamRegister<bool> bool_param{rgy, "bool_param", true};
 }

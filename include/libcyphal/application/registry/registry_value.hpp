@@ -88,7 +88,7 @@ struct Coercer final
         a.value.reserve(b.value.size());
         for (const auto c : b.value)
         {
-            a.value.push_back(static_cast<uavcan::primitive::Unstructured_1_0::_traits_::TypeOf::value::value_type>(c));
+            a.value.push_back(c);
         }
         return true;
     }
@@ -108,7 +108,7 @@ struct Coercer final
 
     template <typename To, typename From>
     static auto convert(const From& src)
-        -> std::enable_if_t<!std::is_same<To, bool>::value || !std::is_floating_point<From>::value, To>
+        -> std::enable_if_t<(!std::is_same<To, bool>::value) || (!std::is_floating_point<From>::value), To>
     {
         // NOLINTNEXTLINE(bugprone-signed-char-misuse,cert-str34-c)
         return static_cast<To>(src);
@@ -125,17 +125,21 @@ struct ArraySelector final
 {
     static constexpr std::size_t Index = ArraySelector<T, N + 1>::Index;
 };
-static const cetl::pmr::polymorphic_allocator<void> xxx_alloc{cetl::pmr::null_memory_resource()};
-
+// In use only for the below decltype/declval type deduction.
+inline const cetl::pmr::polymorphic_allocator<void>& null_alloc()
+{
+    static const cetl::pmr::polymorphic_allocator<void> null_alloc_s{cetl::pmr::null_memory_resource()};
+    return null_alloc_s;
+}
 template <typename T, std::size_t N>
 struct ArraySelector<
     T,
     N,
     std::enable_if_t<
         std::is_same<typename std::decay_t<decltype(std::declval<Value::VariantType>().emplace<N>(
-                         xxx_alloc))>::_traits_::TypeOf::value::value_type,
+                         null_alloc()))>::_traits_::TypeOf::value::value_type,
                      T>::value &&
-        !isVariableSize<std::decay_t<decltype(std::declval<Value::VariantType>().emplace<N>(xxx_alloc))>>()>> final
+        !isVariableSize<std::decay_t<decltype(std::declval<Value::VariantType>().emplace<N>(null_alloc()))>>()>> final
 {
     static constexpr std::size_t Index = N;
 };
@@ -285,7 +289,8 @@ inline void set(Value& dst, const cetl::span<const cetl::byte> value)
     // TODO: Fix Nunavut to expose `ARRAY_CAPACITY` so we can use it here instead of 256.
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
     unstructured.value.resize(std::min<std::size_t>(256U, value.size_bytes()));
-    (void) std::memmove(unstructured.value.data(), value.data(), unstructured.value.size());
+    // No Sonar `cpp:S5356` is unavoidable - we move raw unstructured data!
+    (void) std::memmove(unstructured.value.data(), value.data(), unstructured.value.size());  // NOSONAR cpp:S5356
 }
 
 /// Assigns string to the value, truncating if necessary.
@@ -298,10 +303,12 @@ inline void set(Value& dst, const char* const string)
 
     const std::size_t str_len = std::strlen(string);
     str.value.reserve(str_len);
-    for (std::size_t i = 0; i < std::min(str_len, str.value.capacity()); i++)
+    const std::size_t size = std::min(str_len, str.value.capacity());
+    for (std::size_t i = 0; i < size; i++)
     {
+        // No Sonar `cpp:S810` is unavoidable - we store chars as raw data!
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        str.value.push_back(static_cast<std::uint8_t>(string[i]));
+        str.value.push_back(static_cast<std::uint8_t>(string[i]));  // NOSONAR cpp:S810
     }
 }
 

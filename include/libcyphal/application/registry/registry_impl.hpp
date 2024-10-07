@@ -32,7 +32,7 @@ public:
         : memory_{memory}
     {
     }
-    virtual ~Registry() = default;
+    ~Registry() = default;
 
     Registry(Registry&&)                 = delete;
     Registry(const Registry&)            = delete;

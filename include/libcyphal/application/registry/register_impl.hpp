@@ -208,7 +208,7 @@ template <typename ValueType, bool IsMutable = true>
 class ParamRegister final : public RegisterBase
 {
 public:
-    ParamRegister(Registry& rgy, const Name name, const ValueType& default_value, const Options& options = {true})
+    ParamRegister(const Registry& rgy, const Name name, const ValueType& default_value, const Options& options = {true})
         : RegisterBase{rgy.memory(), name, options}
         , value_{default_value}
     {
