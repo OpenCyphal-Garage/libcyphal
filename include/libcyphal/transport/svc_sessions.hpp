@@ -64,15 +64,33 @@ public:
     ///
     virtual cetl::optional<ServiceRxTransfer> receive() = 0;
 
-    // TODO: docs
+    /// @brief Umbrella type for data reception callback entities.
+    ///
     struct OnReceiveCallback
     {
+        /// @brief Defines standard arguments for data reception callback.
+        ///
         struct Arg
         {
+            /// Holds the received service transfer.
+            ///
+            /// It's made mutable to allow for the callback function to modify the transfer,
+            /// f.e. to move its `ScatteredBuffer` payload to a different location.
             ServiceRxTransfer& transfer;
         };
+
+        /// @brief Defines signature of the data reception callback function.
+        ///
+        /// Size of the function is arbitrary (4 pointers), but should be enough for simple lambdas.
+        ///
         using Function = cetl::pmr::function<void(const Arg&), sizeof(void*) * 4>;
-    };
+
+    };  // OnReceiveCallback
+
+    /// @brief Sets the data reception callback.
+    ///
+    /// @param function The callback function, which will be called on data reception.
+    ///
     virtual void setOnReceiveCallback(OnReceiveCallback::Function&& function) = 0;
 
 protected:
@@ -94,6 +112,8 @@ public:
     IRequestRxSession& operator=(const IRequestRxSession&)     = delete;
     IRequestRxSession& operator=(IRequestRxSession&&) noexcept = delete;
 
+    /// @brief Returns the parameters of the service request reception session.
+    ///
     virtual RequestRxParams getParams() const noexcept = 0;
 
 protected:
@@ -115,6 +135,8 @@ public:
     IRequestTxSession& operator=(const IRequestTxSession&)     = delete;
     IRequestTxSession& operator=(IRequestTxSession&&) noexcept = delete;
 
+    /// @brief Returns the parameters of the service request transmission session.
+    ///
     virtual RequestTxParams getParams() const noexcept = 0;
 
     /// @brief Sends a service request to the transport layer.
@@ -145,6 +167,8 @@ public:
     IResponseRxSession& operator=(const IResponseRxSession&)     = delete;
     IResponseRxSession& operator=(IResponseRxSession&&) noexcept = delete;
 
+    /// @brief Returns the parameters of the service response reception session.
+    ///
     virtual ResponseRxParams getParams() const noexcept = 0;
 
 protected:
@@ -166,6 +190,8 @@ public:
     IResponseTxSession& operator=(const IResponseTxSession&)     = delete;
     IResponseTxSession& operator=(IResponseTxSession&&) noexcept = delete;
 
+    /// @brief Returns the parameters of the service response transmission session.
+    ///
     virtual ResponseTxParams getParams() const noexcept = 0;
 
     /// @brief Sends a service response to the transport layer.

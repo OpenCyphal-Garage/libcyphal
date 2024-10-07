@@ -13,3 +13,6 @@ external/**/*
 # JetBrains
 .idea/*
 cmake-build-*/
+
+# Python
+.venv

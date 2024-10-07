@@ -78,9 +78,10 @@ protected:
     // MARK: Data members:
 
     // NOLINTBEGIN
-    libcyphal::VirtualTimeScheduler scheduler_{};
-    TrackingMemoryResource          mr_;
-    StrictMock<TransportMock>       transport_mock_;
+    libcyphal::VirtualTimeScheduler        scheduler_{};
+    TrackingMemoryResource                 mr_;
+    StrictMock<TransportMock>              transport_mock_;
+    cetl::pmr::polymorphic_allocator<void> mr_alloc_{&mr_};
     // NOLINTEND
 };
 
@@ -176,7 +177,7 @@ TEST_F(TestPublisher, publish)
                 return cetl::nullopt;
             }));
 
-        EXPECT_THAT(publisher->publish(now() + 200ms, Message{}), Eq(cetl::nullopt));
+        EXPECT_THAT(publisher->publish(now() + 200ms, Message{&mr_}), Eq(cetl::nullopt));
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
@@ -190,14 +191,14 @@ TEST_F(TestPublisher, publish)
             }));
 
         publisher->setPriority(Priority::Fast);
-        EXPECT_THAT(publisher->publish(now() + 100ms, Message{}), Eq(cetl::nullopt));
+        EXPECT_THAT(publisher->publish(now() + 100ms, Message{&mr_}), Eq(cetl::nullopt));
     });
     scheduler_.scheduleAt(3s, [&](const auto&) {
         //
         EXPECT_CALL(msg_tx_session_mock, send(_, _))  //
             .WillOnce(Return(CapacityError{}));
 
-        EXPECT_THAT(publisher->publish(now() + 100ms, Message{}), Optional(VariantWith<CapacityError>(_)));
+        EXPECT_THAT(publisher->publish(now() + 100ms, Message{&mr_}), Optional(VariantWith<CapacityError>(_)));
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {
         //
@@ -232,8 +233,9 @@ TEST_F(TestPublisher, publish_with_serialization_failure)
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        Message message{};
+        Message message{&mr_};
         // This will cause a serialization failure.
+        message.some_stuff = Message::_traits_::TypeOf::some_stuff{mr_alloc_};
         message.some_stuff.resize(Message::_traits_::SerializationBufferSizeBytes);
 
         EXPECT_THAT(publisher->publish(now() + 200ms, message),

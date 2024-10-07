@@ -3,6 +3,9 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include <libcyphal/application/node.hpp>
+#include "libcyphal/application/node/get_info_provider.hpp"
+#include "libcyphal/application/node/heartbeat_producer.hpp"
 #include <libcyphal/common/cavl/cavl.hpp>
 #include <libcyphal/errors.hpp>
 #include <libcyphal/executor.hpp>

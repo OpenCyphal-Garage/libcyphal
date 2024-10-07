@@ -48,7 +48,12 @@ function (_init_nnvg_command_args)
     # Set up common args used for all invocations of nnvg
     list(APPEND LOCAL_NNVG_CMD_ARGS "--experimental-languages" "--target-language=cpp")
     list(APPEND LOCAL_NNVG_CMD_ARGS  "-O" ${ARG_OUTPUT_FOLDER})
-    list(APPEND LOCAL_NNVG_CMD_ARGS "--language-standard=c++${CMAKE_CXX_STANDARD}")
+
+    if (CMAKE_CXX_STANDARD STREQUAL "14")
+        list(APPEND LOCAL_NNVG_CMD_ARGS "--language-standard=cetl++14-17")
+    else ()
+        list(APPEND LOCAL_NNVG_CMD_ARGS "--language-standard=c++${CMAKE_CXX_STANDARD}-pmr")
+    endif ()
     # support files must be generated in a discrete rule to avoid multiple rules
     # trying to generate the same file.
 

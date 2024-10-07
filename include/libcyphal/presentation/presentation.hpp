@@ -48,8 +48,12 @@ namespace detail
 
 /// Trait which determines whether the given type has `T::_traits_::HasFixedPortID` field.
 ///
+/// No Sonar cpp:S872 "Reconsider this operator for `bool` operand'
+/// b/c we do need to check the existence of the field with help of `decltype` and `,` (comma) operator.
+///
 template <typename T>
-auto HasFixedPortIdTrait(bool dummy) -> decltype(std::decay_t<T>::_traits_::HasFixedPortID, std::true_type{});
+auto HasFixedPortIdTrait(bool dummy)                                           //
+    -> decltype(std::decay_t<T>::_traits_::HasFixedPortID, std::true_type{});  // NOSONAR cpp:S872
 template <typename>
 std::false_type HasFixedPortIdTrait(...);
 
@@ -109,6 +113,20 @@ public:
         , executor_{executor}
         , transport_{transport}
     {
+    }
+
+    /// @brief Gets reference to the executor instance of this presentation object.
+    ///
+    IExecutor& executor() const noexcept
+    {
+        return executor_;
+    }
+
+    /// @brief Gets reference to the transport instance of this presentation object.
+    ///
+    transport::ITransport& transport() const noexcept
+    {
+        return transport_;
     }
 
     /// @brief Makes a message publisher.
@@ -430,6 +448,13 @@ public:
         return RawServiceClient{shared_client};
     }
 
+    // MARK: IPresentationDelegate
+
+    cetl::pmr::memory_resource& memory() const noexcept override
+    {
+        return memory_;
+    }
+
 private:
     IPresentationDelegate& asDelegate() noexcept
     {
@@ -613,11 +638,6 @@ private:
     }
 
     // MARK: IPresentationDelegate
-
-    cetl::pmr::memory_resource& memory() const noexcept override
-    {
-        return memory_;
-    }
 
     void releaseSharedClient(detail::SharedClient* const shared_client) noexcept override
     {

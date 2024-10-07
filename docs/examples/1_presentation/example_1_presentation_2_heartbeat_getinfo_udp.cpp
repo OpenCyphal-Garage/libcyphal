@@ -96,12 +96,19 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
-    NodeHelpers::Heartbeat::Message makeHeartbeatMsg(const libcyphal::TimePoint now, const bool is_warn = false) const
+    NodeHelpers::Heartbeat::Message makeHeartbeatMsg(const libcyphal::TimePoint now, const bool is_warn = false)
     {
+        using Message = NodeHelpers::Heartbeat::Message;
+
+        Message message{mr_alloc_};
+
         const auto uptime_in_secs = std::chrono::duration_cast<std::chrono::seconds>(now - startup_time_);
-        return {static_cast<std::uint32_t>(uptime_in_secs.count()),
-                {is_warn ? uavcan::node::Health_1_0::WARNING : uavcan::node::Health_1_0::NOMINAL},
-                {is_warn ? uavcan::node::Mode_1_0::MAINTENANCE : uavcan::node::Mode_1_0::OPERATIONAL}};
+
+        message.uptime       = static_cast<std::uint32_t>(uptime_in_secs.count());
+        message.health.value = is_warn ? uavcan::node::Health_1_0::WARNING : uavcan::node::Health_1_0::NOMINAL;
+        message.mode.value   = is_warn ? uavcan::node::Mode_1_0::MAINTENANCE : uavcan::node::Mode_1_0::OPERATIONAL;
+
+        return message;
     }
 
     // MARK: Data members:
@@ -109,19 +116,22 @@ protected:
 
     struct State
     {
-        posix::UdpMedia::Collection         media_collection_;
-        UdpTransportPtr                     transport_;
-        NodeHelpers::Heartbeat              heartbeat_;
-        uavcan::node::GetInfo_1_0::Response get_info_response{{1, 0}};
+        cetl::pmr::memory_resource&            mr_;
+        posix::UdpMedia::Collection            media_collection_{};
+        UdpTransportPtr                        transport_{nullptr};
+        NodeHelpers::Heartbeat                 heartbeat_{mr_};
+        cetl::pmr::polymorphic_allocator<void> mr_alloc_{&mr_};
+        uavcan::node::GetInfo_1_0::Response    get_info_response{mr_alloc_};
 
     };  // State
 
-    TrackingMemoryResource            mr_;
-    posix::PollSingleThreadedExecutor executor_{mr_};
-    TimePoint                         startup_time_{};
-    NodeId                            local_node_id_{42};
-    Duration                          run_duration_{10s};
-    std::vector<std::string>          iface_addresses_{"127.0.0.1"};
+    TrackingMemoryResource                 mr_;
+    posix::PollSingleThreadedExecutor      executor_{mr_};
+    TimePoint                              startup_time_{};
+    NodeId                                 local_node_id_{42};
+    Duration                               run_duration_{10s};
+    std::vector<std::string>               iface_addresses_{"127.0.0.1"};
+    cetl::pmr::polymorphic_allocator<void> mr_alloc_{&mr_};
     // NOLINTEND
 
 };  // Example_1_Presentation_2_Heartbeat_GetInfo_Udp
@@ -130,7 +140,8 @@ protected:
 
 TEST_F(Example_1_Presentation_2_Heartbeat_GetInfo_Udp, main)
 {
-    State state;
+    State state{mr_};
+    state.get_info_response.protocol_version.major = 1;
 
     // Make UDP transport with collection of media.
     //

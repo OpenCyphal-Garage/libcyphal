@@ -84,9 +84,11 @@ protected:
     // MARK: Data members:
 
     // NOLINTBEGIN
-    libcyphal::VirtualTimeScheduler scheduler_{};
-    TrackingMemoryResource          mr_;
-    StrictMock<TransportMock>       transport_mock_;
+    libcyphal::VirtualTimeScheduler        scheduler_{};
+    TrackingMemoryResource                 mr_;
+    StrictMock<TransportMock>              transport_mock_;
+    cetl::pmr::polymorphic_allocator<void> mr_alloc_{&mr_};
+
     // NOLINTEND
 };
 
@@ -164,7 +166,11 @@ TEST_F(TestSubscriber, onReceive)
 
     ASSERT_TRUE(msg_rx_cb_fn);
 
-    Message test_message{7, {uavcan::node::Health_1_0::WARNING}, {uavcan::node::Mode_1_0::MAINTENANCE}, 42};
+    Message test_message{mr_alloc_};
+    test_message.uptime                      = 7;
+    test_message.health.value                = uavcan::node::Health_1_0::WARNING;
+    test_message.mode.value                  = uavcan::node::Mode_1_0::MAINTENANCE;
+    test_message.vendor_specific_status_code = 42;
 
     NiceMock<ScatteredBufferStorageMock> storage_mock;
     ScatteredBufferStorageMock::Wrapper  storage{&storage_mock};

@@ -47,6 +47,8 @@ public:
     IMessageRxSession& operator=(const IMessageRxSession&)     = delete;
     IMessageRxSession& operator=(IMessageRxSession&&) noexcept = delete;
 
+    /// @brief Returns the parameters of the message reception session.
+    ///
     virtual MessageRxParams getParams() const noexcept = 0;
 
     /// @brief Receives a message from the transport layer.
@@ -57,15 +59,33 @@ public:
     ///
     virtual cetl::optional<MessageRxTransfer> receive() = 0;
 
-    // TODO: docs
+    /// @brief Umbrella type for data reception callback entities.
+    ///
     struct OnReceiveCallback
     {
+        /// @brief Defines standard arguments for data reception callback.
+        ///
         struct Arg
         {
+            /// Holds the received message transfer.
+            ///
+            /// It's made mutable to allow for the callback function to modify the transfer,
+            /// f.e. to move its `ScatteredBuffer` payload to a different location.
             MessageRxTransfer& transfer;
         };
+
+        /// @brief Defines signature of the data reception callback function.
+        ///
+        /// Size of the function is arbitrary (4 pointers), but should be enough for simple lambdas.
+        ///
         using Function = cetl::pmr::function<void(const Arg&), sizeof(void*) * 4>;
-    };
+
+    };  // OnReceiveCallback
+
+    /// @brief Sets the data reception callback.
+    ///
+    /// @param function The callback function, which will be called on data reception.
+    ///
     virtual void setOnReceiveCallback(OnReceiveCallback::Function&& function) = 0;
 
 protected:
@@ -88,6 +108,8 @@ public:
     IMessageTxSession& operator=(const IMessageTxSession&)     = delete;
     IMessageTxSession& operator=(IMessageTxSession&&) noexcept = delete;
 
+    /// @brief Returns the parameters of the message transmission session.
+    ///
     virtual MessageTxParams getParams() const noexcept = 0;
 
     /// @brief Sends a message to the transport layer.

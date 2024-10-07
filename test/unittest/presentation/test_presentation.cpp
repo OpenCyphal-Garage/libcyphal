@@ -77,12 +77,19 @@ struct PubMessage final
 
 struct SubMessage final
 {
+    using allocator_type = cetl::pmr::polymorphic_allocator<void>;
+
     struct _traits_
     {
         static constexpr bool          HasFixedPortID = true;
         static constexpr std::uint16_t FixedPortId    = 147U;
         static constexpr std::size_t   ExtentBytes    = sizeof(std::uint64_t);
     };
+
+    explicit SubMessage(const allocator_type& alloc)
+    {
+        (void) alloc;
+    }
 
     std::uint64_t id{};  // NOLINT
 
@@ -97,6 +104,8 @@ struct Service final
 
     struct Request final
     {
+        using allocator_type = cetl::pmr::polymorphic_allocator<void>;
+
         struct _traits_
         {
             static constexpr bool          HasFixedPortID = true;
@@ -104,17 +113,29 @@ struct Service final
             static constexpr std::size_t   ExtentBytes    = sizeof(std::uint64_t) * 2;
         };
 
+        explicit Request(const allocator_type& alloc)
+        {
+            (void) alloc;
+        }
+
         std::uint64_t id{};  // NOLINT
 
     };  // Request
 
     struct Response final
     {
+        using allocator_type = cetl::pmr::polymorphic_allocator<void>;
+
         struct _traits_
         {
             static constexpr std::size_t ExtentBytes                  = sizeof(std::uint64_t) * 3;
             static constexpr std::size_t SerializationBufferSizeBytes = sizeof(std::uint64_t);
         };
+
+        explicit Response(const allocator_type& alloc)
+        {
+            (void) alloc;
+        }
 
         std::uint64_t id{};  // NOLINT
 
