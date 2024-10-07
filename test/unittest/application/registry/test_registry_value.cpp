@@ -60,7 +60,7 @@ protected:
 
 TEST_F(TestRegistryValue, makeValue)
 {
-    Value::allocator_type alloc{&mr_};
+    const Value::allocator_type alloc{&mr_};
 
     // Integral
     {
@@ -186,7 +186,7 @@ TEST_F(TestRegistryValue, isVariableSize)
 
 TEST_F(TestRegistryValue, get)
 {
-    Value::allocator_type alloc{&mr_};
+    const Value::allocator_type alloc{&mr_};
 
     {
         const Value v{alloc};
@@ -224,7 +224,7 @@ TEST_F(TestRegistryValue, get)
 
 TEST_F(TestRegistryValue, coerce)
 {
-    Value::allocator_type alloc{&mr_};
+    const Value::allocator_type alloc{&mr_};
 
     // static_assert(std::allocator_traits<Value::allocator_type>::propagate_on_container_copy_assignment::value, "");
 

@@ -19,6 +19,8 @@ namespace application
 namespace registry
 {
 
+/// Defines possible errors that can occur when setting a register value.
+///
 enum class SetError : std::uint8_t
 {
     Existence,   /// The register does not exist.
@@ -27,6 +29,8 @@ enum class SetError : std::uint8_t
     Semantics,   /// Rejected by the register semantics (e.g., out of range, inappropriate value, bad state, etc.).
 };
 
+/// Defines interface for a register.
+///
 class IRegister : public cavl::Node<IRegister>
 {
 public:
@@ -34,19 +38,26 @@ public:
     ///
     using Name = const char*;
 
+    /// Defines behavior flags of the register value.
+    ///
     struct Flags final
     {
+        /// True if the register value can be changed.
         bool mutable_{false};
+
+        /// True if the register value is retained across application restarts.
         bool persistent_{false};
     };
 
+    /// Defines a pair of the register value and its flags.
+    ///
     struct ValueAndFlags final
     {
         Value value_;
         Flags flags_;
     };
 
-    /// The registers are accessed by key, which is a name hash.
+    /// Internally, the registers are accessed by key, which is a name hash.
     ///
     /// A perfectly uniform 32-bit hash yields the collision probability of ~0.0001% for 100 registers:
     ///
@@ -98,10 +109,22 @@ public:
     IRegister& operator=(const IRegister&)           = delete;
     IRegister& operator=(IRegister&& other) noexcept = delete;
 
-    virtual ValueAndFlags            get() const                 = 0;
-    virtual cetl::optional<SetError> set(const Value& new_value) = 0;
-    virtual Name                     getName() const             = 0;
+    /// Gets the register current value and its flags.
+    ///
+    virtual ValueAndFlags get() const = 0;
 
+    /// Sets the register value.
+    ///
+    /// @return Optional error if the value cannot be set.
+    ///
+    virtual cetl::optional<SetError> set(const Value& new_value) = 0;
+
+    /// Gets name of the register.
+    ///
+    virtual Name getName() const = 0;
+
+    /// Compares the register by key with a given one.
+    ///
     CETL_NODISCARD std::int8_t compareBy(const Key other_key) const noexcept
     {
         return key_.compare(other_key);

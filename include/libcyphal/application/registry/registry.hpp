@@ -17,6 +17,8 @@ namespace application
 namespace registry
 {
 
+/// Defines interface for a registry.
+///
 class IRegistry
 {
 public:

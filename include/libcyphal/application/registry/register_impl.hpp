@@ -18,12 +18,17 @@ namespace application
 namespace registry
 {
 
+/// Defines abstract base class for a register implementation.
+///
+/// Implements common functionality for all register types like name, options, and value accessors.
+///
 class RegisterBase : public IRegister
 {
     using Base = IRegister;
 
 public:
-    /// Options used when creating a new register.
+    /// Defines options used when creating a new register.
+    ///
     struct Options final
     {
         /// True if the register value is retained across application restarts.
@@ -35,6 +40,8 @@ public:
     RegisterBase& operator=(const RegisterBase&)           = delete;
     RegisterBase& operator=(RegisterBase&& other) noexcept = delete;
 
+    /// Gets the register create options.
+    ///
     Options getOptions() const noexcept
     {
         return options_;
@@ -95,9 +102,15 @@ private:
 
 // MARK: -
 
+/// Defines a register implementation template.
+///
 template <typename Getter, typename Setter, bool IsMutable>
 class Register;
 //
+/// Defines a read-only register implementation.
+///
+/// The actual value is provided by the getter function.
+///
 template <typename Getter>
 class Register<Getter, void, false> final : public RegisterBase
 {
@@ -138,6 +151,11 @@ private:
 
 };  // Register<IsMutable=false>
 //
+/// Defines a read-write register implementation.
+///
+/// The actual value is provided by the getter function,
+/// and the setter function is used to update the value.
+///
 template <typename Getter, typename Setter>
 class Register<Getter, Setter, true> final : public RegisterBase
 {
@@ -186,6 +204,10 @@ private:
 
 // MARK: -
 
+/// Defines a parameter-based register implementation template.
+///
+/// Instead of "external" getter/setter functions, the register uses member value storage.
+///
 template <typename ValueType, bool IsMutable = true>
 class ParamRegister final : public RegisterBase
 {

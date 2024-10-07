@@ -19,9 +19,15 @@ namespace application
 namespace registry
 {
 
+/// Defines the registry implementation.
+///
 class Registry final : IRegistry
 {
 public:
+    /// Constructs a new registry.
+    ///
+    /// @param memory The memory resource to use for variable size-d register values.
+    ///
     explicit Registry(cetl::pmr::memory_resource& memory)
         : memory_{memory}
     {

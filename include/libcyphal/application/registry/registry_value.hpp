@@ -25,10 +25,18 @@ namespace application
 namespace registry
 {
 
+/// Defines the value of a register.
+///
+/// Internally, it's implemented as a variant of all possible types (see `union_value` member).
+///
 using Value = uavcan::_register::Value_1_0;
 
+/// Internal implementation details of the Presentation layer.
+/// Not supposed to be used directly by the users of the library.
+///
 namespace detail
 {
+
 /// True iff the value is of a resizable type such as string or unstructured.
 template <typename T>
 constexpr bool isVariableSize()
@@ -130,12 +138,12 @@ struct ArraySelector<
 {
     static constexpr std::size_t Index = N;
 };
-static_assert(ArraySelector<bool>::Index == Value::VariantType::IndexOf::bit, "");
-static_assert(ArraySelector<std::uint8_t>::Index == Value::VariantType::IndexOf::natural8, "");
-static_assert(ArraySelector<std::uint32_t>::Index == Value::VariantType::IndexOf::natural32, "");
-static_assert(ArraySelector<std::int8_t>::Index == Value::VariantType::IndexOf::integer8, "");
-static_assert(ArraySelector<std::int64_t>::Index == Value::VariantType::IndexOf::integer64, "");
-static_assert(ArraySelector<double>::Index == Value::VariantType::IndexOf::real64, "");
+static_assert(ArraySelector<bool>::Index == Value::VariantType::IndexOf::bit, "Expected bool index");
+static_assert(ArraySelector<std::uint8_t>::Index == Value::VariantType::IndexOf::natural8, "Expected uint8 index");
+static_assert(ArraySelector<std::uint32_t>::Index == Value::VariantType::IndexOf::natural32, "Expected uint32 index");
+static_assert(ArraySelector<std::int8_t>::Index == Value::VariantType::IndexOf::integer8, "Expected int8 index");
+static_assert(ArraySelector<std::int64_t>::Index == Value::VariantType::IndexOf::integer64, "Expected uint64 index");
+static_assert(ArraySelector<double>::Index == Value::VariantType::IndexOf::real64, "Expected double index");
 
 /// Callable that converts a Value into an array of the specified size and element type.
 ///
@@ -212,6 +220,7 @@ CETL_NODISCARD bool get(const Value& src, std::array<T, N>& dst)
     }
     return false;
 }
+
 template <typename T, typename = std::enable_if_t<std::is_arithmetic<T>::value>>
 CETL_NODISCARD bool get(const Value& src, T& dst)
 {
@@ -330,26 +339,48 @@ inline void set(Value& dst, const Value& src)
 
 // MARK: - Factories
 
-inline Value makeValue(Value::allocator_type& allocator, const char* const str)
+/// Makes a new value with the specified string content.
+///
+/// @param allocator The PMR allocator to allocate storage for the value.
+/// @param str The string to copy into the value.
+///
+inline Value makeValue(const Value::allocator_type& allocator, const char* const str)
 {
     Value out{allocator};
     set(out, str);
     return out;
 }
 
+/// Makes a new value with the specified content.
+///
+/// This factory method automatically selects the appropriate type of the value based on the source type.
+///
+/// @tparam T Source type of the content.
+/// @param allocator The PMR allocator to allocate storage for the value.
+/// @param src The string to copy into the value.
+///
 template <typename T>
-Value makeValue(Value::allocator_type& allocator, const T& src)
+Value makeValue(const Value::allocator_type& allocator, const T& src)
 {
     Value out{allocator};
     set(out, src);
     return out;
 }
 
+/// Makes a new array value with the specified content which is provided as a list of arguments.
+///
+/// This factory method automatically selects the appropriate type of the value based on a source type.
+/// The source type is deduced from the arguments as a common type to which all arguments can be cast-ed.
+///
+/// @tparam Ts Source types of the arguments.
+/// @param allocator The PMR allocator to allocate storage for the value.
+/// @param args The list of arguments to copy into the array value.
+///
 template <typename... Ts, typename = std::enable_if_t<(sizeof...(Ts) > 1)>>
-Value makeValue(Value::allocator_type& allocator, const Ts&... src)
+Value makeValue(const Value::allocator_type& allocator, const Ts&... args)
 {
     Value out{allocator};
-    set(out, std::array<std::common_type_t<Ts...>, sizeof...(Ts)>{{static_cast<std::common_type_t<Ts...>>(src)...}});
+    set(out, std::array<std::common_type_t<Ts...>, sizeof...(Ts)>{{static_cast<std::common_type_t<Ts...>>(args)...}});
     return out;
 }
 
