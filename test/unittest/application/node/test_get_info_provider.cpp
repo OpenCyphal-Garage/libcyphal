@@ -86,7 +86,6 @@ protected:
     // NOLINTBEGIN
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
-    TrackingMemoryResource          mr_default_;
     StrictMock<TransportMock>       transport_mock_;
     // NOLINTEND
 };
