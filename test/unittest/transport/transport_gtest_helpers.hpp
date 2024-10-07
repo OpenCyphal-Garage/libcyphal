@@ -7,6 +7,7 @@
 #define LIBCYPHAL_TRANSPORT_GTEST_HELPERS_HPP_INCLUDED
 
 #include <libcyphal/transport/msg_sessions.hpp>
+#include <libcyphal/transport/scattered_buffer.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
 
@@ -112,6 +113,12 @@ inline void PrintTo(const TransferTxMetadata& meta, std::ostream* os)
 inline void PrintTo(const ServiceRxMetadata& meta, std::ostream* os)
 {
     *os << "SvcRxMetadata{rx_meta=" << testing::PrintToString(meta.rx_meta)
+        << ", remote_node_id=" << meta.remote_node_id << "}";
+}
+
+inline void PrintTo(const ServiceTxMetadata& meta, std::ostream* os)
+{
+    *os << "SvcTxMetadata{tx_meta=" << testing::PrintToString(meta.tx_meta)
         << ", remote_node_id=" << meta.remote_node_id << "}";
 }
 
@@ -381,6 +388,39 @@ inline testing::Matcher<const TransferTxMetadata&> TransferTxMetadataEq(const Tr
     return TransferTxMetadataMatcher(meta);
 
 }  // TransferTxMetadataMatcher
+
+class ServiceTxMetadataMatcher
+{
+public:
+    using is_gtest_matcher = void;
+
+    explicit ServiceTxMetadataMatcher(const ServiceTxMetadata& meta)
+        : meta_{meta}
+    {
+    }
+
+    bool MatchAndExplain(const ServiceTxMetadata& meta, std::ostream*) const
+    {
+        return testing::Value(meta.tx_meta, TransferTxMetadataEq(meta_.tx_meta)) &&
+               meta.remote_node_id == meta_.remote_node_id;
+    }
+    void DescribeTo(std::ostream* os) const
+    {
+        *os << "is " << testing::PrintToString(meta_);
+    }
+    void DescribeNegationTo(std::ostream* os) const
+    {
+        *os << "is NOT " << testing::PrintToString(meta_);
+    }
+
+private:
+    const ServiceTxMetadata meta_;
+};
+inline testing::Matcher<const ServiceTxMetadata&> ServiceTxMetadataEq(const ServiceTxMetadata& meta)
+{
+    return ServiceTxMetadataMatcher(meta);
+
+}  // ServiceTxMetadataMatcher
 
 }  // namespace transport
 }  // namespace libcyphal

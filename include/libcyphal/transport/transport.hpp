@@ -11,6 +11,7 @@
 #include "svc_sessions.hpp"
 #include "types.hpp"
 
+#include "libcyphal/errors.hpp"
 #include "libcyphal/types.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>

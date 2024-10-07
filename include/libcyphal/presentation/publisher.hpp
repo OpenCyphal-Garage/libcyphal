@@ -152,10 +152,14 @@ private:
 ///                 - contains `_traits_::SerializationBufferSizeBytes` constant
 ///                 - has freestanding `serialize` function under its namespace (so that ADL will find it)
 ///
-template <typename Message>
+template <typename Message_>
 class Publisher final : public detail::PublisherBase
 {
 public:
+    /// @brief Defines the message type of the publisher.
+    ///
+    using Message = Message_;
+
     /// @brief Defines failure type for a strong-typed publisher operations.
     ///
     /// The set of possible failures includes transport layer failures (inherited from the base publisher),

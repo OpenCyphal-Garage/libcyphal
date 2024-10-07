@@ -318,8 +318,9 @@ private:
 
     void onResponseRxTransfer(transport::ServiceRxTransfer& transfer, const TimePoint approx_now) override
     {
-        Success success{Response{}, transfer.metadata};
-        if (auto failure = detail::tryDeserializePayload(transfer.payload, memory(), success.response))
+        auto&   mr = memory();
+        Success success{Response{typename Response::allocator_type{&mr}}, transfer.metadata};
+        if (auto failure = detail::tryDeserializePayload(transfer.payload, mr, success.response))
         {
             cetl::visit(
                 [this, approx_now](const auto& error) {

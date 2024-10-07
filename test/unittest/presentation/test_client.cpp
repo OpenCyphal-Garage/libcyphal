@@ -131,9 +131,10 @@ protected:
     // MARK: Data members:
 
     // NOLINTBEGIN
-    libcyphal::VirtualTimeScheduler scheduler_{};
-    TrackingMemoryResource          mr_;
-    StrictMock<TransportMock>       transport_mock_;
+    libcyphal::VirtualTimeScheduler        scheduler_{};
+    TrackingMemoryResource                 mr_;
+    StrictMock<TransportMock>              transport_mock_;
+    cetl::pmr::polymorphic_allocator<void> mr_alloc_{&mr_};
     // NOLINTEND
 };
 
@@ -225,7 +226,7 @@ TEST_F(TestClient, request_response_get_fetch_result)
                 return cetl::nullopt;
             }));
 
-        auto maybe_promise = client.request(now() + 100ms, Service::Request{}, now() + 2s);
+        auto maybe_promise = client.request(now() + 100ms, Service::Request{mr_alloc_}, now() + 2s);
         EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
         response_promise.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
 
@@ -299,7 +300,7 @@ TEST_F(TestClient, request_response_via_callabck)
                 return cetl::nullopt;
             }));
 
-        auto maybe_promise = client.request(now() + 100ms, Service::Request{}, now() + 500ms);
+        auto maybe_promise = client.request(now() + 100ms, Service::Request{mr_alloc_}, now() + 500ms);
         EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
         response_promise.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
     });
@@ -354,7 +355,7 @@ TEST_F(TestClient, request_response_via_callabck)
         //
         EXPECT_CALL(state.req_tx_session_mock_, send(_, _)).WillOnce(Return(cetl::nullopt));
 
-        auto maybe_promise = client.request(now() + 100ms, Service::Request{}, now() + 500ms);
+        auto maybe_promise = client.request(now() + 100ms, Service::Request{mr_alloc_}, now() + 500ms);
         EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
         response_promise.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
 
@@ -418,7 +419,7 @@ TEST_F(TestClient, request_response_set_callabck_after_reception)
                 return cetl::nullopt;
             }));
 
-        auto maybe_promise = client.request(now() + 100ms, Service::Request{}, now() + 200ms);
+        auto maybe_promise = client.request(now() + 100ms, Service::Request{mr_alloc_}, now() + 200ms);
         EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
         response_promise.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
     });
@@ -474,7 +475,8 @@ TEST_F(TestClient, request_response_failures)
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        Service::Request request{};
+        Service::Request request{mr_alloc_};
+        request.some_stuff = Service::Request::_traits_::TypeOf::some_stuff{mr_alloc_};
         request.some_stuff.resize(32);  // this will make it fail to serialize
         const auto maybe_promise = client.request(now() + 100ms, request);
         EXPECT_THAT(maybe_promise,
@@ -487,14 +489,14 @@ TEST_F(TestClient, request_response_failures)
         EXPECT_CALL(state.req_tx_session_mock_, send(_, _))  //
             .WillOnce(Return(CapacityError{}));
 
-        const auto maybe_promise = client.request(now() + 100ms, Service::Request{});
+        const auto maybe_promise = client.request(now() + 100ms, Service::Request{mr_alloc_});
         EXPECT_THAT(maybe_promise, VariantWith<ServiceClient<Service>::Failure>(VariantWith<CapacityError>(_)));
     });
     scheduler_.scheduleAt(3s, [&](const auto&) {
         //
         EXPECT_CALL(state.req_tx_session_mock_, send(_, _)).WillOnce(Return(cetl::nullopt));
 
-        auto maybe_promise = client.request(now() + 100ms, Service::Request{});
+        auto maybe_promise = client.request(now() + 100ms, Service::Request{mr_alloc_});
         EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
         response_promise.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
 
@@ -523,7 +525,7 @@ TEST_F(TestClient, request_response_failures)
         //
         EXPECT_CALL(state.req_tx_session_mock_, send(_, _)).WillOnce(Return(cetl::nullopt));
 
-        auto maybe_promise = client.request(now() + 100ms, Service::Request{});
+        auto maybe_promise = client.request(now() + 100ms, Service::Request{mr_alloc_});
         EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
         response_promise.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
 
@@ -546,13 +548,13 @@ TEST_F(TestClient, request_response_failures)
         //
         EXPECT_CALL(state.req_tx_session_mock_, send(_, _)).WillRepeatedly(Return(cetl::nullopt));
 
-        const auto maybe_promise1 = client.request(now() + 100ms, Service::Request{});
+        const auto maybe_promise1 = client.request(now() + 100ms, Service::Request{mr_alloc_});
         EXPECT_THAT(maybe_promise1, VariantWith<SvcResPromise>(_));
 
-        const auto maybe_promise2 = client.request(now() + 100ms, Service::Request{});
+        const auto maybe_promise2 = client.request(now() + 100ms, Service::Request{mr_alloc_});
         EXPECT_THAT(maybe_promise2, VariantWith<SvcResPromise>(_));
 
-        const auto maybe_promise3 = client.request(now() + 100ms, Service::Request{});
+        const auto maybe_promise3 = client.request(now() + 100ms, Service::Request{mr_alloc_});
         EXPECT_THAT(maybe_promise3,
                     VariantWith<ServiceClient<Service>::Failure>(
                         VariantWith<ServiceClient<Service>::TooManyPendingRequestsError>(_)));
@@ -591,7 +593,7 @@ TEST_F(TestClient, multiple_requests_responses_expired)
         EXPECT_CALL(state.req_tx_session_mock_, send(TransferTxMetadataEq(meta), _))  //
             .WillOnce(Return(cetl::nullopt));
 
-        auto maybe_promise = client.request(now() + 100ms, Service::Request{}, now() + 4s);
+        auto maybe_promise = client.request(now() + 100ms, Service::Request{mr_alloc_}, now() + 4s);
         EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
         response_promise1.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
         response_promise1->setCallback([&responses](const auto& arg) {
@@ -609,7 +611,7 @@ TEST_F(TestClient, multiple_requests_responses_expired)
         EXPECT_CALL(state.req_tx_session_mock_, send(TransferTxMetadataEq(meta), _))  //
             .WillOnce(Return(cetl::nullopt));
 
-        auto maybe_promise = client.request(now() + 200ms, Service::Request{}, now() + 2s);
+        auto maybe_promise = client.request(now() + 200ms, Service::Request{mr_alloc_}, now() + 2s);
         EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
         response_promise2.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
         response_promise2->setCallback([&responses](const auto& arg) {
@@ -626,7 +628,7 @@ TEST_F(TestClient, multiple_requests_responses_expired)
         EXPECT_CALL(state.req_tx_session_mock_, send(TransferTxMetadataEq(meta), _))  //
             .WillOnce(Return(cetl::nullopt));
 
-        auto maybe_promise = client.request(now() + 300ms, Service::Request{}, now() + 1s);
+        auto maybe_promise = client.request(now() + 300ms, Service::Request{mr_alloc_}, now() + 1s);
         EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
         response_promise3.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
         response_promise3->setCallback([&responses](const auto& arg) {
@@ -643,7 +645,7 @@ TEST_F(TestClient, multiple_requests_responses_expired)
         EXPECT_CALL(state.req_tx_session_mock_, send(TransferTxMetadataEq(meta), _))  //
             .WillOnce(Return(cetl::nullopt));
 
-        auto maybe_promise = client.request(now() + 400ms, Service::Request{}, now() + 2s);
+        auto maybe_promise = client.request(now() + 400ms, Service::Request{mr_alloc_}, now() + 2s);
         EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
         response_promise4.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
         response_promise4->setCallback([](const auto&) {

@@ -93,10 +93,11 @@ protected:
 
     struct State
     {
-        posix::UdpMedia::Collection media_collection_;
-        UdpTransportPtr             transport_;
-        NodeHelpers::Heartbeat      heartbeat_;
-        NodeHelpers::GetInfo        get_info_;
+        cetl::pmr::memory_resource& mr_;
+        posix::UdpMedia::Collection media_collection_{};
+        UdpTransportPtr             transport_{nullptr};
+        NodeHelpers::Heartbeat      heartbeat_{mr_};
+        NodeHelpers::GetInfo        get_info_{mr_};
 
     };  // State
 
@@ -114,7 +115,7 @@ protected:
 
 TEST_F(Example_0_Transport_1_Heartbeat_GetInfo_Udp, main)
 {
-    State state;
+    State state{mr_};
 
     // Make UDP transport with collection of media.
     //

@@ -586,27 +586,27 @@ TEST_F(TestCanSvcRxSessions, receive_multiple_tids_frames)
     const std::array<std::tuple<MediaMock&, Duration, std::string, std::string>, 20> frames = {
         //
         // response 1001, tid=0, accepted
-        std::make_tuple(std::ref(media_mock_), 350755us, "slcan0", "1224D52F#E9030000000000A0"),  // ☑️create!,iface←0
+        std::make_tuple(std::ref(media_mock_), 350755us, "slcan0", "1224D52F#E9030000000000A0"),  // ☑️create!
         std::make_tuple(std::ref(media_mock_), 350764us, "slcan0", "1224D52F#00C08C40"),          // ⚡️0️⃣tid←1
         //
         // CAN2 response 1001, tid=0, dropped as duplicate
         std::make_tuple(std::ref(media_mock2), 350783us, "slcan2", "1224D52F#E9030000000000A0"),  // ❌tid≠1
         std::make_tuple(std::ref(media_mock2), 351331us, "slcan2", "1224D52F#00C08C40"),          // ❌tid≠1
         //
-        // CAN2 response 2001, tid=1, accepted by resync to interface #2
-        std::make_tuple(std::ref(media_mock2), 351336us, "slcan2", "1224D52F#D1070000000000A1"),  // ☑️tid=1,iface←2
-        std::make_tuple(std::ref(media_mock2), 351338us, "slcan2", "1224D52F#00594C41"),          // ⚡️1️⃣tid←2
+        // CAN2 response 2001, tid=1, dropped as wrong interface (expected #0)
+        std::make_tuple(std::ref(media_mock2), 351336us, "slcan2", "1224D52F#D1070000000000A1"),  // ❌iface≠0
+        std::make_tuple(std::ref(media_mock2), 351338us, "slcan2", "1224D52F#00594C41"),          // ❌iface≠0
         //
-        // CAN2 partial response 3001, accepted
-        std::make_tuple(std::ref(media_mock2), 351340us, "slcan2", "1224D52F#B90B0000000000A2"),  // ☑️
+        // CAN2 partial response 3001, tid=2, resync as new tid # 2
+        std::make_tuple(std::ref(media_mock2), 351340us, "slcan2", "1224D52F#B90B0000000000A2"),  // ☑️️️tid←2,iface←2
         //
-        // CAN0 response 2001, tid=1, dropped as duplicate
-        std::make_tuple(std::ref(media_mock_), 351473us, "slcan0", "1224D52F#D1070000000000A1"),  // ❌tid≠2
-        std::make_tuple(std::ref(media_mock_), 351476us, "slcan0", "1224D52F#00594C41"),          // ❌tid≠2
+        // CAN0 response 2001, tid=1, dropped as wrong interface (expected #2)
+        std::make_tuple(std::ref(media_mock_), 351473us, "slcan0", "1224D52F#D1070000000000A1"),  // ❌iface≠2
+        std::make_tuple(std::ref(media_mock_), 351476us, "slcan0", "1224D52F#00594C41"),          // ❌iface≠2
         //
         // CAN0 response 3001, tid=2, dropped as wrong interface (expected #2)
-        std::make_tuple(std::ref(media_mock_), 351478us, "slcan0", "1224D52F#B90B0000000000A2"),  // ❌iface≠2 & !idle
-        std::make_tuple(std::ref(media_mock_), 351479us, "slcan0", "1224D52F#00984542"),          // ❌iface≠2 & !idle
+        std::make_tuple(std::ref(media_mock_), 351478us, "slcan0", "1224D52F#B90B0000000000A2"),  // ❌iface≠2
+        std::make_tuple(std::ref(media_mock_), 351479us, "slcan0", "1224D52F#00984542"),          // ❌iface≠2
         //
         // CAN2 final fragment response 3001, tid=2, accepted
         std::make_tuple(std::ref(media_mock2), 351697us, "slcan2", "1224D52F#00984542"),  //      // ⚡️2️⃣tid←3
@@ -644,10 +644,6 @@ TEST_F(TestCanSvcRxSessions, receive_multiple_tids_frames)
                                 TimePoint{350764us},
                                 "SvcRxMetadata{rx_meta=TransferRxMetadata{base=TransferMetadata{transfer_id=0, "
                                 "priority=Nominal(4)}, timestamp=350755us}, remote_node_id=47}"),
-                            std::make_tuple(  //
-                                TimePoint{351338us},
-                                "SvcRxMetadata{rx_meta=TransferRxMetadata{base=TransferMetadata{transfer_id=1, "
-                                "priority=Nominal(4)}, timestamp=351336us}, remote_node_id=47}"),
                             std::make_tuple(  //
                                 TimePoint{351697us},
                                 "SvcRxMetadata{rx_meta=TransferRxMetadata{base=TransferMetadata{transfer_id=2, "

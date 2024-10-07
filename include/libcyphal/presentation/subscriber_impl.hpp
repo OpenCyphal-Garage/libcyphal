@@ -75,7 +75,7 @@ public:
 
                 // Deserialize the message from the buffer - only once!
                 //
-                Message    message{};
+                Message    message{typename Message::allocator_type{&context.memory}};
                 const bool got_message =
                     tryDeserializePayload(context.buffer, context.memory, message) == cetl::nullopt;
 

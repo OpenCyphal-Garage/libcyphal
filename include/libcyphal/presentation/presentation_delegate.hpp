@@ -6,6 +6,8 @@
 #ifndef LIBCYPHAL_PRESENTATION_DELEGATE_HPP_INCLUDED
 #define LIBCYPHAL_PRESENTATION_DELEGATE_HPP_INCLUDED
 
+#include <cetl/pf17/cetlpf.hpp>
+
 #include <type_traits>
 
 namespace libcyphal
@@ -21,24 +23,29 @@ namespace detail
 
 /// Trait which determines whether the given type has `T::_traits_::IsService` field.
 ///
+/// No Sonar cpp:S872 "Reconsider this operator for `bool` operand'
+/// b/c we do need to check the existence of the field with help of `decltype` and `,` (comma) operator.
+///
 template <typename T>
-auto HasIsServiceTrait(bool dummy) -> decltype(T::_traits_::IsService, std::true_type{});
+auto HasIsServiceTrait(bool dummy) -> decltype(T::_traits_::IsService, std::true_type{});  // NOSONAR cpp:S872
 template <typename>
 std::false_type HasIsServiceTrait(...);
 
 /// Trait which determines whether the given (supposed to be a Service) type
-/// has nested `T::Request` default constructible type.
+/// has nested `T::Request` type, constructible with PMR allocator.
 ///
 template <typename Service>
-auto HasServiceRequest(bool dummy) -> decltype(typename Service::Request{}, std::true_type{});
+auto HasServiceRequest(bool dummy)
+    -> decltype(typename Service::Request{typename Service::Request::allocator_type{nullptr}}, std::true_type{});
 template <typename>
 std::false_type HasServiceRequest(...);
 
 /// Trait which determines whether the given (supposed to be a Service) type
-/// has nested `T::Response` default constructible type.
+/// has nested `T::Response` type, constructible with PMR allocator.
 ///
 template <typename Service>
-auto HasServiceResponse(bool dummy) -> decltype(typename Service::Response{}, std::true_type{});
+auto HasServiceResponse(bool dummy)
+    -> decltype(typename Service::Response{typename Service::Response::allocator_type{nullptr}}, std::true_type{});
 template <typename>
 std::false_type HasServiceResponse(...);
 

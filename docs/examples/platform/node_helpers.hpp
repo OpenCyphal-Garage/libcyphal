@@ -124,6 +124,11 @@ struct NodeHelpers
     {
         using Message = uavcan::node::Heartbeat_1_0;
 
+        explicit Heartbeat(cetl::pmr::memory_resource& mr)
+            : mr_{mr}
+        {
+        }
+
         bool makeRxSession(libcyphal::transport::ITransport&                                      transport,
                            libcyphal::transport::IMessageRxSession::OnReceiveCallback::Function&& on_receive_fn = {})
         {
@@ -183,10 +188,10 @@ struct NodeHelpers
             }
         }
 
-        static void tryDeserializeAndPrint(const libcyphal::Duration                      uptime,
-                                           const libcyphal::transport::MessageRxTransfer& rx_heartbeat)
+        void tryDeserializeAndPrint(const libcyphal::Duration                      uptime,
+                                    const libcyphal::transport::MessageRxTransfer& rx_heartbeat) const
         {
-            Message heartbeat_msg{};
+            Message heartbeat_msg{mr_alloc_};
             if (tryDeserialize(heartbeat_msg, rx_heartbeat.payload))
             {
                 print(uptime, heartbeat_msg, rx_heartbeat.metadata);
@@ -211,19 +216,21 @@ struct NodeHelpers
 
             const auto uptime_in_secs = std::chrono::duration_cast<std::chrono::seconds>(uptime);
 
-            const Message            heartbeat{static_cast<std::uint32_t>(uptime_in_secs.count()),
-                                               {uavcan::node::Health_1_0::NOMINAL},
-                                               {uavcan::node::Mode_1_0::OPERATIONAL}};
+            Message heartbeat{mr_alloc_};
+            heartbeat.uptime = static_cast<std::uint32_t>(uptime_in_secs.count());
+
             const TransferTxMetadata metadata{{transfer_id_, libcyphal::transport::Priority::Nominal}, now + 1s};
 
             EXPECT_THAT(serializeAndSend(heartbeat, *msg_tx_session_, metadata), testing::Eq(cetl::nullopt))
                 << "Failed to publish 'Heartbeat_1_0'.";
         }
 
-        MessageRxSessionPtr              msg_rx_session_;
-        libcyphal::transport::TransferId transfer_id_{0};
-        MessageTxSessionPtr              msg_tx_session_;
-        Callback::Any                    publish_every_1s_cb_;
+        cetl::pmr::memory_resource&            mr_;
+        MessageRxSessionPtr                    msg_rx_session_;
+        libcyphal::transport::TransferId       transfer_id_{0};
+        MessageTxSessionPtr                    msg_tx_session_;
+        Callback::Any                          publish_every_1s_cb_;
+        cetl::pmr::polymorphic_allocator<void> mr_alloc_{&mr_};
 
     };  // Heartbeat
 
@@ -232,10 +239,18 @@ struct NodeHelpers
         using Request  = uavcan::node::GetInfo::Request_1_0;
         using Response = uavcan::node::GetInfo::Response_1_0;
 
+        explicit GetInfo(cetl::pmr::memory_resource& mr)
+            : response_{cetl::pmr::polymorphic_allocator<void>{&mr}}
+        {
+            response_.protocol_version.major = 1;
+        }
+
         void setName(const std::string& name)
         {
-            response.name.clear();
-            std::copy_n(name.begin(), std::min(name.size(), 50UL), std::back_inserter(response.name));
+            response_.name.clear();
+            const auto name_size = std::min(name.size(), 50UL);
+            response_.name.reserve(name_size);
+            std::copy_n(name.begin(), name_size, std::back_inserter(response_.name));
         }
 
         bool makeRxSession(libcyphal::transport::ITransport& transport)
@@ -272,7 +287,7 @@ struct NodeHelpers
                                                       now + 1s},
                                                      request->metadata.remote_node_id};
 
-                    EXPECT_THAT(serializeAndSend(response, *svc_res_tx_session_, metadata), testing::Eq(cetl::nullopt))
+                    EXPECT_THAT(serializeAndSend(response_, *svc_res_tx_session_, metadata), testing::Eq(cetl::nullopt))
                         << "Failed to send 'GetInfo::Response_1_0'.";
                 }
             }
@@ -281,7 +296,7 @@ struct NodeHelpers
     private:
         RequestRxSessionPtr  svc_req_rx_session_;
         ResponseTxSessionPtr svc_res_tx_session_;
-        Response             response{{1, 0}};
+        Response             response_;
 
     };  // GetInfo
 
