@@ -139,7 +139,7 @@ struct ArraySelector<
         std::is_same<typename std::decay_t<decltype(std::declval<Value::VariantType>().emplace<N>(
                          null_alloc()))>::_traits_::TypeOf::value::value_type,
                      T>::value &&
-        !isVariableSize<std::decay_t<decltype(std::declval<Value::VariantType>().emplace<N>(null_alloc()))>>()>> final
+        (!isVariableSize<std::decay_t<decltype(std::declval<Value::VariantType>().emplace<N>(null_alloc()))>>())>> final
 {
     static constexpr std::size_t Index = N;
 };
