@@ -21,7 +21,7 @@ namespace registry
 
 /// Defines the registry implementation.
 ///
-class Registry final : IRegistry
+class Registry final : public IRegistry
 {
 public:
     /// Constructs a new registry.

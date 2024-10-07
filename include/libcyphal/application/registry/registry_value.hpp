@@ -63,7 +63,8 @@ struct Coercer final
     std::enable_if_t<(!isVariableSize<A>()) && (!isVariableSize<B>()), bool>  //
     operator()(A & a, const B & b) const
     {
-        for (std::size_t i = 0; i < std::min(a.value.size(), b.value.size()); i++)
+        const std::size_t size = std::min(a.value.size(), b.value.size());
+        for (std::size_t i = 0; i < size; i++)
         {
             a.value[i] = convert<AE>(b.value[i]);
         }
@@ -284,7 +285,7 @@ inline void set(Value& dst, const cetl::span<const cetl::byte> value)
     // TODO: Fix Nunavut to expose `ARRAY_CAPACITY` so we can use it here instead of 256.
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
     unstructured.value.resize(std::min<std::size_t>(256U, value.size_bytes()));
-    std::memmove(unstructured.value.data(), value.data(), unstructured.value.size());
+    (void) std::memmove(unstructured.value.data(), value.data(), unstructured.value.size());
 }
 
 /// Assigns string to the value, truncating if necessary.

@@ -31,7 +31,9 @@ enum class SetError : std::uint8_t
 
 /// Defines interface for a register.
 ///
-class IRegister : public cavl::Node<IRegister>
+/// NOSONAR cpp:S4963 for below `class IRegister` - protected destructor is necessary.
+///
+class IRegister : public cavl::Node<IRegister>  // NOSONAR cpp:S4963
 {
 public:
     /// Defines the type of the register name.

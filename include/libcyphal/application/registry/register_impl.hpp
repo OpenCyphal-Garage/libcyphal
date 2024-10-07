@@ -67,7 +67,7 @@ protected:
     RegisterBase(RegisterBase&&) noexcept = default;
 
     template <typename T>
-    ValueAndFlags getImpl(const T& value, bool is_mutable) const
+    ValueAndFlags getImpl(const T& value, const bool is_mutable) const
     {
         ValueAndFlags out{Value{allocator_}, {}};
         registry::set(out.value_, value);
@@ -117,12 +117,12 @@ class Register<Getter, void, false> final : public RegisterBase
     using Base = RegisterBase;
 
 public:
-    virtual ~Register()  = default;
-    Register(Register&&) = default;
+    ~Register()                   = default;
+    Register(Register&&) noexcept = default;
 
-    Register(const Register&)            = delete;
-    Register& operator=(const Register&) = delete;
-    Register& operator=(Register&&)      = delete;
+    Register(const Register&)                = delete;
+    Register& operator=(const Register&)     = delete;
+    Register& operator=(Register&&) noexcept = delete;
 
     // MARK: IRegister
 
@@ -139,9 +139,9 @@ public:
 private:
     friend class Registry;
 
-    explicit Register(cetl::pmr::memory_resource& memory, const Name name, const Options& options, Getter getter)
+    Register(cetl::pmr::memory_resource& memory, const Name name, const Options& options, Getter getter)
         : Base{memory, name, options}
-        , getter_(std::move<Getter>(getter))
+        , getter_(std::move(getter))
     {
     }
 
@@ -162,12 +162,12 @@ class Register<Getter, Setter, true> final : public RegisterBase
     using Base = RegisterBase;
 
 public:
-    virtual ~Register()  = default;
-    Register(Register&&) = default;
+    ~Register()                   = default;
+    Register(Register&&) noexcept = default;
 
-    Register(const Register&)            = delete;
-    Register& operator=(const Register&) = delete;
-    Register& operator=(Register&&)      = delete;
+    Register(const Register&)                = delete;
+    Register& operator=(const Register&)     = delete;
+    Register& operator=(Register&&) noexcept = delete;
 
     // MARK: IRegister
 
@@ -184,14 +184,10 @@ public:
 private:
     friend class Registry;
 
-    explicit Register(cetl::pmr::memory_resource& memory,
-                      const Name                  name,
-                      const Options&              options,
-                      Getter                      getter,
-                      Setter                      setter)
+    Register(cetl::pmr::memory_resource& memory, const Name name, const Options& options, Getter getter, Setter setter)
         : Base{memory, name, options}
-        , getter_{std::move<Getter>(getter)}
-        , setter_{std::move<Getter>(setter)}
+        , getter_{std::move(getter)}
+        , setter_{std::move(setter)}
     {
     }
 
@@ -219,12 +215,12 @@ public:
         (void) rgy;
     }
 
-    virtual ~ParamRegister()       = default;
-    ParamRegister(ParamRegister&&) = default;
+    ~ParamRegister()                        = default;
+    ParamRegister(ParamRegister&&) noexcept = default;
 
-    ParamRegister(const ParamRegister&)            = delete;
-    ParamRegister& operator=(const ParamRegister&) = delete;
-    ParamRegister& operator=(ParamRegister&&)      = delete;
+    ParamRegister(const ParamRegister&)                = delete;
+    ParamRegister& operator=(const ParamRegister&)     = delete;
+    ParamRegister& operator=(ParamRegister&&) noexcept = delete;
 
     // MARK: IRegister
 
