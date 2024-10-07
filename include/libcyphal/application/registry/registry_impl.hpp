@@ -72,7 +72,7 @@ private:
     }
 
     cetl::pmr::memory_resource& memory_;
-    cavl::Tree<IRegister>       registers_tree_{};
+    cavl::Tree<IRegister>       registers_tree_;
 
 };  // Registry
 

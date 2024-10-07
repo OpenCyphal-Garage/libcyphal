@@ -84,8 +84,8 @@ struct Coercer final
         return true;
     }
 
-    template <typename... A>  // Catch-all dummy -- variadic templates have the lowest priority.
-    bool operator()(A&&...) const
+    template <typename... A>       // Catch-all dummy -- variadic templates have the lowest priority.
+    bool operator()(A&&...) const  // NOLINT cppcoreguidelines-missing-std-forward
     {
         return false;
     }
@@ -273,6 +273,7 @@ inline void set(Value& dst, const cetl::span<const cetl::byte> value)
 {
     auto& unstructured = dst.set_unstructured();
     // TODO: Fix Nunavut to expose `ARRAY_CAPACITY` so we can use it here instead of 256.
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
     unstructured.value.resize(std::min<std::size_t>(256U, value.size_bytes()));
     std::memmove(unstructured.value.data(), value.data(), unstructured.value.size());
 }
@@ -289,6 +290,7 @@ inline void set(Value& dst, const char* const string)
     str.value.reserve(str_len);
     for (std::size_t i = 0; i < std::min(str_len, str.value.capacity()); i++)
     {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         str.value.push_back(static_cast<std::uint8_t>(string[i]));
     }
 }
@@ -327,6 +329,13 @@ inline void set(Value& dst, const Value& src)
 }
 
 // MARK: - Factories
+
+inline Value makeValue(Value::allocator_type& allocator, const char* const str)
+{
+    Value out{allocator};
+    set(out, str);
+    return out;
+}
 
 template <typename T>
 Value makeValue(Value::allocator_type& allocator, const T& src)

@@ -54,7 +54,7 @@ TEST_F(TestRegister, makeParam)
 {
     Registry rgy{mr_};
 
-    ParamRegister<bool> bool_param{rgy, "bool_param", true};
+    const ParamRegister<bool> bool_param{rgy, "bool_param", true};
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

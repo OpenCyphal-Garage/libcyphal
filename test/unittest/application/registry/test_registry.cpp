@@ -51,7 +51,7 @@ protected:
 
 TEST_F(TestRegistry, makeParam)
 {
-    Registry rgy{mr_};
+    const Registry rgy{mr_};
     (void) rgy;
 }
 

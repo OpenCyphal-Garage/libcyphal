@@ -31,6 +31,10 @@ public:
 
     };  // Options
 
+    RegisterBase(const RegisterBase&)                      = delete;
+    RegisterBase& operator=(const RegisterBase&)           = delete;
+    RegisterBase& operator=(RegisterBase&& other) noexcept = delete;
+
     Options getOptions() const noexcept
     {
         return options_;
@@ -51,7 +55,9 @@ protected:
         , options_{options}
     {
     }
-    ~RegisterBase() = default;
+
+    ~RegisterBase()                       = default;
+    RegisterBase(RegisterBase&&) noexcept = default;
 
     template <typename T>
     ValueAndFlags getImpl(const T& value, bool is_mutable) const
@@ -69,7 +75,7 @@ protected:
         auto converted = get().value_;
         if (coerce(converted, value))
         {
-            if (setter(converted))
+            if (std::forward<Setter>(setter)(converted))
             {
                 return cetl::nullopt;
             }

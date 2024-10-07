@@ -74,7 +74,11 @@ public:
         ///
         CETL_NODISCARD std::int8_t compare(const Key other) const noexcept
         {
-            return static_cast<std::int8_t>((value_ == other.value_) ? 0 : ((value_ > other.value_) ? +1 : -1));
+            if (value_ == other.value_)
+            {
+                return 0;
+            }
+            return static_cast<std::int8_t>((value_ > other.value_) ? +1 : -1);
         }
 
     private:

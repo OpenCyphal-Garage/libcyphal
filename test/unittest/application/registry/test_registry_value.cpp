@@ -7,7 +7,6 @@
 #include "verification_utilities.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <cetl/pf20/cetlpf.hpp>
 #include <libcyphal/application/registry/registry_value.hpp>
 
 #include <gmock/gmock.h>

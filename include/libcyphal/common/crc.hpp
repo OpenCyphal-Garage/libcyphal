@@ -27,18 +27,23 @@ public:
     }
 
 private:
+    // No lint for cppcoreguidelines-pro-bounds-pointer-arithmetic - this is a low-level utility.
     void add(const void* const begin, const void* const end) noexcept
     {
         const auto* it = static_cast<const std::uint8_t*>(begin);
         while (it != static_cast<const std::uint8_t*>(end))
         {
             add(*it);
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             ++it;
         }
     }
 
     void add(const std::uint8_t b) noexcept
     {
+        // No lint for cppcoreguidelines-avoid-magic-numbers and readability-magic-numbers.
+        // Also ignore cppcoreguidelines-pro-bounds-constant-array-index - we are using a lookup table.
+        // NOLINTNEXTLINE
         crc_ = (Table[b ^ (crc_ >> 56U)] ^ (crc_ << 8U));
     }
 
@@ -112,8 +117,10 @@ private:
     }};
 
 };  // CRC64WE
-//
+#if (__cplusplus == CETL_CPP_STANDARD_14)
+// NOLINTNEXTLINE(misc-definitions-in-headers)
 std::array<std::uint64_t, 256> constexpr CRC64WE::Table;
+#endif
 
 }  // namespace common
 }  // namespace libcyphal
