@@ -24,7 +24,7 @@ namespace libcyphal
 namespace verification_utilities
 {
 
-inline cetl::byte b(std::uint8_t b)
+inline constexpr cetl::byte b(std::uint8_t b)
 {
     return static_cast<cetl::byte>(b);
 }

@@ -587,7 +587,7 @@ TEST_F(TestCanSvcRxSessions, receive_multiple_tids_frames)
         //
         // response 1001, tid=0, accepted
         std::make_tuple(std::ref(media_mock_), 350755us, "slcan0", "1224D52F#E9030000000000A0"),  // ☑️create!
-        std::make_tuple(std::ref(media_mock_), 350764us, "slcan0", "1224D52F#00C08C40"),          // ⚡️0️⃣tid←1
+        std::make_tuple(std::ref(media_mock_), 350764us, "slcan0", "1224D52F#00C08C40"),  // ⚡️0️⃣tid←1
         //
         // CAN2 response 1001, tid=0, dropped as duplicate
         std::make_tuple(std::ref(media_mock2), 350783us, "slcan2", "1224D52F#E9030000000000A0"),  // ❌tid≠1
@@ -613,7 +613,7 @@ TEST_F(TestCanSvcRxSessions, receive_multiple_tids_frames)
         //
         // CAN2 response 4001, tid=3, accepted
         std::make_tuple(std::ref(media_mock2), 351700us, "slcan2", "1224D52F#A10F0000000000A3"),  // ☑️
-        std::make_tuple(std::ref(media_mock2), 351702us, "slcan2", "1224D52F#007AED43"),          // ⚡️3️⃣tid←4
+        std::make_tuple(std::ref(media_mock2), 351702us, "slcan2", "1224D52F#007AED43"),  // ⚡️3️⃣tid←4
         //
         // CAN0 response 4001, tid=3, dropped as duplicate
         std::make_tuple(std::ref(media_mock_), 351730us, "slcan0", "1224D52F#A10F0000000000A3"),  // ❌tid≠4
@@ -621,7 +621,7 @@ TEST_F(TestCanSvcRxSessions, receive_multiple_tids_frames)
         //
         // CAN2 response 5001, tid=4, accepted
         std::make_tuple(std::ref(media_mock2), 352747us, "slcan2", "1224D52F#89130000000000A4"),  // ☑️
-        std::make_tuple(std::ref(media_mock2), 352777us, "slcan2", "1224D52F#007A4F44"),          // ⚡️4️⃣tid←5
+        std::make_tuple(std::ref(media_mock2), 352777us, "slcan2", "1224D52F#007A4F44"),  // ⚡️4️⃣tid←5
         //
         // CAN0 response 5001, tid=4, dropped as duplicate
         std::make_tuple(std::ref(media_mock_), 352800us, "slcan0", "1224D52F#89130000000000A4"),  // ❌tid≠5

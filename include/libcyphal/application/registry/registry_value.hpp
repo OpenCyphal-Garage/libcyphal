@@ -8,6 +8,7 @@
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
 
 #include <cassert>
 #include <uavcan/_register/Value_1_0.hpp>
@@ -263,6 +264,18 @@ cetl::optional<T> get(const Value& src)
 }
 
 // MARK: - Set
+
+/// Assigns an unstructured value by copying the raw memory contents into the value.
+///
+/// Extra data truncated.
+///
+inline void set(Value& dst, const cetl::span<const cetl::byte> value)
+{
+    auto& unstructured = dst.set_unstructured();
+    // TODO: Fix Nunavut to expose `ARRAY_CAPACITY` so we can use it here instead of 256.
+    unstructured.value.resize(std::min<std::size_t>(256U, value.size_bytes()));
+    std::memmove(unstructured.value.data(), value.data(), unstructured.value.size());
+}
 
 /// Assigns string to the value, truncating if necessary.
 ///
