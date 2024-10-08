@@ -49,6 +49,50 @@ protected:
 
 };  // IRegistry
 
+// MARK: -
+
+/// Extends the basic registry interface with additional methods that enable introspection.
+///
+class IIntrospectableRegistry : public IRegistry
+{
+public:
+    IIntrospectableRegistry(IIntrospectableRegistry&&)                 = delete;
+    IIntrospectableRegistry(const IIntrospectableRegistry&)            = delete;
+    IIntrospectableRegistry& operator=(IIntrospectableRegistry&&)      = delete;
+    IIntrospectableRegistry& operator=(const IIntrospectableRegistry&) = delete;
+
+    /// Gets the total number of registers in the registry.
+    ///
+    /// The worst-case complexity may be linear in the number of registers.
+    ///
+    virtual std::size_t size() const = 0;
+
+    /// Gets the name of the register at the specified index.
+    ///
+    /// The ordering is arbitrary but stable as long as the register set is not modified.
+    /// The worst-case complexity may be linear in the number of registers.
+    ///
+    /// @param index The index of the register.
+    /// @return Name of the register. `nullptr` if the index is out of range.
+    ///
+    virtual IRegister::Name index(const std::size_t index) const = 0;
+
+    /// Appends a new register to the registry.
+    ///
+    /// The worst-case complexity may be linear in the number of registers.
+    ///
+    /// @param reg The register to append. Should not be yet linked to a registry.
+    /// @return True if the register was appended successfully.
+    ///         False if the register with the same name already exists.
+    ///
+    virtual bool append(IRegister& reg) = 0;
+
+protected:
+    IIntrospectableRegistry()  = default;
+    ~IIntrospectableRegistry() = default;
+
+};  // IIntrospectableRegistry
+
 }  // namespace registry
 }  // namespace application
 }  // namespace libcyphal

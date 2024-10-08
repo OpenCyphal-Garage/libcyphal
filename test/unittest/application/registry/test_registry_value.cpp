@@ -54,7 +54,7 @@ protected:
     TrackingMemoryResource mr_default_;
     // NOLINTEND
 
-};  // TestRegistry
+};  // TestRegistryValue
 
 // MARK: - Tests:
 

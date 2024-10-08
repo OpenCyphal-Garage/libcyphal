@@ -97,7 +97,10 @@ public:
     private:
         CETL_NODISCARD static std::uint64_t hash(const Name name) noexcept
         {
-            const std::size_t name_len = std::strlen(name);
+            // No Sonar cpp:S5813: Using "strlen" or "wcslen" is security-sensitive.
+            // Our `Name` type is currently expected to be a C-string literal.
+            // TODO: Consider reworking when `string_view` polyfill is available.
+            const std::size_t name_len = std::strlen(name);  // NOSONAR cpp:S5813
             return common::CRC64WE(name, name + name_len).get();
         }
 
@@ -125,12 +128,22 @@ public:
     ///
     virtual Name getName() const = 0;
 
+    /// Gets unique key of the register.
+    ///
+    Key getKey() const noexcept
+    {
+        return key_;
+    }
+
     /// Compares the register by key with a given one.
     ///
     CETL_NODISCARD std::int8_t compareBy(const Key other_key) const noexcept
     {
         return key_.compare(other_key);
     }
+
+    /// Checks if the register is linked to a registry.
+    using Node::isLinked;
 
 protected:
     explicit IRegister(const Name name)
@@ -144,7 +157,13 @@ protected:
     {
     }
 
-    ~IRegister() = default;
+    ~IRegister()
+    {
+        if (isLinked())
+        {
+            remove();
+        }
+    }
 
 private:
     // MARK: Data members:

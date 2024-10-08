@@ -301,7 +301,10 @@ inline void set(Value& dst, const char* const string)
 {
     auto& str = dst.set_string();
 
-    const std::size_t str_len = std::strlen(string);
+    // No Sonar cpp:S5813: Using "strlen" or "wcslen" is security-sensitive.
+    // Currently, all string values are expected to be a C-string.
+    // TODO: Consider reworking when `string_view` polyfill is available.
+    const std::size_t str_len = std::strlen(string);  // NOSONAR cpp:S5813
     str.value.reserve(str_len);
     const std::size_t size = std::min(str_len, str.value.capacity());
     for (std::size_t i = 0; i < size; i++)

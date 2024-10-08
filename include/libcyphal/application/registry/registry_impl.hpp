@@ -21,7 +21,7 @@ namespace registry
 
 /// Defines the registry implementation.
 ///
-class Registry final : public IRegistry
+class Registry final : public IIntrospectableRegistry
 {
 public:
     /// Constructs a new registry.
@@ -44,7 +44,7 @@ public:
         return memory_;
     }
 
-    /// MARK: - IRegistry
+    // MARK: - IRegistry
 
     cetl::optional<IRegister::ValueAndFlags> get(const IRegister::Name name) const override
     {
@@ -62,6 +62,41 @@ public:
             return reg->set(new_value);
         }
         return SetError::Existence;
+    }
+
+    // MARK: - IIntrospectableRegistry
+
+    std::size_t size() const override
+    {
+        return registers_tree_.size();
+    }
+
+    IRegister::Name index(const std::size_t index) const override
+    {
+        if (const auto* const reg = registers_tree_[index])
+        {
+            return reg->getName();
+        }
+        return IRegister::Name{};
+    }
+
+    bool append(IRegister& reg) override
+    {
+        CETL_DEBUG_ASSERT(!reg.isLinked(), "Should not be linked yet.");
+
+        auto register_existing = registers_tree_.search(
+            [key = reg.getKey()](const IRegister& other) {
+                //
+                return other.compareBy(key);
+            },
+            [&reg]() -> IRegister* {
+                //
+                return &reg;
+            });
+
+        CETL_DEBUG_ASSERT(reg.isLinked(), "Should be linked now.");
+        CETL_DEBUG_ASSERT(std::get<0>(register_existing) != nullptr, "");
+        return !std::get<1>(register_existing);
     }
 
 private:

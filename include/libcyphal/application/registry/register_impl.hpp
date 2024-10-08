@@ -9,6 +9,8 @@
 #include "registry_impl.hpp"
 #include "registry_value.hpp"
 
+#include <cetl/cetl.hpp>
+
 #include <utility>
 
 namespace libcyphal
@@ -208,11 +210,40 @@ template <typename ValueType, bool IsMutable = true>
 class ParamRegister final : public RegisterBase
 {
 public:
-    ParamRegister(const Registry& rgy, const Name name, const ValueType& default_value, const Options& options = {true})
+    /// Constructs a new detached register, which is not yet linked to any registry.
+    ///
+    /// A detached register must be appended to a registry before its value could be exposed by the registry.
+    ///
+    /// @param memory The memory resource to use for variable size-d register values.
+    /// @param name The name of the register.
+    /// @param default_value The initial default value of the register.
+    /// @param options Extra options for the register, like "persistent" option (`true` by default).
+    ///
+    ParamRegister(cetl::pmr::memory_resource& memory,
+                  const Name                  name,
+                  const ValueType&            default_value,
+                  const Options&              options = {true})
+        : RegisterBase{memory, name, options}
+        , value_{default_value}
+    {
+    }
+
+    /// Constructs a new register, and links it to a given registry.
+    ///
+    /// Register will use PMR memory resource of the registry.
+    ///
+    /// @param rgy The registry to link the register to.
+    /// @param name The name of the register. Should be unique within the registry.
+    /// @param default_value The initial default value of the register.
+    /// @param options Extra options for the register, like "persistent" option (`true` by default).
+    ///
+    ParamRegister(Registry& rgy, const Name name, const ValueType& default_value, const Options& options = {true})
         : RegisterBase{rgy.memory(), name, options}
         , value_{default_value}
     {
-        (void) rgy;
+        const bool success = rgy.append(*this);
+        CETL_DEBUG_ASSERT(success, "Register with the same name already exists.");
+        (void) success;
     }
 
     ~ParamRegister()                        = default;
@@ -244,8 +275,6 @@ public:
     }
 
 private:
-    friend class Registry;
-
     // MARK: Data members:
 
     ValueType value_;
