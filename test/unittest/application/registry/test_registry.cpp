@@ -30,7 +30,7 @@ using testing::IsEmpty;
 using testing::Optional;
 using testing::ElementsAre;
 
-// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers, bugprone-unchecked-optional-access)
 
 class TestRegistry : public testing::Test
 {
@@ -165,6 +165,6 @@ TEST_F(TestRegistry, append_set_get_immutable)
     EXPECT_THAT((get<std::array<std::int32_t, 4>>(arr_get_result->value_)), Optional(ElementsAre(123, 456, -789, 0)));
 }
 
-// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers, bugprone-unchecked-optional-access)
 
 }  // namespace
