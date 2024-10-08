@@ -119,6 +119,21 @@ class Register<Getter, void, false> final : public RegisterBase
     using Base = RegisterBase;
 
 public:
+    /// Constructs a new read-only register, which is not yet linked to any registry (aka detached).
+    ///
+    /// A detached register must be appended to a registry before its value could be exposed by the registry.
+    ///
+    /// @param memory The memory resource to use for variable size-d register values.
+    /// @param name The name of the register.
+    /// @param options Extra options for the register, like "persistent" option (`true` by default).
+    /// @param getter The getter function to provide the register value (from a storage).
+    ///
+    Register(cetl::pmr::memory_resource& memory, const Name name, const Options& options, Getter&& getter)
+        : Base{memory, name, options}
+        , getter_(std::move(getter))
+    {
+    }
+
     ~Register()                   = default;
     Register(Register&&) noexcept = default;
 
@@ -139,14 +154,6 @@ public:
     }
 
 private:
-    friend class Registry;
-
-    Register(cetl::pmr::memory_resource& memory, const Name name, const Options& options, Getter getter)
-        : Base{memory, name, options}
-        , getter_(std::move(getter))
-    {
-    }
-
     // MARK: Data members:
 
     Getter getter_;
@@ -164,6 +171,27 @@ class Register<Getter, Setter, true> final : public RegisterBase
     using Base = RegisterBase;
 
 public:
+    /// Constructs a new read-write detached register, which is not yet linked to any registry (aka detached).
+    ///
+    /// A detached register must be appended to a registry before its value could be exposed by the registry.
+    ///
+    /// @param memory The memory resource to use for variable size-d register values.
+    /// @param name The name of the register.
+    /// @param options Extra options for the register, like "persistent" option (`true` by default).
+    /// @param getter The getter function to provide the register value (from a storage).
+    /// @param setter The setter function to update the register value (at the storage).
+    ///
+    Register(cetl::pmr::memory_resource& memory,
+             const Name                  name,
+             const Options&              options,
+             Getter&&                    getter,
+             Setter&&                    setter)
+        : Base{memory, name, options}
+        , getter_{std::move(getter)}
+        , setter_{std::move(setter)}
+    {
+    }
+
     ~Register()                   = default;
     Register(Register&&) noexcept = default;
 
@@ -184,15 +212,6 @@ public:
     }
 
 private:
-    friend class Registry;
-
-    Register(cetl::pmr::memory_resource& memory, const Name name, const Options& options, Getter getter, Setter setter)
-        : Base{memory, name, options}
-        , getter_{std::move(getter)}
-        , setter_{std::move(setter)}
-    {
-    }
-
     // MARK: Data members:
 
     Getter getter_;
@@ -210,7 +229,7 @@ template <typename ValueType, bool IsMutable = true>
 class ParamRegister final : public RegisterBase
 {
 public:
-    /// Constructs a new detached register, which is not yet linked to any registry.
+    /// Constructs a new parameter register, which is not yet linked to any registry.
     ///
     /// A detached register must be appended to a registry before its value could be exposed by the registry.
     ///
@@ -228,7 +247,7 @@ public:
     {
     }
 
-    /// Constructs a new register, and links it to a given registry.
+    /// Constructs a new parameter register, and links it to a given registry.
     ///
     /// Register will use PMR memory resource of the registry.
     ///
@@ -280,6 +299,49 @@ private:
     ValueType value_;
 
 };  // ParamRegister
+
+/// Constructs a new read-only register, which is not yet linked to any registry (aka detached).
+///
+/// A detached register must be appended to a registry before its value could be exposed by the registry.
+///
+/// @param memory The memory resource to use for variable size-d register values.
+/// @param name The name of the register.
+/// @param options Extra options for the register, like "persistent" option (`true` by default).
+/// @param getter The getter function to provide the register value (from a storage).
+/// @param setter The setter function to update the register value (at the storage).
+///
+template <typename Getter>
+auto makeRegister(cetl::pmr::memory_resource&  memory,
+                  const IRegister::Name        name,
+                  const RegisterBase::Options& options,
+                  Getter&&                     getter)
+{
+    return Register<Getter, void, false>{memory, name, options, std::forward<Getter>(getter)};
+}
+
+/// Constructs a new read-write register, which is not yet linked to any registry (aka detached).
+///
+/// A detached register must be appended to a registry before its value could be exposed by the registry.
+///
+/// @param memory The memory resource to use for variable size-d register values.
+/// @param name The name of the register.
+/// @param options Extra options for the register, like "persistent" option (`true` by default).
+/// @param getter The getter function to provide the register value (from a storage).
+/// @param setter The setter function to update the register value (at the storage).
+///
+template <typename Getter, typename Setter>
+auto makeRegister(cetl::pmr::memory_resource&  memory,
+                  const IRegister::Name        name,
+                  const RegisterBase::Options& options,
+                  Getter&&                     getter,
+                  Setter&&                     setter)
+{
+    return Register<Getter, Setter, true>{memory,
+                                          name,
+                                          options,
+                                          std::forward<Getter>(getter),
+                                          std::forward<Setter>(setter)};
+}
 
 }  // namespace registry
 }  // namespace application
