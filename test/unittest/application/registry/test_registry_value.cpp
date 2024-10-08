@@ -24,6 +24,7 @@ using libcyphal::verification_utilities::b;
 using testing::IsEmpty;
 using testing::Optional;
 using testing::DoubleNear;
+using testing::StartsWith;
 using testing::ElementsAre;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
@@ -50,8 +51,9 @@ protected:
     // MARK: Data members:
 
     // NOLINTBEGIN
-    TrackingMemoryResource mr_;
-    TrackingMemoryResource mr_default_;
+    TrackingMemoryResource      mr_;
+    TrackingMemoryResource      mr_default_;
+    const Value::allocator_type alloc_{&mr_};
     // NOLINTEND
 
 };  // TestRegistryValue
@@ -60,11 +62,9 @@ protected:
 
 TEST_F(TestRegistryValue, makeValue)
 {
-    const Value::allocator_type alloc{&mr_};
-
     // Integral
     {
-        Value v = makeValue(alloc, true, false, true, false, false, false, false, true, false);
+        Value v = makeValue(alloc_, true, false, true, false, false, false, false, true, false);
         EXPECT_TRUE(v.is_bit());
         EXPECT_THAT(v.get_bit().value.size(), 9);
         EXPECT_TRUE(v.get_bit().value[0]);
@@ -77,49 +77,49 @@ TEST_F(TestRegistryValue, makeValue)
         EXPECT_TRUE(v.get_bit().value[7]);
         EXPECT_FALSE(v.get_bit().value[8]);
 
-        v = makeValue(alloc, static_cast<std::int64_t>(-1234567890), 123, 1234567890123);
+        v = makeValue(alloc_, static_cast<std::int64_t>(-1234567890), 123, 1234567890123);
         EXPECT_TRUE(v.is_integer64());
         ASSERT_THAT(v.get_integer64().value.size(), 3);
         EXPECT_THAT(v.get_integer64().value[0], -1234567890);
         EXPECT_THAT(v.get_integer64().value[1], 123);
         EXPECT_THAT(v.get_integer64().value[2], 1234567890123);
 
-        v = makeValue(alloc, -123456789, 66);
+        v = makeValue(alloc_, -123456789, 66);
         EXPECT_TRUE(v.is_integer32());
         ASSERT_THAT(v.get_integer32().value.size(), 2);
         EXPECT_THAT(v.get_integer32().value[0], -123456789);
         EXPECT_THAT(v.get_integer32().value[1], 66);
 
-        v = makeValue(alloc, static_cast<std::int16_t>(-1234));
+        v = makeValue(alloc_, static_cast<std::int16_t>(-1234));
         EXPECT_TRUE(v.is_integer16());
         ASSERT_THAT(v.get_integer16().value.size(), 1);
         EXPECT_THAT(v.get_integer16().value[0], -1234);
 
-        v = makeValue(alloc, static_cast<std::int8_t>(-128), static_cast<std::int8_t>(+127));
+        v = makeValue(alloc_, static_cast<std::int8_t>(-128), static_cast<std::int8_t>(+127));
         EXPECT_TRUE(v.is_integer8());
         ASSERT_THAT(v.get_integer8().value.size(), 2);
         EXPECT_THAT(v.get_integer8().value[0], -128);
         EXPECT_THAT(v.get_integer8().value[1], +127);
 
-        v = makeValue(alloc, static_cast<std::uint64_t>(1234567890), 123, 1234567890123);
+        v = makeValue(alloc_, static_cast<std::uint64_t>(1234567890), 123, 1234567890123);
         EXPECT_TRUE(v.is_natural64());
         ASSERT_THAT(v.get_natural64().value.size(), 3);
         EXPECT_THAT(v.get_natural64().value[0], 1234567890);
         EXPECT_THAT(v.get_natural64().value[1], 123);
         EXPECT_THAT(v.get_natural64().value[2], 1234567890123);
 
-        v = makeValue(alloc, static_cast<std::uint32_t>(123456789), static_cast<std::uint32_t>(66));
+        v = makeValue(alloc_, static_cast<std::uint32_t>(123456789), static_cast<std::uint32_t>(66));
         EXPECT_TRUE(v.is_natural32());
         ASSERT_THAT(v.get_natural32().value.size(), 2);
         EXPECT_THAT(v.get_natural32().value[0], 123456789);
         EXPECT_THAT(v.get_natural32().value[1], 66);
 
-        v = makeValue(alloc, static_cast<std::uint16_t>(1234));
+        v = makeValue(alloc_, static_cast<std::uint16_t>(1234));
         EXPECT_TRUE(v.is_natural16());
         ASSERT_THAT(v.get_natural16().value.size(), 1);
         EXPECT_THAT(v.get_natural16().value[0], 1234);
 
-        v = makeValue(alloc, static_cast<std::uint8_t>(128), static_cast<std::uint8_t>(127));
+        v = makeValue(alloc_, static_cast<std::uint8_t>(128), static_cast<std::uint8_t>(127));
         EXPECT_TRUE(v.is_natural8());
         ASSERT_THAT(v.get_natural8().value.size(), 2);
         EXPECT_THAT(v.get_natural8().value[0], 128);
@@ -128,13 +128,13 @@ TEST_F(TestRegistryValue, makeValue)
 
     // Float
     {
-        Value v = makeValue(alloc, +123.456F, -789.523F);
+        Value v = makeValue(alloc_, +123.456F, -789.523F);
         EXPECT_TRUE(v.is_real32());
         ASSERT_THAT(v.get_real32().value.size(), 2);
         EXPECT_THAT(v.get_real32().value[0], +123.456F);
         EXPECT_THAT(v.get_real32().value[1], -789.523F);
 
-        v = makeValue(alloc, +123.456F, -789.523F, -1.0);  // One of them is double so all converted to double.
+        v = makeValue(alloc_, +123.456F, -789.523F, -1.0);  // One of them is double so all converted to double.
         EXPECT_TRUE(v.is_real64());
         ASSERT_THAT(v.get_real64().value.size(), 3);
         EXPECT_THAT(v.get_real64().value[0], DoubleNear(+123.456, 0.1));
@@ -142,20 +142,19 @@ TEST_F(TestRegistryValue, makeValue)
         EXPECT_THAT(v.get_real64().value[2], DoubleNear(-1.00000, 0.1));
     }
 
-    // Variable size
+    // Variable size string
     {
-        Value v = makeValue(alloc, "Is it Atreides custom to insult their guests?");
+        Value v = makeValue(alloc_, "Is it Atreides custom to insult their guests?");
         EXPECT_TRUE(v.is_string());
         EXPECT_THAT(v.get_string().value.size(), 45);
         EXPECT_THAT(reinterpret_cast<const char*>(v.get_string().value.data()),  // NOLINT
-                    testing::StartsWith("Is it Atreides custom to insult their guests?"));
+                    StartsWith("Is it Atreides custom to insult their guests?"));
 
-        // TODO: fix this
-        // std::array<cetl::byte, 4> stuff{{b(0x11), b(0x22), b(0x33), b(0x44)}};
-        // v = makeValue(alloc, cetl::span<const cetl::byte, 4>(stuff));
-        // EXPECT_TRUE(v.is_unstructured());
-        // ASSERT_THAT(v.get_unstructured().value.size(), 4);
-        // EXPECT_THAT(v.get_unstructured().value, ElementsAre(b(0x11), b(0x22), b(0x33), b(0x44)));
+        constexpr std::array<cetl::byte, 4> stuff{{b(0x11), b(0x22), b(0x33), b(0x44)}};
+        v = makeValue(alloc_, {stuff.data(), stuff.size()});
+        EXPECT_TRUE(v.is_unstructured());
+        ASSERT_THAT(v.get_unstructured().value.size(), 4);
+        EXPECT_THAT(v.get_unstructured().value, ElementsAre(0x11, 0x22, 0x33, 0x44));
     }
 }
 
@@ -163,7 +162,7 @@ TEST_F(TestRegistryValue, isVariableSize)
 {
     using detail::isVariableSize;
 
-    Value v{Value::allocator_type{&mr_}};
+    Value v{alloc_};
 
     v.set_empty();
     EXPECT_FALSE(isVariableSize(v));
@@ -186,10 +185,8 @@ TEST_F(TestRegistryValue, isVariableSize)
 
 TEST_F(TestRegistryValue, get)
 {
-    const Value::allocator_type alloc{&mr_};
-
     {
-        const Value v{alloc};
+        const Value v{alloc_};
 
         EXPECT_THAT((get<std::array<int, 3>>(v)), cetl::nullopt);
         EXPECT_THAT((get<std::array<bool, 0>>(v)), cetl::nullopt);
@@ -199,49 +196,87 @@ TEST_F(TestRegistryValue, get)
     {
         constexpr std::array<float, 4> f{11'111, 22'222, -12'345, 0};
 
-        const Value v = makeValue(alloc, std::array<std::int64_t, 3>{{11'111, 22'222, -12'345}});
+        const Value v = makeValue(alloc_, std::array<std::int64_t, 3>{{11'111, 22'222, -12'345}});
 
         EXPECT_THAT((get<std::array<float, 2>>(v)), Optional(ElementsAre(f[0], f[1])));
         EXPECT_THAT((get<std::array<float, 4>>(v)), Optional(ElementsAre(f[0], f[1], f[2], f[3])));
     }
     {
-        constexpr std::array<bool, 4> b{{true, false, true, false}};
-
-        const Value v = makeValue(alloc, std::array<bool, 3>{{true, false, true}});
-        EXPECT_THAT((get<std::array<bool, 4>>(v)), Optional(ElementsAre(b[0], b[1], b[2], b[3])));
+        const Value v = makeValue(alloc_, std::array<bool, 3>{{true, false, true}});
+        EXPECT_THAT((get<std::array<bool, 4>>(v)), Optional(ElementsAre(true, false, true, false)));
     }
     {
-        constexpr std::array<cetl::byte, 4> e{{b(1), b(0), b(1), b(0)}};
-
-        const Value v = makeValue(alloc, std::array<float, 3>{{1, 0, 1}});
-        EXPECT_THAT((get<std::array<cetl::byte, 4>>(v)), Optional(ElementsAre(e[0], e[1], e[2], e[3])));
+        const Value v = makeValue(alloc_, std::array<float, 3>{{1, 0, 1}});
+        EXPECT_THAT((get<std::array<cetl::byte, 0>>(v)), Optional(IsEmpty()));
+        EXPECT_THAT((get<std::array<cetl::byte, 4>>(v)), Optional(ElementsAre(b(1), b(0), b(1), b(0))));
+    }
+    {
+        // Unstructured -> uint8 | array<uint8>
+        constexpr std::array<cetl::byte, 4> bytes{{b(1), b(0), b(1), b(0)}};
+        const Value v = makeValue(alloc_, {bytes.data(), bytes.size()});
+        EXPECT_THAT((get<std::uint8_t>(v)), testing::Eq(cetl::nullopt));
+        EXPECT_THAT((get<std::array<std::uint8_t, 0>>(v)), testing::Eq(cetl::nullopt));
+    }
+    {
+        // String -> uint8 | array<uint8>
+        const Value v = makeValue(alloc_, "abc");
+        EXPECT_THAT((get<std::uint8_t>(v)), testing::Eq(cetl::nullopt));
+        EXPECT_THAT((get<std::array<std::uint8_t, 0>>(v)), testing::Eq(cetl::nullopt));
     }
 
-    EXPECT_THAT(get<std::int16_t>(makeValue(alloc, static_cast<std::int64_t>(1234), -9876, 1521)), Optional(1234));
-    EXPECT_THAT(get<bool>(makeValue(alloc, true, false)), Optional(true));
-    EXPECT_THAT(get<bool>(makeValue(alloc, false, true)), Optional(false));
+    EXPECT_THAT(get<std::int16_t>(makeValue(alloc_, static_cast<std::int64_t>(1234), -9876, 1521)), Optional(1234));
+    EXPECT_THAT(get<bool>(makeValue(alloc_, true, false)), Optional(true));
+    EXPECT_THAT(get<bool>(makeValue(alloc_, false, true)), Optional(false));
 }
 
 TEST_F(TestRegistryValue, coerce)
 {
-    const Value::allocator_type alloc{&mr_};
-
-    // static_assert(std::allocator_traits<Value::allocator_type>::propagate_on_container_copy_assignment::value, "");
-
-    Value      co_result{alloc};
+    Value      co_result{alloc_};
     const auto co = [&co_result](const Value& dst, const Value& src) -> const Value* {
         co_result = dst;
         return coerce(co_result, src) ? &co_result : nullptr;
     };
+    {
+        const auto* v = co(makeValue(alloc_, static_cast<std::int64_t>(0), 0, 0),
+                           makeValue(alloc_, static_cast<std::int64_t>(123), 456, 789));
+        ASSERT_THAT(v, testing::NotNull());
+        EXPECT_TRUE(v->is_integer64());
+        ASSERT_THAT(v->get_integer64().value.size(), 3);
+        EXPECT_THAT(v->get_integer64().value[0], 123);
+        EXPECT_THAT(v->get_integer64().value[1], 456);
+        EXPECT_THAT(v->get_integer64().value[2], 789);
+    }
 
-    const auto* v = co(makeValue(alloc, static_cast<std::int64_t>(0), 0, 0),
-                       makeValue(alloc, static_cast<std::int64_t>(123), 456, 789));
-    ASSERT_THAT(v, testing::NotNull());
-    EXPECT_TRUE(v->is_integer64());
-    ASSERT_THAT(v->get_integer64().value.size(), 3);
-    EXPECT_THAT(v->get_integer64().value[0], 123);
-    EXPECT_THAT(v->get_integer64().value[1], 456);
-    EXPECT_THAT(v->get_integer64().value[2], 789);
+    // Empty_1_0 -> Empty_1_0
+    // String_1_0 -> String_1_0
+    // Unstructured_1_0 -> Unstructured_1_0
+    {
+        const auto* v = co(Value{alloc_}, Value{alloc_});
+        ASSERT_THAT(v, testing::NotNull());
+        EXPECT_TRUE(v->is_empty());
+
+        v = co(makeValue(alloc_, "abc"), makeValue(alloc_, "def"));
+        ASSERT_THAT(v, testing::NotNull());
+        EXPECT_TRUE(v->is_string());
+        EXPECT_THAT(v->get_string().value, ElementsAre('d', 'e', 'f'));
+
+        constexpr std::array<cetl::byte, 3> bytes{b(0x11), b(0x22), b(0x33)};
+        v = co(makeValue(alloc_, {bytes.data(), 2}), makeValue(alloc_, {bytes.data(), 3}));
+        ASSERT_THAT(v, testing::NotNull());
+        EXPECT_TRUE(v->is_unstructured());
+        EXPECT_THAT(v->get_unstructured().value, ElementsAre(0x11, 0x22, 0x33));
+    }
+    // String_1_0 -> Unstructured_1_0
+    {
+        Value                               dstUnstructured{alloc_};
+        constexpr std::array<cetl::byte, 2> bytes{b(0x11), b(0x22)};
+        set(dstUnstructured, {bytes.data(), bytes.size()});
+
+        const auto* v = co(dstUnstructured, makeValue(alloc_, "def"));
+        ASSERT_THAT(v, testing::NotNull());
+        EXPECT_TRUE(v->is_unstructured());
+        EXPECT_THAT(v->get_unstructured().value, ElementsAre('d', 'e', 'f'));
+    }
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

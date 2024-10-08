@@ -322,6 +322,7 @@ inline void set(Value& dst, const char* const string)
 ///
 template <typename Container,
           typename T        = std::decay_t<decltype(*std::begin(std::declval<Container>()))>,
+          typename          = std::enable_if_t<!std::is_same<T, cetl::byte>::value>,
           std::size_t Index = detail::ArraySelector<T>::Index>
 void set(Value& dst, const Container& src)
 {
@@ -350,7 +351,7 @@ inline void set(Value& dst, const Value& src)
 
 // MARK: - Factories
 
-/// Makes a new value with the specified string content.
+/// Makes a new 'String' value with the specified string content.
 ///
 /// @param allocator The PMR allocator to allocate storage for the value.
 /// @param str The string to copy into the value.
@@ -359,6 +360,18 @@ inline Value makeValue(const Value::allocator_type& allocator, const char* const
 {
     Value out{allocator};
     set(out, str);
+    return out;
+}
+
+/// Makes a new 'Unstructured' value with the specified raw bytes content.
+///
+/// @param allocator The PMR allocator to allocate storage for the value.
+/// @param data The raw bytes to copy into the value.
+///
+inline Value makeValue(const Value::allocator_type& allocator, const cetl::span<const cetl::byte> data)
+{
+    Value out{allocator};
+    set(out, data);
     return out;
 }
 
