@@ -169,16 +169,34 @@ TEST_F(TestRegistryValue, isVariableSize)
 
     v.set_string();
     EXPECT_TRUE(isVariableSize(v));
-
     v.set_unstructured();
     EXPECT_TRUE(isVariableSize(v));
 
     v.set_bit();
     EXPECT_FALSE(isVariableSize(v));
 
+    v.set_integer8();
+    EXPECT_FALSE(isVariableSize(v));
+    v.set_integer16();
+    EXPECT_FALSE(isVariableSize(v));
+    v.set_integer32();
+    EXPECT_FALSE(isVariableSize(v));
     v.set_integer64();
     EXPECT_FALSE(isVariableSize(v));
 
+    v.set_natural8();
+    EXPECT_FALSE(isVariableSize(v));
+    v.set_natural16();
+    EXPECT_FALSE(isVariableSize(v));
+    v.set_natural32();
+    EXPECT_FALSE(isVariableSize(v));
+    v.set_natural64();
+    EXPECT_FALSE(isVariableSize(v));
+
+    v.set_real16();
+    EXPECT_FALSE(isVariableSize(v));
+    v.set_real32();
+    EXPECT_FALSE(isVariableSize(v));
     v.set_real64();
     EXPECT_FALSE(isVariableSize(v));
 }
@@ -233,6 +251,7 @@ TEST_F(TestRegistryValue, coerce)
 {
     Value      co_result{alloc_};
     const auto co = [&co_result](const Value& dst, const Value& src) -> const Value* {
+        //
         co_result = dst;
         return coerce(co_result, src) ? &co_result : nullptr;
     };
@@ -276,6 +295,63 @@ TEST_F(TestRegistryValue, coerce)
         ASSERT_THAT(v, testing::NotNull());
         EXPECT_TRUE(v->is_unstructured());
         EXPECT_THAT(v->get_unstructured().value, ElementsAre('d', 'e', 'f'));
+    }
+}
+
+TEST_F(TestRegistryValue, permutate)
+{
+    Value      co_result{alloc_};
+    const auto co = [&co_result](const Value& dst, const Value& src) -> const Value* {
+        //
+        co_result = dst;
+        return coerce(co_result, src) ? &co_result : nullptr;
+    };
+
+    Value                               unstructured{alloc_};
+    constexpr std::array<cetl::byte, 3> bytes{b(0x11), b(0x22), b(0x33)};
+    set(unstructured, {bytes.data(), bytes.size()});
+    //
+    Value float16{alloc_};
+    float16.set_real16();
+    float16.get_real16().value.push_back(15.0F);
+    //
+    const std::array<Value, 15> values = {
+        Value{alloc_},
+        makeValue(alloc_, "abc"),
+        unstructured,
+        makeValue(alloc_, true),
+        makeValue(alloc_, static_cast<std::int64_t>(4)),
+        makeValue(alloc_, static_cast<std::int32_t>(5)),
+        makeValue(alloc_, static_cast<std::int16_t>(6)),
+        makeValue(alloc_, static_cast<std::int8_t>(7)),
+        makeValue(alloc_, static_cast<std::uint64_t>(8)),
+        makeValue(alloc_, static_cast<std::uint32_t>(9)),
+        makeValue(alloc_, static_cast<std::uint16_t>(10)),
+        makeValue(alloc_, static_cast<std::uint8_t>(11)),
+        makeValue(alloc_, 12.0),
+        makeValue(alloc_, 13.0F),
+        float16,
+    };
+    for (const auto& vi : values)
+    {
+        for (const auto& vj : values)
+        {
+            const auto* v = co(vi, vj);
+            if (v != nullptr)
+            {
+                (void) get<bool>(*v);
+                (void) get<std::int64_t>(*v);
+                (void) get<std::int32_t>(*v);
+                (void) get<std::int16_t>(*v);
+                (void) get<std::int8_t>(*v);
+                (void) get<std::uint64_t>(*v);
+                (void) get<std::uint32_t>(*v);
+                (void) get<std::uint16_t>(*v);
+                (void) get<std::uint8_t>(*v);
+                (void) get<float>(*v);
+                (void) get<double>(*v);
+            }
+        }
     }
 }
 
