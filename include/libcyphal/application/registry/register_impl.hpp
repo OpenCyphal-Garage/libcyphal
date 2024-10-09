@@ -32,7 +32,7 @@ public:
     RegisterBase& operator=(const RegisterBase&)           = delete;
     RegisterBase& operator=(RegisterBase&& other) noexcept = delete;
 
-    /// Gets the register create options.
+    /// Gets create options of this register.
     ///
     Options getOptions() const noexcept
     {

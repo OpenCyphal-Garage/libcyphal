@@ -32,7 +32,7 @@ using testing::Optional;
 using testing::StrictMock;
 using testing::ElementsAre;
 
-// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers, bugprone-unchecked-optional-access)
 
 class TestRegister : public testing::Test
 {
@@ -221,6 +221,6 @@ TEST_F(TestRegister, makeRegister_set_failure)
     EXPECT_THAT(r_int32.set(makeValue(alloc_, 147)), Optional(SetError::Semantics));
 }
 
-// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers, bugprone-unchecked-optional-access)
 
 }  // namespace
