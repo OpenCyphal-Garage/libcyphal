@@ -213,7 +213,7 @@ TEST_F(TestRegistryValue, get)
     {
         // Unstructured -> uint8 | array<uint8>
         constexpr std::array<cetl::byte, 4> bytes{{b(1), b(0), b(1), b(0)}};
-        const Value v = makeValue(alloc_, {bytes.data(), bytes.size()});
+        const Value                         v = makeValue(alloc_, {bytes.data(), bytes.size()});
         EXPECT_THAT((get<std::uint8_t>(v)), testing::Eq(cetl::nullopt));
         EXPECT_THAT((get<std::array<std::uint8_t, 0>>(v)), testing::Eq(cetl::nullopt));
     }

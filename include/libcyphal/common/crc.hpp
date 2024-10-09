@@ -53,13 +53,11 @@ private:
         // No lint for cppcoreguidelines-avoid-magic-numbers and readability-magic-numbers.
         // Also ignore cppcoreguidelines-pro-bounds-constant-array-index - we are using a lookup table.
         // NOLINTNEXTLINE
-        crc_ = (CrcTable()[b ^ (crc_ >> 56U)] ^ (crc_ << 8U));
+        crc_ = (getTable()[b ^ (crc_ >> 56U)] ^ (crc_ << 8U));
     }
 
-    std::uint64_t crc_ = std::numeric_limits<std::uint64_t>::max();
-
     // No lint for cppcoreguidelines-avoid-magic-numbers and readability-magic-numbers.
-    static const std::array<std::uint64_t, 256>& CrcTable() noexcept  // NOLINT
+    static const std::array<std::uint64_t, 256>& getTable() noexcept  // NOLINT
     {
         static constexpr std::array<std::uint64_t, 256> table_s{{
             0x0000000000000000ULL, 0x42F0E1EBA9EA3693ULL, 0x85E1C3D753D46D26ULL, 0xC711223CFA3E5BB5ULL,
@@ -129,6 +127,8 @@ private:
         }};
         return table_s;
     }
+
+    std::uint64_t crc_ = std::numeric_limits<std::uint64_t>::max();
 
 };  // CRC64WE
 

@@ -8,6 +8,7 @@
 
 #include "libcyphal/common/cavl/cavl.hpp"
 #include "registry.hpp"
+#include "registry_value.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
@@ -94,9 +95,99 @@ public:
                 return &reg;
             });
 
-        CETL_DEBUG_ASSERT(reg.isLinked(), "Should be linked now.");
         CETL_DEBUG_ASSERT(std::get<0>(register_existing) != nullptr, "");
+        CETL_DEBUG_ASSERT(std::get<0>(register_existing)->isLinked(), "Should be linked.");
         return !std::get<1>(register_existing);
+    }
+
+    // MARK: - Other factory methods:
+
+    /// Constructs a new read-only register, and links it to this registry.
+    ///
+    /// @param name The name of the register. Should be unique within the registry.
+    /// @param options Extra options for the register, like "persistent" option (`true` by default).
+    /// @param getter The getter function to provide the register value (from a storage).
+    /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
+    ///
+    template <typename Getter>
+    cetl::optional<Register<Getter, void>> route(const IRegister::Name     name,
+                                                 const IRegister::Options& options,
+                                                 Getter&&                  getter)
+    {
+        auto reg = makeRegister(memory(), name, options, std::forward<Getter>(getter));
+        if (append(reg))
+        {
+            return reg;
+        }
+        return cetl::nullopt;
+    }
+
+    /// Constructs a new read-write register, and links it to this registry.
+    ///
+    /// @param name The name of the register. Should be unique within the registry.
+    /// @param options Extra options for the register, like "persistent" option (`true` by default).
+    /// @param getter The getter function to provide the register value (from a storage).
+    /// @param setter The setter function to update the register value (at the storage).
+    /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
+    ///
+    template <typename Getter, typename Setter>
+    cetl::optional<Register<Getter, Setter>> route(const IRegister::Name     name,
+                                                   const IRegister::Options& options,
+                                                   Getter&&                  getter,
+                                                   Setter&&                  setter)
+    {
+        auto reg = makeRegister(memory(), name, options, std::forward<Getter>(getter), std::forward<Setter>(setter));
+        if (append(reg))
+        {
+            return reg;
+        }
+        return cetl::nullopt;
+    }
+
+    /// Constructs a read-write register, and links it to a given registry.
+    ///
+    /// A simple wrapper over route() that allows one to expose and mutate an arbitrary object as a mutable register.
+    ///
+    /// @param name The name of the register. Should be unique within the registry.
+    /// @param inout_value The referenced value; shall outlive the register.
+    /// @param options Extra options for the register, like "persistent" option.
+    /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
+    ///
+    template <typename T>
+    auto expose(const IRegister::Name name, T& inout_value, const IRegister::Options& options = {})
+    {
+        return route(
+            name,
+            options,
+            [&inout_value]() -> const T& { return inout_value; },  // Getter
+            [&inout_value](const Value& v) {                       // Setter
+                //
+                inout_value = registry::get<T>(v).value();  // Guaranteed to be coercible by the protocol.
+                return true;
+            });
+    }
+
+    /// Constructs a parameter register, and links it to a given registry.
+    ///
+    /// In contrast to the above `expose()`, this method allows one to expose a parameter with a default value.
+    /// Exposed parameter value is stored inside the register and can be mutated (by default).
+    ///
+    /// @param name The name of the register. Should be unique within the registry.
+    /// @param default_value Initial default value.
+    /// @param options Extra options for the register, like "persistent" option.
+    /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
+    ///
+    template <typename T, bool IsMutable = true>
+    cetl::optional<ParamRegister<T, IsMutable>> exposeParam(const IRegister::Name     name,
+                                                            const T&                  default_value,
+                                                            const IRegister::Options& options = {})
+    {
+        ParamRegister<T, IsMutable> reg{memory(), name, default_value, options};
+        if (append(reg))
+        {
+            return reg;
+        }
+        return cetl::nullopt;
     }
 
 private:

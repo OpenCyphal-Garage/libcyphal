@@ -59,6 +59,15 @@ public:
         Flags flags_;
     };
 
+    /// Defines options used when creating a new register.
+    ///
+    struct Options final
+    {
+        /// True if the register value is retained across application restarts.
+        bool persistent{false};
+
+    };  // Options
+
     /// Internally, the registers are accessed by key, which is a name hash.
     ///
     /// A perfectly uniform 32-bit hash yields the collision probability of ~0.0001% for 100 registers:

@@ -83,7 +83,7 @@ protected:
 
 TEST_F(TestRegister, paramReg_set_get_mutable)
 {
-    ParamRegister<std::array<std::int32_t, 3>> r_arr{mr_, "arr", {123, 456, -789}};
+    ParamRegister<std::array<std::int32_t, 3>> r_arr{mr_, "arr", {123, 456, -789}, {true}};
     EXPECT_THAT(r_arr.getOptions().persistent, true);
 
     EXPECT_FALSE(r_arr.isLinked());
@@ -94,32 +94,34 @@ TEST_F(TestRegister, paramReg_set_get_mutable)
     EXPECT_THAT((get<std::array<std::int32_t, 4>>(r_arr.get().value_)), Optional(ElementsAre(-654, 456, -789, 0)));
 }
 
-TEST_F(TestRegister, paramReg_set_get_immutable)
+TEST_F(TestRegister, exposeParam_set_get_immutable)
 {
     Registry rgy{mr_};
 
-    ParamRegister<std::array<std::int32_t, 3>, false> r_arr{rgy, "arr", {123, 456, -789}, {false}};
-    EXPECT_TRUE(r_arr.isLinked());
-    EXPECT_THAT(r_arr.getOptions().persistent, false);
+    auto r_arr = rgy.exposeParam<std::array<std::int32_t, 3>, false>("arr", {123, 456, -789});
+    ASSERT_THAT(r_arr, Optional(_));
+    EXPECT_TRUE(r_arr->isLinked());
+    EXPECT_THAT(r_arr->getOptions().persistent, false);
 
-    EXPECT_THAT(r_arr.set(makeValue(alloc_, -654.456F)), Optional(SetError::Mutability));
+    EXPECT_THAT(r_arr->set(makeValue(alloc_, -654.456F)), Optional(SetError::Mutability));
 
-    EXPECT_THAT(r_arr.get().flags_.mutable_, false);
-    EXPECT_THAT(r_arr.get().flags_.persistent_, false);
-    EXPECT_THAT(r_arr.get().value_.is_integer32(), true);
-    EXPECT_THAT((get<std::array<std::int32_t, 4>>(r_arr.get().value_)), Optional(ElementsAre(123, 456, -789, 0)));
+    EXPECT_THAT(r_arr->get().flags_.mutable_, false);
+    EXPECT_THAT(r_arr->get().flags_.persistent_, false);
+    EXPECT_THAT(r_arr->get().value_.is_integer32(), true);
+    EXPECT_THAT((get<std::array<std::int32_t, 4>>(r_arr->get().value_)), Optional(ElementsAre(123, 456, -789, 0)));
 }
 
-TEST_F(TestRegister, paramReg_set_move_get)
+TEST_F(TestRegister, exposeParam_set_move_get)
 {
     Registry rgy{mr_};
 
-    ParamRegister<std::array<std::int32_t, 3>> r_arr1{rgy, "arr", {123, 456, -789}, {false}};
-    EXPECT_TRUE(r_arr1.isLinked());
-    EXPECT_THAT(r_arr1.getOptions().persistent, false);
-    EXPECT_THAT(r_arr1.set(makeValue(alloc_, false)), Eq(cetl::nullopt));  // Coerced to 0.
+    auto r_arr1 = rgy.exposeParam("arr", std::array<std::int32_t, 3>{123, 456, -789});
+    ASSERT_THAT(r_arr1, Optional(_));
+    EXPECT_TRUE(r_arr1->isLinked());
+    EXPECT_THAT(r_arr1->getOptions().persistent, false);
+    EXPECT_THAT(r_arr1->set(makeValue(alloc_, false)), Eq(cetl::nullopt));  // Coerced to 0.
 
-    const ParamRegister<std::array<std::int32_t, 3>> r_arr2{std::move(r_arr1)};
+    const auto r_arr2{std::move(r_arr1.value())};
     EXPECT_TRUE(r_arr2.isLinked());
     EXPECT_THAT(r_arr2.getOptions().persistent, false);
 
