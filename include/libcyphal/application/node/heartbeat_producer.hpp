@@ -110,7 +110,7 @@ public:
 
         /// @brief Defines signature of the heartbeat update callback function.
         ///
-        /// Size of the function is arbitrary (4 pointers), but should be enough to simple lambdas.
+        /// Size of the function is arbitrary (4 pointers), but should be enough for simple lambdas.
         ///
         static constexpr std::size_t FunctionSize = sizeof(void*) * 4;
         using Function                            = cetl::pmr::function<void(const Arg& arg), FunctionSize>;
@@ -121,10 +121,10 @@ public:
     /// As an alternative, the user can modify the `message()` directly - the next periodic update will reflect.
     ///
     /// @param update_callback_fn The update callback function, which will be called before publication of the next
-    ///                           heartbeat message. Allows to modify the `message` before it will be published.
-    ///                           `arg.message.uptime` field is automatically prepopulated to reflect duration
-    ///                           since the node startup, so although the field could be modified by the user,
-    ///                           it will be anyway overridden on the next update.
+    ///                           heartbeat message. Allows the user to modify the `message` before it will be
+    ///                           published. `arg.message.uptime` field is automatically prepopulated to reflect
+    ///                           duration since the node startup, so although the field could be modified by the user,
+    ///                           it will be overridden anyway on the next update.
     ///
     void setUpdateCallback(UpdateCallback::Function&& update_callback_fn)
     {

@@ -9,6 +9,7 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
+#include <cassert>  // NOLINT for NUNAVUT_ASSERT
 #include <nunavut/support/serialization.hpp>
 
 #include <algorithm>
@@ -24,7 +25,7 @@ namespace libcyphal
 namespace verification_utilities
 {
 
-inline cetl::byte b(std::uint8_t b)
+inline constexpr cetl::byte b(std::uint8_t b)
 {
     return static_cast<cetl::byte>(b);
 }
