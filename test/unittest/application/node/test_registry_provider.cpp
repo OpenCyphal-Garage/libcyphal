@@ -15,6 +15,7 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/application/node/registry_provider.hpp>
+#include <libcyphal/errors.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>

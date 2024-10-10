@@ -424,7 +424,8 @@ inline uavcan::_register::Name_1_0 makeName(const uavcan::_register::Name_1_0::a
         // TODO: Consider reworking when `string_view` polyfill is available.
         out.name.resize(std::min(std::strlen(name), NameCapacity));  // NOSONAR cpp:S5813
 
-        (void) std::memmove(out.name.data(), name, out.name.size());
+        // No Sonar `cpp:S5356` b/c we need to name payload as raw data.
+        (void) std::memmove(out.name.data(), name, out.name.size());  // NOSONAR cpp:S5356
     }
     return out;
 }
