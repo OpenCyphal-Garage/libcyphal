@@ -11,8 +11,10 @@
 #include <cetl/pf20/cetlpf.hpp>
 
 #include <cassert>
+#include <uavcan/_register/Name_1_0.hpp>
 #include <uavcan/_register/Value_1_0.hpp>
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
@@ -405,6 +407,25 @@ Value makeValue(const Value::allocator_type& allocator, const Ts&... args)
 {
     Value out{allocator};
     set(out, std::array<std::common_type_t<Ts...>, sizeof...(Ts)>{{static_cast<std::common_type_t<Ts...>>(args)...}});
+    return out;
+}
+
+inline uavcan::_register::Name_1_0 makeName(const uavcan::_register::Name_1_0::allocator_type& alloc,
+                                            const char* const                                  name)
+{
+    uavcan::_register::Name_1_0 out{alloc};
+    if (name != nullptr)
+    {
+        // TODO: Fix Nunavut to expose `ARRAY_CAPACITY` so we can use it here instead of 255 hardcode.
+        constexpr std::size_t NameCapacity = 255U;
+
+        // No Sonar cpp:S5813: Using "strlen" or "wcslen" is security-sensitive.
+        // `name` is currently expected to be a C-string literal.
+        // TODO: Consider reworking when `string_view` polyfill is available.
+        out.name.resize(std::min(std::strlen(name), NameCapacity));  // NOSONAR cpp:S5813
+
+        (void) std::memmove(out.name.data(), name, out.name.size());
+    }
     return out;
 }
 

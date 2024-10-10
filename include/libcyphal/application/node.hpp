@@ -10,6 +10,7 @@
 #include "libcyphal/types.hpp"
 #include "node/get_info_provider.hpp"
 #include "node/heartbeat_producer.hpp"
+#include "node/registry_provider.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 

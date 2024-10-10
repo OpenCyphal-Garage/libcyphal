@@ -114,7 +114,7 @@ TEST_F(TestGetInfoProvider, make)
         .WillOnce(Invoke([&](const auto&) {                                           //
             return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr_, req_rx_session_mock);
         }));
-    constexpr ResponseTxParams tx_params{Service::Request::_traits_::FixedPortId};
+    constexpr ResponseTxParams tx_params{Service::Response::_traits_::FixedPortId};
     EXPECT_CALL(transport_mock_, makeResponseTxSession(ResponseTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                             //
             return libcyphal::detail::makeUniquePtr<UniquePtrResTxSpec>(mr_, res_tx_session_mock);

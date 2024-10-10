@@ -14,6 +14,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 
 namespace
 {
@@ -21,6 +22,7 @@ namespace
 using namespace libcyphal::application::registry;  // NOLINT This our main concern here in the unit tests.
 using libcyphal::verification_utilities::b;
 
+using testing::SizeIs;
 using testing::IsEmpty;
 using testing::Optional;
 using testing::DoubleNear;
@@ -353,6 +355,19 @@ TEST_F(TestRegistryValue, permutate)
             }
         }
     }
+}
+
+TEST_F(TestRegistryValue, makeName)
+{
+    auto n = makeName(alloc_, "abc");
+    EXPECT_THAT(n.name, ElementsAre('a', 'b', 'c'));
+
+    const std::string too_long_name(256, 'x');
+    n = makeName(alloc_, too_long_name.c_str());
+    EXPECT_THAT(n.name, SizeIs(255));
+
+    n = makeName(alloc_, nullptr);
+    EXPECT_THAT(n.name, IsEmpty());
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
