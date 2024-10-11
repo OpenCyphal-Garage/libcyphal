@@ -8,8 +8,6 @@
 
 #include <cetl/cetl.hpp>
 
-#include <uavcan/_register/Name_1_0.hpp>
-
 #include <cstddef>
 #include <cstring>
 
@@ -20,24 +18,22 @@ namespace application
 namespace registry
 {
 
-/// Defines the type of the register name.
-///
 /// Mimics `std::string_view`.
 /// TODO: Consider reworking when `cetl::string_view` polyfill is available.
 ///
-struct Name
+struct StringView
 {
     using size_type     = std::size_t;
     using value_type    = char;
     using const_pointer = const char*;
 
-    constexpr Name() noexcept
+    constexpr StringView() noexcept
         : data_{nullptr}
         , size_{0}
     {
     }
 
-    constexpr Name(const char* const str, const std::size_t size) noexcept
+    constexpr StringView(const char* const str, const std::size_t size) noexcept
         : data_{str}
         , size_{size}
     {
@@ -51,15 +47,19 @@ struct Name
     /// No Sonar cpp:S5813: Using "strlen" or "wcslen" is security-sensitive.
     /// `str` is expected to be a C-string (null terminated).
     ///
-    Name(const char* const str) noexcept  // NOLINT(google-explicit-constructor, hicpp-explicit-conversions)
+    StringView(const char* const str) noexcept  // NOLINT(google-explicit-constructor, hicpp-explicit-conversions)
         : data_{str}
         , size_{(str != nullptr) ? std::strlen(str) : 0}  // NOSONAR cpp:S5813
     {
     }
 
-    constexpr const_pointer data() const noexcept
+    /// Cannot be constructed from nullptr.
+    ///
+    constexpr StringView(std::nullptr_t) = delete;
+
+    constexpr bool empty() const noexcept
     {
-        return data_;
+        return size_ == 0;
     }
 
     constexpr size_type size() const noexcept
@@ -67,9 +67,9 @@ struct Name
         return size_;
     }
 
-    constexpr bool empty() const noexcept
+    constexpr const_pointer data() const noexcept
     {
-        return size_ == 0;
+        return data_;
     }
 
 private:
@@ -80,7 +80,7 @@ private:
 
 /// Compares two views.
 ///
-constexpr bool operator==(const Name lhs, const Name rhs) noexcept
+constexpr bool operator==(const StringView lhs, const StringView rhs) noexcept
 {
     if (lhs.size() != rhs.size())
     {
@@ -91,21 +91,6 @@ constexpr bool operator==(const Name lhs, const Name rhs) noexcept
         return true;
     }
     return std::memcmp(lhs.data(), rhs.data(), lhs.size()) == 0;
-}
-
-inline uavcan::_register::Name_1_0 makeName(const uavcan::_register::Name_1_0::allocator_type& alloc, const Name name)
-{
-    uavcan::_register::Name_1_0 out{alloc};
-    if (!name.empty())
-    {
-        // TODO: Fix Nunavut to expose `ARRAY_CAPACITY` so we can use it here instead of 255 hardcode.
-        constexpr std::size_t NameCapacity = 255U;
-        out.name.resize(std::min(name.size(), NameCapacity));
-
-        // No Sonar `cpp:S5356` b/c we need to name payload as raw data.
-        (void) std::memmove(out.name.data(), name.data(), out.name.size());  // NOSONAR cpp:S5356
-    }
-    return out;
 }
 
 }  // namespace registry

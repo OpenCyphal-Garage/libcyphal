@@ -24,8 +24,6 @@ using namespace libcyphal::application::registry;  // NOLINT This our main conce
 
 using testing::_;
 using testing::Eq;
-using testing::StrEq;
-using testing::IsNull;
 using testing::IsEmpty;
 using testing::Optional;
 using testing::ElementsAre;
@@ -68,7 +66,7 @@ TEST_F(TestRegistry, empty)
 
     // Ensure empty.
     EXPECT_THAT(rgy.size(), 0);
-    EXPECT_THAT(rgy.index(0), IsNull());
+    EXPECT_THAT(rgy.index(0), IsEmpty());
     EXPECT_THAT(rgy.get("foo"), Eq(cetl::nullopt));
 }
 
@@ -77,47 +75,47 @@ TEST_F(TestRegistry, lifetime)
     Registry rgy{mr_};
 
     EXPECT_THAT(rgy.size(), 0);
-    EXPECT_THAT(rgy.index(0), IsNull());
-    EXPECT_THAT(rgy.index(1), IsNull());
+    EXPECT_THAT(rgy.index(0), IsEmpty());
+    EXPECT_THAT(rgy.index(1), IsEmpty());
     EXPECT_THAT(rgy.get("arr"), Eq(cetl::nullopt));
     EXPECT_THAT(rgy.get("bool"), Eq(cetl::nullopt));
     {
         const auto r_arr = rgy.exposeParam("arr", std::array<std::int32_t, 3>{123, 456, -789});
 
         EXPECT_THAT(rgy.size(), 1);
-        EXPECT_THAT(rgy.index(0), StrEq("arr"));
-        EXPECT_THAT(rgy.index(1), IsNull());
+        EXPECT_THAT(rgy.index(0), "arr");
+        EXPECT_THAT(rgy.index(1), IsEmpty());
         EXPECT_THAT(rgy.get("arr"), Optional(_));
         EXPECT_THAT(rgy.get("bool"), Eq(cetl::nullopt));
         {
             const auto r_bool = rgy.exposeParam("bool", true);
 
             EXPECT_THAT(rgy.size(), 2);
-            EXPECT_THAT(rgy.index(0), StrEq("arr"));
-            EXPECT_THAT(rgy.index(1), StrEq("bool"));
+            EXPECT_THAT(rgy.index(0), "arr");
+            EXPECT_THAT(rgy.index(1), "bool");
             EXPECT_THAT(rgy.get("arr"), Optional(_));
             EXPECT_THAT(rgy.get("bool"), Optional(_));
             {
                 const auto r_dbl = rgy.exposeParam("dbl", 1.23);
 
                 EXPECT_THAT(rgy.size(), 3);
-                EXPECT_THAT(rgy.index(0), StrEq("arr"));
-                EXPECT_THAT(rgy.index(1), StrEq("dbl"));
-                EXPECT_THAT(rgy.index(2), StrEq("bool"));
+                EXPECT_THAT(rgy.index(0), "arr");
+                EXPECT_THAT(rgy.index(1), "dbl");
+                EXPECT_THAT(rgy.index(2), "bool");
                 EXPECT_THAT(rgy.get("arr"), Optional(_));
                 EXPECT_THAT(rgy.get("bool"), Optional(_));
                 EXPECT_THAT(rgy.get("dbl"), Optional(_));
             }
         }
         EXPECT_THAT(rgy.size(), 1);
-        EXPECT_THAT(rgy.index(0), StrEq("arr"));
-        EXPECT_THAT(rgy.index(1), IsNull());
+        EXPECT_THAT(rgy.index(0), "arr");
+        EXPECT_THAT(rgy.index(1), IsEmpty());
         EXPECT_THAT(rgy.get("arr"), Optional(_));
         EXPECT_THAT(rgy.get("bool"), Eq(cetl::nullopt));
     }
     EXPECT_THAT(rgy.size(), 0);
-    EXPECT_THAT(rgy.index(0), IsNull());
-    EXPECT_THAT(rgy.index(1), IsNull());
+    EXPECT_THAT(rgy.index(0), IsEmpty());
+    EXPECT_THAT(rgy.index(1), IsEmpty());
     EXPECT_THAT(rgy.get("arr"), Eq(cetl::nullopt));
     EXPECT_THAT(rgy.get("bool"), Eq(cetl::nullopt));
 }
@@ -146,7 +144,7 @@ TEST_F(TestRegistry, route_mutable)
     EXPECT_TRUE(r_arr->isLinked());
     EXPECT_THAT(r_arr->getOptions().persistent, true);
     EXPECT_THAT(rgy.size(), 1);
-    EXPECT_THAT(rgy.index(0), StrEq("arr"));
+    EXPECT_THAT(rgy.index(0), "arr");
     EXPECT_THAT(v_arr, ElementsAre(123, 456, -789));
 
     EXPECT_THAT(rgy.set("arr", makeValue(alloc_, -654.456F)), Eq(cetl::nullopt));  // Coerced to -654.
@@ -172,7 +170,7 @@ TEST_F(TestRegistry, route_immutable)
     EXPECT_TRUE(r_arr->isLinked());
     EXPECT_THAT(r_arr->getOptions().persistent, false);
     EXPECT_THAT(rgy.size(), 1);
-    EXPECT_THAT(rgy.index(0), StrEq("arr"));
+    EXPECT_THAT(rgy.index(0), "arr");
 
     EXPECT_THAT(rgy.set("arr", makeValue(alloc_, -654.456F)), Optional(SetError::Mutability));
     const auto arr_get_result = rgy.get("arr");
@@ -196,7 +194,7 @@ TEST_F(TestRegistry, expose)
     EXPECT_TRUE(r_arr->isLinked());
     EXPECT_THAT(r_arr->getOptions().persistent, false);
     EXPECT_THAT(rgy.size(), 1);
-    EXPECT_THAT(rgy.index(0), StrEq("arr"));
+    EXPECT_THAT(rgy.index(0), "arr");
     EXPECT_THAT(v_arr, ElementsAre(123, 456, -789));
 
     EXPECT_THAT(rgy.set("arr", makeValue(alloc_, -654.456F)), Eq(cetl::nullopt));  // Coerced to -654.
@@ -218,7 +216,7 @@ TEST_F(TestRegistry, exposeParam_set_get_mutable)
     EXPECT_TRUE(r_arr->isLinked());
     EXPECT_THAT(r_arr->getOptions().persistent, false);
     EXPECT_THAT(rgy.size(), 1);
-    EXPECT_THAT(rgy.index(0), StrEq("arr"));
+    EXPECT_THAT(rgy.index(0), "arr");
 
     EXPECT_THAT(rgy.set("arr", makeValue(alloc_, -654.456F)), Eq(cetl::nullopt));  // Coerced to -654.
     const auto arr_get_result = rgy.get("arr");

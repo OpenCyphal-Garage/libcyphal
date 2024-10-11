@@ -290,7 +290,7 @@ private:
 ///
 template <typename Getter>
 Register<Getter, void> makeRegister(cetl::pmr::memory_resource& memory,
-                                    const IRegister::Name       name,
+                                    const Name                  name,
                                     const IRegister::Options&   options,
                                     Getter&&                    getter)
 {
@@ -315,7 +315,7 @@ Register<Getter, void> makeRegister(cetl::pmr::memory_resource& memory,
 ///
 template <typename Getter, typename Setter>
 Register<Getter, Setter> makeRegister(cetl::pmr::memory_resource& memory,
-                                      const IRegister::Name       name,
+                                      const Name                  name,
                                       const IRegister::Options&   options,
                                       Getter&&                    getter,
                                       Setter&&                    setter)

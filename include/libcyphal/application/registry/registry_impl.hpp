@@ -47,7 +47,7 @@ public:
 
     // MARK: - IRegistry
 
-    cetl::optional<IRegister::ValueAndFlags> get(const IRegister::Name name) const override
+    cetl::optional<IRegister::ValueAndFlags> get(const Name name) const override
     {
         if (const auto* const reg = findRegisterBy(name))
         {
@@ -56,7 +56,7 @@ public:
         return cetl::nullopt;
     }
 
-    cetl::optional<SetError> set(const IRegister::Name name, const Value& new_value) override
+    cetl::optional<SetError> set(const Name name, const Value& new_value) override
     {
         if (auto* const reg = findRegisterBy(name))
         {
@@ -72,13 +72,13 @@ public:
         return registers_tree_.size();
     }
 
-    IRegister::Name index(const std::size_t index) const override
+    Name index(const std::size_t index) const override
     {
         if (const auto* const reg = registers_tree_[index])
         {
             return reg->getName();
         }
-        return IRegister::Name{};
+        return Name{};
     }
 
     bool append(IRegister& reg) override
@@ -110,9 +110,7 @@ public:
     /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
     ///
     template <typename Getter>
-    cetl::optional<Register<Getter, void>> route(const IRegister::Name     name,
-                                                 const IRegister::Options& options,
-                                                 Getter&&                  getter)
+    cetl::optional<Register<Getter, void>> route(const Name name, const IRegister::Options& options, Getter&& getter)
     {
         auto reg = makeRegister(memory(), name, options, std::forward<Getter>(getter));
         if (append(reg))
@@ -131,7 +129,7 @@ public:
     /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
     ///
     template <typename Getter, typename Setter>
-    cetl::optional<Register<Getter, Setter>> route(const IRegister::Name     name,
+    cetl::optional<Register<Getter, Setter>> route(const Name                name,
                                                    const IRegister::Options& options,
                                                    Getter&&                  getter,
                                                    Setter&&                  setter)
@@ -154,7 +152,7 @@ public:
     /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
     ///
     template <typename T>
-    auto expose(const IRegister::Name name, T& inout_value, const IRegister::Options& options = {})
+    auto expose(const Name name, T& inout_value, const IRegister::Options& options = {})
     {
         return route(
             name,
@@ -178,7 +176,7 @@ public:
     /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
     ///
     template <typename T, bool IsMutable = true>
-    cetl::optional<ParamRegister<T, IsMutable>> exposeParam(const IRegister::Name     name,
+    cetl::optional<ParamRegister<T, IsMutable>> exposeParam(const Name                name,
                                                             const T&                  default_value,
                                                             const IRegister::Options& options = {})
     {
@@ -191,13 +189,13 @@ public:
     }
 
 private:
-    CETL_NODISCARD IRegister* findRegisterBy(const IRegister::Name name)
+    CETL_NODISCARD IRegister* findRegisterBy(const Name name)
     {
         return registers_tree_.search(
             [key = IRegister::Key{name}](const IRegister& other) { return other.compareBy(key); });
     }
 
-    CETL_NODISCARD const IRegister* findRegisterBy(const IRegister::Name name) const
+    CETL_NODISCARD const IRegister* findRegisterBy(const Name name) const
     {
         return registers_tree_.search(
             [key = IRegister::Key{name}](const IRegister& other) { return other.compareBy(key); });

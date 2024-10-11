@@ -13,6 +13,7 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/application/node/get_info_provider.hpp>
+#include <libcyphal/application/registry/registry_value.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
@@ -41,7 +42,6 @@ using testing::Invoke;
 using testing::Return;
 using testing::IsEmpty;
 using testing::StrictMock;
-using testing::ElementsAre;
 using testing::VariantWith;
 
 // https://github.com/llvm/llvm-project/issues/53444
@@ -161,7 +161,7 @@ TEST_F(TestGetInfoProvider, make)
                 EXPECT_TRUE(libcyphal::verification_utilities::tryDeserialize(response, fragments));
                 EXPECT_THAT(response.protocol_version.major, 1);
                 EXPECT_THAT(response.software_version.major, 7);
-                EXPECT_THAT(response.name, ElementsAre('t', 'e', 's', 't'));
+                EXPECT_THAT(registry::makeStringView(response.name), "test");
                 return cetl::nullopt;
             }));
 

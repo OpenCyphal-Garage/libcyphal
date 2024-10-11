@@ -366,7 +366,7 @@ TEST_F(TestRegistryValue, makeName)
     n = makeName(alloc_, too_long_name.c_str());
     EXPECT_THAT(n.name, SizeIs(255));
 
-    n = makeName(alloc_, nullptr);
+    n = makeName(alloc_, {nullptr, 0});
     EXPECT_THAT(n.name, IsEmpty());
 }
 

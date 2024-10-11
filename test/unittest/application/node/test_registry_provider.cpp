@@ -15,6 +15,8 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/application/node/registry_provider.hpp>
+#include <libcyphal/application/registry/register.hpp>
+#include <libcyphal/application/registry/registry_value.hpp>
 #include <libcyphal/errors.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
@@ -37,9 +39,10 @@ namespace
 {
 
 using libcyphal::TimePoint;
-using namespace libcyphal::application;   // NOLINT This our main concern here in the unit tests.
-using namespace libcyphal::presentation;  // NOLINT This our main concern here in the unit tests.
-using namespace libcyphal::transport;     // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::application;            // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::application::registry;  // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::presentation;           // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport;              // NOLINT This our main concern here in the unit tests.
 
 using testing::_;
 using testing::Invoke;
@@ -137,7 +140,7 @@ TEST_F(TestRegistryProvider, make_list_req)
 {
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    registry::IntrospectableRegistryMock registry_mock;
+    IntrospectableRegistryMock registry_mock;
 
     ServiceContext list_svc_cnxt;
     expectMakeSvcSessions<ListService>(list_svc_cnxt);
@@ -189,7 +192,7 @@ TEST_F(TestRegistryProvider, make_list_req)
         registry_provider->setResponseTimeout(100ms);
 
         test_request.index = 1;
-        EXPECT_CALL(registry_mock, index(1)).WillOnce(Return(nullptr));
+        EXPECT_CALL(registry_mock, index(1)).WillOnce(Return(StringView{nullptr, 0}));
         EXPECT_CALL(list_svc_cnxt.res_tx_session_mock,
                     send(ServiceTxMetadataEq({{{124, Priority::Nominal}, now() + 100ms}, NodeId{0x31}}), _))  //
             .WillOnce(Invoke([this](const auto&, const auto fragments) {
@@ -212,11 +215,99 @@ TEST_F(TestRegistryProvider, make_list_req)
     scheduler_.spinFor(10s);
 }
 
+TEST_F(TestRegistryProvider, make_access_req)
+{
+    Presentation presentation{mr_, scheduler_, transport_mock_};
+
+    IntrospectableRegistryMock registry_mock;
+
+    ServiceContext list_svc_cnxt;
+    expectMakeSvcSessions<ListService>(list_svc_cnxt);
+    ServiceContext access_svc_cnxt;
+    expectMakeSvcSessions<AccessService>(access_svc_cnxt);
+
+    cetl::optional<node::RegistryProvider> registry_provider;
+
+    AccessService::Request               test_request{mr_alloc_};
+    NiceMock<ScatteredBufferStorageMock> storage_mock;
+    EXPECT_CALL(storage_mock, size())
+        .WillRepeatedly(Return(AccessService::Request::_traits_::SerializationBufferSizeBytes));
+    EXPECT_CALL(storage_mock, copy(0, _, _))                           //
+        .WillRepeatedly(Invoke([&](auto, auto* const dst, auto len) {  //
+            //
+            std::array<std::uint8_t, AccessService::Request::_traits_::SerializationBufferSizeBytes> buffer{};
+            const auto result = serialize(test_request, buffer);
+            const auto size   = std::min(result.value(), len);
+            (void) std::memmove(dst, buffer.data(), size);
+            return size;
+        }));
+    ScatteredBufferStorageMock::Wrapper storage{&storage_mock};
+    ServiceRxTransfer request{{{{123, Priority::Fast}, {}}, NodeId{0x31}}, ScatteredBuffer{std::move(storage)}};
+
+    scheduler_.scheduleAt(1s, [&](const auto&) {
+        //
+        auto maybe_registry_provider = node::RegistryProvider::make(presentation, registry_mock);
+        ASSERT_THAT(maybe_registry_provider, VariantWith<node::RegistryProvider>(_));
+        registry_provider.emplace(cetl::get<node::RegistryProvider>(std::move(maybe_registry_provider)));
+    });
+    scheduler_.scheduleAt(2s, [&](const auto&) {
+        //
+        EXPECT_CALL(registry_mock, get(StringView{"abc"}))
+            .WillOnce(Return(IRegister::ValueAndFlags{makeValue(mr_alloc_, "xyz"), {true, true}}));
+        EXPECT_CALL(access_svc_cnxt.res_tx_session_mock,
+                    send(ServiceTxMetadataEq({{{123, Priority::Fast}, now() + 1s}, NodeId{0x31}}), _))  //
+            .WillOnce(Invoke([this](const auto&, const auto fragments) {
+                //
+                AccessService::Response response{mr_alloc_};
+                EXPECT_TRUE(libcyphal::verification_utilities::tryDeserialize(response, fragments));
+                EXPECT_THAT(response._mutable, true);
+                EXPECT_THAT(response.persistent, true);
+                EXPECT_TRUE(response.value.is_string());
+                EXPECT_THAT(makeStringView(response.value.get_string().value), "xyz");
+                return cetl::nullopt;
+            }));
+
+        request.metadata.rx_meta.timestamp = now();
+        test_request.name                  = makeName(mr_alloc_, "abc");
+        access_svc_cnxt.req_rx_cb_fn({request});
+    });
+    scheduler_.scheduleAt(3s, [&](const auto&) {
+        //
+        registry_provider->setResponseTimeout(100ms);
+
+        EXPECT_CALL(registry_mock, set(StringView{"abc"}, _)).WillOnce(Return(cetl::nullopt));
+        EXPECT_CALL(registry_mock, get(StringView{"abc"})).WillOnce(Return(cetl::nullopt));
+        EXPECT_CALL(access_svc_cnxt.res_tx_session_mock,
+                    send(ServiceTxMetadataEq({{{124, Priority::Nominal}, now() + 100ms}, NodeId{0x31}}), _))  //
+            .WillOnce(Invoke([this](const auto&, const auto fragments) {
+                //
+                AccessService::Response response{mr_alloc_};
+                EXPECT_TRUE(libcyphal::verification_utilities::tryDeserialize(response, fragments));
+                EXPECT_THAT(response._mutable, false);
+                EXPECT_THAT(response.persistent, false);
+                EXPECT_TRUE(response.value.is_empty());
+                return cetl::nullopt;
+            }));
+
+        request.metadata.rx_meta.base.transfer_id = 124;
+        request.metadata.rx_meta.base.priority    = Priority::Nominal;
+        request.metadata.rx_meta.timestamp        = now();
+        test_request.name                         = makeName(mr_alloc_, "abc");
+        test_request.value                        = makeValue(mr_alloc_, "123");
+        access_svc_cnxt.req_rx_cb_fn({request});
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        registry_provider.reset();
+    });
+    scheduler_.spinFor(10s);
+}
+
 TEST_F(TestRegistryProvider, make_failure)
 {
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    registry::IntrospectableRegistryMock registry_mock;
+    IntrospectableRegistryMock registry_mock;
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //

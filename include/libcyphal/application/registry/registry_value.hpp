@@ -6,6 +6,8 @@
 #ifndef LIBCYPHAL_APPLICATION_REGISTRY_VALUE_HPP_INCLUDED
 #define LIBCYPHAL_APPLICATION_REGISTRY_VALUE_HPP_INCLUDED
 
+#include "registry_string_view.hpp"
+
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
@@ -26,6 +28,10 @@ namespace application
 {
 namespace registry
 {
+
+/// Defines the type of the register name.
+///
+using Name = StringView;
 
 /// Defines the value of a register.
 ///
@@ -410,24 +416,31 @@ Value makeValue(const Value::allocator_type& allocator, const Ts&... args)
     return out;
 }
 
-inline uavcan::_register::Name_1_0 makeName(const uavcan::_register::Name_1_0::allocator_type& alloc,
-                                            const char* const                                  name)
+inline uavcan::_register::Name_1_0 makeName(const uavcan::_register::Name_1_0::allocator_type& alloc, const Name name)
 {
     uavcan::_register::Name_1_0 out{alloc};
-    if (name != nullptr)
+    if (!name.empty())
     {
         // TODO: Fix Nunavut to expose `ARRAY_CAPACITY` so we can use it here instead of 255 hardcode.
         constexpr std::size_t NameCapacity = 255U;
-
-        // No Sonar cpp:S5813: Using "strlen" or "wcslen" is security-sensitive.
-        // `name` is currently expected to be a C-string literal.
-        // TODO: Consider reworking when `string_view` polyfill is available.
-        out.name.resize(std::min(std::strlen(name), NameCapacity));  // NOSONAR cpp:S5813
+        out.name.resize(std::min(name.size(), NameCapacity));
 
         // No Sonar `cpp:S5356` b/c we need to name payload as raw data.
-        (void) std::memmove(out.name.data(), name, out.name.size());  // NOSONAR cpp:S5356
+        (void) std::memmove(out.name.data(), name.data(), out.name.size());  // NOSONAR cpp:S5356
     }
     return out;
+}
+
+/// Makes a new string view from container raw data.
+///
+/// @tparam Container The container type. Expected to be array-like, having `data()` & `size()` methods.
+///
+template <typename Container>
+StringView makeStringView(const Container& container)
+{
+    // No Lint and Sonar cpp:S3630 "reinterpret_cast" should not be used" b/c we need to access container raw data.
+    // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+    return {reinterpret_cast<StringView::const_pointer>(container.data()), container.size()};  // NOSONAR : cpp:S3630
 }
 
 }  // namespace registry

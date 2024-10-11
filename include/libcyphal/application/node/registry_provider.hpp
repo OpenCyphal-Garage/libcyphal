@@ -7,6 +7,7 @@
 #define LIBCYPHAL_APPLICATION_NODE_REGISTRY_PROVIDER_HPP_INCLUDED
 
 #include "libcyphal/application/registry/registry.hpp"
+#include "libcyphal/application/registry/registry_value.hpp"
 #include "libcyphal/presentation/presentation.hpp"
 #include "libcyphal/presentation/server.hpp"
 #include "libcyphal/types.hpp"
@@ -92,7 +93,7 @@ public:
     }
 
 private:
-    using Name         = registry::IRegister::Name;
+    using Name         = registry::Name;
     using ListServer   = presentation::ServiceServer<ListService>;
     using AccessServer = presentation::ServiceServer<AccessService>;
 
@@ -115,12 +116,32 @@ private:
     {
         list_srv_.setOnRequestCallback([this](const auto& arg, auto continuation) {
             //
-            const Name name = registry_.index(arg.request.index);
+            const ListService::Response response{registry::makeName(pmr_alloc_, registry_.index(arg.request.index)),
+                                                 pmr_alloc_};
 
             // There is nothing we can do about possible continuation failures - we just ignore them.
             // TODO: Introduce error handler at the node level.
-            (void) continuation(arg.approx_now + response_timeout_,
-                                ListService::Response{registry::makeName(pmr_alloc_, name), pmr_alloc_});
+            (void) continuation(arg.approx_now + response_timeout_, response);
+        });
+        access_srv_.setOnRequestCallback([this](const auto& arg, auto continuation) {
+            //
+            const auto name = registry::makeStringView(arg.request.name.name);
+            if (!arg.request.value.is_empty())
+            {
+                (void) registry_.set(name, arg.request.value);
+            }
+
+            AccessService::Response response{pmr_alloc_};
+            if (auto value_and_flags = registry_.get(name))
+            {
+                response.value      = std::move(value_and_flags->value_);
+                response._mutable   = value_and_flags->flags_.mutable_;
+                response.persistent = value_and_flags->flags_.persistent_;
+            }
+
+            // There is nothing we can do about possible continuation failures - we just ignore them.
+            // TODO: Introduce error handler at the node level.
+            (void) continuation(arg.approx_now + response_timeout_, response);
         });
     }
 

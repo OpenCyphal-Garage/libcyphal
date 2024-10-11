@@ -32,8 +32,8 @@ public:
 
     // MARK: IRegistry
 
-    MOCK_METHOD(cetl::optional<IRegister::ValueAndFlags>, get, (const IRegister::Name name), (const, override));
-    MOCK_METHOD(cetl::optional<SetError>, set, (const IRegister::Name name, const Value& new_value), (override));
+    MOCK_METHOD(cetl::optional<IRegister::ValueAndFlags>, get, (const Name name), (const, override));
+    MOCK_METHOD(cetl::optional<SetError>, set, (const Name name, const Value& new_value), (override));
 
 };  // RegistryMock
 
@@ -52,13 +52,13 @@ public:
 
     // MARK: IRegistry
 
-    MOCK_METHOD(cetl::optional<IRegister::ValueAndFlags>, get, (const IRegister::Name name), (const, override));
-    MOCK_METHOD(cetl::optional<SetError>, set, (const IRegister::Name name, const Value& new_value), (override));
+    MOCK_METHOD(cetl::optional<IRegister::ValueAndFlags>, get, (const Name name), (const, override));
+    MOCK_METHOD(cetl::optional<SetError>, set, (const Name name, const Value& new_value), (override));
 
     // MARK: IIntrospectableRegistry
 
     MOCK_METHOD(std::size_t, size, (), (const, override));
-    MOCK_METHOD(IRegister::Name, index, (const std::size_t index), (const, override));
+    MOCK_METHOD(Name, index, (const std::size_t index), (const, override));
     MOCK_METHOD(bool, append, (IRegister & reg), (override));
 
 };  // IntrospectableRegistryMock
