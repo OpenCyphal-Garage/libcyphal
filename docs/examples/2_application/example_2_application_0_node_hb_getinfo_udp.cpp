@@ -153,8 +153,8 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
     ASSERT_THAT(node.makeRegistryProvider(rgy), Eq(cetl::nullopt));
     auto param_ro = rgy.route("ro", {}, [] { return true; });
     //
-    auto& get_info = node.getInfoProvider().response();
-    auto  param_name    = rgy.route(  //
+    auto& get_info   = node.getInfoProvider().response();
+    auto  param_name = rgy.route(  //
         "name",
         {},
         [&get_info] { return registry::makeStringView(get_info.name); },
