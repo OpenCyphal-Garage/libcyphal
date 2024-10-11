@@ -92,36 +92,38 @@ protected:
         return scheduler_.now();
     }
 
-    struct ServiceContext
+    struct SvcServerContext
     {
         IRequestRxSession::OnReceiveCallback::Function req_rx_cb_fn;
         StrictMock<RequestRxSessionMock>               req_rx_session_mock;
         StrictMock<ResponseTxSessionMock>              res_tx_session_mock;
-    };
-    template <typename Service>
-    void expectMakeSvcSessions(ServiceContext& svc_context)
-    {
-        EXPECT_CALL(svc_context.req_rx_session_mock, setOnReceiveCallback(_))  //
-            .WillRepeatedly(Invoke([&](auto&& cb_fn) {                         //
-                svc_context.req_rx_cb_fn = std::forward<IRequestRxSession::OnReceiveCallback::Function>(cb_fn);
-            }));
 
-        constexpr RequestRxParams rx_params{Service::Request::_traits_::ExtentBytes,
-                                            Service::Request::_traits_::FixedPortId};
-        EXPECT_CALL(transport_mock_, makeRequestRxSession(RequestRxParamsEq(rx_params)))
-            .WillOnce(Invoke([&](const auto&) {
-                return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr_, svc_context.req_rx_session_mock);
-            }));
+        template <typename Service>
+        void expectSvcServerSessions(TrackingMemoryResource& mr, TransportMock& transport_mock)
+        {
+            EXPECT_CALL(req_rx_session_mock, setOnReceiveCallback(_))  //
+                .WillRepeatedly(Invoke([&](auto&& cb_fn) {             //
+                    req_rx_cb_fn = std::forward<IRequestRxSession::OnReceiveCallback::Function>(cb_fn);
+                }));
 
-        constexpr ResponseTxParams tx_params{Service::Response::_traits_::FixedPortId};
-        EXPECT_CALL(transport_mock_, makeResponseTxSession(ResponseTxParamsEq(tx_params)))
-            .WillOnce(Invoke([&](const auto&) {
-                return libcyphal::detail::makeUniquePtr<UniquePtrResTxSpec>(mr_, svc_context.res_tx_session_mock);
-            }));
+            constexpr RequestRxParams rx_params{Service::Request::_traits_::ExtentBytes,
+                                                Service::Request::_traits_::FixedPortId};
+            EXPECT_CALL(transport_mock, makeRequestRxSession(RequestRxParamsEq(rx_params)))
+                .WillOnce(Invoke([&](const auto&) {
+                    return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr, req_rx_session_mock);
+                }));
 
-        EXPECT_CALL(svc_context.req_rx_session_mock, deinit()).Times(1);
-        EXPECT_CALL(svc_context.res_tx_session_mock, deinit()).Times(1);
-    }
+            constexpr ResponseTxParams tx_params{Service::Response::_traits_::FixedPortId};
+            EXPECT_CALL(transport_mock, makeResponseTxSession(ResponseTxParamsEq(tx_params)))
+                .WillOnce(Invoke([&](const auto&) {
+                    return libcyphal::detail::makeUniquePtr<UniquePtrResTxSpec>(mr, res_tx_session_mock);
+                }));
+
+            EXPECT_CALL(req_rx_session_mock, deinit()).Times(1);
+            EXPECT_CALL(res_tx_session_mock, deinit()).Times(1);
+        }
+
+    };  // SvcServerContext
 
     // MARK: Data members:
 
@@ -142,10 +144,10 @@ TEST_F(TestRegistryProvider, make_list_req)
 
     IntrospectableRegistryMock registry_mock;
 
-    ServiceContext list_svc_cnxt;
-    expectMakeSvcSessions<ListService>(list_svc_cnxt);
-    ServiceContext access_svc_cnxt;
-    expectMakeSvcSessions<AccessService>(access_svc_cnxt);
+    SvcServerContext list_svc_cnxt;
+    list_svc_cnxt.expectSvcServerSessions<ListService>(mr_, transport_mock_);
+    SvcServerContext access_svc_cnxt;
+    access_svc_cnxt.expectSvcServerSessions<AccessService>(mr_, transport_mock_);
 
     cetl::optional<node::RegistryProvider> registry_provider;
 
@@ -221,10 +223,10 @@ TEST_F(TestRegistryProvider, make_access_req)
 
     IntrospectableRegistryMock registry_mock;
 
-    ServiceContext list_svc_cnxt;
-    expectMakeSvcSessions<ListService>(list_svc_cnxt);
-    ServiceContext access_svc_cnxt;
-    expectMakeSvcSessions<AccessService>(access_svc_cnxt);
+    SvcServerContext list_svc_cnxt;
+    list_svc_cnxt.expectSvcServerSessions<ListService>(mr_, transport_mock_);
+    SvcServerContext access_svc_cnxt;
+    access_svc_cnxt.expectSvcServerSessions<AccessService>(mr_, transport_mock_);
 
     cetl::optional<node::RegistryProvider> registry_provider;
 
@@ -319,8 +321,8 @@ TEST_F(TestRegistryProvider, make_failure)
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
-        ServiceContext list_svc_cnxt;
-        expectMakeSvcSessions<ListService>(list_svc_cnxt);
+        SvcServerContext list_svc_cnxt;
+        list_svc_cnxt.expectSvcServerSessions<ListService>(mr_, transport_mock_);
 
         constexpr RequestRxParams rx_params{AccessService::Request::_traits_::ExtentBytes,
                                             AccessService::Request::_traits_::FixedPortId};
