@@ -62,16 +62,16 @@ protected:
     ValueAndFlags getImpl(const T& value, const bool is_mutable) const
     {
         ValueAndFlags out{Value{allocator_}, {}};
-        registry::set(out.value_, value);
-        out.flags_.mutable_    = is_mutable;
-        out.flags_.persistent_ = options_.persistent;
+        registry::set(out.value, value);
+        out.flags._mutable   = is_mutable;
+        out.flags.persistent = options_.persistent;
         return out;
     }
 
     template <typename T, typename Setter>
     cetl::optional<SetError> setImpl(const T& value, Setter&& setter)
     {
-        auto converted = get().value_;
+        auto converted = get().value;
         if (coerce(converted, value))
         {
             if (std::forward<Setter>(setter)(converted))

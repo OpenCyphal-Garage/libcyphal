@@ -43,11 +43,12 @@ struct StringView
     /// Constructs a view of the null-terminated character string pointed to by `str`,
     /// not including the terminating null character.
     ///
-    /// No lint b/c this is intentional implicit conversion.
+    /// No lint and Sonar cpp:S1709 b/c this is an intentional implicit conversion.
     /// No Sonar cpp:S5813: Using "strlen" or "wcslen" is security-sensitive.
     /// `str` is expected to be a C-string (null terminated).
     ///
-    StringView(const char* const str) noexcept  // NOLINT(google-explicit-constructor, hicpp-explicit-conversions)
+    /// NOLINTNEXTLINE(google-explicit-constructor, hicpp-explicit-conversions)
+    StringView(const char* const str) noexcept  // NOSONAR cpp:S1709
         : data_{str}
         , size_{(str != nullptr) ? std::strlen(str) : 0}  // NOSONAR cpp:S5813
     {
@@ -72,26 +73,26 @@ struct StringView
         return data_;
     }
 
+    /// Compares two views.
+    ///
+    friend constexpr bool operator==(const StringView lhs, const StringView rhs) noexcept
+    {
+        if (lhs.size() != rhs.size())
+        {
+            return false;
+        }
+        if (lhs.empty())
+        {
+            return true;
+        }
+        return std::memcmp(lhs.data(), rhs.data(), lhs.size()) == 0;
+    }
+
 private:
     const_pointer data_;
     size_type     size_;
 
 };  // Name
-
-/// Compares two views.
-///
-constexpr bool operator==(const StringView lhs, const StringView rhs) noexcept
-{
-    if (lhs.size() != rhs.size())
-    {
-        return false;
-    }
-    if (lhs.empty())
-    {
-        return true;
-    }
-    return std::memcmp(lhs.data(), rhs.data(), lhs.size()) == 0;
-}
 
 }  // namespace registry
 }  // namespace application

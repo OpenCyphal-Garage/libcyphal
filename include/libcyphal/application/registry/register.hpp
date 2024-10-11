@@ -41,18 +41,18 @@ public:
     struct Flags final
     {
         /// True if the register value can be changed.
-        bool mutable_{false};
+        bool _mutable{false};
 
         /// True if the register value is retained across application restarts.
-        bool persistent_{false};
+        bool persistent{false};
     };
 
     /// Defines a pair of the register value and its flags.
     ///
     struct ValueAndFlags final
     {
-        Value value_;
-        Flags flags_;
+        Value value;
+        Flags flags;
     };
 
     /// Defines options used when creating a new register.

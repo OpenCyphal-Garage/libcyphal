@@ -88,10 +88,10 @@ TEST_F(TestRegister, paramReg_set_get_mutable)
 
     EXPECT_FALSE(r_arr.isLinked());
     EXPECT_THAT(r_arr.set(makeValue(alloc_, -654.456F)), Eq(cetl::nullopt));  // Coerced to -654.
-    EXPECT_THAT(r_arr.get().flags_.mutable_, true);
-    EXPECT_THAT(r_arr.get().flags_.persistent_, true);
-    EXPECT_THAT(r_arr.get().value_.is_integer32(), true);
-    EXPECT_THAT((get<std::array<std::int32_t, 4>>(r_arr.get().value_)), Optional(ElementsAre(-654, 456, -789, 0)));
+    EXPECT_THAT(r_arr.get().flags._mutable, true);
+    EXPECT_THAT(r_arr.get().flags.persistent, true);
+    EXPECT_THAT(r_arr.get().value.is_integer32(), true);
+    EXPECT_THAT((get<std::array<std::int32_t, 4>>(r_arr.get().value)), Optional(ElementsAre(-654, 456, -789, 0)));
 }
 
 TEST_F(TestRegister, exposeParam_set_get_immutable)
@@ -105,10 +105,10 @@ TEST_F(TestRegister, exposeParam_set_get_immutable)
 
     EXPECT_THAT(r_arr->set(makeValue(alloc_, -654.456F)), Optional(SetError::Mutability));
 
-    EXPECT_THAT(r_arr->get().flags_.mutable_, false);
-    EXPECT_THAT(r_arr->get().flags_.persistent_, false);
-    EXPECT_THAT(r_arr->get().value_.is_integer32(), true);
-    EXPECT_THAT((get<std::array<std::int32_t, 4>>(r_arr->get().value_)), Optional(ElementsAre(123, 456, -789, 0)));
+    EXPECT_THAT(r_arr->get().flags._mutable, false);
+    EXPECT_THAT(r_arr->get().flags.persistent, false);
+    EXPECT_THAT(r_arr->get().value.is_integer32(), true);
+    EXPECT_THAT((get<std::array<std::int32_t, 4>>(r_arr->get().value)), Optional(ElementsAre(123, 456, -789, 0)));
 }
 
 TEST_F(TestRegister, exposeParam_set_move_get)
@@ -125,10 +125,10 @@ TEST_F(TestRegister, exposeParam_set_move_get)
     EXPECT_TRUE(r_arr2.isLinked());
     EXPECT_THAT(r_arr2.getOptions().persistent, false);
 
-    EXPECT_THAT(r_arr2.get().flags_.mutable_, true);
-    EXPECT_THAT(r_arr2.get().flags_.persistent_, false);
-    EXPECT_THAT(r_arr2.get().value_.is_integer32(), true);
-    EXPECT_THAT((get<std::array<std::int32_t, 4>>(r_arr2.get().value_)), Optional(ElementsAre(0, 456, -789, 0)));
+    EXPECT_THAT(r_arr2.get().flags._mutable, true);
+    EXPECT_THAT(r_arr2.get().flags.persistent, false);
+    EXPECT_THAT(r_arr2.get().value.is_integer32(), true);
+    EXPECT_THAT((get<std::array<std::int32_t, 4>>(r_arr2.get().value)), Optional(ElementsAre(0, 456, -789, 0)));
 }
 
 TEST_F(TestRegister, paramReg_set_failure)
@@ -149,10 +149,10 @@ TEST_F(TestRegister, makeRegister_set_get_immutable)
 
     EXPECT_CALL(accessors_mock, getter()).WillOnce(Return(makeValue(alloc_, true)));
     const auto result = r_bool.get();
-    EXPECT_THAT(result.flags_.mutable_, false);
-    EXPECT_THAT(result.flags_.persistent_, false);
-    EXPECT_THAT(result.value_.is_bit(), true);
-    EXPECT_THAT((get<std::array<bool, 3>>(result.value_)), Optional(ElementsAre(true, false, false)));
+    EXPECT_THAT(result.flags._mutable, false);
+    EXPECT_THAT(result.flags.persistent, false);
+    EXPECT_THAT(result.value.is_bit(), true);
+    EXPECT_THAT((get<std::array<bool, 3>>(result.value)), Optional(ElementsAre(true, false, false)));
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -180,10 +180,10 @@ TEST_F(TestRegister, makeRegister_set_get_mutable)
 
         EXPECT_CALL(accessors_mock, getter()).WillOnce(Return(makeValue(alloc_, false, true)));
         const auto result = r_bool.get();
-        EXPECT_THAT(result.flags_.mutable_, true);
-        EXPECT_THAT(result.flags_.persistent_, false);
-        EXPECT_THAT(result.value_.is_bit(), true);
-        EXPECT_THAT((get<std::array<bool, 3>>(result.value_)), Optional(ElementsAre(false, true, false)));
+        EXPECT_THAT(result.flags._mutable, true);
+        EXPECT_THAT(result.flags.persistent, false);
+        EXPECT_THAT(result.value.is_bit(), true);
+        EXPECT_THAT((get<std::array<bool, 3>>(result.value)), Optional(ElementsAre(false, true, false)));
     }
     // 2nd set
     {
@@ -201,10 +201,10 @@ TEST_F(TestRegister, makeRegister_set_get_mutable)
 
         EXPECT_CALL(accessors_mock, getter()).WillOnce(Return(makeValue(alloc_, true, true)));
         const auto result = r_bool.get();
-        EXPECT_THAT(result.flags_.mutable_, true);
-        EXPECT_THAT(result.flags_.persistent_, false);
-        EXPECT_THAT(result.value_.is_bit(), true);
-        EXPECT_THAT((get<std::array<bool, 3>>(result.value_)), Optional(ElementsAre(true, true, false)));
+        EXPECT_THAT(result.flags._mutable, true);
+        EXPECT_THAT(result.flags.persistent, false);
+        EXPECT_THAT(result.value.is_bit(), true);
+        EXPECT_THAT((get<std::array<bool, 3>>(result.value)), Optional(ElementsAre(true, true, false)));
     }
 }
 

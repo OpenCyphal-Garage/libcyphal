@@ -150,10 +150,10 @@ TEST_F(TestRegistry, route_mutable)
     EXPECT_THAT(rgy.set("arr", makeValue(alloc_, -654.456F)), Eq(cetl::nullopt));  // Coerced to -654.
     const auto arr_get_result = rgy.get("arr");
     ASSERT_THAT(arr_get_result, Optional(_));
-    EXPECT_THAT(arr_get_result->flags_.mutable_, true);
-    EXPECT_THAT(arr_get_result->flags_.persistent_, true);
-    EXPECT_THAT(arr_get_result->value_.is_integer32(), true);
-    EXPECT_THAT((get<std::array<std::int32_t, 4>>(arr_get_result->value_)), Optional(ElementsAre(-654, 456, -789, 0)));
+    EXPECT_THAT(arr_get_result->flags._mutable, true);
+    EXPECT_THAT(arr_get_result->flags.persistent, true);
+    EXPECT_THAT(arr_get_result->value.is_integer32(), true);
+    EXPECT_THAT((get<std::array<std::int32_t, 4>>(arr_get_result->value)), Optional(ElementsAre(-654, 456, -789, 0)));
     EXPECT_THAT(v_arr, ElementsAre(-654, 456, -789));
 
     // The same name failure!
@@ -175,10 +175,10 @@ TEST_F(TestRegistry, route_immutable)
     EXPECT_THAT(rgy.set("arr", makeValue(alloc_, -654.456F)), Optional(SetError::Mutability));
     const auto arr_get_result = rgy.get("arr");
     ASSERT_THAT(arr_get_result, Optional(_));
-    EXPECT_THAT(arr_get_result->flags_.mutable_, false);
-    EXPECT_THAT(arr_get_result->flags_.persistent_, false);
-    EXPECT_THAT(arr_get_result->value_.is_integer32(), true);
-    EXPECT_THAT((get<std::array<std::int32_t, 4>>(arr_get_result->value_)), Optional(ElementsAre(123, 456, -789, 0)));
+    EXPECT_THAT(arr_get_result->flags._mutable, false);
+    EXPECT_THAT(arr_get_result->flags.persistent, false);
+    EXPECT_THAT(arr_get_result->value.is_integer32(), true);
+    EXPECT_THAT((get<std::array<std::int32_t, 4>>(arr_get_result->value)), Optional(ElementsAre(123, 456, -789, 0)));
 
     // The same name failure!
     EXPECT_THAT(rgy.route("arr", {}, [] { return true; }), Eq(cetl::nullopt));
@@ -200,10 +200,10 @@ TEST_F(TestRegistry, expose)
     EXPECT_THAT(rgy.set("arr", makeValue(alloc_, -654.456F)), Eq(cetl::nullopt));  // Coerced to -654.
     const auto arr_get_result = rgy.get("arr");
     ASSERT_THAT(arr_get_result, Optional(_));
-    EXPECT_THAT(arr_get_result->flags_.mutable_, true);
-    EXPECT_THAT(arr_get_result->flags_.persistent_, false);
-    EXPECT_THAT(arr_get_result->value_.is_integer32(), true);
-    EXPECT_THAT((get<std::array<std::int32_t, 4>>(arr_get_result->value_)), Optional(ElementsAre(-654, 456, -789, 0)));
+    EXPECT_THAT(arr_get_result->flags._mutable, true);
+    EXPECT_THAT(arr_get_result->flags.persistent, false);
+    EXPECT_THAT(arr_get_result->value.is_integer32(), true);
+    EXPECT_THAT((get<std::array<std::int32_t, 4>>(arr_get_result->value)), Optional(ElementsAre(-654, 456, -789, 0)));
     EXPECT_THAT(v_arr, ElementsAre(-654, 456, -789));
 }
 
@@ -221,10 +221,10 @@ TEST_F(TestRegistry, exposeParam_set_get_mutable)
     EXPECT_THAT(rgy.set("arr", makeValue(alloc_, -654.456F)), Eq(cetl::nullopt));  // Coerced to -654.
     const auto arr_get_result = rgy.get("arr");
     ASSERT_THAT(arr_get_result, Optional(_));
-    EXPECT_THAT(arr_get_result->flags_.mutable_, true);
-    EXPECT_THAT(arr_get_result->flags_.persistent_, false);
-    EXPECT_THAT(arr_get_result->value_.is_integer32(), true);
-    EXPECT_THAT((get<std::array<std::int32_t, 4>>(arr_get_result->value_)), Optional(ElementsAre(-654, 456, -789, 0)));
+    EXPECT_THAT(arr_get_result->flags._mutable, true);
+    EXPECT_THAT(arr_get_result->flags.persistent, false);
+    EXPECT_THAT(arr_get_result->value.is_integer32(), true);
+    EXPECT_THAT((get<std::array<std::int32_t, 4>>(arr_get_result->value)), Optional(ElementsAre(-654, 456, -789, 0)));
 }
 
 TEST_F(TestRegistry, exposeParam_set_get_immutable)
@@ -239,10 +239,10 @@ TEST_F(TestRegistry, exposeParam_set_get_immutable)
 
     const auto arr_get_result = rgy.get("arr");
     ASSERT_THAT(arr_get_result, Optional(_));
-    EXPECT_THAT(arr_get_result->flags_.mutable_, false);
-    EXPECT_THAT(arr_get_result->flags_.persistent_, true);
-    EXPECT_THAT(arr_get_result->value_.is_integer32(), true);
-    EXPECT_THAT((get<std::array<std::int32_t, 4>>(arr_get_result->value_)), Optional(ElementsAre(123, 456, -789, 0)));
+    EXPECT_THAT(arr_get_result->flags._mutable, false);
+    EXPECT_THAT(arr_get_result->flags.persistent, true);
+    EXPECT_THAT(arr_get_result->value.is_integer32(), true);
+    EXPECT_THAT((get<std::array<std::int32_t, 4>>(arr_get_result->value)), Optional(ElementsAre(123, 456, -789, 0)));
 }
 
 TEST_F(TestRegistry, exposeParam_failure)

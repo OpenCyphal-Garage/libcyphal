@@ -134,9 +134,9 @@ private:
             AccessService::Response response{pmr_alloc_};
             if (auto value_and_flags = registry_.get(name))
             {
-                response.value      = std::move(value_and_flags->value_);
-                response._mutable   = value_and_flags->flags_.mutable_;
-                response.persistent = value_and_flags->flags_.persistent_;
+                response.value      = std::move(value_and_flags->value);
+                response._mutable   = value_and_flags->flags._mutable;
+                response.persistent = value_and_flags->flags.persistent;
             }
 
             // There is nothing we can do about possible continuation failures - we just ignore them.
