@@ -15,6 +15,8 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/application/node.hpp>
+#include <libcyphal/application/registry/registry_impl.hpp>
+#include <libcyphal/application/registry/registry_value.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
@@ -25,6 +27,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -46,6 +49,7 @@ using std::literals::chrono_literals::operator""s;
 using std::literals::chrono_literals::operator""ms;
 // NOLINTEND(misc-unused-using-decls, misc-include-cleaner)
 
+using testing::Eq;
 using testing::IsEmpty;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
@@ -87,16 +91,6 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
-    TimePoint now() const
-    {
-        return executor_.now();
-    }
-
-    Duration uptime() const
-    {
-        return executor_.now() - startup_time_;
-    }
-
     // MARK: Data members:
     // NOLINTBEGIN
 
@@ -107,12 +101,13 @@ protected:
 
     };  // State
 
-    TrackingMemoryResource            mr_;
-    posix::PollSingleThreadedExecutor executor_{mr_};
-    TimePoint                         startup_time_{};
-    libcyphal::transport::NodeId      local_node_id_{42};
-    Duration                          run_duration_{10s};
-    std::vector<std::string>          iface_addresses_{"127.0.0.1"};
+    TrackingMemoryResource                 mr_;
+    cetl::pmr::polymorphic_allocator<void> mr_alloc_{&mr_};
+    posix::PollSingleThreadedExecutor      executor_{mr_};
+    TimePoint                              startup_time_{};
+    libcyphal::transport::NodeId           local_node_id_{42};
+    Duration                               run_duration_{10s};
+    std::vector<std::string>               iface_addresses_{"127.0.0.1"};
     // NOLINTEND
 
 };  // Example_1_Presentation_1_PingUserService_Udp
@@ -125,7 +120,7 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
     std::cout << "Local  node ID: " << local_node_id_ << "\n";
     std::cout << "Interfaces    : '" << CommonHelpers::joinInterfaceAddresses(iface_addresses_) << "'\n";
 
-    // 1. Make UDP transport with collection of media.
+    // 1. Make UDP transport with a collection of media.
     //
     constexpr std::size_t tx_capacity = 16;
     state.media_collection_.make(mr_, executor_, iface_addresses_);
@@ -137,7 +132,7 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
     state.transport_->setLocalNodeId(local_node_id_);
     state.transport_->setTransientErrorHandler(CommonHelpers::Udp::transientErrorReporter);
 
-    // 2. Create presentation layer object.
+    // 2. Create a presentation layer object.
     //
     libcyphal::presentation::Presentation presentation{mr_, executor_, *state.transport_};
 
@@ -152,7 +147,30 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
                 std::min(node_name.size(), 50UL),
                 std::back_inserter(node.getInfoProvider().response().name));
 
-    // 4. Main loop.
+    // 4. Bring up registry provider, and expose couple registers.
+    //
+    registry::Registry rgy{mr_};
+    ASSERT_THAT(node.makeRegistryProvider(rgy), Eq(cetl::nullopt));
+    auto param_ro = rgy.route("ro", {}, [] { return true; });
+    //
+    auto& get_info = node.getInfoProvider().response();
+    auto  param_name    = rgy.route(  //
+        "name",
+        {},
+        [&get_info] { return registry::makeStringView(get_info.name); },
+        [&get_info](registry::Value& value) {
+            //
+            if (auto* const str = value.get_string_if())
+            {
+                get_info.name = std::move(str->value);
+                return true;
+            }
+            return false;
+        });
+    //
+    auto param_rgb = rgy.exposeParam("rgb", std::array<float, 3>{});
+
+    // 5. Main loop.
     //
     Duration        worst_lateness{0};
     const TimePoint deadline = startup_time_ + run_duration_ + 500ms;

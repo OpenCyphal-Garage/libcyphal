@@ -7,6 +7,8 @@
 #define LIBCYPHAL_APPLICATION_REGISTRY_IMPL_HPP_INCLUDED
 
 #include "libcyphal/common/cavl/cavl.hpp"
+#include "register.hpp"
+#include "register_impl.hpp"
 #include "registry.hpp"
 #include "registry_value.hpp"
 

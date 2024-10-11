@@ -305,21 +305,15 @@ inline void set(Value& dst, const cetl::span<const cetl::byte> value)
 ///
 /// The existing content of the value is discarded.
 ///
-inline void set(Value& dst, const char* const string)
+inline void set(Value& dst, const StringView string)
 {
     auto& str = dst.set_string();
-
-    // No Sonar cpp:S5813: Using "strlen" or "wcslen" is security-sensitive.
-    // Currently, all string values are expected to be a C-string.
-    // TODO: Consider reworking when `string_view` polyfill is available.
-    const std::size_t str_len = std::strlen(string);  // NOSONAR cpp:S5813
-    str.value.reserve(str_len);
-    const std::size_t size = std::min(str_len, str.value.capacity());
-    for (std::size_t i = 0; i < size; i++)
+    if (!string.empty())
     {
-        // No Sonar `cpp:S810` is unavoidable - we store chars as raw data!
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        str.value.push_back(static_cast<std::uint8_t>(string[i]));  // NOSONAR cpp:S810
+        str.value.resize(string.size());
+
+        // No Sonar `cpp:S5356` b/c we need to pass string payload as raw data.
+        (void) std::memmove(str.value.data(), string.data(), str.value.size());  // NOSONAR cpp:S5356
     }
 }
 
@@ -364,7 +358,7 @@ inline void set(Value& dst, const Value& src)
 /// @param allocator The PMR allocator to allocate storage for the value.
 /// @param str The string to copy into the value.
 ///
-inline Value makeValue(const Value::allocator_type& allocator, const char* const str)
+inline Value makeValue(const Value::allocator_type& allocator, const StringView str)
 {
     Value out{allocator};
     set(out, str);
@@ -425,7 +419,7 @@ inline uavcan::_register::Name_1_0 makeName(const uavcan::_register::Name_1_0::a
         constexpr std::size_t NameCapacity = 255U;
         out.name.resize(std::min(name.size(), NameCapacity));
 
-        // No Sonar `cpp:S5356` b/c we need to name payload as raw data.
+        // No Sonar `cpp:S5356` b/c we need to pass name payload as raw data.
         (void) std::memmove(out.name.data(), name.data(), out.name.size());  // NOSONAR cpp:S5356
     }
     return out;
