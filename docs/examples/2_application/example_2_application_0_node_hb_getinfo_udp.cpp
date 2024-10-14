@@ -171,7 +171,7 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
     auto param_rgb = rgy.parameterize("rgb", std::array<float, 3>{});
     //
     std::array<double, 2> balance{1.0, 1.0};
-    auto param_str = rgy.expose("balance", balance, {true});
+    auto                  param_str = rgy.expose("balance", balance, {true});
 
     // 5. Main loop.
     //
