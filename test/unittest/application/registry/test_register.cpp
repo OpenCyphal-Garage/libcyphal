@@ -98,7 +98,7 @@ TEST_F(TestRegister, exposeParam_set_get_immutable)
 {
     Registry rgy{mr_};
 
-    auto r_arr = rgy.exposeParam<std::array<std::int32_t, 3>, false>("arr", {123, 456, -789});
+    auto r_arr = rgy.parameterize<std::array<std::int32_t, 3>, false>("arr", {123, 456, -789});
     ASSERT_THAT(r_arr, Optional(_));
     EXPECT_TRUE(r_arr->isLinked());
     EXPECT_THAT(r_arr->getOptions().persistent, false);
@@ -115,7 +115,7 @@ TEST_F(TestRegister, exposeParam_set_move_get)
 {
     Registry rgy{mr_};
 
-    auto r_arr1 = rgy.exposeParam("arr", std::array<std::int32_t, 3>{123, 456, -789});
+    auto r_arr1 = rgy.parameterize("arr", std::array<std::int32_t, 3>{123, 456, -789});
     ASSERT_THAT(r_arr1, Optional(_));
     EXPECT_TRUE(r_arr1->isLinked());
     EXPECT_THAT(r_arr1->getOptions().persistent, false);

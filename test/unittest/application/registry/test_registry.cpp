@@ -80,7 +80,7 @@ TEST_F(TestRegistry, lifetime)
     EXPECT_THAT(rgy.get("arr"), Eq(cetl::nullopt));
     EXPECT_THAT(rgy.get("bool"), Eq(cetl::nullopt));
     {
-        const auto r_arr = rgy.exposeParam("arr", std::array<std::int32_t, 3>{123, 456, -789});
+        const auto r_arr = rgy.parameterize("arr", std::array<std::int32_t, 3>{123, 456, -789});
 
         EXPECT_THAT(rgy.size(), 1);
         EXPECT_THAT(rgy.index(0), "arr");
@@ -88,7 +88,7 @@ TEST_F(TestRegistry, lifetime)
         EXPECT_THAT(rgy.get("arr"), Optional(_));
         EXPECT_THAT(rgy.get("bool"), Eq(cetl::nullopt));
         {
-            const auto r_bool = rgy.exposeParam("bool", true);
+            const auto r_bool = rgy.parameterize("bool", true);
 
             EXPECT_THAT(rgy.size(), 2);
             EXPECT_THAT(rgy.index(0), "arr");
@@ -96,7 +96,7 @@ TEST_F(TestRegistry, lifetime)
             EXPECT_THAT(rgy.get("arr"), Optional(_));
             EXPECT_THAT(rgy.get("bool"), Optional(_));
             {
-                const auto r_dbl = rgy.exposeParam("dbl", 1.23);
+                const auto r_dbl = rgy.parameterize("dbl", 1.23);
 
                 EXPECT_THAT(rgy.size(), 3);
                 EXPECT_THAT(rgy.index(0), "arr");
@@ -211,7 +211,7 @@ TEST_F(TestRegistry, exposeParam_set_get_mutable)
 {
     Registry rgy{mr_};
 
-    const auto r_arr = rgy.exposeParam("arr", std::array<std::int32_t, 3>{123, 456, -789});
+    const auto r_arr = rgy.parameterize("arr", std::array<std::int32_t, 3>{123, 456, -789});
     ASSERT_THAT(r_arr, Optional(_));
     EXPECT_TRUE(r_arr->isLinked());
     EXPECT_THAT(r_arr->getOptions().persistent, false);
@@ -231,7 +231,7 @@ TEST_F(TestRegistry, exposeParam_set_get_immutable)
 {
     Registry rgy{mr_};
 
-    const auto r_arr = rgy.exposeParam<std::array<std::int32_t, 3>, false>("arr", {123, 456, -789}, {true});
+    const auto r_arr = rgy.parameterize<std::array<std::int32_t, 3>, false>("arr", {123, 456, -789}, {true});
     ASSERT_THAT(r_arr, Optional(_));
     EXPECT_THAT(r_arr->getOptions().persistent, true);
 
@@ -249,10 +249,10 @@ TEST_F(TestRegistry, exposeParam_failure)
 {
     Registry rgy{mr_};
 
-    const auto r_bool1 = rgy.exposeParam("bool", false);
+    const auto r_bool1 = rgy.parameterize("bool", false);
     ASSERT_THAT(r_bool1, Optional(_));
 
-    const auto r_bool2 = rgy.exposeParam("bool", false);  // The same name!
+    const auto r_bool2 = rgy.parameterize("bool", false);  // The same name!
     EXPECT_THAT(r_bool2, Eq(cetl::nullopt));
 }
 

@@ -146,7 +146,7 @@ public:
         return cetl::nullopt;
     }
 
-    /// Constructs a read-write register, and links it to a given registry.
+    /// Constructs a read-write register, and links it to this registry.
     ///
     /// A simple wrapper over route() that allows one to expose and mutate an arbitrary object as a mutable register.
     ///
@@ -169,7 +169,7 @@ public:
             options);
     }
 
-    /// Constructs a parameter register, and links it to a given registry.
+    /// Constructs a parameter register, and links it to this registry.
     ///
     /// In contrast to the above `expose()`, this method allows one to expose a parameter with a default value.
     /// Exposed parameter value is stored inside the register and can be mutated (by default).
@@ -180,9 +180,9 @@ public:
     /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
     ///
     template <typename T, bool IsMutable = true>
-    cetl::optional<ParamRegister<T, IsMutable>> exposeParam(const Name                name,
-                                                            const T&                  default_value,
-                                                            const IRegister::Options& options = {})
+    cetl::optional<ParamRegister<T, IsMutable>> parameterize(const Name                name,
+                                                             const T&                  default_value,
+                                                             const IRegister::Options& options = {})
     {
         ParamRegister<T, IsMutable> reg{memory(), name, default_value, options};
         if (append(reg))

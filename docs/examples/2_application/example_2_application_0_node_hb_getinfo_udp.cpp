@@ -167,7 +167,7 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
             return false;
         });
     //
-    auto param_rgb = rgy.exposeParam("rgb", std::array<float, 3>{});
+    auto param_rgb = rgy.parameterize("rgb", std::array<float, 3>{});
 
     // 5. Main loop.
     //
