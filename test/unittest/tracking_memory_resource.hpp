@@ -34,7 +34,7 @@ public:
     std::size_t                 max_allocated_bytes{0};
     std::size_t                 total_allocated_bytes{0};
     std::size_t                 total_deallocated_bytes{0};
-    cetl::pmr::memory_resource* memory_{cetl::pmr::get_default_resource()};
+    cetl::pmr::memory_resource* memory_{cetl::pmr::new_delete_resource()};
     // NOLINTEND
 
 private:
