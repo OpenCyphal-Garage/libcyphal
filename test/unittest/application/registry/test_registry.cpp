@@ -134,12 +134,12 @@ TEST_F(TestRegistry, route_mutable)
     std::array<std::int32_t, 3> v_arr{123, 456, -789};
     const auto                  r_arr = rgy.route(
         "arr",
-        {true},
         [&v_arr] { return v_arr; },
         [&v_arr](const Value& v) {
             v_arr = get<std::array<std::int32_t, 3>>(v).value();
             return true;
-        });
+        },
+        {true});
     ASSERT_THAT(r_arr, Optional(_));
     EXPECT_TRUE(r_arr->isLinked());
     EXPECT_THAT(r_arr->getOptions().persistent, true);
@@ -157,7 +157,7 @@ TEST_F(TestRegistry, route_mutable)
     EXPECT_THAT(v_arr, ElementsAre(-654, 456, -789));
 
     // The same name failure!
-    EXPECT_THAT(rgy.route("arr", {}, [] { return true; }, [](const auto&) { return true; }), Eq(cetl::nullopt));
+    EXPECT_THAT(rgy.route("arr", [] { return true; }, [](const auto&) { return true; }), Eq(cetl::nullopt));
 }
 
 TEST_F(TestRegistry, route_immutable)
@@ -165,7 +165,7 @@ TEST_F(TestRegistry, route_immutable)
     Registry rgy{mr_};
 
     constexpr std::array<std::int32_t, 3> v_arr{123, 456, -789};
-    const auto                            r_arr = rgy.route("arr", {}, [&v_arr] { return v_arr; });
+    const auto                            r_arr = rgy.route("arr", [&v_arr] { return v_arr; });
     ASSERT_THAT(r_arr, Optional(_));
     EXPECT_TRUE(r_arr->isLinked());
     EXPECT_THAT(r_arr->getOptions().persistent, false);
@@ -181,7 +181,7 @@ TEST_F(TestRegistry, route_immutable)
     EXPECT_THAT((get<std::array<std::int32_t, 4>>(arr_get_result->value)), Optional(ElementsAre(123, 456, -789, 0)));
 
     // The same name failure!
-    EXPECT_THAT(rgy.route("arr", {}, [] { return true; }), Eq(cetl::nullopt));
+    EXPECT_THAT(rgy.route("arr", [] { return true; }), Eq(cetl::nullopt));
 }
 
 TEST_F(TestRegistry, expose)

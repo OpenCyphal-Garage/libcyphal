@@ -107,14 +107,16 @@ public:
     /// Constructs a new read-only register, and links it to this registry.
     ///
     /// @param name The name of the register. Should be unique within the registry.
-    /// @param options Extra options for the register, like "persistent" option (`true` by default).
-    /// @param getter The getter function to provide the register value (from a storage).
+    /// @param getter The getter function to provide the register value.
+    /// @param options Extra options for the register, like "persistent" option.
     /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
     ///
     template <typename Getter>
-    cetl::optional<Register<Getter, void>> route(const Name name, const IRegister::Options& options, Getter&& getter)
+    cetl::optional<Register<Getter, void>> route(const Name                name,
+                                                 Getter&&                  getter,
+                                                 const IRegister::Options& options = {})
     {
-        auto reg = makeRegister(memory(), name, options, std::forward<Getter>(getter));
+        auto reg = makeRegister(memory(), name, std::forward<Getter>(getter), options);
         if (append(reg))
         {
             return reg;
@@ -125,18 +127,18 @@ public:
     /// Constructs a new read-write register, and links it to this registry.
     ///
     /// @param name The name of the register. Should be unique within the registry.
-    /// @param options Extra options for the register, like "persistent" option (`true` by default).
-    /// @param getter The getter function to provide the register value (from a storage).
-    /// @param setter The setter function to update the register value (at the storage).
+    /// @param getter The getter function to provide the register value.
+    /// @param setter The setter function to update the register value.
+    /// @param options Extra options for the register, like "persistent" option.
     /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
     ///
     template <typename Getter, typename Setter>
     cetl::optional<Register<Getter, Setter>> route(const Name                name,
-                                                   const IRegister::Options& options,
                                                    Getter&&                  getter,
-                                                   Setter&&                  setter)
+                                                   Setter&&                  setter,
+                                                   const IRegister::Options& options = {})
     {
-        auto reg = makeRegister(memory(), name, options, std::forward<Getter>(getter), std::forward<Setter>(setter));
+        auto reg = makeRegister(memory(), name, std::forward<Getter>(getter), std::forward<Setter>(setter), options);
         if (append(reg))
         {
             return reg;
@@ -158,13 +160,13 @@ public:
     {
         return route(
             name,
-            options,
             [&inout_value]() -> const T& { return inout_value; },  // Getter
             [&inout_value](const Value& v) {                       // Setter
                 //
                 inout_value = registry::get<T>(v).value();  // Guaranteed to be coercible by the protocol.
                 return true;
-            });
+            },
+            options);
     }
 
     /// Constructs a parameter register, and links it to a given registry.

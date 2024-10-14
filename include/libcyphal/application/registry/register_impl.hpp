@@ -18,7 +18,6 @@ namespace application
 {
 namespace registry
 {
-
 /// Defines abstract base class for a register implementation.
 ///
 /// Implements common functionality for all register types like name, options, and value accessors.
@@ -110,20 +109,20 @@ public:
     /// A detached register must be appended to a registry before its value could be exposed by the registry.
     /// Use `makeRegister<Getter, Setter>()` factory function to automatically deduce the template types.
     /// Alternatively, use the following registry methods to create and link the register in one step:
-    /// - `registry.route<Getter, Setter>(name, options, getter, setter)`
+    /// - `registry.route<Getter, Setter>(name, getter, setter, options)`
     /// - `registry.expose<T>(name, T& value, options)`
     ///
     /// @param memory The memory resource to use for variable size-d register values.
     /// @param name The name of the register.
-    /// @param options Extra options for the register, like "persistent" option (`true` by default).
-    /// @param getter The getter function to provide the register value (from a storage).
-    /// @param setter The setter function to update the register value (at the storage).
+    /// @param getter The getter function to provide the register value.
+    /// @param setter The setter function to update the register value.
+    /// @param options Extra options for the register, like "persistent" option.
     ///
     Register(cetl::pmr::memory_resource& memory,
              const Name                  name,
-             const Options&              options,
              Getter&&                    getter,
-             Setter&&                    setter)
+             Setter&&                    setter,
+             const Options&              options = {})
         : Base{memory, name, options}
         , getter_{std::move(getter)}
         , setter_{std::move(setter)}
@@ -174,10 +173,10 @@ public:
     ///
     /// @param memory The memory resource to use for variable size-d register values.
     /// @param name The name of the register.
-    /// @param options Extra options for the register, like "persistent" option (`true` by default).
-    /// @param getter The getter function to provide the register value (from a storage).
+    /// @param getter The getter function to provide the register value.
+    /// @param options Extra options for the register, like "persistent" option.
     ///
-    Register(cetl::pmr::memory_resource& memory, const Name name, const Options& options, Getter&& getter)
+    Register(cetl::pmr::memory_resource& memory, const Name name, Getter&& getter, const Options& options = {})
         : Base{memory, name, options}
         , getter_(std::move(getter))
     {
@@ -284,17 +283,17 @@ private:
 ///               Note that the memory resource is not used for creation of the register itself (it's done on stack
 ///               and returned by move) but for the transient variable size-d values of the register.
 /// @param name The name of the register.
-/// @param options Extra options for the register, like "persistent" option (`true` by default).
-/// @param getter The getter function to provide the register value (from a storage).
+/// @param getter The getter function to provide the register value.
+/// @param options Extra options for the register, like "persistent" option.
 /// @return The constructed detached register.
 ///
 template <typename Getter>
 Register<Getter, void> makeRegister(cetl::pmr::memory_resource& memory,
                                     const Name                  name,
-                                    const IRegister::Options&   options,
-                                    Getter&&                    getter)
+                                    Getter&&                    getter,
+                                    const IRegister::Options&   options = {})
 {
-    return Register<Getter, void>{memory, name, options, std::forward<Getter>(getter)};
+    return Register<Getter, void>{memory, name, std::forward<Getter>(getter), options};
 }
 
 /// Constructs a new read-write register, which is not yet linked to any registry (aka detached).
@@ -308,19 +307,19 @@ Register<Getter, void> makeRegister(cetl::pmr::memory_resource& memory,
 ///               Note that the memory resource is not used for creation of the register itself (it's done on stack
 ///               and returned by move) but for the transient variable size-d values of the register.
 /// @param name The name of the register.
-/// @param options Extra options for the register, like "persistent" option (`true` by default).
-/// @param getter The getter function to provide the register value (from a storage).
-/// @param setter The setter function to update the register value (at the storage).
+/// @param getter The getter function to provide the register value.
+/// @param setter The setter function to update the register value.
+/// @param options Extra options for the register, like "persistent" option.
 /// @return The constructed detached register.
 ///
 template <typename Getter, typename Setter>
 Register<Getter, Setter> makeRegister(cetl::pmr::memory_resource& memory,
                                       const Name                  name,
-                                      const IRegister::Options&   options,
                                       Getter&&                    getter,
-                                      Setter&&                    setter)
+                                      Setter&&                    setter,
+                                      const IRegister::Options&   options = {})
 {
-    return Register<Getter, Setter>{memory, name, options, std::forward<Getter>(getter), std::forward<Setter>(setter)};
+    return Register<Getter, Setter>{memory, name, std::forward<Getter>(getter), std::forward<Setter>(setter), options};
 }
 
 }  // namespace registry

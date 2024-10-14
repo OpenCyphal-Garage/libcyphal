@@ -141,7 +141,7 @@ TEST_F(TestRegister, makeRegister_set_get_immutable)
 {
     StrictMock<AccessorsMock> accessors_mock;
 
-    auto r_bool = makeRegister(mr_, "bool", {}, std::ref(accessors_mock));
+    auto r_bool = makeRegister(mr_, "bool", std::ref(accessors_mock));
     EXPECT_FALSE(r_bool.isLinked());
     EXPECT_THAT(r_bool.getOptions().persistent, false);
 
@@ -160,7 +160,7 @@ TEST_F(TestRegister, makeRegister_set_get_mutable)
 {
     StrictMock<AccessorsMock> accessors_mock;
 
-    auto r_bool = makeRegister(mr_, "bool", {}, std::ref(accessors_mock), std::ref(accessors_mock));
+    auto r_bool = makeRegister(mr_, "bool", std::ref(accessors_mock), std::ref(accessors_mock));
     EXPECT_FALSE(r_bool.isLinked());
     EXPECT_THAT(r_bool.getOptions().persistent, false);
 
@@ -212,7 +212,7 @@ TEST_F(TestRegister, makeRegister_set_failure)
 {
     StrictMock<AccessorsMock> accessors_mock;
 
-    auto r_int32 = makeRegister(mr_, "int32", {}, std::ref(accessors_mock), std::ref(accessors_mock));
+    auto r_int32 = makeRegister(mr_, "int32", std::ref(accessors_mock), std::ref(accessors_mock));
     EXPECT_FALSE(r_int32.isLinked());
     EXPECT_THAT(r_int32.getOptions().persistent, false);
 
