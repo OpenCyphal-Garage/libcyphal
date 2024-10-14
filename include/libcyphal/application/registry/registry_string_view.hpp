@@ -92,7 +92,7 @@ private:
     const_pointer data_;
     size_type     size_;
 
-};  // Name
+};  // StringView
 
 }  // namespace registry
 }  // namespace application

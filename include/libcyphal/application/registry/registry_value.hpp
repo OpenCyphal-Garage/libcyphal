@@ -365,6 +365,18 @@ inline Value makeValue(const Value::allocator_type& allocator, const StringView 
     return out;
 }
 
+/// Makes a new 'String' value with the specified string literal.
+///
+/// @param allocator The PMR allocator to allocate storage for the value.
+/// @param str The string literal to copy into the value.
+///
+template <std::size_t N>
+// NOLINTNEXTLINE(*-avoid-c-arrays)
+Value makeValue(const Value::allocator_type& allocator, const char (&str)[N])
+{
+    return makeValue(allocator, StringView{static_cast<const char*>(str), N - 1});
+}
+
 /// Makes a new 'Unstructured' value with the specified raw bytes content.
 ///
 /// @param allocator The PMR allocator to allocate storage for the value.
