@@ -39,7 +39,7 @@ class TestRegistryStringView : public testing::Test
     static_assert(std::is_convertible<const char*, StringView>::value,  //
                   "StringView must be convertible from const char*");
     static_assert(!std::is_constructible<StringView, std::nullptr_t>::value,  //
-                  "StringView must be constructible from nullptr_t");
+                  "StringView must not be constructible from nullptr_t");
 
 };  // TestRegistryStringView
 
