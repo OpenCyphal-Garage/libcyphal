@@ -147,10 +147,11 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
                 std::min(node_name.size(), 50UL),
                 std::back_inserter(node.getInfoProvider().response().name));
 
-    // 4. Bring up registry provider, and expose couple registers.
+    // 4. Bring up registry provider, and expose several registers.
     //
     registry::Registry rgy{mr_};
     ASSERT_THAT(node.makeRegistryProvider(rgy), Eq(cetl::nullopt));
+    //
     auto param_ro = rgy.route("ro", [] { return true; });
     //
     auto& get_info   = node.getInfoProvider().response();
@@ -168,6 +169,9 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
         });
     //
     auto param_rgb = rgy.parameterize("rgb", std::array<float, 3>{});
+    //
+    std::array<double, 2> balance{1.0, 1.0};
+    auto param_str = rgy.expose("balance", balance, {true});
 
     // 5. Main loop.
     //
