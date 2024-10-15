@@ -30,7 +30,7 @@ jobs:
       - name: get nunavut
         # TODO: setup a venv, cache, and distribute to the other jobs.
         run: >
-          pip install git+https://github.com/OpenCyphal/nunavut.git@e949f73fa6bef1d6c15822154155387ad7fb569e
+          pip install git+https://github.com/OpenCyphal/nunavut.git@23b84f76d4fc0e75595efc02fde30140e3cef2fb
       - name: configure
         run: >
           ./build-tools/bin/verify.py
@@ -70,7 +70,7 @@ jobs:
         key: ${{ runner.os }}-${{ hashFiles('cmake/modules/*.cmake') }}
     - name: get nunavut
       run: >
-        pip install git+https://github.com/OpenCyphal/nunavut.git@e949f73fa6bef1d6c15822154155387ad7fb569e
+        pip install git+https://github.com/OpenCyphal/nunavut.git@23b84f76d4fc0e75595efc02fde30140e3cef2fb
     - name: run tests
       env:
         GTEST_COLOR: yes
@@ -115,7 +115,7 @@ jobs:
         key: ${{ runner.os }}-${{ hashFiles('cmake/modules/*.cmake') }}
     - name: get nunavut
       run: >
-        pip install git+https://github.com/OpenCyphal/nunavut.git@e949f73fa6bef1d6c15822154155387ad7fb569e
+        pip install git+https://github.com/OpenCyphal/nunavut.git@23b84f76d4fc0e75595efc02fde30140e3cef2fb
     - name: doc-gen
       run: >
         ./build-tools/bin/verify.py
