@@ -36,27 +36,23 @@ enum class SetError : std::uint8_t
 class IRegister : public cavl::Node<IRegister>  // NOSONAR cpp:S4963
 {
 public:
-    /// Defines the type of the register name.
-    ///
-    using Name = const char*;
-
     /// Defines behavior flags of the register value.
     ///
     struct Flags final
     {
         /// True if the register value can be changed.
-        bool mutable_{false};
+        bool _mutable{false};
 
         /// True if the register value is retained across application restarts.
-        bool persistent_{false};
+        bool persistent{false};
     };
 
     /// Defines a pair of the register value and its flags.
     ///
     struct ValueAndFlags final
     {
-        Value value_;
-        Flags flags_;
+        Value value;
+        Flags flags;
     };
 
     /// Defines options used when creating a new register.
@@ -106,11 +102,7 @@ public:
     private:
         CETL_NODISCARD static std::uint64_t hash(const Name name) noexcept
         {
-            // No Sonar cpp:S5813: Using "strlen" or "wcslen" is security-sensitive.
-            // Our `Name` type is currently expected to be a C-string literal.
-            // TODO: Consider reworking when `string_view` polyfill is available.
-            const std::size_t name_len = std::strlen(name);  // NOSONAR cpp:S5813
-            return common::CRC64WE(name, name + name_len).get();
+            return common::CRC64WE(name.data(), name.data() + name.size()).get();
         }
 
         // MARK: Data members:

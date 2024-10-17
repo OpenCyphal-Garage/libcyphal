@@ -3,8 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_APPLICATION_NODE_GETINFO_HPP_INCLUDED
-#define LIBCYPHAL_APPLICATION_NODE_GETINFO_HPP_INCLUDED
+#ifndef LIBCYPHAL_APPLICATION_NODE_GETINFO_PROVIDER_HPP_INCLUDED
+#define LIBCYPHAL_APPLICATION_NODE_GETINFO_PROVIDER_HPP_INCLUDED
 
 #include "libcyphal/presentation/presentation.hpp"
 #include "libcyphal/presentation/server.hpp"
@@ -36,14 +36,14 @@ class GetInfoProvider final  // NOSONAR cpp:S4963
     using Service = uavcan::node::GetInfo_1_0;
 
 public:
-    /// @brief Defines the response type for the GetInfo.
+    /// @brief Defines the response type for the GetInfo provider.
     ///
     using Response = Service::Response;
 
     /// @brief Factory method to create a GetInfo instance.
     ///
     /// @param presentation The presentation layer instance. In use to create 'GetInfo' service server.
-    /// @return The GetInfo instance or a failure.
+    /// @return The GetInfo provider instance or a failure.
     ///
     static auto make(presentation::Presentation& presentation)
         -> Expected<GetInfoProvider, presentation::Presentation::MakeFailure>
@@ -128,4 +128,4 @@ private:
 }  // namespace application
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_APPLICATION_NODE_GETINFO_HPP_INCLUDED
+#endif  // LIBCYPHAL_APPLICATION_NODE_GETINFO_PROVIDER_HPP_INCLUDED

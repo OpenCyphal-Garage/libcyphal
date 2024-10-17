@@ -6,10 +6,12 @@
 #include <libcyphal/application/node.hpp>
 #include "libcyphal/application/node/get_info_provider.hpp"
 #include "libcyphal/application/node/heartbeat_producer.hpp"
+#include "libcyphal/application/node/registry_provider.hpp"
 #include "libcyphal/application/registry/register.hpp"
 #include "libcyphal/application/registry/register_impl.hpp"
 #include "libcyphal/application/registry/registry.hpp"
 #include "libcyphal/application/registry/registry_impl.hpp"
+#include "libcyphal/application/registry/registry_string_view.hpp"
 #include "libcyphal/application/registry/registry_value.hpp"
 #include <libcyphal/common/cavl/cavl.hpp>
 #include <libcyphal/common/crc.hpp>

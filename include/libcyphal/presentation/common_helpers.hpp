@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_PRESENTATION_COMMON_HELPERS_HPP_INCLUDED
 #define LIBCYPHAL_PRESENTATION_COMMON_HELPERS_HPP_INCLUDED
 
+#include "libcyphal/errors.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>

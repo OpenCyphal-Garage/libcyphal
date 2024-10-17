@@ -3,8 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_APPLICATION_NODE_HEARTBEAT_HPP_INCLUDED
-#define LIBCYPHAL_APPLICATION_NODE_HEARTBEAT_HPP_INCLUDED
+#ifndef LIBCYPHAL_APPLICATION_NODE_HEARTBEAT_PRODUCER_HPP_INCLUDED
+#define LIBCYPHAL_APPLICATION_NODE_HEARTBEAT_PRODUCER_HPP_INCLUDED
 
 #include "libcyphal/executor.hpp"
 #include "libcyphal/presentation/presentation.hpp"
@@ -212,4 +212,4 @@ private:
 }  // namespace application
 }  // namespace libcyphal
 
-#endif  // LIBCYPHAL_APPLICATION_NODE_HEARTBEAT_HPP_INCLUDED
+#endif  // LIBCYPHAL_APPLICATION_NODE_HEARTBEAT_PRODUCER_HPP_INCLUDED

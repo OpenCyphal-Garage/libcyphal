@@ -33,7 +33,7 @@ public:
     ///
     /// @return Value and flags. Empty if nonexistent.
     ///
-    virtual cetl::optional<IRegister::ValueAndFlags> get(const IRegister::Name name) const = 0;
+    virtual cetl::optional<IRegister::ValueAndFlags> get(const Name name) const = 0;
 
     /// Assigns the register with the specified value.
     ///
@@ -41,7 +41,7 @@ public:
     ///
     /// @return Empty if value was set successfully, otherwise the error.
     ///
-    virtual cetl::optional<SetError> set(const IRegister::Name name, const Value& new_value) = 0;
+    virtual cetl::optional<SetError> set(const Name name, const Value& new_value) = 0;
 
 protected:
     IRegistry()  = default;
@@ -75,7 +75,7 @@ public:
     /// @param index The index of the register.
     /// @return Name of the register. `nullptr` if the index is out of range.
     ///
-    virtual IRegister::Name index(const std::size_t index) const = 0;
+    virtual Name index(const std::size_t index) const = 0;
 
     /// Appends a new register to the registry.
     ///
