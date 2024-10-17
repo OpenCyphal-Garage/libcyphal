@@ -6,8 +6,6 @@
 #ifndef LIBCYPHAL_APPLICATION_REGISTRY_VALUE_HPP_INCLUDED
 #define LIBCYPHAL_APPLICATION_REGISTRY_VALUE_HPP_INCLUDED
 
-#include "registry_string_view.hpp"
-
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
@@ -31,7 +29,7 @@ namespace registry
 
 /// Defines the type of the register name.
 ///
-using Name = StringView;
+using Name = cetl::string_view;
 
 /// Defines the value of a register.
 ///
@@ -305,7 +303,7 @@ inline void set(Value& dst, const cetl::span<const cetl::byte> value)
 ///
 /// The existing content of the value is discarded.
 ///
-inline void set(Value& dst, const StringView string)
+inline void set(Value& dst, const cetl::string_view string)
 {
     auto& str = dst.set_string();
     if (!string.empty())
@@ -358,7 +356,7 @@ inline void set(Value& dst, const Value& src)
 /// @param allocator The PMR allocator to allocate storage for the value.
 /// @param str The string to copy into the value.
 ///
-inline Value makeValue(const Value::allocator_type& allocator, const StringView str)
+inline Value makeValue(const Value::allocator_type& allocator, const cetl::string_view str)
 {
     Value out{allocator};
     set(out, str);
@@ -374,7 +372,7 @@ template <std::size_t N>
 // NOLINTNEXTLINE(*-avoid-c-arrays)
 Value makeValue(const Value::allocator_type& allocator, const char (&str)[N])
 {
-    return makeValue(allocator, StringView{static_cast<const char*>(str), N - 1});
+    return makeValue(allocator, cetl::string_view{static_cast<const char*>(str), N - 1});
 }
 
 /// Makes a new 'Unstructured' value with the specified raw bytes content.
@@ -442,11 +440,11 @@ inline uavcan::_register::Name_1_0 makeName(const uavcan::_register::Name_1_0::a
 /// @tparam Container The container type. Expected to be array-like, having `data()` & `size()` methods.
 ///
 template <typename Container>
-StringView makeStringView(const Container& container)
+cetl::string_view makeStringView(const Container& container)
 {
     // No Lint and Sonar cpp:S3630 "reinterpret_cast" should not be used" b/c we need to access container raw data.
     // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
-    return {reinterpret_cast<StringView::const_pointer>(container.data()), container.size()};  // NOSONAR : cpp:S3630
+    return {reinterpret_cast<cetl::string_view::const_pointer>(container.data()), container.size()};  // NOSONAR
 }
 
 }  // namespace registry
