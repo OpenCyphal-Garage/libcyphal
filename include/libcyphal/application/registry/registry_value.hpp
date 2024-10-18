@@ -322,8 +322,8 @@ inline void set(Value& dst, const cetl::string_view string)
 ///
 template <typename Container,
           typename T        = std::decay_t<decltype(*std::begin(std::declval<Container>()))>,
-          typename          = std::enable_if_t<!std::is_same<Container, cetl::span<const cetl::byte>>::value &&
-                                               !std::is_same<Container, cetl::string_view>::value>,
+          typename          = std::enable_if_t<(!std::is_same<Container, cetl::span<const cetl::byte>>::value) &&
+                                               (!std::is_same<Container, cetl::string_view>::value)>,
           std::size_t Index = detail::ArraySelector<T>::Index>
 void set(Value& dst, const Container& src)
 {
