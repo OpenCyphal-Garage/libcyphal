@@ -145,7 +145,8 @@ struct ArraySelector<
         std::is_same<typename std::decay_t<decltype(std::declval<Value::VariantType>().emplace<N>(
                          null_alloc()))>::_traits_::TypeOf::value::value_type,
                      T>::value &&
-        (!isVariableSize<std::decay_t<decltype(std::declval<Value::VariantType>().emplace<N>(null_alloc()))>>())>> final
+        (!isVariableSize<std::decay_t<decltype(std::declval<Value::VariantType>().emplace<N>(null_alloc()))>>())>>
+    final
 {
     static constexpr std::size_t Index = N;
 };
@@ -322,7 +323,8 @@ inline void set(Value& dst, const cetl::string_view string)
 ///
 template <typename Container,
           typename T        = std::decay_t<decltype(*std::begin(std::declval<Container>()))>,
-          typename          = std::enable_if_t<!std::is_same<T, cetl::byte>::value>,
+          typename          = std::enable_if_t<!std::is_same<Container, cetl::span<const cetl::byte>>::value &&
+                                               !std::is_same<Container, cetl::string_view>::value>,
           std::size_t Index = detail::ArraySelector<T>::Index>
 void set(Value& dst, const Container& src)
 {
