@@ -363,7 +363,7 @@ TEST_F(TestRegistryValue, makeName)
     EXPECT_THAT(n.name, ElementsAre('a', 'b', 'c'));
 
     const std::string too_long_name(256, 'x');
-    n = makeName(alloc_, too_long_name.c_str());
+    n = makeName(alloc_, too_long_name);
     EXPECT_THAT(n.name, SizeIs(255));
 
     n = makeName(alloc_, {nullptr, 0});
