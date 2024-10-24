@@ -112,16 +112,14 @@ public:
     /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
     ///
     template <typename Getter>
-    cetl::optional<Register<Getter, void>> route(const Name                name,
-                                                 Getter&&                  getter,
-                                                 const IRegister::Options& options = {})
+    Register route(const Name name, Getter&& getter, const IRegister::Options& options = {})
     {
         auto reg = makeRegister(memory(), name, std::forward<Getter>(getter), options);
         if (append(reg))
         {
-            return reg;
+            return Register{std::move(reg)};
         }
-        return cetl::nullopt;
+        return {};
     }
 
     /// Constructs a new read-write register, and links it to this registry.
@@ -133,17 +131,14 @@ public:
     /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
     ///
     template <typename Getter, typename Setter>
-    cetl::optional<Register<Getter, Setter>> route(const Name                name,
-                                                   Getter&&                  getter,
-                                                   Setter&&                  setter,
-                                                   const IRegister::Options& options = {})
+    Register route(const Name name, Getter&& getter, Setter&& setter, const IRegister::Options& options = {})
     {
         auto reg = makeRegister(memory(), name, std::forward<Getter>(getter), std::forward<Setter>(setter), options);
         if (append(reg))
         {
-            return reg;
+            return Register{std::move(reg)};
         }
-        return cetl::nullopt;
+        return {};
     }
 
     /// Constructs a read-write register, and links it to this registry.
@@ -156,7 +151,7 @@ public:
     /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
     ///
     template <typename T>
-    auto expose(const Name name, T& inout_value, const IRegister::Options& options = {})
+    Register expose(const Name name, T& inout_value, const IRegister::Options& options = {})
     {
         return route(
             name,
@@ -180,16 +175,14 @@ public:
     /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
     ///
     template <typename T, bool IsMutable = true>
-    cetl::optional<ParamRegister<T, IsMutable>> parameterize(const Name                name,
-                                                             const T&                  default_value,
-                                                             const IRegister::Options& options = {})
+    Register parameterize(const Name name, const T& default_value, const IRegister::Options& options = {})
     {
         ParamRegister<T, IsMutable> reg{memory(), name, default_value, options};
         if (append(reg))
         {
-            return reg;
+            return Register{std::move(reg)};
         }
-        return cetl::nullopt;
+        return {};
     }
 
 private:

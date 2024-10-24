@@ -99,7 +99,7 @@ private:
 /// and the setter function is used to update the value.
 ///
 template <typename Getter, typename Setter>
-class Register final : public RegisterBase
+class RegisterImpl final : public RegisterBase
 {
     using Base = RegisterBase;
 
@@ -118,23 +118,23 @@ public:
     /// @param setter The setter function to update the register value.
     /// @param options Extra options for the register, like "persistent" option.
     ///
-    Register(cetl::pmr::memory_resource& memory,
-             const Name                  name,
-             Getter&&                    getter,
-             Setter&&                    setter,
-             const Options&              options = {})
+    RegisterImpl(cetl::pmr::memory_resource& memory,
+                 const Name                  name,
+                 Getter&&                    getter,
+                 Setter&&                    setter,
+                 const Options&              options = {})
         : Base{memory, name, options}
         , getter_{std::move(getter)}
         , setter_{std::move(setter)}
     {
     }
 
-    ~Register()                   = default;
-    Register(Register&&) noexcept = default;
+    ~RegisterImpl()                       = default;
+    RegisterImpl(RegisterImpl&&) noexcept = default;
 
-    Register(const Register&)                = delete;
-    Register& operator=(const Register&)     = delete;
-    Register& operator=(Register&&) noexcept = delete;
+    RegisterImpl(const RegisterImpl&)                = delete;
+    RegisterImpl& operator=(const RegisterImpl&)     = delete;
+    RegisterImpl& operator=(RegisterImpl&&) noexcept = delete;
 
     // MARK: IRegister
 
@@ -159,7 +159,7 @@ private:
 /// The actual value is provided by the getter function.
 ///
 template <typename Getter>
-class Register<Getter, void> final : public RegisterBase
+class RegisterImpl<Getter, void> final : public RegisterBase
 {
     using Base = RegisterBase;
 
@@ -176,18 +176,18 @@ public:
     /// @param getter The getter function to provide the register value.
     /// @param options Extra options for the register, like "persistent" option.
     ///
-    Register(cetl::pmr::memory_resource& memory, const Name name, Getter&& getter, const Options& options = {})
+    RegisterImpl(cetl::pmr::memory_resource& memory, const Name name, Getter&& getter, const Options& options = {})
         : Base{memory, name, options}
         , getter_(std::move(getter))
     {
     }
 
-    ~Register()                   = default;
-    Register(Register&&) noexcept = default;
+    ~RegisterImpl()                       = default;
+    RegisterImpl(RegisterImpl&&) noexcept = default;
 
-    Register(const Register&)                = delete;
-    Register& operator=(const Register&)     = delete;
-    Register& operator=(Register&&) noexcept = delete;
+    RegisterImpl(const RegisterImpl&)                = delete;
+    RegisterImpl& operator=(const RegisterImpl&)     = delete;
+    RegisterImpl& operator=(RegisterImpl&&) noexcept = delete;
 
     // MARK: IRegister
 
@@ -206,7 +206,7 @@ private:
 
     Getter getter_;
 
-};  // Register
+};  // RegisterImpl
 
 // MARK: -
 
@@ -288,12 +288,12 @@ private:
 /// @return The constructed detached register.
 ///
 template <typename Getter>
-Register<Getter, void> makeRegister(cetl::pmr::memory_resource& memory,
-                                    const Name                  name,
-                                    Getter&&                    getter,
-                                    const IRegister::Options&   options = {})
+RegisterImpl<Getter, void> makeRegister(cetl::pmr::memory_resource& memory,
+                                        const Name                  name,
+                                        Getter&&                    getter,
+                                        const IRegister::Options&   options = {})
 {
-    return Register<Getter, void>{memory, name, std::forward<Getter>(getter), options};
+    return RegisterImpl<Getter, void>{memory, name, std::forward<Getter>(getter), options};
 }
 
 /// Constructs a new read-write register, which is not yet linked to any registry (aka detached).
@@ -313,13 +313,17 @@ Register<Getter, void> makeRegister(cetl::pmr::memory_resource& memory,
 /// @return The constructed detached register.
 ///
 template <typename Getter, typename Setter>
-Register<Getter, Setter> makeRegister(cetl::pmr::memory_resource& memory,
-                                      const Name                  name,
-                                      Getter&&                    getter,
-                                      Setter&&                    setter,
-                                      const IRegister::Options&   options = {})
+RegisterImpl<Getter, Setter> makeRegister(cetl::pmr::memory_resource& memory,
+                                          const Name                  name,
+                                          Getter&&                    getter,
+                                          Setter&&                    setter,
+                                          const IRegister::Options&   options = {})
 {
-    return Register<Getter, Setter>{memory, name, std::forward<Getter>(getter), std::forward<Setter>(setter), options};
+    return RegisterImpl<Getter, Setter>{memory,
+                                        name,
+                                        std::forward<Getter>(getter),
+                                        std::forward<Setter>(setter),
+                                        options};
 }
 
 }  // namespace registry

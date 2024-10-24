@@ -8,7 +8,11 @@
 
 #include "libcyphal/common/cavl/cavl.hpp"
 #include "libcyphal/common/crc.hpp"
+#include "libcyphal/types.hpp"
 #include "registry_value.hpp"
+
+#include <cetl/rtti.hpp>
+#include <cetl/unbounded_variant.hpp>
 
 #include <cstdint>
 
@@ -35,6 +39,13 @@ enum class SetError : std::uint8_t
 ///
 class IRegister : public cavl::Node<IRegister>  // NOSONAR cpp:S4963
 {
+    // 1AD1885B-954B-48CF-BAC4-FA0A251D3FC0
+    // clang-format off
+    using TypeIdType = cetl::type_id_type<
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+        0x1A, 0xD1, 0x88, 0x5B, 0x95, 0x4B, 0x48, 0xCF, 0xBA, 0xC4, 0xFA, 0x0A, 0x25, 0x1D, 0x3F, 0xC0>;
+    // clang-format on
+
 public:
     /// Defines behavior flags of the register value.
     ///
@@ -144,7 +155,15 @@ public:
     }
 
     /// Checks if the register is linked to a registry.
+    ///
     using Node::isLinked;
+
+    // MARK: RTTI
+
+    static constexpr cetl::type_id _get_type_id_() noexcept
+    {
+        return cetl::type_id_type_value<TypeIdType>();
+    }
 
 protected:
     explicit IRegister(const Name name)
@@ -172,6 +191,14 @@ private:
     const Key key_;
 
 };  // IRegister
+
+/// Defines type-erased register.
+///
+/// The Size of the unbounded variant is arbitrary (16 pointers),
+/// but should be enough for any register implementation.
+///
+/// NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+using Register = ImplementationCell<IRegister, cetl::unbounded_variant<sizeof(void*) * 16, false, true>>;
 
 }  // namespace registry
 }  // namespace application
