@@ -245,6 +245,11 @@ public:
     ParamRegister& operator=(const ParamRegister&)     = delete;
     ParamRegister& operator=(ParamRegister&&) noexcept = delete;
 
+    ValueType& value() noexcept
+    {
+        return value_;
+    }
+
     // MARK: IRegister
 
     ValueAndFlags get() const override
@@ -261,8 +266,12 @@ public:
 
         return setImpl(new_value, [this](const Value& value) {
             //
-            value_ = registry::get<ValueType>(value).value();
-            return true;
+            if (auto converted = registry::get<ValueType>(value))
+            {
+                value_ = converted.value();
+                return true;
+            }
+            return false;
         });
     }
 
@@ -276,7 +285,7 @@ private:
 /// Constructs a new read-only register, which is not yet linked to any registry (aka detached).
 ///
 /// A detached register must be appended to a registry before its value could be exposed by the registry.
-/// Alternatively, use `registry.route<Getter>(name, options, getter)` method
+/// Alternatively, use `registry.route<Getter>(name, getter, options)` method
 /// to create and link the register in one step.
 ///
 /// @param memory The memory resource to use for variable size-d register values.
@@ -300,7 +309,7 @@ RegisterImpl<Getter, void> makeRegister(cetl::pmr::memory_resource& memory,
 ///
 /// A detached register must be appended to a registry before its value could be exposed by the registry.
 /// Alternatively, use the following registry methods to create and link the register in one step:
-/// - `registry.route<Getter, Setter>(name, options, getter, setter)`
+/// - `registry.route<Getter, Setter>(name, getter, setter, options)`
 /// - `registry.expose<T>(name, T& value, options)`
 ///
 /// @param memory The memory resource to use for variable size-d register values.
@@ -324,6 +333,34 @@ RegisterImpl<Getter, Setter> makeRegister(cetl::pmr::memory_resource& memory,
                                         std::forward<Getter>(getter),
                                         std::forward<Setter>(setter),
                                         options};
+}
+
+/// Constructs a new read-write register, which is not yet linked to any registry (aka detached).
+///
+/// A detached register must be appended to a registry before its value could be exposed by the registry.
+/// Alternatively, use the following registry method to create and link the register in one step:
+/// - `registry.parameterize<T>(name, default_value, options)`
+///
+/// @tparam T The type of the parameter stored inside the register.
+/// @tparam IsMutable Whether the register is mutable or not.
+/// @tparam U The type of the default value - should be convertible to `T`.
+///
+/// @param memory The memory resource to use for variable size-d register values.
+///               Note that the memory resource is not used for creation of the register itself (it's done on stack
+///               and returned by move) but for the transient variable size-d values of the register.
+/// @param name The name of the register.
+/// @param default_value Initial default value.
+/// @param options Extra options for the register, like "persistent" option.
+/// @return The constructed detached register.
+///
+template <typename T, bool IsMutable = true, typename U = T>
+auto makeParamRegister(cetl::pmr::memory_resource& memory,
+                       const Name                  name,
+                       const U&                    default_value,
+                       const IRegister::Options&   options = {})
+    -> std::enable_if_t<std::is_convertible<U, T>::value, ParamRegister<T, IsMutable>>
+{
+    return ParamRegister<T, IsMutable>{memory, name, default_value, options};
 }
 
 }  // namespace registry

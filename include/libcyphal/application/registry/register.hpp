@@ -12,7 +12,6 @@
 #include "registry_value.hpp"
 
 #include <cetl/rtti.hpp>
-#include <cetl/unbounded_variant.hpp>
 
 #include <cstdint>
 
@@ -191,14 +190,6 @@ private:
     const Key key_;
 
 };  // IRegister
-
-/// Defines type-erased register.
-///
-/// The Size of the unbounded variant is arbitrary (16 pointers),
-/// but should be enough for any register implementation.
-///
-/// NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
-using Register = ImplementationCell<IRegister, cetl::unbounded_variant<sizeof(void*) * 16, false, true>>;
 
 }  // namespace registry
 }  // namespace application

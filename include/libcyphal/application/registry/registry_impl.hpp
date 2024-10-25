@@ -15,6 +15,9 @@
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 
+#include <cstddef>
+#include <type_traits>
+
 namespace libcyphal
 {
 namespace application
@@ -109,17 +112,14 @@ public:
     /// @param name The name of the register. Should be unique within the registry.
     /// @param getter The getter function to provide the register value.
     /// @param options Extra options for the register, like "persistent" option.
-    /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
+    /// @return The result immutable register. Check its `.isLinked()` to verify it was appended successfully.
     ///
     template <typename Getter>
-    Register route(const Name name, Getter&& getter, const IRegister::Options& options = {})
+    RegisterImpl<Getter, void> route(const Name name, Getter&& getter, const IRegister::Options& options = {})
     {
         auto reg = makeRegister(memory(), name, std::forward<Getter>(getter), options);
-        if (append(reg))
-        {
-            return Register{std::move(reg)};
-        }
-        return {};
+        (void) append(reg);
+        return reg;
     }
 
     /// Constructs a new read-write register, and links it to this registry.
@@ -128,17 +128,17 @@ public:
     /// @param getter The getter function to provide the register value.
     /// @param setter The setter function to update the register value.
     /// @param options Extra options for the register, like "persistent" option.
-    /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
+    /// @return The result mutable register. Check its `.isLinked()` to verify it was appended successfully.
     ///
     template <typename Getter, typename Setter>
-    Register route(const Name name, Getter&& getter, Setter&& setter, const IRegister::Options& options = {})
+    RegisterImpl<Getter, Setter> route(const Name                name,
+                                       Getter&&                  getter,
+                                       Setter&&                  setter,
+                                       const IRegister::Options& options = {})
     {
         auto reg = makeRegister(memory(), name, std::forward<Getter>(getter), std::forward<Setter>(setter), options);
-        if (append(reg))
-        {
-            return Register{std::move(reg)};
-        }
-        return {};
+        (void) append(reg);
+        return reg;
     }
 
     /// Constructs a read-write register, and links it to this registry.
@@ -148,10 +148,10 @@ public:
     /// @param name The name of the register. Should be unique within the registry.
     /// @param inout_value The referenced value; shall outlive the register.
     /// @param options Extra options for the register, like "persistent" option.
-    /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
+    /// @return The result mutable register. Check its `.isLinked()` to verify it was appended successfully.
     ///
     template <typename T>
-    Register expose(const Name name, T& inout_value, const IRegister::Options& options = {})
+    auto expose(const Name name, T& inout_value, const IRegister::Options& options = {})
     {
         return route(
             name,
@@ -169,20 +169,22 @@ public:
     /// In contrast to the above `expose()`, this method allows one to expose a parameter with a default value.
     /// Exposed parameter value is stored inside the register and can be mutated (by default).
     ///
+    /// @tparam T The type of the parameter stored inside the register.
+    /// @tparam IsMutable Whether the register is mutable or not.
+    /// @tparam U The type of the default value - should be convertible to `T`.
+    ///
     /// @param name The name of the register. Should be unique within the registry.
     /// @param default_value Initial default value.
     /// @param options Extra options for the register, like "persistent" option.
-    /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
+    /// @return The result parameter register. Check its `.isLinked()` to verify it was appended successfully.
     ///
-    template <typename T, bool IsMutable = true>
-    Register parameterize(const Name name, const T& default_value, const IRegister::Options& options = {})
+    template <typename T, bool IsMutable = true, typename U = T>
+    auto parameterize(const Name name, const U& default_value, const IRegister::Options& options = {})
+        -> std::enable_if_t<std::is_convertible<U, T>::value, ParamRegister<T, IsMutable>>
     {
-        ParamRegister<T, IsMutable> reg{memory(), name, default_value, options};
-        if (append(reg))
-        {
-            return Register{std::move(reg)};
-        }
-        return {};
+        auto reg = makeParamRegister<T, IsMutable>(memory(), name, default_value, options);
+        (void) append(reg);
+        return reg;
     }
 
 private:

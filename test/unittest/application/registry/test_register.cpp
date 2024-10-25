@@ -99,33 +99,31 @@ TEST_F(TestRegister, exposeParam_set_get_immutable)
     Registry rgy{mr_};
 
     auto r_arr = rgy.parameterize<std::array<std::int32_t, 3>, false>("arr", {123, 456, -789});
-    ASSERT_TRUE(r_arr);
-    EXPECT_TRUE(r_arr->isLinked());
+    EXPECT_TRUE(r_arr.isLinked());
 
-    EXPECT_THAT(r_arr->set(makeValue(alloc_, -654.456F)), Optional(SetError::Mutability));
+    EXPECT_THAT(r_arr.set(makeValue(alloc_, -654.456F)), Optional(SetError::Mutability));
 
-    EXPECT_THAT(r_arr->get().flags._mutable, false);
-    EXPECT_THAT(r_arr->get().flags.persistent, false);
-    EXPECT_THAT(r_arr->get().value.is_integer32(), true);
-    EXPECT_THAT((get<std::array<std::int32_t, 4>>(r_arr->get().value)), Optional(ElementsAre(123, 456, -789, 0)));
+    EXPECT_THAT(r_arr.get().flags._mutable, false);
+    EXPECT_THAT(r_arr.get().flags.persistent, false);
+    EXPECT_THAT(r_arr.get().value.is_integer32(), true);
+    EXPECT_THAT((get<std::array<std::int32_t, 4>>(r_arr.get().value)), Optional(ElementsAre(123, 456, -789, 0)));
 }
 
 TEST_F(TestRegister, exposeParam_set_move_get)
 {
     Registry rgy{mr_};
 
-    auto r_arr1 = rgy.parameterize("arr", std::array<std::int32_t, 3>{123, 456, -789});
-    EXPECT_TRUE(r_arr1);
-    EXPECT_TRUE(r_arr1->isLinked());
-    EXPECT_THAT(r_arr1->set(makeValue(alloc_, false)), Eq(cetl::nullopt));  // Coerced to 0.
+    auto r_arr1 = rgy.parameterize<std::array<std::int32_t, 3>>("arr", {123, 456, -789});
+    EXPECT_TRUE(r_arr1.isLinked());
+    EXPECT_THAT(r_arr1.set(makeValue(alloc_, false)), Eq(cetl::nullopt));  // Coerced to 0.
 
     const auto r_arr2{std::move(r_arr1)};
-    EXPECT_TRUE(r_arr2->isLinked());
+    EXPECT_TRUE(r_arr2.isLinked());
 
-    EXPECT_THAT(r_arr2->get().flags._mutable, true);
-    EXPECT_THAT(r_arr2->get().flags.persistent, false);
-    EXPECT_THAT(r_arr2->get().value.is_integer32(), true);
-    EXPECT_THAT((get<std::array<std::int32_t, 4>>(r_arr2->get().value)), Optional(ElementsAre(0, 456, -789, 0)));
+    EXPECT_THAT(r_arr2.get().flags._mutable, true);
+    EXPECT_THAT(r_arr2.get().flags.persistent, false);
+    EXPECT_THAT(r_arr2.get().value.is_integer32(), true);
+    EXPECT_THAT((get<std::array<std::int32_t, 4>>(r_arr2.get().value)), Optional(ElementsAre(0, 456, -789, 0)));
 }
 
 TEST_F(TestRegister, paramReg_set_failure)

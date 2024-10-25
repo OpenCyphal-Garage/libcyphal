@@ -79,7 +79,7 @@ TEST_F(TestRegistry, lifetime)
     EXPECT_THAT(rgy.get("arr"), Eq(cetl::nullopt));
     EXPECT_THAT(rgy.get("bool"), Eq(cetl::nullopt));
     {
-        const auto r_arr = rgy.parameterize("arr", std::array<std::int32_t, 3>{123, 456, -789});
+        const auto r_arr = rgy.parameterize<std::array<std::int32_t, 3>>("arr", {123, 456, -789});
 
         EXPECT_THAT(rgy.size(), 1);
         EXPECT_THAT(rgy.index(0), "arr");
@@ -87,7 +87,7 @@ TEST_F(TestRegistry, lifetime)
         EXPECT_THAT(rgy.get("arr"), Optional(_));
         EXPECT_THAT(rgy.get("bool"), Eq(cetl::nullopt));
         {
-            const auto r_bool = rgy.parameterize("bool", true);
+            const auto r_bool = rgy.parameterize<bool>("bool", true);
 
             EXPECT_THAT(rgy.size(), 2);
             EXPECT_THAT(rgy.index(0), "arr");
@@ -95,7 +95,7 @@ TEST_F(TestRegistry, lifetime)
             EXPECT_THAT(rgy.get("arr"), Optional(_));
             EXPECT_THAT(rgy.get("bool"), Optional(_));
             {
-                const auto r_dbl = rgy.parameterize("dbl", 1.23);
+                const auto r_dbl = rgy.parameterize<double>("dbl", 1.23);
 
                 EXPECT_THAT(rgy.size(), 3);
                 EXPECT_THAT(rgy.index(0), "arr");
@@ -139,8 +139,7 @@ TEST_F(TestRegistry, route_mutable)
             return true;
         },
         {true});
-    ASSERT_TRUE(r_arr);
-    EXPECT_TRUE(r_arr->isLinked());
+    EXPECT_TRUE(r_arr.isLinked());
     EXPECT_THAT(rgy.size(), 1);
     EXPECT_THAT(rgy.index(0), "arr");
     EXPECT_THAT(v_arr, ElementsAre(123, 456, -789));
@@ -155,7 +154,7 @@ TEST_F(TestRegistry, route_mutable)
     EXPECT_THAT(v_arr, ElementsAre(-654, 456, -789));
 
     // The same name failure!
-    EXPECT_FALSE(rgy.route("arr", [] { return true; }, [](const auto&) { return true; }));
+    EXPECT_FALSE(rgy.route("arr", [] { return true; }, [](const auto&) { return true; }).isLinked());
 }
 
 TEST_F(TestRegistry, route_immutable)
@@ -164,8 +163,7 @@ TEST_F(TestRegistry, route_immutable)
 
     constexpr std::array<std::int32_t, 3> v_arr{123, 456, -789};
     const auto                            r_arr = rgy.route("arr", [&v_arr] { return v_arr; });
-    ASSERT_TRUE(r_arr);
-    EXPECT_TRUE(r_arr->isLinked());
+    EXPECT_TRUE(r_arr.isLinked());
     EXPECT_THAT(rgy.size(), 1);
     EXPECT_THAT(rgy.index(0), "arr");
 
@@ -178,7 +176,7 @@ TEST_F(TestRegistry, route_immutable)
     EXPECT_THAT((get<std::array<std::int32_t, 4>>(arr_get_result->value)), Optional(ElementsAre(123, 456, -789, 0)));
 
     // The same name failure!
-    EXPECT_FALSE(rgy.route("arr", [] { return true; }));
+    EXPECT_FALSE(rgy.route("arr", [] { return true; }).isLinked());
 }
 
 TEST_F(TestRegistry, expose)
@@ -187,8 +185,7 @@ TEST_F(TestRegistry, expose)
 
     std::array<std::int32_t, 3> v_arr{123, 456, -789};
     const auto                  r_arr = rgy.expose("arr", v_arr);
-    ASSERT_TRUE(r_arr);
-    EXPECT_TRUE(r_arr->isLinked());
+    EXPECT_TRUE(r_arr.isLinked());
     EXPECT_THAT(rgy.size(), 1);
     EXPECT_THAT(rgy.index(0), "arr");
     EXPECT_THAT(v_arr, ElementsAre(123, 456, -789));
@@ -207,9 +204,8 @@ TEST_F(TestRegistry, exposeParam_set_get_mutable)
 {
     Registry rgy{mr_};
 
-    const auto r_arr = rgy.parameterize("arr", std::array<std::int32_t, 3>{123, 456, -789});
-    ASSERT_TRUE(r_arr);
-    EXPECT_TRUE(r_arr->isLinked());
+    const auto r_arr = rgy.parameterize<std::array<std::int32_t, 3>>("arr", {123, 456, -789});
+    EXPECT_TRUE(r_arr.isLinked());
     EXPECT_THAT(rgy.size(), 1);
     EXPECT_THAT(rgy.index(0), "arr");
 
@@ -227,7 +223,7 @@ TEST_F(TestRegistry, exposeParam_set_get_immutable)
     Registry rgy{mr_};
 
     const auto r_arr = rgy.parameterize<std::array<std::int32_t, 3>, false>("arr", {123, 456, -789}, {true});
-    ASSERT_TRUE(r_arr);
+    EXPECT_TRUE(r_arr.isLinked());
 
     EXPECT_THAT(rgy.set("arr", makeValue(alloc_, -654.456F)), Optional(SetError::Mutability));
 
@@ -243,11 +239,11 @@ TEST_F(TestRegistry, exposeParam_failure)
 {
     Registry rgy{mr_};
 
-    const auto r_bool1 = rgy.parameterize("bool", false);
-    ASSERT_TRUE(r_bool1);
+    const auto r_bool1 = rgy.parameterize<bool>("bool", false);
+    EXPECT_TRUE(r_bool1.isLinked());
 
-    const auto r_bool2 = rgy.parameterize("bool", false);  // The same name!
-    EXPECT_FALSE(r_bool2);
+    const auto r_bool2 = rgy.parameterize<bool>("bool", false);  // The same name!
+    EXPECT_FALSE(r_bool2.isLinked());
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers, bugprone-unchecked-optional-access)

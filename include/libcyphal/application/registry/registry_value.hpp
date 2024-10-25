@@ -37,6 +37,18 @@ using Name = cetl::string_view;
 ///
 using Value = uavcan::_register::Value_1_0;
 
+/// Makes a new string view from container raw data.
+///
+/// @tparam Container The container type. Expected to be array-like, having `data()` & `size()` methods.
+///
+template <typename Container>
+cetl::string_view makeStringView(const Container& container)
+{
+    // No Lint and Sonar cpp:S3630 "reinterpret_cast" should not be used" b/c we need to access container raw data.
+    // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+    return {reinterpret_cast<cetl::string_view::const_pointer>(container.data()), container.size()};  // NOSONAR
+}
+
 /// Internal implementation details of the Presentation layer.
 /// Not supposed to be used directly by the users of the library.
 ///
@@ -244,6 +256,18 @@ CETL_NODISCARD bool get(const Value& src, T& dst)
     return false;
 }
 
+template <typename StringLike>
+CETL_NODISCARD auto get(const Value& src, StringLike& dst)
+    -> std::enable_if_t<std::is_convertible<cetl::string_view, StringLike>::value, bool>
+{
+    if (src.is_string())
+    {
+        dst = makeStringView(src.get_string().value);
+        return true;
+    }
+    return false;
+}
+
 }  // namespace detail
 
 /// Convert the value stored in a source to the same type and dimensionality as destination; update destination
@@ -434,18 +458,6 @@ inline uavcan::_register::Name_1_0 makeName(const uavcan::_register::Name_1_0::a
         (void) std::memmove(out.name.data(), name.data(), out.name.size());  // NOSONAR cpp:S5356
     }
     return out;
-}
-
-/// Makes a new string view from container raw data.
-///
-/// @tparam Container The container type. Expected to be array-like, having `data()` & `size()` methods.
-///
-template <typename Container>
-cetl::string_view makeStringView(const Container& container)
-{
-    // No Lint and Sonar cpp:S3630 "reinterpret_cast" should not be used" b/c we need to access container raw data.
-    // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
-    return {reinterpret_cast<cetl::string_view::const_pointer>(container.data()), container.size()};  // NOSONAR
 }
 
 }  // namespace registry
