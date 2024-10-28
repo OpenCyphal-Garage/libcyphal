@@ -28,7 +28,6 @@ using testing::Eq;
 using testing::IsEmpty;
 using testing::Optional;
 using testing::ElementsAre;
-using testing::VariantWith;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers, bugprone-unchecked-optional-access)
 
@@ -105,6 +104,7 @@ TEST_F(TestRegistry, empty)
     EXPECT_THAT(rgy.get("foo"), Eq(cetl::nullopt));
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestRegistry, lifetime)
 {
     Registry rgy{mr_};
