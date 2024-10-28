@@ -13,7 +13,7 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/application/node/get_info_provider.hpp>
-#include <libcyphal/application/registry/registry_value.hpp>
+#include <libcyphal/application/registry/register.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>

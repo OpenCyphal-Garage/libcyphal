@@ -7,7 +7,6 @@
 #define LIBCYPHAL_APPLICATION_NODE_REGISTRY_PROVIDER_HPP_INCLUDED
 
 #include "libcyphal/application/registry/registry.hpp"
-#include "libcyphal/application/registry/registry_value.hpp"
 #include "libcyphal/presentation/presentation.hpp"
 #include "libcyphal/presentation/server.hpp"
 #include "libcyphal/types.hpp"
@@ -93,7 +92,7 @@ public:
     }
 
 private:
-    using Name         = registry::Name;
+    using Name         = registry::IRegister::Name;
     using ListServer   = presentation::ServiceServer<ListService>;
     using AccessServer = presentation::ServiceServer<AccessService>;
 
@@ -116,8 +115,8 @@ private:
     {
         list_srv_.setOnRequestCallback([this](const auto& arg, auto continuation) {
             //
-            const ListService::Response response{registry::makeName(pmr_alloc_, registry_.index(arg.request.index)),
-                                                 pmr_alloc_};
+            const auto reg_name = registry::makeRegisterName(pmr_alloc_, registry_.index(arg.request.index));
+            const ListService::Response response{reg_name, pmr_alloc_};
 
             // There is nothing we can do about possible continuation failures - we just ignore them.
             // TODO: Introduce error handler at the node level.

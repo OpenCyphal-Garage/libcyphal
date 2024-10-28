@@ -15,19 +15,20 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/application/node.hpp>
+#include <libcyphal/application/registry/register.hpp>
 #include <libcyphal/application/registry/registry_impl.hpp>
-#include <libcyphal/application/registry/registry_value.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
 #include <libcyphal/transport/udp/udp_transport_impl.hpp>
 #include <libcyphal/types.hpp>
 
+#include <uavcan/primitive/array/Bit_1_0.hpp>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
-#include <array>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -91,6 +92,14 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
+    registry::IRegister::Value makeStringValue(const cetl::string_view sv) const
+    {
+        registry::IRegister::Value value{mr_alloc_};
+        auto&                      str = value.set_string();
+        std::copy(sv.begin(), sv.end(), std::back_inserter(str.value));
+        return value;
+    }
+
     // MARK: Data members:
     // NOLINTBEGIN
 
@@ -124,8 +133,7 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
     //
     constexpr std::size_t tx_capacity = 16;
     state.media_collection_.make(mr_, executor_, iface_addresses_);
-    auto maybe_transport =
-        libcyphal::transport::udp::makeTransport({mr_}, executor_, state.media_collection_.span(), tx_capacity);
+    auto maybe_transport = makeTransport({mr_}, executor_, state.media_collection_.span(), tx_capacity);
     ASSERT_THAT(maybe_transport, testing::VariantWith<UdpTransportPtr>(testing::NotNull()))
         << "Can't create transport.";
     state.transport_ = cetl::get<UdpTransportPtr>(std::move(maybe_transport));
@@ -152,26 +160,23 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
     registry::Registry rgy{mr_};
     ASSERT_THAT(node.makeRegistryProvider(rgy), Eq(cetl::nullopt));
     //
-    auto param_ro = rgy.route("ro", [] { return true; });
+    using BitArray = uavcan::primitive::array::Bit_1_0;
+    const BitArray param_ro_val{BitArray::_traits_::TypeOf::value{{true, false}, mr_alloc_}, mr_alloc_};
+    auto           param_ro = rgy.route("ro", [&param_ro_val] { return param_ro_val; });
     //
     auto& get_info   = node.getInfoProvider().response();
     auto  param_name = rgy.route(  //
         "name",
-        [&get_info] { return registry::makeStringView(get_info.name); },
-        [&get_info](registry::Value& value) {
+        [this, &get_info] { return makeStringValue(registry::makeStringView(get_info.name)); },
+        [&get_info](const registry::IRegister::Value& value) {
             //
-            if (auto* const str = value.get_string_if())
+            if (const auto* const str = value.get_string_if())
             {
-                get_info.name = std::move(str->value);
+                get_info.name = str->value;
                 return true;
             }
             return false;
         });
-    //
-    auto param_rgb = rgy.parameterize<std::array<float, 3>>("rgb", {});
-    //
-    std::array<double, 2> balance{1.0, 1.0};
-    auto                  param_farr = rgy.expose("balance", balance, {true});
 
     // 5. Main loop.
     //
