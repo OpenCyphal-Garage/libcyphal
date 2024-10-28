@@ -168,14 +168,14 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
     auto  param_name = rgy.route(  //
         "name",
         [this, &get_info] { return makeStringValue(registry::makeStringView(get_info.name)); },
-        [&get_info](const registry::IRegister::Value& value) {
+        [&get_info](const registry::IRegister::Value& value) -> cetl::optional<registry::SetError> {
             //
             if (const auto* const str = value.get_string_if())
             {
                 get_info.name = str->value;
-                return true;
+                return cetl::nullopt;
             }
-            return false;
+            return registry::SetError::Coercion;
         });
 
     // 5. Main loop.

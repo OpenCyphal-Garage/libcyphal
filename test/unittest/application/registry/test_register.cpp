@@ -8,18 +8,15 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/application/registry/register.hpp>
 #include <libcyphal/application/registry/register_impl.hpp>
-#include <libcyphal/application/registry/registry_impl.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
-#include <array>
 #include <cstdint>
 #include <functional>
 #include <initializer_list>
 #include <iterator>
-#include <utility>
 
 namespace
 {
@@ -46,12 +43,12 @@ protected:
         {
             return getter();
         }
-        bool operator()(const IRegister::Value& value)
+        cetl::optional<SetError> operator()(const IRegister::Value& value)
         {
             return setter(value);
         }
         MOCK_METHOD(IRegister::Value, getter, (), (const));
-        MOCK_METHOD(bool, setter, (const IRegister::Value&), ());
+        MOCK_METHOD(cetl::optional<SetError>, setter, (const IRegister::Value&), ());
 
     };  // AccessorMock
 
@@ -131,7 +128,7 @@ TEST_F(TestRegister, makeRegister_set_get_mutable)
                 //
                 EXPECT_THAT(value.is_bit(), true);
                 EXPECT_THAT(value.get_bit().value, ElementsAre(true, true, false));
-                return true;
+                return cetl::nullopt;
             }));
         EXPECT_THAT(r_bool.set(makeBitValue({true, true, false})), Eq(cetl::nullopt));
 
@@ -149,7 +146,7 @@ TEST_F(TestRegister, makeRegister_set_get_mutable)
                 //
                 EXPECT_THAT(value.is_integer32(), true);
                 EXPECT_THAT(value.get_integer32().value, ElementsAre(1, 2, 3));
-                return true;
+                return cetl::nullopt;
             }));
         EXPECT_THAT(r_bool.set(makeInt32Value({1, 2, 3})), Eq(cetl::nullopt));
 
@@ -170,8 +167,11 @@ TEST_F(TestRegister, makeRegister_set_failure)
     auto r_int32 = makeRegister(mr_, "int32", std::ref(accessors_mock), std::ref(accessors_mock));
     EXPECT_FALSE(r_int32.isLinked());
 
-    EXPECT_CALL(accessors_mock, setter(_)).WillOnce(Return(false));  // Failure!
+    EXPECT_CALL(accessors_mock, setter(_)).WillOnce(Return(SetError::Semantics));  // Failure!
     EXPECT_THAT(r_int32.set(makeInt32Value({13})), Optional(SetError::Semantics));
+
+    EXPECT_CALL(accessors_mock, setter(_)).WillOnce(Return(SetError::Coercion));  // Failure!
+    EXPECT_THAT(r_int32.set(makeInt32Value({13})), Optional(SetError::Coercion));
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers, bugprone-unchecked-optional-access)

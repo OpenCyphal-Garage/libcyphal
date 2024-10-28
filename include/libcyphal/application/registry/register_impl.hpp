@@ -63,16 +63,6 @@ protected:
         return out;
     }
 
-    template <typename Setter>
-    cetl::optional<SetError> setImpl(const Value& value, Setter&& setter)
-    {
-        if (std::forward<Setter>(setter)(value))
-        {
-            return cetl::nullopt;
-        }
-        return SetError::Semantics;
-    }
-
 private:
     // MARK: Data members:
 
@@ -87,7 +77,7 @@ private:
 /// Defines a read-write register implementation.
 ///
 /// @tparam Getter The getter function `T()` type, where `T` is either `Value` or one of its variants.
-/// @tparam Setter The setter function `bool(const Value&)` type.
+/// @tparam Setter The setter function `cetl::optional<SetError>(const Value&)` type.
 ///
 /// The actual value is provided by the getter function,
 /// and the setter function is used to update the value.
@@ -138,7 +128,7 @@ public:
 
     cetl::optional<SetError> set(const Value& new_value) override
     {
-        return setImpl(new_value, setter_);
+        return setter_(new_value);
     }
 
 private:

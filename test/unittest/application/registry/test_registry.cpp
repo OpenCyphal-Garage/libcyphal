@@ -75,6 +75,14 @@ protected:
         return value;
     }
 
+    IRegister::Value makeStringValue(const cetl::string_view sv) const
+    {
+        IRegister::Value value{alloc_};
+        auto&            str = value.set_string();
+        std::copy(sv.begin(), sv.end(), std::back_inserter(str.value));
+        return value;
+    }
+
     // MARK: Data members:
 
     // NOLINTBEGIN
@@ -102,7 +110,7 @@ TEST_F(TestRegistry, lifetime)
     Registry rgy{mr_};
 
     const auto getter = [this] { return IRegister::Value{alloc_}; };
-    const auto setter = [](const auto&) { return true; };
+    const auto setter = [](const auto&) { return cetl::nullopt; };
 
     EXPECT_THAT(rgy.size(), 0);
     EXPECT_THAT(rgy.index(0), IsEmpty());
@@ -167,14 +175,14 @@ TEST_F(TestRegistry, route_mutable)
     const auto r_arr = rgy.route(
         "arr",
         [this, &v_arr] { return makeInt32Value(v_arr); },
-        [&v_arr](const IRegister::Value& v) {
+        [&v_arr](const IRegister::Value& v) -> cetl::optional<SetError> {
             //
             if (const auto* const int32 = v.get_integer32_if())
             {
                 std::copy_n(int32->value.begin(), std::min(int32->value.size(), v_arr.size()), v_arr.begin());
-                return true;
+                return cetl::nullopt;
             }
-            return false;
+            return SetError::Coercion;
         },
         {true});
     EXPECT_TRUE(r_arr.isLinked());
@@ -183,6 +191,7 @@ TEST_F(TestRegistry, route_mutable)
     EXPECT_THAT(v_arr, ElementsAre(123, 456, -789));
 
     EXPECT_THAT(rgy.set("arr", makeInt32Value({-654})), Eq(cetl::nullopt));
+    EXPECT_THAT(rgy.set("arr", makeStringValue("bad")), Optional(SetError::Coercion));
     const auto arr_get_result = rgy.get("arr");
     ASSERT_TRUE(arr_get_result);
     EXPECT_THAT(arr_get_result->flags._mutable, true);
@@ -200,7 +209,7 @@ TEST_F(TestRegistry, route_mutable)
         [&same_reg_value](const auto& new_value) {
             //
             same_reg_value = new_value;
-            return true;
+            return cetl::nullopt;
         });
     EXPECT_FALSE(same_reg.isLinked());
     // Despite the failure, the register should still work (be gettable/settable).
