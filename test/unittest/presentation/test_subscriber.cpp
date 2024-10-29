@@ -15,6 +15,7 @@
 #include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/presentation/common_helpers.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/subscriber.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
@@ -264,7 +265,7 @@ TEST_F(TestSubscriber, onReceive_deserialize_failure)
 
     NiceMock<ScatteredBufferStorageMock> storage_mock;
     ScatteredBufferStorageMock::Wrapper  storage{&storage_mock};
-    EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(Message::_traits_::SerializationBufferSizeBytes));
+    EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(libcyphal::presentation::detail::SmallPayloadSize + 1));
     EXPECT_CALL(storage_mock, copy(_, _, _))                           //
         .WillRepeatedly(Invoke([&](auto, auto* const dst, auto len) {  //
             //

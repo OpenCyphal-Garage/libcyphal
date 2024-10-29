@@ -43,6 +43,8 @@ static cetl::optional<DeserializationFailure> tryDeserializePayload(const transp
     //
     if (payload.size() <= SmallPayloadSize)
     {
+        // Next nolint b/c we initialize buffer with payload copying.
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
         std::array<std::uint8_t, SmallPayloadSize> small_buffer;
         const auto                                 data_size = payload.copy(0, small_buffer.data(), payload.size());
         const nunavut::support::const_bitspan      bitspan{small_buffer.data(), data_size};
