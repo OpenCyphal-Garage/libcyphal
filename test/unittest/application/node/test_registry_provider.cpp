@@ -194,7 +194,7 @@ TEST_F(TestRegistryProvider, make_list_req)
         registry_provider->setResponseTimeout(100ms);
 
         test_request.index = 1;
-        EXPECT_CALL(registry_mock, index(1)).WillOnce(Return(StringView{nullptr, 0}));
+        EXPECT_CALL(registry_mock, index(1)).WillOnce(Return(cetl::string_view{nullptr, 0}));
         EXPECT_CALL(list_svc_cnxt.res_tx_session_mock,
                     send(ServiceTxMetadataEq({{{124, Priority::Nominal}, now() + 100ms}, NodeId{0x31}}), _))  //
             .WillOnce(Invoke([this](const auto&, const auto fragments) {
@@ -254,7 +254,7 @@ TEST_F(TestRegistryProvider, make_access_req)
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
-        EXPECT_CALL(registry_mock, get(StringView{"abc"}))
+        EXPECT_CALL(registry_mock, get(cetl::string_view{"abc"}))
             .WillOnce(Return(IRegister::ValueAndFlags{makeValue(mr_alloc_, "xyz"), {true, true}}));
         EXPECT_CALL(access_svc_cnxt.res_tx_session_mock,
                     send(ServiceTxMetadataEq({{{123, Priority::Fast}, now() + 1s}, NodeId{0x31}}), _))  //
@@ -277,8 +277,8 @@ TEST_F(TestRegistryProvider, make_access_req)
         //
         registry_provider->setResponseTimeout(100ms);
 
-        EXPECT_CALL(registry_mock, set(StringView{"abc"}, _)).WillOnce(Return(cetl::nullopt));
-        EXPECT_CALL(registry_mock, get(StringView{"abc"})).WillOnce(Return(cetl::nullopt));
+        EXPECT_CALL(registry_mock, set(cetl::string_view{"abc"}, _)).WillOnce(Return(cetl::nullopt));
+        EXPECT_CALL(registry_mock, get(cetl::string_view{"abc"})).WillOnce(Return(cetl::nullopt));
         EXPECT_CALL(access_svc_cnxt.res_tx_session_mock,
                     send(ServiceTxMetadataEq({{{124, Priority::Nominal}, now() + 100ms}, NodeId{0x31}}), _))  //
             .WillOnce(Invoke([this](const auto&, const auto fragments) {
