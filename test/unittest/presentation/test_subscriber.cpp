@@ -15,6 +15,7 @@
 #include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/presentation/common_helpers.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/subscriber.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
@@ -264,7 +265,7 @@ TEST_F(TestSubscriber, onReceive_deserialize_failure)
 
     NiceMock<ScatteredBufferStorageMock> storage_mock;
     ScatteredBufferStorageMock::Wrapper  storage{&storage_mock};
-    EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(Message::_traits_::SerializationBufferSizeBytes));
+    EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(libcyphal::presentation::detail::SmallPayloadSize + 1));
     EXPECT_CALL(storage_mock, copy(_, _, _))                           //
         .WillRepeatedly(Invoke([&](auto, auto* const dst, auto len) {  //
             //
@@ -293,9 +294,11 @@ TEST_F(TestSubscriber, onReceive_deserialize_failure)
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
+        using libcyphal::presentation::detail::SmallPayloadSize;
+
         // Fix "problem" with the bad array size,
         // but introduce another one with memory allocation.
-        EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(1));
+        EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(SmallPayloadSize + 1));
         EXPECT_CALL(storage_mock, copy(_, _, _))                           //
             .WillRepeatedly(Invoke([&](auto, auto* const dst, auto len) {  //
                 //
@@ -304,7 +307,7 @@ TEST_F(TestSubscriber, onReceive_deserialize_failure)
                 (void) std::memmove(dst, buffer.data(), size);
                 return size;
             }));
-        EXPECT_CALL(mr_mock, do_allocate(1, _)).WillRepeatedly(Return(nullptr));
+        EXPECT_CALL(mr_mock, do_allocate(SmallPayloadSize + 1, _)).WillRepeatedly(Return(nullptr));
         //
         transfer.metadata.rx_meta.base.transfer_id++;
         transfer.metadata.rx_meta.timestamp = now();
