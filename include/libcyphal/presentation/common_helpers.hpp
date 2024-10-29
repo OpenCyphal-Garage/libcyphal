@@ -28,17 +28,30 @@ namespace detail
 
 using DeserializationFailure = cetl::variant<MemoryError, nunavut::support::Error>;
 
+constexpr std::size_t SmallPayloadSize = 256;
+
 template <typename Message>
 static cetl::optional<DeserializationFailure> tryDeserializePayload(const transport::ScatteredBuffer& payload,
                                                                     cetl::pmr::memory_resource&       memory,
                                                                     Message&                          out_message)
 {
-    // Make a copy of the scattered buffer into a single contiguous temp buffer.
+    // To reduce heap allocations, we use stack for "small" (<=256 bytes) messages.
     //
     // Strictly speaking, we could eliminate PMR allocation here in favor of a fixed-size stack buffer
-    // (`Message::_traits_::ExtentBytes`), but this might be dangerous in case of large messages.
-    // Maybe some kind of hybrid approach would be better,
-    // e.g. stack buffer for small messages and PMR for large ones.
+    // (using `Message::_traits_::ExtentBytes` as the maximum possible size for the Message).
+    // But this might be dangerous (stack overflow!) in case of large messages, so it's done only for small ones.
+    //
+    if (payload.size() <= SmallPayloadSize)
+    {
+        std::array<std::uint8_t, SmallPayloadSize> small_buffer;
+        const auto                                 data_size = payload.copy(0, small_buffer.data(), payload.size());
+        const nunavut::support::const_bitspan      bitspan{small_buffer.data(), data_size};
+
+        const nunavut::support::SerializeResult result = deserialize(out_message, bitspan);
+        return result ? cetl::nullopt : cetl::optional<DeserializationFailure>(result.error());
+    }
+
+    // Make a copy of the scattered buffer into a single contiguous (PMR allocated) temp buffer.
     //
     const std::unique_ptr<cetl::byte, PmrRawBytesDeleter>
         tmp_buffer{static_cast<cetl::byte*>(memory.allocate(payload.size())),  // NOSONAR cpp:S5356 cpp:S5357
@@ -54,12 +67,7 @@ static cetl::optional<DeserializationFailure> tryDeserializePayload(const transp
     const nunavut::support::const_bitspan bitspan{data_u8s, data_size};
 
     const nunavut::support::SerializeResult result = deserialize(out_message, bitspan);
-    if (!result)
-    {
-        return result.error();
-    }
-
-    return cetl::nullopt;
+    return result ? cetl::nullopt : cetl::optional<DeserializationFailure>(result.error());
 }
 
 }  // namespace detail

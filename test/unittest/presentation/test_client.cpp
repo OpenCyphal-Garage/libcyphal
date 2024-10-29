@@ -523,6 +523,8 @@ TEST_F(TestClient, request_response_failures)
     });
     scheduler_.scheduleAt(4s, [&](const auto&) {
         //
+        using libcyphal::presentation::detail::SmallPayloadSize;
+
         EXPECT_CALL(state.req_tx_session_mock_, send(_, _)).WillOnce(Return(cetl::nullopt));
 
         auto maybe_promise = client.request(now() + 100ms, Service::Request{mr_alloc_});
@@ -530,8 +532,8 @@ TEST_F(TestClient, request_response_failures)
         response_promise.emplace(cetl::get<SvcResPromise>(std::move(maybe_promise)));
 
         // Emulate that there is no memory available for the response deserialization.
-        EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(123));
-        EXPECT_CALL(mr_mock, do_allocate(123, _)).WillOnce(Return(nullptr));
+        EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(SmallPayloadSize + 1));
+        EXPECT_CALL(mr_mock, do_allocate(SmallPayloadSize + 1, _)).WillOnce(Return(nullptr));
         ScatteredBufferStorageMock::Wrapper storage{&storage_mock};
 
         ServiceRxTransfer transfer{{{{transfer_id + 0, Priority::Nominal}, now()}, 0x31},
