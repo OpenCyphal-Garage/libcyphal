@@ -16,6 +16,7 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/errors.hpp>
+#include <libcyphal/presentation/common_helpers.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/server.hpp>
 #include <libcyphal/transport/errors.hpp>
@@ -273,9 +274,11 @@ TEST_F(TestServer, service_request_response_failures)
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
+        using libcyphal::presentation::detail::SmallPayloadSize;
+
         // Emulate that there is no memory available for the request deserialization.
-        EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(123));
-        EXPECT_CALL(mr_mock, do_allocate(123, _)).WillOnce(Return(nullptr));
+        EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(SmallPayloadSize + 1));
+        EXPECT_CALL(mr_mock, do_allocate(SmallPayloadSize + 1, _)).WillOnce(Return(nullptr));
         ScatteredBufferStorageMock::Wrapper storage{&storage_mock};
 
         ServiceRxTransfer request{{{{123, Priority::Fast}, now()}, NodeId{0x31}}, ScatteredBuffer{std::move(storage)}};
