@@ -57,12 +57,6 @@ template <typename Interface, typename Any>
 class ImplementationCell final
 {
 public:
-    ImplementationCell()
-        : fn_getter_mut_{[](Any&) -> Interface* { return nullptr; }}
-        , fn_getter_const_{[](const Any&) -> const Interface* { return nullptr; }}
-    {
-    }
-
     template <typename Impl,
               typename ImplD = std::decay_t<Impl>,
               typename       = std::enable_if_t<std::is_base_of<Interface, ImplD>::value>>

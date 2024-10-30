@@ -175,7 +175,7 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
                 get_info.name = str->value;
                 return cetl::nullopt;
             }
-            return registry::SetError::Coercion;
+            return registry::SetError::Semantics;
         });
 
     // 5. Main loop.

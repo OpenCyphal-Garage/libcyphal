@@ -40,17 +40,10 @@ enum class SetError : std::uint8_t
     ///
     Mutability,
 
-    /// Value cannot be coerced to the register type.
-    ///
-    /// Libcyphal in not using this error directly, but user's setter might return it
-    /// to indicate that a new value cannot be accepted due to an incompatible type of the value.
-    ///
-    Coercion,
-
     /// Rejected by the register semantics.
     ///
     /// Libcyphal in not using this error directly, but user's setter might return it
-    /// to indicate this condition (e.g., out of range, inappropriate value, bad state, etc.).
+    /// to indicate this condition (e.g., out of range, inappropriate value, incompatible type, bad state, etc.).
     ///
     Semantics,
 

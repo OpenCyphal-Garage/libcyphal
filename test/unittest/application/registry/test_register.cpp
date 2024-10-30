@@ -170,8 +170,8 @@ TEST_F(TestRegister, makeRegister_set_failure)
     EXPECT_CALL(accessors_mock, setter(_)).WillOnce(Return(SetError::Semantics));  // Failure!
     EXPECT_THAT(r_int32.set(makeInt32Value({13})), Optional(SetError::Semantics));
 
-    EXPECT_CALL(accessors_mock, setter(_)).WillOnce(Return(SetError::Coercion));  // Failure!
-    EXPECT_THAT(r_int32.set(makeInt32Value({13})), Optional(SetError::Coercion));
+    EXPECT_CALL(accessors_mock, setter(_)).WillOnce(Return(SetError::Semantics));  // Failure!
+    EXPECT_THAT(r_int32.set(makeInt32Value({13})), Optional(SetError::Semantics));
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers, bugprone-unchecked-optional-access)

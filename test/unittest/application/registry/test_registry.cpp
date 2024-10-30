@@ -182,7 +182,7 @@ TEST_F(TestRegistry, route_mutable)
                 std::copy_n(int32->value.begin(), std::min(int32->value.size(), v_arr.size()), v_arr.begin());
                 return cetl::nullopt;
             }
-            return SetError::Coercion;
+            return SetError::Semantics;
         },
         {true});
     EXPECT_TRUE(r_arr.isLinked());
@@ -191,7 +191,7 @@ TEST_F(TestRegistry, route_mutable)
     EXPECT_THAT(v_arr, ElementsAre(123, 456, -789));
 
     EXPECT_THAT(rgy.set("arr", makeInt32Value({-654})), Eq(cetl::nullopt));
-    EXPECT_THAT(rgy.set("arr", makeStringValue("bad")), Optional(SetError::Coercion));
+    EXPECT_THAT(rgy.set("arr", makeStringValue("bad")), Optional(SetError::Semantics));
     const auto arr_get_result = rgy.get("arr");
     ASSERT_TRUE(arr_get_result);
     EXPECT_THAT(arr_get_result->flags._mutable, true);
