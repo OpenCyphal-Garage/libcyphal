@@ -225,6 +225,8 @@ inline auto load(const platform::storage::IKeyValue& kv, IIntrospectableRegistry
             // as it is not incompatible with the protocol.
             if (reg_meta->flags.persistent)
             {
+                // Next nolint b/c we initialize buffer with `kv.get` call.
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
                 std::array<std::uint8_t, IRegister::Value::_traits_::SerializationBufferSizeBytes> buffer;
                 const auto kv_get_result = kv.get(reg_name, {buffer.data(), buffer.size()});
                 (void) kv_get_result;
@@ -288,6 +290,8 @@ auto save(platform::storage::IKeyValue&  kv,
             {
                 // We don't expect to have any serialization errors here,
                 // b/c `SerializationBufferSizeBytes` sized buffer should always be big enough.
+                // Next nolint b/c we use a buffer to serialize the message, so no need to zero it.
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
                 std::array<std::uint8_t, IRegister::Value::_traits_::SerializationBufferSizeBytes> buffer;
                 const auto buffer_size = serialize(reg_meta->value, buffer);
                 CETL_DEBUG_ASSERT(buffer_size.has_value(), "");
