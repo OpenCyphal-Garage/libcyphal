@@ -177,7 +177,7 @@ namespace detail
 ///         Otherwise, the very first error encountered (on which we stopped the registry introspection).
 ///
 template <typename Registry, typename Action>
-auto introspectRegistry(Registry& rgy, Action&& action) -> cetl::optional<platform::storage::Error>
+auto introspectRegistry(Registry& rgy, const Action& action) -> cetl::optional<platform::storage::Error>
 {
     const auto total_registers = rgy.size();
     for (std::size_t index = 0; index < total_registers; index++)
@@ -189,7 +189,7 @@ auto introspectRegistry(Registry& rgy, Action&& action) -> cetl::optional<platfo
             break;
         }
 
-        if (const auto err = std::forward<Action>(action)(reg_name))
+        if (const auto err = action(reg_name))
         {
             return err;
         }
@@ -210,11 +210,27 @@ auto introspectRegistry(Registry& rgy, Action&& action) -> cetl::optional<platfo
 /// @return Nothing in case of success.
 ///         Otherwise, the very first error encountered (on which we stopped the registry enumeration).
 ///
-inline auto load(const platform::storage::IKeyValue&,
-                 IIntrospectableRegistry& rgy) -> cetl::optional<platform::storage::Error>
+inline auto load(const platform::storage::IKeyValue& kv, IIntrospectableRegistry& rgy)  //
+    -> cetl::optional<platform::storage::Error>
 {
-    return detail::introspectRegistry(rgy, [](const IRegister::Name) -> cetl::optional<platform::storage::Error> {
+    using OptionalError = cetl::optional<platform::storage::Error>;
+
+    return detail::introspectRegistry(rgy, [&kv, &rgy](const IRegister::Name reg_name) -> OptionalError {
         //
+        // If we get nothing, this means that the register has disappeared from the register.
+        if (const auto reg_meta = rgy.get(reg_name))
+        {
+            // Skip non-persistent registers.
+            // We will attempt to restore the register even if it is immutable,
+            // as it is not incompatible with the protocol.
+            if (reg_meta->flags.persistent)
+            {
+                std::array<std::uint8_t, IRegister::Value::_traits_::SerializationBufferSizeBytes> buffer;
+                const auto kv_get_result = kv.get(reg_name, {buffer.data(), buffer.size()});
+                (void) kv_get_result;
+            }
+        }
+
         return cetl::nullopt;
     });
 }
@@ -236,22 +252,22 @@ inline auto load(const platform::storage::IKeyValue&,
 ///
 /// @param kv The key-value storage to save the registers to.
 /// @param rgy The registry to save the registers from.
-/// @param reset_predicate The predicate to determine which registers should be removed from the storage.
-///                        Should have `bool(const IRegister::Name)` signature.
+/// @param predicate The predicate to determine which registers should be removed from the storage.
+///                  Should have `bool(const IRegister::Name)` signature.
 /// @return Nothing in case of success.
 ///         Otherwise, the very first error encountered (on which we stopped the registry enumeration).
 ///
 template <typename ResetPredicate>
 auto save(platform::storage::IKeyValue&  kv,
           const IIntrospectableRegistry& rgy,
-          const ResetPredicate&          reset_predicate) -> cetl::optional<platform::storage::Error>
+          const ResetPredicate&          predicate) -> cetl::optional<platform::storage::Error>
 {
     using OptionalError = cetl::optional<platform::storage::Error>;
 
-    return detail::introspectRegistry(rgy, [&](const IRegister::Name reg_name) -> OptionalError {
+    return detail::introspectRegistry(rgy, [&kv, &rgy, &predicate](const IRegister::Name reg_name) -> OptionalError {
         //
         // Reset is handled before any other checks to enhance forward compatibility.
-        if (reset_predicate(reg_name))
+        if (predicate(reg_name))
         {
             if (const auto err = kv.drop(reg_name))
             {
@@ -286,8 +302,8 @@ auto save(platform::storage::IKeyValue&  kv,
         return cetl::nullopt;
     });
 }
-inline cetl::optional<platform::storage::Error> save(platform::storage::IKeyValue&  kv,
-                                                     const IIntrospectableRegistry& rgy)
+inline auto save(platform::storage::IKeyValue&  kv,
+                 const IIntrospectableRegistry& rgy) -> cetl::optional<platform::storage::Error>
 {
     return save(kv, rgy, [](const IRegister::Name) { return false; });
 }
