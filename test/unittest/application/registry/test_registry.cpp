@@ -319,7 +319,7 @@ TEST_F(TestRegistry, save)
 
         // Successful save.
         //
-        EXPECT_CALL(rgy_mock, size()).WillRepeatedly(Return(2));
+        EXPECT_CALL(rgy_mock, size()).WillOnce(Return(2));
         EXPECT_CALL(rgy_mock, index(0)).WillRepeatedly(Return("A"));
         EXPECT_CALL(rgy_mock, index(1)).WillRepeatedly(Return("B"));
         EXPECT_CALL(rgy_mock, get(IRegister::Name{"A"}))  // Emulate that 'A' is gone - should be skipped.
@@ -332,7 +332,7 @@ TEST_F(TestRegistry, save)
 
         // Failure save.
         //
-        EXPECT_CALL(rgy_mock, size()).WillRepeatedly(Return(1));
+        EXPECT_CALL(rgy_mock, size()).WillOnce(Return(1));
         EXPECT_CALL(rgy_mock, index(0)).WillRepeatedly(Return("A"));
         EXPECT_CALL(rgy_mock, get(IRegister::Name{"A"}))
             .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x42, 0xFE}), {true, true}}));
@@ -345,7 +345,7 @@ TEST_F(TestRegistry, save)
         const StrictMock<IntrospectableRegistryMock>           rgy_mock;
         StrictMock<libcyphal::platform::storage::KeyValueMock> key_value_mock;
 
-        EXPECT_CALL(rgy_mock, size()).WillRepeatedly(Return(3));
+        EXPECT_CALL(rgy_mock, size()).WillOnce(Return(3));
         EXPECT_CALL(rgy_mock, index(0)).WillRepeatedly(Return("A"));
         EXPECT_CALL(rgy_mock, index(1)).WillRepeatedly(Return("B"));
         EXPECT_CALL(rgy_mock, index(2)).WillRepeatedly(Return("C"));

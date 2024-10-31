@@ -19,6 +19,7 @@
 
 #include <array>
 #include <cstddef>
+#include <utility>
 
 namespace libcyphal
 {
@@ -165,6 +166,59 @@ private:
 
 // MARK: -
 
+namespace detail
+{
+
+/// Introspects all registers in the registry and performs a potentially fallible action on each register.
+///
+/// @param rgy The registry whose registers to introspect.
+/// @param action The action to perform on each register.
+/// @return Nothing in case of success.
+///         Otherwise, the very first error encountered (on which we stopped the registry introspection).
+///
+template <typename Registry, typename Action>
+auto introspectRegistry(Registry& rgy, Action&& action) -> cetl::optional<platform::storage::Error>
+{
+    const auto total_registers = rgy.size();
+    for (std::size_t index = 0; index < total_registers; index++)
+    {
+        const IRegister::Name reg_name = rgy.index(index);
+        if (reg_name.empty())
+        {
+            // No more registers to introspect.
+            break;
+        }
+
+        if (const auto err = std::forward<Action>(action)(reg_name))
+        {
+            return err;
+        }
+    }
+    return cetl::nullopt;
+}
+}  // namespace detail
+
+/// Scan all persistent registers in the registry and load their values from the storage if present.
+///
+/// Each register is loaded from a separate file, the file name equals the name of the register (no extension).
+/// Stored registers that are not present in the registry will not be loaded.
+/// The serialization format is simply the Cyphal DSDL (see `uavcan::_register::Value_1_0` type).
+/// In case of error, only part of the registers may be loaded and the registry will be left in an inconsistent state.
+///
+/// @param kv The key-value storage to load the registers from.
+/// @param rgy The registry whose registers to enumerate and set.
+/// @return Nothing in case of success.
+///         Otherwise, the very first error encountered (on which we stopped the registry enumeration).
+///
+inline auto load(const platform::storage::IKeyValue&,
+                 IIntrospectableRegistry& rgy) -> cetl::optional<platform::storage::Error>
+{
+    return detail::introspectRegistry(rgy, [](const IRegister::Name) -> cetl::optional<platform::storage::Error> {
+        //
+        return cetl::nullopt;
+    });
+}
+
 /// Saves all persistent mutable registers from the registry to the storage.
 ///
 /// The register savior is the counterpart of load().
@@ -192,15 +246,10 @@ auto save(platform::storage::IKeyValue&  kv,
           const IIntrospectableRegistry& rgy,
           const ResetPredicate&          reset_predicate) -> cetl::optional<platform::storage::Error>
 {
-    for (std::size_t index = 0; index < rgy.size(); index++)
-    {
-        const IRegister::Name reg_name = rgy.index(index);
-        if (reg_name.empty())
-        {
-            // No more registers to store.
-            break;
-        }
+    using OptionalError = cetl::optional<platform::storage::Error>;
 
+    return detail::introspectRegistry(rgy, [&](const IRegister::Name reg_name) -> OptionalError {
+        //
         // Reset is handled before any other checks to enhance forward compatibility.
         if (reset_predicate(reg_name))
         {
@@ -211,13 +260,14 @@ auto save(platform::storage::IKeyValue&  kv,
                     return err;
                 }
             }
-            continue;
+            return cetl::nullopt;
         }
 
         // If we get nothing, this means that the register has disappeared from the register.
         if (const auto reg_meta = rgy.get(reg_name))
         {
-            // We do not save immutable registers because they are assumed to be constant, so no need to waste storage.
+            // We do not save immutable registers because they are assumed to be constant, so no
+            // need to waste storage.
             if (reg_meta->flags.persistent && reg_meta->flags._mutable)
             {
                 // We don't expect to have any serialization errors here,
@@ -233,9 +283,8 @@ auto save(platform::storage::IKeyValue&  kv,
             }
         }
 
-    }  // for every register
-
-    return cetl::nullopt;
+        return cetl::nullopt;
+    });
 }
 inline cetl::optional<platform::storage::Error> save(platform::storage::IKeyValue&  kv,
                                                      const IIntrospectableRegistry& rgy)
