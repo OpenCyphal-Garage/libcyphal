@@ -111,7 +111,7 @@ public:
             return std::move(*failure);
         }
 
-        registry_provider_.emplace(cetl::get<node::RegistryProvider>(std::move(maybe_provider)));
+        (void) registry_provider_.emplace(cetl::get<node::RegistryProvider>(std::move(maybe_provider)));
         return cetl::nullopt;
     }
 

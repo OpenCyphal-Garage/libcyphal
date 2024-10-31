@@ -8,7 +8,14 @@
 
 #include "libcyphal/common/cavl/cavl.hpp"
 #include "libcyphal/common/crc.hpp"
-#include "registry_value.hpp"
+#include "libcyphal/types.hpp"
+
+#include <cetl/rtti.hpp>
+#include <cetl/unbounded_variant.hpp>
+
+#include <uavcan/_register/Name_1_0.hpp>
+#include <uavcan/_register/Value_1_0.hpp>
+#include <uavcan/primitive/String_1_0.hpp>
 
 #include <cstdint>
 
@@ -23,11 +30,24 @@ namespace registry
 ///
 enum class SetError : std::uint8_t
 {
-    Existence,   /// The register does not exist.
-    Mutability,  /// Register is immutable.
-    Coercion,    /// Value cannot be coerced to the register type.
-    Semantics,   /// Rejected by the register semantics (e.g., out of range, inappropriate value, bad state, etc.).
-};
+    /// The register with a given name does not exist.
+    ///
+    Existence,
+
+    /// The register is immutable.
+    ///
+    /// Returned when there was an attempt to set a new value for the immutable register.
+    ///
+    Mutability,
+
+    /// Rejected by the register semantics.
+    ///
+    /// Libcyphal in not using this error directly, but user's setter might return it
+    /// to indicate this condition (e.g., out of range, inappropriate value, incompatible type, bad state, etc.).
+    ///
+    Semantics,
+
+};  // SetError
 
 /// Defines interface for a register.
 ///
@@ -35,7 +55,24 @@ enum class SetError : std::uint8_t
 ///
 class IRegister : public cavl::Node<IRegister>  // NOSONAR cpp:S4963
 {
+    // 1AD1885B-954B-48CF-BAC4-FA0A251D3FC0
+    // clang-format off
+    using TypeIdType = cetl::type_id_type<
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+        0x1A, 0xD1, 0x88, 0x5B, 0x95, 0x4B, 0x48, 0xCF, 0xBA, 0xC4, 0xFA, 0x0A, 0x25, 0x1D, 0x3F, 0xC0>;
+    // clang-format on
+
 public:
+    /// Defines the type of the register name.
+    ///
+    using Name = cetl::string_view;
+
+    /// Defines the value of a register.
+    ///
+    /// Internally, it's implemented as a variant of all possible types (see `union_value` member).
+    ///
+    using Value = uavcan::_register::Value_1_0;
+
     /// Defines behavior flags of the register value.
     ///
     struct Flags final
@@ -144,7 +181,15 @@ public:
     }
 
     /// Checks if the register is linked to a registry.
+    ///
     using Node::isLinked;
+
+    // MARK: RTTI
+
+    static constexpr cetl::type_id _get_type_id_() noexcept
+    {
+        return cetl::type_id_type_value<TypeIdType>();
+    }
 
 protected:
     explicit IRegister(const Name name)
@@ -172,6 +217,43 @@ private:
     const Key key_;
 
 };  // IRegister
+
+/// Defines type-erased register.
+///
+/// The Footprint size of the unbounded variant should be enough for any register implementation.
+/// The implementation should not be copyable but moveable.
+///
+template <std::size_t Footprint>
+using Register = ImplementationCell<IRegister, cetl::unbounded_variant<Footprint, false, true>>;
+
+// MARK: -
+
+/// Makes a new Nunavut register name from a string view.
+///
+inline uavcan::_register::Name_1_0 makeRegisterName(const uavcan::_register::Name_1_0::allocator_type& alloc,
+                                                    const IRegister::Name                              name)
+{
+    uavcan::_register::Name_1_0 out{alloc};
+    if (!name.empty())
+    {
+        // TODO: Fix Nunavut to expose `ARRAY_CAPACITY` so we can use it here instead of 255 hardcode.
+        constexpr std::size_t NameCapacity = 255U;
+        out.name.resize(std::min(name.size(), NameCapacity));
+
+        // No Sonar `cpp:S5356` b/c we need to pass name payload as raw data.
+        (void) std::memmove(out.name.data(), name.data(), out.name.size());  // NOSONAR cpp:S5356
+    }
+    return out;
+}
+
+/// Makes a new string view from Nunavut's string data.
+///
+inline cetl::string_view makeStringView(const uavcan::primitive::String_1_0::_traits_::TypeOf::value& container)
+{
+    // No Lint and Sonar cpp:S3630 "reinterpret_cast" should not be used" b/c we need to access container raw data.
+    // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+    return {reinterpret_cast<cetl::string_view::const_pointer>(container.data()), container.size()};  // NOSONAR
+}
 
 }  // namespace registry
 }  // namespace application

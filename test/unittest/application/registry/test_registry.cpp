@@ -7,15 +7,16 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/application/registry/register.hpp>
-#include <libcyphal/application/registry/register_impl.hpp>
 #include <libcyphal/application/registry/registry_impl.hpp>
-#include <libcyphal/application/registry/registry_value.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
+#include <initializer_list>
+#include <iterator>
 
 namespace
 {
@@ -45,15 +46,48 @@ protected:
 
         EXPECT_THAT(mr_default_.allocations, IsEmpty());
         EXPECT_THAT(mr_default_.total_allocated_bytes, mr_default_.total_deallocated_bytes);
-        EXPECT_THAT(mr_default_.total_allocated_bytes, 0);
+        // TODO: Uncomment this when std::vector's allocator propagation issue will be resolved.
+        // EXPECT_THAT(mr_default_.total_allocated_bytes, 0);
+    }
+
+    template <typename Container>
+    IRegister::Value makeInt32Value(const Container& container) const
+    {
+        IRegister::Value value{alloc_};
+        auto&            int32 = value.set_integer32();
+        std::copy(container.begin(), container.end(), std::back_inserter(int32.value));
+        return value;
+    }
+
+    IRegister::Value::_traits_::TypeOf::integer32 makeInt32(const std::initializer_list<std::int32_t>& il) const
+    {
+        IRegister::Value::_traits_::TypeOf::integer32 int32arr{alloc_};
+        std::copy(il.begin(), il.end(), std::back_inserter(int32arr.value));
+        return int32arr;
+    }
+
+    IRegister::Value makeInt32Value(const std::initializer_list<std::int32_t>& il) const
+    {
+        IRegister::Value value{alloc_};
+        auto&            int32 = value.set_integer32();
+        std::copy(il.begin(), il.end(), std::back_inserter(int32.value));
+        return value;
+    }
+
+    IRegister::Value makeStringValue(const cetl::string_view sv) const
+    {
+        IRegister::Value value{alloc_};
+        auto&            str = value.set_string();
+        std::copy(sv.begin(), sv.end(), std::back_inserter(str.value));
+        return value;
     }
 
     // MARK: Data members:
 
     // NOLINTBEGIN
-    TrackingMemoryResource mr_;
-    TrackingMemoryResource mr_default_;
-    Value::allocator_type  alloc_{&mr_};
+    TrackingMemoryResource           mr_;
+    TrackingMemoryResource           mr_default_;
+    IRegister::Value::allocator_type alloc_{&mr_};
     // NOLINTEND
 
 };  // TestRegistry
@@ -70,9 +104,13 @@ TEST_F(TestRegistry, empty)
     EXPECT_THAT(rgy.get("foo"), Eq(cetl::nullopt));
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestRegistry, lifetime)
 {
     Registry rgy{mr_};
+
+    const auto getter = [this] { return IRegister::Value{alloc_}; };
+    const auto setter = [](const auto&) { return cetl::nullopt; };
 
     EXPECT_THAT(rgy.size(), 0);
     EXPECT_THAT(rgy.index(0), IsEmpty());
@@ -80,15 +118,16 @@ TEST_F(TestRegistry, lifetime)
     EXPECT_THAT(rgy.get("arr"), Eq(cetl::nullopt));
     EXPECT_THAT(rgy.get("bool"), Eq(cetl::nullopt));
     {
-        const auto r_arr = rgy.parameterize("arr", std::array<std::int32_t, 3>{123, 456, -789});
+        const auto r_arr = rgy.route("arr", getter, setter);
 
         EXPECT_THAT(rgy.size(), 1);
         EXPECT_THAT(rgy.index(0), "arr");
         EXPECT_THAT(rgy.index(1), IsEmpty());
         EXPECT_THAT(rgy.get("arr"), Optional(_));
+        EXPECT_THAT(rgy.set("arr", makeInt32Value({123})), Eq(cetl::nullopt));
         EXPECT_THAT(rgy.get("bool"), Eq(cetl::nullopt));
         {
-            const auto r_bool = rgy.parameterize("bool", true);
+            const auto r_bool = rgy.route("bool", getter, setter);
 
             EXPECT_THAT(rgy.size(), 2);
             EXPECT_THAT(rgy.index(0), "arr");
@@ -96,7 +135,7 @@ TEST_F(TestRegistry, lifetime)
             EXPECT_THAT(rgy.get("arr"), Optional(_));
             EXPECT_THAT(rgy.get("bool"), Optional(_));
             {
-                const auto r_dbl = rgy.parameterize("dbl", 1.23);
+                const auto r_dbl = rgy.route("dbl", getter, setter);
 
                 EXPECT_THAT(rgy.size(), 3);
                 EXPECT_THAT(rgy.index(0), "arr");
@@ -124,7 +163,7 @@ TEST_F(TestRegistry, empty_set)
 {
     Registry rgy{mr_};
 
-    EXPECT_THAT(rgy.set("foo", Value{alloc_}), Optional(SetError::Existence));
+    EXPECT_THAT(rgy.set("foo", IRegister::Value{alloc_}), Optional(SetError::Existence));
 }
 
 TEST_F(TestRegistry, route_mutable)
@@ -132,128 +171,89 @@ TEST_F(TestRegistry, route_mutable)
     Registry rgy{mr_};
 
     std::array<std::int32_t, 3> v_arr{123, 456, -789};
-    const auto                  r_arr = rgy.route(
+
+    const auto r_arr = rgy.route(
         "arr",
-        [&v_arr] { return v_arr; },
-        [&v_arr](const Value& v) {
-            v_arr = get<std::array<std::int32_t, 3>>(v).value();
-            return true;
+        [this, &v_arr] { return makeInt32Value(v_arr); },
+        [&v_arr](const IRegister::Value& v) -> cetl::optional<SetError> {
+            //
+            if (const auto* const int32 = v.get_integer32_if())
+            {
+                std::copy_n(int32->value.begin(), std::min(int32->value.size(), v_arr.size()), v_arr.begin());
+                return cetl::nullopt;
+            }
+            return SetError::Semantics;
         },
         {true});
-    ASSERT_THAT(r_arr, Optional(_));
-    EXPECT_TRUE(r_arr->isLinked());
-    EXPECT_THAT(r_arr->getOptions().persistent, true);
+    EXPECT_TRUE(r_arr.isLinked());
     EXPECT_THAT(rgy.size(), 1);
     EXPECT_THAT(rgy.index(0), "arr");
     EXPECT_THAT(v_arr, ElementsAre(123, 456, -789));
 
-    EXPECT_THAT(rgy.set("arr", makeValue(alloc_, -654.456F)), Eq(cetl::nullopt));  // Coerced to -654.
+    EXPECT_THAT(rgy.set("arr", makeInt32Value({-654})), Eq(cetl::nullopt));
+    EXPECT_THAT(rgy.set("arr", makeStringValue("bad")), Optional(SetError::Semantics));
     const auto arr_get_result = rgy.get("arr");
-    ASSERT_THAT(arr_get_result, Optional(_));
+    ASSERT_TRUE(arr_get_result);
     EXPECT_THAT(arr_get_result->flags._mutable, true);
     EXPECT_THAT(arr_get_result->flags.persistent, true);
-    EXPECT_THAT(arr_get_result->value.is_integer32(), true);
-    EXPECT_THAT((get<std::array<std::int32_t, 4>>(arr_get_result->value)), Optional(ElementsAre(-654, 456, -789, 0)));
+    ASSERT_THAT(arr_get_result->value.is_integer32(), true);
+    EXPECT_THAT(arr_get_result->value.get_integer32().value, ElementsAre(-654, 456, -789));
     EXPECT_THAT(v_arr, ElementsAre(-654, 456, -789));
 
     // The same name failure!
-    EXPECT_THAT(rgy.route("arr", [] { return true; }, [](const auto&) { return true; }), Eq(cetl::nullopt));
+    //
+    IRegister::Value same_reg_value{alloc_};
+    auto             same_reg = rgy.route(
+        "arr",
+        [&same_reg_value] { return same_reg_value; },
+        [&same_reg_value](const auto& new_value) {
+            //
+            same_reg_value = new_value;
+            return cetl::nullopt;
+        });
+    EXPECT_FALSE(same_reg.isLinked());
+    // Despite the failure, the register should still work (be gettable/settable).
+    EXPECT_THAT(same_reg.set(makeInt32Value({147})), Eq(cetl::nullopt));
+    const auto same_reg_result = same_reg.get();
+    EXPECT_THAT(same_reg_result.flags._mutable, true);
+    EXPECT_THAT(same_reg_result.flags.persistent, false);
+    ASSERT_THAT(same_reg_result.value.is_integer32(), true);
+    EXPECT_THAT(same_reg_result.value.get_integer32().value, ElementsAre(147));
+    ASSERT_THAT(same_reg_value.is_integer32(), true);
+    EXPECT_THAT(same_reg_value.get_integer32().value, ElementsAre(147));
 }
 
 TEST_F(TestRegistry, route_immutable)
 {
     Registry rgy{mr_};
 
-    constexpr std::array<std::int32_t, 3> v_arr{123, 456, -789};
-    const auto                            r_arr = rgy.route("arr", [&v_arr] { return v_arr; });
-    ASSERT_THAT(r_arr, Optional(_));
-    EXPECT_TRUE(r_arr->isLinked());
-    EXPECT_THAT(r_arr->getOptions().persistent, false);
+    const auto r_arr = rgy.route("arr", [this] { return makeInt32({123, 456, -789}); });
+    EXPECT_TRUE(r_arr.isLinked());
     EXPECT_THAT(rgy.size(), 1);
     EXPECT_THAT(rgy.index(0), "arr");
 
-    EXPECT_THAT(rgy.set("arr", makeValue(alloc_, -654.456F)), Optional(SetError::Mutability));
+    EXPECT_THAT(rgy.set("arr", makeInt32Value({-654})), Optional(SetError::Mutability));
     const auto arr_get_result = rgy.get("arr");
-    ASSERT_THAT(arr_get_result, Optional(_));
+    ASSERT_TRUE(arr_get_result);
     EXPECT_THAT(arr_get_result->flags._mutable, false);
     EXPECT_THAT(arr_get_result->flags.persistent, false);
-    EXPECT_THAT(arr_get_result->value.is_integer32(), true);
-    EXPECT_THAT((get<std::array<std::int32_t, 4>>(arr_get_result->value)), Optional(ElementsAre(123, 456, -789, 0)));
+    ASSERT_THAT(arr_get_result->value.is_integer32(), true);
+    EXPECT_THAT(arr_get_result->value.get_integer32().value, ElementsAre(123, 456, -789));
 
     // The same name failure!
-    EXPECT_THAT(rgy.route("arr", [] { return true; }), Eq(cetl::nullopt));
-}
-
-TEST_F(TestRegistry, expose)
-{
-    Registry rgy{mr_};
-
-    std::array<std::int32_t, 3> v_arr{123, 456, -789};
-    const auto                  r_arr = rgy.expose("arr", v_arr);
-    ASSERT_THAT(r_arr, Optional(_));
-    EXPECT_TRUE(r_arr->isLinked());
-    EXPECT_THAT(r_arr->getOptions().persistent, false);
-    EXPECT_THAT(rgy.size(), 1);
-    EXPECT_THAT(rgy.index(0), "arr");
-    EXPECT_THAT(v_arr, ElementsAre(123, 456, -789));
-
-    EXPECT_THAT(rgy.set("arr", makeValue(alloc_, -654.456F)), Eq(cetl::nullopt));  // Coerced to -654.
-    const auto arr_get_result = rgy.get("arr");
-    ASSERT_THAT(arr_get_result, Optional(_));
-    EXPECT_THAT(arr_get_result->flags._mutable, true);
-    EXPECT_THAT(arr_get_result->flags.persistent, false);
-    EXPECT_THAT(arr_get_result->value.is_integer32(), true);
-    EXPECT_THAT((get<std::array<std::int32_t, 4>>(arr_get_result->value)), Optional(ElementsAre(-654, 456, -789, 0)));
-    EXPECT_THAT(v_arr, ElementsAre(-654, 456, -789));
-}
-
-TEST_F(TestRegistry, exposeParam_set_get_mutable)
-{
-    Registry rgy{mr_};
-
-    const auto r_arr = rgy.parameterize("arr", std::array<std::int32_t, 3>{123, 456, -789});
-    ASSERT_THAT(r_arr, Optional(_));
-    EXPECT_TRUE(r_arr->isLinked());
-    EXPECT_THAT(r_arr->getOptions().persistent, false);
-    EXPECT_THAT(rgy.size(), 1);
-    EXPECT_THAT(rgy.index(0), "arr");
-
-    EXPECT_THAT(rgy.set("arr", makeValue(alloc_, -654.456F)), Eq(cetl::nullopt));  // Coerced to -654.
-    const auto arr_get_result = rgy.get("arr");
-    ASSERT_THAT(arr_get_result, Optional(_));
-    EXPECT_THAT(arr_get_result->flags._mutable, true);
-    EXPECT_THAT(arr_get_result->flags.persistent, false);
-    EXPECT_THAT(arr_get_result->value.is_integer32(), true);
-    EXPECT_THAT((get<std::array<std::int32_t, 4>>(arr_get_result->value)), Optional(ElementsAre(-654, 456, -789, 0)));
-}
-
-TEST_F(TestRegistry, exposeParam_set_get_immutable)
-{
-    Registry rgy{mr_};
-
-    const auto r_arr = rgy.parameterize<std::array<std::int32_t, 3>, false>("arr", {123, 456, -789}, {true});
-    ASSERT_THAT(r_arr, Optional(_));
-    EXPECT_THAT(r_arr->getOptions().persistent, true);
-
-    EXPECT_THAT(rgy.set("arr", makeValue(alloc_, -654.456F)), Optional(SetError::Mutability));
-
-    const auto arr_get_result = rgy.get("arr");
-    ASSERT_THAT(arr_get_result, Optional(_));
-    EXPECT_THAT(arr_get_result->flags._mutable, false);
-    EXPECT_THAT(arr_get_result->flags.persistent, true);
-    EXPECT_THAT(arr_get_result->value.is_integer32(), true);
-    EXPECT_THAT((get<std::array<std::int32_t, 4>>(arr_get_result->value)), Optional(ElementsAre(123, 456, -789, 0)));
-}
-
-TEST_F(TestRegistry, exposeParam_failure)
-{
-    Registry rgy{mr_};
-
-    const auto r_bool1 = rgy.parameterize("bool", false);
-    ASSERT_THAT(r_bool1, Optional(_));
-
-    const auto r_bool2 = rgy.parameterize("bool", false);  // The same name!
-    EXPECT_THAT(r_bool2, Eq(cetl::nullopt));
+    //
+    auto same_reg_value = makeInt32Value({147});
+    auto same_reg       = rgy.route("arr", [&same_reg_value] { return same_reg_value; });
+    EXPECT_FALSE(same_reg.isLinked());
+    // Despite the failure, the register should still work (be gettable/settable).
+    EXPECT_THAT(same_reg.set(makeInt32Value({13})), Optional(SetError::Mutability));
+    const auto same_reg_result = same_reg.get();
+    EXPECT_THAT(same_reg_result.flags._mutable, false);
+    EXPECT_THAT(same_reg_result.flags.persistent, false);
+    ASSERT_THAT(same_reg_result.value.is_integer32(), true);
+    EXPECT_THAT(same_reg_result.value.get_integer32().value, ElementsAre(147));
+    ASSERT_THAT(same_reg_value.is_integer32(), true);
+    EXPECT_THAT(same_reg_value.get_integer32().value, ElementsAre(147));
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers, bugprone-unchecked-optional-access)

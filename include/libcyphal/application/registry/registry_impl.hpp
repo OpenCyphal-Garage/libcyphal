@@ -10,10 +10,11 @@
 #include "register.hpp"
 #include "register_impl.hpp"
 #include "registry.hpp"
-#include "registry_value.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
+
+#include <cstddef>
 
 namespace libcyphal
 {
@@ -49,7 +50,7 @@ public:
 
     // MARK: - IRegistry
 
-    cetl::optional<IRegister::ValueAndFlags> get(const Name name) const override
+    cetl::optional<IRegister::ValueAndFlags> get(const IRegister::Name name) const override
     {
         if (const auto* const reg = findRegisterBy(name))
         {
@@ -58,7 +59,7 @@ public:
         return cetl::nullopt;
     }
 
-    cetl::optional<SetError> set(const Name name, const Value& new_value) override
+    cetl::optional<SetError> set(const IRegister::Name name, const IRegister::Value& new_value) override
     {
         if (auto* const reg = findRegisterBy(name))
         {
@@ -74,13 +75,13 @@ public:
         return registers_tree_.size();
     }
 
-    Name index(const std::size_t index) const override
+    IRegister::Name index(const std::size_t index) const override
     {
         if (const auto* const reg = registers_tree_[index])
         {
             return reg->getName();
         }
-        return Name{};
+        return {};
     }
 
     bool append(IRegister& reg) override
@@ -109,19 +110,16 @@ public:
     /// @param name The name of the register. Should be unique within the registry.
     /// @param getter The getter function to provide the register value.
     /// @param options Extra options for the register, like "persistent" option.
-    /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
+    /// @return The result immutable register. Check its `.isLinked()` to verify it was appended successfully.
     ///
     template <typename Getter>
-    cetl::optional<Register<Getter, void>> route(const Name                name,
-                                                 Getter&&                  getter,
-                                                 const IRegister::Options& options = {})
+    RegisterImpl<Getter, void> route(const IRegister::Name     name,
+                                     Getter&&                  getter,
+                                     const IRegister::Options& options = {})
     {
         auto reg = makeRegister(memory(), name, std::forward<Getter>(getter), options);
-        if (append(reg))
-        {
-            return reg;
-        }
-        return cetl::nullopt;
+        (void) append(reg);
+        return reg;
     }
 
     /// Constructs a new read-write register, and links it to this registry.
@@ -130,76 +128,27 @@ public:
     /// @param getter The getter function to provide the register value.
     /// @param setter The setter function to update the register value.
     /// @param options Extra options for the register, like "persistent" option.
-    /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
+    /// @return The result mutable register. Check its `.isLinked()` to verify it was appended successfully.
     ///
     template <typename Getter, typename Setter>
-    cetl::optional<Register<Getter, Setter>> route(const Name                name,
-                                                   Getter&&                  getter,
-                                                   Setter&&                  setter,
-                                                   const IRegister::Options& options = {})
+    RegisterImpl<Getter, Setter> route(const IRegister::Name     name,
+                                       Getter&&                  getter,
+                                       Setter&&                  setter,
+                                       const IRegister::Options& options = {})
     {
         auto reg = makeRegister(memory(), name, std::forward<Getter>(getter), std::forward<Setter>(setter), options);
-        if (append(reg))
-        {
-            return reg;
-        }
-        return cetl::nullopt;
-    }
-
-    /// Constructs a read-write register, and links it to this registry.
-    ///
-    /// A simple wrapper over route() that allows one to expose and mutate an arbitrary object as a mutable register.
-    ///
-    /// @param name The name of the register. Should be unique within the registry.
-    /// @param inout_value The referenced value; shall outlive the register.
-    /// @param options Extra options for the register, like "persistent" option.
-    /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
-    ///
-    template <typename T>
-    auto expose(const Name name, T& inout_value, const IRegister::Options& options = {})
-    {
-        return route(
-            name,
-            [&inout_value]() -> const T& { return inout_value; },  // Getter
-            [&inout_value](const Value& v) {                       // Setter
-                //
-                inout_value = registry::get<T>(v).value();  // Guaranteed to be coercible by the protocol.
-                return true;
-            },
-            options);
-    }
-
-    /// Constructs a parameter register, and links it to this registry.
-    ///
-    /// In contrast to the above `expose()`, this method allows one to expose a parameter with a default value.
-    /// Exposed parameter value is stored inside the register and can be mutated (by default).
-    ///
-    /// @param name The name of the register. Should be unique within the registry.
-    /// @param default_value Initial default value.
-    /// @param options Extra options for the register, like "persistent" option.
-    /// @return Result register if it was appended successfully. Otherwise, `nullopt`.
-    ///
-    template <typename T, bool IsMutable = true>
-    cetl::optional<ParamRegister<T, IsMutable>> parameterize(const Name                name,
-                                                             const T&                  default_value,
-                                                             const IRegister::Options& options = {})
-    {
-        ParamRegister<T, IsMutable> reg{memory(), name, default_value, options};
-        if (append(reg))
-        {
-            return reg;
-        }
-        return cetl::nullopt;
+        (void) append(reg);
+        return reg;
     }
 
 private:
-    CETL_NODISCARD IRegister* findRegisterBy(const Name name)
+    CETL_NODISCARD IRegister* findRegisterBy(const IRegister::Name name)
     {
         return registers_tree_.search(
             [key = IRegister::Key{name}](const IRegister& other) { return other.compareBy(key); });
     }
 
-    CETL_NODISCARD const IRegister* findRegisterBy(const Name name) const
+    CETL_NODISCARD const IRegister* findRegisterBy(const IRegister::Name name) const
     {
         return registers_tree_.search(
             [key = IRegister::Key{name}](const IRegister& other) { return other.compareBy(key); });

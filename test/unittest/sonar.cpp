@@ -11,7 +11,6 @@
 #include "libcyphal/application/registry/register_impl.hpp"
 #include "libcyphal/application/registry/registry.hpp"
 #include "libcyphal/application/registry/registry_impl.hpp"
-#include "libcyphal/application/registry/registry_value.hpp"
 #include <libcyphal/common/cavl/cavl.hpp>
 #include <libcyphal/common/crc.hpp>
 #include <libcyphal/errors.hpp>

@@ -16,7 +16,6 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/application/node/registry_provider.hpp>
 #include <libcyphal/application/registry/register.hpp>
-#include <libcyphal/application/registry/registry_value.hpp>
 #include <libcyphal/errors.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
@@ -29,9 +28,11 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
 #include <limits>
 #include <utility>
 
@@ -90,6 +91,14 @@ protected:
     TimePoint now() const
     {
         return scheduler_.now();
+    }
+
+    IRegister::Value makeStringValue(const cetl::string_view sv) const
+    {
+        IRegister::Value value{mr_alloc_};
+        auto&            str = value.set_string();
+        std::copy(sv.begin(), sv.end(), std::back_inserter(str.value));
+        return value;
     }
 
     struct SvcServerContext
@@ -254,8 +263,8 @@ TEST_F(TestRegistryProvider, make_access_req)
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
-        EXPECT_CALL(registry_mock, get(cetl::string_view{"abc"}))
-            .WillOnce(Return(IRegister::ValueAndFlags{makeValue(mr_alloc_, "xyz"), {true, true}}));
+        EXPECT_CALL(registry_mock, get(IRegister::Name{"abc"}))
+            .WillOnce(Return(IRegister::ValueAndFlags{makeStringValue("xyz"), {true, true}}));
         EXPECT_CALL(access_svc_cnxt.res_tx_session_mock,
                     send(ServiceTxMetadataEq({{{123, Priority::Fast}, now() + 1s}, NodeId{0x31}}), _))  //
             .WillOnce(Invoke([this](const auto&, const auto fragments) {
@@ -270,15 +279,15 @@ TEST_F(TestRegistryProvider, make_access_req)
             }));
 
         request.metadata.rx_meta.timestamp = now();
-        test_request.name                  = makeName(mr_alloc_, "abc");
+        test_request.name                  = makeRegisterName(mr_alloc_, "abc");
         access_svc_cnxt.req_rx_cb_fn({request});
     });
     scheduler_.scheduleAt(3s, [&](const auto&) {
         //
         registry_provider->setResponseTimeout(100ms);
 
-        EXPECT_CALL(registry_mock, set(cetl::string_view{"abc"}, _)).WillOnce(Return(cetl::nullopt));
-        EXPECT_CALL(registry_mock, get(cetl::string_view{"abc"})).WillOnce(Return(cetl::nullopt));
+        EXPECT_CALL(registry_mock, set(IRegister::Name{"abc"}, _)).WillOnce(Return(cetl::nullopt));
+        EXPECT_CALL(registry_mock, get(IRegister::Name{"abc"})).WillOnce(Return(cetl::nullopt));
         EXPECT_CALL(access_svc_cnxt.res_tx_session_mock,
                     send(ServiceTxMetadataEq({{{124, Priority::Nominal}, now() + 100ms}, NodeId{0x31}}), _))  //
             .WillOnce(Invoke([this](const auto&, const auto fragments) {
@@ -294,8 +303,8 @@ TEST_F(TestRegistryProvider, make_access_req)
         request.metadata.rx_meta.base.transfer_id = 124;
         request.metadata.rx_meta.base.priority    = Priority::Nominal;
         request.metadata.rx_meta.timestamp        = now();
-        test_request.name                         = makeName(mr_alloc_, "abc");
-        test_request.value                        = makeValue(mr_alloc_, "123");
+        test_request.name                         = makeRegisterName(mr_alloc_, "abc");
+        test_request.value                        = makeStringValue("123");
         access_svc_cnxt.req_rx_cb_fn({request});
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {
