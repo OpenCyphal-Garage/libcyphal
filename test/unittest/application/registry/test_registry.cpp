@@ -3,11 +3,14 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include "platform/storage_key_value_mock.hpp"
+#include "registry_mock.hpp"
 #include "tracking_memory_resource.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/application/registry/register.hpp>
 #include <libcyphal/application/registry/registry_impl.hpp>
+#include <libcyphal/platform/storage.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -25,8 +28,10 @@ using namespace libcyphal::application::registry;  // NOLINT This our main conce
 
 using testing::_;
 using testing::Eq;
+using testing::Return;
 using testing::IsEmpty;
 using testing::Optional;
+using testing::StrictMock;
 using testing::ElementsAre;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers, bugprone-unchecked-optional-access)
@@ -64,6 +69,14 @@ protected:
         IRegister::Value::_traits_::TypeOf::integer32 int32arr{alloc_};
         std::copy(il.begin(), il.end(), std::back_inserter(int32arr.value));
         return int32arr;
+    }
+
+    IRegister::Value makeUInt8Value(const std::initializer_list<std::uint8_t>& il) const
+    {
+        IRegister::Value value{alloc_};
+        auto&            nat8 = value.set_natural8();
+        std::copy(il.begin(), il.end(), std::back_inserter(nat8.value));
+        return value;
     }
 
     IRegister::Value makeInt32Value(const std::initializer_list<std::int32_t>& il) const
@@ -254,6 +267,96 @@ TEST_F(TestRegistry, route_immutable)
     EXPECT_THAT(same_reg_result.value.get_integer32().value, ElementsAre(147));
     ASSERT_THAT(same_reg_value.is_integer32(), true);
     EXPECT_THAT(same_reg_value.get_integer32().value, ElementsAre(147));
+}
+
+TEST_F(TestRegistry, save)
+{
+    // Empty registry.
+    {
+        const StrictMock<IntrospectableRegistryMock>           rgy_mock;
+        StrictMock<libcyphal::platform::storage::KeyValueMock> key_value_mock;
+
+        EXPECT_CALL(rgy_mock, size()).WillOnce(Return(0));
+        EXPECT_THAT(save(key_value_mock, rgy_mock), Eq(cetl::nullopt));
+
+        EXPECT_CALL(rgy_mock, size()).WillOnce(Return(1));
+        EXPECT_CALL(rgy_mock, index(0)).WillOnce(Return(""));
+        EXPECT_THAT(save(key_value_mock, rgy_mock), Eq(cetl::nullopt));
+    }
+    // Reset values
+    {
+        const StrictMock<IntrospectableRegistryMock>           rgy_mock;
+        StrictMock<libcyphal::platform::storage::KeyValueMock> key_value_mock;
+
+        EXPECT_CALL(rgy_mock, size()).WillRepeatedly(Return(1));
+        EXPECT_CALL(rgy_mock, index(0)).WillRepeatedly(Return("A"));
+
+        // Successful drop.
+        //
+        EXPECT_CALL(key_value_mock, drop(IRegister::Name{"A"}))  //
+            .WillOnce(Return(cetl::nullopt));
+        EXPECT_THAT(save(key_value_mock, rgy_mock, [](const auto reg_name) { return reg_name == "A"; }),
+                    Eq(cetl::nullopt));
+
+        // Non-Existence drop.
+        //
+        EXPECT_CALL(key_value_mock, drop(IRegister::Name{"A"}))
+            .WillOnce(Return(libcyphal::platform::storage::Error::Existence));
+        EXPECT_THAT(save(key_value_mock, rgy_mock, [](const auto reg_name) { return reg_name == "A"; }),
+                    Eq(cetl::nullopt));
+
+        // Failure drop.
+        //
+        EXPECT_CALL(key_value_mock, drop(IRegister::Name{"A"}))
+            .WillOnce(Return(libcyphal::platform::storage::Error::Internal));
+        EXPECT_THAT(save(key_value_mock, rgy_mock, [](const auto reg_name) { return reg_name == "A"; }),
+                    Optional(libcyphal::platform::storage::Error::Internal));
+    }
+    // Store values
+    {
+        const StrictMock<IntrospectableRegistryMock>           rgy_mock;
+        StrictMock<libcyphal::platform::storage::KeyValueMock> key_value_mock;
+
+        // Successful save.
+        //
+        EXPECT_CALL(rgy_mock, size()).WillRepeatedly(Return(2));
+        EXPECT_CALL(rgy_mock, index(0)).WillRepeatedly(Return("A"));
+        EXPECT_CALL(rgy_mock, index(1)).WillRepeatedly(Return("B"));
+        EXPECT_CALL(rgy_mock, get(IRegister::Name{"A"}))  // Emulate that 'A' is gone - should be skipped.
+            .WillOnce(Return(cetl::nullopt));
+        EXPECT_CALL(rgy_mock, get(IRegister::Name{"B"}))  //
+            .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x42, 0xFE}), {true, true}}));
+        EXPECT_CALL(key_value_mock, put(IRegister::Name{"B"}, ElementsAre(11, 2, 0, 0x42, 0xFE)))  //
+            .WillOnce(Return(cetl::nullopt));
+        EXPECT_THAT(save(key_value_mock, rgy_mock), Eq(cetl::nullopt));
+
+        // Failure save.
+        //
+        EXPECT_CALL(rgy_mock, size()).WillRepeatedly(Return(1));
+        EXPECT_CALL(rgy_mock, index(0)).WillRepeatedly(Return("A"));
+        EXPECT_CALL(rgy_mock, get(IRegister::Name{"A"}))
+            .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x42, 0xFE}), {true, true}}));
+        EXPECT_CALL(key_value_mock, put(IRegister::Name{"A"}, _))  //
+            .WillOnce(Return(libcyphal::platform::storage::Error::IO));
+        EXPECT_THAT(save(key_value_mock, rgy_mock), Optional(libcyphal::platform::storage::Error::IO));
+    }
+    // Skip immutable or non-persistent registers
+    {
+        const StrictMock<IntrospectableRegistryMock>           rgy_mock;
+        StrictMock<libcyphal::platform::storage::KeyValueMock> key_value_mock;
+
+        EXPECT_CALL(rgy_mock, size()).WillRepeatedly(Return(3));
+        EXPECT_CALL(rgy_mock, index(0)).WillRepeatedly(Return("A"));
+        EXPECT_CALL(rgy_mock, index(1)).WillRepeatedly(Return("B"));
+        EXPECT_CALL(rgy_mock, index(2)).WillRepeatedly(Return("C"));
+        EXPECT_CALL(rgy_mock, get(IRegister::Name{"A"}))
+            .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x01}), {true, false}}));
+        EXPECT_CALL(rgy_mock, get(IRegister::Name{"B"}))
+            .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x02}), {false, true}}));
+        EXPECT_CALL(rgy_mock, get(IRegister::Name{"C"}))
+            .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x03}), {false, false}}));
+        EXPECT_THAT(save(key_value_mock, rgy_mock), Eq(cetl::nullopt));
+    }
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers, bugprone-unchecked-optional-access)

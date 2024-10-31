@@ -7,6 +7,7 @@
 #define LIBCYPHAL_APPLICATION_REGISTRY_IMPL_HPP_INCLUDED
 
 #include "libcyphal/common/cavl/cavl.hpp"
+#include "libcyphal/platform/storage.hpp"
 #include "register.hpp"
 #include "register_impl.hpp"
 #include "registry.hpp"
@@ -14,6 +15,9 @@
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 
+#include <uavcan/_register/Value_1_0.hpp>
+
+#include <array>
 #include <cstddef>
 
 namespace libcyphal
@@ -158,6 +162,86 @@ private:
     cavl::Tree<IRegister>       registers_tree_;
 
 };  // Registry
+
+// MARK: -
+
+/// Saves all persistent mutable registers from the registry to the storage.
+///
+/// The register savior is the counterpart of load().
+/// Registers that are not persistent OR not mutable will not be saved;
+/// the reason immutable registers are not saved is that they are assumed to be constant or runtime-computed,
+/// so there is no point wasting storage on them (which may be limited).
+/// Eventually, this logic should be decoupled from the network register presentation facade by introducing more
+/// fine-grained register flags, such as "internally mutable" and "externally mutable".
+///
+/// Existing stored registers that are not found in the registry will not be altered.
+/// In case of failure, one failure handling strategy is to clear or reformat the entire storage and try again.
+///
+/// The removal predicate allows the caller to specify which registers need to be removed from the storage
+/// instead of being saved. This is useful for implementing the "factory reset" feature.
+///
+/// @param kv The key-value storage to save the registers to.
+/// @param rgy The registry to save the registers from.
+/// @param reset_predicate The predicate to determine which registers should be removed from the storage.
+///                        Should have `bool(const IRegister::Name)` signature.
+/// @return Nothing in case of success.
+///         Otherwise, the very first error encountered (on which we stopped the registry enumeration).
+///
+template <typename ResetPredicate>
+auto save(platform::storage::IKeyValue&  kv,
+          const IIntrospectableRegistry& rgy,
+          const ResetPredicate&          reset_predicate) -> cetl::optional<platform::storage::Error>
+{
+    for (std::size_t index = 0; index < rgy.size(); index++)
+    {
+        const IRegister::Name reg_name = rgy.index(index);
+        if (reg_name.empty())
+        {
+            // No more registers to store.
+            break;
+        }
+
+        // Reset is handled before any other checks to enhance forward compatibility.
+        if (reset_predicate(reg_name))
+        {
+            if (const auto err = kv.drop(reg_name))
+            {
+                if (err.value() != platform::storage::Error::Existence)
+                {
+                    return err;
+                }
+            }
+            continue;
+        }
+
+        // If we get nothing, this means that the register has disappeared from the register.
+        if (const auto reg_meta = rgy.get(reg_name))
+        {
+            // We do not save immutable registers because they are assumed to be constant, so no need to waste storage.
+            if (reg_meta->flags.persistent && reg_meta->flags._mutable)
+            {
+                // We don't expect to have any serialization errors here,
+                // b/c `SerializationBufferSizeBytes` sized buffer should always be big enough.
+                std::array<std::uint8_t, IRegister::Value::_traits_::SerializationBufferSizeBytes> buffer;
+                const auto buffer_size = serialize(reg_meta->value, buffer);
+                CETL_DEBUG_ASSERT(buffer_size.has_value(), "");
+
+                if (const auto err = kv.put(reg_name, {buffer.data(), buffer_size.value()}))
+                {
+                    return err;
+                }
+            }
+        }
+
+    }  // for every register
+
+    return cetl::nullopt;
+}
+inline cetl::optional<platform::storage::Error> save(platform::storage::IKeyValue&  kv,
+                                                     const IIntrospectableRegistry& rgy)
+{
+    return save(kv, rgy, [](const IRegister::Name) { return false; });
+}
 
 }  // namespace registry
 }  // namespace application
