@@ -319,7 +319,7 @@ TEST_F(TestRegistry, load)
                 return 1UL;
             }));
         EXPECT_CALL(key_value_mock, get(IRegister::Name{"B"}, _))  //
-            .WillOnce(Return(4UL));
+            .WillOnce(Return(0UL));
         //
         EXPECT_CALL(rgy_mock, set(IRegister::Name{"A"}, RegisterValueEq(makeUInt8Value({}))))  //
             .WillOnce(Return(cetl::nullopt));
