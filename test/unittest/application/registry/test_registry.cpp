@@ -41,6 +41,8 @@ using testing::ElementsAre;
 class TestRegistry : public testing::Test
 {
 protected:
+    using StorageError = libcyphal::platform::storage::Error;
+
     void SetUp() override
     {
         cetl::pmr::set_default_resource(&mr_default_);
@@ -297,22 +299,29 @@ TEST_F(TestRegistry, load)
         EXPECT_CALL(rgy_mock, index(0)).WillOnce(Return("A"));
         EXPECT_CALL(rgy_mock, get(IRegister::Name{"A"}))  // Emulate that 'A' is gone - should be skipped.
             .WillOnce(Return(cetl::nullopt));
+
         EXPECT_THAT(load(key_value_mock, rgy_mock), Eq(cetl::nullopt));
     }
-    // Load values
+    // Successful load.
     {
         RegistryMock rgy_mock;
         KeyValueMock key_value_mock;
 
-        // Successful load.
-        //
-        EXPECT_CALL(rgy_mock, size()).WillOnce(Return(2));
+        EXPECT_CALL(rgy_mock, size()).WillOnce(Return(3));
         EXPECT_CALL(rgy_mock, index(0)).WillOnce(Return("A"));
         EXPECT_CALL(rgy_mock, index(1)).WillOnce(Return("B"));
+        EXPECT_CALL(rgy_mock, index(2)).WillOnce(Return("C"));
         EXPECT_CALL(rgy_mock, get(IRegister::Name{"A"}))  //
             .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x01}), {false, true}}));
         EXPECT_CALL(rgy_mock, get(IRegister::Name{"B"}))  //
             .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x02}), {true, true}}));
+        EXPECT_CALL(rgy_mock, get(IRegister::Name{"C"}))  // non-persistent - should be skipped.
+            .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x02}), {true, false}}));
+        EXPECT_CALL(rgy_mock, set(IRegister::Name{"A"}, RegisterValueEq(makeUInt8Value({}))))  //
+            .WillOnce(Return(cetl::nullopt));
+        EXPECT_CALL(rgy_mock, set(IRegister::Name{"B"}, RegisterValueEq(makeEmptyValue())))  //
+            .WillOnce(Return(cetl::nullopt));
+
         EXPECT_CALL(key_value_mock, get(IRegister::Name{"A"}, _))  //
             .WillOnce(Invoke([](const auto, const auto s) {
                 s[0] = IRegister::Value::VariantType::IndexOf::natural8;
@@ -320,12 +329,105 @@ TEST_F(TestRegistry, load)
             }));
         EXPECT_CALL(key_value_mock, get(IRegister::Name{"B"}, _))  //
             .WillOnce(Return(0UL));
-        //
-        EXPECT_CALL(rgy_mock, set(IRegister::Name{"A"}, RegisterValueEq(makeUInt8Value({}))))  //
-            .WillOnce(Return(cetl::nullopt));
+
+        EXPECT_THAT(load(key_value_mock, rgy_mock), Eq(cetl::nullopt));
+    }
+}
+
+TEST_F(TestRegistry, load_failures)
+{
+    using RegistryMock = StrictMock<IntrospectableRegistryMock>;
+    using KeyValueMock = const StrictMock<libcyphal::platform::storage::KeyValueMock>;
+
+    // Skip non-existing registers.
+    {
+        RegistryMock rgy_mock;
+        KeyValueMock key_value_mock;
+
+        EXPECT_CALL(rgy_mock, size()).WillOnce(Return(2));
+        EXPECT_CALL(rgy_mock, index(0)).WillOnce(Return("A"));
+        EXPECT_CALL(rgy_mock, index(1)).WillOnce(Return("B"));
+        EXPECT_CALL(rgy_mock, get(IRegister::Name{"A"}))  //
+            .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x01}), {true, true}}));
+        EXPECT_CALL(rgy_mock, get(IRegister::Name{"B"}))  //
+            .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x02}), {true, true}}));
         EXPECT_CALL(rgy_mock, set(IRegister::Name{"B"}, RegisterValueEq(makeEmptyValue())))  //
             .WillOnce(Return(cetl::nullopt));
-        //
+
+        EXPECT_CALL(key_value_mock, get(IRegister::Name{"A"}, _))  //
+            .WillOnce(Return(StorageError::Existence));
+        EXPECT_CALL(key_value_mock, get(IRegister::Name{"B"}, _))  //
+            .WillOnce(Return(0UL));
+
+        EXPECT_THAT(load(key_value_mock, rgy_mock), Eq(cetl::nullopt));
+    }
+    // Failure to get key-value
+    {
+        RegistryMock rgy_mock;
+        KeyValueMock key_value_mock;
+
+        EXPECT_CALL(rgy_mock, size()).WillOnce(Return(2));
+        EXPECT_CALL(rgy_mock, index(0)).WillOnce(Return("A"));
+        EXPECT_CALL(rgy_mock, get(IRegister::Name{"A"}))  //
+            .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x01}), {true, true}}));
+
+        EXPECT_CALL(key_value_mock, get(IRegister::Name{"A"}, _))  //
+            .WillOnce(Return(StorageError::IO));
+
+        EXPECT_THAT(load(key_value_mock, rgy_mock), Optional(StorageError::IO));
+    }
+    // Failure to set registers - will be ignored.
+    {
+        RegistryMock rgy_mock;
+        KeyValueMock key_value_mock;
+
+        EXPECT_CALL(rgy_mock, size()).WillOnce(Return(2));
+        EXPECT_CALL(rgy_mock, index(0)).WillOnce(Return("A"));
+        EXPECT_CALL(rgy_mock, index(1)).WillOnce(Return("B"));
+        EXPECT_CALL(rgy_mock, get(IRegister::Name{"A"}))  //
+            .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x01}), {true, true}}));
+        EXPECT_CALL(rgy_mock, get(IRegister::Name{"B"}))  //
+            .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x02}), {false, true}}));
+        EXPECT_CALL(rgy_mock, set(IRegister::Name{"A"}, RegisterValueEq(makeEmptyValue())))  //
+            .WillOnce(Return(SetError::Existence));
+        EXPECT_CALL(rgy_mock, set(IRegister::Name{"B"}, RegisterValueEq(makeEmptyValue())))  //
+            .WillOnce(Return(SetError::Semantics));
+
+        EXPECT_CALL(key_value_mock, get(IRegister::Name{"A"}, _))  //
+            .WillOnce(Return(0UL));
+        EXPECT_CALL(key_value_mock, get(IRegister::Name{"B"}, _))  //
+            .WillOnce(Return(0UL));
+
+        EXPECT_THAT(load(key_value_mock, rgy_mock), Eq(cetl::nullopt));
+    }
+    // Failure to deserialize key-value - will be ignored.
+    {
+        constexpr auto ExtentBytes = IRegister::Value::_traits_::TypeOf::natural8::_traits_::ExtentBytes;
+
+        RegistryMock rgy_mock;
+        KeyValueMock key_value_mock;
+
+        EXPECT_CALL(rgy_mock, size()).WillOnce(Return(2));
+        EXPECT_CALL(rgy_mock, index(0)).WillOnce(Return("A"));
+        EXPECT_CALL(rgy_mock, index(1)).WillOnce(Return("B"));
+        EXPECT_CALL(rgy_mock, get(IRegister::Name{"A"}))  //
+            .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x01}), {true, true}}));
+        EXPECT_CALL(rgy_mock, get(IRegister::Name{"B"}))  //
+            .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x02}), {false, true}}));
+        EXPECT_CALL(rgy_mock, set(IRegister::Name{"B"}, RegisterValueEq(makeEmptyValue())))  //
+            .WillOnce(Return(SetError::Semantics));
+
+        EXPECT_CALL(key_value_mock, get(IRegister::Name{"A"}, _))  //
+            .WillOnce(Invoke([](const auto, const auto s) {
+                s[0] = IRegister::Value::VariantType::IndexOf::natural8;
+                // These will make deserializing to fail (due to SerializationBadArrayLength).
+                s[1] = static_cast<std::uint8_t>(ExtentBytes);
+                s[2] = static_cast<std::uint8_t>(ExtentBytes >> 8UL);
+                return 3UL;
+            }));
+        EXPECT_CALL(key_value_mock, get(IRegister::Name{"B"}, _))  //
+            .WillOnce(Return(0UL));
+
         EXPECT_THAT(load(key_value_mock, rgy_mock), Eq(cetl::nullopt));
     }
 }
@@ -355,26 +457,23 @@ TEST_F(TestRegistry, save)
         EXPECT_CALL(rgy_mock, size()).WillRepeatedly(Return(1));
         EXPECT_CALL(rgy_mock, index(0)).WillRepeatedly(Return("A"));
 
+        const auto is_reg_A = [](const IRegister::Name reg_name) { return reg_name == "A"; };
+
         // Successful drop.
         //
         EXPECT_CALL(key_value_mock, drop(IRegister::Name{"A"}))  //
             .WillOnce(Return(cetl::nullopt));
-        EXPECT_THAT(save(key_value_mock, rgy_mock, [](const auto reg_name) { return reg_name == "A"; }),
-                    Eq(cetl::nullopt));
+        EXPECT_THAT(save(key_value_mock, rgy_mock, is_reg_A), Eq(cetl::nullopt));
 
         // Non-Existence drop.
         //
-        EXPECT_CALL(key_value_mock, drop(IRegister::Name{"A"}))
-            .WillOnce(Return(libcyphal::platform::storage::Error::Existence));
-        EXPECT_THAT(save(key_value_mock, rgy_mock, [](const auto reg_name) { return reg_name == "A"; }),
-                    Eq(cetl::nullopt));
+        EXPECT_CALL(key_value_mock, drop(IRegister::Name{"A"})).WillOnce(Return(StorageError::Existence));
+        EXPECT_THAT(save(key_value_mock, rgy_mock, is_reg_A), Eq(cetl::nullopt));
 
-        // Failure drop.
+        // Failure to drop.
         //
-        EXPECT_CALL(key_value_mock, drop(IRegister::Name{"A"}))
-            .WillOnce(Return(libcyphal::platform::storage::Error::Internal));
-        EXPECT_THAT(save(key_value_mock, rgy_mock, [](const auto reg_name) { return reg_name == "A"; }),
-                    Optional(libcyphal::platform::storage::Error::Internal));
+        EXPECT_CALL(key_value_mock, drop(IRegister::Name{"A"})).WillOnce(Return(StorageError::Internal));
+        EXPECT_THAT(save(key_value_mock, rgy_mock, is_reg_A), Optional(StorageError::Internal));
     }
     // Store values
     {
@@ -390,19 +489,11 @@ TEST_F(TestRegistry, save)
             .WillOnce(Return(cetl::nullopt));
         EXPECT_CALL(rgy_mock, get(IRegister::Name{"B"}))  //
             .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x42, 0xFE}), {true, true}}));
+
         EXPECT_CALL(key_value_mock, put(IRegister::Name{"B"}, ElementsAre(11, 2, 0, 0x42, 0xFE)))  //
             .WillOnce(Return(cetl::nullopt));
-        EXPECT_THAT(save(key_value_mock, rgy_mock), Eq(cetl::nullopt));
 
-        // Failure save.
-        //
-        EXPECT_CALL(rgy_mock, size()).WillOnce(Return(1));
-        EXPECT_CALL(rgy_mock, index(0)).WillRepeatedly(Return("A"));
-        EXPECT_CALL(rgy_mock, get(IRegister::Name{"A"}))
-            .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x42, 0xFE}), {true, true}}));
-        EXPECT_CALL(key_value_mock, put(IRegister::Name{"A"}, _))  //
-            .WillOnce(Return(libcyphal::platform::storage::Error::IO));
-        EXPECT_THAT(save(key_value_mock, rgy_mock), Optional(libcyphal::platform::storage::Error::IO));
+        EXPECT_THAT(save(key_value_mock, rgy_mock), Eq(cetl::nullopt));
     }
     // Skip immutable or non-persistent registers
     {
@@ -419,8 +510,28 @@ TEST_F(TestRegistry, save)
             .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x02}), {false, true}}));
         EXPECT_CALL(rgy_mock, get(IRegister::Name{"C"}))
             .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x03}), {false, false}}));
+
         EXPECT_THAT(save(key_value_mock, rgy_mock), Eq(cetl::nullopt));
     }
+}
+
+TEST_F(TestRegistry, save_failures)
+{
+    using RegistryMock = const StrictMock<IntrospectableRegistryMock>;
+    using KeyValueMock = StrictMock<libcyphal::platform::storage::KeyValueMock>;
+
+    RegistryMock rgy_mock;
+    KeyValueMock key_value_mock;
+
+    EXPECT_CALL(rgy_mock, size()).WillOnce(Return(1));
+    EXPECT_CALL(rgy_mock, index(0)).WillRepeatedly(Return("A"));
+    EXPECT_CALL(rgy_mock, get(IRegister::Name{"A"}))
+        .WillOnce(Return(IRegister::ValueAndFlags{makeUInt8Value({0x42, 0xFE}), {true, true}}));
+
+    EXPECT_CALL(key_value_mock, put(IRegister::Name{"A"}, _))  //
+        .WillOnce(Return(StorageError::IO));
+
+    EXPECT_THAT(save(key_value_mock, rgy_mock), Optional(StorageError::IO));
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers, bugprone-unchecked-optional-access)
