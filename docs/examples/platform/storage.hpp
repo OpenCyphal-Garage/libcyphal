@@ -30,7 +30,7 @@ namespace storage
 class KeyValue final : public libcyphal::platform::storage::IKeyValue
 {
 public:
-    KeyValue(std::string root_path)
+    explicit KeyValue(std::string root_path)
         : root_path_{std::move(root_path)}
     {
         if ((mkdir(root_path_.c_str(), 0755) != 0) && (errno != EEXIST))
