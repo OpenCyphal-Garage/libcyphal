@@ -67,6 +67,8 @@ class TestUdpSvcTxSessions : public testing::Test
 protected:
     void SetUp() override
     {
+        cetl::pmr::set_default_resource(&mr_);
+
         EXPECT_CALL(media_mock_, makeTxSocket())  //
             .WillRepeatedly(Invoke([this] {
                 return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock_);

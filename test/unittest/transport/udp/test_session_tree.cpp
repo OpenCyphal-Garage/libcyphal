@@ -63,6 +63,11 @@ protected:
         std::function<void(const std::string&)> notifier_;
     };
 
+    void SetUp() override
+    {
+        cetl::pmr::set_default_resource(&mr_);
+    }
+
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());

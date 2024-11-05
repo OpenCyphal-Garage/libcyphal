@@ -78,6 +78,8 @@ class TestCanSvcRxSessions : public testing::Test
 protected:
     void SetUp() override
     {
+        cetl::pmr::set_default_resource(&mr_);
+
         EXPECT_CALL(media_mock_, getMtu())  //
             .WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
     }

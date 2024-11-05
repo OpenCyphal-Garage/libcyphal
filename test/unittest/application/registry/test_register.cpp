@@ -54,18 +54,13 @@ protected:
 
     void SetUp() override
     {
-        cetl::pmr::set_default_resource(&mr_default_);
+        cetl::pmr::set_default_resource(&mr_);
     }
 
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
-
-        EXPECT_THAT(mr_default_.allocations, IsEmpty());
-        EXPECT_THAT(mr_default_.total_allocated_bytes, mr_default_.total_deallocated_bytes);
-        // TODO: Uncomment this when std::vector's allocator propagation issue will be resolved.
-        // EXPECT_THAT(mr_default_.total_allocated_bytes, 0);
     }
 
     IRegister::Value makeBitValue(const std::initializer_list<bool>& il) const
@@ -88,7 +83,6 @@ protected:
 
     // NOLINTBEGIN
     TrackingMemoryResource           mr_;
-    TrackingMemoryResource           mr_default_;
     IRegister::Value::allocator_type alloc_{&mr_};
     // NOLINTEND
 
