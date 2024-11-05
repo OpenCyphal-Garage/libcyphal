@@ -29,7 +29,7 @@ enum class Error : std::uint8_t
     API,        ///< Bad API invocation (e.g., null pointer).
     Capacity,   ///< No space left on the storage device.
     IO,         ///< Device input/output error.
-    Internal,   ///< Internal failure in the filesystem (storage corruption or logic error).
+    Internal,   ///< Internal failure in the storage implementation (storage corruption or logic error).
 
 };  // Error
 
@@ -62,7 +62,6 @@ public:
     /// Store data under a key.
     ///
     /// Existing data, if any, is replaced entirely.
-    /// New file and its parent directories created implicitly.
     /// Either all or none of the data bytes are written.
     ///
     /// @param key The key of the value to store.

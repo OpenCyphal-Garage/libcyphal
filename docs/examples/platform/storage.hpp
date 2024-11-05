@@ -43,6 +43,9 @@ public:
 private:
     using Error = libcyphal::platform::storage::Error;
 
+    /// In practice, the keys could be hashed, so it won't be necessary to deal with directory nesting.
+    /// This is fine b/c we don't need key listing, and so we don't have to retain the key names.
+    ///
     std::string makeFilePath(const cetl::string_view key) const
     {
         return root_path_ + "/" + std::string{key.cbegin(), key.cend()};
