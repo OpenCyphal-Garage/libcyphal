@@ -11,6 +11,7 @@
 #include "platform/common_helpers.hpp"
 #include "platform/posix/posix_single_threaded_executor.hpp"
 #include "platform/posix/udp/udp_media.hpp"
+#include "platform/storage.hpp"
 #include "platform/tracking_memory_resource.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -155,7 +156,7 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
                 std::min(node_name.size(), 50UL),
                 std::back_inserter(node.getInfoProvider().response().name));
 
-    // 4. Bring up registry provider, and expose several registers.
+    // 4. Bring up registry provider, and expose several registers. Load persistent storage.
     //
     registry::Registry rgy{mr_};
     ASSERT_THAT(node.makeRegistryProvider(rgy), Eq(cetl::nullopt));
@@ -166,7 +167,7 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
     //
     auto& get_info   = node.getInfoProvider().response();
     auto  param_name = rgy.route(  //
-        "name",
+        "uavcan.node.description",
         [this, &get_info] { return makeStringValue(registry::makeStringView(get_info.name)); },
         [&get_info](const registry::IRegister::Value& value) -> cetl::optional<registry::SetError> {
             //
@@ -176,7 +177,11 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
                 return cetl::nullopt;
             }
             return registry::SetError::Semantics;
-        });
+        },
+        {true});  // persist
+    //
+    storage::KeyValue platform_storage("/tmp/org.opencyphal.ex_2_app_0");
+    load(platform_storage, rgy);
 
     // 5. Main loop.
     //
@@ -196,6 +201,8 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
         }
         EXPECT_THAT(executor_.pollAwaitableResourcesFor(opt_timeout), testing::Eq(cetl::nullopt));
     }
+
+    save(platform_storage, rgy);
 
     std::cout << "Done.\n-----------\nStats:\n";
     std::cout << "worst_callback_lateness  = " << worst_lateness.count() << " us\n";
