@@ -171,7 +171,7 @@ TEST_F(Example_1_Presentation_2_Heartbeat_GetInfo_Udp, main)
     ASSERT_THAT(heartbeat_subscriber, testing::Optional(testing::_));
     heartbeat_subscriber->setOnReceiveCallback([&](const auto& arg) {
         //
-        state.heartbeat_.print(arg.approx_now - startup_time_, arg.message, arg.metadata);
+        NodeHelpers::Heartbeat::print(arg.approx_now - startup_time_, arg.message, arg.metadata);
     });
 
     // Bring up 'GetInfo' server.

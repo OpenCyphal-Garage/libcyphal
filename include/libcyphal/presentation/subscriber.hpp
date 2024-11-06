@@ -106,9 +106,10 @@ private:
 ///
 /// @tparam Message The message type of the subscriber. This type has the following requirements:
 ///                 - contains nested `allocator_type`, which is a PMR allocator
-///                 - constructible with the PMR allocator.
+///                 - constructible with the PMR allocator
 ///                 - contains `_traits_::ExtentBytes` constant
-///                 - has freestanding `deserialize` function under its namespace (so that ADL will find it).
+///                 - contains `_traits_::FullNameAndVersion()` static constexpr method (-> `const char*`)
+///                 - has freestanding `deserialize` function under its namespace (so that ADL will find it)
 ///
 template <typename Message>
 class Subscriber final : public detail::SubscriberBase
@@ -147,7 +148,7 @@ private:
 
     explicit Subscriber(detail::SubscriberImpl* const impl)
         : SubscriberBase{impl,
-                         {Deserializer::getTypeId<Message>(),
+                         {Deserializer::TypeIdGenerator<Message>::get(),
                           Deserializer::deserializeMsgOnceForManySubs<Message, Subscriber>}}
     {
     }
@@ -209,7 +210,8 @@ private:
     friend class detail::SubscriberImpl;
 
     explicit Subscriber(detail::SubscriberImpl* const impl)
-        : SubscriberBase{impl, {Deserializer::getTypeId<void>(), Deserializer::passRawMessageAsIs<Subscriber>}}
+        : SubscriberBase{impl,
+                         {Deserializer::TypeIdGenerator<void>::get(), Deserializer::passRawMessageAsIs<Subscriber>}}
     {
     }
 

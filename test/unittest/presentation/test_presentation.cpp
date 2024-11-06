@@ -86,6 +86,10 @@ struct SubMessage final
         static constexpr bool          HasFixedPortID = true;
         static constexpr std::uint16_t FixedPortId    = 147U;
         static constexpr std::size_t   ExtentBytes    = sizeof(std::uint64_t);
+        static constexpr const char*   FullNameAndVersion()
+        {
+            return "Custom.SubMessage.1.0";
+        }
     };
 
     explicit SubMessage(const allocator_type& alloc)
