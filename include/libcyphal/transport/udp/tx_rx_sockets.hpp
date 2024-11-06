@@ -14,10 +14,8 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <udpard.h>
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
-#include <memory>  // TODO: use CETL pmr instead
 
 namespace libcyphal
 {
