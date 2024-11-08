@@ -24,7 +24,6 @@
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
-#include <cassert>  // NOLINT for NUNAVUT_ASSERT
 #include <nunavut/support/serialization.hpp>
 #include <uavcan/node/GetInfo_1_0.hpp>
 
