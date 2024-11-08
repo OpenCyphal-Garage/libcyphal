@@ -108,7 +108,7 @@ public:
     GetInfoProvider& setUniqueId(const cetl::span<const std::uint8_t> id) noexcept
     {
         response_.unique_id = {};
-        std::copy_n(id.data(), std::min(id.size(), response_.unique_id.size()), response_.unique_id.begin());
+        (void) std::copy_n(id.data(), std::min(id.size(), response_.unique_id.size()), response_.unique_id.begin());
         return *this;
     }
 
