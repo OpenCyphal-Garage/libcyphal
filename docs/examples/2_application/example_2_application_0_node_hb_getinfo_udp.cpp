@@ -30,6 +30,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -153,10 +154,13 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
     ASSERT_THAT(maybe_node, testing::VariantWith<Node>(testing::_)) << "Can't create node.";
     auto node = cetl::get<Node>(std::move(maybe_node));
     //
-    const std::string node_name{"org.opencyphal.Ex_2_App_0_Node_UDP"};
-    std::copy_n(node_name.begin(),
-                std::min(node_name.size(), 50UL),
-                std::back_inserter(node.getInfoProvider().response().name));
+    auto& get_info_prov = node.getInfoProvider();
+    get_info_prov  //
+        .setSoftwareVersion(0, 1)
+        .setHardwareVersion(0, 2)
+        .setName("org.opencyphal.Ex_2_App_0_Node_UDP")
+        .setCertificateOfAuthenticity("my_cert")
+        .setUniqueId(std::array<std::uint8_t, 3>{0x12, 0x34, 0x56});
 
     // 4. Bring up registry provider, and expose several registers. Load persistent storage.
     //
@@ -167,15 +171,14 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
     const BitArray param_ro_val{BitArray::_traits_::TypeOf::value{{true, false}, mr_alloc_}, mr_alloc_};
     auto           param_ro = rgy.route("ro", [&param_ro_val] { return param_ro_val; });
     //
-    auto& get_info   = node.getInfoProvider().response();
-    auto  param_name = rgy.route(  //
+    auto param_name = rgy.route(  //
         "uavcan.node.description",
-        [this, &get_info] { return makeStringValue(registry::makeStringView(get_info.name)); },
-        [&get_info](const registry::IRegister::Value& value) -> cetl::optional<registry::SetError> {
+        [this, &get_info_prov] { return makeStringValue(registry::makeStringView(get_info_prov.response().name)); },
+        [&get_info_prov](const registry::IRegister::Value& value) -> cetl::optional<registry::SetError> {
             //
             if (const auto* const str = value.get_string_if())
             {
-                get_info.name = str->value;
+                get_info_prov.setName(registry::makeStringView(str->value));
                 return cetl::nullopt;
             }
             return registry::SetError::Semantics;

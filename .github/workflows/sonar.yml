@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
       - name: get nunavut
         run: >
-          pip install git+https://github.com/OpenCyphal/nunavut.git@6954793a60e1ee528d1f825cd5231f2516f76cf9
+          pip install git+https://github.com/OpenCyphal/nunavut.git@sshirokov/issue_353_array_capacity
       - name: Install sonar-scanner and build-wrapper
         uses: SonarSource/sonarcloud-github-c-cpp@v2
       - name: Run tests
