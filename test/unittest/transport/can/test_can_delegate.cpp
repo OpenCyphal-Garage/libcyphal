@@ -71,6 +71,11 @@ protected:
         MOCK_METHOD(void, onSessionEvent, (const SessionEvent::Variant& event_var), (override));
     };
 
+    void SetUp() override
+    {
+        cetl::pmr::set_default_resource(&mr_);
+    }
+
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());

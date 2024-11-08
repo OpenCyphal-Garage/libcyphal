@@ -63,7 +63,7 @@ protected:
 
     void SetUp() override
     {
-        cetl::pmr::set_default_resource(&mr_default_);
+        cetl::pmr::set_default_resource(&mr_);
 
         EXPECT_CALL(transport_mock_, getProtocolParams())
             .WillRepeatedly(Return(ProtocolParams{std::numeric_limits<TransferId>::max(), 0, 0}));
@@ -73,10 +73,6 @@ protected:
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
-
-        EXPECT_THAT(mr_default_.allocations, IsEmpty());
-        EXPECT_THAT(mr_default_.total_allocated_bytes, mr_default_.total_deallocated_bytes);
-        EXPECT_THAT(mr_default_.total_allocated_bytes, 0);
     }
 
     TimePoint now() const
@@ -89,7 +85,6 @@ protected:
     // NOLINTBEGIN
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
-    TrackingMemoryResource          mr_default_;
     StrictMock<TransportMock>       transport_mock_;
     // NOLINTEND
 };

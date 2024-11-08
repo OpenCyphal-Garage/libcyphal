@@ -71,6 +71,11 @@ class TestSubscriber : public testing::Test
 protected:
     using UniquePtrMsgRxSpec = MessageRxSessionMock::RefWrapper::Spec;
 
+    void SetUp() override
+    {
+        cetl::pmr::set_default_resource(&mr_);
+    }
+
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());

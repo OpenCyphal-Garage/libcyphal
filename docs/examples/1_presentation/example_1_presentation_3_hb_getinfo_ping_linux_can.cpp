@@ -160,6 +160,8 @@ protected:
 
     void SetUp() override
     {
+        cetl::pmr::set_default_resource(&mr_);
+
         // Duration in seconds for which the test will run. Default is 10 seconds.
         if (const auto* const run_duration_str = std::getenv("CYPHAL__RUN"))
         {

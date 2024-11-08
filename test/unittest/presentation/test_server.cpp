@@ -66,6 +66,11 @@ protected:
     using UniquePtrReqRxSpec = RequestRxSessionMock::RefWrapper::Spec;
     using UniquePtrResTxSpec = ResponseTxSessionMock::RefWrapper::Spec;
 
+    void SetUp() override
+    {
+        cetl::pmr::set_default_resource(&mr_);
+    }
+
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
