@@ -90,6 +90,7 @@ protected:
 
 // MARK: - Tests:
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestGetInfoProvider, make)
 {
     using Service = uavcan::node::GetInfo_1_0;

@@ -16,8 +16,8 @@
 #include <uavcan/node/GetInfo_1_0.hpp>
 
 #include <algorithm>
-#include <cstdint>
 #include <chrono>
+#include <cstdint>
 #include <iterator>
 #include <utility>
 
@@ -122,7 +122,7 @@ public:
     ///
     /// @return Reference to self for method chaining.
     ///
-    GetInfoProvider& setProtocolVersion(const std::uint8_t major, const std::uint8_t minor) noexcept
+    GetInfoProvider& setProtocolVersion(const std::uint8_t major, const std::uint8_t minor) noexcept  // NOLINT
     {
         response_.protocol_version.major = major;
         response_.protocol_version.minor = minor;
@@ -135,7 +135,7 @@ public:
     ///
     /// @return Reference to self for method chaining.
     ///
-    GetInfoProvider& setHardwareVersion(const std::uint8_t major, const std::uint8_t minor) noexcept
+    GetInfoProvider& setHardwareVersion(const std::uint8_t major, const std::uint8_t minor) noexcept  // NOLINT
     {
         response_.hardware_version.major = major;
         response_.hardware_version.minor = minor;
@@ -148,7 +148,7 @@ public:
     ///
     /// @return Reference to self for method chaining.
     ///
-    GetInfoProvider& setSoftwareVersion(const std::uint8_t major, const std::uint8_t minor) noexcept
+    GetInfoProvider& setSoftwareVersion(const std::uint8_t major, const std::uint8_t minor) noexcept  // NOLINT
     {
         response_.software_version.major = major;
         response_.software_version.minor = minor;
