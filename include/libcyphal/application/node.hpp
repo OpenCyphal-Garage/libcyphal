@@ -10,6 +10,7 @@
 #include "libcyphal/types.hpp"
 #include "node/get_info_provider.hpp"
 #include "node/heartbeat_producer.hpp"
+#include "node/registry_provider.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 
@@ -56,7 +57,8 @@ public:
             return std::move(*failure);
         }
 
-        return Node{cetl::get<node::GetInfoProvider>(std::move(maybe_get_info_provider)),
+        return Node{presentation,
+                    cetl::get<node::GetInfoProvider>(std::move(maybe_get_info_provider)),
                     cetl::get<node::HeartbeatProducer>(std::move(maybe_heartbeat_producer))};
     }
 
@@ -78,17 +80,57 @@ public:
         return heartbeat_producer_;
     }
 
+    /// @brief Gets reference to the optional 'RegistryProvider' component.
+    ///
+    /// By default, node does not create the registry provider (`cetl::nullopt`).
+    /// Use `makeRegistryProvider` method to create the registry provider.
+    ///
+    cetl::optional<node::RegistryProvider>& getRegistryProvider() noexcept
+    {
+        return registry_provider_;
+    }
+
+    /// @brief Makes a new 'RegistryProvider' component.
+    ///
+    /// Replaces the existing one if it was already created.
+    /// Use `getRegistryProvider` method to get a reference to the provider optional.
+    ///
+    /// @param registry Interface to the registry to be exposed by its provider component.
+    /// @return Possible failure to make a new provider instance. `nullptr` on success.
+    ///
+    cetl::optional<MakeFailure> makeRegistryProvider(registry::IIntrospectableRegistry& registry)
+    {
+        // Reset the existing provider if any.
+        // Otherwise, the new provider will not be created
+        // b/c its internal servers will not be able to bind to the same ports.
+        registry_provider_.reset();
+
+        auto maybe_provider = node::RegistryProvider::make(presentation_, registry);
+        if (auto* const failure = cetl::get_if<MakeFailure>(&maybe_provider))
+        {
+            return std::move(*failure);
+        }
+
+        (void) registry_provider_.emplace(cetl::get<node::RegistryProvider>(std::move(maybe_provider)));
+        return cetl::nullopt;
+    }
+
 private:
-    Node(node::GetInfoProvider&& get_info_provider, node::HeartbeatProducer&& heartbeat_producer) noexcept
-        : get_info_provider_{std::move(get_info_provider)}
+    Node(presentation::Presentation& presentation,
+         node::GetInfoProvider&&     get_info_provider,
+         node::HeartbeatProducer&&   heartbeat_producer) noexcept
+        : presentation_{presentation}
+        , get_info_provider_{std::move(get_info_provider)}
         , heartbeat_producer_{std::move(heartbeat_producer)}
     {
     }
 
     // MARK: Data members:
 
-    node::GetInfoProvider   get_info_provider_;
-    node::HeartbeatProducer heartbeat_producer_;
+    presentation::Presentation&            presentation_;
+    node::GetInfoProvider                  get_info_provider_;
+    node::HeartbeatProducer                heartbeat_producer_;
+    cetl::optional<node::RegistryProvider> registry_provider_;
 
 };  // Node
 

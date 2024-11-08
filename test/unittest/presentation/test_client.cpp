@@ -26,6 +26,7 @@
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
+#include <cassert>  // NOLINT for NUNAVUT_ASSERT
 #include <nunavut/support/serialization.hpp>
 #include <uavcan/node/GetInfo_1_0.hpp>
 
@@ -77,6 +78,8 @@ protected:
 
     void SetUp() override
     {
+        cetl::pmr::set_default_resource(&mr_);
+
         EXPECT_CALL(transport_mock_, getProtocolParams())
             .WillRepeatedly(Return(ProtocolParams{std::numeric_limits<TransferId>::max(), 0, 0}));
     }

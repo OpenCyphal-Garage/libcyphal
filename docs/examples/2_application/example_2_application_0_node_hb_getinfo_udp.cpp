@@ -11,15 +11,20 @@
 #include "platform/common_helpers.hpp"
 #include "platform/posix/posix_single_threaded_executor.hpp"
 #include "platform/posix/udp/udp_media.hpp"
+#include "platform/storage.hpp"
 #include "platform/tracking_memory_resource.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/application/node.hpp>
+#include <libcyphal/application/registry/register.hpp>
+#include <libcyphal/application/registry/registry_impl.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
 #include <libcyphal/transport/udp/udp_transport_impl.hpp>
 #include <libcyphal/types.hpp>
+
+#include <uavcan/primitive/array/Bit_1_0.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -46,6 +51,7 @@ using std::literals::chrono_literals::operator""s;
 using std::literals::chrono_literals::operator""ms;
 // NOLINTEND(misc-unused-using-decls, misc-include-cleaner)
 
+using testing::Eq;
 using testing::IsEmpty;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
@@ -59,6 +65,8 @@ protected:
 
     void SetUp() override
     {
+        cetl::pmr::set_default_resource(&mr_);
+
         // Duration in seconds for which the test will run. Default is 10 seconds.
         if (const auto* const run_duration_str = std::getenv("CYPHAL__RUN"))
         {
@@ -87,14 +95,12 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
-    TimePoint now() const
+    registry::IRegister::Value makeStringValue(const cetl::string_view sv) const
     {
-        return executor_.now();
-    }
-
-    Duration uptime() const
-    {
-        return executor_.now() - startup_time_;
+        registry::IRegister::Value value{mr_alloc_};
+        auto&                      str = value.set_string();
+        std::copy(sv.begin(), sv.end(), std::back_inserter(str.value));
+        return value;
     }
 
     // MARK: Data members:
@@ -107,12 +113,13 @@ protected:
 
     };  // State
 
-    TrackingMemoryResource            mr_;
-    posix::PollSingleThreadedExecutor executor_{mr_};
-    TimePoint                         startup_time_{};
-    libcyphal::transport::NodeId      local_node_id_{42};
-    Duration                          run_duration_{10s};
-    std::vector<std::string>          iface_addresses_{"127.0.0.1"};
+    TrackingMemoryResource                 mr_;
+    cetl::pmr::polymorphic_allocator<void> mr_alloc_{&mr_};
+    posix::PollSingleThreadedExecutor      executor_{mr_};
+    TimePoint                              startup_time_{};
+    libcyphal::transport::NodeId           local_node_id_{42};
+    Duration                               run_duration_{10s};
+    std::vector<std::string>               iface_addresses_{"127.0.0.1"};
     // NOLINTEND
 
 };  // Example_1_Presentation_1_PingUserService_Udp
@@ -125,19 +132,18 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
     std::cout << "Local  node ID: " << local_node_id_ << "\n";
     std::cout << "Interfaces    : '" << CommonHelpers::joinInterfaceAddresses(iface_addresses_) << "'\n";
 
-    // 1. Make UDP transport with collection of media.
+    // 1. Make UDP transport with a collection of media.
     //
     constexpr std::size_t tx_capacity = 16;
     state.media_collection_.make(mr_, executor_, iface_addresses_);
-    auto maybe_transport =
-        libcyphal::transport::udp::makeTransport({mr_}, executor_, state.media_collection_.span(), tx_capacity);
+    auto maybe_transport = makeTransport({mr_}, executor_, state.media_collection_.span(), tx_capacity);
     ASSERT_THAT(maybe_transport, testing::VariantWith<UdpTransportPtr>(testing::NotNull()))
         << "Can't create transport.";
     state.transport_ = cetl::get<UdpTransportPtr>(std::move(maybe_transport));
     state.transport_->setLocalNodeId(local_node_id_);
     state.transport_->setTransientErrorHandler(CommonHelpers::Udp::transientErrorReporter);
 
-    // 2. Create presentation layer object.
+    // 2. Create a presentation layer object.
     //
     libcyphal::presentation::Presentation presentation{mr_, executor_, *state.transport_};
 
@@ -152,7 +158,34 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
                 std::min(node_name.size(), 50UL),
                 std::back_inserter(node.getInfoProvider().response().name));
 
-    // 4. Main loop.
+    // 4. Bring up registry provider, and expose several registers. Load persistent storage.
+    //
+    registry::Registry rgy{mr_};
+    ASSERT_THAT(node.makeRegistryProvider(rgy), Eq(cetl::nullopt));
+    //
+    using BitArray = uavcan::primitive::array::Bit_1_0;
+    const BitArray param_ro_val{BitArray::_traits_::TypeOf::value{{true, false}, mr_alloc_}, mr_alloc_};
+    auto           param_ro = rgy.route("ro", [&param_ro_val] { return param_ro_val; });
+    //
+    auto& get_info   = node.getInfoProvider().response();
+    auto  param_name = rgy.route(  //
+        "uavcan.node.description",
+        [this, &get_info] { return makeStringValue(registry::makeStringView(get_info.name)); },
+        [&get_info](const registry::IRegister::Value& value) -> cetl::optional<registry::SetError> {
+            //
+            if (const auto* const str = value.get_string_if())
+            {
+                get_info.name = str->value;
+                return cetl::nullopt;
+            }
+            return registry::SetError::Semantics;
+        },
+        {true});  // persist
+    //
+    storage::KeyValue platform_storage("/tmp/org.opencyphal.ex_2_app_0");
+    load(platform_storage, rgy);
+
+    // 5. Main loop.
     //
     Duration        worst_lateness{0};
     const TimePoint deadline = startup_time_ + run_duration_ + 500ms;
@@ -170,6 +203,8 @@ TEST_F(Example_2_Application_0_NodeHeartbeatGetInfo_Udp, main)
         }
         EXPECT_THAT(executor_.pollAwaitableResourcesFor(opt_timeout), testing::Eq(cetl::nullopt));
     }
+
+    save(platform_storage, rgy);
 
     std::cout << "Done.\n-----------\nStats:\n";
     std::cout << "worst_callback_lateness  = " << worst_lateness.count() << " us\n";

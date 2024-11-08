@@ -20,6 +20,7 @@
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
+#include <cassert>  // NOLINT for NUNAVUT_ASSERT
 #include <nunavut/support/serialization.hpp>
 #include <uavcan/node/Heartbeat_1_0.hpp>
 
@@ -63,6 +64,11 @@ class TestPublisher : public testing::Test
 {
 protected:
     using UniquePtrMsgTxSpec = MessageTxSessionMock::RefWrapper::Spec;
+
+    void SetUp() override
+    {
+        cetl::pmr::set_default_resource(&mr_);
+    }
 
     void TearDown() override
     {

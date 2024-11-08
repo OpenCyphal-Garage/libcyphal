@@ -36,6 +36,11 @@ using testing::ElementsAre;
 class TestContiguousPayload : public testing::Test
 {
 protected:
+    void SetUp() override
+    {
+        cetl::pmr::set_default_resource(&mr_);
+    }
+
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());

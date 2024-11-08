@@ -15,6 +15,7 @@
 #include <libcyphal/errors.hpp>
 #include <libcyphal/presentation/client.hpp>
 #include <libcyphal/presentation/client_impl.hpp>
+#include <libcyphal/presentation/common_helpers.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/publisher.hpp>
 #include <libcyphal/presentation/publisher_impl.hpp>
@@ -28,6 +29,7 @@
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
+#include <cassert>  // NOLINT for NUNAVUT_ASSERT
 #include <nunavut/support/serialization.hpp>
 #include <uavcan/node/GetInfo_1_0.hpp>
 #include <uavcan/node/Heartbeat_1_0.hpp>
@@ -177,6 +179,8 @@ protected:
 
     void SetUp() override
     {
+        cetl::pmr::set_default_resource(&mr_);
+
         EXPECT_CALL(transport_mock_, getProtocolParams())
             .WillRepeatedly(Return(ProtocolParams{std::numeric_limits<TransferId>::max(), 0, 0}));
     }
@@ -195,9 +199,10 @@ protected:
     // MARK: Data members:
 
     // NOLINTBEGIN
-    libcyphal::VirtualTimeScheduler scheduler_{};
-    TrackingMemoryResource          mr_;
-    StrictMock<TransportMock>       transport_mock_;
+    libcyphal::VirtualTimeScheduler        scheduler_{};
+    TrackingMemoryResource                 mr_;
+    cetl::pmr::polymorphic_allocator<void> mr_alloc_{&mr_};
+    StrictMock<TransportMock>              transport_mock_;
     // NOLINTEND
 };
 
@@ -788,6 +793,17 @@ TEST_F(TestPresentation, makeClient_with_failure)
             rx_params.extent_bytes);
         EXPECT_THAT(maybe_client, VariantWith<Presentation::MakeFailure>(VariantWith<MemoryError>(_)));
     }
+}
+
+TEST_F(TestPresentation, tryDeserialize_coverage)
+{
+    using namespace libcyphal::presentation::detail;  // NOLINT
+
+    Custom::Service::Request request{mr_alloc_};
+    EXPECT_THAT(tryDeserializePayload({}, mr_, request), Eq(cetl::nullopt));
+
+    Custom::SubMessage message{mr_alloc_};
+    EXPECT_THAT(tryDeserializePayload({}, mr_, message), Eq(cetl::nullopt));
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

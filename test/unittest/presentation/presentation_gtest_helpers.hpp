@@ -15,6 +15,7 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/visit_helpers.hpp>
 
+#include <cassert>  // NOLINT for NUNAVUT_ASSERT
 #include <nunavut/support/serialization.hpp>
 
 #include <gtest/gtest-printers.h>

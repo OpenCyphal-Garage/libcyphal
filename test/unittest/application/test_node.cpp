@@ -3,6 +3,7 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include "application/registry/registry_mock.hpp"
 #include "gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "tracking_memory_resource.hpp"
 #include "transport/msg_sessions_mock.hpp"
@@ -16,9 +17,13 @@
 #include <libcyphal/errors.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
+#include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
+#include <uavcan/_register/Access_1_0.hpp>
+#include <uavcan/_register/List_1_0.hpp>
+#include <uavcan/node/GetInfo_1_0.hpp>
 #include <uavcan/node/Health_1_0.hpp>
 #include <uavcan/node/Heartbeat_1_0.hpp>
 
@@ -41,9 +46,11 @@ using namespace libcyphal::presentation;  // NOLINT This our main concern here i
 using namespace libcyphal::transport;     // NOLINT This our main concern here in the unit tests.
 
 using testing::_;
+using testing::Eq;
 using testing::Invoke;
 using testing::Return;
 using testing::IsEmpty;
+using testing::Optional;
 using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
@@ -65,6 +72,8 @@ protected:
 
     void SetUp() override
     {
+        cetl::pmr::set_default_resource(&mr_);
+
         EXPECT_CALL(transport_mock_, getProtocolParams())
             .WillRepeatedly(Return(ProtocolParams{std::numeric_limits<TransferId>::max(), 0, 0}));
     }
@@ -75,45 +84,60 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
-    TimePoint now() const
-    {
-        return scheduler_.now();
-    }
-
     void setupDefaultExpectations()
     {
-        EXPECT_CALL(getinfo_req_rx_session_mock_, setOnReceiveCallback(_)).WillRepeatedly(Return());
-        EXPECT_CALL(getinfo_req_rx_session_mock_, deinit()).Times(1);
-
-        EXPECT_CALL(getinfo_res_tx_session_mock_, deinit()).Times(1);
+        getinfo_svc_cnxt_.expectSvcServerSessions<uavcan::node::GetInfo_1_0>(mr_, transport_mock_);
 
         constexpr MessageTxParams tx_params{uavcan::node::Heartbeat_1_0::_traits_::FixedPortId};
         EXPECT_CALL(heartbeat_msg_tx_session_mock_, getParams()).WillOnce(Return(tx_params));
         EXPECT_CALL(heartbeat_msg_tx_session_mock_, deinit()).Times(1);
-
-        EXPECT_CALL(transport_mock_, makeRequestRxSession(_))  //
-            .WillOnce(Invoke([&](const auto&) {                //
-                return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr_, getinfo_req_rx_session_mock_);
-            }));
-        EXPECT_CALL(transport_mock_, makeResponseTxSession(_))  //
-            .WillOnce(Invoke([&](const auto&) {                 //
-                return libcyphal::detail::makeUniquePtr<UniquePtrResTxSpec>(mr_, getinfo_res_tx_session_mock_);
-            }));
         EXPECT_CALL(transport_mock_, makeMessageTxSession(_))  //
             .WillOnce(Invoke([&](const auto&) {                //
                 return libcyphal::detail::makeUniquePtr<UniquePtrMsgTxSpec>(mr_, heartbeat_msg_tx_session_mock_);
             }));
     }
 
+    struct SvcServerContext
+    {
+        IRequestRxSession::OnReceiveCallback::Function req_rx_cb_fn;
+        StrictMock<RequestRxSessionMock>               req_rx_session_mock;
+        StrictMock<ResponseTxSessionMock>              res_tx_session_mock;
+
+        template <typename Service>
+        void expectSvcServerSessions(TrackingMemoryResource& mr, TransportMock& transport_mock)
+        {
+            EXPECT_CALL(req_rx_session_mock, setOnReceiveCallback(_))  //
+                .WillRepeatedly(Invoke([&](auto&& cb_fn) {             //
+                    req_rx_cb_fn = std::forward<IRequestRxSession::OnReceiveCallback::Function>(cb_fn);
+                }));
+
+            constexpr RequestRxParams rx_params{Service::Request::_traits_::ExtentBytes,
+                                                Service::Request::_traits_::FixedPortId};
+            EXPECT_CALL(transport_mock, makeRequestRxSession(RequestRxParamsEq(rx_params)))
+                .WillOnce(Invoke([&](const auto&) {
+                    return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr, req_rx_session_mock);
+                }));
+
+            constexpr ResponseTxParams tx_params{Service::Response::_traits_::FixedPortId};
+            EXPECT_CALL(transport_mock, makeResponseTxSession(ResponseTxParamsEq(tx_params)))
+                .WillOnce(Invoke([&](const auto&) {
+                    return libcyphal::detail::makeUniquePtr<UniquePtrResTxSpec>(mr, res_tx_session_mock);
+                }));
+
+            EXPECT_CALL(req_rx_session_mock, deinit()).Times(1);
+            EXPECT_CALL(res_tx_session_mock, deinit()).Times(1);
+        }
+
+    };  // SvcServerContext
+
     // MARK: Data members:
 
     // NOLINTBEGIN
-    libcyphal::VirtualTimeScheduler   scheduler_{};
-    TrackingMemoryResource            mr_;
-    StrictMock<TransportMock>         transport_mock_;
-    StrictMock<RequestRxSessionMock>  getinfo_req_rx_session_mock_;
-    StrictMock<ResponseTxSessionMock> getinfo_res_tx_session_mock_;
-    StrictMock<MessageTxSessionMock>  heartbeat_msg_tx_session_mock_;
+    libcyphal::VirtualTimeScheduler  scheduler_{};
+    TrackingMemoryResource           mr_;
+    StrictMock<TransportMock>        transport_mock_;
+    SvcServerContext                 getinfo_svc_cnxt_;
+    StrictMock<MessageTxSessionMock> heartbeat_msg_tx_session_mock_;
     // NOLINTEND
 };
 
@@ -121,6 +145,8 @@ protected:
 
 TEST_F(TestNode, make)
 {
+    Presentation presentation{mr_, scheduler_, transport_mock_};
+
     setupDefaultExpectations();
 
     EXPECT_CALL(transport_mock_, getLocalNodeId())  //
@@ -128,8 +154,6 @@ TEST_F(TestNode, make)
 
     cetl::optional<Node>                    node;
     std::vector<std::tuple<TimePoint, int>> calls;
-
-    Presentation presentation{mr_, scheduler_, transport_mock_};
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
@@ -194,6 +218,8 @@ TEST_F(TestNode, move)
     static_assert(!std::is_copy_constructible<Node>::value, "Should not be copy constructible.");
     static_assert(!std::is_default_constructible<Node>::value, "Should not be default constructible.");
 
+    Presentation presentation{mr_, scheduler_, transport_mock_};
+
     setupDefaultExpectations();
 
     EXPECT_CALL(heartbeat_msg_tx_session_mock_, send(_, _))  //
@@ -206,8 +232,6 @@ TEST_F(TestNode, move)
     cetl::optional<Node>   node1;
     cetl::optional<Node>   node2;
     std::vector<TimePoint> calls;
-
-    Presentation presentation{mr_, scheduler_, transport_mock_};
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
@@ -226,6 +250,74 @@ TEST_F(TestNode, move)
     scheduler_.spinFor(5s);
 
     EXPECT_THAT(calls, ElementsAre(TimePoint{1s}, TimePoint{2s}, TimePoint{3s}, TimePoint{4s}));
+}
+
+TEST_F(TestNode, makeRegistryProvider)
+{
+    using ListService   = uavcan::_register::List_1_0;
+    using AccessService = uavcan::_register::Access_1_0;
+
+    Presentation presentation{mr_, scheduler_, transport_mock_};
+
+    setupDefaultExpectations();
+
+    SvcServerContext list_svc_cnxt;
+    list_svc_cnxt.expectSvcServerSessions<ListService>(mr_, transport_mock_);
+    SvcServerContext access_svc_cnxt;
+    access_svc_cnxt.expectSvcServerSessions<AccessService>(mr_, transport_mock_);
+
+    EXPECT_CALL(heartbeat_msg_tx_session_mock_, send(_, _))  //
+        .WillRepeatedly(Return(cetl::nullopt));
+
+    EXPECT_CALL(transport_mock_, getLocalNodeId())  //
+        .WillRepeatedly(Return(cetl::optional<NodeId>{NodeId{42U}}));
+
+    registry::IntrospectableRegistryMock registry_mock;
+
+    cetl::optional<Node> node;
+
+    scheduler_.scheduleAt(1s, [&](const auto&) {
+        //
+        auto maybe_node = Node::make(presentation);
+        ASSERT_THAT(maybe_node, VariantWith<Node>(_));
+        node.emplace(cetl::get<Node>(std::move(maybe_node)));
+
+        EXPECT_THAT(node->getRegistryProvider(), Eq(cetl::nullopt));
+    });
+    scheduler_.scheduleAt(2s, [&](const auto&) {
+        //
+        EXPECT_THAT(node->makeRegistryProvider(registry_mock), Eq(cetl::nullopt));
+        EXPECT_THAT(node->getRegistryProvider(), Optional(_));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        node.reset();
+    });
+    scheduler_.spinFor(10s);
+}
+
+TEST_F(TestNode, makeRegistryProvider_failure)
+{
+    Presentation presentation{mr_, scheduler_, transport_mock_};
+
+    setupDefaultExpectations();
+
+    EXPECT_CALL(heartbeat_msg_tx_session_mock_, send(_, _))  //
+        .WillRepeatedly(Return(cetl::nullopt));
+
+    EXPECT_CALL(transport_mock_, getLocalNodeId())  //
+        .WillRepeatedly(Return(cetl::optional<NodeId>{NodeId{42U}}));
+
+    registry::IntrospectableRegistryMock registry_mock;
+
+    auto maybe_node = Node::make(presentation);
+    ASSERT_THAT(maybe_node, VariantWith<Node>(_));
+    auto node = cetl::get<Node>(std::move(maybe_node));
+
+    EXPECT_CALL(transport_mock_, makeRequestRxSession(_))  //
+        .WillOnce(Return(libcyphal::ArgumentError{}));
+
+    EXPECT_THAT(node.makeRegistryProvider(registry_mock), Optional(VariantWith<libcyphal::ArgumentError>(_)));
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

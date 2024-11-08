@@ -13,6 +13,7 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/application/node/get_info_provider.hpp>
+#include <libcyphal/application/registry/register.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
@@ -41,7 +42,6 @@ using testing::Invoke;
 using testing::Return;
 using testing::IsEmpty;
 using testing::StrictMock;
-using testing::ElementsAre;
 using testing::VariantWith;
 
 // https://github.com/llvm/llvm-project/issues/53444
@@ -60,6 +60,8 @@ protected:
 
     void SetUp() override
     {
+        cetl::pmr::set_default_resource(&mr_);
+
         EXPECT_CALL(transport_mock_, getProtocolParams())
             .WillRepeatedly(Return(ProtocolParams{std::numeric_limits<TransferId>::max(), 0, 0}));
     }
@@ -107,7 +109,7 @@ TEST_F(TestGetInfoProvider, make)
         .WillOnce(Invoke([&](const auto&) {                                           //
             return libcyphal::detail::makeUniquePtr<UniquePtrReqRxSpec>(mr_, req_rx_session_mock);
         }));
-    constexpr ResponseTxParams tx_params{Service::Request::_traits_::FixedPortId};
+    constexpr ResponseTxParams tx_params{Service::Response::_traits_::FixedPortId};
     EXPECT_CALL(transport_mock_, makeResponseTxSession(ResponseTxParamsEq(tx_params)))  //
         .WillOnce(Invoke([&](const auto&) {                                             //
             return libcyphal::detail::makeUniquePtr<UniquePtrResTxSpec>(mr_, res_tx_session_mock);
@@ -154,7 +156,7 @@ TEST_F(TestGetInfoProvider, make)
                 EXPECT_TRUE(libcyphal::verification_utilities::tryDeserialize(response, fragments));
                 EXPECT_THAT(response.protocol_version.major, 1);
                 EXPECT_THAT(response.software_version.major, 7);
-                EXPECT_THAT(response.name, ElementsAre('t', 'e', 's', 't'));
+                EXPECT_THAT(registry::makeStringView(response.name), "test");
                 return cetl::nullopt;
             }));
 

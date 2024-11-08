@@ -25,6 +25,8 @@
 #include <libcyphal/transport/udp/udp_transport.hpp>
 #include <libcyphal/transport/udp/udp_transport_impl.hpp>
 #include <libcyphal/types.hpp>
+
+#include <cassert>  // NOLINT for NUNAVUT_ASSERT
 #include <nunavut/support/serialization.hpp>
 
 #include <gmock/gmock.h>
@@ -151,6 +153,8 @@ protected:
 
     void SetUp() override
     {
+        cetl::pmr::set_default_resource(&mr_);
+
         // Duration in seconds for which the test will run. Default is 10 seconds.
         if (const auto* const run_duration_str = std::getenv("CYPHAL__RUN"))
         {

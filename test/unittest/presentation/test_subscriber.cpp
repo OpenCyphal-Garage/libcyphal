@@ -71,6 +71,11 @@ class TestSubscriber : public testing::Test
 protected:
     using UniquePtrMsgRxSpec = MessageRxSessionMock::RefWrapper::Spec;
 
+    void SetUp() override
+    {
+        cetl::pmr::set_default_resource(&mr_);
+    }
+
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
@@ -176,13 +181,13 @@ TEST_F(TestSubscriber, onReceive)
     NiceMock<ScatteredBufferStorageMock> storage_mock;
     ScatteredBufferStorageMock::Wrapper  storage{&storage_mock};
     EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(Message::_traits_::SerializationBufferSizeBytes));
-    EXPECT_CALL(storage_mock, copy(_, _, _))                           //
+    EXPECT_CALL(storage_mock, copy(0, _, _))                           //
         .WillRepeatedly(Invoke([&](auto, auto* const dst, auto len) {  //
             //
             std::array<std::uint8_t, Message::_traits_::SerializationBufferSizeBytes> buffer{};
             const auto result = serialize(test_message, buffer);
             const auto size   = std::min(result.value(), len);
-            (void) std::memmove(dst, &test_message, size);
+            (void) std::memmove(dst, buffer.data(), size);
             return size;
         }));
 

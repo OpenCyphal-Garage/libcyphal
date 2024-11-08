@@ -24,6 +24,7 @@
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
+#include <cassert>  // NOLINT for NUNAVUT_ASSERT
 #include <nunavut/support/serialization.hpp>
 #include <uavcan/node/GetInfo_1_0.hpp>
 
@@ -64,6 +65,11 @@ class TestServer : public testing::Test
 protected:
     using UniquePtrReqRxSpec = RequestRxSessionMock::RefWrapper::Spec;
     using UniquePtrResTxSpec = ResponseTxSessionMock::RefWrapper::Spec;
+
+    void SetUp() override
+    {
+        cetl::pmr::set_default_resource(&mr_);
+    }
 
     void TearDown() override
     {

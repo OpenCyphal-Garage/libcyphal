@@ -83,6 +83,11 @@ protected:
 
     };  // TransportDelegateImpl
 
+    void SetUp() override
+    {
+        cetl::pmr::set_default_resource(&general_mr_);
+    }
+
     void TearDown() override
     {
         EXPECT_THAT(general_mr_.allocations, IsEmpty());

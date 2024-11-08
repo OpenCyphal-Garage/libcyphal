@@ -16,6 +16,7 @@
 #include "platform/posix/udp/udp_media.hpp"
 #include "platform/tracking_memory_resource.hpp"
 
+#include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/udp_transport.hpp>
 #include <libcyphal/types.hpp>
@@ -55,6 +56,8 @@ class Example_0_Transport_1_Heartbeat_GetInfo_Udp : public testing::Test
 protected:
     void SetUp() override
     {
+        cetl::pmr::set_default_resource(&mr_);
+
         // Duration in seconds for which the test will run. Default is 10 seconds.
         if (const auto* const run_duration_str = std::getenv("CYPHAL__RUN"))
         {
