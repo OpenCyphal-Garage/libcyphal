@@ -112,10 +112,6 @@ public:
         return *this;
     }
 
-    // using software_vcs_revision_id = std::uint64_t;
-    // using software_image_crc = cetl::VariableLengthArray<std::uint64_t,
-    // std::allocator_traits<allocator_type>::rebind_alloc<std::uint64_t>>;
-
     /// @brief Sets the node protocol version in the GetInfo response.
     ///
     /// Default is '1.0'.
@@ -152,6 +148,31 @@ public:
     {
         response_.software_version.major = major;
         response_.software_version.minor = minor;
+        return *this;
+    }
+
+    /// @brief Sets the node software Version Control System (VCS) revision in the GetInfo response.
+    ///
+    /// Default is `0`.
+    ///
+    /// @return Reference to self for method chaining.
+    ///
+    GetInfoProvider& setSoftwareVcsRevisionId(const std::uint64_t revision_id)
+    {
+        response_.software_vcs_revision_id = revision_id;
+        return *this;
+    }
+
+    /// @brief Sets the node software image CRC in the GetInfo response.
+    ///
+    /// Default is empty (not present).
+    ///
+    /// @return Reference to self for method chaining.
+    ///
+    GetInfoProvider& setSoftwareImageCrc(const std::uint64_t crc)
+    {
+        response_.software_image_crc.clear();
+        response_.software_image_crc.push_back(crc);
         return *this;
     }
 
@@ -210,7 +231,7 @@ private:
         const auto dst_size = std::min(value.size(), Capacity);
         field.clear();
         field.reserve(dst_size);
-        std::copy_n(value.begin(), dst_size, std::back_inserter(field));
+        (void) std::copy_n(value.begin(), dst_size, std::back_inserter(field));
         return *this;
     }
 

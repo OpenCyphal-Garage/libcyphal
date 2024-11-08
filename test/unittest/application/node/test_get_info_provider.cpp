@@ -150,6 +150,7 @@ TEST_F(TestGetInfoProvider, make)
             .setSoftwareVersion(7, 4)
             .setHardwareVersion(2, 3)
             .setResponseTimeout(100ms)
+            .setSoftwareVcsRevisionId(0x12345678)
             .setCertificateOfAuthenticity("my_cert");
 
         EXPECT_CALL(res_tx_session_mock,
@@ -167,6 +168,8 @@ TEST_F(TestGetInfoProvider, make)
                 EXPECT_THAT(registry::makeStringView(response.name), "test");
                 EXPECT_THAT(registry::makeStringView(response.certificate_of_authenticity), "my_cert");
                 EXPECT_THAT(response.unique_id, Each(0));
+                EXPECT_THAT(response.software_vcs_revision_id, 0x12345678);
+                EXPECT_THAT(response.software_image_crc, IsEmpty());
                 return cetl::nullopt;
             }));
 
@@ -182,11 +185,14 @@ TEST_F(TestGetInfoProvider, make)
                                    .setUniqueId(std::array<std::uint8_t, 4>{1, 2, 3, 4})
                                    .setUniqueId(std::array<std::uint8_t, 3>{1, 2, 3})
                                    .setProtocolVersion(6, 9)
+                                   .setSoftwareImageCrc(0x12345678UL)
+                                   .setSoftwareImageCrc(0x98765432UL)
                                    .response();
 
         EXPECT_THAT(response.protocol_version.major, 6);
         EXPECT_THAT(response.protocol_version.minor, 9);
         EXPECT_THAT(response.unique_id, ElementsAre(1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+        EXPECT_THAT(response.software_image_crc, ElementsAre(0x98765432UL));
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {
         //
