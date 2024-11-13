@@ -410,17 +410,13 @@ TEST_F(TestPresentation, makeSubscriber_raw)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    scheduler_.scheduleAt(1s, [&](const auto&) {
-        //
-        auto maybe_sub1 = presentation.makeSubscriber(rx_params.subject_id, rx_params.extent_bytes);
-        EXPECT_THAT(maybe_sub1, VariantWith<Subscriber<void>>(_));
+    auto maybe_sub1 = presentation.makeSubscriber(rx_params.subject_id, rx_params.extent_bytes);
+    EXPECT_THAT(maybe_sub1, VariantWith<Subscriber<void>>(_));
 
-        auto maybe_sub2 = presentation.makeSubscriber(rx_params.subject_id, rx_params.extent_bytes, [](const auto&) {});
-        EXPECT_THAT(maybe_sub2, VariantWith<Subscriber<void>>(_));
+    auto maybe_sub2 = presentation.makeSubscriber(rx_params.subject_id, rx_params.extent_bytes, [](const auto&) {});
+    EXPECT_THAT(maybe_sub2, VariantWith<Subscriber<void>>(_));
 
-        EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);
-    });
-    scheduler_.spinFor(10s);
+    EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);
 }
 
 TEST_F(TestPresentation, makeSubscriber_with_failure)
