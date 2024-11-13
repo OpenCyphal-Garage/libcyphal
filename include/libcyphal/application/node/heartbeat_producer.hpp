@@ -101,7 +101,7 @@ public:
         ///
         struct Arg
         {
-            /// Holds current heartbeat message.
+            /// Holds the current heartbeat message.
             Message& message;
 
             /// Holds the approximate time when the callback was called.
@@ -110,7 +110,7 @@ public:
 
         /// @brief Defines signature of the heartbeat update callback function.
         ///
-        /// Size of the function is arbitrary (4 pointers), but should be enough for simple lambdas.
+        /// The size of the function is arbitrary (4 pointers), but should be enough for simple lambdas.
         ///
         static constexpr std::size_t FunctionSize = sizeof(void*) * 4;
         using Function                            = cetl::pmr::function<void(const Arg& arg), FunctionSize>;

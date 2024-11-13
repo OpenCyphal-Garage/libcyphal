@@ -29,7 +29,6 @@
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
-#include <cassert>  // NOLINT for NUNAVUT_ASSERT
 #include <nunavut/support/serialization.hpp>
 #include <uavcan/node/GetInfo_1_0.hpp>
 #include <uavcan/node/Heartbeat_1_0.hpp>
@@ -86,6 +85,10 @@ struct SubMessage final
         static constexpr bool          HasFixedPortID = true;
         static constexpr std::uint16_t FixedPortId    = 147U;
         static constexpr std::size_t   ExtentBytes    = sizeof(std::uint64_t);
+        static constexpr const char*   FullNameAndVersion()
+        {
+            return "Custom.SubMessage.1.0";
+        }
     };
 
     explicit SubMessage(const allocator_type& alloc)

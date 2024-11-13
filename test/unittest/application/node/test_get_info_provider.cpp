@@ -24,8 +24,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <algorithm>
-#include <iterator>
+#include <array>
+#include <cstdint>
 #include <limits>
 #include <utility>
 
@@ -38,10 +38,12 @@ using namespace libcyphal::presentation;  // NOLINT This our main concern here i
 using namespace libcyphal::transport;     // NOLINT This our main concern here in the unit tests.
 
 using testing::_;
+using testing::Each;
 using testing::Invoke;
 using testing::Return;
 using testing::IsEmpty;
 using testing::StrictMock;
+using testing::ElementsAre;
 using testing::VariantWith;
 
 // https://github.com/llvm/llvm-project/issues/53444
@@ -88,6 +90,7 @@ protected:
 
 // MARK: - Tests:
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(TestGetInfoProvider, make)
 {
     using Service = uavcan::node::GetInfo_1_0;
@@ -142,11 +145,13 @@ TEST_F(TestGetInfoProvider, make)
     });
     scheduler_.scheduleAt(3s, [&](const auto&) {
         //
-        auto& info                  = get_info_provider->response();
-        info.software_version.major = 7;
-        std::copy_n("test", 4, std::back_inserter(info.name));
-
-        get_info_provider->setResponseTimeout(100ms);
+        get_info_provider.value()
+            .setName("test")
+            .setSoftwareVersion(7, 4)
+            .setHardwareVersion(2, 3)
+            .setResponseTimeout(100ms)
+            .setSoftwareVcsRevisionId(0x12345678)
+            .setCertificateOfAuthenticity("my_cert");
 
         EXPECT_CALL(res_tx_session_mock,
                     send(ServiceTxMetadataEq({{{124, Priority::Nominal}, now() + 100ms}, NodeId{0x31}}), _))  //
@@ -155,8 +160,16 @@ TEST_F(TestGetInfoProvider, make)
                 Service::Response response{Service::Response::allocator_type{&mr_}};
                 EXPECT_TRUE(libcyphal::verification_utilities::tryDeserialize(response, fragments));
                 EXPECT_THAT(response.protocol_version.major, 1);
+                EXPECT_THAT(response.protocol_version.minor, 0);
                 EXPECT_THAT(response.software_version.major, 7);
+                EXPECT_THAT(response.software_version.minor, 4);
+                EXPECT_THAT(response.hardware_version.major, 2);
+                EXPECT_THAT(response.hardware_version.minor, 3);
                 EXPECT_THAT(registry::makeStringView(response.name), "test");
+                EXPECT_THAT(registry::makeStringView(response.certificate_of_authenticity), "my_cert");
+                EXPECT_THAT(response.unique_id, Each(0));
+                EXPECT_THAT(response.software_vcs_revision_id, 0x12345678);
+                EXPECT_THAT(response.software_image_crc, IsEmpty());
                 return cetl::nullopt;
             }));
 
@@ -164,6 +177,22 @@ TEST_F(TestGetInfoProvider, make)
         request.metadata.rx_meta.base.priority    = Priority::Nominal;
         request.metadata.rx_meta.timestamp        = now();
         req_rx_cb_fn({request});
+    });
+    scheduler_.scheduleAt(8s, [&](const auto&) {
+        //
+        const auto& response = get_info_provider
+                                   .value()  //
+                                   .setUniqueId(std::array<std::uint8_t, 4>{1, 2, 3, 4})
+                                   .setUniqueId(std::array<std::uint8_t, 3>{1, 2, 3})
+                                   .setProtocolVersion(6, 9)
+                                   .setSoftwareImageCrc(0x12345678UL)
+                                   .setSoftwareImageCrc(0x98765432UL)
+                                   .response();
+
+        EXPECT_THAT(response.protocol_version.major, 6);
+        EXPECT_THAT(response.protocol_version.minor, 9);
+        EXPECT_THAT(response.unique_id, ElementsAre(1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+        EXPECT_THAT(response.software_image_crc, ElementsAre(0x98765432UL));
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {
         //

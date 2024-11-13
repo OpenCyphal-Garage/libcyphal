@@ -10,6 +10,7 @@
 #include "shared_object.hpp"
 
 #include "libcyphal/common/cavl/cavl.hpp"
+#include "libcyphal/common/crc.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -53,18 +54,18 @@ public:
 
             };  // Context
 
-            using TypeId = std::uintptr_t;
+            using TypeId = std::uint64_t;
             template <typename Message>
-            static TypeId getTypeId() noexcept
+            struct TypeIdGenerator
             {
-                static const struct
+                static TypeId get() noexcept
                 {
-                } placeholder{};
-                // No Lint and Sonar cpp:S3630 "reinterpret_cast" should not be used" b/c it's a part of
-                // the type id/erasure pattern - we use this cast to be able to compare deserializers.
-                // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
-                return reinterpret_cast<TypeId>(&placeholder);  // NOSONAR : cpp:S3630
-            }
+                    const cetl::string_view type_name{Message::_traits_::FullNameAndVersion()};
+                    const common::CRC64WE   crc64{type_name.cbegin(), type_name.cend()};
+                    return crc64.get();
+                }
+
+            };  // TypeIdGenerator
 
             template <typename Message, typename Subscriber>
             static void deserializeMsgOnceForManySubs(Context& context)
@@ -301,6 +302,15 @@ private:
     CallbackNode*                                 next_cb_node_;
 
 };  // SubscriberImpl
+
+template <>
+struct SubscriberImpl::CallbackNode::Deserializer::TypeIdGenerator<void>
+{
+    static constexpr TypeId get() noexcept
+    {
+        return 0U;
+    }
+};
 
 }  // namespace detail
 }  // namespace presentation

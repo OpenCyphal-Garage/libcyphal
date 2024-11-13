@@ -233,11 +233,12 @@ using Register = ImplementationCell<IRegister, cetl::unbounded_variant<Footprint
 inline uavcan::_register::Name_1_0 makeRegisterName(const uavcan::_register::Name_1_0::allocator_type& alloc,
                                                     const IRegister::Name                              name)
 {
-    uavcan::_register::Name_1_0 out{alloc};
+    using uavcan::_register::Name_1_0;
+
+    Name_1_0 out{alloc};
     if (!name.empty())
     {
-        // TODO: Fix Nunavut to expose `ARRAY_CAPACITY` so we can use it here instead of 255 hardcode.
-        constexpr std::size_t NameCapacity = 255U;
+        constexpr auto NameCapacity = Name_1_0::_traits_::ArrayCapacity::name;
         out.name.resize(std::min(name.size(), NameCapacity));
 
         // No Sonar `cpp:S5356` b/c we need to pass name payload as raw data.

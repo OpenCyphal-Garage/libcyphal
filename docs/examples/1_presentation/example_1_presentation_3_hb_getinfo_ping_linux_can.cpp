@@ -27,12 +27,9 @@
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
-#include <cassert>  // NOLINT for NUNAVUT_ASSERT
 #include <nunavut/support/serialization.hpp>
 #include <uavcan/node/GetInfo_1_0.hpp>
-#include <uavcan/node/Health_1_0.hpp>
 #include <uavcan/node/Heartbeat_1_0.hpp>
-#include <uavcan/node/Mode_1_0.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
