@@ -58,11 +58,6 @@ using testing::IsEmpty;
 using testing::StrictMock;
 using testing::VariantWith;
 
-// https://github.com/llvm/llvm-project/issues/53444
-// NOLINTBEGIN(misc-unused-using-decls, misc-include-cleaner)
-using std::literals::chrono_literals::operator""s;
-// NOLINTEND(misc-unused-using-decls, misc-include-cleaner)
-
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 namespace Custom
@@ -231,17 +226,13 @@ TEST_F(TestPresentation, makePublisher)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    scheduler_.scheduleAt(1s, [&](const auto&) {
-        //
-        auto maybe_pub1 = presentation.makePublisher<Message>(tx_params.subject_id);
-        EXPECT_THAT(maybe_pub1, VariantWith<Publisher<Message>>(_));
+    auto maybe_pub1 = presentation.makePublisher<Message>(tx_params.subject_id);
+    EXPECT_THAT(maybe_pub1, VariantWith<Publisher<Message>>(_));
 
-        auto maybe_pub2 = presentation.makePublisher<Message>(tx_params.subject_id);
-        EXPECT_THAT(maybe_pub2, VariantWith<Publisher<Message>>(_));
+    auto maybe_pub2 = presentation.makePublisher<Message>(tx_params.subject_id);
+    EXPECT_THAT(maybe_pub2, VariantWith<Publisher<Message>>(_));
 
-        EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
-    });
-    scheduler_.spinFor(10s);
+    EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
 }
 
 TEST_F(TestPresentation, makePublisher_custom)
@@ -259,18 +250,14 @@ TEST_F(TestPresentation, makePublisher_custom)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    scheduler_.scheduleAt(1s, [&](const auto&) {
-        //
-        auto maybe_pub = presentation.makePublisher<Message>();
-        ASSERT_THAT(maybe_pub, VariantWith<Publisher<Message>>(_));
-        auto publisher_copy = cetl::get<Publisher<Message>>(maybe_pub);
+    auto maybe_pub = presentation.makePublisher<Message>();
+    ASSERT_THAT(maybe_pub, VariantWith<Publisher<Message>>(_));
+    auto publisher_copy = cetl::get<Publisher<Message>>(maybe_pub);
 
-        EXPECT_CALL(msg_tx_session_mock, send(_, _)).WillOnce(Return(cetl::nullopt));
-        EXPECT_THAT(publisher_copy.publish(now(), {}), Eq(cetl::nullopt));
+    EXPECT_CALL(msg_tx_session_mock, send(_, _)).WillOnce(Return(cetl::nullopt));
+    EXPECT_THAT(publisher_copy.publish(now(), {}), Eq(cetl::nullopt));
 
-        EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
-    });
-    scheduler_.spinFor(10s);
+    EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
 }
 
 TEST_F(TestPresentation, makePublisher_raw)
@@ -286,14 +273,10 @@ TEST_F(TestPresentation, makePublisher_raw)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    scheduler_.scheduleAt(1s, [&](const auto&) {
-        //
-        auto maybe_pub = presentation.makePublisher<void>(tx_params.subject_id);
-        EXPECT_THAT(maybe_pub, VariantWith<Publisher<void>>(_));
+    auto maybe_pub = presentation.makePublisher<void>(tx_params.subject_id);
+    EXPECT_THAT(maybe_pub, VariantWith<Publisher<void>>(_));
 
-        EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
-    });
-    scheduler_.spinFor(10s);
+    EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
 }
 
 TEST_F(TestPresentation, makePublisher_with_failure)
@@ -357,17 +340,13 @@ TEST_F(TestPresentation, makeSubscriber)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    scheduler_.scheduleAt(1s, [&](const auto&) {
-        //
-        auto maybe_sub1 = presentation.makeSubscriber<Message>(rx_params.subject_id);
-        EXPECT_THAT(maybe_sub1, VariantWith<Subscriber<Message>>(_));
+    auto maybe_sub1 = presentation.makeSubscriber<Message>(rx_params.subject_id);
+    EXPECT_THAT(maybe_sub1, VariantWith<Subscriber<Message>>(_));
 
-        auto maybe_sub2 = presentation.makeSubscriber<Message>([](const auto&) {});
-        EXPECT_THAT(maybe_sub2, VariantWith<Subscriber<Message>>(_));
+    auto maybe_sub2 = presentation.makeSubscriber<Message>([](const auto&) {});
+    EXPECT_THAT(maybe_sub2, VariantWith<Subscriber<Message>>(_));
 
-        EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);
-    });
-    scheduler_.spinFor(10s);
+    EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);
 }
 
 TEST_F(TestPresentation, makeSubscriber_custom)
@@ -724,16 +703,12 @@ TEST_F(TestPresentation, makeClient_raw)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    scheduler_.scheduleAt(1s, [&](const auto&) {
-        //
-        auto maybe_client =
-            presentation.makeClient(rx_params.server_node_id, rx_params.service_id, rx_params.extent_bytes);
-        ASSERT_THAT(maybe_client, VariantWith<RawServiceClient>(_));
+    auto maybe_client =
+        presentation.makeClient(rx_params.server_node_id, rx_params.service_id, rx_params.extent_bytes);
+    ASSERT_THAT(maybe_client, VariantWith<RawServiceClient>(_));
 
-        EXPECT_CALL(req_tx_session_mock, deinit()).Times(1);
-        EXPECT_CALL(res_rx_session_mock, deinit()).Times(1);
-    });
-    scheduler_.spinFor(10s);
+    EXPECT_CALL(req_tx_session_mock, deinit()).Times(1);
+    EXPECT_CALL(res_rx_session_mock, deinit()).Times(1);
 }
 
 TEST_F(TestPresentation, makeClient_with_failure)
