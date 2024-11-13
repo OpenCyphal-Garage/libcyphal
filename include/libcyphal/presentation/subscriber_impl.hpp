@@ -36,6 +36,9 @@ namespace detail
 class SubscriberImpl final : public cavl::Node<SubscriberImpl>, public SharedObject
 {
 public:
+    using Node::remove;
+    using Node::isLinked;
+
     class CallbackNode : public Node<CallbackNode>
     {
     public:
@@ -257,16 +260,11 @@ public:
         {
             CETL_DEBUG_ASSERT(callback_nodes_.empty(), "");
 
-            delegate_.releaseSubscriberImpl(this);
+            delegate_.markSharedObjAsUnreferenced(*this);
             return true;
         }
 
         return false;
-    }
-
-    void destroy() noexcept override
-    {
-        destroyWithPmr(this, delegate_.memory());
     }
 
 private:
@@ -290,6 +288,14 @@ private:
             CETL_DEBUG_ASSERT(next_cb_node_->deserializer_.function != nullptr, "");
             next_cb_node_->deserializer_.function(context);
         }
+    }
+
+    // MARK: SharedObject
+
+    void destroy() noexcept override
+    {
+        delegate_.forgetSubscriberImpl(*this);
+        destroyWithPmr(this, delegate_.memory());
     }
 
     // MARK: Data members:

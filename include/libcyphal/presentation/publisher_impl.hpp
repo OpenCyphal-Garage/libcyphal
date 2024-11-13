@@ -36,6 +36,9 @@ namespace detail
 class PublisherImpl final : public cavl::Node<PublisherImpl>, public SharedObject
 {
 public:
+    using Node::remove;
+    using Node::isLinked;
+
     PublisherImpl(IPresentationDelegate& delegate, UniquePtr<transport::IMessageTxSession> msg_tx_session)
         : delegate_{delegate}
         , msg_tx_session_{std::move(msg_tx_session)}
@@ -70,19 +73,22 @@ public:
     {
         if (SharedObject::release())
         {
-            delegate_.releasePublisherImpl(this);
+            delegate_.markSharedObjAsUnreferenced(*this);
             return true;
         }
 
         return false;
     }
 
+private:
+    // MARK: SharedObject
+
     void destroy() noexcept override
     {
+        delegate_.forgetPublisherImpl(*this);
         destroyWithPmr(this, delegate_.memory());
     }
 
-private:
     // MARK: Data members:
 
     IPresentationDelegate&                        delegate_;

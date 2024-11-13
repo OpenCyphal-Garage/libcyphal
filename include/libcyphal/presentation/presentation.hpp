@@ -97,7 +97,10 @@ struct IsFixedPortIdMessageTrait<T, true>
 /// Instance of this class is supposed to be created once per transport instance (or even per application).
 /// Main purpose of the presentation object is to create publishers, subscribers, and RPC clients and servers.
 ///
-class Presentation final : private detail::IPresentationDelegate
+/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
+/// b/c we do directly handle resources here.
+///
+class Presentation final : private detail::IPresentationDelegate  // NOSONAR cpp:S4963
 {
 public:
     /// @brief Defines failure type of various `make...` methods of the presentation layer.
@@ -112,7 +115,30 @@ public:
         : memory_{memory}
         , executor_{executor}
         , transport_{transport}
+        , unreferenced_nodes_{&unreferenced_nodes_, &unreferenced_nodes_}
     {
+        unref_nodes_deleter_callback_ = executor_.registerCallback([this](const auto&) {
+            //
+            destroyUnreferencedNodes();
+        });
+        CETL_DEBUG_ASSERT(unref_nodes_deleter_callback_, "Should not fail b/c we pass proper lambda.");
+    }
+
+    Presentation(const Presentation&)                = delete;
+    Presentation(Presentation&&) noexcept            = delete;
+    Presentation& operator=(const Presentation&)     = delete;
+    Presentation& operator=(Presentation&&) noexcept = delete;
+
+    ~Presentation()
+    {
+        destroyUnreferencedNodes();
+
+        CETL_DEBUG_ASSERT(shared_client_nodes_.empty(),  //
+                          "RPC clients must be destroyed before presentation.");
+        CETL_DEBUG_ASSERT(publisher_impl_nodes_.empty(),  //
+                          "Message publishers must be destroyed before presentation.");
+        CETL_DEBUG_ASSERT(subscriber_impl_nodes_.empty(),  //
+                          "Message subscribers must be destroyed before presentation.");
     }
 
     /// @brief Gets reference to the executor instance of this presentation object.
@@ -160,6 +186,11 @@ public:
 
         auto* const publisher_impl = std::get<0>(publisher_existing);
         CETL_DEBUG_ASSERT(publisher_impl != nullptr, "");
+
+        // This publisher impl node might be in the list of previously unreferenced nodes -
+        // the ones that are going to be deleted asynchronously (by the `destroyUnreferencedNodes`).
+        // If it's the case, we need to remove it from the list b/c it's going to be referenced.
+        publisher_impl->unlinkIfReferenced();
 
         return Publisher<Message>{publisher_impl};
     }
@@ -456,6 +487,8 @@ public:
     }
 
 private:
+    using Schedule = IExecutor::Callback::Schedule;
+
     IPresentationDelegate& asDelegate() noexcept
     {
         return static_cast<IPresentationDelegate&>(*this);
@@ -517,6 +550,12 @@ private:
 
         auto* const subscriber_impl = std::get<0>(subscriber_existing);
         CETL_DEBUG_ASSERT(subscriber_impl != nullptr, "");
+
+        // This subscriber impl node might be in the list of previously unreferenced nodes -
+        // the ones that are going to be deleted asynchronously (by the `destroyUnreferencedNodes`).
+        // If it's the case, we need to remove it from the list b/c it's going to be referenced.
+        subscriber_impl->unlinkIfReferenced();
+
         return subscriber_impl;
     }
 
@@ -571,6 +610,12 @@ private:
 
         auto* const shared_client = std::get<0>(shared_client_existing);
         CETL_DEBUG_ASSERT(shared_client != nullptr, "");
+
+        // This client impl node might be in the list of previously unreferenced nodes -
+        // the ones that are going to be deleted asynchronously (by the `destroyUnreferencedNodes`).
+        // If it's the case, we need to remove it from the list b/c it's going to be referenced.
+        shared_client->unlinkIfReferenced();
+
         return shared_client;
     }
 
@@ -628,30 +673,57 @@ private:
     }
 
     template <typename SharedNode>
-    void releaseSharedNode(SharedNode* const shared_node, cavl::Tree<SharedNode>& tree) const noexcept
+    static void forgetSharedNode(SharedNode& shared_node) noexcept
     {
-        CETL_DEBUG_ASSERT(shared_node != nullptr, "");
+        CETL_DEBUG_ASSERT(shared_node.isLinked(), "");
+        CETL_DEBUG_ASSERT(!shared_node.isReferenced(), "");
 
-        // TODO: make it async (deferred to "on idle" callback).
-        tree.remove(shared_node);
-        shared_node->destroy();
+        // Remove the node from its tree (if it still there),
+        // as well as from the list of unreferenced nodes (b/c we gonna finally destroy it).
+        shared_node.remove();              // from the tree
+        shared_node.unlinkIfReferenced();  // from the list
+    }
+
+    void destroyUnreferencedNodes() const noexcept
+    {
+        // In the loop, destruction of a shared object also removes it from the list of unreferenced nodes.
+        // So, it implicitly updates the `unreferenced_nodes_` list.
+        while (unreferenced_nodes_.next_node != &unreferenced_nodes_)
+        {
+            auto* const shared_obj = static_cast<detail::SharedObject*>(unreferenced_nodes_.next_node);
+            shared_obj->destroy();
+        }
     }
 
     // MARK: IPresentationDelegate
 
-    void releaseSharedClient(detail::SharedClient* const shared_client) noexcept override
+    void markSharedObjAsUnreferenced(detail::SharedObject& shared_obj) noexcept override
     {
-        releaseSharedNode(shared_client, shared_client_nodes_);
+        // We are not going to destroy the shared object immediately, but schedule it for deletion.
+        // This is b/c destruction of shared objects may be time-consuming (f.e. closing under the hood sockets).
+        // Double-linked list is used to avoid the need to traverse the tree of shared objects.
+        //
+        CETL_DEBUG_ASSERT(!shared_obj.isReferenced(), "");
+        shared_obj.linkAsUnreferenced(unreferenced_nodes_);
+        //
+        const auto result = unref_nodes_deleter_callback_.schedule(Schedule::Once{executor_.now()});
+        CETL_DEBUG_ASSERT(result, "Should not fail b/c we never reset `unref_nodes_deleter_callback_`.");
+        (void) result;
     }
 
-    void releasePublisherImpl(detail::PublisherImpl* const publisher_impl) noexcept override
+    void forgetSharedClient(detail::SharedClient& shared_client) noexcept override
     {
-        releaseSharedNode(publisher_impl, publisher_impl_nodes_);
+        forgetSharedNode(shared_client);
     }
 
-    void releaseSubscriberImpl(detail::SubscriberImpl* const subscriber_impl) noexcept override
+    void forgetPublisherImpl(detail::PublisherImpl& publisher_impl) noexcept override
     {
-        releaseSharedNode(subscriber_impl, subscriber_impl_nodes_);
+        forgetSharedNode(publisher_impl);
+    }
+
+    void forgetSubscriberImpl(detail::SubscriberImpl& subscriber_impl) noexcept override
+    {
+        forgetSharedNode(subscriber_impl);
     }
 
     // MARK: Data members:
@@ -662,6 +734,8 @@ private:
     cavl::Tree<detail::SharedClient>   shared_client_nodes_;
     cavl::Tree<detail::PublisherImpl>  publisher_impl_nodes_;
     cavl::Tree<detail::SubscriberImpl> subscriber_impl_nodes_;
+    detail::UnRefNode                  unreferenced_nodes_;
+    IExecutor::Callback::Any           unref_nodes_deleter_callback_;
 
 };  // Presentation
 

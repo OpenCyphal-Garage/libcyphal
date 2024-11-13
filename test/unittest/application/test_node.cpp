@@ -145,12 +145,12 @@ protected:
 
 TEST_F(TestNode, make)
 {
-    Presentation presentation{mr_, scheduler_, transport_mock_};
-
     setupDefaultExpectations();
 
     EXPECT_CALL(transport_mock_, getLocalNodeId())  //
         .WillRepeatedly(Return(cetl::optional<NodeId>{NodeId{42U}}));
+
+    Presentation presentation{mr_, scheduler_, transport_mock_};
 
     cetl::optional<Node>                    node;
     std::vector<std::tuple<TimePoint, int>> calls;
@@ -218,8 +218,6 @@ TEST_F(TestNode, move)
     static_assert(!std::is_copy_constructible<Node>::value, "Should not be copy constructible.");
     static_assert(!std::is_default_constructible<Node>::value, "Should not be default constructible.");
 
-    Presentation presentation{mr_, scheduler_, transport_mock_};
-
     setupDefaultExpectations();
 
     EXPECT_CALL(heartbeat_msg_tx_session_mock_, send(_, _))  //
@@ -228,6 +226,8 @@ TEST_F(TestNode, move)
 
     EXPECT_CALL(transport_mock_, getLocalNodeId())  //
         .WillRepeatedly(Return(cetl::optional<NodeId>{NodeId{42U}}));
+
+    Presentation presentation{mr_, scheduler_, transport_mock_};
 
     cetl::optional<Node>   node1;
     cetl::optional<Node>   node2;
@@ -257,8 +257,6 @@ TEST_F(TestNode, makeRegistryProvider)
     using ListService   = uavcan::_register::List_1_0;
     using AccessService = uavcan::_register::Access_1_0;
 
-    Presentation presentation{mr_, scheduler_, transport_mock_};
-
     setupDefaultExpectations();
 
     SvcServerContext list_svc_cnxt;
@@ -273,6 +271,8 @@ TEST_F(TestNode, makeRegistryProvider)
         .WillRepeatedly(Return(cetl::optional<NodeId>{NodeId{42U}}));
 
     registry::IntrospectableRegistryMock registry_mock;
+
+    Presentation presentation{mr_, scheduler_, transport_mock_};
 
     cetl::optional<Node> node;
 
@@ -298,8 +298,6 @@ TEST_F(TestNode, makeRegistryProvider)
 
 TEST_F(TestNode, makeRegistryProvider_failure)
 {
-    Presentation presentation{mr_, scheduler_, transport_mock_};
-
     setupDefaultExpectations();
 
     EXPECT_CALL(heartbeat_msg_tx_session_mock_, send(_, _))  //
@@ -310,14 +308,28 @@ TEST_F(TestNode, makeRegistryProvider_failure)
 
     registry::IntrospectableRegistryMock registry_mock;
 
-    auto maybe_node = Node::make(presentation);
-    ASSERT_THAT(maybe_node, VariantWith<Node>(_));
-    auto node = cetl::get<Node>(std::move(maybe_node));
+    Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    EXPECT_CALL(transport_mock_, makeRequestRxSession(_))  //
-        .WillOnce(Return(libcyphal::ArgumentError{}));
+    cetl::optional<Node> node;
 
-    EXPECT_THAT(node.makeRegistryProvider(registry_mock), Optional(VariantWith<libcyphal::ArgumentError>(_)));
+    scheduler_.scheduleAt(2s, [&](const auto&) {
+        //
+        auto maybe_node = Node::make(presentation);
+        ASSERT_THAT(maybe_node, VariantWith<Node>(_));
+        node.emplace(cetl::get<Node>(std::move(maybe_node)));
+    });
+    scheduler_.scheduleAt(2s, [&](const auto&) {
+        //
+        EXPECT_CALL(transport_mock_, makeRequestRxSession(_))  //
+            .WillOnce(Return(libcyphal::ArgumentError{}));
+
+        EXPECT_THAT(node->makeRegistryProvider(registry_mock), Optional(VariantWith<libcyphal::ArgumentError>(_)));
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        node.reset();
+    });
+    scheduler_.spinFor(10s);
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

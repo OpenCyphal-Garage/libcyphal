@@ -108,8 +108,6 @@ TEST_F(TestPublisher, copy_move_getSetPriority)
     static_assert(std::is_move_constructible<Publisher<void>>::value, "Should be move constructible.");
     static_assert(!std::is_default_constructible<Publisher<void>>::value, "Should not be default constructible.");
 
-    Presentation presentation{mr_, scheduler_, transport_mock_};
-
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
     constexpr MessageTxParams        tx_params{Message::_traits_::FixedPortId};
     EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
@@ -118,6 +116,8 @@ TEST_F(TestPublisher, copy_move_getSetPriority)
         .WillOnce(Invoke([&](const auto&) {                                           //
             return libcyphal::detail::makeUniquePtr<UniquePtrMsgTxSpec>(mr_, msg_tx_session_mock);
         }));
+
+    Presentation presentation{mr_, scheduler_, transport_mock_};
 
     auto maybe_pub1 = presentation.makePublisher<Message>(tx_params.subject_id);
     ASSERT_THAT(maybe_pub1, VariantWith<Publisher<Message>>(_));
@@ -207,9 +207,9 @@ TEST_F(TestPublisher, publish)
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {
         //
-        EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
         publisher.reset();
         testing::Mock::VerifyAndClearExpectations(&msg_tx_session_mock);
+        EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
     });
     scheduler_.spinFor(10s);
 }
@@ -219,8 +219,6 @@ TEST_F(TestPublisher, publish_with_serialization_failure)
     using SerError = nunavut::support::Error;
     using Message  = my_custom::bar_1_0;
 
-    Presentation presentation{mr_, scheduler_, transport_mock_};
-
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
     constexpr MessageTxParams        tx_params{0x123};
     EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
@@ -229,6 +227,8 @@ TEST_F(TestPublisher, publish_with_serialization_failure)
         .WillOnce(Invoke([&](const auto&) {                                           //
             return libcyphal::detail::makeUniquePtr<UniquePtrMsgTxSpec>(mr_, msg_tx_session_mock);
         }));
+
+    Presentation presentation{mr_, scheduler_, transport_mock_};
 
     auto maybe_pub = presentation.makePublisher<Message>(tx_params.subject_id);
     ASSERT_THAT(maybe_pub, VariantWith<Publisher<Message>>(_));
@@ -248,17 +248,15 @@ TEST_F(TestPublisher, publish_with_serialization_failure)
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {
         //
-        EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
         publisher.reset();
         testing::Mock::VerifyAndClearExpectations(&msg_tx_session_mock);
+        EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
     });
     scheduler_.spinFor(10s);
 }
 
 TEST_F(TestPublisher, publishRawData)
 {
-    Presentation presentation{mr_, scheduler_, transport_mock_};
-
     static_assert(std::is_copy_assignable<Publisher<void>>::value, "Should be copy assignable.");
     static_assert(std::is_move_assignable<Publisher<void>>::value, "Should be move assignable.");
     static_assert(std::is_copy_constructible<Publisher<void>>::value, "Should be copy constructible.");
@@ -273,6 +271,8 @@ TEST_F(TestPublisher, publishRawData)
         .WillOnce(Invoke([&](const auto&) {                                           //
             return libcyphal::detail::makeUniquePtr<UniquePtrMsgTxSpec>(mr_, msg_tx_session_mock);
         }));
+
+    Presentation presentation{mr_, scheduler_, transport_mock_};
 
     auto maybe_pub = presentation.makePublisher<void>(tx_params.subject_id);
     ASSERT_THAT(maybe_pub, VariantWith<Publisher<void>>(_));
@@ -296,9 +296,9 @@ TEST_F(TestPublisher, publishRawData)
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {
         //
-        EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
         publisher.reset();
         testing::Mock::VerifyAndClearExpectations(&msg_tx_session_mock);
+        EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
     });
     scheduler_.spinFor(10s);
 }

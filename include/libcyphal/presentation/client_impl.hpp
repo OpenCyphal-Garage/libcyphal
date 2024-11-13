@@ -37,6 +37,9 @@ namespace detail
 class SharedClient : public cavl::Node<SharedClient>, public SharedObject
 {
 public:
+    using Node::remove;
+    using Node::isLinked;
+
     class TimeoutNode : public Node<TimeoutNode>
     {
     public:
@@ -229,11 +232,18 @@ public:
             CETL_DEBUG_ASSERT(cb_nodes_by_transfer_id_.empty(), "");
             CETL_DEBUG_ASSERT(timeout_nodes_by_deadline_.empty(), "");
 
-            delegate_.releaseSharedClient(this);
+            delegate_.markSharedObjAsUnreferenced(*this);
             return true;
         }
 
         return false;
+    }
+
+    // MARK: SharedObject
+
+    void destroy() noexcept override
+    {
+        delegate_.forgetSharedClient(*this);
     }
 
 protected:
@@ -393,7 +403,7 @@ private:
 /// @brief Defines a shared client implementation that uses a generic transfer ID generator.
 ///
 template <typename TransferIdGeneratorMixin>
-class ClientImpl final : public SharedClient, public TransferIdGeneratorMixin
+class ClientImpl final : public SharedClient, private TransferIdGeneratorMixin
 {
 public:
     ClientImpl(IPresentationDelegate&                   delegate,
@@ -410,10 +420,13 @@ public:
 
     void destroy() noexcept override
     {
+        Base::destroy();
         destroyWithPmr(this, memory());
     }
 
 private:
+    using Base = SharedClient;
+
     // MARK: SharedClient
 
     CETL_NODISCARD cetl::optional<transport::TransferId> nextTransferId() noexcept override
@@ -440,14 +453,14 @@ private:
 template <>
 class ClientImpl<transport::detail::TrivialTransferIdGenerator> final
     : public SharedClient,
-      public transport::detail::TrivialTransferIdGenerator
+      private transport::detail::TrivialTransferIdGenerator
 {
 public:
     ClientImpl(IPresentationDelegate&                   delegate,
                IExecutor&                               executor,
                UniquePtr<transport::IRequestTxSession>  svc_request_tx_session,
                UniquePtr<transport::IResponseRxSession> svc_response_rx_session)
-        : SharedClient{delegate, executor, std::move(svc_request_tx_session), std::move(svc_response_rx_session)}
+        : Base{delegate, executor, std::move(svc_request_tx_session), std::move(svc_response_rx_session)}
     {
     }
 
@@ -455,10 +468,13 @@ public:
 
     void destroy() noexcept override
     {
+        Base::destroy();
         destroyWithPmr(this, memory());
     }
 
 private:
+    using Base = SharedClient;
+
     // MARK: SharedClient
 
     CETL_NODISCARD cetl::optional<transport::TransferId> nextTransferId() noexcept override

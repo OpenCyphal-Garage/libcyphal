@@ -6,6 +6,8 @@
 #ifndef LIBCYPHAL_PRESENTATION_DELEGATE_HPP_INCLUDED
 #define LIBCYPHAL_PRESENTATION_DELEGATE_HPP_INCLUDED
 
+#include "shared_object.hpp"
+
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <type_traits>
@@ -84,9 +86,10 @@ public:
 
     virtual cetl::pmr::memory_resource& memory() const noexcept = 0;
 
-    virtual void releaseSharedClient(SharedClient* shared_client) noexcept       = 0;
-    virtual void releasePublisherImpl(PublisherImpl* publisher_impl) noexcept    = 0;
-    virtual void releaseSubscriberImpl(SubscriberImpl* subscriber_impl) noexcept = 0;
+    virtual void markSharedObjAsUnreferenced(SharedObject& shared_obj) noexcept = 0;
+    virtual void forgetSharedClient(SharedClient& shared_client) noexcept       = 0;
+    virtual void forgetPublisherImpl(PublisherImpl& publisher_impl) noexcept    = 0;
+    virtual void forgetSubscriberImpl(SubscriberImpl& subscriber_impl) noexcept = 0;
 
 protected:
     IPresentationDelegate()  = default;
