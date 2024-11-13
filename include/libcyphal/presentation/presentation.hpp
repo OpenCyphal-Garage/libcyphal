@@ -690,6 +690,8 @@ private:
         // So, it implicitly updates the `unreferenced_nodes_` list.
         while (unreferenced_nodes_.next_node != &unreferenced_nodes_)
         {
+            // Downcast is safe here b/c every `UnRefNode` instance is always a `SharedObject` one.
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast)
             auto* const shared_obj = static_cast<detail::SharedObject*>(unreferenced_nodes_.next_node);
             shared_obj->destroy();
         }

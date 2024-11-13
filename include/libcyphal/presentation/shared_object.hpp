@@ -60,8 +60,12 @@ struct UnRefNode
         }
     }
 
+    // No Lint b/c this `UnRefNode` is a simple helper struct as base of the below `SharedObject`.
+    // It's under `detail` namespace and not supposed to be used directly by the users of the library.
+    // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
     UnRefNode* prev_node{nullptr};
     UnRefNode* next_node{nullptr};
+    // NOLINTEND(misc-non-private-member-variables-in-classes)
 
 };  // UnRefNode
 
