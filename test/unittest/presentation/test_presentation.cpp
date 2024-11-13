@@ -386,14 +386,10 @@ TEST_F(TestPresentation, makeSubscriber_custom)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    scheduler_.scheduleAt(1s, [&](const auto&) {
-        //
-        auto maybe_sub = presentation.makeSubscriber<Message>([](const auto&) {});
-        EXPECT_THAT(maybe_sub, VariantWith<Subscriber<Message>>(_));
+    auto maybe_sub = presentation.makeSubscriber<Message>([](const auto&) {});
+    EXPECT_THAT(maybe_sub, VariantWith<Subscriber<Message>>(_));
 
-        EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);
-    });
-    scheduler_.spinFor(10s);
+    EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);
 }
 
 TEST_F(TestPresentation, makeSubscriber_raw)
@@ -639,15 +635,11 @@ TEST_F(TestPresentation, makeClient)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    scheduler_.scheduleAt(1s, [&](const auto&) {
-        //
-        auto maybe_client = presentation.makeClient<Service>(rx_params.server_node_id);
-        ASSERT_THAT(maybe_client, VariantWith<ServiceClient<Service>>(_));
+    auto maybe_client = presentation.makeClient<Service>(rx_params.server_node_id);
+    ASSERT_THAT(maybe_client, VariantWith<ServiceClient<Service>>(_));
 
-        EXPECT_CALL(req_tx_session_mock, deinit()).Times(1);
-        EXPECT_CALL(res_rx_session_mock, deinit()).Times(1);
-    });
-    scheduler_.spinFor(10s);
+    EXPECT_CALL(req_tx_session_mock, deinit()).Times(1);
+    EXPECT_CALL(res_rx_session_mock, deinit()).Times(1);
 }
 
 TEST_F(TestPresentation, makeClient_multiple_custom)
@@ -676,42 +668,38 @@ TEST_F(TestPresentation, makeClient_multiple_custom)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    scheduler_.scheduleAt(1s, [&](const auto&) {
-        //
-        auto maybe_client1a = presentation.makeClient<Custom::Service>(rx_params.server_node_id);
-        ASSERT_THAT(maybe_client1a, VariantWith<ServiceClient<Custom::Service>>(_));
+    auto maybe_client1a = presentation.makeClient<Custom::Service>(rx_params.server_node_id);
+    ASSERT_THAT(maybe_client1a, VariantWith<ServiceClient<Custom::Service>>(_));
 
-        auto maybe_client1b = presentation.makeClient<Custom::Service>(rx_params.server_node_id);
-        ASSERT_THAT(maybe_client1b, VariantWith<ServiceClient<Custom::Service>>(_));
+    auto maybe_client1b = presentation.makeClient<Custom::Service>(rx_params.server_node_id);
+    ASSERT_THAT(maybe_client1b, VariantWith<ServiceClient<Custom::Service>>(_));
 
-        // The same custom service but to different server
-        {
-            constexpr ResponseRxParams rx_params2{rx_params.extent_bytes, rx_params.service_id, 0x32};
-            EXPECT_CALL(res_rx_session_mock2, getParams()).WillOnce(Return(rx_params2));
-            EXPECT_CALL(res_rx_session_mock2, setTransferIdTimeout(_)).WillOnce(Return());
-            EXPECT_CALL(res_rx_session_mock2, setOnReceiveCallback(_)).WillOnce(Return());
+    // The same custom service but to different server
+    {
+        constexpr ResponseRxParams rx_params2{rx_params.extent_bytes, rx_params.service_id, 0x32};
+        EXPECT_CALL(res_rx_session_mock2, getParams()).WillOnce(Return(rx_params2));
+        EXPECT_CALL(res_rx_session_mock2, setTransferIdTimeout(_)).WillOnce(Return());
+        EXPECT_CALL(res_rx_session_mock2, setOnReceiveCallback(_)).WillOnce(Return());
 
-            EXPECT_CALL(transport_mock_, makeResponseRxSession(ResponseRxParamsEq(rx_params2)))  //
-                .WillOnce(Invoke([&](const auto&) {                                              //
-                    return libcyphal::detail::makeUniquePtr<UniquePtrResRxSpec>(mr_, res_rx_session_mock2);
-                }));
-            constexpr RequestTxParams tx_params2{rx_params2.service_id, rx_params2.server_node_id};
-            EXPECT_CALL(transport_mock_, makeRequestTxSession(RequestTxParamsEq(tx_params2)))  //
-                .WillOnce(Invoke([&](const auto&) {                                            //
-                    return libcyphal::detail::makeUniquePtr<UniquePtrReqTxSpec>(mr_, req_tx_session_mock2);
-                }));
+        EXPECT_CALL(transport_mock_, makeResponseRxSession(ResponseRxParamsEq(rx_params2)))  //
+            .WillOnce(Invoke([&](const auto&) {                                              //
+                return libcyphal::detail::makeUniquePtr<UniquePtrResRxSpec>(mr_, res_rx_session_mock2);
+            }));
+        constexpr RequestTxParams tx_params2{rx_params2.service_id, rx_params2.server_node_id};
+        EXPECT_CALL(transport_mock_, makeRequestTxSession(RequestTxParamsEq(tx_params2)))  //
+            .WillOnce(Invoke([&](const auto&) {                                            //
+                return libcyphal::detail::makeUniquePtr<UniquePtrReqTxSpec>(mr_, req_tx_session_mock2);
+            }));
 
-            auto maybe_client2 = presentation.makeClient<Custom::Service>(rx_params2.server_node_id);
-            ASSERT_THAT(maybe_client2, VariantWith<ServiceClient<Custom::Service>>(_));
+        auto maybe_client2 = presentation.makeClient<Custom::Service>(rx_params2.server_node_id);
+        ASSERT_THAT(maybe_client2, VariantWith<ServiceClient<Custom::Service>>(_));
 
-            EXPECT_CALL(res_rx_session_mock2, deinit()).Times(1);
-            EXPECT_CALL(req_tx_session_mock2, deinit()).Times(1);
-        }
+        EXPECT_CALL(res_rx_session_mock2, deinit()).Times(1);
+        EXPECT_CALL(req_tx_session_mock2, deinit()).Times(1);
+    }
 
-        EXPECT_CALL(res_rx_session_mock1, deinit()).Times(1);
-        EXPECT_CALL(req_tx_session_mock1, deinit()).Times(1);
-    });
-    scheduler_.spinFor(10s);
+    EXPECT_CALL(res_rx_session_mock1, deinit()).Times(1);
+    EXPECT_CALL(req_tx_session_mock1, deinit()).Times(1);
 }
 
 TEST_F(TestPresentation, makeClient_raw)
