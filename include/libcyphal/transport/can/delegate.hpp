@@ -49,16 +49,21 @@ public:
     class CanardMemory final : public ScatteredBuffer::IStorage  // NOSONAR cpp:S4963
     {
     public:
-        CanardMemory(TransportDelegate& delegate, cetl::byte* const buffer, const std::size_t payload_size)
+        CanardMemory(TransportDelegate& delegate,
+                     cetl::byte* const  buffer,
+                     const std::size_t  payload_size,
+                     const std::size_t  allocated_size)
             : delegate_{delegate}
             , buffer_{buffer}
             , payload_size_{payload_size}
+            , allocated_size_{allocated_size}
         {
         }
         CanardMemory(CanardMemory&& other) noexcept
             : delegate_{other.delegate_}
             , buffer_{std::exchange(other.buffer_, nullptr)}
             , payload_size_{std::exchange(other.payload_size_, 0)}
+            , allocated_size_{std::exchange(other.allocated_size_, 0)}
         {
         }
         CanardMemory(const CanardMemory&) = delete;
@@ -68,7 +73,7 @@ public:
             if (buffer_ != nullptr)
             {
                 // No Sonar `cpp:S5356` b/c we integrate here with C libcanard memory management.
-                delegate_.freeCanardMemory(buffer_);  // NOSONAR cpp:S5356
+                delegate_.freeCanardMemory(buffer_, allocated_size_);  // NOSONAR cpp:S5356
             }
         }
 
@@ -108,6 +113,7 @@ public:
         TransportDelegate& delegate_;
         cetl::byte*        buffer_;
         std::size_t        payload_size_;
+        std::size_t        allocated_size_;
 
     };  // CanardMemory
 
@@ -252,19 +258,14 @@ public:
     /// No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable -
     /// this is integration with low-level C code of Canard memory management.
     ///
-    void freeCanardMemory(void* const pointer) const  // NOSONAR cpp:S5008
+    void freeCanardMemory(void* const pointer, const std::size_t amount) const  // NOSONAR cpp:S5008
     {
         if (pointer == nullptr)
         {
             return;
         }
 
-        auto* memory_header = static_cast<CanardMemoryHeader*>(pointer);  // NOSONAR cpp:S5356
-        // Next nolint is unavoidable: this is integration with C code of Canard memory management.
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        --memory_header;
-
-        memory_.deallocate(memory_header, memory_header->size);  // NOSONAR cpp:S5356
+        memory_.deallocate(pointer, amount);
     }
 
     /// Pops and frees Canard TX queue item(s).
@@ -282,7 +283,7 @@ public:
             tx_item = tx_item->next_in_transfer;
 
             // No Sonar `cpp:S5356` b/c we need to free tx item allocated by libcanard as a raw memory.
-            freeCanardMemory(mut_tx_item);  // NOSONAR cpp:S5356
+            freeCanardMemory(mut_tx_item, mut_tx_item->allocated_size);  // NOSONAR cpp:S5356
 
             if (!whole_transfer)
             {
@@ -317,16 +318,6 @@ protected:
     ~TransportDelegate() = default;
 
 private:
-    // Until "canardMemFree must provide size" issue #216 is resolved,
-    // we need to store the size of the memory allocated.
-    // TODO: Remove this workaround when the issue is resolved.
-    // see https://github.com/OpenCyphal/libcanard/issues/216
-    //
-    struct CanardMemoryHeader final
-    {
-        alignas(std::max_align_t) std::size_t size;
-    };
-
     /// @brief Converts Canard instance to the transport delegate.
     ///
     /// In use to bridge two worlds: canard library and transport entities.
@@ -353,24 +344,7 @@ private:
     {
         TransportDelegate& self = getSelfFrom(ins);
 
-        const std::size_t memory_size = sizeof(CanardMemoryHeader) + amount;
-
-        // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libcanard memory management.
-        auto* memory_header =
-            static_cast<CanardMemoryHeader*>(self.memory_.allocate(memory_size));  // NOSONAR cpp:S5356 cpp:S5357
-        if (memory_header == nullptr)
-        {
-            return nullptr;
-        }
-
-        // Return the memory after the `CanardMemoryHeader` struct (containing its size).
-        // The size is used in `canardMemoryFree` to deallocate the memory.
-        //
-        memory_header->size = memory_size;
-        // Next nolint and no Sonar `cpp:S5356` are unavoidable -
-        // this is integration with C code of Canard memory management.
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        return ++memory_header;  // NOSONAR cpp:S5356
+        return self.memory_.allocate(amount);
     }
 
     /// @brief Releases memory allocated for canard instance (by previous `allocateMemoryForCanard` call).
@@ -378,11 +352,12 @@ private:
     /// NOSONAR cpp:S995 & cpp:S5008 are unavoidable: this is integration with low-level C code
     /// of Canard memory management (@see ::canardInit).
     ///
-    static void freeCanardMemory(CanardInstance* ins,  // NOSONAR cpp:S995
-                                 void*           pointer)        // NOSONAR cpp:S5008
+    static void freeCanardMemory(CanardInstance* ins,      // NOSONAR cpp:S995
+                                 void*           pointer,  // NOSONAR cpp:S5008
+                                 std::size_t     amount)
     {
         const TransportDelegate& self = getSelfFrom(ins);
-        self.freeCanardMemory(pointer);
+        self.freeCanardMemory(pointer, amount);
     }
 
     // MARK: Data members:

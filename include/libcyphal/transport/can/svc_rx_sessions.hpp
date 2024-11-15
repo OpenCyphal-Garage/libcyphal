@@ -160,7 +160,10 @@ private:
 
         // No Sonar `cpp:S5356` and `cpp:S5357` b/c we need to pass raw data from C libcanard api.
         auto* const buffer = static_cast<cetl::byte*>(transfer.payload);  // NOSONAR cpp:S5356 cpp:S5357
-        TransportDelegate::CanardMemory canard_memory{delegate_, buffer, transfer.payload_size};
+        TransportDelegate::CanardMemory canard_memory{delegate_,
+                                                      buffer,
+                                                      transfer.payload_size,
+                                                      transfer.allocated_size};
 
         const ServiceRxMetadata meta{{{transfer_id, priority}, timestamp}, remote_node_id};
         ServiceRxTransfer       svc_rx_transfer{meta, ScatteredBuffer{std::move(canard_memory)}};

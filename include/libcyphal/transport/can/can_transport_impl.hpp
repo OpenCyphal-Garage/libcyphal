@@ -513,7 +513,7 @@ private:
             CanardTxQueueItem* const item = ::canardTxPop(&canard_tx_queue, maybe_item);
 
             // No Sonar `cpp:S5356` b/c we need to free tx item allocated by libcanard as a raw memory.
-            freeCanardMemory(item);  // NOSONAR cpp:S5356
+            freeCanardMemory(item, item->allocated_size);  // NOSONAR cpp:S5356
         }
     }
 
