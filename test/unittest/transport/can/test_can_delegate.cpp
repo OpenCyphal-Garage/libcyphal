@@ -103,7 +103,7 @@ TEST_F(TestCanDelegate, CanardMemory_copy)
     auto* const       payload = static_cast<byte*>(canard_instance.memory_allocate(&canard_instance, allocated_size));
     fillIotaBytes({payload, allocated_size}, b('0'));
 
-    const CanardMemory canard_memory{delegate, payload, payload_size, allocated_size};
+    const CanardMemory canard_memory{delegate, allocated_size, payload, payload_size};
     EXPECT_THAT(canard_memory.size(), payload_size);
 
     // Ask exactly as payload
@@ -161,7 +161,7 @@ TEST_F(TestCanDelegate, CanardMemory_copy_on_moved)
     auto* const           payload = static_cast<byte*>(canard_instance.memory_allocate(&canard_instance, payload_size));
     fillIotaBytes({payload, payload_size}, b('0'));
 
-    CanardMemory old_canard_memory{delegate, payload, payload_size, payload_size};
+    CanardMemory old_canard_memory{delegate, payload_size, payload, payload_size};
     EXPECT_THAT(old_canard_memory.size(), payload_size);
 
     const CanardMemory new_canard_memory{std::move(old_canard_memory)};

@@ -50,20 +50,20 @@ public:
     {
     public:
         CanardMemory(TransportDelegate& delegate,
+                     const std::size_t  allocated_size,
                      cetl::byte* const  buffer,
-                     const std::size_t  payload_size,
-                     const std::size_t  allocated_size)
+                     const std::size_t  payload_size)
             : delegate_{delegate}
+            , allocated_size_{allocated_size}
             , buffer_{buffer}
             , payload_size_{payload_size}
-            , allocated_size_{allocated_size}
         {
         }
         CanardMemory(CanardMemory&& other) noexcept
             : delegate_{other.delegate_}
+            , allocated_size_{std::exchange(other.allocated_size_, 0)}
             , buffer_{std::exchange(other.buffer_, nullptr)}
             , payload_size_{std::exchange(other.payload_size_, 0)}
-            , allocated_size_{std::exchange(other.allocated_size_, 0)}
         {
         }
         CanardMemory(const CanardMemory&) = delete;
@@ -111,9 +111,9 @@ public:
         // MARK: Data members:
 
         TransportDelegate& delegate_;
+        std::size_t        allocated_size_;
         cetl::byte*        buffer_;
         std::size_t        payload_size_;
-        std::size_t        allocated_size_;
 
     };  // CanardMemory
 
@@ -349,12 +349,12 @@ private:
 
     /// @brief Releases memory allocated for canard instance (by previous `allocateMemoryForCanard` call).
     ///
-    /// NOSONAR cpp:S995 & cpp:S5008 are unavoidable: this is integration with low-level C code
+    /// NOSONAR  cpp:S994, cpp:S995 & cpp:S5008 are unavoidable: this is integration with low-level C code
     /// of Canard memory management (@see ::canardInit).
     ///
     static void freeCanardMemory(CanardInstance* ins,      // NOSONAR cpp:S995
                                  void*           pointer,  // NOSONAR cpp:S5008
-                                 std::size_t     amount)
+                                 std::size_t     amount)       // NOSONAR cpp:S994
     {
         const TransportDelegate& self = getSelfFrom(ins);
         self.freeCanardMemory(pointer, amount);
