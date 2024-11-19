@@ -122,6 +122,9 @@ protected:
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+
+        EXPECT_THAT(tx_mr_.allocations, IsEmpty());
+        EXPECT_THAT(tx_mr_.total_allocated_bytes, tx_mr_.total_deallocated_bytes);
     }
 
     TimePoint now() const
@@ -145,6 +148,7 @@ protected:
     // NOLINTBEGIN
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
+    TrackingMemoryResource          tx_mr_;
     StrictMock<MediaMock>           media_mock_{};
     StrictMock<RxSocketMock>        rx_socket_mock_{"RxS1"};
     StrictMock<TxSocketMock>        tx_socket_mock_{"TxS1"};

@@ -79,7 +79,7 @@ protected:
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
-        EXPECT_EQ(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+        EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
     // MARK: Data members:

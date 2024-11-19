@@ -274,16 +274,18 @@ public:
     /// @param tx_item The TX queue item to be popped and freed.
     /// @param whole_transfer If `true` then whole transfer should be released from the queue.
     ///
-    void popAndFreeCanardTxQueueItem(CanardTxQueue* const     tx_queue,
-                                     const CanardTxQueueItem* tx_item,
-                                     const bool               whole_transfer) const
+    static void popAndFreeCanardTxQueueItem(CanardTxQueue&           tx_queue,
+                                            const CanardTxQueueItem* tx_item,
+                                            const bool               whole_transfer)
     {
-        while (CanardTxQueueItem* const mut_tx_item = ::canardTxPop(tx_queue, tx_item))
+        while (CanardTxQueueItem* const mut_tx_item = ::canardTxPop(&tx_queue, tx_item))
         {
             tx_item = tx_item->next_in_transfer;
 
             // No Sonar `cpp:S5356` b/c we need to free tx item allocated by libcanard as a raw memory.
-            freeCanardMemory(mut_tx_item, mut_tx_item->allocated_size);  // NOSONAR cpp:S5356
+            tx_queue.memory.deallocate(tx_queue.memory.user_reference,
+                                       mut_tx_item->allocated_size,
+                                       mut_tx_item);  // NOSONAR cpp:S5356
 
             if (!whole_transfer)
             {

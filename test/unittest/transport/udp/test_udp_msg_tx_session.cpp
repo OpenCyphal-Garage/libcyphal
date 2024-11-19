@@ -81,7 +81,7 @@ protected:
             .WillRepeatedly(Invoke([this] {
                 return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock_);
             }));
-        EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
+        EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(tx_mr_));
 
         EXPECT_CALL(tx_socket_mock_, getMtu())  //
             .WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
@@ -91,6 +91,9 @@ protected:
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+
+        EXPECT_THAT(tx_mr_.allocations, IsEmpty());
+        EXPECT_THAT(tx_mr_.total_allocated_bytes, tx_mr_.total_deallocated_bytes);
     }
 
     TimePoint now() const
@@ -112,6 +115,7 @@ protected:
     // NOLINTBEGIN
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
+    TrackingMemoryResource          tx_mr_;
     StrictMock<MediaMock>           media_mock_{};
     StrictMock<TxSocketMock>        tx_socket_mock_{"S1"};
     // NOLINTEND
@@ -234,11 +238,11 @@ TEST_F(TestUdpMsgTxSession, make_fails_due_to_media_socket)
 
 TEST_F(TestUdpMsgTxSession, send_empty_payload)
 {
-    StrictMock<MemoryResourceMock> fragment_mr_mock;
-    fragment_mr_mock.redirectExpectedCallsTo(mr_);
-    EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(fragment_mr_mock));
+    StrictMock<MemoryResourceMock> tx_mr_mock;
+    tx_mr_mock.redirectExpectedCallsTo(tx_mr_);
+    EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(tx_mr_mock));
 
-    auto transport = makeTransport({mr_, nullptr, &fragment_mr_mock});
+    auto transport = makeTransport({mr_});
 
     auto maybe_session = transport->makeMessageTxSession({123});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IMessageTxSession>>(NotNull()));
@@ -249,15 +253,15 @@ TEST_F(TestUdpMsgTxSession, send_empty_payload)
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        // TX item for our payload to send is expected to be de/allocated on the *fragment* memory resource.
+        // TX item for our payload to send is expected to be de/allocated on the media TX memory resource.
         //
-        EXPECT_CALL(fragment_mr_mock, do_allocate(_, _))
-            .WillOnce([&](std::size_t size_bytes, std::size_t alignment) -> void* {
-                return mr_.allocate(size_bytes, alignment);
+        EXPECT_CALL(tx_mr_mock, do_allocate(_, _))
+            .WillOnce([&](const std::size_t size_bytes, const std::size_t alignment) -> void* {
+                return tx_mr_.allocate(size_bytes, alignment);
             });
-        EXPECT_CALL(fragment_mr_mock, do_deallocate(_, _, _))
-            .WillOnce([&](void* p, std::size_t size_bytes, std::size_t alignment) {
-                mr_.deallocate(p, size_bytes, alignment);
+        EXPECT_CALL(tx_mr_mock, do_deallocate(_, _, _))
+            .WillOnce([&](void* const p, const std::size_t size_bytes, const std::size_t alignment) {
+                tx_mr_.deallocate(p, size_bytes, alignment);
             });
 
         // Emulate that TX socket has not accepted the payload.

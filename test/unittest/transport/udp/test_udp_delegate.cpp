@@ -91,13 +91,13 @@ protected:
     void TearDown() override
     {
         EXPECT_THAT(general_mr_.allocations, IsEmpty());
-        EXPECT_EQ(general_mr_.total_allocated_bytes, general_mr_.total_deallocated_bytes);
+        EXPECT_THAT(general_mr_.total_allocated_bytes, general_mr_.total_deallocated_bytes);
 
         EXPECT_THAT(fragment_mr_.allocations, IsEmpty());
-        EXPECT_EQ(fragment_mr_.total_allocated_bytes, fragment_mr_.total_deallocated_bytes);
+        EXPECT_THAT(fragment_mr_.total_allocated_bytes, fragment_mr_.total_deallocated_bytes);
 
         EXPECT_THAT(payload_mr_.allocations, IsEmpty());
-        EXPECT_EQ(payload_mr_.total_allocated_bytes, payload_mr_.total_deallocated_bytes);
+        EXPECT_THAT(payload_mr_.total_allocated_bytes, payload_mr_.total_deallocated_bytes);
     }
 
     byte* allocateNewUdpardPayload(const std::size_t size)
@@ -109,7 +109,7 @@ protected:
     {
         // This structure mimics internal Udpard `RxFragment` layout.
         // We need this to know its size, so that test tear down can check if all memory was deallocated.
-        // @see `EXPECT_EQ(fragment_mr_.total_allocated_bytes, fragment_mr_.total_deallocated_bytes);`
+        // @see `EXPECT_THAT(fragment_mr_.total_allocated_bytes, fragment_mr_.total_deallocated_bytes);`
         //
         struct RxFragment
         {

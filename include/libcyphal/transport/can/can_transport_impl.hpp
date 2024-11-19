@@ -536,7 +536,9 @@ private:
             CanardTxQueueItem* const item = ::canardTxPop(&canard_tx_queue, maybe_item);
 
             // No Sonar `cpp:S5356` b/c we need to free tx item allocated by libcanard as a raw memory.
-            freeCanardMemory(item, item->allocated_size);  // NOSONAR cpp:S5356
+            canard_tx_queue.memory.deallocate(canard_tx_queue.memory.user_reference,
+                                              item->allocated_size,
+                                              item);  // NOSONAR cpp:S5356
         }
     }
 
@@ -616,7 +618,7 @@ private:
                 const auto push = cetl::get<IMedia::PushResult::Success>(push_result);
                 if (push.is_accepted)
                 {
-                    popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, false /* single frame */);
+                    popAndFreeCanardTxQueueItem(media.canard_tx_queue(), tx_item, false /* single frame */);
                 }
 
                 // If needed schedule (recursively!) next frame to push.
@@ -635,7 +637,7 @@ private:
             // Release whole problematic transfer from the TX queue,
             // so that other transfers in TX queue have their chance.
             // Otherwise, we would be stuck in an execution loop trying to send the same frame.
-            popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, true /* whole transfer */);
+            popAndFreeCanardTxQueueItem(media.canard_tx_queue(), tx_item, true /* whole transfer */);
 
             using Report = TransientErrorReport::MediaPush;
             tryHandleTransientMediaFailure<Report>(media, std::move(*push_failure));
@@ -670,7 +672,7 @@ private:
             }
 
             // Release whole expired transfer b/c possible next frames of the same transfer are also expired.
-            popAndFreeCanardTxQueueItem(&canard_tx, tx_item, true /* whole transfer */);
+            popAndFreeCanardTxQueueItem(canard_tx, tx_item, true /* whole transfer */);
         }
         return nullptr;
     }

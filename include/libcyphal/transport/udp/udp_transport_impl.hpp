@@ -682,7 +682,7 @@ private:
         while (const UdpardTxItem* const maybe_item = ::udpardTxPeek(&udpard_tx))
         {
             UdpardTxItem* const item = ::udpardTxPop(&udpard_tx, maybe_item);
-            ::udpardTxFree(memoryResources().fragment, item);
+            ::udpardTxFree(udpard_tx.memory, item);
         }
     }
 

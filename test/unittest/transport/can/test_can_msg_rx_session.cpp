@@ -73,13 +73,16 @@ protected:
 
         EXPECT_CALL(media_mock_, getMtu())  //
             .WillRepeatedly(Return(CANARD_MTU_MAX));
-        EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
+        EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(tx_mr_));
     }
 
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+
+        EXPECT_THAT(tx_mr_.allocations, IsEmpty());
+        EXPECT_THAT(tx_mr_.total_allocated_bytes, tx_mr_.total_deallocated_bytes);
     }
 
     TimePoint now() const
@@ -101,6 +104,7 @@ protected:
     // NOLINTBEGIN
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
+    TrackingMemoryResource          tx_mr_;
     StrictMock<MediaMock>           media_mock_{};
     // NOLINTEND
 };
