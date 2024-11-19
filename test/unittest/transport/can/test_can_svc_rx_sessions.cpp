@@ -60,6 +60,7 @@ using testing::SizeIs;
 using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
+using testing::ReturnRef;
 using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
@@ -82,6 +83,7 @@ protected:
 
         EXPECT_CALL(media_mock_, getMtu())  //
             .WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+        EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
     }
 
     void TearDown() override
@@ -559,6 +561,7 @@ TEST_F(TestCanSvcRxSessions, receive_multiple_tids_frames)
 {
     StrictMock<MediaMock> media_mock2{};
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+    EXPECT_CALL(media_mock2, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
 
     auto transport = makeTransport(mr_, 42, &media_mock2);
 

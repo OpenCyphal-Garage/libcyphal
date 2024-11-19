@@ -72,7 +72,7 @@ class TransportImpl final : private TransportDelegate, public ICanTransport  // 
         Media(const std::size_t index, IMedia& interface, const std::size_t tx_capacity)
             : index_{static_cast<std::uint8_t>(index)}
             , interface_{interface}
-            , canard_tx_queue_{::canardTxInit(tx_capacity, interface.getMtu())}
+            , canard_tx_queue_{::canardTxInit(tx_capacity, interface.getMtu(), makeCanardMemoryResource(interface))}
         {
         }
 
@@ -107,6 +107,29 @@ class TransportImpl final : private TransportDelegate, public ICanTransport  // 
         }
 
     private:
+        CETL_NODISCARD static CanardMemoryResource makeCanardMemoryResource(IMedia& media_interface)
+        {
+            return {&media_interface.getTxMemoryResource(), freeMediaMemory, allocateMediaMemory};
+        }
+
+        static void* allocateMediaMemory(void* const user_reference, const std::size_t amount)  // NOSONAR cpp:S995
+        {
+            auto* const memory = static_cast<cetl::pmr::memory_resource*>(user_reference);
+            CETL_DEBUG_ASSERT(nullptr != user_reference, "Expected PMR as non-null user reference.");
+
+            return memory->allocate(amount);
+        }
+
+        static void freeMediaMemory(void* const       user_reference,  // NOSONAR cpp:S995
+                                    const std::size_t amount,          // NOSONAR cpp:S994
+                                    void* const       pointer)               // NOSONAR cpp:S5008
+        {
+            auto* const memory = static_cast<cetl::pmr::memory_resource*>(user_reference);
+            CETL_DEBUG_ASSERT(nullptr != user_reference, "Expected PMR as non-null user reference.");
+
+            memory->deallocate(pointer, amount);
+        }
+
         const std::uint8_t       index_;
         IMedia&                  interface_;
         CanardTxQueue            canard_tx_queue_;

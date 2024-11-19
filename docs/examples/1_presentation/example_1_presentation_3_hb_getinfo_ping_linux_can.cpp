@@ -297,7 +297,7 @@ TEST_F(Example_1_Presentation_3_HB_GetInfo_Ping_Can, main)
 
     // 1. Make CAN transport with collection of media.
     //
-    if (!state.media_collection_.make(executor_, iface_addresses_))
+    if (!state.media_collection_.make(mr_, executor_, iface_addresses_))
     {
         GTEST_SKIP();
     }

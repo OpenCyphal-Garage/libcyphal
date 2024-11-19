@@ -61,6 +61,7 @@ using testing::IsEmpty;
 using testing::NotNull;
 using testing::Contains;
 using testing::Optional;
+using testing::ReturnRef;
 using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
@@ -107,6 +108,7 @@ protected:
         cetl::pmr::set_default_resource(&mr_);
 
         EXPECT_CALL(media_mock_, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+        EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
     }
 
     void TearDown() override
@@ -209,6 +211,7 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
     {
         StrictMock<MediaMock> media_mock2;
         EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_MAX));
+        EXPECT_CALL(media_mock2, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
 
         std::array<IMedia*, 3> media_array{&media_mock_, nullptr, &media_mock2};
         auto                   maybe_transport = can::makeTransport(mr_, scheduler_, media_array, 0);
@@ -221,6 +224,8 @@ TEST_F(TestCanTransport, makeTransport_getLocalNodeId)
         StrictMock<MediaMock> media_mock3{};
         EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_MAX));
         EXPECT_CALL(media_mock3, getMtu()).WillRepeatedly(Return(CANARD_MTU_MAX));
+        EXPECT_CALL(media_mock2, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
+        EXPECT_CALL(media_mock3, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
 
         std::array<IMedia*, 3> media_array{&media_mock_, &media_mock2, &media_mock3};
         auto                   maybe_transport = can::makeTransport(mr_, scheduler_, media_array, 0);
@@ -270,6 +275,7 @@ TEST_F(TestCanTransport, getProtocolParams)
 {
     StrictMock<MediaMock> media_mock2{};
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_MAX));
+    EXPECT_CALL(media_mock2, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
 
     std::array<IMedia*, 2> media_array{&media_mock_, &media_mock2};
     auto transport = cetl::get<UniquePtr<ICanTransport>>(can::makeTransport(mr_, scheduler_, media_array, 0));
@@ -563,6 +569,7 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
 {
     StrictMock<MediaMock> media_mock2{};
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+    EXPECT_CALL(media_mock2, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
 
     auto transport = makeTransport(mr_, &media_mock2);
     EXPECT_THAT(transport->setLocalNodeId(0x45), Eq(cetl::nullopt));
@@ -652,6 +659,7 @@ TEST_F(TestCanTransport, send_payload_to_redundant_fallible_media)
 
     StrictMock<MediaMock> media_mock2{};
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+    EXPECT_CALL(media_mock2, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
 
     StrictMock<TransientErrorHandlerMock> handler_mock;
 
@@ -732,6 +740,7 @@ TEST_F(TestCanTransport, send_payload_to_out_of_capacity_canard_tx)
 
     StrictMock<MediaMock> media_mock2{};
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+    EXPECT_CALL(media_mock2, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
 
     // Make transport with no TX capacity - this will cause `MemoryError` on send attempts.
     //
@@ -798,6 +807,7 @@ TEST_F(TestCanTransport, receive_svc_responses_from_redundant_media)
     EXPECT_CALL(media_mock_, pop(_)).WillRepeatedly(Return(cetl::nullopt));
     EXPECT_CALL(media_mock2, pop(_)).WillRepeatedly(Return(cetl::nullopt));
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+    EXPECT_CALL(media_mock2, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
 
     auto transport = makeTransport(mr_, &media_mock2);
     EXPECT_THAT(transport->setLocalNodeId(0x13), Eq(cetl::nullopt));
@@ -931,6 +941,7 @@ TEST_F(TestCanTransport, receive_svc_responses_from_redundant_fallible_media)
 
     StrictMock<MediaMock> media_mock2{};
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+    EXPECT_CALL(media_mock2, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
 
     StrictMock<TransientErrorHandlerMock> handler_mock;
 
@@ -1183,6 +1194,7 @@ TEST_F(TestCanTransport, setFilters_with_transient_handler)
 
     StrictMock<MediaMock> media_mock2{};
     EXPECT_CALL(media_mock2, getMtu()).WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
+    EXPECT_CALL(media_mock2, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
 
     auto transport = makeTransport(mr_, &media_mock2);
 

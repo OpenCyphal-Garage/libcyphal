@@ -309,7 +309,7 @@ public:
 protected:
     explicit TransportDelegate(cetl::pmr::memory_resource& memory)
         : memory_{memory}
-        , canard_instance_{::canardInit(allocateMemoryForCanard, freeCanardMemory)}
+        , canard_instance_{::canardInit(makeCanardMemoryResource())}
     {
         // No Sonar `cpp:S5356` b/c we integrate here with C libcanard API.
         canard_instance().user_reference = this;  // NOSONAR cpp:S5356
@@ -322,14 +322,13 @@ private:
     ///
     /// In use to bridge two worlds: canard library and transport entities.
     ///
-    CETL_NODISCARD static TransportDelegate& getSelfFrom(const CanardInstance* const ins)
+    CETL_NODISCARD static TransportDelegate& getSelfFrom(void* const user_reference)
     {
-        CETL_DEBUG_ASSERT(ins != nullptr, "Expected canard instance.");
-        CETL_DEBUG_ASSERT(ins->user_reference != nullptr, "Expected `this` transport as user reference.");
+        CETL_DEBUG_ASSERT(user_reference != nullptr, "Expected `this` transport as user reference.");
 
         // No Sonar `cpp:S5357` b/c the raw `user_reference` is part of libcanard api,
         // and it was set by us at this delegate constructor (see `TransportDelegate` ctor).
-        return *static_cast<TransportDelegate*>(ins->user_reference);  // NOSONAR cpp:S5357
+        return *static_cast<TransportDelegate*>(user_reference);  // NOSONAR cpp:S5357
     }
 
     /// @brief Allocates memory for canard instance.
@@ -340,9 +339,10 @@ private:
     /// NOSONAR cpp:S995 is unavoidable: this is integration with low-level C code
     /// of Canard memory management (@see ::canardInit).
     ///
-    CETL_NODISCARD static void* allocateMemoryForCanard(CanardInstance* ins, std::size_t amount)  // NOSONAR cpp:S995
+    CETL_NODISCARD static void* allocateMemoryForCanard(void* const       user_reference,
+                                                        const std::size_t amount)  // NOSONAR cpp:S995
     {
-        TransportDelegate& self = getSelfFrom(ins);
+        const TransportDelegate& self = getSelfFrom(user_reference);
 
         return self.memory_.allocate(amount);
     }
@@ -352,12 +352,17 @@ private:
     /// NOSONAR  cpp:S994, cpp:S995 & cpp:S5008 are unavoidable: this is integration with low-level C code
     /// of Canard memory management (@see ::canardInit).
     ///
-    static void freeCanardMemory(CanardInstance* ins,      // NOSONAR cpp:S995
-                                 void*           pointer,  // NOSONAR cpp:S5008
-                                 std::size_t     amount)       // NOSONAR cpp:S994
+    static void freeCanardMemory(void* const       user_reference,  // NOSONAR cpp:S995
+                                 const std::size_t amount,          // NOSONAR cpp:S994
+                                 void* const       pointer)               // NOSONAR cpp:S5008
     {
-        const TransportDelegate& self = getSelfFrom(ins);
+        const TransportDelegate& self = getSelfFrom(user_reference);
         self.freeCanardMemory(pointer, amount);
+    }
+
+    CETL_NODISCARD CanardMemoryResource makeCanardMemoryResource()
+    {
+        return {this, freeCanardMemory, allocateMemoryForCanard};
     }
 
     // MARK: Data members:

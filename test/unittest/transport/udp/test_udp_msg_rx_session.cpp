@@ -56,6 +56,7 @@ using testing::Return;
 using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
+using testing::ReturnRef;
 using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
@@ -79,14 +80,15 @@ protected:
             .WillRepeatedly(Invoke([this] {
                 return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock_);
             }));
-        EXPECT_CALL(tx_socket_mock_, getMtu())  //
-            .WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
-
         EXPECT_CALL(media_mock_, makeRxSocket(_))  //
             .WillRepeatedly(Invoke([this](auto& endpoint) {
                 rx_socket_mock_.setEndpoint(endpoint);
                 return libcyphal::detail::makeUniquePtr<RxSocketMock::RefWrapper::Spec>(mr_, rx_socket_mock_);
             }));
+        EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
+
+        EXPECT_CALL(tx_socket_mock_, getMtu())  //
+            .WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
     }
 
     void TearDown() override

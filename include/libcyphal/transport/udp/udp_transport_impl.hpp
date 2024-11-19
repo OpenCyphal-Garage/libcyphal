@@ -72,16 +72,16 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
     struct Media final
     {
     public:
-        Media(const std::size_t                 index,
-              IMedia&                           interface,
-              const UdpardNodeID* const         local_node_id,
-              const std::size_t                 tx_capacity,
-              const struct UdpardMemoryResource udp_mem_res)
+        Media(const std::size_t         index,
+              IMedia&                   interface,
+              const UdpardNodeID* const local_node_id,
+              const std::size_t         tx_capacity)
             : index_{static_cast<std::uint8_t>(index)}
             , interface_{interface}
             , udpard_tx_{}
         {
-            const std::int8_t result = ::udpardTxInit(&udpard_tx_, local_node_id, tx_capacity, udp_mem_res);
+            const std::int8_t result =
+                ::udpardTxInit(&udpard_tx_, local_node_id, tx_capacity, makeUdpardMemoryResource(interface));
             CETL_DEBUG_ASSERT(result == 0, "There should be no path for an error here.");
             (void) result;
         }
@@ -117,6 +117,29 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
         }
 
     private:
+        CETL_NODISCARD static UdpardMemoryResource makeUdpardMemoryResource(IMedia& media_interface)
+        {
+            return {&media_interface.getTxMemoryResource(), freeMediaMemory, allocateMediaMemory};
+        }
+
+        static void* allocateMediaMemory(void* const user_reference, const std::size_t amount)  // NOSONAR cpp:S995
+        {
+            auto* const memory = static_cast<cetl::pmr::memory_resource*>(user_reference);
+            CETL_DEBUG_ASSERT(nullptr != user_reference, "Expected PMR as non-null user reference.");
+
+            return memory->allocate(amount);
+        }
+
+        static void freeMediaMemory(void* const       user_reference,  // NOSONAR cpp:S995
+                                    const std::size_t amount,          // NOSONAR cpp:S994
+                                    void* const       pointer)               // NOSONAR cpp:S5008
+        {
+            auto* const memory = static_cast<cetl::pmr::memory_resource*>(user_reference);
+            CETL_DEBUG_ASSERT(nullptr != user_reference, "Expected PMR as non-null user reference.");
+
+            memory->deallocate(pointer, amount);
+        }
+
         const std::uint8_t     index_;
         IMedia&                interface_;
         UdpardTx               udpard_tx_;
@@ -153,12 +176,7 @@ public:
 
         // False positive of clang-tidy - we move `media_array` to the `transport` instance, so can't make it const.
         // NOLINTNEXTLINE(misc-const-correctness)
-        MediaArray media_array = makeMediaArray(mem_res_spec.general,
-                                                media_count,
-                                                media,
-                                                &unset_node_id,
-                                                tx_capacity,
-                                                memory_resources.fragment);
+        MediaArray media_array = makeMediaArray(mem_res_spec.general, media_count, media, &unset_node_id, tx_capacity);
         if (media_array.size() != media_count)
         {
             return MemoryError{};
@@ -586,12 +604,11 @@ private:
         return failure;
     }
 
-    CETL_NODISCARD static MediaArray makeMediaArray(cetl::pmr::memory_resource&       memory,
-                                                    const std::size_t                 media_count,
-                                                    const cetl::span<IMedia*>         media_interfaces,
-                                                    const UdpardNodeID* const         local_node_id_,
-                                                    const std::size_t                 tx_capacity,
-                                                    const struct UdpardMemoryResource udp_mem_res)
+    CETL_NODISCARD static MediaArray makeMediaArray(cetl::pmr::memory_resource& memory,
+                                                    const std::size_t           media_count,
+                                                    const cetl::span<IMedia*>   media_interfaces,
+                                                    const UdpardNodeID* const   local_node_id_,
+                                                    const std::size_t           tx_capacity)
     {
         MediaArray media_array{media_count, &memory};
 
@@ -606,7 +623,7 @@ private:
                 if (media_interface != nullptr)
                 {
                     IMedia& media = *media_interface;
-                    media_array.emplace_back(index, media, local_node_id_, tx_capacity, udp_mem_res);
+                    media_array.emplace_back(index, media, local_node_id_, tx_capacity);
                     index++;
                 }
             }

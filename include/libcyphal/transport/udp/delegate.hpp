@@ -337,7 +337,7 @@ protected:
     {
         // No Sonar `cpp:S5356` b/c the raw `user_reference` is part of libudpard api.
         void* const user_reference = (custom != nullptr) ? custom : &general;  // NOSONAR cpp:S5356
-        return UdpardMemoryResource{user_reference, deallocateMemoryForUdpard, allocateMemoryForUdpard};
+        return {user_reference, deallocateMemoryForUdpard, allocateMemoryForUdpard};
     }
 
     CETL_NODISCARD static UdpardMemoryDeleter makeUdpardMemoryDeleter(cetl::pmr::memory_resource* const custom,

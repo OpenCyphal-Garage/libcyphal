@@ -59,6 +59,7 @@ using testing::SizeIs;
 using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
+using testing::ReturnRef;
 using testing::StrictMock;
 using testing::VariantWith;
 
@@ -112,6 +113,7 @@ protected:
                 rx_socket_mock_.setEndpoint(endpoint);
                 return libcyphal::detail::makeUniquePtr<RxSocketMock::RefWrapper::Spec>(mr_, rx_socket_mock_);
             }));
+        EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
 
         EXPECT_CALL(tx_socket_mock_, getMtu()).WillRepeatedly(Invoke(&tx_socket_mock_, &TxSocketMock::getBaseMtu));
     }
@@ -217,6 +219,7 @@ TEST_F(TestUpdTransport, makeTransport_getLocalNodeId)
     // Two media interfaces
     {
         StrictMock<MediaMock> media_mock2;
+        EXPECT_CALL(media_mock2, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
 
         std::array<IMedia*, 3> media_array{&media_mock_, nullptr, &media_mock2};
         auto                   maybe_transport = udp::makeTransport({mr_}, scheduler_, media_array, 0);
@@ -227,6 +230,8 @@ TEST_F(TestUpdTransport, makeTransport_getLocalNodeId)
     {
         StrictMock<MediaMock> media_mock2{};
         StrictMock<MediaMock> media_mock3{};
+        EXPECT_CALL(media_mock2, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
+        EXPECT_CALL(media_mock3, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
 
         std::array<IMedia*, 3> media_array{&media_mock_, &media_mock2, &media_mock3};
         auto                   maybe_transport = udp::makeTransport({mr_}, scheduler_, media_array, 0);
@@ -280,6 +285,7 @@ TEST_F(TestUpdTransport, getProtocolParams)
         .WillRepeatedly(Invoke([&] {          //
             return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock2);
         }));
+    EXPECT_CALL(media_mock2, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
     EXPECT_CALL(tx_socket_mock2, getMtu()).WillRepeatedly(Return(ITxSocket::DefaultMtu));
 
     std::array<IMedia*, 2> media_array{&media_mock_, &media_mock2};
@@ -605,6 +611,7 @@ TEST_F(TestUpdTransport, send_multiframe_payload_to_redundant_not_ready_media)
         .WillRepeatedly(Invoke([this, &tx_socket_mock2] {
             return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock2);
         }));
+    EXPECT_CALL(media_mock2, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
 
     auto transport = makeTransport({mr_}, &media_mock2);
     EXPECT_THAT(transport->setLocalNodeId(0x45), Eq(cetl::nullopt));
@@ -720,6 +727,7 @@ TEST_F(TestUpdTransport, send_payload_to_redundant_fallible_media)
         .WillRepeatedly(Invoke([&] {          //
             return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock2);
         }));
+    EXPECT_CALL(media_mock2, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
 
     auto transport = makeTransport({mr_}, &media_mock2);
     transport->setTransientErrorHandler(std::ref(handler_mock));

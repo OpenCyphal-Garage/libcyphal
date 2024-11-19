@@ -51,6 +51,7 @@ using testing::SizeIs;
 using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
+using testing::ReturnRef;
 using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
@@ -72,6 +73,7 @@ protected:
 
         EXPECT_CALL(media_mock_, getMtu())  //
             .WillRepeatedly(Return(CANARD_MTU_MAX));
+        EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
     }
 
     void TearDown() override

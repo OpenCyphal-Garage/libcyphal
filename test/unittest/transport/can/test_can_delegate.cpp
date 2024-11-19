@@ -100,7 +100,8 @@ TEST_F(TestCanDelegate, CanardMemory_copy)
 
     const std::size_t payload_size   = 4;
     const std::size_t allocated_size = payload_size + 1;
-    auto* const       payload = static_cast<byte*>(canard_instance.memory_allocate(&canard_instance, allocated_size));
+    auto* const       payload        = static_cast<byte*>(
+        canard_instance.memory.allocate(static_cast<detail::TransportDelegate*>(&delegate), allocated_size));
     fillIotaBytes({payload, allocated_size}, b('0'));
 
     const CanardMemory canard_memory{delegate, allocated_size, payload, payload_size};
@@ -158,7 +159,8 @@ TEST_F(TestCanDelegate, CanardMemory_copy_on_moved)
     auto&                 canard_instance = delegate.canard_instance();
 
     constexpr std::size_t payload_size = 4;
-    auto* const           payload = static_cast<byte*>(canard_instance.memory_allocate(&canard_instance, payload_size));
+    auto* const           payload      = static_cast<byte*>(
+        canard_instance.memory.allocate(static_cast<detail::TransportDelegate*>(&delegate), payload_size));
     fillIotaBytes({payload, payload_size}, b('0'));
 
     CanardMemory old_canard_memory{delegate, payload_size, payload, payload_size};
@@ -209,7 +211,7 @@ TEST_F(TestCanDelegate, canardMemoryAllocate_no_memory)
     EXPECT_CALL(mr_mock, do_allocate(_, _))  //
         .WillOnce(Return(nullptr));
 
-    EXPECT_THAT(canard_instance.memory_allocate(&canard_instance, 1), IsNull());
+    EXPECT_THAT(canard_instance.memory.allocate(static_cast<detail::TransportDelegate*>(&delegate), 1), IsNull());
 }
 
 TEST_F(TestCanDelegate, CanardConcreteTree_visitCounting)

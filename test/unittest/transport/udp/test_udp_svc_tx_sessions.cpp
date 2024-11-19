@@ -51,6 +51,7 @@ using testing::Return;
 using testing::SizeIs;
 using testing::IsEmpty;
 using testing::NotNull;
+using testing::ReturnRef;
 using testing::StrictMock;
 using testing::VariantWith;
 
@@ -73,6 +74,7 @@ protected:
             .WillRepeatedly(Invoke([this] {
                 return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock_);
             }));
+        EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
 
         EXPECT_CALL(tx_socket_mock_, getMtu())  //
             .WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
@@ -241,6 +243,7 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_request)
 {
     StrictMock<MemoryResourceMock> fragment_mr_mock;
     fragment_mr_mock.redirectExpectedCallsTo(mr_);
+    EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(fragment_mr_mock));
 
     auto transport = makeTransport({mr_, nullptr, &fragment_mr_mock});
 
@@ -303,6 +306,7 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_responce)
 {
     StrictMock<MemoryResourceMock> fragment_mr_mock;
     fragment_mr_mock.redirectExpectedCallsTo(mr_);
+    EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(fragment_mr_mock));
 
     auto transport = makeTransport({mr_, nullptr, &fragment_mr_mock});
 
