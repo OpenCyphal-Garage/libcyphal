@@ -663,7 +663,7 @@ private:
         return cetl::nullopt;
     }
 
-    void flushUdpardTxQueue(UdpardTx& udpard_tx) const
+    static void flushUdpardTxQueue(UdpardTx& udpard_tx)
     {
         while (const UdpardTxItem* const maybe_item = ::udpardTxPeek(&udpard_tx))
         {
