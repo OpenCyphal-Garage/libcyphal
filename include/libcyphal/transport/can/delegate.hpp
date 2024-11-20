@@ -338,11 +338,7 @@ private:
     /// Implicitly stores the size of the allocated memory in the prepended `CanardMemoryHeader` struct,
     /// so that it will possible later (at `freeCanardMemory`) restore the original size.
     ///
-    /// NOSONAR cpp:S995 is unavoidable: this is integration with low-level C code
-    /// of Canard memory management (@see ::canardInit).
-    ///
-    CETL_NODISCARD static void* allocateMemoryForCanard(void* const       user_reference,
-                                                        const std::size_t amount)  // NOSONAR cpp:S995
+    CETL_NODISCARD static void* allocateMemoryForCanard(void* const user_reference, const std::size_t amount)
     {
         const TransportDelegate& self = getSelfFrom(user_reference);
 
@@ -351,12 +347,12 @@ private:
 
     /// @brief Releases memory allocated for canard instance (by previous `allocateMemoryForCanard` call).
     ///
-    /// NOSONAR  cpp:S994, cpp:S995 & cpp:S5008 are unavoidable: this is integration with low-level C code
+    /// NOSONAR  cpp:S5008 is unavoidable: this is integration with low-level C code
     /// of Canard memory management (@see ::canardInit).
     ///
-    static void freeCanardMemory(void* const       user_reference,  // NOSONAR cpp:S995
-                                 const std::size_t amount,          // NOSONAR cpp:S994
-                                 void* const       pointer)               // NOSONAR cpp:S5008
+    static void freeCanardMemory(void* const       user_reference,
+                                 const std::size_t amount,
+                                 void* const       pointer)  // NOSONAR cpp:S5008
     {
         const TransportDelegate& self = getSelfFrom(user_reference);
         self.freeCanardMemory(pointer, amount);
