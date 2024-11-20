@@ -351,7 +351,7 @@ protected:
 private:
     /// @brief Allocates memory for udpard.
     ///
-    /// NOSONAR cpp:S5008 is unavoidable: this is integration with low-level C code of Udpard memory management.
+    /// NOSONAR cpp:S5008 is unavoidable: this is integration with Udpard C memory management.
     ///
     static void* allocateMemoryForUdpard(void* const user_reference, const size_t size)  // NOSONAR cpp:S5008
     {
@@ -364,7 +364,7 @@ private:
 
     /// @brief Releases memory allocated for udpard (by previous `allocateMemoryForUdpard` call).
     ///
-    /// NOSONAR cpp:S5008 is unavoidable: this is integration with low-level C code of Udpard memory management.
+    /// NOSONAR cpp:S5008 is unavoidable: this is integration with Udpard C memory management.
     ///
     static void deallocateMemoryForUdpard(void* const  user_reference,  // NOSONAR cpp:S5008
                                           const size_t size,

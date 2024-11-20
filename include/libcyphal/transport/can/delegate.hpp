@@ -189,7 +189,7 @@ public:
     private:
         static Node& down(CanardTreeNode& node)
         {
-            // Next nolint & NOSONAR are unavoidable: this is integration with low-level C code of Canard AVL trees.
+            // Next nolint & NOSONAR are unavoidable: this is integration with Canard C AVL trees.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
             return reinterpret_cast<Node&>(node);  // NOSONAR cpp:S3630
         }
@@ -256,7 +256,7 @@ public:
     /// @brief Releases memory allocated for canard (by previous `allocateMemoryForCanard` call).
     ///
     /// No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable -
-    /// this is integration with low-level C code of Canard memory management.
+    /// this is integration with low-level Canard C memory management.
     ///
     void freeCanardMemory(void* const pointer, const std::size_t amount) const  // NOSONAR cpp:S5008
     {
@@ -323,8 +323,9 @@ private:
     /// @brief Converts Canard instance to the transport delegate.
     ///
     /// In use to bridge two worlds: canard library and transport entities.
+    /// NOSONAR  cpp:S5008 is unavoidable: this is integration with low-level Canard C memory management.
     ///
-    CETL_NODISCARD static TransportDelegate& getSelfFrom(void* const user_reference)
+    CETL_NODISCARD static TransportDelegate& getSelfFrom(void* const user_reference)  // NOSONAR cpp:S5008
     {
         CETL_DEBUG_ASSERT(user_reference != nullptr, "Expected `this` transport as user reference.");
 
@@ -335,10 +336,10 @@ private:
 
     /// @brief Allocates memory for canard instance.
     ///
-    /// Implicitly stores the size of the allocated memory in the prepended `CanardMemoryHeader` struct,
-    /// so that it will possible later (at `freeCanardMemory`) restore the original size.
+    /// NOSONAR  cpp:S5008 is unavoidable: this is integration with low-level Canard C memory management.
     ///
-    CETL_NODISCARD static void* allocateMemoryForCanard(void* const user_reference, const std::size_t amount)
+    CETL_NODISCARD static void* allocateMemoryForCanard(void* const       user_reference,  // NOSONAR cpp:S5008
+                                                        const std::size_t amount)
     {
         const TransportDelegate& self = getSelfFrom(user_reference);
 
@@ -347,12 +348,11 @@ private:
 
     /// @brief Releases memory allocated for canard instance (by previous `allocateMemoryForCanard` call).
     ///
-    /// NOSONAR  cpp:S5008 is unavoidable: this is integration with low-level C code
-    /// of Canard memory management (@see ::canardInit).
+    /// NOSONAR  cpp:S5008 is unavoidable: this is integration with low-level Canard C memory management.
     ///
-    static void freeCanardMemory(void* const       user_reference,
+    static void freeCanardMemory(void* const       user_reference,  // NOSONAR cpp:S5008
                                  const std::size_t amount,
-                                 void* const       pointer)  // NOSONAR cpp:S5008
+                                 void* const       pointer)
     {
         const TransportDelegate& self = getSelfFrom(user_reference);
         self.freeCanardMemory(pointer, amount);
@@ -360,7 +360,8 @@ private:
 
     CETL_NODISCARD CanardMemoryResource makeCanardMemoryResource()
     {
-        return {this, freeCanardMemory, allocateMemoryForCanard};
+        // No Sonar `cpp:S5356` b/c we integrate here with C libcanard memory management.
+        return {this, freeCanardMemory, allocateMemoryForCanard};  // NOSONAR cpp:S5356
     }
 
     // MARK: Data members:

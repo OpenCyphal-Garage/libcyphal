@@ -73,7 +73,7 @@ class TransportImpl final : private TransportDelegate, public ICanTransport  // 
         Media(const std::size_t index, IMedia& interface, const std::size_t tx_capacity)
             : index_{static_cast<std::uint8_t>(index)}
             , interface_{interface}
-            , canard_tx_queue_{::canardTxInit(tx_capacity, interface.getMtu(), makeMediaTxMemoryResource(interface))}
+            , canard_tx_queue_{::canardTxInit(tx_capacity, interface.getMtu(), makeTxMemoryResource(interface))}
         {
         }
 
@@ -108,10 +108,11 @@ class TransportImpl final : private TransportDelegate, public ICanTransport  // 
         }
 
     private:
-        CETL_NODISCARD static CanardMemoryResource makeMediaTxMemoryResource(IMedia& media_interface)
+        CETL_NODISCARD static CanardMemoryResource makeTxMemoryResource(IMedia& media_interface)
         {
-            return libcyphal::transport::detail::LizardHelpers::makeMemoryResource<CanardMemoryResource>(
-                media_interface.getTxMemoryResource());
+            using LizardHelpers = libcyphal::transport::detail::LizardHelpers;
+
+            return LizardHelpers::makeMemoryResource<CanardMemoryResource>(media_interface.getTxMemoryResource());
         }
 
         const std::uint8_t       index_;
@@ -119,7 +120,8 @@ class TransportImpl final : private TransportDelegate, public ICanTransport  // 
         CanardTxQueue            canard_tx_queue_;
         IExecutor::Callback::Any rx_callback_;
         IExecutor::Callback::Any tx_callback_;
-    };
+
+    };  // Media
     using MediaArray = libcyphal::detail::VarArray<Media>;
 
 public:

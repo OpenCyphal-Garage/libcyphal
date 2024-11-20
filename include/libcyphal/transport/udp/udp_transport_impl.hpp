@@ -82,7 +82,7 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
             , udpard_tx_{}
         {
             const std::int8_t result =
-                ::udpardTxInit(&udpard_tx_, local_node_id, tx_capacity, makeMediaTxMemoryResource(interface));
+                ::udpardTxInit(&udpard_tx_, local_node_id, tx_capacity, makeTxMemoryResource(interface));
             CETL_DEBUG_ASSERT(result == 0, "There should be no path for an error here.");
             (void) result;
         }
@@ -118,10 +118,11 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
         }
 
     private:
-        CETL_NODISCARD static UdpardMemoryResource makeMediaTxMemoryResource(IMedia& media_interface)
+        CETL_NODISCARD static UdpardMemoryResource makeTxMemoryResource(IMedia& media_interface)
         {
-            return libcyphal::transport::detail::LizardHelpers::makeMemoryResource<UdpardMemoryResource>(
-                media_interface.getTxMemoryResource());
+            using LizardHelpers = libcyphal::transport::detail::LizardHelpers;
+
+            return LizardHelpers::makeMemoryResource<UdpardMemoryResource>(media_interface.getTxMemoryResource());
         }
 
         const std::uint8_t     index_;
@@ -129,7 +130,8 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
         UdpardTx               udpard_tx_;
         SocketState<ITxSocket> tx_socket_state_;
         SocketState<IRxSocket> svc_rx_socket_state_;
-    };
+
+    };  // Media
     using MediaArray = libcyphal::detail::VarArray<Media>;
 
 public:

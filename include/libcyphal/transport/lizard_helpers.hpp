@@ -25,14 +25,20 @@ class LizardHelpers final
 public:
     LizardHelpers() = delete;
 
+    /// Constructs a lizard C memory resource.
+    ///
     template <typename MemoryResource>
     CETL_NODISCARD static MemoryResource makeMemoryResource(cetl::pmr::memory_resource& memory)
     {
-        return {&memory, deallocateMemory, allocateMemory};
+        /// No Sonar `cpp:S5356` is unavoidable - integration with Lizard C memory management.
+        ///
+        return {&memory, deallocateMemory, allocateMemory};  // NOSONAR cpp:S5356
     }
 
 private:
-    static void* allocateMemory(void* const user_reference, const std::size_t amount)
+    /// No Sonar `cpp:S5008` is unavoidable - integration with Lizard C memory management.
+    ///
+    static void* allocateMemory(void* const user_reference, const std::size_t amount)  // NOSONAR cpp:S5008
     {
         // No Sonar `cpp:S5357` "... isn't related to `void*`.
         // B/c we integrate here with lizard C memory management.
@@ -42,7 +48,9 @@ private:
         return memory->allocate(amount);
     }
 
-    static void deallocateMemory(void* const       user_reference,
+    /// No Sonar `cpp:S5008` is unavoidable - integration with Lizard C memory management.
+    ///
+    static void deallocateMemory(void* const       user_reference,  // NOSONAR cpp:S5008
                                  const std::size_t amount,
                                  void* const       pointer)  // NOSONAR cpp:S5008
     {
