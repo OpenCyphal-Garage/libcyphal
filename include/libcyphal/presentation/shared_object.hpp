@@ -25,9 +25,53 @@ namespace presentation
 namespace detail
 {
 
+/// @brief Defines double-linked list of unreferenced nodes.
+///
+struct UnRefNode
+{
+    void linkAsUnreferenced(UnRefNode& origin)
+    {
+        CETL_DEBUG_ASSERT((prev_node != nullptr) == (next_node != nullptr), "Should be both or none.");
+
+        // Already linked?
+        if ((nullptr == prev_node) && (nullptr == next_node))
+        {
+            // Link to the end of the list, so that the object is destroyed in the order of unreferencing.
+            //
+            next_node                   = &origin;
+            prev_node                   = origin.prev_node;
+            origin.prev_node->next_node = this;
+            origin.prev_node            = this;
+        }
+    }
+
+    void unlinkIfReferenced()
+    {
+        CETL_DEBUG_ASSERT((prev_node != nullptr) == (next_node != nullptr), "Should be both or none.");
+
+        // Already unlinked?
+        if ((nullptr != prev_node) && (nullptr != next_node))
+        {
+            prev_node->next_node = next_node;
+            next_node->prev_node = prev_node;
+
+            next_node = nullptr;
+            prev_node = nullptr;
+        }
+    }
+
+    // No Lint b/c this `UnRefNode` is a simple helper struct as base of the below `SharedObject`.
+    // It's under `detail` namespace and not supposed to be used directly by the users of the library.
+    // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
+    UnRefNode* prev_node{nullptr};
+    UnRefNode* next_node{nullptr};
+    // NOLINTEND(misc-non-private-member-variables-in-classes)
+
+};  // UnRefNode
+
 /// @brief Defines the base class for all classes that need to be shared (using reference count).
 ///
-class SharedObject
+class SharedObject : public UnRefNode
 {
 public:
     SharedObject()          = default;
@@ -37,6 +81,13 @@ public:
     SharedObject(SharedObject&&) noexcept            = delete;
     SharedObject& operator=(const SharedObject&)     = delete;
     SharedObject& operator=(SharedObject&&) noexcept = delete;
+
+    /// @brief Gets boolean indicating whether the object is referenced at least once.
+    ///
+    bool isReferenced() const noexcept
+    {
+        return ref_count_ > 0;
+    }
 
     /// @brief Increments the reference count.
     ///

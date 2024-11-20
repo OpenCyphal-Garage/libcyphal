@@ -93,8 +93,6 @@ protected:
 
 TEST_F(TestHeartbeatProducer, make)
 {
-    Presentation presentation{mr_, scheduler_, transport_mock_};
-
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
     constexpr MessageTxParams        tx_params{uavcan::node::Heartbeat_1_0::_traits_::FixedPortId};
     EXPECT_CALL(msg_tx_session_mock, getParams()).WillOnce(Return(tx_params));
@@ -106,6 +104,8 @@ TEST_F(TestHeartbeatProducer, make)
         }));
     EXPECT_CALL(transport_mock_, getLocalNodeId())  //
         .WillRepeatedly(Return(cetl::nullopt));
+
+    Presentation presentation{mr_, scheduler_, transport_mock_};
 
     cetl::optional<node::HeartbeatProducer> heartbeat_producer;
     TimePoint                               start_time{};
@@ -218,8 +218,6 @@ TEST_F(TestHeartbeatProducer, move)
     static_assert(!std::is_default_constructible<node::HeartbeatProducer>::value,
                   "Should not be default constructible.");
 
-    Presentation presentation{mr_, scheduler_, transport_mock_};
-
     StrictMock<MessageTxSessionMock> msg_tx_session_mock;
     EXPECT_CALL(msg_tx_session_mock, getParams())  //
         .WillOnce(Return(MessageTxParams{uavcan::node::Heartbeat_1_0::_traits_::FixedPortId}));
@@ -234,6 +232,8 @@ TEST_F(TestHeartbeatProducer, move)
         }));
     EXPECT_CALL(transport_mock_, getLocalNodeId())  //
         .WillRepeatedly(Return(cetl::optional<NodeId>{NodeId{42U}}));
+
+    Presentation presentation{mr_, scheduler_, transport_mock_};
 
     std::vector<TimePoint>                  calls;
     cetl::optional<node::HeartbeatProducer> heartbeat_producer1;

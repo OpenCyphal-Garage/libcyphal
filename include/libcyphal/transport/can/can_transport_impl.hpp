@@ -581,9 +581,9 @@ private:
             IMedia::PushResult::Type push_result =
                 media.interface().push(tx_deadline, tx_item->frame.extended_can_id, payload);
 
-            // In case of media push error we are going to drop this problematic frame
+            // In case of media push error, we are going to drop this problematic frame
             // (b/c it looks like media can't handle this frame),
-            // but we will continue to process with other transfer frame.
+            // but we will continue to process with another transfer frame.
             // Note that media not being ready/able to push a frame just yet (aka temporary)
             // is not reported as an error (see `is_pushed` below).
             //
