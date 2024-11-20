@@ -529,7 +529,7 @@ private:
         return media_array;
     }
 
-    void flushCanardTxQueue(CanardTxQueue& canard_tx_queue) const
+    static void flushCanardTxQueue(CanardTxQueue& canard_tx_queue)
     {
         while (const CanardTxQueueItem* const maybe_item = ::canardTxPeek(&canard_tx_queue))
         {
