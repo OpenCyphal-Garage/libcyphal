@@ -221,7 +221,7 @@ private:
                           const libcyphal::transport::can::CanId can_id,
                           const cetl::span<const cetl::byte>     payload) noexcept override
     {
-        const CanardFrame  canard_frame{can_id, payload.size(), payload.data()};
+        const CanardFrame  canard_frame{can_id, {payload.size(), payload.data()}};
         const std::int16_t result = ::socketcanPush(socket_can_tx_fd_, &canard_frame, 0);
         if (result < 0)
         {
@@ -253,7 +253,7 @@ private:
             return cetl::nullopt;
         }
 
-        return PopResult::Metadata{executor_.now(), canard_frame.extended_can_id, canard_frame.payload_size};
+        return PopResult::Metadata{executor_.now(), canard_frame.extended_can_id, canard_frame.payload.size};
     }
 
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerPushCallback(

@@ -333,8 +333,7 @@ private:
                                                        &canard_instance(),
                                                        static_cast<CanardMicrosecond>(deadline_us.count()),
                                                        &metadata,
-                                                       payload.size(),
-                                                       payload.data());  // NOSONAR cpp:S5356
+                                                       {payload.size(), payload.data()});  // NOSONAR cpp:S5356
 
             cetl::optional<AnyFailure> failure =
                 tryHandleTransientCanardResult<TransientErrorReport::CanardTxPush>(media, result);
@@ -549,7 +548,7 @@ private:
 
         const auto timestamp_us =
             std::chrono::duration_cast<std::chrono::microseconds>(pop_meta.timestamp.time_since_epoch());
-        const CanardFrame canard_frame{pop_meta.can_id, pop_meta.payload_size, payload.cbegin()};
+        const CanardFrame canard_frame{pop_meta.can_id, {pop_meta.payload_size, payload.data()}};
 
         CanardRxTransfer      out_transfer{};
         CanardRxSubscription* out_subscription{};
@@ -586,8 +585,8 @@ private:
         {
             // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libcanard API.
             const auto* const buffer =
-                static_cast<const cetl::byte*>(tx_item->frame.payload);  // NOSONAR cpp:S5356 cpp:S5357
-            const PayloadFragment payload{buffer, tx_item->frame.payload_size};
+                static_cast<const cetl::byte*>(tx_item->frame.payload.data);  // NOSONAR cpp:S5356 cpp:S5357
+            const PayloadFragment payload{buffer, tx_item->frame.payload.size};
 
             IMedia::PushResult::Type push_result =
                 media.interface().push(tx_deadline, tx_item->frame.extended_can_id, payload);
