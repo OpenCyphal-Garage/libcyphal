@@ -342,7 +342,6 @@ private:
                                                         const std::size_t amount)
     {
         const TransportDelegate& self = getSelfFrom(user_reference);
-
         return self.memory_.allocate(amount);
     }
 
@@ -352,7 +351,7 @@ private:
     ///
     static void freeCanardMemory(void* const       user_reference,  // NOSONAR cpp:S5008
                                  const std::size_t amount,
-                                 void* const       pointer)
+                                 void* const       pointer)  // NOSONAR cpp:S5008
     {
         const TransportDelegate& self = getSelfFrom(user_reference);
         self.freeCanardMemory(pointer, amount);
