@@ -57,6 +57,8 @@ public:
                 (IExecutor::Callback::Function && function),
                 (override));
 
+    MOCK_METHOD(cetl::pmr::memory_resource&, getTxMemoryResource, (), (override));
+
 };  // MediaMock
 
 }  // namespace can

@@ -96,6 +96,11 @@ private:
         return UdpRxSocket::make(memory_, executor_, iface_address_, multicast_endpoint);
     }
 
+    cetl::pmr::memory_resource& getTxMemoryResource() override
+    {
+        return memory_;
+    }
+
     // MARK: Data members:
 
     cetl::pmr::memory_resource& memory_;

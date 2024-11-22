@@ -19,6 +19,7 @@
 #include "libcyphal/executor.hpp"
 #include "libcyphal/transport/contiguous_payload.hpp"
 #include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/lizard_helpers.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -72,16 +73,16 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
     struct Media final
     {
     public:
-        Media(const std::size_t                 index,
-              IMedia&                           interface,
-              const UdpardNodeID* const         local_node_id,
-              const std::size_t                 tx_capacity,
-              const struct UdpardMemoryResource udp_mem_res)
+        Media(const std::size_t         index,
+              IMedia&                   interface,
+              const UdpardNodeID* const local_node_id,
+              const std::size_t         tx_capacity)
             : index_{static_cast<std::uint8_t>(index)}
             , interface_{interface}
             , udpard_tx_{}
         {
-            const std::int8_t result = ::udpardTxInit(&udpard_tx_, local_node_id, tx_capacity, udp_mem_res);
+            const std::int8_t result =
+                ::udpardTxInit(&udpard_tx_, local_node_id, tx_capacity, makeTxMemoryResource(interface));
             CETL_DEBUG_ASSERT(result == 0, "There should be no path for an error here.");
             (void) result;
         }
@@ -117,12 +118,20 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
         }
 
     private:
+        CETL_NODISCARD static UdpardMemoryResource makeTxMemoryResource(IMedia& media_interface)
+        {
+            using LizardHelpers = libcyphal::transport::detail::LizardHelpers;
+
+            return LizardHelpers::makeMemoryResource<UdpardMemoryResource>(media_interface.getTxMemoryResource());
+        }
+
         const std::uint8_t     index_;
         IMedia&                interface_;
         UdpardTx               udpard_tx_;
         SocketState<ITxSocket> tx_socket_state_;
         SocketState<IRxSocket> svc_rx_socket_state_;
-    };
+
+    };  // Media
     using MediaArray = libcyphal::detail::VarArray<Media>;
 
 public:
@@ -153,12 +162,7 @@ public:
 
         // False positive of clang-tidy - we move `media_array` to the `transport` instance, so can't make it const.
         // NOLINTNEXTLINE(misc-const-correctness)
-        MediaArray media_array = makeMediaArray(mem_res_spec.general,
-                                                media_count,
-                                                media,
-                                                &unset_node_id,
-                                                tx_capacity,
-                                                memory_resources.fragment);
+        MediaArray media_array = makeMediaArray(mem_res_spec.general, media_count, media, &unset_node_id, tx_capacity);
         if (media_array.size() != media_count)
         {
             return MemoryError{};
@@ -586,12 +590,11 @@ private:
         return failure;
     }
 
-    CETL_NODISCARD static MediaArray makeMediaArray(cetl::pmr::memory_resource&       memory,
-                                                    const std::size_t                 media_count,
-                                                    const cetl::span<IMedia*>         media_interfaces,
-                                                    const UdpardNodeID* const         local_node_id_,
-                                                    const std::size_t                 tx_capacity,
-                                                    const struct UdpardMemoryResource udp_mem_res)
+    CETL_NODISCARD static MediaArray makeMediaArray(cetl::pmr::memory_resource& memory,
+                                                    const std::size_t           media_count,
+                                                    const cetl::span<IMedia*>   media_interfaces,
+                                                    const UdpardNodeID* const   local_node_id_,
+                                                    const std::size_t           tx_capacity)
     {
         MediaArray media_array{media_count, &memory};
 
@@ -606,7 +609,7 @@ private:
                 if (media_interface != nullptr)
                 {
                     IMedia& media = *media_interface;
-                    media_array.emplace_back(index, media, local_node_id_, tx_capacity, udp_mem_res);
+                    media_array.emplace_back(index, media, local_node_id_, tx_capacity);
                     index++;
                 }
             }
@@ -660,12 +663,12 @@ private:
         return cetl::nullopt;
     }
 
-    void flushUdpardTxQueue(UdpardTx& udpard_tx) const
+    static void flushUdpardTxQueue(UdpardTx& udpard_tx)
     {
         while (const UdpardTxItem* const maybe_item = ::udpardTxPeek(&udpard_tx))
         {
             UdpardTxItem* const item = ::udpardTxPop(&udpard_tx, maybe_item);
-            ::udpardTxFree(memoryResources().fragment, item);
+            ::udpardTxFree(udpard_tx.memory, item);
         }
     }
 

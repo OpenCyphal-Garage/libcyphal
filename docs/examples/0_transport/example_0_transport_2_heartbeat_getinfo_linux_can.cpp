@@ -124,7 +124,7 @@ TEST_F(Example_0_Transport_2_Heartbeat_GetInfo_Can, main)
 
     // Make CAN transport with collection of media.
     //
-    if (!state.media_collection_.make(executor_, iface_addresses_))
+    if (!state.media_collection_.make(mr_, executor_, iface_addresses_))
     {
         GTEST_SKIP();
     }

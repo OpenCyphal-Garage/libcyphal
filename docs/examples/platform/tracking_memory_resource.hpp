@@ -79,6 +79,7 @@ private:
             CETL_DEBUG_ASSERT(prev_alloc != allocations.cend(), "");
             if (prev_alloc != allocations.cend())
             {
+                CETL_DEBUG_ASSERT(prev_alloc->size == size_bytes, "");
                 allocations.erase(prev_alloc);
             }
             total_deallocated_bytes += size_bytes;
@@ -106,6 +107,7 @@ private:
             CETL_DEBUG_ASSERT(prev_alloc != allocations.cend(), "");
             if (prev_alloc != allocations.cend())
             {
+                CETL_DEBUG_ASSERT(prev_alloc->size == old_size_bytes, "");
                 allocations.erase(prev_alloc);
             }
             total_allocated_bytes -= old_size_bytes;

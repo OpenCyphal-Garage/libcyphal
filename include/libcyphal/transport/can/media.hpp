@@ -137,6 +137,18 @@ public:
     ///
     CETL_NODISCARD virtual IExecutor::Callback::Any registerPopCallback(IExecutor::Callback::Function&& function) = 0;
 
+    /// Gets the memory resource for the TX frame payload buffers.
+    ///
+    /// The lizard or the client can both allocate and deallocate memory using this memory resource.
+    /// The TX memory resource (MR) will be used to allocate memory for the lizard when it needs to enqueue a new TX
+    /// item. If that item never makes it to the IMedia (for example, if it times out or the transmission is canceled
+    /// for other reasons like running out of queue space or memory), the memory is freed using the same MR. If the item
+    /// actually makes it to IMedia, the `ITxSocket::send` takes ownership of the buffer, so that the client doesn't
+    /// need to free it. What happens to the buffer afterward is none of the client's concerns, the media will take care
+    /// of everything.
+    ///
+    virtual cetl::pmr::memory_resource& getTxMemoryResource() = 0;
+
 protected:
     IMedia()  = default;
     ~IMedia() = default;

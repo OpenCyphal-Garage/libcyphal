@@ -703,8 +703,7 @@ TEST_F(TestPresentation, makeClient_raw)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    auto maybe_client =
-        presentation.makeClient(rx_params.server_node_id, rx_params.service_id, rx_params.extent_bytes);
+    auto maybe_client = presentation.makeClient(rx_params.server_node_id, rx_params.service_id, rx_params.extent_bytes);
     ASSERT_THAT(maybe_client, VariantWith<RawServiceClient>(_));
 
     EXPECT_CALL(req_tx_session_mock, deinit()).Times(1);

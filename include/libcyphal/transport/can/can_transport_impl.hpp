@@ -17,6 +17,7 @@
 #include "libcyphal/executor.hpp"
 #include "libcyphal/transport/contiguous_payload.hpp"
 #include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/lizard_helpers.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -72,7 +73,7 @@ class TransportImpl final : private TransportDelegate, public ICanTransport  // 
         Media(const std::size_t index, IMedia& interface, const std::size_t tx_capacity)
             : index_{static_cast<std::uint8_t>(index)}
             , interface_{interface}
-            , canard_tx_queue_{::canardTxInit(tx_capacity, interface.getMtu())}
+            , canard_tx_queue_{::canardTxInit(tx_capacity, interface.getMtu(), makeTxMemoryResource(interface))}
         {
         }
 
@@ -107,12 +108,20 @@ class TransportImpl final : private TransportDelegate, public ICanTransport  // 
         }
 
     private:
+        CETL_NODISCARD static CanardMemoryResource makeTxMemoryResource(IMedia& media_interface)
+        {
+            using LizardHelpers = libcyphal::transport::detail::LizardHelpers;
+
+            return LizardHelpers::makeMemoryResource<CanardMemoryResource>(media_interface.getTxMemoryResource());
+        }
+
         const std::uint8_t       index_;
         IMedia&                  interface_;
         CanardTxQueue            canard_tx_queue_;
         IExecutor::Callback::Any rx_callback_;
         IExecutor::Callback::Any tx_callback_;
-    };
+
+    };  // Media
     using MediaArray = libcyphal::detail::VarArray<Media>;
 
 public:
@@ -324,8 +333,7 @@ private:
                                                        &canard_instance(),
                                                        static_cast<CanardMicrosecond>(deadline_us.count()),
                                                        &metadata,
-                                                       payload.size(),
-                                                       payload.data());  // NOSONAR cpp:S5356
+                                                       {payload.size(), payload.data()});  // NOSONAR cpp:S5356
 
             cetl::optional<AnyFailure> failure =
                 tryHandleTransientCanardResult<TransientErrorReport::CanardTxPush>(media, result);
@@ -506,14 +514,16 @@ private:
         return media_array;
     }
 
-    void flushCanardTxQueue(CanardTxQueue& canard_tx_queue) const
+    static void flushCanardTxQueue(CanardTxQueue& canard_tx_queue)
     {
         while (const CanardTxQueueItem* const maybe_item = ::canardTxPeek(&canard_tx_queue))
         {
             CanardTxQueueItem* const item = ::canardTxPop(&canard_tx_queue, maybe_item);
 
             // No Sonar `cpp:S5356` b/c we need to free tx item allocated by libcanard as a raw memory.
-            freeCanardMemory(item);  // NOSONAR cpp:S5356
+            canard_tx_queue.memory.deallocate(canard_tx_queue.memory.user_reference,
+                                              item->allocated_size,
+                                              item);  // NOSONAR cpp:S5356
         }
     }
 
@@ -538,7 +548,7 @@ private:
 
         const auto timestamp_us =
             std::chrono::duration_cast<std::chrono::microseconds>(pop_meta.timestamp.time_since_epoch());
-        const CanardFrame canard_frame{pop_meta.can_id, pop_meta.payload_size, payload.cbegin()};
+        const CanardFrame canard_frame{pop_meta.can_id, {pop_meta.payload_size, payload.data()}};
 
         CanardRxTransfer      out_transfer{};
         CanardRxSubscription* out_subscription{};
@@ -575,8 +585,8 @@ private:
         {
             // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libcanard API.
             const auto* const buffer =
-                static_cast<const cetl::byte*>(tx_item->frame.payload);  // NOSONAR cpp:S5356 cpp:S5357
-            const PayloadFragment payload{buffer, tx_item->frame.payload_size};
+                static_cast<const cetl::byte*>(tx_item->frame.payload.data);  // NOSONAR cpp:S5356 cpp:S5357
+            const PayloadFragment payload{buffer, tx_item->frame.payload.size};
 
             IMedia::PushResult::Type push_result =
                 media.interface().push(tx_deadline, tx_item->frame.extended_can_id, payload);
@@ -593,7 +603,7 @@ private:
                 const auto push = cetl::get<IMedia::PushResult::Success>(push_result);
                 if (push.is_accepted)
                 {
-                    popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, false /* single frame */);
+                    popAndFreeCanardTxQueueItem(media.canard_tx_queue(), tx_item, false /* single frame */);
                 }
 
                 // If needed schedule (recursively!) next frame to push.
@@ -612,7 +622,7 @@ private:
             // Release whole problematic transfer from the TX queue,
             // so that other transfers in TX queue have their chance.
             // Otherwise, we would be stuck in an execution loop trying to send the same frame.
-            popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, true /* whole transfer */);
+            popAndFreeCanardTxQueueItem(media.canard_tx_queue(), tx_item, true /* whole transfer */);
 
             using Report = TransientErrorReport::MediaPush;
             tryHandleTransientMediaFailure<Report>(media, std::move(*push_failure));
@@ -647,7 +657,7 @@ private:
             }
 
             // Release whole expired transfer b/c possible next frames of the same transfer are also expired.
-            popAndFreeCanardTxQueueItem(&canard_tx, tx_item, true /* whole transfer */);
+            popAndFreeCanardTxQueueItem(canard_tx, tx_item, true /* whole transfer */);
         }
         return nullptr;
     }

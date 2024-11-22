@@ -134,7 +134,7 @@ SocketCANFD socketcanOpen(const char* const iface_name, const bool can_fd)
 
 int16_t socketcanPush(const SocketCANFD fd, const CanardFrame* const frame, const CanardMicrosecond timeout_usec)
 {
-    if ((frame == NULL) || (frame->payload == NULL) || (frame->payload_size > UINT8_MAX))
+    if ((frame == NULL) || (frame->payload.data == NULL) || (frame->payload.size > UINT8_MAX))
     {
         return -EINVAL;
     }
@@ -147,15 +147,15 @@ int16_t socketcanPush(const SocketCANFD fd, const CanardFrame* const frame, cons
         struct canfd_frame cfd;
         (void) memset(&cfd, 0, sizeof(cfd));
         cfd.can_id = frame->extended_can_id | CAN_EFF_FLAG;
-        cfd.len    = (uint8_t) frame->payload_size;
+        cfd.len    = (uint8_t) frame->payload.size;
         // We set the bit rate switch on the assumption that it will be ignored by non-CAN-FD-capable hardware.
         cfd.flags = CANFD_BRS;
-        (void) memcpy(cfd.data, frame->payload, frame->payload_size);
+        (void) memcpy(cfd.data, frame->payload.data, frame->payload.size);
 
         // If the payload is small, use the smaller MTU for compatibility with non-FD sockets.
         // This way, if the user attempts to transmit a CAN FD frame without having the CAN FD socket option enabled,
         // an error will be triggered here.  This is convenient -- we can handle both FD and Classic CAN uniformly.
-        const size_t mtu = (frame->payload_size > CAN_MAX_DLEN) ? CANFD_MTU : CAN_MTU;
+        const size_t mtu = (frame->payload.size > CAN_MAX_DLEN) ? CANFD_MTU : CAN_MTU;
         if (write(fd, &cfd, mtu) < 0)
         {
             return getNegatedErrno();
@@ -265,8 +265,8 @@ int16_t socketcanPop(const SocketCANFD        fd,
             *out_timestamp_usec = (CanardMicrosecond) (((uint64_t) tv.tv_sec * MEGA) + (uint64_t) tv.tv_usec);
         }
         out_frame->extended_can_id = sockcan_frame.can_id & CAN_EFF_MASK;
-        out_frame->payload_size    = sockcan_frame.len;
-        out_frame->payload         = payload_buffer;
+        out_frame->payload.size    = sockcan_frame.len;
+        out_frame->payload.data    = payload_buffer;
         (void) memcpy(payload_buffer, &sockcan_frame.data[0], sockcan_frame.len);
     }
     return poll_result;
