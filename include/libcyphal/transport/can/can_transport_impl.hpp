@@ -182,7 +182,7 @@ public:
 
         for (Media& media : media_array_)
         {
-            flushCanardTxQueue(media.canard_tx_queue());
+            flushCanardTxQueue(media.canard_tx_queue(), canard_instance());
         }
 
         CETL_DEBUG_ASSERT(total_msg_rx_ports_ == 0,  //
@@ -514,16 +514,12 @@ private:
         return media_array;
     }
 
-    static void flushCanardTxQueue(CanardTxQueue& canard_tx_queue)
+    static void flushCanardTxQueue(CanardTxQueue& canard_tx_queue, const CanardInstance& canard_instance)
     {
         while (const CanardTxQueueItem* const maybe_item = ::canardTxPeek(&canard_tx_queue))
         {
             CanardTxQueueItem* const item = ::canardTxPop(&canard_tx_queue, maybe_item);
-
-            // No Sonar `cpp:S5356` b/c we need to free tx item allocated by libcanard as a raw memory.
-            canard_tx_queue.memory.deallocate(canard_tx_queue.memory.user_reference,
-                                              item->allocated_size,
-                                              item);  // NOSONAR cpp:S5356
+            ::canardTxFree(&canard_tx_queue, &canard_instance, item);
         }
     }
 
@@ -603,7 +599,10 @@ private:
                 const auto push = cetl::get<IMedia::PushResult::Success>(push_result);
                 if (push.is_accepted)
                 {
-                    popAndFreeCanardTxQueueItem(media.canard_tx_queue(), tx_item, false /* single frame */);
+                    popAndFreeCanardTxQueueItem(media.canard_tx_queue(),
+                                                canard_instance(),
+                                                tx_item,
+                                                false /* single frame */);
                 }
 
                 // If needed schedule (recursively!) next frame to push.
@@ -622,7 +621,7 @@ private:
             // Release whole problematic transfer from the TX queue,
             // so that other transfers in TX queue have their chance.
             // Otherwise, we would be stuck in an execution loop trying to send the same frame.
-            popAndFreeCanardTxQueueItem(media.canard_tx_queue(), tx_item, true /* whole transfer */);
+            popAndFreeCanardTxQueueItem(media.canard_tx_queue(), canard_instance(), tx_item, true /* whole transfer */);
 
             using Report = TransientErrorReport::MediaPush;
             tryHandleTransientMediaFailure<Report>(media, std::move(*push_failure));
@@ -657,7 +656,7 @@ private:
             }
 
             // Release whole expired transfer b/c possible next frames of the same transfer are also expired.
-            popAndFreeCanardTxQueueItem(canard_tx, tx_item, true /* whole transfer */);
+            popAndFreeCanardTxQueueItem(canard_tx, canard_instance(), tx_item, true /* whole transfer */);
         }
         return nullptr;
     }
