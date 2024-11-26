@@ -46,6 +46,9 @@ public:
         , allocated_size_{allocated_size}
         , mr_{mr}
     {
+        CETL_DEBUG_ASSERT(size_ <= allocated_size_, "");
+        CETL_DEBUG_ASSERT((data_ == nullptr) || (mr_ != nullptr), "");
+        CETL_DEBUG_ASSERT((data_ != nullptr) || ((size_ == 0) && (allocated_size_ == 0)), "");
     }
 
     /// Moves another payload into this new payload instance.
@@ -58,6 +61,9 @@ public:
         , allocated_size_{std::exchange(other.allocated_size_, 0U)}
         , mr_{std::exchange(other.mr_, nullptr)}
     {
+        CETL_DEBUG_ASSERT(size_ <= allocated_size_, "");
+        CETL_DEBUG_ASSERT((data_ == nullptr) || (mr_ != nullptr), "");
+        CETL_DEBUG_ASSERT((data_ != nullptr) || ((size_ == 0) && (allocated_size_ == 0)), "");
     }
 
     /// @brief Assigns another payload by moving it into this one.
@@ -94,6 +100,15 @@ public:
         return {data_, size_};
     }
 
+    /// Gets size (in bytes) of allocated payload buffer.
+    ///
+    /// Returns zero if the payload is moved, released or reset.
+    ///
+    std::size_t getAllocatedSize() const noexcept
+    {
+        return allocated_size_;
+    }
+
     /// Releases ownership of the payload by returning its data pointer and sizes.
     ///
     /// In use to return the payload to the lizard C API when media is not ready yet to accept the payload.
@@ -103,7 +118,7 @@ public:
     ///         It's the caller's responsibility to deallocate the buffer with the correct memory resource,
     ///         or move it somewhere else with the same guarantee (like f.e. back to a lizard TX queue item).
     ///
-    std::tuple<std::size_t, void*, std::size_t> release() noexcept
+    std::tuple<std::size_t, cetl::byte*, std::size_t> release() noexcept
     {
         mr_ = nullptr;
         return std::make_tuple(std::exchange(size_, 0U),
@@ -117,14 +132,16 @@ public:
     ///
     void reset() noexcept
     {
-        if ((data_ != nullptr) && (mr_ != nullptr))
+        if (data_ != nullptr)
         {
-            size_ = 0;
+            CETL_DEBUG_ASSERT(mr_ != nullptr, "Memory resource should not be null.");
 
-            mr_->deallocate(data_, allocated_size_);
+            // No Sonar `cpp:S5356` b/c we integrate here PMR.
+            mr_->deallocate(data_, allocated_size_);  // NOSONAR cpp:S5356
 
             mr_             = nullptr;
             data_           = nullptr;
+            size_           = 0;
             allocated_size_ = 0;
         }
     }
