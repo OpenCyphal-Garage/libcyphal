@@ -7,6 +7,7 @@
 #    define _GNU_SOURCE
 #endif
 
+#include "canard.h"
 #include "socketcan.h"
 
 #ifdef __linux__

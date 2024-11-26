@@ -41,6 +41,7 @@
 #include <libcyphal/transport/contiguous_payload.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/lizard_helpers.hpp>
+#include <libcyphal/transport/media_payload.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/scattered_buffer.hpp>
 #include <libcyphal/transport/session.hpp>
