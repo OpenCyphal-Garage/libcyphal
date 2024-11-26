@@ -122,7 +122,12 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
         {
             using LizardHelpers = libcyphal::transport::detail::LizardHelpers;
 
-            return LizardHelpers::makeMemoryResource<UdpardMemoryResource>(media_interface.getTxMemoryResource());
+            // TODO: Make it `1` as soon as TX memory resource is used for raw bytes block allocations only.
+            // Currently, it is used for both `UdpardTxItem` and its payload.
+            constexpr std::size_t Alignment = alignof(UdpardTxItem);
+
+            return LizardHelpers::makeMemoryResource<UdpardMemoryResource, Alignment>(
+                media_interface.getTxMemoryResource());
         }
 
         const std::uint8_t     index_;

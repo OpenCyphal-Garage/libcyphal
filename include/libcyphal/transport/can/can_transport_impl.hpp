@@ -112,7 +112,12 @@ class TransportImpl final : private TransportDelegate, public ICanTransport  // 
         {
             using LizardHelpers = libcyphal::transport::detail::LizardHelpers;
 
-            return LizardHelpers::makeMemoryResource<CanardMemoryResource>(media_interface.getTxMemoryResource());
+            // TX memory resource is used for raw bytes block allocations only.
+            // So it has no alignment requirements.
+            constexpr std::size_t Alignment = 1;
+
+            return LizardHelpers::makeMemoryResource<CanardMemoryResource, Alignment>(
+                media_interface.getTxMemoryResource());
         }
 
         const std::uint8_t       index_;
