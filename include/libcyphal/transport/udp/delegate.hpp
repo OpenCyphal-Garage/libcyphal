@@ -261,7 +261,7 @@ public:
     /// @param tx_item The TX queue item to be popped and freed.
     /// @param whole_transfer If `true` then whole transfer should be released from the queue.
     ///
-    static void popAndFreeUdpardTxItem(UdpardTx* const tx_queue, const UdpardTxItem* tx_item, const bool whole_transfer)
+    static void popAndFreeUdpardTxItem(UdpardTx* const tx_queue, UdpardTxItem* tx_item, const bool whole_transfer)
     {
         while (UdpardTxItem* const mut_tx_item = ::udpardTxPop(tx_queue, tx_item))
         {

@@ -671,7 +671,7 @@ private:
 
     static void flushUdpardTxQueue(UdpardTx& udpard_tx)
     {
-        while (const UdpardTxItem* const maybe_item = ::udpardTxPeek(&udpard_tx))
+        while (UdpardTxItem* const maybe_item = ::udpardTxPeek(&udpard_tx))
         {
             UdpardTxItem* const item = ::udpardTxPop(&udpard_tx, maybe_item);
             ::udpardTxFree(udpard_tx.memory, item);
@@ -685,7 +685,7 @@ private:
         using PayloadFragment = cetl::span<const cetl::byte>;
 
         TimePoint tx_deadline;
-        while (const UdpardTxItem* const tx_item = peekFirstValidTxItem(media.udpard_tx(), tx_deadline))
+        while (UdpardTxItem* const tx_item = peekFirstValidTxItem(media.udpard_tx(), tx_deadline))
         {
             // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libudpard API.
             const auto* const buffer =
@@ -747,11 +747,11 @@ private:
     /// While searching, any of already expired TX items are pop from the queue and freed (aka dropped).
     /// If there is no still valid TX items in the queue, returns `nullptr`.
     ///
-    CETL_NODISCARD const UdpardTxItem* peekFirstValidTxItem(UdpardTx& udpard_tx, TimePoint& out_deadline) const
+    CETL_NODISCARD UdpardTxItem* peekFirstValidTxItem(UdpardTx& udpard_tx, TimePoint& out_deadline) const
     {
         const TimePoint now = executor_.now();
 
-        while (const UdpardTxItem* const tx_item = ::udpardTxPeek(&udpard_tx))
+        while (UdpardTxItem* const tx_item = ::udpardTxPeek(&udpard_tx))
         {
             // We are dropping any TX item that has expired.
             // Otherwise, we would send it to the media TX socket interface.
