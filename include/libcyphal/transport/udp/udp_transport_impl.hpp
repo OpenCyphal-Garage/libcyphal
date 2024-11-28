@@ -73,11 +73,11 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
     struct Media final
     {
     public:
-        Media(UdpardMemoryResource      fragments_mr,
-              const std::size_t         index,
-              IMedia&                   interface,
-              const UdpardNodeID* const local_node_id,
-              const std::size_t         tx_capacity)
+        Media(const UdpardMemoryResource fragments_mr,
+              const std::size_t          index,
+              IMedia&                    interface,
+              const UdpardNodeID* const  local_node_id,
+              const std::size_t          tx_capacity)
             : index_{static_cast<std::uint8_t>(index)}
             , interface_{interface}
             , udpard_tx_{}
