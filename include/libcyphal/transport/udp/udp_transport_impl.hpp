@@ -197,7 +197,7 @@ public:
     {
         for (auto& media : media_array_)
         {
-            media.udpard_tx().local_node_id = &node_id();
+            media.udpard_tx().local_node_id = &getNodeId();
         }
     }
 
@@ -233,12 +233,12 @@ private:
 
     CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
     {
-        if (node_id() > UDPARD_NODE_ID_MAX)
+        if (getNodeId() > UDPARD_NODE_ID_MAX)
         {
             return cetl::nullopt;
         }
 
-        return cetl::make_optional(node_id());
+        return cetl::make_optional(getNodeId());
     }
 
     CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId new_node_id) noexcept override
@@ -250,11 +250,11 @@ private:
 
         // Allow setting the same node ID multiple times, but only once otherwise.
         //
-        if (node_id() == new_node_id)
+        if (getNodeId() == new_node_id)
         {
             return cetl::nullopt;
         }
-        if (node_id() != UDPARD_NODE_ID_UNSET)
+        if (getNodeId() != UDPARD_NODE_ID_UNSET)
         {
             return ArgumentError{};
         }

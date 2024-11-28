@@ -96,7 +96,7 @@ TEST_F(TestCanDelegate, CanardMemory_copy)
     using CanardMemory = detail::TransportDelegate::CanardMemory;
 
     TransportDelegateImpl delegate{mr_};
-    auto&                 canard_instance = delegate.canard_instance();
+    auto&                 canard_instance = delegate.canardInstance();
 
     const std::size_t payload_size   = 4;
     const std::size_t allocated_size = payload_size + 1;
@@ -156,7 +156,7 @@ TEST_F(TestCanDelegate, CanardMemory_copy_on_moved)
     using CanardMemory = can::detail::TransportDelegate::CanardMemory;
 
     TransportDelegateImpl delegate{mr_};
-    auto&                 canard_instance = delegate.canard_instance();
+    auto&                 canard_instance = delegate.canardInstance();
 
     constexpr std::size_t payload_size = 4;
     auto* const           payload      = static_cast<byte*>(
@@ -205,7 +205,7 @@ TEST_F(TestCanDelegate, canardMemoryAllocate_no_memory)
     StrictMock<MemoryResourceMock> mr_mock;
 
     TransportDelegateImpl delegate{mr_mock};
-    auto&                 canard_instance = delegate.canard_instance();
+    auto&                 canard_instance = delegate.canardInstance();
 
     // Emulate that there is no memory at all.
     EXPECT_CALL(mr_mock, do_allocate(_, _))  //

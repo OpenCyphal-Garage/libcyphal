@@ -168,7 +168,7 @@ TEST_F(TestCanSvcRxSessions, make_request_setTransferIdTimeout)
 
     // NOLINTNEXTLINE
     auto&                 delegate        = static_cast<can::detail::TransportImpl*>(transport.get())->asDelegate();
-    auto&                 canard_instance = delegate.canard_instance();
+    auto&                 canard_instance = delegate.canardInstance();
     CanardRxSubscription* subscription    = nullptr;
     EXPECT_THAT(canardRxGetSubscription(&canard_instance, CanardTransferKindRequest, 123, &subscription), 1);
     ASSERT_THAT(subscription, NotNull());

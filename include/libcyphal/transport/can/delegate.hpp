@@ -216,7 +216,7 @@ public:
     TransportDelegate& operator=(const TransportDelegate&)     = delete;
     TransportDelegate& operator=(TransportDelegate&&) noexcept = delete;
 
-    CETL_NODISCARD NodeId node_id() const noexcept
+    CETL_NODISCARD NodeId getNodeId() const noexcept
     {
         return canard_instance_.node_id;
     }
@@ -226,12 +226,12 @@ public:
         canard_instance_.node_id = static_cast<CanardNodeID>(node_id);
     }
 
-    CETL_NODISCARD CanardInstance& canard_instance() noexcept
+    CETL_NODISCARD CanardInstance& canardInstance() noexcept
     {
         return canard_instance_;
     }
 
-    CETL_NODISCARD const CanardInstance& canard_instance() const noexcept
+    CETL_NODISCARD const CanardInstance& canardInstance() const noexcept
     {
         return canard_instance_;
     }
@@ -317,7 +317,7 @@ protected:
         , canard_instance_{::canardInit(makeCanardMemoryResource())}
     {
         // No Sonar `cpp:S5356` b/c we integrate here with C libcanard API.
-        canard_instance().user_reference = this;  // NOSONAR cpp:S5356
+        canardInstance().user_reference = this;  // NOSONAR cpp:S5356
     }
 
     ~TransportDelegate() = default;

@@ -203,7 +203,7 @@ public:
     TransportDelegate& operator=(const TransportDelegate&)     = delete;
     TransportDelegate& operator=(TransportDelegate&&) noexcept = delete;
 
-    CETL_NODISCARD const NodeId& node_id() const noexcept
+    CETL_NODISCARD const NodeId& getNodeId() const noexcept
     {
         return udpard_node_id_;
     }
