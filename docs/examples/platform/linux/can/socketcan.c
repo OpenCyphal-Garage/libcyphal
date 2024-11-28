@@ -133,7 +133,7 @@ SocketCANFD socketcanOpen(const char* const iface_name, const bool can_fd)
     return getNegatedErrno();
 }
 
-int16_t socketcanPush(const SocketCANFD fd, const CanardFrame* const frame, const CanardMicrosecond timeout_usec)
+int16_t socketcanPush(const SocketCANFD fd, const struct CanardFrame* const frame, const CanardMicrosecond timeout_usec)
 {
     if ((frame == NULL) || (frame->payload.data == NULL) || (frame->payload.size > UINT8_MAX))
     {
@@ -166,7 +166,7 @@ int16_t socketcanPush(const SocketCANFD fd, const CanardFrame* const frame, cons
 }
 
 int16_t socketcanPop(const SocketCANFD        fd,
-                     CanardFrame* const       out_frame,
+                     struct CanardFrame* const       out_frame,
                      CanardMicrosecond* const out_timestamp_usec,
                      const size_t             payload_buffer_size,
                      void* const              payload_buffer,
@@ -262,7 +262,7 @@ int16_t socketcanPop(const SocketCANFD        fd,
                 return -EIO;
             }
 
-            (void) memset(out_frame, 0, sizeof(CanardFrame));
+            (void) memset(out_frame, 0, sizeof(struct CanardFrame));
             *out_timestamp_usec = (CanardMicrosecond) (((uint64_t) tv.tv_sec * MEGA) + (uint64_t) tv.tv_usec);
         }
         out_frame->extended_can_id = sockcan_frame.can_id & CAN_EFF_MASK;
@@ -273,7 +273,7 @@ int16_t socketcanPop(const SocketCANFD        fd,
     return poll_result;
 }
 
-int16_t socketcanFilter(const SocketCANFD fd, const size_t num_configs, const CanardFilter* const configs)
+int16_t socketcanFilter(const SocketCANFD fd, const size_t num_configs, const struct CanardFilter* const configs)
 {
     if (configs == NULL)
     {

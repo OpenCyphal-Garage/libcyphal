@@ -521,7 +521,7 @@ private:
 
     static void flushCanardTxQueue(CanardTxQueue& canard_tx_queue, const CanardInstance& canard_instance)
     {
-        while (const CanardTxQueueItem* const maybe_item = ::canardTxPeek(&canard_tx_queue))
+        while (CanardTxQueueItem* const maybe_item = ::canardTxPeek(&canard_tx_queue))
         {
             CanardTxQueueItem* const item = ::canardTxPop(&canard_tx_queue, maybe_item);
             ::canardTxFree(&canard_tx_queue, &canard_instance, item);

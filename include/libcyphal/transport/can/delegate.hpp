@@ -280,10 +280,10 @@ public:
     /// @param tx_item The TX queue item to be popped and freed.
     /// @param whole_transfer If `true` then whole transfer should be released from the queue.
     ///
-    static void popAndFreeCanardTxQueueItem(CanardTxQueue&           tx_queue,
-                                            const CanardInstance&    canard_instance,
-                                            const CanardTxQueueItem* tx_item,
-                                            const bool               whole_transfer)
+    static void popAndFreeCanardTxQueueItem(CanardTxQueue&        tx_queue,
+                                            const CanardInstance& canard_instance,
+                                            CanardTxQueueItem*    tx_item,
+                                            const bool            whole_transfer)
     {
         while (CanardTxQueueItem* const mut_tx_item = ::canardTxPop(&tx_queue, tx_item))
         {

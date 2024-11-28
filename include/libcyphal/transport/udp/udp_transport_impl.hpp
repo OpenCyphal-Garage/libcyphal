@@ -73,7 +73,8 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
     struct Media final
     {
     public:
-        Media(const std::size_t         index,
+        Media(UdpardMemoryResource      fragments_mr,
+              const std::size_t         index,
               IMedia&                   interface,
               const UdpardNodeID* const local_node_id,
               const std::size_t         tx_capacity)
@@ -81,8 +82,8 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
             , interface_{interface}
             , udpard_tx_{}
         {
-            const std::int8_t result =
-                ::udpardTxInit(&udpard_tx_, local_node_id, tx_capacity, makeTxMemoryResource(interface));
+            const UdpardTxMemoryResources tx_memory_resources = {fragments_mr, makeTxMemoryResource(interface)};
+            const std::int8_t result = ::udpardTxInit(&udpard_tx_, local_node_id, tx_capacity, tx_memory_resources);
             CETL_DEBUG_ASSERT(result == 0, "There should be no path for an error here.");
             (void) result;
         }
@@ -122,9 +123,9 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
         {
             using LizardHelpers = libcyphal::transport::detail::LizardHelpers;
 
-            // TODO: Make it `1` as soon as TX memory resource is used for raw bytes block allocations only.
-            // Currently, it is used for both `UdpardTxItem` and its payload.
-            constexpr std::size_t Alignment = alignof(UdpardTxItem);
+            // TX memory resource is used for raw bytes block allocations only.
+            // So it has no alignment requirements.
+            constexpr std::size_t Alignment = 1;
 
             return LizardHelpers::makeMemoryResource<UdpardMemoryResource, Alignment>(
                 media_interface.getTxMemoryResource());
@@ -167,7 +168,7 @@ public:
 
         // False positive of clang-tidy - we move `media_array` to the `transport` instance, so can't make it const.
         // NOLINTNEXTLINE(misc-const-correctness)
-        MediaArray media_array = makeMediaArray(mem_res_spec.general, media_count, media, &unset_node_id, tx_capacity);
+        MediaArray media_array = makeMediaArray(memory_resources, media_count, media, &unset_node_id, tx_capacity);
         if (media_array.size() != media_count)
         {
             return MemoryError{};
@@ -595,13 +596,13 @@ private:
         return failure;
     }
 
-    CETL_NODISCARD static MediaArray makeMediaArray(cetl::pmr::memory_resource& memory,
-                                                    const std::size_t           media_count,
-                                                    const cetl::span<IMedia*>   media_interfaces,
-                                                    const UdpardNodeID* const   local_node_id_,
-                                                    const std::size_t           tx_capacity)
+    CETL_NODISCARD static MediaArray makeMediaArray(const MemoryResources&    memory,
+                                                    const std::size_t         media_count,
+                                                    const cetl::span<IMedia*> media_interfaces,
+                                                    const UdpardNodeID* const local_node_id_,
+                                                    const std::size_t         tx_capacity)
     {
-        MediaArray media_array{media_count, &memory};
+        MediaArray media_array{media_count, &memory.general};
 
         // Reserve the space for the whole array (to avoid reallocations).
         // Capacity will be less than requested in case of out of memory.
@@ -614,7 +615,7 @@ private:
                 if (media_interface != nullptr)
                 {
                     IMedia& media = *media_interface;
-                    media_array.emplace_back(index, media, local_node_id_, tx_capacity);
+                    media_array.emplace_back(memory.fragment, index, media, local_node_id_, tx_capacity);
                     index++;
                 }
             }

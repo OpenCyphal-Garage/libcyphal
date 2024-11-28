@@ -9,7 +9,7 @@ include(FindPackageHandleStandardArgs)
 include(ProjectLibrary)
 
 set(libudpard_GIT_REPOSITORY "https://github.com/OpenCyphal-garage/libudpard.git")
-set(libudpard_GIT_TAG "1.0.1")
+set(libudpard_GIT_TAG "sshirokov/v2_single_tx_copy")
 
 FetchContent_Declare(
     libudpard
