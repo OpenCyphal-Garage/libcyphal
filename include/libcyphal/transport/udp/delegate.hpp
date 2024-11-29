@@ -203,7 +203,7 @@ public:
     TransportDelegate& operator=(const TransportDelegate&)     = delete;
     TransportDelegate& operator=(TransportDelegate&&) noexcept = delete;
 
-    CETL_NODISCARD const NodeId& node_id() const noexcept
+    CETL_NODISCARD const NodeId& getNodeId() const noexcept
     {
         return udpard_node_id_;
     }
@@ -261,7 +261,7 @@ public:
     /// @param tx_item The TX queue item to be popped and freed.
     /// @param whole_transfer If `true` then whole transfer should be released from the queue.
     ///
-    static void popAndFreeUdpardTxItem(UdpardTx* const tx_queue, const UdpardTxItem* tx_item, const bool whole_transfer)
+    static void popAndFreeUdpardTxItem(UdpardTx* const tx_queue, UdpardTxItem* tx_item, const bool whole_transfer)
     {
         while (UdpardTxItem* const mut_tx_item = ::udpardTxPop(tx_queue, tx_item))
         {
@@ -301,15 +301,15 @@ protected:
         cetl::pmr::memory_resource& general;
 
         /// The session memory resource is used to provide memory for the Udpard session instances.
-        /// Each instance is fixed-size, so a trivial zero-fragmentation block allocator is sufficient.
+        /// Each instance is fixed-size, so a trivial zero-fragmentation block allocator is enough.
         UdpardMemoryResource session;
 
         /// The fragment handles are allocated per payload fragment; each handle contains a pointer to its fragment.
-        /// Each instance is of a very small fixed size, so a trivial zero-fragmentation block allocator is sufficient.
+        /// Each instance is of a very small fixed size, so a trivial zero-fragmentation block allocator is enough.
         UdpardMemoryResource fragment;
 
         /// The library never allocates payload buffers itself, as they are handed over by the application via
-        /// receive calls. Once a buffer is handed over, the library may choose to keep it if it is deemed to be
+        /// reception calls. Once a buffer is handed over, the library may choose to keep it if it is deemed to be
         /// necessary to complete a transfer reassembly, or to discard it if it is deemed to be unnecessary.
         /// Discarded payload buffers are freed using this memory resource.
         UdpardMemoryDeleter payload;

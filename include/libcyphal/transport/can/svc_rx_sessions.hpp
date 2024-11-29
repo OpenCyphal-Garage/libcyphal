@@ -82,7 +82,7 @@ public:
         , params_{params}
         , subscription_{}
     {
-        const std::int8_t result = ::canardRxSubscribe(&delegate.canard_instance(),
+        const std::int8_t result = ::canardRxSubscribe(&delegate.canardInstance(),
                                                        TransferKind,
                                                        params_.service_id,
                                                        params_.extent_bytes,
@@ -105,8 +105,7 @@ public:
 
     ~SvcRxSession()
     {
-        const std::int8_t result =
-            ::canardRxUnsubscribe(&delegate_.canard_instance(), TransferKind, params_.service_id);
+        const std::int8_t result = ::canardRxUnsubscribe(&delegate_.canardInstance(), TransferKind, params_.service_id);
         (void) result;
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "Subscription supposed to be made at constructor.");

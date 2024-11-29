@@ -73,16 +73,17 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
     struct Media final
     {
     public:
-        Media(const std::size_t         index,
-              IMedia&                   interface,
-              const UdpardNodeID* const local_node_id,
-              const std::size_t         tx_capacity)
+        Media(const UdpardMemoryResource fragments_mr,
+              const std::size_t          index,
+              IMedia&                    interface,
+              const UdpardNodeID* const  local_node_id,
+              const std::size_t          tx_capacity)
             : index_{static_cast<std::uint8_t>(index)}
             , interface_{interface}
             , udpard_tx_{}
         {
-            const std::int8_t result =
-                ::udpardTxInit(&udpard_tx_, local_node_id, tx_capacity, makeTxMemoryResource(interface));
+            const UdpardTxMemoryResources tx_memory_resources = {fragments_mr, makeTxMemoryResource(interface)};
+            const std::int8_t result = ::udpardTxInit(&udpard_tx_, local_node_id, tx_capacity, tx_memory_resources);
             CETL_DEBUG_ASSERT(result == 0, "There should be no path for an error here.");
             (void) result;
         }
@@ -122,9 +123,9 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport  // 
         {
             using LizardHelpers = libcyphal::transport::detail::LizardHelpers;
 
-            // TODO: Make it `1` as soon as TX memory resource is used for raw bytes block allocations only.
-            // Currently, it is used for both `UdpardTxItem` and its payload.
-            constexpr std::size_t Alignment = alignof(UdpardTxItem);
+            // TX memory resource is used for raw bytes block allocations only.
+            // So it has no alignment requirements.
+            constexpr std::size_t Alignment = 1;
 
             return LizardHelpers::makeMemoryResource<UdpardMemoryResource, Alignment>(
                 media_interface.getTxMemoryResource());
@@ -167,7 +168,7 @@ public:
 
         // False positive of clang-tidy - we move `media_array` to the `transport` instance, so can't make it const.
         // NOLINTNEXTLINE(misc-const-correctness)
-        MediaArray media_array = makeMediaArray(mem_res_spec.general, media_count, media, &unset_node_id, tx_capacity);
+        MediaArray media_array = makeMediaArray(memory_resources, media_count, media, &unset_node_id, tx_capacity);
         if (media_array.size() != media_count)
         {
             return MemoryError{};
@@ -196,7 +197,7 @@ public:
     {
         for (auto& media : media_array_)
         {
-            media.udpard_tx().local_node_id = &node_id();
+            media.udpard_tx().local_node_id = &getNodeId();
         }
     }
 
@@ -232,12 +233,12 @@ private:
 
     CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
     {
-        if (node_id() > UDPARD_NODE_ID_MAX)
+        if (getNodeId() > UDPARD_NODE_ID_MAX)
         {
             return cetl::nullopt;
         }
 
-        return cetl::make_optional(node_id());
+        return cetl::make_optional(getNodeId());
     }
 
     CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId new_node_id) noexcept override
@@ -249,11 +250,11 @@ private:
 
         // Allow setting the same node ID multiple times, but only once otherwise.
         //
-        if (node_id() == new_node_id)
+        if (getNodeId() == new_node_id)
         {
             return cetl::nullopt;
         }
-        if (node_id() != UDPARD_NODE_ID_UNSET)
+        if (getNodeId() != UDPARD_NODE_ID_UNSET)
         {
             return ArgumentError{};
         }
@@ -595,13 +596,13 @@ private:
         return failure;
     }
 
-    CETL_NODISCARD static MediaArray makeMediaArray(cetl::pmr::memory_resource& memory,
-                                                    const std::size_t           media_count,
-                                                    const cetl::span<IMedia*>   media_interfaces,
-                                                    const UdpardNodeID* const   local_node_id_,
-                                                    const std::size_t           tx_capacity)
+    CETL_NODISCARD static MediaArray makeMediaArray(const MemoryResources&    memory,
+                                                    const std::size_t         media_count,
+                                                    const cetl::span<IMedia*> media_interfaces,
+                                                    const UdpardNodeID* const local_node_id_,
+                                                    const std::size_t         tx_capacity)
     {
-        MediaArray media_array{media_count, &memory};
+        MediaArray media_array{media_count, &memory.general};
 
         // Reserve the space for the whole array (to avoid reallocations).
         // Capacity will be less than requested in case of out of memory.
@@ -614,7 +615,7 @@ private:
                 if (media_interface != nullptr)
                 {
                     IMedia& media = *media_interface;
-                    media_array.emplace_back(index, media, local_node_id_, tx_capacity);
+                    media_array.emplace_back(memory.fragment, index, media, local_node_id_, tx_capacity);
                     index++;
                 }
             }
@@ -670,7 +671,7 @@ private:
 
     static void flushUdpardTxQueue(UdpardTx& udpard_tx)
     {
-        while (const UdpardTxItem* const maybe_item = ::udpardTxPeek(&udpard_tx))
+        while (UdpardTxItem* const maybe_item = ::udpardTxPeek(&udpard_tx))
         {
             UdpardTxItem* const item = ::udpardTxPop(&udpard_tx, maybe_item);
             ::udpardTxFree(udpard_tx.memory, item);
@@ -684,7 +685,7 @@ private:
         using PayloadFragment = cetl::span<const cetl::byte>;
 
         TimePoint tx_deadline;
-        while (const UdpardTxItem* const tx_item = peekFirstValidTxItem(media.udpard_tx(), tx_deadline))
+        while (UdpardTxItem* const tx_item = peekFirstValidTxItem(media.udpard_tx(), tx_deadline))
         {
             // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libudpard API.
             const auto* const buffer =
@@ -746,11 +747,11 @@ private:
     /// While searching, any of already expired TX items are pop from the queue and freed (aka dropped).
     /// If there is no still valid TX items in the queue, returns `nullptr`.
     ///
-    CETL_NODISCARD const UdpardTxItem* peekFirstValidTxItem(UdpardTx& udpard_tx, TimePoint& out_deadline) const
+    CETL_NODISCARD UdpardTxItem* peekFirstValidTxItem(UdpardTx& udpard_tx, TimePoint& out_deadline) const
     {
         const TimePoint now = executor_.now();
 
-        while (const UdpardTxItem* const tx_item = ::udpardTxPeek(&udpard_tx))
+        while (UdpardTxItem* const tx_item = ::udpardTxPeek(&udpard_tx))
         {
             // We are dropping any TX item that has expired.
             // Otherwise, we would send it to the media TX socket interface.
