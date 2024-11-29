@@ -35,7 +35,7 @@ public:
     ///
     /// @see ScatteredBuffer::ScatteredBuffer(AnyStorage&& any_storage)
     ///
-    class IStorage
+    class IStorage : public cetl::rtti::rtti
     {
         // 91C1B109-F90E-45BE-95CF-6ED02AC3FFAA
         // clang-format off
@@ -78,13 +78,13 @@ public:
         }
 
         // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
-        CETL_NODISCARD void* _cast_(const cetl::type_id& id) & noexcept  // NOSONAR cpp:S5008
+        CETL_NODISCARD void* _cast_(const cetl::type_id& id) & noexcept override  // NOSONAR cpp:S5008
         {
             return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
         }
 
         // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
-        CETL_NODISCARD const void* _cast_(const cetl::type_id& id) const& noexcept  // NOSONAR cpp:S5008
+        CETL_NODISCARD const void* _cast_(const cetl::type_id& id) const& noexcept override  // NOSONAR cpp:S5008
         {
             return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
         }
