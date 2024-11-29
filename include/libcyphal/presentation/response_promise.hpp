@@ -9,6 +9,7 @@
 #include "client_impl.hpp"
 #include "common_helpers.hpp"
 
+#include "libcyphal/config.hpp"
 #include "libcyphal/errors.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -99,8 +100,8 @@ public:
             /// Holds the approximate time when the callback was called. Useful for minimizing `now()` calls.
             TimePoint approx_now;
         };
-        static constexpr std::size_t FunctionSize = sizeof(void*) * 4;
-        using Function                            = cetl::pmr::function<void(const Arg& arg), FunctionSize>;
+        static constexpr auto FunctionSize = config::presentation::ResponsePromiseBase_Callback_FunctionSize;
+        using Function                     = cetl::pmr::function<void(const Arg& arg), FunctionSize>;
     };
 
     /// @brief Constructs a new promise by moving `other` promise into this one.

@@ -15,6 +15,7 @@
 #include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/config.hpp>
 #include <libcyphal/presentation/common_helpers.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/subscriber.hpp>
@@ -274,7 +275,7 @@ TEST_F(TestSubscriber, onReceive_deserialize_failure)
 
     NiceMock<ScatteredBufferStorageMock> storage_mock;
     ScatteredBufferStorageMock::Wrapper  storage{&storage_mock};
-    EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(libcyphal::presentation::detail::SmallPayloadSize + 1));
+    EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(libcyphal::config::presentation::SmallPayloadSize + 1));
     EXPECT_CALL(storage_mock, copy(_, _, _))                           //
         .WillRepeatedly(Invoke([&](auto, auto* const dst, auto len) {  //
             //
@@ -303,7 +304,8 @@ TEST_F(TestSubscriber, onReceive_deserialize_failure)
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
-        using libcyphal::presentation::detail::SmallPayloadSize;
+        using libcyphal::config::presentation::SmallPayloadSize;
+        ;
 
         // Fix "problem" with the bad array size,
         // but introduce another one with memory allocation.

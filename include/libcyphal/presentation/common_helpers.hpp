@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_PRESENTATION_COMMON_HELPERS_HPP_INCLUDED
 #define LIBCYPHAL_PRESENTATION_COMMON_HELPERS_HPP_INCLUDED
 
+#include "libcyphal/config.hpp"
 #include "libcyphal/errors.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
 
@@ -29,8 +30,6 @@ namespace detail
 
 using DeserializationFailure = cetl::variant<MemoryError, nunavut::support::Error>;
 
-constexpr std::size_t SmallPayloadSize = 256;
-
 template <typename Message>
 static cetl::optional<DeserializationFailure> tryDeserializePayload(const transport::ScatteredBuffer& payload,
                                                                     cetl::pmr::memory_resource&       memory,
@@ -42,13 +41,14 @@ static cetl::optional<DeserializationFailure> tryDeserializePayload(const transp
     // (using `Message::_traits_::ExtentBytes` as the maximum possible size for the Message).
     // But this might be dangerous (stack overflow!) in case of large messages, so it's done only for small ones.
     //
-    if (payload.size() <= SmallPayloadSize)
+    if (payload.size() <= config::presentation::SmallPayloadSize)
     {
         // Next nolint b/c we initialize buffer with payload copying.
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
-        std::array<std::uint8_t, SmallPayloadSize> small_buffer;
-        const auto                                 data_size = payload.copy(0, small_buffer.data(), payload.size());
-        const nunavut::support::const_bitspan      bitspan{small_buffer.data(), data_size};
+        std::array<std::uint8_t, config::presentation::SmallPayloadSize> small_buffer;
+        //
+        const auto                            data_size = payload.copy(0, small_buffer.data(), payload.size());
+        const nunavut::support::const_bitspan bitspan{small_buffer.data(), data_size};
 
         const nunavut::support::SerializeResult result = deserialize(out_message, bitspan);
         return result ? cetl::nullopt : cetl::optional<DeserializationFailure>(result.error());

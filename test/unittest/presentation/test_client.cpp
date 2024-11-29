@@ -16,6 +16,7 @@
 #include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/config.hpp>
 #include <libcyphal/errors.hpp>
 #include <libcyphal/presentation/client.hpp>
 #include <libcyphal/presentation/common_helpers.hpp>
@@ -536,7 +537,7 @@ TEST_F(TestClient, request_response_failures)
     });
     scheduler_.scheduleAt(4s, [&](const auto&) {
         //
-        using libcyphal::presentation::detail::SmallPayloadSize;
+        using libcyphal::config::presentation::SmallPayloadSize;
 
         EXPECT_CALL(state.req_tx_session_mock_, send(_, _)).WillOnce(Return(cetl::nullopt));
 

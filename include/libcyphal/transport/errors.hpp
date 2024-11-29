@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_TRANSPORT_ERRORS_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_ERRORS_HPP_INCLUDED
 
+#include "libcyphal/config.hpp"
 #include "libcyphal/errors.hpp"
 #include "libcyphal/types.hpp"
 
@@ -57,7 +58,8 @@ protected:
     IPlatformError& operator=(const IPlatformError&)     = default;
     IPlatformError& operator=(IPlatformError&&) noexcept = default;
 };
-using PlatformError = ImplementationCell<IPlatformError, cetl::unbounded_variant<sizeof(void*) * 3>>;
+using PlatformError =
+    ImplementationCell<IPlatformError, cetl::unbounded_variant<config::transport::PlatformErrorMaxSize>>;
 
 struct AlreadyExistsError final
 {};

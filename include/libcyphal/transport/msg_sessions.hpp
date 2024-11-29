@@ -10,6 +10,7 @@
 #include "session.hpp"
 #include "types.hpp"
 
+#include "libcyphal/config.hpp"
 #include "libcyphal/types.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -76,9 +77,9 @@ public:
 
         /// @brief Defines signature of the data reception callback function.
         ///
-        /// Size of the function is arbitrary (4 pointers), but should be enough for simple lambdas.
-        ///
-        using Function = cetl::pmr::function<void(const Arg&), sizeof(void*) * 4>;
+        static constexpr std::size_t FunctionMaxSize =
+            config::transport::IMessageRxSession_OnReceiveCallback_FunctionMaxSize;
+        using Function = cetl::pmr::function<void(const Arg&), FunctionMaxSize>;
 
     };  // OnReceiveCallback
 

@@ -8,6 +8,7 @@
 
 #include "subscriber_impl.hpp"
 
+#include "libcyphal/config.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -125,7 +126,8 @@ public:
             Message                      message;
             transport::MessageRxMetadata metadata;
         };
-        using Function = cetl::pmr::function<void(const Arg&), sizeof(void*) * 4>;
+        static constexpr auto FunctionMaxSize = config::presentation::Subscriber_OnReceiveCallback_FunctionMaxSize;
+        using Function                        = cetl::pmr::function<void(const Arg&), FunctionMaxSize>;
     };
 
     /// @brief Sets function which will be called on each message reception.
@@ -188,7 +190,8 @@ public:
             const transport::ScatteredBuffer& raw_message;
             transport::MessageRxMetadata      metadata;
         };
-        using Function = cetl::pmr::function<void(const Arg&), sizeof(void*) * 4>;
+        static constexpr auto FunctionMaxSize = config::presentation::Subscriber_OnReceiveCallback_FunctionMaxSize;
+        using Function                        = cetl::pmr::function<void(const Arg&), FunctionMaxSize>;
     };
 
     /// @brief Sets function which will be called on each message reception.

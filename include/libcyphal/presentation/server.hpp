@@ -9,6 +9,7 @@
 #include "presentation_delegate.hpp"
 #include "server_impl.hpp"
 
+#include "libcyphal/config.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -71,7 +72,7 @@ protected:
     template <typename Response, typename SomeFailure>
     class ContinuationImpl final
     {
-        constexpr static std::size_t FunctionMaxSize = sizeof(void*) * 5;
+        static constexpr auto FunctionMaxSize = config::presentation::ServerBase_ContinuationImpl_FunctionMaxSize;
         using FunctionSignature = cetl::optional<SomeFailure>(const TimePoint deadline, const Response& response);
 
     public:
@@ -186,8 +187,9 @@ public:
             TimePoint                    approx_now;
         };
         /// Defines continuation functor for sending a strong-typed response.
-        using Continuation = ContinuationImpl<Response, Failure>;
-        using Function     = cetl::pmr::function<void(const Arg&, Continuation), sizeof(void*) * 4>;
+        using Continuation                    = ContinuationImpl<Response, Failure>;
+        static constexpr auto FunctionMaxSize = config::presentation::ServerBase_OnRequestCallback_FunctionMaxSize;
+        using Function                        = cetl::pmr::function<void(const Arg&, Continuation), FunctionMaxSize>;
     };
 
     /// @brief Sets function which will be called on each request reception.
@@ -305,8 +307,9 @@ public:
             TimePoint                         approx_now;
         };
         /// Defines continuation functor for sending raw (untyped) response bytes (aka pre-serialized).
-        using Continuation = ContinuationImpl<transport::PayloadFragments, Failure>;
-        using Function     = cetl::pmr::function<void(const Arg&, Continuation), sizeof(void*) * 4>;
+        using Continuation                    = ContinuationImpl<transport::PayloadFragments, Failure>;
+        static constexpr auto FunctionMaxSize = config::presentation::ServerBase_OnRequestCallback_FunctionMaxSize;
+        using Function                        = cetl::pmr::function<void(const Arg&, Continuation), FunctionMaxSize>;
     };
 
     /// @brief Sets function which will be called on each request reception.

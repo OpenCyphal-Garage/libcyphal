@@ -6,6 +6,8 @@
 #ifndef LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
 
+#include "libcyphal/config.hpp"
+
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/rtti.hpp>
 #include <cetl/unbounded_variant.hpp>
@@ -29,7 +31,7 @@ class ScatteredBuffer final  // NOSONAR : cpp:S4963 - we do directly handle reso
 public:
     /// @brief Defines maximum size (aka footprint) of the storage variant.
     ///
-    static constexpr std::size_t StorageVariantFootprint = sizeof(void*) * 8;
+    static constexpr std::size_t StorageVariantFootprint = config::transport::ScatteredBuffer_StorageVariantFootprint;
 
     /// @brief Defines storage interface for the scattered buffer.
     ///

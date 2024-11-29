@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_APPLICATION_NODE_HEARTBEAT_PRODUCER_HPP_INCLUDED
 #define LIBCYPHAL_APPLICATION_NODE_HEARTBEAT_PRODUCER_HPP_INCLUDED
 
+#include "libcyphal/config.hpp"
 #include "libcyphal/executor.hpp"
 #include "libcyphal/presentation/presentation.hpp"
 #include "libcyphal/presentation/publisher.hpp"
@@ -112,8 +113,8 @@ public:
         ///
         /// The size of the function is arbitrary (4 pointers), but should be enough for simple lambdas.
         ///
-        static constexpr std::size_t FunctionSize = sizeof(void*) * 4;
-        using Function                            = cetl::pmr::function<void(const Arg& arg), FunctionSize>;
+        static constexpr auto FunctionSize = config::application::node::HeartbeatProducer_UpdateCallback_FunctionSize;
+        using Function                     = cetl::pmr::function<void(const Arg& arg), FunctionSize>;
     };
 
     /// @brief Sets the message update callback for the heartbeat.
