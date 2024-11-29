@@ -8,6 +8,7 @@
 
 #include "libcyphal/executor.hpp"
 #include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/media_payload.hpp"
 #include "libcyphal/types.hpp"
 
 #include <cetl/cetl.hpp>
@@ -66,9 +67,16 @@ public:
 
     /// @brief Schedules the frame for transmission asynchronously and return immediately.
     ///
+    /// Concrete media implementation has multiple options with how to handle `payload` buffer:
+    /// - just copy the buffer data byts (using `payload.getSpan` const method) and return without changing the payload;
+    /// - take ownership of the buffer (by moving the payload to another internal payload;
+    /// - calling `payload.reset()` immediately after it's not needed anymore.
+    /// In any case, the payload should not be changed (moved or reset) if it is not accepted.
+    ///
     /// @param deadline The deadline for the push operation. Media implementation should drop the payload
     ///                 if the deadline is exceeded (aka `now > deadline`).
     /// @param can_id The destination CAN ID of the frame.
+    /// @param payload The mutable payload of the frame. Should not be changed if payload is not accepted.
     /// @return `true` if the frame is accepted or already timed out;
     ///         `false` to try again later (f.e. b/c output TX queue is currently full).
     ///         If any media failure occurred, the frame will be dropped by transport.
@@ -83,9 +91,7 @@ public:
 
         using Type = Expected<Success, Failure>;
     };
-    virtual PushResult::Type push(const TimePoint                    deadline,
-                                  const CanId                        can_id,
-                                  const cetl::span<const cetl::byte> payload) noexcept = 0;
+    virtual PushResult::Type push(const TimePoint deadline, const CanId can_id, MediaPayload& payload) noexcept = 0;
     ///@}
 
     /// @brief Takes the next payload fragment (aka CAN frame) from the reception queue unless it's empty.

@@ -42,7 +42,7 @@ public:
 
     MOCK_METHOD(PushResult::Type,
                 push,
-                (const TimePoint deadline, const CanId can_id, const cetl::span<const cetl::byte> payload),
+                (const TimePoint deadline, const CanId can_id, MediaPayload& payload),
                 (noexcept, override));
 
     MOCK_METHOD(PopResult::Type, pop, (const cetl::span<cetl::byte> payload_buffer), (noexcept, override));

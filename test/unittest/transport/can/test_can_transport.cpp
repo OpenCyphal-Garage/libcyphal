@@ -533,14 +533,14 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto pld) {
+        EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto& pld) {
             EXPECT_THAT(now(), metadata.deadline - timeout);
             EXPECT_THAT(deadline, metadata.deadline);
             EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45)));
             EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsMessageCanId()));
 
             const auto tbm = TailByteEq(metadata.base.transfer_id, true, false);
-            EXPECT_THAT(pld, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm));
+            EXPECT_THAT(pld.getSpan(), ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm));
             return IMedia::PushResult::Success{true /* is_accepted */};
         });
         EXPECT_CALL(media_mock_, registerPushCallback(_))  //
@@ -554,14 +554,14 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
     });
     scheduler_.scheduleAt(1s + 10us, [&](const auto&) {
         //
-        EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto pld) {
+        EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto& pld) {
             EXPECT_THAT(now(), metadata.deadline - timeout + 10us);
             EXPECT_THAT(deadline, metadata.deadline);
             EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45)));
             EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsMessageCanId()));
 
             const auto tbm = TailByteEq(metadata.base.transfer_id, false, true, false);
-            EXPECT_THAT(pld, ElementsAre(b('7'), _, _ /* CRC bytes */, tbm));
+            EXPECT_THAT(pld.getSpan(), ElementsAre(b('7'), _, _ /* CRC bytes */, tbm));
             return IMedia::PushResult::Success{true /* is_accepted */};
         });
     });
@@ -598,7 +598,7 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
         // the second media, and will retry with the 1st only when its socket is ready @ +20us.
         //
         EXPECT_CALL(media_mock_, push(_, _, _))  //
-            .WillOnce([&](auto, auto, auto) {
+            .WillOnce([&](auto, auto, auto&) {
                 EXPECT_THAT(now(), metadata.deadline - timeout);
                 return IMedia::PushResult::Success{false /* is_accepted */};
             });
@@ -607,14 +607,14 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
                 return scheduler_.registerAndScheduleNamedCallback("tx1", now() + 20us, std::move(function));
             }));
         EXPECT_CALL(media_mock2, push(_, _, _))  //
-            .WillOnce([&](auto deadline, auto can_id, auto pld) {
+            .WillOnce([&](auto deadline, auto can_id, auto& pld) {
                 EXPECT_THAT(now(), metadata.deadline - timeout);
                 EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45)));
                 EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsMessageCanId()));
 
                 auto tbm = TailByteEq(metadata.base.transfer_id, true, false);
-                EXPECT_THAT(pld, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm));
+                EXPECT_THAT(pld.getSpan(), ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm));
                 return IMedia::PushResult::Success{true /* is_accepted */};
             });
         EXPECT_CALL(media_mock2, registerPushCallback(_))  //
@@ -629,28 +629,28 @@ TEST_F(TestCanTransport, send_multiframe_payload_to_redundant_not_ready_media)
     scheduler_.scheduleAt(1s + 10us, [&](const auto&) {
         //
         EXPECT_CALL(media_mock2, push(_, _, _))  //
-            .WillOnce([&](auto deadline, auto can_id, auto pld) {
+            .WillOnce([&](auto deadline, auto can_id, auto& pld) {
                 EXPECT_THAT(now(), metadata.deadline - timeout + 10us);
                 EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45)));
                 EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsMessageCanId()));
 
                 const auto tbm = TailByteEq(metadata.base.transfer_id, false, true, false);
-                EXPECT_THAT(pld, ElementsAre(b('7'), b('8'), b('9'), b(0x7D), b(0x61) /* CRC bytes */, tbm));
+                EXPECT_THAT(pld.getSpan(), ElementsAre(b('7'), b('8'), b('9'), b(0x7D), b(0x61) /* CRC bytes */, tbm));
                 return IMedia::PushResult::Success{true /* is_accepted */};
             });
     });
     scheduler_.scheduleAt(1s + 20us, [&](const auto&) {
         //
         EXPECT_CALL(media_mock_, push(_, _, _))  //
-            .WillOnce([&](auto deadline, auto can_id, auto pld) {
+            .WillOnce([&](auto deadline, auto can_id, auto& pld) {
                 EXPECT_THAT(now(), metadata.deadline - timeout + 20us);
                 EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(can_id, AllOf(SubjectOfCanIdEq(7), SourceNodeOfCanIdEq(0x45)));
                 EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsMessageCanId()));
 
                 const auto tbm = TailByteEq(metadata.base.transfer_id, true, false);
-                EXPECT_THAT(pld, ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm));
+                EXPECT_THAT(pld.getSpan(), ElementsAre(b('0'), b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), tbm));
                 return IMedia::PushResult::Success{true /* is_accepted */};
             });
     });

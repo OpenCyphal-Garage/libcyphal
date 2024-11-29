@@ -231,6 +231,11 @@ public:
         return canard_instance_;
     }
 
+    CETL_NODISCARD const CanardInstance& canard_instance() const noexcept
+    {
+        return canard_instance_;
+    }
+
     CETL_NODISCARD cetl::pmr::memory_resource& memory() const noexcept
     {
         return memory_;
@@ -271,21 +276,19 @@ public:
     /// Pops and frees Canard TX queue item(s).
     ///
     /// @param tx_queue The TX queue from which the item should be popped.
+    /// @param canard_instance The Canard instance to be used for the item deallocation.
     /// @param tx_item The TX queue item to be popped and freed.
     /// @param whole_transfer If `true` then whole transfer should be released from the queue.
     ///
     static void popAndFreeCanardTxQueueItem(CanardTxQueue&           tx_queue,
+                                            const CanardInstance&    canard_instance,
                                             const CanardTxQueueItem* tx_item,
                                             const bool               whole_transfer)
     {
         while (CanardTxQueueItem* const mut_tx_item = ::canardTxPop(&tx_queue, tx_item))
         {
             tx_item = tx_item->next_in_transfer;
-
-            // No Sonar `cpp:S5356` b/c we need to free tx item allocated by libcanard as a raw memory.
-            tx_queue.memory.deallocate(tx_queue.memory.user_reference,
-                                       mut_tx_item->allocated_size,
-                                       mut_tx_item);  // NOSONAR cpp:S5356
+            ::canardTxFree(&tx_queue, &canard_instance, mut_tx_item);
 
             if (!whole_transfer)
             {
