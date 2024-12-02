@@ -19,7 +19,6 @@
 #include <libcyphal/config.hpp>
 #include <libcyphal/errors.hpp>
 #include <libcyphal/presentation/client.hpp>
-#include <libcyphal/presentation/common_helpers.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/response_promise.hpp>
 #include <libcyphal/transport/errors.hpp>

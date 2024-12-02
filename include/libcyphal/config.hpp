@@ -6,6 +6,10 @@
 #ifndef LIBCYPHAL_CONFIG_HPP_INCLUDED
 #define LIBCYPHAL_CONFIG_HPP_INCLUDED
 
+#ifdef LIBCYPHAL_CONFIG
+#include LIBCYPHAL_CONFIG
+#else
+
 #include <cstddef>
 
 namespace libcyphal
@@ -44,8 +48,10 @@ constexpr std::size_t HeartbeatProducer_UpdateCallback_FunctionSize = sizeof(voi
 namespace presentation
 {
 
-/// Defines the size of a payload which is considered as a small one,
+/// Defines the size serialization/deserialization payload buffer which is considered as a small one,
 /// and therefore could be used with stack buffer. Any payload larger than this size will be PMR allocated.
+///
+/// Setting it to 0 will force all payload buffers to be PMR allocated.
 ///
 constexpr std::size_t SmallPayloadSize = 256;
 
@@ -115,5 +121,7 @@ constexpr std::size_t IUdpTransport_TransientErrorHandlerMaxSize = sizeof(void*)
 
 }  // namespace config
 }  // namespace libcyphal
+
+#endif  // !LIBCYPHAL_CONFIG
 
 #endif  // LIBCYPHAL_CONFIG_HPP_INCLUDED

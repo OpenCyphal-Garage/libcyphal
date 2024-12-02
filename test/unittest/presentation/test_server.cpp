@@ -17,7 +17,6 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/config.hpp>
 #include <libcyphal/errors.hpp>
-#include <libcyphal/presentation/common_helpers.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/server.hpp>
 #include <libcyphal/transport/errors.hpp>
