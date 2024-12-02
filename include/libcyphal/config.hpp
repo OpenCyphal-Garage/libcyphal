@@ -13,10 +13,14 @@ namespace libcyphal
 namespace config
 {
 
+// All below NOSONAR cpp:S799 "Rename this identifier to be shorter or equal to 31 characters."
+// are intentional and are used to keep the names consistent with the rest of the codebase.
+// F.e. `IExecutor_Callback_FunctionMaxSize` is consistent with `IExecutor::Callback::FunctionMaxSize`.
+
 /// Defines max footprint of a callback function in use by the executor.
 /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
 ///
-constexpr std::size_t IExecutor_Callback_FunctionMaxSize = sizeof(void*) * 8;
+constexpr std::size_t IExecutor_Callback_FunctionMaxSize = sizeof(void*) * 8;  // NOSONAR cpp:S799
 
 /// Defines footprint size reserved for a callback implementation.
 /// The actual max footprint for the callback implementation is `sizeof(IExecutor::Function)` bigger,
@@ -32,7 +36,7 @@ namespace node
 /// Defines max footprint of a callback function in use by the heartbeat producer.
 /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
 ///
-constexpr std::size_t HeartbeatProducer_UpdateCallback_FunctionSize = sizeof(void*) * 4;
+constexpr std::size_t HeartbeatProducer_UpdateCallback_FunctionSize = sizeof(void*) * 4;  // NOSONAR cpp:S799
 
 }  // namespace node
 }  // namespace application
@@ -48,22 +52,22 @@ constexpr std::size_t SmallPayloadSize = 256;
 /// Defines max footprint of a callback function in use by the RPC client response promise.
 /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
 ///
-constexpr std::size_t ResponsePromiseBase_Callback_FunctionSize = sizeof(void*) * 4;
+constexpr std::size_t ResponsePromiseBase_Callback_FunctionSize = sizeof(void*) * 4;  // NOSONAR cpp:S799
 
 /// Defines max footprint of a callback function in use by the RPC server response continuation.
 /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
 ///
-constexpr std::size_t ServerBase_ContinuationImpl_FunctionMaxSize = sizeof(void*) * 5;
+constexpr std::size_t ServerBase_ContinuationImpl_FunctionMaxSize = sizeof(void*) * 5;  // NOSONAR cpp:S799
 
 /// Defines max footprint of a callback function in use by the RPC server request notification.
 /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
 ///
-constexpr std::size_t ServerBase_OnRequestCallback_FunctionMaxSize = sizeof(void*) * 5;
+constexpr std::size_t ServerBase_OnRequestCallback_FunctionMaxSize = sizeof(void*) * 5;  // NOSONAR cpp:S799
 
 /// Defines max footprint of a callback function in use by the message subscriber receive notification.
 /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
 ///
-constexpr std::size_t Subscriber_OnReceiveCallback_FunctionMaxSize = sizeof(void*) * 4;
+constexpr std::size_t Subscriber_OnReceiveCallback_FunctionMaxSize = sizeof(void*) * 4;  // NOSONAR cpp:S799
 
 }  // namespace presentation
 
@@ -77,16 +81,16 @@ constexpr std::size_t PlatformErrorMaxSize = sizeof(void*) * 3;
 /// Defines max footprint of a callback function in use by the message RX session notification.
 /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
 ///
-constexpr std::size_t IMessageRxSession_OnReceiveCallback_FunctionMaxSize = sizeof(void*) * 4;
+constexpr std::size_t IMessageRxSession_OnReceiveCallback_FunctionMaxSize = sizeof(void*) * 4;  // NOSONAR cpp:S799
 
 /// Defines max footprint of a callback function in use by the service RX session notification.
 /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
 ///
-constexpr std::size_t ISvcRxSession_OnReceiveCallback_FunctionMaxSize = sizeof(void*) * 4;
+constexpr std::size_t ISvcRxSession_OnReceiveCallback_FunctionMaxSize = sizeof(void*) * 4;  // NOSONAR cpp:S799
 
 /// Defines max footprint of a storage implementation used by the scattered buffer.
 ///
-constexpr std::size_t ScatteredBuffer_StorageVariantFootprint = sizeof(void*) * 8;
+constexpr std::size_t ScatteredBuffer_StorageVariantFootprint = sizeof(void*) * 8;  // NOSONAR cpp:S799
 
 namespace can
 {
@@ -94,7 +98,7 @@ namespace can
 /// Defines max footprint of a callback function in use by the CAN transport transient error handler.
 /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
 ///
-constexpr std::size_t ICanTransport_TransientErrorHandlerMaxSize = sizeof(void*) * 3;
+constexpr std::size_t ICanTransport_TransientErrorHandlerMaxSize = sizeof(void*) * 3;  // NOSONAR cpp:S799
 
 }  // namespace can
 
@@ -104,7 +108,7 @@ namespace udp
 /// Defines max footprint of a callback function in use by the UDP transport transient error handler.
 /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
 ///
-constexpr std::size_t IUdpTransport_TransientErrorHandlerMaxSize = sizeof(void*) * 3;
+constexpr std::size_t IUdpTransport_TransientErrorHandlerMaxSize = sizeof(void*) * 3;  // NOSONAR cpp:S799
 
 }  // namespace udp
 }  // namespace transport
