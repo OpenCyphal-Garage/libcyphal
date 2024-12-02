@@ -234,36 +234,28 @@ private:
         const auto base_metadata  = rx_transfer.metadata.rx_meta.base;
         const auto client_node_id = rx_transfer.metadata.remote_node_id;
 
+        using Result = cetl::optional<Failure>;
+
         on_request_cb_fn_(  //
             {request, rx_transfer.metadata, approx_now},
             typename OnRequestCallback::Continuation{
-                [this, base_metadata, client_node_id](const TimePoint deadline,
-                                                      const auto&     response) -> cetl::optional<Failure> {
+                [this, base_metadata, client_node_id](const TimePoint deadline, const auto& response) -> Result {
                     //
-                    // Try to serialize the response to raw payload buffer.
-                    //
-                    // Next nolint b/c we use a buffer to serialize the message, so no need to zero it.
-                    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
-                    std::array<std::uint8_t, Response::_traits_::SerializationBufferSizeBytes> buffer;
-                    const nunavut::support::bitspan                                            out_bitspan{buffer};
-                    const auto result_size = serialize(response, out_bitspan);
-                    if (!result_size)
-                    {
-                        return result_size.error();
-                    }
+                    constexpr std::size_t BufferSize = Response::_traits_::SerializationBufferSizeBytes;
+                    constexpr bool        IsOnStack  = BufferSize <= config::presentation::SmallPayloadSize;
 
-                    // TODO: Eliminate `reinterpret_cast` when Nunavut supports `cetl::byte` at its `serialize`.
-                    // Next nolint & NOSONAR are currently unavoidable.
-                    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-                    const auto* const data = reinterpret_cast<const cetl::byte*>(buffer.data());  // NOSONAR cpp:S3630
-                    const cetl::span<const cetl::byte>                      data_span{data, result_size.value()};
-                    const std::array<const cetl::span<const cetl::byte>, 1> payload{data_span};
-                    const transport::ServiceTxMetadata tx_metadata{{base_metadata, deadline}, client_node_id};
-                    if (auto failure = respondWithPayload(tx_metadata, payload))
-                    {
-                        return libcyphal::detail::upcastVariant<Failure>(std::move(*failure));
-                    }
-                    return cetl::nullopt;
+                    return detail::tryPerformOnSerialized<Response, Result, BufferSize, IsOnStack>(  //
+                        response,
+                        memory(),
+                        [this, base_metadata, client_node_id, deadline](const auto serialized_fragments) -> Result {
+                            //
+                            const transport::ServiceTxMetadata tx_metadata{{base_metadata, deadline}, client_node_id};
+                            if (auto failure = respondWithPayload(tx_metadata, serialized_fragments))
+                            {
+                                return libcyphal::detail::upcastVariant<Failure>(std::move(*failure));
+                            }
+                            return cetl::nullopt;
+                        });
                 }});
     }
 

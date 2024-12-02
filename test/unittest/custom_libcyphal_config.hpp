@@ -3,14 +3,10 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef LIBCYPHAL_CONFIG_HPP_INCLUDED
-#define LIBCYPHAL_CONFIG_HPP_INCLUDED
+#ifndef LIBCYPHAL_CUSTOM_LIBCYPHAL_CONFIG_HPP
+#define LIBCYPHAL_CUSTOM_LIBCYPHAL_CONFIG_HPP
 
-#ifdef LIBCYPHAL_CONFIG
-#    include LIBCYPHAL_CONFIG
-#else
-
-#    include <cstddef>
+#include <cstddef>
 
 namespace libcyphal
 {
@@ -53,7 +49,7 @@ namespace presentation
 ///
 /// Setting it to 0 will force all payload buffers to be PMR allocated.
 ///
-constexpr std::size_t SmallPayloadSize = 256;
+constexpr std::size_t SmallPayloadSize = 6;  // Override default 256!
 
 /// Defines max footprint of a callback function in use by the RPC client response promise.
 /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
@@ -122,6 +118,4 @@ constexpr std::size_t IUdpTransport_TransientErrorHandlerMaxSize = sizeof(void*)
 }  // namespace config
 }  // namespace libcyphal
 
-#endif  // !LIBCYPHAL_CONFIG
-
-#endif  // LIBCYPHAL_CONFIG_HPP_INCLUDED
+#endif  // LIBCYPHAL_CUSTOM_LIBCYPHAL_CONFIG_HPP

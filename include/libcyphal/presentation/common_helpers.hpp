@@ -11,11 +11,14 @@
 #include "libcyphal/transport/scattered_buffer.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <cetl/pf20/cetlpf.hpp>
 
 #include <nunavut/support/serialization.hpp>
 
+#include <array>
 #include <cstdint>
 #include <memory>
+#include <type_traits>
 
 namespace libcyphal
 {
@@ -71,6 +74,69 @@ static cetl::optional<DeserializationFailure> tryDeserializePayload(const transp
 
     const nunavut::support::SerializeResult result = deserialize(out_message, bitspan);
     return result ? cetl::nullopt : cetl::optional<DeserializationFailure>(result.error());
+}
+
+template <typename Message, typename Result, std::size_t BufferSize, bool IsOnStack, typename Action>
+static auto tryPerformOnSerialized(const Message&              message,
+                                   cetl::pmr::memory_resource& memory,
+                                   Action&&                    action) -> std::enable_if_t<IsOnStack, Result>
+{
+    // Not in use b/c we use stack buffer for small messages.
+    (void) memory;
+
+    // Try to serialize the message to raw payload buffer.
+    //
+    // Next nolint b/c we use a buffer to serialize the message, so no need to zero it (and performance better).
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
+    std::array<cetl::byte, BufferSize> buffer;
+    // TODO: Eliminate `reinterpret_cast` when Nunavut supports `cetl::byte` at its `serialize`.
+    const auto result_size = serialize(message,
+                                       // Next nolint & NOSONAR are currently unavoidable.
+                                       // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+                                       {reinterpret_cast<std::uint8_t*>(buffer.data()),  // NOSONAR cpp:S3630,
+                                        BufferSize});
+    if (!result_size)
+    {
+        return result_size.error();
+    }
+
+    const cetl::span<const cetl::byte>                      data_span{buffer.data(), result_size.value()};
+    const std::array<const cetl::span<const cetl::byte>, 1> fragments{data_span};
+
+    return std::forward<Action>(action)(fragments);
+}
+
+template <typename Message, typename Result, std::size_t BufferSize, bool IsOnStack, typename Action>
+static auto tryPerformOnSerialized(const Message&              message,
+                                   cetl::pmr::memory_resource& memory,
+                                   Action&&                    action) -> std::enable_if_t<!IsOnStack, Result>
+{
+    const std::unique_ptr<cetl::byte[], PmrRawBytesDeleter> buffer  //
+        {static_cast<cetl::byte*>(memory.allocate(BufferSize)),     // NOSONAR cpp:S5356 cpp:S5357
+         {BufferSize, &memory}};
+    if (!buffer)
+    {
+        return MemoryError{};
+    }
+
+    // Try to serialize the message to raw payload buffer.
+    //
+    // Next nolint b/c we use a buffer to serialize the message, so no need to zero it (and performance better).
+    // TODO: Eliminate `reinterpret_cast` when Nunavut supports `cetl::byte` at its `serialize`.
+    const auto result_size = serialize(message,
+                                       // Next nolint & NOSONAR are currently unavoidable.
+                                       // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+                                       {reinterpret_cast<std::uint8_t*>(buffer.get()),  // NOSONAR cpp:S3630,
+                                        BufferSize});
+    if (!result_size)
+    {
+        return result_size.error();
+    }
+
+    const cetl::span<const cetl::byte>                      data_span{buffer.get(), result_size.value()};
+    const std::array<const cetl::span<const cetl::byte>, 1> fragments{data_span};
+
+    return std::forward<Action>(action)(fragments);
 }
 
 }  // namespace detail
