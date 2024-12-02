@@ -16,7 +16,6 @@
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/config.hpp>
-#include <libcyphal/presentation/common_helpers.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/subscriber.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
