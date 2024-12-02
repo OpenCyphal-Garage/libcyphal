@@ -4,6 +4,7 @@
 /// SPDX-License-Identifier: MIT
 
 // Overriding the default libcyphal configuration file with custom one.
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define LIBCYPHAL_CONFIG "custom_libcyphal_config.hpp"
 
 #include "cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
@@ -12,24 +13,20 @@
 #include "transport/msg_sessions_mock.hpp"
 #include "transport/transport_gtest_helpers.hpp"
 #include "transport/transport_mock.hpp"
-#include "verification_utilities.hpp"
 #include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/publisher.hpp>
-#include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
-#include <nunavut/support/serialization.hpp>
 #include <uavcan/node/Heartbeat_1_0.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <type_traits>
 #include <utility>
 
 namespace
@@ -40,18 +37,12 @@ using libcyphal::UniquePtr;
 using namespace libcyphal::presentation;  // NOLINT This our main concern here in the unit tests.
 using namespace libcyphal::transport;     // NOLINT This our main concern here in the unit tests.
 
-using libcyphal::verification_utilities::b;
-using libcyphal::verification_utilities::makeIotaArray;
-using libcyphal::verification_utilities::makeSpansFrom;
-
 using testing::_;
 using testing::Eq;
 using testing::Invoke;
 using testing::Return;
 using testing::IsEmpty;
-using testing::Optional;
 using testing::StrictMock;
-using testing::ElementsAre;
 using testing::VariantWith;
 
 // https://github.com/llvm/llvm-project/issues/53444
