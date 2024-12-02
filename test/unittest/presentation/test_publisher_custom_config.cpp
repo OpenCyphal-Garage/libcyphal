@@ -3,10 +3,11 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+// Overriding the default libcyphal configuration file with custom one.
 #define LIBCYPHAL_CONFIG "custom_libcyphal_config.hpp"
 
 #include "cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
-#include "my_custom/bar_1_0.hpp"
+#include "custom_libcyphal_config.hpp"
 #include "tracking_memory_resource.hpp"
 #include "transport/msg_sessions_mock.hpp"
 #include "transport/transport_gtest_helpers.hpp"
@@ -24,7 +25,6 @@
 
 #include <nunavut/support/serialization.hpp>
 #include <uavcan/node/Heartbeat_1_0.hpp>
-#include <uavcan/node/GetInfo_1_0.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -95,10 +95,9 @@ protected:
 
 // MARK: - Tests:
 
-TEST_F(TestPublisherCustomConfig, publish)
+TEST_F(TestPublisherCustomConfig, publish_with_custom_buffer_size)
 {
     using Message = uavcan::node::Heartbeat_1_0;
-    // using Message = uavcan::node::GetInfo::Request_1_0;
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
@@ -142,14 +141,9 @@ TEST_F(TestPublisherCustomConfig, publish)
             }));
 
         publisher->setPriority(Priority::Fast);
-        EXPECT_THAT(publisher->publish(now() + 100ms, Message{&mr_}), Eq(cetl::nullopt));
-    });
-    scheduler_.scheduleAt(3s, [&](const auto&) {
-        //
-        EXPECT_CALL(msg_tx_session_mock, send(_, _))  //
-            .WillOnce(Return(CapacityError{}));
-
-        EXPECT_THAT(publisher->publish(now() + 100ms, Message{&mr_}), Optional(VariantWith<CapacityError>(_)));
+        // Force serialization buffer to be on the heap.
+        constexpr auto BufferSize = libcyphal::config::presentation::SmallPayloadSize + 1;
+        EXPECT_THAT(publisher->publish<BufferSize>(now() + 100ms, Message{&mr_}), Eq(cetl::nullopt));
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {
         //

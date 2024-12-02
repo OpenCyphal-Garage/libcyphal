@@ -77,9 +77,9 @@ static cetl::optional<DeserializationFailure> tryDeserializePayload(const transp
 }
 
 template <typename Message, typename Result, std::size_t BufferSize, bool IsOnStack, typename Action>
-static auto tryPerformOnSerialized(const Message&              message,
-                                   cetl::pmr::memory_resource& memory,
-                                   Action&&                    action) -> std::enable_if_t<IsOnStack, Result>
+static auto tryPerformOnSerialized(const Message&                    message,
+                                   const cetl::pmr::memory_resource& memory,
+                                   Action&&                          action) -> std::enable_if_t<IsOnStack, Result>
 {
     // Not in use b/c we use stack buffer for small messages.
     (void) memory;
@@ -111,7 +111,9 @@ static auto tryPerformOnSerialized(const Message&              message,
                                    cetl::pmr::memory_resource& memory,
                                    Action&&                    action) -> std::enable_if_t<!IsOnStack, Result>
 {
-    const std::unique_ptr<cetl::byte[], PmrRawBytesDeleter> buffer  //
+    // Nolint and NoSonar b/c we use PMR allocation for raw bytes buffer.
+    // NOLINTNEXTLINE(*-avoid-c-arrays)
+    const std::unique_ptr<cetl::byte[], PmrRawBytesDeleter> buffer  // NOSONAR cpp:S5945 cpp:M23_356
         {static_cast<cetl::byte*>(memory.allocate(BufferSize)),     // NOSONAR cpp:S5356 cpp:S5357
          {BufferSize, &memory}};
     if (!buffer)

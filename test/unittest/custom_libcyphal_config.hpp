@@ -49,7 +49,7 @@ namespace presentation
 ///
 /// Setting it to 0 will force all payload buffers to be PMR allocated.
 ///
-constexpr std::size_t SmallPayloadSize = 6;  // Override default 256!
+constexpr std::size_t SmallPayloadSize = 7;  // Override default 256 with size of Heartbeat_1_0
 
 /// Defines max footprint of a callback function in use by the RPC client response promise.
 /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
