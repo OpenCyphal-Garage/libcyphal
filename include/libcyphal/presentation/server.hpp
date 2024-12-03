@@ -72,7 +72,7 @@ protected:
     template <typename Response, typename SomeFailure>
     class ContinuationImpl final
     {
-        static constexpr auto FunctionMaxSize = config::presentation::ServerBase_ContinuationImpl_FunctionMaxSize;
+        static constexpr auto FunctionMaxSize = config::Presentation::ServerBase_ContinuationImpl_FunctionMaxSize();
         using FunctionSignature = cetl::optional<SomeFailure>(const TimePoint deadline, const Response& response);
 
     public:
@@ -188,7 +188,7 @@ public:
         };
         /// Defines continuation functor for sending a strong-typed response.
         using Continuation                    = ContinuationImpl<Response, Failure>;
-        static constexpr auto FunctionMaxSize = config::presentation::ServerBase_OnRequestCallback_FunctionMaxSize;
+        static constexpr auto FunctionMaxSize = config::Presentation::ServerBase_OnRequestCallback_FunctionMaxSize();
         using Function                        = cetl::pmr::function<void(const Arg&, Continuation), FunctionMaxSize>;
     };
 
@@ -242,7 +242,7 @@ private:
                 [this, base_metadata, client_node_id](const TimePoint deadline, const auto& response) -> Result {
                     //
                     constexpr std::size_t BufferSize = Response::_traits_::SerializationBufferSizeBytes;
-                    constexpr bool        IsOnStack  = BufferSize <= config::presentation::SmallPayloadSize;
+                    constexpr bool        IsOnStack  = BufferSize <= config::Presentation::SmallPayloadSize();
 
                     return detail::tryPerformOnSerialized<Response, Result, BufferSize, IsOnStack>(  //
                         response,
@@ -300,7 +300,7 @@ public:
         };
         /// Defines continuation functor for sending raw (untyped) response bytes (aka pre-serialized).
         using Continuation                    = ContinuationImpl<transport::PayloadFragments, Failure>;
-        static constexpr auto FunctionMaxSize = config::presentation::ServerBase_OnRequestCallback_FunctionMaxSize;
+        static constexpr auto FunctionMaxSize = config::Presentation::ServerBase_OnRequestCallback_FunctionMaxSize();
         using Function                        = cetl::pmr::function<void(const Arg&, Continuation), FunctionMaxSize>;
     };
 

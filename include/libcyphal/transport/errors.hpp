@@ -59,7 +59,7 @@ protected:
     IPlatformError& operator=(IPlatformError&&) noexcept = default;
 };
 using PlatformError =
-    ImplementationCell<IPlatformError, cetl::unbounded_variant<config::transport::PlatformErrorMaxSize>>;
+    ImplementationCell<IPlatformError, cetl::unbounded_variant<config::Transport::PlatformErrorMaxSize()>>;
 
 struct AlreadyExistsError final
 {};

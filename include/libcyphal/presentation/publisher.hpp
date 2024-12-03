@@ -184,7 +184,7 @@ public:
     cetl::optional<Failure> publish(const TimePoint deadline, const Message& message) const
     {
         using Result             = cetl::optional<Failure>;
-        constexpr bool IsOnStack = BufferSize <= config::presentation::SmallPayloadSize;
+        constexpr bool IsOnStack = BufferSize <= config::Presentation::SmallPayloadSize();
 
         return detail::tryPerformOnSerialized<Message, Result, BufferSize, IsOnStack>(  //
             message,

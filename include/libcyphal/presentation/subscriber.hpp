@@ -126,7 +126,7 @@ public:
             Message                      message;
             transport::MessageRxMetadata metadata;
         };
-        static constexpr auto FunctionMaxSize = config::presentation::Subscriber_OnReceiveCallback_FunctionMaxSize;
+        static constexpr auto FunctionMaxSize = config::Presentation::Subscriber_OnReceiveCallback_FunctionMaxSize();
         using Function                        = cetl::pmr::function<void(const Arg&), FunctionMaxSize>;
     };
 
@@ -190,7 +190,7 @@ public:
             const transport::ScatteredBuffer& raw_message;
             transport::MessageRxMetadata      metadata;
         };
-        static constexpr auto FunctionMaxSize = config::presentation::Subscriber_OnReceiveCallback_FunctionMaxSize;
+        static constexpr auto FunctionMaxSize = config::Presentation::Subscriber_OnReceiveCallback_FunctionMaxSize();
         using Function                        = cetl::pmr::function<void(const Arg&), FunctionMaxSize>;
     };
 

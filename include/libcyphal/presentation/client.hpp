@@ -36,22 +36,19 @@ namespace detail
 
 /// @brief Defines internal base class for any concrete (final) service client.
 ///
-/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
-/// b/c we do directly handle resources here.
-///
-class ClientBase  // NOSONAR cpp:S4963
+class ClientBase
 {
 public:
-    /// @brief Defines error type for the case when there are too many pending (aka still in progress) requests.
+    /// @brief Defines the error type for the case when there are too many pending (aka still in progress) requests.
     ///
-    /// Total number of possible pending requests is limited by the transport layer, namely by the range of
-    /// possible transfer IDs. F.e. in case of CAN transport, the range is 0-31 (32 in total). For UDP transport
-    /// the range is virtually unlimited (2^64), but practically limited by the available memory.
+    /// The total number of possible pending requests is limited by the transport layer, namely by the range of
+    /// possible transfer IDs. For example, in the case of CAN transport, the range is 0-31 (32 in total).
+    /// For UDP transport, the range is virtually unlimited (2^64), but practically limited by the available memory.
     ///
     struct TooManyPendingRequestsError
     {};
 
-    /// @brief Defines failure type for a base client operations.
+    /// @brief Defines a failure type for a base client operations.
     ///
     /// The set of possible failures of the base client includes transport layer failures,
     /// as well as the `TooManyPendingRequestsError` (see docs above).
@@ -230,7 +227,7 @@ public:
                                                          const cetl::optional<TimePoint> response_deadline = {}) const
     {
         using Result             = Expected<ResponsePromise<Response>, Failure>;
-        constexpr bool IsOnStack = BufferSize <= config::presentation::SmallPayloadSize;
+        constexpr bool IsOnStack = BufferSize <= config::Presentation::SmallPayloadSize();
 
         return detail::tryPerformOnSerialized<Request, Result, BufferSize, IsOnStack>(  //
             request,

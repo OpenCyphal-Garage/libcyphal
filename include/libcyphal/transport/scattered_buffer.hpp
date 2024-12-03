@@ -31,7 +31,7 @@ class ScatteredBuffer final  // NOSONAR : cpp:S4963 - we do directly handle reso
 public:
     /// @brief Defines maximum size (aka footprint) of the storage variant.
     ///
-    static constexpr std::size_t StorageVariantFootprint = config::transport::ScatteredBuffer_StorageVariantFootprint;
+    static constexpr std::size_t StorageVariantFootprint = config::Transport::ScatteredBuffer_StorageVariantFootprint();
 
     /// @brief Defines storage interface for the scattered buffer.
     ///

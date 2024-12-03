@@ -6,116 +6,65 @@
 #ifndef LIBCYPHAL_CUSTOM_LIBCYPHAL_CONFIG_HPP
 #define LIBCYPHAL_CUSTOM_LIBCYPHAL_CONFIG_HPP
 
+namespace custom
+{
+
+// Forward declaration of the custom configuration class.
+class MyConfig;
+
+}  // namespace custom
+
+// Overriding the default libcyphal configuration file with custom one.
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define LIBCYPHAL_CONFIG ::custom::MyConfig
+#include <libcyphal/config.hpp>
+
 #include <cstddef>
 
-namespace libcyphal
-{
-namespace config
+namespace custom
 {
 
-// All below NOSONAR cpp:S799 "Rename this identifier to be shorter or equal to 31 characters."
-// are intentional and are used to keep the names consistent with the rest of the codebase.
-// F.e. `IExecutor_Callback_FunctionMaxSize` is consistent with `IExecutor::Callback::FunctionMaxSize`.
-
-/// Defines max footprint of a callback function in use by the executor.
-/// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
-///
-constexpr std::size_t IExecutor_Callback_FunctionMaxSize = sizeof(void*) * 8;  // NOSONAR cpp:S799
-
-/// Defines footprint size reserved for a callback implementation.
-/// The actual max footprint for the callback implementation is `sizeof(IExecutor::Function)` bigger,
-/// and it depends on `Cfg_IExecutor_Callback_FunctionMaxSize`.
-///
-constexpr std::size_t IExecutor_Callback_ReserveSize = sizeof(void*) * 16;
-
-namespace application
+class MyConfig final : public libcyphal::Config<MyConfig>
 {
-namespace node
-{
+    using ConfigBase = Config;
 
-/// Defines max footprint of a callback function in use by the heartbeat producer.
-/// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
-///
-constexpr std::size_t HeartbeatProducer_UpdateCallback_FunctionSize = sizeof(void*) * 4;  // NOSONAR cpp:S799
+public:
+    class Presentation final : public ConfigBase::Presentation
+    {
+    protected:
+        friend ConfigBase::Presentation;
 
-}  // namespace node
-}  // namespace application
+        static constexpr std::size_t SmallPayloadSize_Impl()
+        {
+            // Default is `256` but for some unit tests we want just `6`.
+            // For example, it will force serialization of `Heartbeat_1_0` message (7 bytes) to use PMR.
+            return 6;
+        }
 
-namespace presentation
-{
+    };  // Presentation
 
-/// Defines the size serialization/deserialization payload buffer which is considered as a small one,
-/// and therefore could be used with stack buffer. Any payload larger than this size will be PMR allocated.
-///
-/// Setting it to 0 will force all payload buffers to be PMR allocated.
-///
-constexpr std::size_t SmallPayloadSize = 7;  // Override default 256 with size of Heartbeat_1_0
+    class Application final : public ConfigBase::Application
+    {
+        using ApplicationBase = ConfigBase::Application;
 
-/// Defines max footprint of a callback function in use by the RPC client response promise.
-/// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
-///
-constexpr std::size_t ResponsePromiseBase_Callback_FunctionSize = sizeof(void*) * 4;  // NOSONAR cpp:S799
+    public:
+        class Node final : public ApplicationBase::Node
+        {
+        protected:
+            friend ApplicationBase::Node;
 
-/// Defines max footprint of a callback function in use by the RPC server response continuation.
-/// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
-///
-constexpr std::size_t ServerBase_ContinuationImpl_FunctionMaxSize = sizeof(void*) * 5;  // NOSONAR cpp:S799
+            static constexpr std::size_t HeartbeatProducer_UpdateCallback_FunctionSize_Impl()  // NOSONAR cpp:S799
+            {
+                // Default is `4` but for our unit tests `2` is enough.
+                return sizeof(void*) * 2;
+            }
 
-/// Defines max footprint of a callback function in use by the RPC server request notification.
-/// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
-///
-constexpr std::size_t ServerBase_OnRequestCallback_FunctionMaxSize = sizeof(void*) * 5;  // NOSONAR cpp:S799
+        };  // Node
 
-/// Defines max footprint of a callback function in use by the message subscriber receive notification.
-/// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
-///
-constexpr std::size_t Subscriber_OnReceiveCallback_FunctionMaxSize = sizeof(void*) * 4;  // NOSONAR cpp:S799
+    };  // Application
 
-}  // namespace presentation
+};  // MyConfig
 
-namespace transport
-{
-
-/// Defines max footprint of a platform-specific error implementation.
-///
-constexpr std::size_t PlatformErrorMaxSize = sizeof(void*) * 3;
-
-/// Defines max footprint of a callback function in use by the message RX session notification.
-/// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
-///
-constexpr std::size_t IMessageRxSession_OnReceiveCallback_FunctionMaxSize = sizeof(void*) * 4;  // NOSONAR cpp:S799
-
-/// Defines max footprint of a callback function in use by the service RX session notification.
-/// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
-///
-constexpr std::size_t ISvcRxSession_OnReceiveCallback_FunctionMaxSize = sizeof(void*) * 4;  // NOSONAR cpp:S799
-
-/// Defines max footprint of a storage implementation used by the scattered buffer.
-///
-constexpr std::size_t ScatteredBuffer_StorageVariantFootprint = sizeof(void*) * 8;  // NOSONAR cpp:S799
-
-namespace can
-{
-
-/// Defines max footprint of a callback function in use by the CAN transport transient error handler.
-/// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
-///
-constexpr std::size_t ICanTransport_TransientErrorHandlerMaxSize = sizeof(void*) * 3;  // NOSONAR cpp:S799
-
-}  // namespace can
-
-namespace udp
-{
-
-/// Defines max footprint of a callback function in use by the UDP transport transient error handler.
-/// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
-///
-constexpr std::size_t IUdpTransport_TransientErrorHandlerMaxSize = sizeof(void*) * 3;  // NOSONAR cpp:S799
-
-}  // namespace udp
-}  // namespace transport
-
-}  // namespace config
-}  // namespace libcyphal
+}  // namespace custom
 
 #endif  // LIBCYPHAL_CUSTOM_LIBCYPHAL_CONFIG_HPP

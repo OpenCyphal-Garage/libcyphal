@@ -84,7 +84,7 @@ public:
         /// @brief Defines signature of the data reception callback function.
         ///
         static constexpr std::size_t FunctionMaxSize =
-            config::transport::ISvcRxSession_OnReceiveCallback_FunctionMaxSize;
+            config::Transport::ISvcRxSession_OnReceiveCallback_FunctionMaxSize();
         using Function = cetl::pmr::function<void(const Arg&), FunctionMaxSize>;
 
     };  // OnReceiveCallback

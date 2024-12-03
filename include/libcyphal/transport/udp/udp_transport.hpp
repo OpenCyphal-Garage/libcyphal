@@ -153,11 +153,9 @@ public:
     ///         - If an failure is returned, the transport will immediately stop current process, won't process any
     ///           other media (if any), and propagate the returned failure to the user (as result of `run` or etc).
     ///
-    static constexpr auto TransientErrorHandlerMaxSize =
-        config::transport::udp::IUdpTransport_TransientErrorHandlerMaxSize;
     using TransientErrorHandler =
         cetl::pmr::function<cetl::optional<AnyFailure>(TransientErrorReport::Variant& report_var),
-                            TransientErrorHandlerMaxSize>;
+                            config::Transport::Udp::IUdpTransport_TransientErrorHandlerMaxSize()>;
 
     IUdpTransport(const IUdpTransport&)                = delete;
     IUdpTransport(IUdpTransport&&) noexcept            = delete;

@@ -100,7 +100,7 @@ public:
             /// Holds the approximate time when the callback was called. Useful for minimizing `now()` calls.
             TimePoint approx_now;
         };
-        static constexpr auto FunctionSize = config::presentation::ResponsePromiseBase_Callback_FunctionSize;
+        static constexpr auto FunctionSize = config::Presentation::ResponsePromiseBase_Callback_FunctionSize();
         using Function                     = cetl::pmr::function<void(const Arg& arg), FunctionSize>;
     };
 

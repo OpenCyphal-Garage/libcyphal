@@ -44,11 +44,11 @@ static cetl::optional<DeserializationFailure> tryDeserializePayload(const transp
     // (using `Message::_traits_::ExtentBytes` as the maximum possible size for the Message).
     // But this might be dangerous (stack overflow!) in case of large messages, so it's done only for small ones.
     //
-    if (payload.size() <= config::presentation::SmallPayloadSize)
+    if (payload.size() <= config::Presentation::SmallPayloadSize())
     {
         // Next nolint b/c we initialize buffer with payload copying.
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
-        std::array<std::uint8_t, config::presentation::SmallPayloadSize> small_buffer;
+        std::array<std::uint8_t, config::Presentation::SmallPayloadSize()> small_buffer;
         //
         const auto                            data_size = payload.copy(0, small_buffer.data(), payload.size());
         const nunavut::support::const_bitspan bitspan{small_buffer.data(), data_size};

@@ -72,7 +72,7 @@ public:
         ///
         /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
         ///
-        static constexpr auto FunctionMaxSize = config::IExecutor_Callback_FunctionMaxSize;
+        static constexpr auto FunctionMaxSize = config::IExecutor_Callback_FunctionMaxSize();
 
         /// @brief Defines type of callback `Function` single argument.
         ///
@@ -104,7 +104,7 @@ public:
         ///
         /// Size is chosen arbitrary, but it should be enough to store any callback implementation.
         ///
-        static constexpr auto MaxSize = config::IExecutor_Callback_ReserveSize + sizeof(Function);
+        static constexpr auto MaxSize = config::IExecutor_Callback_ReserveSize() + sizeof(Function);
 
         class Interface : public rtti
         {

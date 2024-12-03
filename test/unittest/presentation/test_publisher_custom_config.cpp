@@ -3,12 +3,9 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-// Overriding the default libcyphal configuration file with custom one.
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define LIBCYPHAL_CONFIG "custom_libcyphal_config.hpp"
+#include "custom_libcyphal_config.hpp"
 
 #include "cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
-#include "custom_libcyphal_config.hpp"
 #include "tracking_memory_resource.hpp"
 #include "transport/msg_sessions_mock.hpp"
 #include "transport/transport_gtest_helpers.hpp"
@@ -16,6 +13,7 @@
 #include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/config.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/publisher.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
@@ -133,7 +131,7 @@ TEST_F(TestPublisherCustomConfig, publish_with_custom_buffer_size)
 
         publisher->setPriority(Priority::Fast);
         // Force serialization buffer to be on the heap.
-        constexpr auto BufferSize = libcyphal::config::presentation::SmallPayloadSize + 1;
+        constexpr auto BufferSize = libcyphal::config::Presentation::SmallPayloadSize() + 1;
         EXPECT_THAT(publisher->publish<BufferSize>(now() + 100ms, Message{&mr_}), Eq(cetl::nullopt));
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {

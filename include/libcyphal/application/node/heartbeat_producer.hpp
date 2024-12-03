@@ -111,9 +111,7 @@ public:
 
         /// @brief Defines signature of the heartbeat update callback function.
         ///
-        /// The size of the function is arbitrary (4 pointers), but should be enough for simple lambdas.
-        ///
-        static constexpr auto FunctionSize = config::application::node::HeartbeatProducer_UpdateCallback_FunctionSize;
+        static constexpr auto FunctionSize = config::Application::Node::HeartbeatProducer_UpdateCallback_FunctionSize();
         using Function                     = cetl::pmr::function<void(const Arg& arg), FunctionSize>;
     };
 

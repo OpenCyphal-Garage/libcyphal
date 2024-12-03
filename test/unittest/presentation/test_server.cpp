@@ -278,7 +278,7 @@ TEST_F(TestServer, service_request_response_failures)
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
-        using libcyphal::config::presentation::SmallPayloadSize;
+        constexpr auto SmallPayloadSize = libcyphal::config::Presentation::SmallPayloadSize();
 
         // Emulate that there is no memory available for the request deserialization.
         EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(SmallPayloadSize + 1));

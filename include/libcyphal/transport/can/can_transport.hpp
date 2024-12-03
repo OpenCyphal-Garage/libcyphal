@@ -109,20 +109,18 @@ public:
     ///     as part of this current "problematic" run (see description of return below),
     ///   - propagation of the error up to the original user's call (result of the `run` or `send` methods).
     ///
-    /// @param report The error report to be handled. It's made as non-const ref to allow the handler modify it,
-    ///               and f.e. reuse original `.error` field value by moving it as is to return result.
+    /// @param report The error report to be handled. It's made as non-const ref to allow the handler to modify it,
+    ///               and f.e. reuse original `.error` field value by moving it as is to the return result.
     /// @return An optional (maybe different) error back to the transport.
     ///         - If `cetl::nullopt` is returned, the original error (in the `report`) is considered as handled
     ///           and insignificant for the transport. Transport will continue its current process (effectively
-    ///           either ignoring such transient failure, or retrying the process later on its next run).
-    ///         - If a failure is returned, the transport will immediately stop current process, won't process any
-    ///           other media (if any), and propagate the returned failure to the user (as result of `run` or etc).
+    ///           either ignoring such transient failure or retrying the process later on its next run).
+    ///         - If a failure is returned, the transport will immediately stop the current process, won't process any
+    ///           other media (if any), and propagate the returned failure to the user (as a result of `run` or etc.).
     ///
-    static constexpr auto TransientErrorHandlerMaxSize =
-        config::transport::can::ICanTransport_TransientErrorHandlerMaxSize;
     using TransientErrorHandler =
         cetl::pmr::function<cetl::optional<AnyFailure>(TransientErrorReport::Variant& report_var),
-                            TransientErrorHandlerMaxSize>;
+                            config::Transport::Can::ICanTransport_TransientErrorHandlerMaxSize()>;
 
     ICanTransport(const ICanTransport&)                = delete;
     ICanTransport(ICanTransport&&) noexcept            = delete;
