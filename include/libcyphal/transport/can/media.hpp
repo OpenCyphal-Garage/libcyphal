@@ -68,8 +68,8 @@ public:
     /// @brief Schedules the frame for transmission asynchronously and return immediately.
     ///
     /// Concrete media implementation has multiple options with how to handle `payload` buffer:
-    /// - just copy the buffer data byts (using `payload.getSpan` const method) and return without changing the payload;
-    /// - take ownership of the buffer (by moving the payload to another internal payload;
+    /// - just copy the buffer data bytes (using `payload.getSpan()` method) and return without changing the payload;
+    /// - take ownership of the buffer (by moving the payload to another internal payload);
     /// - calling `payload.reset()` immediately after it's not needed anymore.
     /// In any case, the payload should not be changed (moved or reset) if it is not accepted.
     ///

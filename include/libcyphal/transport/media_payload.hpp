@@ -28,7 +28,13 @@ class MediaPayload final  // NOSONAR : cpp:S4963 - we do directly handle resourc
 public:
     /// Constructs a new empty payload.
     ///
-    MediaPayload() = default;
+    MediaPayload()
+        : size_{0U}
+        , data_{nullptr}
+        , allocated_size_{0U}
+        , mr_{nullptr}
+    {
+    }
 
     /// Constructs a new payload by owning the provided data buffer.
     ///
@@ -152,24 +158,24 @@ private:
     /// Could be less or equal to the allocated size.
     /// `0` when the payload is moved.
     ///
-    std::size_t size_{0U};
+    std::size_t size_;
 
     /// Pointer to the payload buffer.
     ///
     /// `nullptr` when the payload is moved.
     ///
-    cetl::byte* data_{nullptr};
+    cetl::byte* data_;
 
     /// Size of the allocated buffer.
     ///
     /// Could be greater or equal to the payload size.
     /// `0` when the payload is moved.
     ///
-    std::size_t allocated_size_{0U};
+    std::size_t allocated_size_;
 
     /// Holds pointer to the PMR which was used to allocate the payload buffer. Will be used to deallocate it.
     ///
-    cetl::pmr::memory_resource* mr_{nullptr};
+    cetl::pmr::memory_resource* mr_;
 
 };  // MediaPayload
 
