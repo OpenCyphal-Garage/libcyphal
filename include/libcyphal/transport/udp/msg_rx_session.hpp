@@ -38,7 +38,7 @@ namespace detail
 
 /// @brief A class to represent a message subscriber RX session.
 ///
-class MessageRxSession final : IMsgRxSessionDelegate, public IMessageRxSession
+class MessageRxSession final : private IMsgRxSessionDelegate, public IMessageRxSession
 {
     /// @brief Defines private specification for making interface unique ptr.
     ///

@@ -32,7 +32,11 @@ namespace node
 ///
 /// Internally, it uses the 'GetInfo' service server to handle incoming requests.
 ///
-class GetInfoProvider final
+/// No Sonar cpp:S3624 "Customize this class' destructor to participate in resource management."
+/// We need custom move constructor to reset up the request callback,
+/// but at the destructor level, we don't need to do anything.
+///
+class GetInfoProvider final  // NOSONAR cpp:S3624
 {
     using Service = uavcan::node::GetInfo_1_0;
 

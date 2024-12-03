@@ -34,7 +34,11 @@ namespace node
 ///
 /// Internally, it uses the 'Heartbeat' message publisher to periodically publish heartbeat messages.
 ///
-class HeartbeatProducer final
+/// No Sonar cpp:S3624 "Customize this class' destructor to participate in resource management."
+/// We need custom move constructor to reset up the publishing callback,
+/// but at the destructor level, we don't need to do anything.
+///
+class HeartbeatProducer final  // NOSONAR cpp:S3624
 {
 public:
     /// @brief Defines the message type for the Heartbeat.

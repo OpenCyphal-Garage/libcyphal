@@ -43,7 +43,7 @@ namespace detail
 ///                Could be either `RequestRxParams` or `ResponseRxParams`.
 ///
 template <typename Interface_, typename Params, typename SessionEvent, bool IsRequest>
-class SvcRxSession final : IRxSessionDelegate, public Interface_
+class SvcRxSession final : private IRxSessionDelegate, public Interface_
 {
     /// @brief Defines private specification for making interface unique ptr.
     ///

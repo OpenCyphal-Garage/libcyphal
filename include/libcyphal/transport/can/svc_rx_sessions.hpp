@@ -45,7 +45,7 @@ namespace detail
 ///                      Could be either `CanardTransferKindRequest` or `CanardTransferKindResponse`.
 ///
 template <typename Interface_, typename Params, CanardTransferKind TransferKind>
-class SvcRxSession final : IRxSessionDelegate, public Interface_
+class SvcRxSession final : private IRxSessionDelegate, public Interface_
 {
     /// @brief Defines private specification for making interface unique ptr.
     ///

@@ -30,7 +30,11 @@ namespace node
 ///
 /// Internally, it uses the registry 'List' and 'Access' service servers to handle incoming requests.
 ///
-class RegistryProvider final
+/// No Sonar cpp:S3624 "Customize this class' destructor to participate in resource management."
+/// We need custom move constructor to reset up the request callback,
+/// but at the destructor level, we don't need to do anything.
+///
+class RegistryProvider final  // NOSONAR cpp:S3624
 {
     using ListService   = uavcan::_register::List_1_0;
     using AccessService = uavcan::_register::Access_1_0;
