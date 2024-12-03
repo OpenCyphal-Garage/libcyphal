@@ -30,10 +30,7 @@ namespace node
 ///
 /// Internally, it uses the registry 'List' and 'Access' service servers to handle incoming requests.
 ///
-/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
-/// b/c we do directly handle resources here (namely capturing of `this` in the request callback).
-///
-class RegistryProvider final  // NOSONAR cpp:S4963
+class RegistryProvider final
 {
     using ListService   = uavcan::_register::List_1_0;
     using AccessService = uavcan::_register::Access_1_0;

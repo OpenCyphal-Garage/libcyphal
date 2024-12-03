@@ -38,10 +38,7 @@ namespace detail
 
 /// @brief A class to represent a message subscriber RX session.
 ///
-/// NOSONAR cpp:S4963 for below `class MessageRxSession` - we do directly handle resources here;
-/// namely: in destructor we have to unsubscribe, as well as let transport delegate to know this fact.
-///
-class MessageRxSession final : IRxSessionDelegate, public IMessageRxSession  // NOSONAR cpp:S4963
+class MessageRxSession final : IRxSessionDelegate, public IMessageRxSession
 {
     /// @brief Defines private specification for making interface unique ptr.
     ///

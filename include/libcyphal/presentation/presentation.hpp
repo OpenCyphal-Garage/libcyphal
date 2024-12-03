@@ -95,12 +95,9 @@ struct IsFixedPortIdMessageTrait<T, true>
 /// @brief Defines the main presentation layer class.
 ///
 /// Instance of this class is supposed to be created once per transport instance (or even per application).
-/// Main purpose of the presentation object is to create publishers, subscribers, and RPC clients and servers.
+/// The main purpose of the presentation object is to create publishers, subscribers, and RPC clients and servers.
 ///
-/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
-/// b/c we do directly handle resources here.
-///
-class Presentation final : private detail::IPresentationDelegate  // NOSONAR cpp:S4963
+class Presentation final : private detail::IPresentationDelegate
 {
 public:
     /// @brief Defines failure type of various `make...` methods of the presentation layer.

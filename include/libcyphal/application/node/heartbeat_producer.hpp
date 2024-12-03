@@ -34,10 +34,7 @@ namespace node
 ///
 /// Internally, it uses the 'Heartbeat' message publisher to periodically publish heartbeat messages.
 ///
-/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
-/// b/c we do directly handle resources here (namely capturing of `this` in the periodic callback).
-///
-class HeartbeatProducer final  // NOSONAR cpp:S4963
+class HeartbeatProducer final
 {
 public:
     /// @brief Defines the message type for the Heartbeat.

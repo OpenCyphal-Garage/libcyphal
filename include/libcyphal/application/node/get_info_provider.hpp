@@ -32,10 +32,7 @@ namespace node
 ///
 /// Internally, it uses the 'GetInfo' service server to handle incoming requests.
 ///
-/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
-/// b/c we do directly handle resources here (namely capturing of `this` in the request callback).
-///
-class GetInfoProvider final  // NOSONAR cpp:S4963
+class GetInfoProvider final
 {
     using Service = uavcan::node::GetInfo_1_0;
 

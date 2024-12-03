@@ -42,11 +42,8 @@ namespace detail
 /// @tparam Params Type of the session parameters.
 ///                Could be either `RequestRxParams` or `ResponseRxParams`.
 ///
-/// NOSONAR cpp:S4963 for below `class SvcRxSession` - we do directly handle resources here;
-/// namely: in destructor we have to unsubscribe, as well as let transport delegate to know this fact.
-///
 template <typename Interface_, typename Params, typename SessionEvent, bool IsRequest>
-class SvcRxSession final : IRxSessionDelegate, public Interface_  // NOSONAR cpp:S4963
+class SvcRxSession final : IRxSessionDelegate, public Interface_
 {
     /// @brief Defines private specification for making interface unique ptr.
     ///

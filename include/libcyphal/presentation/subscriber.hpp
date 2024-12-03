@@ -31,10 +31,7 @@ namespace detail
 
 /// @brief Defines internal base class for any concrete (final) message subscriber.
 ///
-/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
-/// b/c we do directly handle resources here.
-///
-class SubscriberBase : public SubscriberImpl::CallbackNode  // NOSONAR cpp:S4963
+class SubscriberBase : public SubscriberImpl::CallbackNode
 {
 public:
     /// @brief Defines failure type for a base subscriber operations.

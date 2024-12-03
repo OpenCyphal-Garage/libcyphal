@@ -64,11 +64,8 @@ using ResponsePromiseFailure = libcyphal::detail::AppendType<  //
 ///                         either a deserializable type (like a Nunavut tool generated service response struct),
 ///                         or `transport::ScatteredBuffer` for raw bytes (aka untyped) responses.
 ///
-/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
-/// b/c we do directly handle resources here (like `client_impl_` retain/release etc.).
-///
 template <typename ResponsePayload, typename Failure>
-class ResponsePromiseBase : public detail::SharedClient::CallbackNode  // NOSONAR cpp:S4963
+class ResponsePromiseBase : public detail::SharedClient::CallbackNode
 {
 public:
     /// @brief Defines successful response and its metadata.

@@ -36,7 +36,7 @@ namespace detail
 /// Probably could be deleted when libcanard will start support fragmented payloads (at `canardTxPush`).
 /// See https://github.com/OpenCyphal/libcanard/issues/223
 ///
-class ContiguousPayload final  // NOSONAR : cpp:S4963 - we do directly handle resources here.
+class ContiguousPayload final
 {
 public:
     ContiguousPayload(cetl::pmr::memory_resource& mr, const PayloadFragments payload_fragments)

@@ -79,10 +79,7 @@ public:
 
     };  // TimeoutNode
 
-    /// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
-    /// b/c we do directly handle resources here.
-    ///
-    class CallbackNode : public Node<CallbackNode>, public TimeoutNode  // NOSONAR cpp:S4963
+    class CallbackNode : public Node<CallbackNode>, public TimeoutNode
     {
     public:
         CallbackNode(const CallbackNode&)                = delete;

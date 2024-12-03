@@ -26,7 +26,7 @@ namespace transport
 /// The buffer is movable but not copyable because copying the contents of a buffer is considered wasteful.
 /// The buffer behaves as if it's empty if the underlying implementation is moved away.
 ///
-class ScatteredBuffer final  // NOSONAR : cpp:S4963 - we do directly handle resources here.
+class ScatteredBuffer final
 {
 public:
     /// @brief Defines maximum size (aka footprint) of the storage variant.

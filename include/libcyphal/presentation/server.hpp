@@ -41,10 +41,7 @@ namespace detail
 
 /// @brief Defines internal base class for any concrete (final) RPC server.
 ///
-/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
-/// b/c we do directly handle resources here.
-///
-class ServerBase : ServerImpl::Callback  // NOSONAR cpp:S4963
+class ServerBase : ServerImpl::Callback
 {
 public:
     /// @brief Defines failure type for a base server operations.
