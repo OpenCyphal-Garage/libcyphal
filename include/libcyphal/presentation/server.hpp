@@ -41,10 +41,10 @@ namespace detail
 
 /// @brief Defines internal base class for any concrete (final) RPC server.
 ///
-class ServerBase : ServerImpl::Callback
+class ServerBase : private ServerImpl::Callback
 {
 public:
-    /// @brief Defines failure type for a base server operations.
+    /// @brief Defines a failure type for a base server operations.
     ///
     /// The set of possible failures of the base server includes transport layer failures.
     /// A strong-typed server extends this type with its own error types (serialization-related).
