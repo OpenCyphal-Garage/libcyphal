@@ -295,9 +295,9 @@ TEST_F(Example_1_Presentation_3_HB_GetInfo_Ping_Can, main)
     std::cout << "Remote node ID: " << remote_node_id_ << "\n";
     std::cout << "Interfaces    : '" << CommonHelpers::joinInterfaceAddresses(iface_addresses_) << "'\n";
 
-    // 1. Make CAN transport with collection of media.
+    // 1. Make CAN transport with a collection of media.
     //
-    if (!state.media_collection_.make(executor_, iface_addresses_))
+    if (!state.media_collection_.make(mr_, executor_, iface_addresses_, mr_))
     {
         GTEST_SKIP();
     }

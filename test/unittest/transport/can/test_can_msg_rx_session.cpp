@@ -51,6 +51,7 @@ using testing::SizeIs;
 using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
+using testing::ReturnRef;
 using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
@@ -72,12 +73,16 @@ protected:
 
         EXPECT_CALL(media_mock_, getMtu())  //
             .WillRepeatedly(Return(CANARD_MTU_MAX));
+        EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(tx_mr_));
     }
 
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+
+        EXPECT_THAT(tx_mr_.allocations, IsEmpty());
+        EXPECT_THAT(tx_mr_.total_allocated_bytes, tx_mr_.total_deallocated_bytes);
     }
 
     TimePoint now() const
@@ -99,6 +104,7 @@ protected:
     // NOLINTBEGIN
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
+    TrackingMemoryResource          tx_mr_;
     StrictMock<MediaMock>           media_mock_{};
     // NOLINTEND
 };
@@ -123,7 +129,7 @@ TEST_F(TestCanMsgRxSession, make_setTransferIdTimeout)
 
     // NOLINTNEXTLINE
     auto&                 delegate        = static_cast<can::detail::TransportImpl*>(transport.get())->asDelegate();
-    auto&                 canard_instance = delegate.canard_instance();
+    auto&                 canard_instance = delegate.canardInstance();
     CanardRxSubscription* subscription    = nullptr;
     EXPECT_THAT(canardRxGetSubscription(&canard_instance, CanardTransferKindMessage, 123, &subscription), 1);
     ASSERT_THAT(subscription, NotNull());

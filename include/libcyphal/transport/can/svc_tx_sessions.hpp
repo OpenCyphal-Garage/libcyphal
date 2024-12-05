@@ -82,7 +82,7 @@ private:
         // Otherwise, transport may do some work (like possible payload allocation/copying,
         // media enumeration and pushing into their TX queues) doomed to fail with argument error.
         //
-        if (delegate_.node_id() > CANARD_NODE_ID_MAX)
+        if (delegate_.getNodeId() > CANARD_NODE_ID_MAX)
         {
             return ArgumentError{};
         }
@@ -157,7 +157,7 @@ private:
         // Otherwise, transport may do some work (like possible payload allocation/copying,
         // media enumeration and pushing into their TX queues) doomed to fail with argument error.
         //
-        if ((delegate_.node_id() > CANARD_NODE_ID_MAX) || (metadata.remote_node_id > CANARD_NODE_ID_MAX))
+        if ((delegate_.getNodeId() > CANARD_NODE_ID_MAX) || (metadata.remote_node_id > CANARD_NODE_ID_MAX))
         {
             return ArgumentError{};
         }

@@ -18,6 +18,7 @@
 #include <libcyphal/executor.hpp>
 #include <libcyphal/transport/can/media.hpp>
 #include <libcyphal/transport/errors.hpp>
+#include <libcyphal/transport/media_payload.hpp>
 #include <libcyphal/types.hpp>
 
 #include <algorithm>
@@ -45,20 +46,23 @@ public:
     {
         Collection() = default;
 
-        bool make(libcyphal::IExecutor& executor, std::vector<std::string>& iface_addresses)
+        bool make(cetl::pmr::memory_resource& general_mr,
+                  libcyphal::IExecutor&       executor,
+                  std::vector<std::string>&   iface_addresses,
+                  cetl::pmr::memory_resource& tx_mr)
         {
             reset();
 
             for (const auto& iface_address : iface_addresses)
             {
-                auto maybe_media = CanMedia::make(executor, iface_address);
+                auto maybe_media = CanMedia::make(general_mr, executor, iface_address, tx_mr);
                 if (auto* const error = cetl::get_if<libcyphal::transport::PlatformError>(&maybe_media))
                 {
                     std::cerr << "Failed to create CAN media '" << iface_address << "', errno=" << (*error)->code()
                               << ".";
                     return false;
                 }
-                media_vector_.emplace_back(cetl::get<Linux::CanMedia>(std::move(maybe_media)));
+                media_vector_.emplace_back(cetl::get<CanMedia>(std::move(maybe_media)));
             }
 
             for (auto& media : media_vector_)
@@ -87,8 +91,10 @@ public:
     };  // Collection
 
     CETL_NODISCARD static cetl::variant<CanMedia, libcyphal::transport::PlatformError> make(
-        libcyphal::IExecutor& executor,
-        const std::string&    iface_address)
+        cetl::pmr::memory_resource& general_mr,
+        libcyphal::IExecutor&       executor,
+        const std::string&          iface_address,
+        cetl::pmr::memory_resource& tx_mr)
     {
         const SocketCANFD socket_can_rx_fd = ::socketcanOpen(iface_address.c_str(), false);
         if (socket_can_rx_fd < 0)
@@ -107,7 +113,7 @@ public:
             return libcyphal::transport::PlatformError{posix::PosixPlatformError{error_code}};
         }
 
-        return CanMedia{executor, socket_can_rx_fd, socket_can_tx_fd, iface_address};
+        return CanMedia{general_mr, executor, socket_can_rx_fd, socket_can_tx_fd, iface_address, tx_mr};
     }
 
     ~CanMedia()
@@ -126,10 +132,12 @@ public:
     CanMedia& operator=(const CanMedia&) = delete;
 
     CanMedia(CanMedia&& other) noexcept
-        : executor_{other.executor_}
+        : general_mr_{other.general_mr_}
+        , executor_{other.executor_}
         , socket_can_rx_fd_{std::exchange(other.socket_can_rx_fd_, -1)}
         , socket_can_tx_fd_{std::exchange(other.socket_can_tx_fd_, -1)}
         , iface_address_{other.iface_address_}
+        , tx_mr_{other.tx_mr_}
     {
     }
     CanMedia* operator=(CanMedia&&) noexcept = delete;
@@ -164,14 +172,18 @@ private:
     using Filter  = libcyphal::transport::can::Filter;
     using Filters = libcyphal::transport::can::Filters;
 
-    CanMedia(libcyphal::IExecutor& executor,
-             const SocketCANFD     socket_can_rx_fd,
-             const SocketCANFD     socket_can_tx_fd,
-             std::string           iface_address)
-        : executor_{executor}
+    CanMedia(cetl::pmr::memory_resource& general_mr,
+             libcyphal::IExecutor&       executor,
+             const SocketCANFD           socket_can_rx_fd,
+             const SocketCANFD           socket_can_tx_fd,
+             std::string                 iface_address,
+             cetl::pmr::memory_resource& tx_mr)
+        : general_mr_{general_mr}
+        , executor_{executor}
         , socket_can_rx_fd_{socket_can_rx_fd}
         , socket_can_tx_fd_{socket_can_tx_fd}
         , iface_address_{std::move(iface_address)}
+        , tx_mr_{tx_mr}
     {
     }
 
@@ -200,6 +212,7 @@ private:
         std::vector<CanardFilter> can_filters;
         can_filters.reserve(filters.size());
         std::transform(filters.begin(), filters.end(), std::back_inserter(can_filters), [](const Filter filter) {
+            //
             return CanardFilter{filter.id, filter.mask};
         });
 
@@ -213,9 +226,9 @@ private:
 
     PushResult::Type push(const libcyphal::TimePoint /* deadline */,
                           const libcyphal::transport::can::CanId can_id,
-                          const cetl::span<const cetl::byte>     payload) noexcept override
+                          libcyphal::transport::MediaPayload&    payload) noexcept override
     {
-        const CanardFrame  canard_frame{can_id, payload.size(), payload.data()};
+        const CanardFrame  canard_frame{can_id, {payload.getSpan().size(), payload.getSpan().data()}};
         const std::int16_t result = ::socketcanPush(socket_can_tx_fd_, &canard_frame, 0);
         if (result < 0)
         {
@@ -223,6 +236,12 @@ private:
         }
 
         const bool is_accepted = result > 0;
+        if (is_accepted)
+        {
+            // Payload is not needed anymore, so return memory asap.
+            payload.reset();
+        }
+
         return PushResult::Success{is_accepted};
     }
 
@@ -247,7 +266,7 @@ private:
             return cetl::nullopt;
         }
 
-        return PopResult::Metadata{executor_.now(), canard_frame.extended_can_id, canard_frame.payload_size};
+        return PopResult::Metadata{executor_.now(), canard_frame.extended_can_id, canard_frame.payload.size};
     }
 
     CETL_NODISCARD libcyphal::IExecutor::Callback::Any registerPushCallback(
@@ -264,12 +283,19 @@ private:
         return registerAwaitableCallback(std::move(function), ReadableTrigger{socket_can_rx_fd_});
     }
 
+    cetl::pmr::memory_resource& getTxMemoryResource() override
+    {
+        return tx_mr_;
+    }
+
     // MARK: Data members:
 
-    libcyphal::IExecutor& executor_;
-    SocketCANFD           socket_can_rx_fd_;
-    SocketCANFD           socket_can_tx_fd_;
-    const std::string     iface_address_;
+    cetl::pmr::memory_resource& general_mr_;
+    libcyphal::IExecutor&       executor_;
+    SocketCANFD                 socket_can_rx_fd_;
+    SocketCANFD                 socket_can_tx_fd_;
+    const std::string           iface_address_;
+    cetl::pmr::memory_resource& tx_mr_;
 
 };  // CanMedia
 

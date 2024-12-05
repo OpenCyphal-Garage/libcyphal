@@ -53,7 +53,7 @@ SocketCANFD socketcanOpen(const char* const iface_name, const bool can_fd);
 /// Block until the frame is enqueued or until the timeout is expired.
 /// Zero timeout makes the operation non-blocking.
 /// Returns 1 on success, 0 on timeout, negated errno on error.
-int16_t socketcanPush(const SocketCANFD fd, const CanardFrame* const frame, const CanardMicrosecond timeout_usec);
+int16_t socketcanPush(const SocketCANFD fd, const struct CanardFrame* const frame, const CanardMicrosecond timeout_usec);
 
 /// Fetch a new extended CAN data frame from the RX queue.
 /// If the received frame is not an extended-ID data frame, it will be dropped and the function will return early.
@@ -67,7 +67,7 @@ int16_t socketcanPush(const SocketCANFD fd, const CanardFrame* const frame, cons
 /// Zero timeout makes the operation non-blocking.
 /// Returns 1 on success, 0 on timeout, negated errno on error.
 int16_t socketcanPop(const SocketCANFD        fd,
-                     CanardFrame* const       out_frame,
+                     struct CanardFrame* const       out_frame,
                      CanardMicrosecond* const out_timestamp_usec,
                      const size_t             payload_buffer_size,
                      void* const              payload_buffer,
@@ -78,7 +78,7 @@ int16_t socketcanPop(const SocketCANFD        fd,
 /// Note that it is only possible to accept extended-format data frames.
 /// The default configuration is to accept everything.
 /// Returns 0 on success, negated errno on error.
-int16_t socketcanFilter(const SocketCANFD fd, const size_t num_configs, const CanardFilter* const configs);
+int16_t socketcanFilter(const SocketCANFD fd, const size_t num_configs, const struct CanardFilter* const configs);
 
 #ifdef __cplusplus
 }

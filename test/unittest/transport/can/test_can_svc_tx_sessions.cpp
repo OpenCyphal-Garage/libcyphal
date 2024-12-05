@@ -47,6 +47,7 @@ using testing::Return;
 using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
+using testing::ReturnRef;
 using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
@@ -70,12 +71,16 @@ protected:
             .WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
         EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
             .WillOnce(Return(cetl::nullopt));
+        EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(tx_mr_));
     }
 
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+
+        EXPECT_THAT(tx_mr_.allocations, IsEmpty());
+        EXPECT_THAT(tx_mr_.total_allocated_bytes, tx_mr_.total_deallocated_bytes);
     }
 
     TimePoint now() const
@@ -101,6 +106,7 @@ protected:
     // NOLINTBEGIN
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
+    TrackingMemoryResource          tx_mr_;
     StrictMock<MediaMock>           media_mock_{};
     // NOLINTEND
 };
@@ -177,7 +183,7 @@ TEST_F(TestCanSvcTxSessions, send_request)
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         EXPECT_CALL(media_mock_, push(_, _, _))  //
-            .WillOnce([&](auto deadline, auto can_id, auto payload) {
+            .WillOnce([&](auto deadline, auto can_id, auto& payload) {
                 EXPECT_THAT(now(), metadata.deadline - timeout);
                 EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(can_id, ServiceOfCanIdEq(123));
@@ -185,7 +191,7 @@ TEST_F(TestCanSvcTxSessions, send_request)
                 EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsServiceCanId()));
 
                 auto tbm = TailByteEq(metadata.base.transfer_id);
-                EXPECT_THAT(payload, ElementsAre(tbm));
+                EXPECT_THAT(payload.getSpan(), ElementsAre(tbm));
                 return IMedia::PushResult::Success{true /* is_accepted */};
             });
         EXPECT_CALL(media_mock_, registerPushCallback(_))  //
@@ -229,7 +235,7 @@ TEST_F(TestCanSvcTxSessions, send_request_with_argument_error)
         EXPECT_THAT(transport->setLocalNodeId(13), Eq(cetl::nullopt));
 
         EXPECT_CALL(media_mock_, push(_, _, _))  //
-            .WillOnce([&](auto deadline, auto can_id, auto payload) {
+            .WillOnce([&](auto deadline, auto can_id, auto& payload) {
                 EXPECT_THAT(now(), metadata.deadline - timeout);
                 EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(can_id, ServiceOfCanIdEq(123));
@@ -237,7 +243,7 @@ TEST_F(TestCanSvcTxSessions, send_request_with_argument_error)
                 EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsServiceCanId()));
 
                 auto tbm = TailByteEq(metadata.base.transfer_id);
-                EXPECT_THAT(payload, ElementsAre(tbm));
+                EXPECT_THAT(payload.getSpan(), ElementsAre(tbm));
                 return IMedia::PushResult::Success{true /* is_accepted */};
             });
         EXPECT_CALL(media_mock_, registerPushCallback(_))  //
@@ -313,7 +319,7 @@ TEST_F(TestCanSvcTxSessions, send_response)
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         EXPECT_CALL(media_mock_, push(_, _, _))  //
-            .WillOnce([&](auto deadline, auto can_id, auto payload) {
+            .WillOnce([&](auto deadline, auto can_id, auto& payload) {
                 EXPECT_THAT(now(), metadata.tx_meta.deadline - timeout);
                 EXPECT_THAT(deadline, metadata.tx_meta.deadline);
                 EXPECT_THAT(can_id, ServiceOfCanIdEq(123));
@@ -321,7 +327,7 @@ TEST_F(TestCanSvcTxSessions, send_response)
                 EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.tx_meta.base.priority), IsServiceCanId()));
 
                 auto tbm = TailByteEq(metadata.tx_meta.base.transfer_id);
-                EXPECT_THAT(payload, ElementsAre(tbm));
+                EXPECT_THAT(payload.getSpan(), ElementsAre(tbm));
                 return IMedia::PushResult::Success{true /* is_accepted */};
             });
         EXPECT_CALL(media_mock_, registerPushCallback(_))  //

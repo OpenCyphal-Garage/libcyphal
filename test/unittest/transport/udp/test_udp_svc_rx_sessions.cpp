@@ -58,6 +58,7 @@ using testing::Return;
 using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
+using testing::ReturnRef;
 using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
@@ -87,12 +88,16 @@ protected:
                 rx_socket_mock_.setEndpoint(endpoint);
                 return libcyphal::detail::makeUniquePtr<RxSocketMock::RefWrapper::Spec>(mr_, rx_socket_mock_);
             }));
+        EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
     }
 
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+
+        EXPECT_THAT(tx_mr_.allocations, IsEmpty());
+        EXPECT_THAT(tx_mr_.total_allocated_bytes, tx_mr_.total_deallocated_bytes);
 
         EXPECT_THAT(payload_mr_.allocations, IsEmpty());
         EXPECT_THAT(payload_mr_.total_allocated_bytes, payload_mr_.total_deallocated_bytes);
@@ -125,6 +130,7 @@ protected:
     // NOLINTBEGIN
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
+    TrackingMemoryResource          tx_mr_;
     TrackingMemoryResource          payload_mr_;
     StrictMock<MediaMock>           media_mock_{};
     StrictMock<RxSocketMock>        rx_socket_mock_{"RxS1"};
@@ -304,7 +310,7 @@ TEST_F(TestUdpSvcRxSessions, receive_request)
                 return {rx_timestamp, std::move(frame).release(tx_crc)};
             });
         EXPECT_CALL(payload_mr_mock, do_allocate(frame_size, alignof(std::max_align_t)))
-            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
+            .WillOnce([this](const std::size_t size_bytes, const std::size_t alignment) -> void* {
                 return payload_mr_.allocate(size_bytes, alignment);
             });
         scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
@@ -327,7 +333,7 @@ TEST_F(TestUdpSvcRxSessions, receive_request)
             EXPECT_THAT(buffer, ElementsAre(42, 147));
 
             EXPECT_CALL(payload_mr_mock, do_deallocate(_, frame_size, alignof(std::max_align_t)))
-                .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+                .WillOnce([this](void* const p, const std::size_t size_bytes, const std::size_t alignment) {
                     payload_mr_.deallocate(p, size_bytes, alignment);
                 });
         });
@@ -366,11 +372,11 @@ TEST_F(TestUdpSvcRxSessions, receive_request)
                 return {rx_timestamp, std::move(frame).release(tx_crc)};
             });
         EXPECT_CALL(payload_mr_mock, do_allocate(frame_size, alignof(std::max_align_t)))
-            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
+            .WillOnce([this](const std::size_t size_bytes, const std::size_t alignment) -> void* {
                 return payload_mr_.allocate(size_bytes, alignment);
             });
         EXPECT_CALL(payload_mr_mock, do_deallocate(_, frame_size, alignof(std::max_align_t)))
-            .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+            .WillOnce([this](void* const p, const std::size_t size_bytes, const std::size_t alignment) {
                 payload_mr_.deallocate(p, size_bytes, alignment);
             });
         scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
@@ -430,7 +436,7 @@ TEST_F(TestUdpSvcRxSessions, receive_request_via_callback)
         EXPECT_THAT(buffer, ElementsAre(42, 147));
 
         EXPECT_CALL(payload_mr_mock, do_deallocate(_, frame_size, alignof(std::max_align_t)))
-            .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+            .WillOnce([this](void* const p, const std::size_t size_bytes, const std::size_t alignment) {
                 payload_mr_.deallocate(p, size_bytes, alignment);
             });
     });
@@ -451,7 +457,7 @@ TEST_F(TestUdpSvcRxSessions, receive_request_via_callback)
                 return {rx_timestamp, std::move(frame).release(tx_crc)};
             });
         EXPECT_CALL(payload_mr_mock, do_allocate(frame_size, alignof(std::max_align_t)))
-            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
+            .WillOnce([this](const std::size_t size_bytes, const std::size_t alignment) -> void* {
                 return payload_mr_.allocate(size_bytes, alignment);
             });
         scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
@@ -524,7 +530,7 @@ TEST_F(TestUdpSvcRxSessions, receive_response)
                 return {rx_timestamp, std::move(frame).release(tx_crc)};
             });
         EXPECT_CALL(payload_mr_mock, do_allocate(frame_size, alignof(std::max_align_t)))
-            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
+            .WillOnce([this](const std::size_t size_bytes, const std::size_t alignment) -> void* {
                 return payload_mr_.allocate(size_bytes, alignment);
             });
         scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
@@ -547,7 +553,7 @@ TEST_F(TestUdpSvcRxSessions, receive_response)
             EXPECT_THAT(buffer, ElementsAre(42, 147));
 
             EXPECT_CALL(payload_mr_mock, do_deallocate(_, frame_size, alignof(std::max_align_t)))
-                .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+                .WillOnce([this](void* const p, const std::size_t size_bytes, const std::size_t alignment) {
                     payload_mr_.deallocate(p, size_bytes, alignment);
                 });
         });

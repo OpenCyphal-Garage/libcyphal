@@ -75,7 +75,7 @@ public:
         , params_{params}
         , subscription_{}
     {
-        const std::int8_t result = ::canardRxSubscribe(&delegate.canard_instance(),
+        const std::int8_t result = ::canardRxSubscribe(&delegate.canardInstance(),
                                                        CanardTransferKindMessage,
                                                        params_.subject_id,
                                                        params_.extent_bytes,
@@ -99,7 +99,7 @@ public:
     ~MessageRxSession()
     {
         const std::int8_t result =
-            ::canardRxUnsubscribe(&delegate_.canard_instance(), CanardTransferKindMessage, params_.subject_id);
+            ::canardRxUnsubscribe(&delegate_.canardInstance(), CanardTransferKindMessage, params_.subject_id);
         (void) result;
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "Subscription supposed to be made at constructor.");
@@ -156,8 +156,11 @@ private:
                 : cetl::make_optional<NodeId>(transfer.metadata.remote_node_id);
 
         // No Sonar `cpp:S5356` and `cpp:S5357` b/c we need to pass raw data from C libcanard api.
-        auto* const buffer = static_cast<cetl::byte*>(transfer.payload);  // NOSONAR cpp:S5356 cpp:S5357
-        TransportDelegate::CanardMemory canard_memory{delegate_, buffer, transfer.payload_size};
+        auto* const buffer = static_cast<cetl::byte*>(transfer.payload.data);  // NOSONAR cpp:S5356 cpp:S5357
+        TransportDelegate::CanardMemory canard_memory{delegate_,
+                                                      transfer.payload.allocated_size,
+                                                      buffer,
+                                                      transfer.payload.size};
 
         const MessageRxMetadata meta{{{transfer_id, priority}, timestamp}, publisher_node_id};
         MessageRxTransfer       msg_rx_transfer{meta, ScatteredBuffer{std::move(canard_memory)}};

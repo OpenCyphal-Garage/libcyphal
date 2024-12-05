@@ -35,6 +35,7 @@ public:
 
     MOCK_METHOD(MakeTxSocketResult::Type, makeTxSocket, (), (override));
     MOCK_METHOD(MakeRxSocketResult::Type, makeRxSocket, (const IpEndpoint& multicast_endpoint), (override));
+    MOCK_METHOD(cetl::pmr::memory_resource&, getTxMemoryResource, (), (override));
 
 };  // MediaMock
 

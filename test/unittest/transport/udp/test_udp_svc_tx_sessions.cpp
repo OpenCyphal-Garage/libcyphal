@@ -51,6 +51,7 @@ using testing::Return;
 using testing::SizeIs;
 using testing::IsEmpty;
 using testing::NotNull;
+using testing::ReturnRef;
 using testing::StrictMock;
 using testing::VariantWith;
 
@@ -73,6 +74,7 @@ protected:
             .WillRepeatedly(Invoke([this] {
                 return libcyphal::detail::makeUniquePtr<TxSocketMock::RefWrapper::Spec>(mr_, tx_socket_mock_);
             }));
+        EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(mr_));
 
         EXPECT_CALL(tx_socket_mock_, getMtu())  //
             .WillRepeatedly(Return(UDPARD_MTU_DEFAULT));
@@ -82,6 +84,9 @@ protected:
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+
+        EXPECT_THAT(tx_mr_.allocations, IsEmpty());
+        EXPECT_THAT(tx_mr_.total_allocated_bytes, tx_mr_.total_deallocated_bytes);
     }
 
     TimePoint now() const
@@ -111,6 +116,7 @@ protected:
     // NOLINTBEGIN
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
+    TrackingMemoryResource          tx_mr_;
     StrictMock<MediaMock>           media_mock_{};
     StrictMock<TxSocketMock>        tx_socket_mock_{"TxS1"};
     // NOLINTEND
@@ -239,10 +245,11 @@ TEST_F(TestUdpSvcTxSessions, make_request_fails_due_to_media_socket)
 
 TEST_F(TestUdpSvcTxSessions, send_empty_payload_request)
 {
-    StrictMock<MemoryResourceMock> fragment_mr_mock;
-    fragment_mr_mock.redirectExpectedCallsTo(mr_);
+    StrictMock<MemoryResourceMock> tx_mr_mock;
+    tx_mr_mock.redirectExpectedCallsTo(mr_);
+    EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(tx_mr_mock));
 
-    auto transport = makeTransport({mr_, nullptr, &fragment_mr_mock});
+    auto transport = makeTransport({mr_});
 
     auto maybe_session = transport->makeRequestTxSession({0x23, 0});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IRequestTxSession>>(NotNull()));
@@ -265,12 +272,12 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_request)
 
         // TX item for our payload to send is expected to be de/allocated on the *fragment* memory resource.
         //
-        EXPECT_CALL(fragment_mr_mock, do_allocate(_, _))
-            .WillOnce([&](std::size_t size_bytes, std::size_t alignment) -> void* {
+        EXPECT_CALL(tx_mr_mock, do_allocate(_, _))
+            .WillOnce([&](const std::size_t size_bytes, const std::size_t alignment) -> void* {
                 return mr_.allocate(size_bytes, alignment);
             });
-        EXPECT_CALL(fragment_mr_mock, do_deallocate(_, _, _))
-            .WillOnce([&](void* p, std::size_t size_bytes, std::size_t alignment) {
+        EXPECT_CALL(tx_mr_mock, do_deallocate(_, _, _))
+            .WillOnce([&](void* const p, const std::size_t size_bytes, const std::size_t alignment) {
                 mr_.deallocate(p, size_bytes, alignment);
             });
 
@@ -301,10 +308,11 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_request)
 
 TEST_F(TestUdpSvcTxSessions, send_empty_payload_responce)
 {
-    StrictMock<MemoryResourceMock> fragment_mr_mock;
-    fragment_mr_mock.redirectExpectedCallsTo(mr_);
+    StrictMock<MemoryResourceMock> tx_mr_mock;
+    tx_mr_mock.redirectExpectedCallsTo(tx_mr_);
+    EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(tx_mr_mock));
 
-    auto transport = makeTransport({mr_, nullptr, &fragment_mr_mock});
+    auto transport = makeTransport({mr_});
 
     auto maybe_session = transport->makeResponseTxSession({0x23});
     ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseTxSession>>(NotNull()));
@@ -327,12 +335,12 @@ TEST_F(TestUdpSvcTxSessions, send_empty_payload_responce)
 
         // TX item for our payload to send is expected to be de/allocated on the *fragment* memory resource.
         //
-        EXPECT_CALL(fragment_mr_mock, do_allocate(_, _))
-            .WillOnce([&](std::size_t size_bytes, std::size_t alignment) -> void* {
+        EXPECT_CALL(tx_mr_mock, do_allocate(_, _))
+            .WillOnce([&](const std::size_t size_bytes, const std::size_t alignment) -> void* {
                 return mr_.allocate(size_bytes, alignment);
             });
-        EXPECT_CALL(fragment_mr_mock, do_deallocate(_, _, _))
-            .WillOnce([&](void* p, std::size_t size_bytes, std::size_t alignment) {
+        EXPECT_CALL(tx_mr_mock, do_deallocate(_, _, _))
+            .WillOnce([&](void* const p, const std::size_t size_bytes, const std::size_t alignment) {
                 mr_.deallocate(p, size_bytes, alignment);
             });
 

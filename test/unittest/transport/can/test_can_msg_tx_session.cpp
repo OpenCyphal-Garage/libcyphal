@@ -51,6 +51,7 @@ using testing::Return;
 using testing::IsEmpty;
 using testing::NotNull;
 using testing::Optional;
+using testing::ReturnRef;
 using testing::StrictMock;
 using testing::ElementsAre;
 using testing::VariantWith;
@@ -75,12 +76,16 @@ protected:
             .WillRepeatedly(Return(CANARD_MTU_CAN_CLASSIC));
         EXPECT_CALL(media_mock_, setFilters(IsEmpty()))  //
             .WillOnce(Return(cetl::nullopt));
+        EXPECT_CALL(media_mock_, getTxMemoryResource()).WillRepeatedly(ReturnRef(tx_mr_));
     }
 
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+
+        EXPECT_THAT(tx_mr_.allocations, IsEmpty());
+        EXPECT_THAT(tx_mr_.total_allocated_bytes, tx_mr_.total_deallocated_bytes);
     }
 
     TimePoint now() const
@@ -102,6 +107,7 @@ protected:
     // NOLINTBEGIN
     libcyphal::VirtualTimeScheduler scheduler_{};
     TrackingMemoryResource          mr_;
+    TrackingMemoryResource          tx_mr_;
     StrictMock<MediaMock>           media_mock_{};
     // NOLINTEND
 };
@@ -173,14 +179,14 @@ TEST_F(TestCanMsgTxSession, send_empty_payload)
         // Emulate that media has not accepted the payload.
         //
         EXPECT_CALL(media_mock_, push(_, _, _))  //
-            .WillOnce([&](auto deadline, auto can_id, auto payload) {
+            .WillOnce([&](auto deadline, auto can_id, auto& payload) {
                 EXPECT_THAT(now(), metadata.deadline - timeout);
                 EXPECT_THAT(deadline, metadata.deadline);
                 EXPECT_THAT(can_id, SubjectOfCanIdEq(123));
                 EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsMessageCanId()));
 
                 auto tbm = TailByteEq(metadata.base.transfer_id);
-                EXPECT_THAT(payload, ElementsAre(tbm));
+                EXPECT_THAT(payload.getSpan(), ElementsAre(tbm));
                 return IMedia::PushResult::Success{false /* is_accepted */};
             });
         EXPECT_CALL(media_mock_, registerPushCallback(_))  //
@@ -257,13 +263,13 @@ TEST_F(TestCanMsgTxSession, send_7bytes_payload_with_500ms_timeout)
     scheduler_.scheduleAt(1s + timeout - 1us, [&](const auto&) {
         //
         EXPECT_CALL(media_mock_, push(_, _, _))  //
-            .WillOnce([&](auto, auto can_id, auto pld) {
+            .WillOnce([&](auto, auto can_id, auto& pld) {
                 EXPECT_THAT(now(), metadata.deadline - 1us);
                 EXPECT_THAT(can_id, SubjectOfCanIdEq(17));
                 EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsMessageCanId()));
 
                 auto tbm = TailByteEq(metadata.base.transfer_id);
-                EXPECT_THAT(pld, ElementsAre(b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), b('7'), tbm));
+                EXPECT_THAT(pld.getSpan(), ElementsAre(b('1'), b('2'), b('3'), b('4'), b('5'), b('6'), b('7'), tbm));
                 return IMedia::PushResult::Success{true /* is_accepted */};
             });
     });

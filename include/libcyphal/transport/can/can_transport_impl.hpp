@@ -17,6 +17,7 @@
 #include "libcyphal/executor.hpp"
 #include "libcyphal/transport/contiguous_payload.hpp"
 #include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/lizard_helpers.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -72,7 +73,7 @@ class TransportImpl final : private TransportDelegate, public ICanTransport  // 
         Media(const std::size_t index, IMedia& interface, const std::size_t tx_capacity)
             : index_{static_cast<std::uint8_t>(index)}
             , interface_{interface}
-            , canard_tx_queue_{::canardTxInit(tx_capacity, interface.getMtu())}
+            , canard_tx_queue_{::canardTxInit(tx_capacity, interface.getMtu(), makeTxMemoryResource(interface))}
         {
         }
 
@@ -107,12 +108,25 @@ class TransportImpl final : private TransportDelegate, public ICanTransport  // 
         }
 
     private:
+        CETL_NODISCARD static CanardMemoryResource makeTxMemoryResource(IMedia& media_interface)
+        {
+            using LizardHelpers = libcyphal::transport::detail::LizardHelpers;
+
+            // TX memory resource is used for raw bytes block allocations only.
+            // So it has no alignment requirements.
+            constexpr std::size_t Alignment = 1;
+
+            return LizardHelpers::makeMemoryResource<CanardMemoryResource, Alignment>(
+                media_interface.getTxMemoryResource());
+        }
+
         const std::uint8_t       index_;
         IMedia&                  interface_;
         CanardTxQueue            canard_tx_queue_;
         IExecutor::Callback::Any rx_callback_;
         IExecutor::Callback::Any tx_callback_;
-    };
+
+    };  // Media
     using MediaArray = libcyphal::detail::VarArray<Media>;
 
 public:
@@ -173,7 +187,7 @@ public:
 
         for (Media& media : media_array_)
         {
-            flushCanardTxQueue(media.canard_tx_queue());
+            flushCanardTxQueue(media.canard_tx_queue(), canardInstance());
         }
 
         CETL_DEBUG_ASSERT(total_msg_rx_ports_ == 0,  //
@@ -202,12 +216,12 @@ private:
 
     CETL_NODISCARD cetl::optional<NodeId> getLocalNodeId() const noexcept override
     {
-        if (node_id() > CANARD_NODE_ID_MAX)
+        if (getNodeId() > CANARD_NODE_ID_MAX)
         {
             return cetl::nullopt;
         }
 
-        return cetl::make_optional(node_id());
+        return cetl::make_optional(getNodeId());
     }
 
     CETL_NODISCARD cetl::optional<ArgumentError> setLocalNodeId(const NodeId new_node_id) noexcept override
@@ -219,11 +233,11 @@ private:
 
         // Allow setting the same node ID multiple times, but only once otherwise.
         //
-        if (node_id() == new_node_id)
+        if (getNodeId() == new_node_id)
         {
             return cetl::nullopt;
         }
-        if (node_id() != CANARD_NODE_ID_UNSET)
+        if (getNodeId() != CANARD_NODE_ID_UNSET)
         {
             return ArgumentError{};
         }
@@ -321,11 +335,10 @@ private:
 
             // No Sonar `cpp:S5356` b/c we need to pass payload as a raw data to the libcanard.
             const std::int32_t result = ::canardTxPush(&media.canard_tx_queue(),
-                                                       &canard_instance(),
+                                                       &canardInstance(),
                                                        static_cast<CanardMicrosecond>(deadline_us.count()),
                                                        &metadata,
-                                                       payload.size(),
-                                                       payload.data());  // NOSONAR cpp:S5356
+                                                       {payload.size(), payload.data()});  // NOSONAR cpp:S5356
 
             cetl::optional<AnyFailure> failure =
                 tryHandleTransientCanardResult<TransientErrorReport::CanardTxPush>(media, result);
@@ -419,7 +432,7 @@ private:
                                       const PortId             port_id,
                                       const RxParams&          rx_params) -> Expected<UniquePtr<Interface>, AnyFailure>
     {
-        const std::int8_t has_port = ::canardRxGetSubscription(&canard_instance(), transfer_kind, port_id, nullptr);
+        const std::int8_t has_port = ::canardRxGetSubscription(&canardInstance(), transfer_kind, port_id, nullptr);
         CETL_DEBUG_ASSERT(has_port >= 0, "There is no way currently to get an error here.");
         if (has_port > 0)
         {
@@ -474,7 +487,7 @@ private:
             return cetl::nullopt;
         }
 
-        return tryHandleTransientFailure<Report>(std::move(*failure), media.index(), canard_instance());
+        return tryHandleTransientFailure<Report>(std::move(*failure), media.index(), canardInstance());
     }
 
     CETL_NODISCARD static MediaArray makeMediaArray(cetl::pmr::memory_resource& memory,
@@ -506,14 +519,12 @@ private:
         return media_array;
     }
 
-    void flushCanardTxQueue(CanardTxQueue& canard_tx_queue) const
+    static void flushCanardTxQueue(CanardTxQueue& canard_tx_queue, const CanardInstance& canard_instance)
     {
-        while (const CanardTxQueueItem* const maybe_item = ::canardTxPeek(&canard_tx_queue))
+        while (CanardTxQueueItem* const maybe_item = ::canardTxPeek(&canard_tx_queue))
         {
             CanardTxQueueItem* const item = ::canardTxPop(&canard_tx_queue, maybe_item);
-
-            // No Sonar `cpp:S5356` b/c we need to free tx item allocated by libcanard as a raw memory.
-            freeCanardMemory(item);  // NOSONAR cpp:S5356
+            ::canardTxFree(&canard_tx_queue, &canard_instance, item);
         }
     }
 
@@ -538,12 +549,12 @@ private:
 
         const auto timestamp_us =
             std::chrono::duration_cast<std::chrono::microseconds>(pop_meta.timestamp.time_since_epoch());
-        const CanardFrame canard_frame{pop_meta.can_id, pop_meta.payload_size, payload.cbegin()};
+        const CanardFrame canard_frame{pop_meta.can_id, {pop_meta.payload_size, payload.data()}};
 
         CanardRxTransfer      out_transfer{};
         CanardRxSubscription* out_subscription{};
 
-        const std::int8_t result = ::canardRxAccept(&canard_instance(),
+        const std::int8_t result = ::canardRxAccept(&canardInstance(),
                                                     static_cast<CanardMicrosecond>(timestamp_us.count()),
                                                     &canard_frame,
                                                     media.index(),
@@ -568,18 +579,20 @@ private:
     ///
     void pushNextFrameToMedia(Media& media)
     {
-        using PayloadFragment = cetl::span<const cetl::byte>;
-
         TimePoint tx_deadline;
-        while (const CanardTxQueueItem* const tx_item = peekFirstValidTxItem(media.canard_tx_queue(), tx_deadline))
+        while (CanardTxQueueItem* const tx_item = peekFirstValidTxItem(media.canard_tx_queue(), tx_deadline))
         {
+            // Move the payload from the frame to the media payload - `media.push` might take ownership of it.
             // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libcanard API.
-            const auto* const buffer =
-                static_cast<const cetl::byte*>(tx_item->frame.payload);  // NOSONAR cpp:S5356 cpp:S5357
-            const PayloadFragment payload{buffer, tx_item->frame.payload_size};
+            //
+            auto&        frame_payload = tx_item->frame.payload;
+            MediaPayload payload{frame_payload.size,
+                                 static_cast<cetl::byte*>(frame_payload.data),  // NOSONAR cpp:S5356 cpp:S5357
+                                 frame_payload.allocated_size,
+                                 &media.interface().getTxMemoryResource()};
+            frame_payload = {0, nullptr, 0};
 
-            IMedia::PushResult::Type push_result =
-                media.interface().push(tx_deadline, tx_item->frame.extended_can_id, payload);
+            auto push_result = media.interface().push(tx_deadline, tx_item->frame.extended_can_id, payload);
 
             // In case of media push error, we are going to drop this problematic frame
             // (b/c it looks like media can't handle this frame),
@@ -593,7 +606,19 @@ private:
                 const auto push = cetl::get<IMedia::PushResult::Success>(push_result);
                 if (push.is_accepted)
                 {
-                    popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, false /* single frame */);
+                    popAndFreeCanardTxQueueItem(media.canard_tx_queue(),
+                                                canardInstance(),
+                                                tx_item,
+                                                false /* single frame */);
+                }
+                else
+                {
+                    // Media has not accepted the frame, so we need return original payload back to the item,
+                    // so that in the future potential retry could try to push it again.
+                    const auto org_payload       = payload.release();
+                    frame_payload.size           = std::get<0>(org_payload);
+                    frame_payload.data           = std::get<1>(org_payload);
+                    frame_payload.allocated_size = std::get<2>(org_payload);
                 }
 
                 // If needed schedule (recursively!) next frame to push.
@@ -612,7 +637,7 @@ private:
             // Release whole problematic transfer from the TX queue,
             // so that other transfers in TX queue have their chance.
             // Otherwise, we would be stuck in an execution loop trying to send the same frame.
-            popAndFreeCanardTxQueueItem(&media.canard_tx_queue(), tx_item, true /* whole transfer */);
+            popAndFreeCanardTxQueueItem(media.canard_tx_queue(), canardInstance(), tx_item, true /* whole transfer */);
 
             using Report = TransientErrorReport::MediaPush;
             tryHandleTransientMediaFailure<Report>(media, std::move(*push_failure));
@@ -628,12 +653,11 @@ private:
     /// While searching, any of already expired TX items are pop from the queue and freed (aka dropped).
     /// If there is no still valid TX items in the queue, returns `nullptr`.
     ///
-    CETL_NODISCARD const CanardTxQueueItem* peekFirstValidTxItem(CanardTxQueue& canard_tx,
-                                                                 TimePoint&     out_deadline) const
+    CETL_NODISCARD CanardTxQueueItem* peekFirstValidTxItem(CanardTxQueue& canard_tx, TimePoint& out_deadline) const
     {
         const TimePoint now = executor_.now();
 
-        while (const CanardTxQueueItem* const tx_item = ::canardTxPeek(&canard_tx))
+        while (CanardTxQueueItem* const tx_item = ::canardTxPeek(&canard_tx))
         {
             // We are dropping any TX item that has expired.
             // Otherwise, we would push it to the media interface.
@@ -647,7 +671,7 @@ private:
             }
 
             // Release whole expired transfer b/c possible next frames of the same transfer are also expired.
-            popAndFreeCanardTxQueueItem(&canard_tx, tx_item, true /* whole transfer */);
+            popAndFreeCanardTxQueueItem(canard_tx, canardInstance(), tx_item, true /* whole transfer */);
         }
         return nullptr;
     }
@@ -692,7 +716,7 @@ private:
         // Total "active" RX ports depends on the local node ID. For anonymous nodes,
         // we don't account for service ports (b/c they don't work while being anonymous).
         //
-        const auto        local_node_id      = static_cast<CanardNodeID>(node_id());
+        const auto        local_node_id      = static_cast<CanardNodeID>(getNodeId());
         const auto        is_anonymous       = local_node_id > CANARD_NODE_ID_MAX;
         const std::size_t total_active_ports = total_msg_rx_ports_ + (is_anonymous ? 0 : total_svc_rx_ports_);
         if (total_active_ports == 0)
@@ -714,7 +738,7 @@ private:
         // `ports_count` counting is just for the sake of debug verification.
         std::size_t ports_count = 0;
 
-        const auto& subs_trees = canard_instance().rx_subscriptions;
+        const auto& subs_trees = canardInstance().rx_subscriptions;
 
         if (total_msg_rx_ports_ > 0)
         {
