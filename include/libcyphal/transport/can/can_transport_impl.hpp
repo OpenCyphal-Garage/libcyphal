@@ -324,6 +324,7 @@ private:
             return MemoryError{};
         }
 
+        const auto now_us = std::chrono::duration_cast<std::chrono::microseconds>(executor_.now().time_since_epoch());
         const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(deadline.time_since_epoch());
 
         for (Media& media : media_array_)
@@ -335,7 +336,8 @@ private:
                                                        &canardInstance(),
                                                        static_cast<CanardMicrosecond>(deadline_us.count()),
                                                        &metadata,
-                                                       {payload.size(), payload.data()});  // NOSONAR cpp:S5356
+                                                       {payload.size(), payload.data()},  // NOSONAR cpp:S5356
+                                                       static_cast<CanardMicrosecond>(now_us.count()));
 
             cetl::optional<AnyFailure> failure =
                 tryHandleTransientCanardResult<TransientErrorReport::CanardTxPush>(media, result);
@@ -574,7 +576,7 @@ private:
 
     /// @brief Tries to push next frame from TX queue to media.
     ///
-    void pushNextFrameToMedia(Media& media)
+    void pushNextFrameToMedia_old(Media& media)
     {
         TimePoint tx_deadline;
         while (CanardTxQueueItem* const tx_item = peekFirstValidTxItem(media.canard_tx_queue(), tx_deadline))
@@ -625,7 +627,7 @@ private:
                 {
                     media.tx_callback() = media.interface().registerPushCallback([this, &media](const auto&) {
                         //
-                        pushNextFrameToMedia(media);
+                        pushNextFrameToMedia_old(media);
                     });
                 }
                 return;
@@ -643,6 +645,76 @@ private:
 
         // There is nothing to send anymore, so we are done with this media TX - no more callbacks for now.
         media.tx_callback().reset();
+    }
+
+    /// @brief Tries to push next frame from TX queue to media.
+    ///
+    void pushNextFrameToMedia(Media& media)
+    {
+        auto frame_handler = [this, &media](const CanardMicrosecond deadline,
+                                            CanardMutableFrame&     frame) -> std::int8_t {
+            //
+            // Move the payload from the frame to the media payload - `media.push` might take ownership of it.
+            // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libcanard API.
+            //
+            MediaPayload payload{frame.payload.size,
+                                 static_cast<cetl::byte*>(frame.payload.data),  // NOSONAR cpp:S5356 cpp:S5357
+                                 frame.payload.allocated_size,
+                                 &media.interface().getTxMemoryResource()};
+            frame.payload = {0, nullptr, 0};
+
+            auto push_result = media.interface().push(TimePoint{std::chrono::microseconds{deadline}},  //
+                                                      frame.extended_can_id,
+                                                      payload);
+
+            if (const auto* const push = cetl::get_if<IMedia::PushResult::Success>(&push_result))
+            {
+                if (!push->is_accepted)
+                {
+                    // Media has not accepted the frame, so we need return original payload back to the item,
+                    // so that in the future potential retry could try to push it again.
+                    const auto org_payload       = payload.release();
+                    frame.payload.size           = std::get<0>(org_payload);
+                    frame.payload.data           = std::get<1>(org_payload);
+                    frame.payload.allocated_size = std::get<2>(org_payload);
+                }
+
+                // If needed schedule (recursively!) next frame to push.
+                // Already existing callback will be called by executor when media TX is ready to push more.
+                //
+                if (!media.tx_callback())
+                {
+                    media.tx_callback() = media.interface().registerPushCallback([this, &media](const auto&) {
+                        //
+                        pushNextFrameToMedia(media);
+                    });
+                }
+                return push->is_accepted ? 1 : 0;
+            }
+
+            using Report = TransientErrorReport::MediaPush;
+            tryHandleTransientMediaFailure<Report>(media,
+                                                   cetl::get<IMedia::PushResult::Failure>(std::move(push_result)));
+            return -1;
+        };
+
+        while (true)
+        {
+            const auto result =
+                ::canardTxPoll(&media.canard_tx_queue(),
+                               &canardInstance(),
+                               static_cast<CanardMicrosecond>(executor_.now().time_since_epoch().count()),
+                               &frame_handler,
+                               [](auto* const user_reference, const auto deadline, auto* frame) {
+                                   //
+                                   auto* frame_handler_ptr = static_cast<decltype(frame_handler)*>(user_reference);
+                                   return (*frame_handler_ptr)(deadline, *frame);
+                               });
+            if (result >= 0)
+            {
+                return;
+            }
+        }
     }
 
     /// @brief Tries to peek the first TX item from the media TX queue which is not expired.
