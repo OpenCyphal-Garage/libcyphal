@@ -9,8 +9,8 @@
 namespace custom
 {
 
-// Forward declaration of the custom configuration class.
-class MyConfig;
+// Forward declaration of the custom configuration struct.
+struct MyConfig;
 
 }  // namespace custom
 
@@ -24,17 +24,11 @@ class MyConfig;
 namespace custom
 {
 
-class MyConfig final : public libcyphal::Config<MyConfig>
+struct MyConfig : libcyphal::Config
 {
-    using ConfigBase = Config;
-
-public:
-    class Presentation final : public ConfigBase::Presentation
+    struct Presentation : Config::Presentation
     {
-    protected:
-        friend ConfigBase::Presentation;
-
-        static constexpr std::size_t SmallPayloadSize_Impl()
+        static constexpr std::size_t SmallPayloadSize()
         {
             // Default is `256` but for some unit tests we want just `6`.
             // For example, it will force serialization of `Heartbeat_1_0` message (7 bytes) to use PMR.
@@ -43,17 +37,11 @@ public:
 
     };  // Presentation
 
-    class Application final : public ConfigBase::Application
+    struct Application : Config::Application
     {
-        using ApplicationBase = ConfigBase::Application;
-
-    public:
-        class Node final : public ApplicationBase::Node
+        struct Node : Config::Application::Node
         {
-        protected:
-            friend ApplicationBase::Node;
-
-            static constexpr std::size_t HeartbeatProducer_UpdateCallback_FunctionSize_Impl()  // NOSONAR cpp:S799
+            static constexpr std::size_t HeartbeatProducer_UpdateCallback_FunctionSize()  // NOSONAR cpp:S799
             {
                 // Default is `4` but for our unit tests `2` is enough.
                 return sizeof(void*) * 2;
