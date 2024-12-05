@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_EXECUTOR_HPP_INCLUDED
 #define LIBCYPHAL_EXECUTOR_HPP_INCLUDED
 
+#include "config.hpp"
 #include "time_provider.hpp"
 #include "types.hpp"
 
@@ -23,7 +24,7 @@ namespace libcyphal
 
 /// @brief Defines an abstract interface for a callback executor.
 ///
-class IExecutor : public ITimeProvider
+class IExecutor : public cetl::rtti::rtti, public ITimeProvider
 {
     // EBAF7312-5CFE-45F5-89FF-D9B9FE45F8EB
     // clang-format off
@@ -71,7 +72,7 @@ public:
         ///
         /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
         ///
-        static constexpr std::size_t FunctionMaxSize = sizeof(void*) * 8;
+        static constexpr auto FunctionMaxSize = config::IExecutor_Callback_FunctionMaxSize();
 
         /// @brief Defines type of callback `Function` single argument.
         ///
@@ -103,9 +104,9 @@ public:
         ///
         /// Size is chosen arbitrary, but it should be enough to store any callback implementation.
         ///
-        static constexpr std::size_t MaxSize = (sizeof(void*) * 16) + sizeof(Function);
+        static constexpr auto MaxSize = config::IExecutor_Callback_ReserveSize() + sizeof(Function);
 
-        class Interface
+        class Interface : public rtti
         {
             // 5E16E6BC-C7EB-42EC-8A98-06189C2F0349
             // clang-format off
@@ -139,13 +140,13 @@ public:
             }
 
             // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
-            CETL_NODISCARD void* _cast_(const cetl::type_id& id) & noexcept  // NOSONAR cpp:S5008
+            CETL_NODISCARD void* _cast_(const cetl::type_id& id) & noexcept override  // NOSONAR cpp:S5008
             {
                 return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
             }
 
             // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
-            CETL_NODISCARD const void* _cast_(const cetl::type_id& id) const& noexcept  // NOSONAR cpp:S5008
+            CETL_NODISCARD const void* _cast_(const cetl::type_id& id) const& noexcept override  // NOSONAR cpp:S5008
             {
                 return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
             }
@@ -240,13 +241,13 @@ public:
     }
 
     // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
-    CETL_NODISCARD virtual void* _cast_(const cetl::type_id& id) & noexcept  // NOSONAR cpp:S5008
+    CETL_NODISCARD void* _cast_(const cetl::type_id& id) & noexcept override  // NOSONAR cpp:S5008
     {
         return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
     }
 
     // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
-    CETL_NODISCARD virtual const void* _cast_(const cetl::type_id& id) const& noexcept  // NOSONAR cpp:S5008
+    CETL_NODISCARD const void* _cast_(const cetl::type_id& id) const& noexcept override  // NOSONAR cpp:S5008
     {
         return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
     }

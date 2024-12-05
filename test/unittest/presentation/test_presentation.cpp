@@ -113,9 +113,10 @@ struct Service final
 
         struct _traits_
         {
-            static constexpr bool          HasFixedPortID = true;
-            static constexpr std::uint16_t FixedPortId    = 147U;
-            static constexpr std::size_t   ExtentBytes    = sizeof(std::uint64_t) * 2;
+            static constexpr bool          HasFixedPortID               = true;
+            static constexpr std::uint16_t FixedPortId                  = 147U;
+            static constexpr std::size_t   ExtentBytes                  = sizeof(std::uint64_t) * 2;
+            static constexpr std::size_t   SerializationBufferSizeBytes = sizeof(std::uint64_t);
         };
 
         explicit Request(const allocator_type& alloc)

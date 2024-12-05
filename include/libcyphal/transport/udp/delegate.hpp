@@ -78,9 +78,7 @@ class TransportDelegate
 public:
     /// @brief RAII class to manage memory allocated by Udpard library.
     ///
-    /// NOSONAR cpp:S4963 for below `class UdpardMemory` - we do directly handle resources here.
-    ///
-    class UdpardMemory final : public ScatteredBuffer::IStorage  // NOSONAR cpp:S4963
+    class UdpardMemory final : public ScatteredBuffer::IStorage
     {
     public:
         UdpardMemory(TransportDelegate& delegate, UdpardRxTransfer& transfer)

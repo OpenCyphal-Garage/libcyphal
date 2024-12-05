@@ -3,6 +3,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include "custom_libcyphal_config.hpp"  // NOLINT(misc-include-cleaner)
+
 #include "application/registry/registry_mock.hpp"
 #include "gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "tracking_memory_resource.hpp"

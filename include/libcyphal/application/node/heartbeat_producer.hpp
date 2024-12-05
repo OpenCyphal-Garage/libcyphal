@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_APPLICATION_NODE_HEARTBEAT_PRODUCER_HPP_INCLUDED
 #define LIBCYPHAL_APPLICATION_NODE_HEARTBEAT_PRODUCER_HPP_INCLUDED
 
+#include "libcyphal/config.hpp"
 #include "libcyphal/executor.hpp"
 #include "libcyphal/presentation/presentation.hpp"
 #include "libcyphal/presentation/publisher.hpp"
@@ -33,10 +34,11 @@ namespace node
 ///
 /// Internally, it uses the 'Heartbeat' message publisher to periodically publish heartbeat messages.
 ///
-/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
-/// b/c we do directly handle resources here (namely capturing of `this` in the periodic callback).
+/// No Sonar cpp:S3624 "Customize this class' destructor to participate in resource management."
+/// We need custom move constructor to reset up the publishing callback,
+/// but at the destructor level, we don't need to do anything.
 ///
-class HeartbeatProducer final  // NOSONAR cpp:S4963
+class HeartbeatProducer final  // NOSONAR cpp:S3624
 {
 public:
     /// @brief Defines the message type for the Heartbeat.
@@ -110,10 +112,8 @@ public:
 
         /// @brief Defines signature of the heartbeat update callback function.
         ///
-        /// The size of the function is arbitrary (4 pointers), but should be enough for simple lambdas.
-        ///
-        static constexpr std::size_t FunctionSize = sizeof(void*) * 4;
-        using Function                            = cetl::pmr::function<void(const Arg& arg), FunctionSize>;
+        static constexpr auto FunctionSize = config::Application::Node::HeartbeatProducer_UpdateCallback_FunctionSize();
+        using Function                     = cetl::pmr::function<void(const Arg& arg), FunctionSize>;
     };
 
     /// @brief Sets the message update callback for the heartbeat.

@@ -58,10 +58,9 @@ class Tree;
 /// The size of this type is 4x pointer size (16 bytes on a 32-bit platform).
 ///
 /// No Sonar cpp:S1448 b/c this is the main node entity without public members - maintainability is not a concern here.
-/// No Sonar cpp:S4963 b/c `Node` supports move operation.
 ///
 template <typename Derived>
-class Node  // NOSONAR cpp:S1448 cpp:S4963
+class Node  // NOSONAR cpp:S1448
 {
     // Polyfill for C++17's std::invoke_result_t.
     template <typename F, typename... Args>
@@ -954,8 +953,7 @@ private:
     /// the same call stack) we may occasionally fail to detect a bona fide case of a race condition, but this is
     /// acceptable because the purpose of this feature is to provide a mere best-effort data race detection.
     ///
-    /// No Sonar cpp:S4963 b/c of the RAII pattern.
-    class TraversalIndicatorUpdater final  // NOSONAR cpp:S4963
+    class TraversalIndicatorUpdater final
     {
     public:
         explicit TraversalIndicatorUpdater(const Tree& sup) noexcept
@@ -994,7 +992,7 @@ private:
     // including the root node whos `up` points to this origin node (see `isRoot` method).
     Node<Derived> origin_node_{};
 
-    // No Sonar cpp:S4963 b/c of implicit modification by the `TraversalIndicatorUpdater` RAII class,
+    // No Sonar cpp:S3687 b/c of implicit modification by the `TraversalIndicatorUpdater` RAII class,
     // even for `const` instance of the `Tree` class (hence the `mutable volatile` keywords).
     mutable volatile bool traversal_in_progress_ = false;  // NOSONAR cpp:S3687
 };

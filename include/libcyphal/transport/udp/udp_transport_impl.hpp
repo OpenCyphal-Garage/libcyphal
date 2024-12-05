@@ -54,10 +54,7 @@ namespace detail
 
 /// @brief Represents final implementation class of the UDP transport.
 ///
-/// NOSONAR cpp:S4963 for below `class TransportImpl` - we do directly handle resources here;
-/// namely: in destructor we have to flush TX queues (otherwise there will be memory leaks).
-///
-class TransportImpl final : private TransportDelegate, public IUdpTransport  // NOSONAR cpp:S4963
+class TransportImpl final : private TransportDelegate, public IUdpTransport
 {
     /// @brief Defines private specification for making interface unique ptr.
     ///

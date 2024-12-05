@@ -9,6 +9,7 @@
 #include "presentation_delegate.hpp"
 #include "server_impl.hpp"
 
+#include "libcyphal/config.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -40,13 +41,10 @@ namespace detail
 
 /// @brief Defines internal base class for any concrete (final) RPC server.
 ///
-/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
-/// b/c we do directly handle resources here.
-///
-class ServerBase : ServerImpl::Callback  // NOSONAR cpp:S4963
+class ServerBase : private ServerImpl::Callback
 {
 public:
-    /// @brief Defines failure type for a base server operations.
+    /// @brief Defines a failure type for a base server operations.
     ///
     /// The set of possible failures of the base server includes transport layer failures.
     /// A strong-typed server extends this type with its own error types (serialization-related).
@@ -71,7 +69,7 @@ protected:
     template <typename Response, typename SomeFailure>
     class ContinuationImpl final
     {
-        constexpr static std::size_t FunctionMaxSize = sizeof(void*) * 5;
+        static constexpr auto FunctionMaxSize = config::Presentation::ServerBase_ContinuationImpl_FunctionMaxSize();
         using FunctionSignature = cetl::optional<SomeFailure>(const TimePoint deadline, const Response& response);
 
     public:
@@ -186,8 +184,9 @@ public:
             TimePoint                    approx_now;
         };
         /// Defines continuation functor for sending a strong-typed response.
-        using Continuation = ContinuationImpl<Response, Failure>;
-        using Function     = cetl::pmr::function<void(const Arg&, Continuation), sizeof(void*) * 4>;
+        using Continuation                    = ContinuationImpl<Response, Failure>;
+        static constexpr auto FunctionMaxSize = config::Presentation::ServerBase_OnRequestCallback_FunctionMaxSize();
+        using Function                        = cetl::pmr::function<void(const Arg&, Continuation), FunctionMaxSize>;
     };
 
     /// @brief Sets function which will be called on each request reception.
@@ -232,36 +231,28 @@ private:
         const auto base_metadata  = rx_transfer.metadata.rx_meta.base;
         const auto client_node_id = rx_transfer.metadata.remote_node_id;
 
+        using Result = cetl::optional<Failure>;
+
         on_request_cb_fn_(  //
             {request, rx_transfer.metadata, approx_now},
             typename OnRequestCallback::Continuation{
-                [this, base_metadata, client_node_id](const TimePoint deadline,
-                                                      const auto&     response) -> cetl::optional<Failure> {
+                [this, base_metadata, client_node_id](const TimePoint deadline, const auto& response) -> Result {
                     //
-                    // Try to serialize the response to raw payload buffer.
-                    //
-                    // Next nolint b/c we use a buffer to serialize the message, so no need to zero it.
-                    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
-                    std::array<std::uint8_t, Response::_traits_::SerializationBufferSizeBytes> buffer;
-                    const nunavut::support::bitspan                                            out_bitspan{buffer};
-                    const auto result_size = serialize(response, out_bitspan);
-                    if (!result_size)
-                    {
-                        return result_size.error();
-                    }
+                    constexpr std::size_t BufferSize = Response::_traits_::SerializationBufferSizeBytes;
+                    constexpr bool        IsOnStack  = BufferSize <= config::Presentation::SmallPayloadSize();
 
-                    // TODO: Eliminate `reinterpret_cast` when Nunavut supports `cetl::byte` at its `serialize`.
-                    // Next nolint & NOSONAR are currently unavoidable.
-                    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-                    const auto* const data = reinterpret_cast<const cetl::byte*>(buffer.data());  // NOSONAR cpp:S3630
-                    const cetl::span<const cetl::byte>                      data_span{data, result_size.value()};
-                    const std::array<const cetl::span<const cetl::byte>, 1> payload{data_span};
-                    const transport::ServiceTxMetadata tx_metadata{{base_metadata, deadline}, client_node_id};
-                    if (auto failure = respondWithPayload(tx_metadata, payload))
-                    {
-                        return libcyphal::detail::upcastVariant<Failure>(std::move(*failure));
-                    }
-                    return cetl::nullopt;
+                    return detail::tryPerformOnSerialized<Response, Result, BufferSize, IsOnStack>(  //
+                        response,
+                        memory(),
+                        [this, base_metadata, client_node_id, deadline](const auto serialized_fragments) -> Result {
+                            //
+                            const transport::ServiceTxMetadata tx_metadata{{base_metadata, deadline}, client_node_id};
+                            if (auto failure = respondWithPayload(tx_metadata, serialized_fragments))
+                            {
+                                return libcyphal::detail::upcastVariant<Failure>(std::move(*failure));
+                            }
+                            return cetl::nullopt;
+                        });
                 }});
     }
 
@@ -305,8 +296,9 @@ public:
             TimePoint                         approx_now;
         };
         /// Defines continuation functor for sending raw (untyped) response bytes (aka pre-serialized).
-        using Continuation = ContinuationImpl<transport::PayloadFragments, Failure>;
-        using Function     = cetl::pmr::function<void(const Arg&, Continuation), sizeof(void*) * 4>;
+        using Continuation                    = ContinuationImpl<transport::PayloadFragments, Failure>;
+        static constexpr auto FunctionMaxSize = config::Presentation::ServerBase_OnRequestCallback_FunctionMaxSize();
+        using Function                        = cetl::pmr::function<void(const Arg&, Continuation), FunctionMaxSize>;
     };
 
     /// @brief Sets function which will be called on each request reception.

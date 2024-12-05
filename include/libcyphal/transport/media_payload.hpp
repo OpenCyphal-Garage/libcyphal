@@ -23,7 +23,7 @@ namespace transport
 /// In use to pass payload data between the transport layer and its media.
 /// It also manages memory ownership of the allocated payload buffer.
 ///
-class MediaPayload final  // NOSONAR : cpp:S4963 - we do directly handle resources here.
+class MediaPayload final
 {
 public:
     /// Constructs a new empty payload.

@@ -8,6 +8,7 @@
 
 #include "subscriber_impl.hpp"
 
+#include "libcyphal/config.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -30,10 +31,7 @@ namespace detail
 
 /// @brief Defines internal base class for any concrete (final) message subscriber.
 ///
-/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
-/// b/c we do directly handle resources here.
-///
-class SubscriberBase : public SubscriberImpl::CallbackNode  // NOSONAR cpp:S4963
+class SubscriberBase : public SubscriberImpl::CallbackNode
 {
 public:
     /// @brief Defines failure type for a base subscriber operations.
@@ -125,7 +123,8 @@ public:
             Message                      message;
             transport::MessageRxMetadata metadata;
         };
-        using Function = cetl::pmr::function<void(const Arg&), sizeof(void*) * 4>;
+        static constexpr auto FunctionMaxSize = config::Presentation::Subscriber_OnReceiveCallback_FunctionMaxSize();
+        using Function                        = cetl::pmr::function<void(const Arg&), FunctionMaxSize>;
     };
 
     /// @brief Sets function which will be called on each message reception.
@@ -188,7 +187,8 @@ public:
             const transport::ScatteredBuffer& raw_message;
             transport::MessageRxMetadata      metadata;
         };
-        using Function = cetl::pmr::function<void(const Arg&), sizeof(void*) * 4>;
+        static constexpr auto FunctionMaxSize = config::Presentation::Subscriber_OnReceiveCallback_FunctionMaxSize();
+        using Function                        = cetl::pmr::function<void(const Arg&), FunctionMaxSize>;
     };
 
     /// @brief Sets function which will be called on each message reception.

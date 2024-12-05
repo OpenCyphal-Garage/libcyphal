@@ -7,6 +7,7 @@
 #define LIBCYPHAL_PRESENTATION_CLIENT_HPP_INCLUDED
 
 #include "client_impl.hpp"
+#include "common_helpers.hpp"
 #include "presentation_delegate.hpp"
 #include "response_promise.hpp"
 
@@ -16,12 +17,9 @@
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
-#include <cetl/pf20/cetlpf.hpp>
 
 #include <nunavut/support/serialization.hpp>
 
-#include <array>
-#include <cstdint>
 #include <type_traits>
 #include <utility>
 
@@ -38,22 +36,19 @@ namespace detail
 
 /// @brief Defines internal base class for any concrete (final) service client.
 ///
-/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
-/// b/c we do directly handle resources here.
-///
-class ClientBase  // NOSONAR cpp:S4963
+class ClientBase
 {
 public:
-    /// @brief Defines error type for the case when there are too many pending (aka still in progress) requests.
+    /// @brief Defines the error type for the case when there are too many pending (aka still in progress) requests.
     ///
-    /// Total number of possible pending requests is limited by the transport layer, namely by the range of
-    /// possible transfer IDs. F.e. in case of CAN transport, the range is 0-31 (32 in total). For UDP transport
-    /// the range is virtually unlimited (2^64), but practically limited by the available memory.
+    /// The total number of possible pending requests is limited by the transport layer, namely by the range of
+    /// possible transfer IDs. For example, in the case of CAN transport, the range is 0-31 (32 in total).
+    /// For UDP transport, the range is virtually unlimited (2^64), but practically limited by the available memory.
     ///
     struct TooManyPendingRequestsError
     {};
 
-    /// @brief Defines failure type for a base client operations.
+    /// @brief Defines a failure type for a base client operations.
     ///
     /// The set of possible failures of the base client includes transport layer failures,
     /// as well as the `TooManyPendingRequestsError` (see docs above).
@@ -149,6 +144,11 @@ protected:
         shared_client_->retain();
     }
 
+    cetl::pmr::memory_resource& memory() const noexcept
+    {
+        return shared_client_->memory();
+    }
+
     SharedClient& getSharedClient() const noexcept
     {
         CETL_DEBUG_ASSERT(shared_client_ != nullptr, "");
@@ -195,6 +195,9 @@ public:
 
     /// @brief Initiates a strong-typed request to the server, and returns a promise object to handle the response.
     ///
+    /// If `BufferSize` is less or equal to `config::presentation::SmallPayloadSize`,
+    /// the message will be serialized using a stack-allocated buffer; otherwise, PMR allocation will be used.
+    ///
     /// Issuing a new request involves the following steps:
     /// 1. Serialize the request object to a raw payload buffer, which might fail with `nunavut::support::Error`.
     /// 2. Allocation of the next transfer ID not in use, so that request and response can be paired. Depending on
@@ -208,64 +211,56 @@ public:
     /// 4. Sending the raw request payload to the server, which might fail with a transport layer error.
     ///    If it does fail, then the response promise object will be destroyed, and the user will get the failure.
     ///
-    /// @param request_deadline The deadline for the request sending operation. Request will be dropped if not sent
-    ///                         before this deadline, which will inevitably timeout the response waiting deadline.
+    /// @tparam BufferSize The size of the buffer to serialize the request.
+    /// @param request_deadline The deadline for the request sending operation. The request will be dropped if not sent
+    ///                         before this deadline, which will inevitably time out the response waiting deadline.
     /// @param request The request object to be serialized and then sent to the server.
     /// @param response_deadline The deadline for the response receiving operation. If `nullopt` (or `{}`) then
-    ///                          `request_deadline` will be used for both request & response deadlines.
-    /// @return If request sending has succeeded then result will be a promise object to handle the response,
+    ///                          `request_deadline` will be used for both request and response deadlines.
+    /// @return If request sending has succeeded, then the result will be a promise object to handle the response,
     ///         which will be filled in the future with a received response. See `ResponsePromise` for details.
-    ///         If request sending has failed then result will be a failure object, which will contain the reason.
+    ///         If request sending has failed, then the result will be a failure object, which will contain the reason.
     ///
+    template <std::size_t BufferSize = Request::_traits_::SerializationBufferSizeBytes>
     Expected<ResponsePromise<Response>, Failure> request(const TimePoint                 request_deadline,
                                                          const Request&                  request,
                                                          const cetl::optional<TimePoint> response_deadline = {}) const
     {
-        using PayloadFragment = const cetl::span<const cetl::byte>;
+        using Result             = Expected<ResponsePromise<Response>, Failure>;
+        constexpr bool IsOnStack = BufferSize <= config::Presentation::SmallPayloadSize();
 
-        // 1. Try to serialize the request to raw payload buffer.
-        //
-        // Next nolint b/c we use a buffer to serialize the message, so no need to zero it (and performance better).
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
-        std::array<std::uint8_t, Request::_traits_::SerializationBufferSizeBytes> buffer;
-        const auto buffer_size = serialize(request, buffer);
-        if (!buffer_size)
-        {
-            return buffer_size.error();
-        }
-        // Next nolint & NOSONAR are currently unavoidable.
-        // TODO: Eliminate `reinterpret_cast` when Nunavut supports `cetl::byte` at its `serialize`.
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-        PayloadFragment fragment{reinterpret_cast<cetl::byte*>(buffer.data()),  // NOSONAR cpp:S3630
-                                 buffer_size.value()};
-        const std::array<PayloadFragment, 1> payload{fragment};
+        return detail::tryPerformOnSerialized<Request, Result, BufferSize, IsOnStack>(  //
+            request,
+            memory(),
+            [this, request_deadline, response_deadline](const auto serialized_fragments) -> Result {
+                //
+                // For request (and the following response) we need to allocate a transfer ID,
+                // which will be in use to pair the request with the response.
+                //
+                auto& shared_client   = getSharedClient();
+                auto  opt_transfer_id = shared_client.nextTransferId();
+                if (!opt_transfer_id)
+                {
+                    return TooManyPendingRequestsError{};
+                }
+                const auto transfer_id = *opt_transfer_id;
 
-        // 2. For request (and following response) we need to allocate a transfer ID,
-        //    which will be in use to pair the request with the response.
-        //
-        auto& shared_client   = getSharedClient();
-        auto  opt_transfer_id = shared_client.nextTransferId();
-        if (!opt_transfer_id)
-        {
-            return TooManyPendingRequestsError{};
-        }
-        const auto transfer_id = *opt_transfer_id;
+                // Create and register a response promise object, which will be used to handle the response.
+                // Its done specifically before sending the request, so that we will be ready to handle a response
+                // immediately, even if it happens to be received in context (during) the request sending call.
+                //
+                ResponsePromise<Response> response_promise{&shared_client,
+                                                           transfer_id,
+                                                           response_deadline.value_or(request_deadline)};
+                //
+                const transport::TransferTxMetadata tx_metadata{{transfer_id, getPriority()}, request_deadline};
+                if (auto failure = shared_client.sendRequestPayload(tx_metadata, serialized_fragments))
+                {
+                    return libcyphal::detail::upcastVariant<Failure>(std::move(*failure));
+                }
 
-        // 3. Create and register a response promise object, which will be used to handle the response.
-        //    Its done specifically before sending the request, so that we will be ready to handle a response
-        //    immediately, even if it happens to be received in context (during) the request sending call.
-        //
-        ResponsePromise<Response> response_promise{&shared_client,
-                                                   transfer_id,
-                                                   response_deadline.value_or(request_deadline)};
-        //
-        const transport::TransferTxMetadata tx_metadata{{transfer_id, getPriority()}, request_deadline};
-        if (auto failure = shared_client.sendRequestPayload(tx_metadata, payload))
-        {
-            return libcyphal::detail::upcastVariant<Failure>(std::move(*failure));
-        }
-
-        return response_promise;
+                return response_promise;
+            });
     }
 
 private:

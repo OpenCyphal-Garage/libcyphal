@@ -111,9 +111,7 @@ public:
     }
 
 protected:
-    /// No Sonar cpp:S4963 b/c `CallbackNode` supports move operation.
-    ///
-    class CallbackNode : public cavl::Node<CallbackNode>, public Callback::Interface  // NOSONAR cpp:S4963
+    class CallbackNode : public cavl::Node<CallbackNode>, public Callback::Interface
     {
     public:
         CallbackNode(SingleThreadedExecutor& executor, Callback::Function&& function)

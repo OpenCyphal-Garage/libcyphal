@@ -18,7 +18,6 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
-#include <array>
 #include <cstdint>
 #include <utility>
 
@@ -46,6 +45,11 @@ public:
         , transfer_id_{0}
     {
         CETL_DEBUG_ASSERT(msg_tx_session_ != nullptr, "");
+    }
+
+    CETL_NODISCARD cetl::pmr::memory_resource& memory() const noexcept
+    {
+        return delegate_.memory();
     }
 
     CETL_NODISCARD std::int32_t compareBySubjectId(const transport::PortId subject_id) const

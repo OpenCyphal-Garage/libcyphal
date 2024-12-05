@@ -207,9 +207,7 @@ private:
         DoubleLinkedNode* next_node;
     };
 
-    /// No Sonar cpp:S4963 b/c `AwaitableNode` supports move operation.
-    ///
-    class AwaitableNode final : public CallbackNode, public DoubleLinkedNode  // NOSONAR cpp:S4963
+    class AwaitableNode final : public CallbackNode, public DoubleLinkedNode
     {
     public:
         AwaitableNode(Self& executor, Callback::Function&& function, DoubleLinkedNode& origin_node)

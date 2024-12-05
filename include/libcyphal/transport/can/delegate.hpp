@@ -44,9 +44,7 @@ class TransportDelegate
 public:
     /// @brief RAII class to manage memory allocated by Canard library.
     ///
-    /// NOSONAR cpp:S4963 for below `class CanardMemory` - we do directly handle resources here.
-    ///
-    class CanardMemory final : public ScatteredBuffer::IStorage  // NOSONAR cpp:S4963
+    class CanardMemory final : public ScatteredBuffer::IStorage
     {
     public:
         CanardMemory(TransportDelegate& delegate,

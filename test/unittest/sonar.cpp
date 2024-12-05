@@ -13,6 +13,7 @@
 #include "libcyphal/application/registry/registry_impl.hpp"
 #include <libcyphal/common/cavl/cavl.hpp>
 #include <libcyphal/common/crc.hpp>
+#include <libcyphal/config.hpp>
 #include <libcyphal/errors.hpp>
 #include <libcyphal/executor.hpp>
 #include <libcyphal/platform/single_threaded_executor.hpp>
