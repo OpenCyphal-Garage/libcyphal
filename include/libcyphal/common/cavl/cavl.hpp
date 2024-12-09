@@ -46,6 +46,10 @@
 
 // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
 
+namespace libcyphal
+{
+namespace common
+{
 namespace cavl
 {
 template <typename Derived>
@@ -788,7 +792,7 @@ class Tree final  // NOSONAR cpp:S3624
 {
 public:
     /// Helper alias of the compatible node type.
-    using NodeType    = ::cavl::Node<Derived>;
+    using NodeType    = Node<Derived>;
     using DerivedType = Derived;
 
     Tree()  = default;
@@ -998,5 +1002,7 @@ private:
 };
 
 }  // namespace cavl
+}  // namespace common
+}  // namespace libcyphal
 
 // NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)

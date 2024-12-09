@@ -52,10 +52,10 @@ TEST_F(TestMediaPayload, default_ctor)
     EXPECT_THAT(payload.getAllocatedSize(), 0);
 
     // It's fine to attempt to reset or release an empty payload.
-    const auto fields = payload.release();
-    EXPECT_THAT(std::get<0>(fields), 0);
-    EXPECT_THAT(std::get<1>(fields), nullptr);
-    EXPECT_THAT(std::get<2>(fields), 0);
+    const auto ownership = payload.release();
+    EXPECT_THAT(ownership.size, 0);
+    EXPECT_THAT(ownership.data, nullptr);
+    EXPECT_THAT(ownership.allocated_size, 0);
 
     payload.reset();
 }
@@ -111,16 +111,16 @@ TEST_F(TestMediaPayload, release)
 
     MediaPayload payload{payload_size, payload_data, payload_allocated_size, &mr_};
 
-    auto fields = payload.release();
-    EXPECT_THAT(std::get<0>(fields), payload_size);
-    EXPECT_THAT(std::get<1>(fields), payload_data);
-    EXPECT_THAT(std::get<2>(fields), payload_allocated_size);
-    mr_.deallocate(std::get<1>(fields), std::get<2>(fields));
+    auto ownership = payload.release();
+    EXPECT_THAT(ownership.size, payload_size);
+    EXPECT_THAT(ownership.data, payload_data);
+    EXPECT_THAT(ownership.allocated_size, payload_allocated_size);
+    mr_.deallocate(ownership.data, ownership.allocated_size);
 
-    fields = payload.release();
-    EXPECT_THAT(std::get<0>(fields), 0);
-    EXPECT_THAT(std::get<1>(fields), nullptr);
-    EXPECT_THAT(std::get<2>(fields), 0);
+    ownership = payload.release();
+    EXPECT_THAT(ownership.size, 0);
+    EXPECT_THAT(ownership.data, nullptr);
+    EXPECT_THAT(ownership.allocated_size, 0);
 }
 
 TEST_F(TestMediaPayload, reset)

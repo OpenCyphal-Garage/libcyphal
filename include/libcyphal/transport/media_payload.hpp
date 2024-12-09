@@ -10,7 +10,6 @@
 #include <cetl/pf20/cetlpf.hpp>
 
 #include <cstddef>
-#include <tuple>
 #include <utility>
 
 namespace libcyphal
@@ -26,12 +25,42 @@ namespace transport
 class MediaPayload final
 {
 public:
+    /// Structure with the payload size, pointer to the payload data, and the allocated size.
+    ///
+    /// NB! This structure (in contrast to the parent `MediaPayload` type) is intended for raw (unmanaged) and
+    /// explicit transfer of payload ownership out of the `MediaPayload` instance (see `release` method).
+    /// It's the caller's responsibility to deallocate the buffer with the correct memory resource,
+    /// or move it somewhere else with the same guarantee (like f.e. back to a lizard TX queue item).
+    /// If you just need to access the payload data (without owning it), use `getSpan` method instead.
+    ///
+    struct Ownership
+    {
+        /// Size of the payload data in bytes.
+        ///
+        /// Could be less or equal to the allocated size.
+        /// `0` when the payload is moved.
+        ///
+        std::size_t size;
+
+        /// Pointer to the payload buffer.
+        ///
+        /// `nullptr` when the payload is moved.
+        ///
+        cetl::byte* data;
+
+        /// Size of the allocated buffer.
+        ///
+        /// Could be greater or equal to the payload size.
+        /// `0` when the payload is moved.
+        ///
+        std::size_t allocated_size;
+
+    };  // Ownership
+
     /// Constructs a new empty payload.
     ///
     MediaPayload()
-        : size_{0U}
-        , data_{nullptr}
-        , allocated_size_{0U}
+        : ownership_{0U, nullptr, 0U}
         , mr_{nullptr}
     {
     }
@@ -47,14 +76,12 @@ public:
                  cetl::byte* const                 data,
                  const std::size_t                 allocated_size,
                  cetl::pmr::memory_resource* const mr)
-        : size_{size}
-        , data_{data}
-        , allocated_size_{allocated_size}
+        : ownership_{size, data, allocated_size}
         , mr_{mr}
     {
-        CETL_DEBUG_ASSERT(size_ <= allocated_size_, "");
-        CETL_DEBUG_ASSERT((data_ == nullptr) || (mr_ != nullptr), "");
-        CETL_DEBUG_ASSERT((data_ != nullptr) || ((size_ == 0) && (allocated_size_ == 0)), "");
+        CETL_DEBUG_ASSERT(size <= allocated_size, "");
+        CETL_DEBUG_ASSERT((data == nullptr) || (mr_ != nullptr), "");
+        CETL_DEBUG_ASSERT((data != nullptr) || ((size == 0) && (allocated_size == 0)), "");
     }
 
     /// Moves another payload into this new payload instance.
@@ -62,14 +89,13 @@ public:
     /// @param other The other payload to move into.
     ///
     MediaPayload(MediaPayload&& other) noexcept
-        : size_{std::exchange(other.size_, 0U)}
-        , data_{std::exchange(other.data_, nullptr)}
-        , allocated_size_{std::exchange(other.allocated_size_, 0U)}
+        : ownership_{std::exchange(other.ownership_, {0U, nullptr, 0U})}
         , mr_{std::exchange(other.mr_, nullptr)}
     {
-        CETL_DEBUG_ASSERT(size_ <= allocated_size_, "");
-        CETL_DEBUG_ASSERT((data_ == nullptr) || (mr_ != nullptr), "");
-        CETL_DEBUG_ASSERT((data_ != nullptr) || ((size_ == 0) && (allocated_size_ == 0)), "");
+        CETL_DEBUG_ASSERT(ownership_.size <= ownership_.allocated_size, "");
+        CETL_DEBUG_ASSERT((ownership_.data == nullptr) || (mr_ != nullptr), "");
+        CETL_DEBUG_ASSERT((ownership_.data != nullptr) || ((ownership_.size == 0) && (ownership_.allocated_size == 0)),
+                          "");
     }
 
     /// @brief Assigns another payload by moving it into this one.
@@ -80,10 +106,8 @@ public:
     {
         reset();
 
-        size_           = std::exchange(other.size_, 0U);
-        data_           = std::exchange(other.data_, nullptr);
-        allocated_size_ = std::exchange(other.allocated_size_, 0U);
-        mr_             = std::exchange(other.mr_, nullptr);
+        ownership_ = std::exchange(other.ownership_, {0U, nullptr, 0U});
+        mr_        = std::exchange(other.mr_, nullptr);
 
         return *this;
     }
@@ -103,7 +127,7 @@ public:
     ///
     cetl::span<const cetl::byte> getSpan() const noexcept
     {
-        return {data_, size_};
+        return {ownership_.data, ownership_.size};
     }
 
     /// Gets size (in bytes) of allocated payload buffer.
@@ -112,24 +136,23 @@ public:
     ///
     std::size_t getAllocatedSize() const noexcept
     {
-        return allocated_size_;
+        return ownership_.allocated_size;
     }
 
     /// Releases ownership of the payload by returning its data pointer and sizes.
     ///
     /// In use to return the payload to the lizard C API when media is not ready yet to accept the payload.
     /// After this call, corresponding internal fields will be nullified.
+    /// If you just need to access the payload data (without owning it), use `getSpan` method instead.
     ///
     /// @return Tuple with the payload size, pointer to the payload data, and the allocated size.
     ///         It's the caller's responsibility to deallocate the buffer with the correct memory resource,
     ///         or move it somewhere else with the same guarantee (like f.e. back to a lizard TX queue item).
     ///
-    std::tuple<std::size_t, cetl::byte*, std::size_t> release() noexcept
+    Ownership release() noexcept
     {
         mr_ = nullptr;
-        return std::make_tuple(std::exchange(size_, 0U),
-                               std::exchange(data_, nullptr),
-                               std::exchange(allocated_size_, 0U));
+        return std::exchange(ownership_, {0U, nullptr, 0U});
     }
 
     /// Resets the payload by de-allocating its data buffer.
@@ -138,40 +161,20 @@ public:
     ///
     void reset() noexcept
     {
-        if (data_ != nullptr)
+        if (ownership_.data != nullptr)
         {
             CETL_DEBUG_ASSERT(mr_ != nullptr, "Memory resource should not be null.");
 
             // No Sonar `cpp:S5356` b/c we integrate here PMR.
-            mr_->deallocate(data_, allocated_size_);  // NOSONAR cpp:S5356
+            mr_->deallocate(ownership_.data, ownership_.allocated_size);  // NOSONAR cpp:S5356
 
-            mr_             = nullptr;
-            data_           = nullptr;
-            size_           = 0;
-            allocated_size_ = 0;
+            mr_        = nullptr;
+            ownership_ = {0U, nullptr, 0U};
         }
     }
 
 private:
-    /// Size of the payload data in bytes.
-    ///
-    /// Could be less or equal to the allocated size.
-    /// `0` when the payload is moved.
-    ///
-    std::size_t size_;
-
-    /// Pointer to the payload buffer.
-    ///
-    /// `nullptr` when the payload is moved.
-    ///
-    cetl::byte* data_;
-
-    /// Size of the allocated buffer.
-    ///
-    /// Could be greater or equal to the payload size.
-    /// `0` when the payload is moved.
-    ///
-    std::size_t allocated_size_;
+    Ownership ownership_;
 
     /// Holds pointer to the PMR which was used to allocate the payload buffer. Will be used to deallocate it.
     ///

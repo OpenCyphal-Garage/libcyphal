@@ -32,7 +32,7 @@ namespace presentation
 namespace detail
 {
 
-class PublisherImpl final : public cavl::Node<PublisherImpl>, public SharedObject
+class PublisherImpl final : public common::cavl::Node<PublisherImpl>, public SharedObject
 {
 public:
     using Node::remove;
