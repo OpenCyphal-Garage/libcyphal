@@ -34,7 +34,7 @@
 #    endif
 #endif
 
-using namespace libcyphal::common;
+using namespace libcyphal::common;  // NOLINT This our main concern here in the unit tests.
 
 namespace
 {
