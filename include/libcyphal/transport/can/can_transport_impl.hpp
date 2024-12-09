@@ -601,9 +601,9 @@ private:
                     // Media has not accepted the frame, so we need return original payload back to the item,
                     // so that in the future potential retry could try to push it again.
                     const auto org_payload       = payload.release();
-                    frame.payload.size           = std::get<0>(org_payload);
-                    frame.payload.data           = std::get<1>(org_payload);
-                    frame.payload.allocated_size = std::get<2>(org_payload);
+                    frame.payload.size           = org_payload.size;
+                    frame.payload.data           = org_payload.data;
+                    frame.payload.allocated_size = org_payload.allocated_size;
                 }
 
                 // If needed schedule (recursively!) next frame to push.
