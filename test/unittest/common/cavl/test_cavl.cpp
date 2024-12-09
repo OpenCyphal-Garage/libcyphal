@@ -34,6 +34,8 @@
 #    endif
 #endif
 
+using namespace libcyphal::common;
+
 namespace
 {
 /// These aliases are introduced to keep things nicely aligned in test cases.
@@ -49,7 +51,7 @@ public:
         : value(v)
     {
     }
-    using Self = cavl::Node<My>;
+    using Self = Node;
     using Self::isLinked;
     using Self::isRoot;
     using Self::getChildNode;
@@ -991,7 +993,7 @@ TEST(TestCavl, manualMy)
 class V : public cavl::Node<V>
 {
 public:
-    using Self = cavl::Node<V>;
+    using Self = Node;
     using Self::isLinked;
     using Self::isRoot;
     using Self::getChildNode;

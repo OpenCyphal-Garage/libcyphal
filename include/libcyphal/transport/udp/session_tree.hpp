@@ -140,7 +140,7 @@ private:
 
     // MARK: Data members:
 
-    cavl::Tree<Node>                      nodes_;
+    common::cavl::Tree<Node>              nodes_;
     libcyphal::detail::PmrAllocator<Node> allocator_;
 
 };  // SessionTree
@@ -150,10 +150,10 @@ private:
 struct RxSessionTreeNode
 {
     template <typename Derived>
-    class Base : public cavl::Node<Derived>
+    class Base : public common::cavl::Node<Derived>
     {
     public:
-        using cavl::Node<Derived>::getChildNode;
+        using common::cavl::Node<Derived>::getChildNode;
         using ReferenceWrapper = std::reference_wrapper<Derived>;
 
         explicit Base(const PortId port_id)

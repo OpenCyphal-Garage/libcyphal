@@ -33,7 +33,7 @@ namespace presentation
 namespace detail
 {
 
-class SubscriberImpl final : public cavl::Node<SubscriberImpl>, public SharedObject
+class SubscriberImpl final : public common::cavl::Node<SubscriberImpl>, public SharedObject
 {
 public:
     using Node::remove;
@@ -304,7 +304,7 @@ private:
     ITimeProvider&                                time_provider_;
     const UniquePtr<transport::IMessageRxSession> msg_rx_session_;
     const transport::PortId                       subject_id_;
-    cavl::Tree<CallbackNode>                      callback_nodes_;
+    common::cavl::Tree<CallbackNode>              callback_nodes_;
     CallbackNode*                                 next_cb_node_;
 
 };  // SubscriberImpl

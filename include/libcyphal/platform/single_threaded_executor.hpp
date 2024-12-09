@@ -111,7 +111,7 @@ public:
     }
 
 protected:
-    class CallbackNode : public cavl::Node<CallbackNode>, public Callback::Interface
+    class CallbackNode : public libcyphal::common::cavl::Node<CallbackNode>, public Callback::Interface
     {
     public:
         CallbackNode(SingleThreadedExecutor& executor, Callback::Function&& function)
@@ -272,7 +272,7 @@ private:
     // MARK: - Data members:
 
     /// Holds AVL tree of registered callback node, sorted by the next execution time.
-    cavl::Tree<CallbackNode> callback_nodes_;
+    common::cavl::Tree<CallbackNode> callback_nodes_;
 
 };  // SingleThreadedExecutor
 
