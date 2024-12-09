@@ -574,6 +574,53 @@ private:
         }
     }
 
+    std::int8_t handleMediaTxFrame(Media& media, const CanardMicrosecond deadline, CanardMutableFrame& frame)
+    {
+        //
+        // Move the payload from the frame to the media payload - `media.push` might take ownership of it.
+        // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libcanard API.
+        //
+        MediaPayload payload{frame.payload.size,
+                             static_cast<cetl::byte*>(frame.payload.data),  // NOSONAR cpp:S5356 cpp:S5357
+                             frame.payload.allocated_size,
+                             &media.interface().getTxMemoryResource()};
+        frame.payload = {0, nullptr, 0};
+
+        auto push_result = media.interface().push(TimePoint{std::chrono::microseconds{deadline}},  //
+                                                  frame.extended_can_id,
+                                                  payload);
+
+        if (const auto* const push = cetl::get_if<IMedia::PushResult::Success>(&push_result))
+        {
+            if (!push->is_accepted)
+            {
+                // Media has not accepted the frame, so we need return original payload back to the item,
+                // so that in the future potential retry could try to push it again.
+                // No Sonar `cpp:S5356` b/c we need to pass payload as a raw data to the libcanard.
+                const auto org_payload       = payload.release();
+                frame.payload.size           = org_payload.size;
+                frame.payload.data           = org_payload.data;  // NOSONAR cpp:S5356
+                frame.payload.allocated_size = org_payload.allocated_size;
+            }
+
+            // If needed schedule (recursively!) next frame to push.
+            // Already existing callback will be called by executor when media TX is ready to push more.
+            //
+            if (!media.tx_callback())
+            {
+                media.tx_callback() = media.interface().registerPushCallback([this, &media](const auto&) {
+                    //
+                    pushNextFrameToMedia(media);
+                });
+            }
+            return push->is_accepted ? 1 : 0;
+        }
+
+        using Report = TransientErrorReport::MediaPush;
+        tryHandleTransientMediaFailure<Report>(media, cetl::get<IMedia::PushResult::Failure>(std::move(push_result)));
+        return -1;
+    }
+
     /// @brief Tries to push next frame from TX queue to media.
     ///
     void pushNextFrameToMedia(Media& media)
@@ -581,66 +628,29 @@ private:
         auto frame_handler = [this, &media](const CanardMicrosecond deadline,
                                             CanardMutableFrame&     frame) -> std::int8_t {
             //
-            // Move the payload from the frame to the media payload - `media.push` might take ownership of it.
-            // No Sonar `cpp:S5356` and `cpp:S5357` b/c we integrate here with C libcanard API.
-            //
-            MediaPayload payload{frame.payload.size,
-                                 static_cast<cetl::byte*>(frame.payload.data),  // NOSONAR cpp:S5356 cpp:S5357
-                                 frame.payload.allocated_size,
-                                 &media.interface().getTxMemoryResource()};
-            frame.payload = {0, nullptr, 0};
-
-            auto push_result = media.interface().push(TimePoint{std::chrono::microseconds{deadline}},  //
-                                                      frame.extended_can_id,
-                                                      payload);
-
-            if (const auto* const push = cetl::get_if<IMedia::PushResult::Success>(&push_result))
-            {
-                if (!push->is_accepted)
-                {
-                    // Media has not accepted the frame, so we need return original payload back to the item,
-                    // so that in the future potential retry could try to push it again.
-                    const auto org_payload       = payload.release();
-                    frame.payload.size           = org_payload.size;
-                    frame.payload.data           = org_payload.data;
-                    frame.payload.allocated_size = org_payload.allocated_size;
-                }
-
-                // If needed schedule (recursively!) next frame to push.
-                // Already existing callback will be called by executor when media TX is ready to push more.
-                //
-                if (!media.tx_callback())
-                {
-                    media.tx_callback() = media.interface().registerPushCallback([this, &media](const auto&) {
-                        //
-                        pushNextFrameToMedia(media);
-                    });
-                }
-                return push->is_accepted ? 1 : 0;
-            }
-
-            using Report = TransientErrorReport::MediaPush;
-            tryHandleTransientMediaFailure<Report>(media,
-                                                   cetl::get<IMedia::PushResult::Failure>(std::move(push_result)));
-            return -1;
+            return handleMediaTxFrame(media, deadline, frame);
         };
 
-        while (true)
+        // In case of a media failure we gonna try to push another frame from the next transfer in the queue, so
+        // that at least (and at most) one new frame will be succesfully attempted to be pushed in the end.
+        // Everytime we poll the queue, its size surely decrements (when `result != 0`),
+        // so there is no risk of infinite loop here.
+        //
+        std::int8_t result = -1;
+        while (result < 0)
         {
-            const auto result =
-                ::canardTxPoll(&media.canard_tx_queue(),
-                               &canardInstance(),
-                               static_cast<CanardMicrosecond>(executor_.now().time_since_epoch().count()),
-                               &frame_handler,
-                               [](auto* const user_reference, const auto deadline, auto* frame) {
-                                   //
-                                   auto* frame_handler_ptr = static_cast<decltype(frame_handler)*>(user_reference);
-                                   return (*frame_handler_ptr)(deadline, *frame);
-                               });
-            if (result >= 0)
-            {
-                return;
-            }
+            // No Sonar `cpp:S5356` & `cpp:S5356` b/c we integrate with Canard C api.
+            result = ::canardTxPoll(  //
+                &media.canard_tx_queue(),
+                &canardInstance(),
+                static_cast<CanardMicrosecond>(executor_.now().time_since_epoch().count()),
+                &frame_handler,  // NOSONAR cpp:S5356
+                [](auto* const user_reference, const auto deadline, auto* frame) {
+                    //
+                    auto* const frame_handler_ptr =
+                        static_cast<decltype(frame_handler)*>(user_reference);  // NOSONAR cpp:S5356, cpp:S5357
+                    return (*frame_handler_ptr)(deadline, *frame);
+                });
         }
     }
 
