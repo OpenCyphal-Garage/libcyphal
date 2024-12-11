@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_PRESENTATION_PUBLISHER_HPP_INCLUDED
 #define LIBCYPHAL_PRESENTATION_PUBLISHER_HPP_INCLUDED
 
+#include "common_helpers.hpp"
 #include "publisher_impl.hpp"
 
 #include "libcyphal/transport/errors.hpp"
@@ -14,12 +15,9 @@
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
-#include <cetl/pf20/cetlpf.hpp>
 
 #include <nunavut/support/serialization.hpp>
 
-#include <array>
-#include <cstdint>
 #include <utility>
 
 namespace libcyphal
@@ -35,10 +33,7 @@ namespace detail
 
 /// @brief Defines internal base class for any concrete (final) message publisher.
 ///
-/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
-/// b/c we do directly handle resources here.
-///
-class PublisherBase  // NOSONAR cpp:S4963
+class PublisherBase
 {
 public:
     /// @brief Defines failure type for a base publisher operations.
@@ -123,6 +118,11 @@ protected:
         impl_->retain();
     }
 
+    cetl::pmr::memory_resource& memory() const noexcept
+    {
+        return impl_->memory();
+    }
+
     cetl::optional<Failure> publishRawData(const TimePoint                   deadline,
                                            const transport::PayloadFragments payload_fragments) const
     {
@@ -149,9 +149,9 @@ private:
 /// Otherwise, see below requirements for the `Message` type, as well as consult with
 /// Nunavut's generated code (f.e. for the signatures of expected `serialize` function).
 ///
-/// @tparam Message The message type of the publisher. This type has the following requirements:
-///                 - contains `_traits_::SerializationBufferSizeBytes` constant
-///                 - has freestanding `serialize` function under its namespace (so that ADL will find it)
+/// @tparam Message_ The message type of the publisher. This type has the following requirements:
+///                  - contains `_traits_::SerializationBufferSizeBytes` constant
+///                  - has freestanding `serialize` function under its namespace (so that ADL will find it)
 ///
 template <typename Message_>
 class Publisher final : public detail::PublisherBase
@@ -161,7 +161,7 @@ public:
     ///
     using Message = Message_;
 
-    /// @brief Defines failure type for a strong-typed publisher operations.
+    /// @brief Defines a failure type for a strong-typed publisher operations.
     ///
     /// The set of possible failures includes transport layer failures (inherited from the base publisher),
     /// as well as serialization-related ones.
@@ -170,34 +170,30 @@ public:
 
     /// Publishes the message on libcyphal network.
     ///
+    /// If `BufferSize` is less or equal to `config::presentation::SmallPayloadSize`,
+    /// the message will be serialized using a stack-allocated buffer; otherwise, PMR allocation will be used.
+    ///
+    /// @tparam BufferSize The size of the buffer to serialize the message.
     /// @param deadline The latest time to send the message. Will be dropped if exceeded.
     /// @param message The message to serialize and then send.
     ///
+    template <std::size_t BufferSize = Message::_traits_::SerializationBufferSizeBytes>
     cetl::optional<Failure> publish(const TimePoint deadline, const Message& message) const
     {
-        // Try to serialize the message to raw payload buffer.
-        //
-        // Next nolint b/c we use a buffer to serialize the message, so no need to zero it (and performance better).
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
-        std::array<std::uint8_t, Message::_traits_::SerializationBufferSizeBytes> buffer;
-        const auto result_size = serialize(message, buffer);
-        if (!result_size)
-        {
-            return result_size.error();
-        }
+        using Result             = cetl::optional<Failure>;
+        constexpr bool IsOnStack = BufferSize <= config::Presentation::SmallPayloadSize();
 
-        // Next nolint & NOSONAR are currently unavoidable.
-        // TODO: Eliminate `reinterpret_cast` when Nunavut supports `cetl::byte` at its `serialize`.
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-        const cetl::span<const cetl::byte> data{reinterpret_cast<cetl::byte*>(buffer.data()),  // NOSONAR cpp:S3630
-                                                result_size.value()};
-        const std::array<const cetl::span<const cetl::byte>, 1> payload_fragments{data};
-        if (auto failure = publishRawData(deadline, payload_fragments))
-        {
-            return libcyphal::detail::upcastVariant<Failure>(std::move(*failure));
-        }
-
-        return cetl::nullopt;
+        return detail::tryPerformOnSerialized<Message, Result, BufferSize, IsOnStack>(  //
+            message,
+            memory(),
+            [this, deadline](const auto serialized_fragments) -> Result {
+                //
+                if (auto failure = publishRawData(deadline, serialized_fragments))
+                {
+                    return libcyphal::detail::upcastVariant<Failure>(std::move(*failure));
+                }
+                return cetl::nullopt;
+            });
     }
 
 private:

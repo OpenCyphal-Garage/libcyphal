@@ -6,6 +6,8 @@
 #ifndef LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
 
+#include "libcyphal/config.hpp"
+
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/rtti.hpp>
 #include <cetl/unbounded_variant.hpp>
@@ -24,18 +26,18 @@ namespace transport
 /// The buffer is movable but not copyable because copying the contents of a buffer is considered wasteful.
 /// The buffer behaves as if it's empty if the underlying implementation is moved away.
 ///
-class ScatteredBuffer final  // NOSONAR : cpp:S4963 - we do directly handle resources here.
+class ScatteredBuffer final
 {
 public:
     /// @brief Defines maximum size (aka footprint) of the storage variant.
     ///
-    static constexpr std::size_t StorageVariantFootprint = sizeof(void*) * 8;
+    static constexpr std::size_t StorageVariantFootprint = config::Transport::ScatteredBuffer_StorageVariantFootprint();
 
     /// @brief Defines storage interface for the scattered buffer.
     ///
     /// @see ScatteredBuffer::ScatteredBuffer(AnyStorage&& any_storage)
     ///
-    class IStorage
+    class IStorage : public cetl::rtti::rtti
     {
         // 91C1B109-F90E-45BE-95CF-6ED02AC3FFAA
         // clang-format off
@@ -78,13 +80,13 @@ public:
         }
 
         // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
-        CETL_NODISCARD void* _cast_(const cetl::type_id& id) & noexcept  // NOSONAR cpp:S5008
+        CETL_NODISCARD void* _cast_(const cetl::type_id& id) & noexcept override  // NOSONAR cpp:S5008
         {
             return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
         }
 
         // No Sonar `cpp:S5008` and `cpp:S5356` b/c they are unavoidable - RTTI integration.
-        CETL_NODISCARD const void* _cast_(const cetl::type_id& id) const& noexcept  // NOSONAR cpp:S5008
+        CETL_NODISCARD const void* _cast_(const cetl::type_id& id) const& noexcept override  // NOSONAR cpp:S5008
         {
             return (id == _get_type_id_()) ? this : nullptr;  // NOSONAR cpp:S5356
         }

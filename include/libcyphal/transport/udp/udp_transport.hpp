@@ -9,6 +9,7 @@
 #include "media.hpp"
 #include "tx_rx_sockets.hpp"
 
+#include "libcyphal/config.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/transport.hpp"
 
@@ -153,7 +154,8 @@ public:
     ///           other media (if any), and propagate the returned failure to the user (as result of `run` or etc).
     ///
     using TransientErrorHandler =
-        cetl::pmr::function<cetl::optional<AnyFailure>(TransientErrorReport::Variant& report_var), sizeof(void*) * 3>;
+        cetl::pmr::function<cetl::optional<AnyFailure>(TransientErrorReport::Variant& report_var),
+                            config::Transport::Udp::IUdpTransport_TransientErrorHandlerMaxSize()>;
 
     IUdpTransport(const IUdpTransport&)                = delete;
     IUdpTransport(IUdpTransport&&) noexcept            = delete;

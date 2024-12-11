@@ -46,10 +46,8 @@ struct SocketState
 
 /// @brief Defines a tree of sessions for the UDP transport.
 ///
-/// No Sonar cpp:S4963 b/c we do directly handle resources here.
-///
 template <typename Node>
-class SessionTree final  // NOSONAR cpp:S4963
+class SessionTree final
 {
 public:
     using NodeRef = typename Node::ReferenceWrapper;

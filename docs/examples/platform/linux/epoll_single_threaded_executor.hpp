@@ -158,9 +158,7 @@ private:
     using Base = SingleThreadedExecutor;
     using Self = EpollSingleThreadedExecutor;
 
-    /// No Sonar cpp:S4963 b/c `AwaitableNode` supports move operation.
-    ///
-    class AwaitableNode final : public CallbackNode  // NOSONAR cpp:S4963
+    class AwaitableNode final : public CallbackNode
     {
     public:
         AwaitableNode(Self& executor, Callback::Function&& function)

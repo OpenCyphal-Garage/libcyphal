@@ -16,9 +16,9 @@
 #include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/config.hpp>
 #include <libcyphal/errors.hpp>
 #include <libcyphal/presentation/client.hpp>
-#include <libcyphal/presentation/common_helpers.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/response_promise.hpp>
 #include <libcyphal/transport/errors.hpp>
@@ -471,7 +471,7 @@ TEST_F(TestClient, request_response_failures)
     State state{mr_, transport_mock_, rx_params};
 
     // Emulate that transport supports only 2 concurrent transfers by having module equal to 2^1.
-    // This will make the client fail to make more than 2 request.
+    // This will make the client fail to make more than 2 requests.
     EXPECT_CALL(transport_mock_, getProtocolParams()).WillRepeatedly(Return(ProtocolParams{2, 0, 0}));
 
     Presentation presentation{mr_mock, scheduler_, transport_mock_};
@@ -536,7 +536,7 @@ TEST_F(TestClient, request_response_failures)
     });
     scheduler_.scheduleAt(4s, [&](const auto&) {
         //
-        using libcyphal::presentation::detail::SmallPayloadSize;
+        constexpr auto SmallPayloadSize = libcyphal::config::Presentation::SmallPayloadSize();
 
         EXPECT_CALL(state.req_tx_session_mock_, send(_, _)).WillOnce(Return(cetl::nullopt));
 

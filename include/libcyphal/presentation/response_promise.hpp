@@ -9,6 +9,7 @@
 #include "client_impl.hpp"
 #include "common_helpers.hpp"
 
+#include "libcyphal/config.hpp"
 #include "libcyphal/errors.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
 #include "libcyphal/transport/types.hpp"
@@ -63,11 +64,8 @@ using ResponsePromiseFailure = libcyphal::detail::AppendType<  //
 ///                         either a deserializable type (like a Nunavut tool generated service response struct),
 ///                         or `transport::ScatteredBuffer` for raw bytes (aka untyped) responses.
 ///
-/// No Sonar cpp:S4963 'The "Rule-of-Zero" should be followed'
-/// b/c we do directly handle resources here (like `client_impl_` retain/release etc.).
-///
 template <typename ResponsePayload, typename Failure>
-class ResponsePromiseBase : public detail::SharedClient::CallbackNode  // NOSONAR cpp:S4963
+class ResponsePromiseBase : public detail::SharedClient::CallbackNode
 {
 public:
     /// @brief Defines successful response and its metadata.
@@ -99,8 +97,8 @@ public:
             /// Holds the approximate time when the callback was called. Useful for minimizing `now()` calls.
             TimePoint approx_now;
         };
-        static constexpr std::size_t FunctionSize = sizeof(void*) * 4;
-        using Function                            = cetl::pmr::function<void(const Arg& arg), FunctionSize>;
+        static constexpr auto FunctionSize = config::Presentation::ResponsePromiseBase_Callback_FunctionSize();
+        using Function                     = cetl::pmr::function<void(const Arg& arg), FunctionSize>;
     };
 
     /// @brief Constructs a new promise by moving `other` promise into this one.

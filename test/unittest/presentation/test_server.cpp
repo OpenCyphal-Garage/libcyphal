@@ -15,8 +15,8 @@
 #include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/config.hpp>
 #include <libcyphal/errors.hpp>
-#include <libcyphal/presentation/common_helpers.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/server.hpp>
 #include <libcyphal/transport/errors.hpp>
@@ -278,7 +278,7 @@ TEST_F(TestServer, service_request_response_failures)
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
-        using libcyphal::presentation::detail::SmallPayloadSize;
+        constexpr auto SmallPayloadSize = libcyphal::config::Presentation::SmallPayloadSize();
 
         // Emulate that there is no memory available for the request deserialization.
         EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(SmallPayloadSize + 1));

@@ -113,9 +113,7 @@ private:
     using Self = VirtualTimeScheduler;
     using Base = SingleThreadedExecutor;
 
-    /// No Sonar cpp:S4963 b/c `AwaitableNode` supports move operation.
-    ///
-    class NamedCallbackNode final : public CallbackNode  // NOSONAR cpp:S4963
+    class NamedCallbackNode final : public CallbackNode
     {
     public:
         NamedCallbackNode(Self& executor, Callback::Function&& function, std::string name)

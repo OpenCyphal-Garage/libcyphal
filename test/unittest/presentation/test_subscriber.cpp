@@ -15,7 +15,7 @@
 #include "virtual_time_scheduler.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
-#include <libcyphal/presentation/common_helpers.hpp>
+#include <libcyphal/config.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/presentation/subscriber.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
@@ -246,6 +246,8 @@ TEST_F(TestSubscriber, onReceive_deserialize_failure)
 {
     using Message = my_custom::bar_1_0;
 
+    constexpr auto SmallPayloadSize = libcyphal::config::Presentation::SmallPayloadSize();
+
     StrictMock<MemoryResourceMock> mr_mock;
     mr_mock.redirectExpectedCallsTo(mr_);
 
@@ -274,7 +276,7 @@ TEST_F(TestSubscriber, onReceive_deserialize_failure)
 
     NiceMock<ScatteredBufferStorageMock> storage_mock;
     ScatteredBufferStorageMock::Wrapper  storage{&storage_mock};
-    EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(libcyphal::presentation::detail::SmallPayloadSize + 1));
+    EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(SmallPayloadSize + 1));
     EXPECT_CALL(storage_mock, copy(_, _, _))                           //
         .WillRepeatedly(Invoke([&](auto, auto* const dst, auto len) {  //
             //
@@ -303,8 +305,6 @@ TEST_F(TestSubscriber, onReceive_deserialize_failure)
     });
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
-        using libcyphal::presentation::detail::SmallPayloadSize;
-
         // Fix "problem" with the bad array size,
         // but introduce another one with memory allocation.
         EXPECT_CALL(storage_mock, size()).WillRepeatedly(Return(SmallPayloadSize + 1));
