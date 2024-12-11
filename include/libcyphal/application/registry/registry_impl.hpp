@@ -159,8 +159,8 @@ private:
             [key = IRegister::Key{name}](const IRegister& other) { return other.compareBy(key); });
     }
 
-    cetl::pmr::memory_resource& memory_;
-    cavl::Tree<IRegister>       registers_tree_;
+    cetl::pmr::memory_resource&   memory_;
+    common::cavl::Tree<IRegister> registers_tree_;
 
 };  // Registry
 

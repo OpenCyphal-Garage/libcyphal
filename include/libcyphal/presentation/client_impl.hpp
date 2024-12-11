@@ -34,7 +34,7 @@ namespace presentation
 namespace detail
 {
 
-class SharedClient : public cavl::Node<SharedClient>, public SharedObject
+class SharedClient : public common::cavl::Node<SharedClient>, public SharedObject
 {
 public:
     using Node::remove;
@@ -388,9 +388,9 @@ private:
     const UniquePtr<transport::IRequestTxSession>  svc_request_tx_session_;
     const UniquePtr<transport::IResponseRxSession> svc_response_rx_session_;
     const transport::ResponseRxParams              response_rx_params_;
-    cavl::Tree<CallbackNode>                       cb_nodes_by_transfer_id_;
+    common::cavl::Tree<CallbackNode>               cb_nodes_by_transfer_id_;
     TimePoint                                      nearest_deadline_;
-    cavl::Tree<TimeoutNode>                        timeout_nodes_by_deadline_;
+    common::cavl::Tree<TimeoutNode>                timeout_nodes_by_deadline_;
     IExecutor::Callback::Any                       nearest_deadline_callback_;
 
 };  // SharedClient

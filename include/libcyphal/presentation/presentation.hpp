@@ -727,14 +727,14 @@ private:
 
     // MARK: Data members:
 
-    cetl::pmr::memory_resource&        memory_;
-    IExecutor&                         executor_;
-    transport::ITransport&             transport_;
-    cavl::Tree<detail::SharedClient>   shared_client_nodes_;
-    cavl::Tree<detail::PublisherImpl>  publisher_impl_nodes_;
-    cavl::Tree<detail::SubscriberImpl> subscriber_impl_nodes_;
-    detail::UnRefNode                  unreferenced_nodes_;
-    IExecutor::Callback::Any           unref_nodes_deleter_callback_;
+    cetl::pmr::memory_resource&                memory_;
+    IExecutor&                                 executor_;
+    transport::ITransport&                     transport_;
+    common::cavl::Tree<detail::SharedClient>   shared_client_nodes_;
+    common::cavl::Tree<detail::PublisherImpl>  publisher_impl_nodes_;
+    common::cavl::Tree<detail::SubscriberImpl> subscriber_impl_nodes_;
+    detail::UnRefNode                          unreferenced_nodes_;
+    IExecutor::Callback::Any                   unref_nodes_deleter_callback_;
 
 };  // Presentation
 

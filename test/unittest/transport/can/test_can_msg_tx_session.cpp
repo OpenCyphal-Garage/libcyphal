@@ -218,12 +218,12 @@ TEST_F(TestCanMsgTxSession, send_empty_expired_payload)
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        // Emulate that media became ready on the very edge of the default 1s timeout (exactly at the deadline).
+        // Emulate that media became ready on the very edge of the default 1s timeout (+1us after the deadline).
         EXPECT_CALL(media_mock_, push(_, _, _))  //
             .WillOnce(Return(IMedia::PushResult::Success{false /* is_accepted */}));
         EXPECT_CALL(media_mock_, registerPushCallback(_))  //
             .WillOnce(Invoke([&](auto function) {          //
-                return scheduler_.registerAndScheduleNamedCallback("", now() + timeout, std::move(function));
+                return scheduler_.registerAndScheduleNamedCallback("", now() + timeout + 1us, std::move(function));
             }));
 
         metadata.deadline = now() + timeout;
@@ -248,23 +248,23 @@ TEST_F(TestCanMsgTxSession, send_7bytes_payload_with_500ms_timeout)
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
-        // Emulate that socket became ready on the very edge of the 500ms timeout (just 1us before the deadline).
+        // Emulate that socket became ready on the very edge of the 500ms timeout (exactly at the deadline).
         EXPECT_CALL(media_mock_, push(_, _, _))  //
             .WillOnce(Return(IMedia::PushResult::Success{false /* is_accepted */}));
         EXPECT_CALL(media_mock_, registerPushCallback(_))  //
             .WillOnce(Invoke([&](auto function) {          //
-                return scheduler_.registerAndScheduleNamedCallback("", now() + timeout - 1us, std::move(function));
+                return scheduler_.registerAndScheduleNamedCallback("", now() + timeout, std::move(function));
             }));
 
         metadata.deadline = now() + timeout;
         auto failure      = session->send(metadata, makeSpansFrom(payload));
         EXPECT_THAT(failure, Eq(cetl::nullopt));
     });
-    scheduler_.scheduleAt(1s + timeout - 1us, [&](const auto&) {
+    scheduler_.scheduleAt(1s + timeout, [&](const auto&) {
         //
         EXPECT_CALL(media_mock_, push(_, _, _))  //
             .WillOnce([&](auto, auto can_id, auto& pld) {
-                EXPECT_THAT(now(), metadata.deadline - 1us);
+                EXPECT_THAT(now(), metadata.deadline);
                 EXPECT_THAT(can_id, SubjectOfCanIdEq(17));
                 EXPECT_THAT(can_id, AllOf(PriorityOfCanIdEq(metadata.base.priority), IsMessageCanId()));
 
