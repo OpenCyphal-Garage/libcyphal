@@ -84,9 +84,9 @@ public:
                 //
                 return node.compareByParams(params);
             },
-            [this, &params, args_tuple = std::move(args_tuple)] {
+            [this, &params, args_tuple_ = std::move(args_tuple)] {
                 //
-                return constructNewNode(params, std::move(args_tuple));
+                return constructNewNode(params, std::move(args_tuple_));
             });
 
         auto* const node = std::get<0>(node_existing);

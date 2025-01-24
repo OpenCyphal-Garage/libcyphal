@@ -173,9 +173,9 @@ TEST_F(TestUdpSvcRxSessions, make_response_no_memory)
     EXPECT_CALL(mr_mock, do_allocate(sizeof(udp::detail::SvcResponseRxSession), _))  //
         .WillOnce(Return(nullptr));
 
-    auto transport = makeTransport({mr_mock});
+    const auto transport = makeTransport({mr_mock});
 
-    auto maybe_session = transport->makeResponseRxSession({64, 0x23, 0x45});
+    const auto maybe_session = transport->makeResponseRxSession({64, 0x23, 0x45});
     EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
 }
 
@@ -214,12 +214,27 @@ TEST_F(TestUdpSvcRxSessions, make_response_fails_due_to_rx_socket_error)
     }
 }
 
+TEST_F(TestUdpSvcRxSessions, make_request_no_memory)
+{
+    StrictMock<MemoryResourceMock> mr_mock;
+    mr_mock.redirectExpectedCallsTo(mr_);
+
+    // Emulate that there is no memory available for the message session.
+    EXPECT_CALL(mr_mock, do_allocate(sizeof(udp::detail::SvcRequestRxSession), _))  //
+        .WillOnce(Return(nullptr));
+
+    const auto transport = makeTransport({mr_mock});
+
+    const auto maybe_session = transport->makeRequestRxSession({64, 0x7B});
+    EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
+}
+
 TEST_F(TestUdpSvcRxSessions, make_request_fails_due_to_argument_error)
 {
-    auto transport = makeTransport({mr_});
+    const auto transport = makeTransport({mr_});
 
     // Try invalid subject id
-    auto maybe_session = transport->makeRequestRxSession({64, UDPARD_SERVICE_ID_MAX + 1});
+    const auto maybe_session = transport->makeRequestRxSession({64, UDPARD_SERVICE_ID_MAX + 1});
     EXPECT_THAT(maybe_session, VariantWith<AnyFailure>(VariantWith<libcyphal::ArgumentError>(_)));
 }
 
