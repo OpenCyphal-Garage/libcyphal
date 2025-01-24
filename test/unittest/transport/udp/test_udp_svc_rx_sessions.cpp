@@ -582,6 +582,38 @@ TEST_F(TestUdpSvcRxSessions, receive_response)
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
         });
     });
+    scheduler_.scheduleAt(3s, [&](const auto&) {
+        //
+        SCOPED_TRACE("3-rd iteration: unsolicited (node 0x33) response @ 3s");
+
+        constexpr std::size_t payload_size = 0;
+        constexpr std::size_t frame_size   = UdpardFrame::SizeOfHeaderAndTxCrc + payload_size;
+
+        rx_timestamp = now() + 10ms;
+        EXPECT_CALL(rx_socket_mock_, receive())  //
+            .WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
+                EXPECT_THAT(now(), rx_timestamp);
+                auto frame         = UdpardFrame(0x33, 0x13, 0x1D, payload_size, &payload_mr_mock, Priority::High);
+                frame.setPortId(0x17B, true /*is_service*/, false /*is_request*/);
+                std::uint32_t tx_crc = UdpardFrame::InitialTxCrc;
+                return {rx_timestamp, std::move(frame).release(tx_crc)};
+            });
+        EXPECT_CALL(payload_mr_mock, do_allocate(frame_size, alignof(std::max_align_t)))
+            .WillOnce([this](const std::size_t size_bytes, const std::size_t alignment) -> void* {
+                return payload_mr_.allocate(size_bytes, alignment);
+            });
+        EXPECT_CALL(payload_mr_mock, do_deallocate(_, frame_size, alignof(std::max_align_t)))
+            .WillOnce([this](void* const p, const std::size_t size_bytes, const std::size_t alignment) {
+                payload_mr_.deallocate(p, size_bytes, alignment);
+            });
+        scheduler_.scheduleNamedCallback("rx_socket", rx_timestamp);
+
+        scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const auto&) {
+            //
+            EXPECT_THAT(session_n31->receive(), Eq(cetl::nullopt));
+            EXPECT_THAT(session_n32->receive(), Eq(cetl::nullopt));
+        });
+    });
     scheduler_.scheduleAt(9s, [&](const auto&) {
         //
         session_n31.reset();

@@ -81,7 +81,7 @@ public:
                 //
                 return node.compareByParams(params);
             },
-            [&] {
+            [this, &params, &args...] {
                 //
                 return constructNewNode(params, std::forward<Args>(args)...);
             });

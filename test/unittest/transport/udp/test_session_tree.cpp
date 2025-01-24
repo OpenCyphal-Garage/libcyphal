@@ -27,8 +27,11 @@ using namespace libcyphal::transport;       // NOLINT This our main concern here
 using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
 using testing::_;
+using testing::StrEq;
+using testing::IsNull;
 using testing::Return;
 using testing::IsEmpty;
+using testing::NotNull;
 using testing::Pointer;
 using testing::StrictMock;
 using testing::VariantWith;
@@ -43,9 +46,9 @@ protected:
     public:
         using Params = std::int32_t;
 
-        explicit MyNode(const Params& params)
+        explicit MyNode(const Params& params, const char* const extra_arg)
             : params_{params}
-            , extra_arg_{0}
+            , extra_arg_{extra_arg}
         {
         }
 
@@ -67,6 +70,11 @@ protected:
             return params_ - params;
         }
 
+        const char* getExtraArg() const noexcept
+        {
+            return extra_arg_;
+        }
+
         void setNotifier(std::function<void(const std::string&)> notifier)
         {
             notifier_ = std::move(notifier);
@@ -74,7 +82,7 @@ protected:
 
     private:
         const Params                            params_;
-        const int                               extra_arg_;
+        const char* const                       extra_arg_;
         std::function<void(const std::string&)> notifier_;
 
     };  // MyNode
@@ -110,39 +118,47 @@ TEST_F(TestSessionTree, ensureNodeFor_should_be_new)
 {
     detail::SessionTree<MyNode> tree{mr_};
 
-    EXPECT_THAT(tree.ensureNodeFor<true>(0), VariantWith<MyNode::ReferenceWrapper>(_));
+    EXPECT_THAT(tree.ensureNodeFor<true>(0, "0a"), VariantWith<MyNode::ReferenceWrapper>(_));
     EXPECT_THAT(tree.isEmpty(), false);
 
-    EXPECT_THAT(tree.ensureNodeFor<true>(1), VariantWith<MyNode::ReferenceWrapper>(_));
-    EXPECT_THAT(tree.ensureNodeFor<true>(2), VariantWith<MyNode::ReferenceWrapper>(_));
-    EXPECT_THAT(tree.ensureNodeFor<true>(0), VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
-    EXPECT_THAT(tree.ensureNodeFor<true>(1), VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
-    EXPECT_THAT(tree.ensureNodeFor<true>(2), VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
+    EXPECT_THAT(tree.ensureNodeFor<true>(1, "1a"), VariantWith<MyNode::ReferenceWrapper>(_));
+    EXPECT_THAT(tree.ensureNodeFor<true>(2, "2a"), VariantWith<MyNode::ReferenceWrapper>(_));
+    EXPECT_THAT(tree.ensureNodeFor<true>(0, "0b"), VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
+    EXPECT_THAT(tree.ensureNodeFor<true>(1, "1b"), VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
+    EXPECT_THAT(tree.ensureNodeFor<true>(2, "2b"), VariantWith<AnyFailure>(VariantWith<AlreadyExistsError>(_)));
+
+    EXPECT_THAT(tree.tryFindNodeFor(0)->getExtraArg(), StrEq("0a"));
+    EXPECT_THAT(tree.tryFindNodeFor(1)->getExtraArg(), StrEq("1a"));
+    EXPECT_THAT(tree.tryFindNodeFor(2)->getExtraArg(), StrEq("2a"));
+    EXPECT_THAT(tree.tryFindNodeFor(3), IsNull());
 }
 
 TEST_F(TestSessionTree, ensureNodeFor_existing_is_fine)
 {
     detail::SessionTree<MyNode> tree{mr_};
 
-    auto maybe_node_0a = tree.ensureNodeFor(0);
+    auto maybe_node_0a = tree.ensureNodeFor(0, "0a");
     ASSERT_THAT(maybe_node_0a, VariantWith<MyNode::ReferenceWrapper>(_));
     const auto node_0a = cetl::get<MyNode::ReferenceWrapper>(maybe_node_0a);
 
     EXPECT_THAT(tree.isEmpty(), false);
 
-    auto maybe_node_1a = tree.ensureNodeFor(1);
+    auto maybe_node_1a = tree.ensureNodeFor(1, "1a");
     EXPECT_THAT(maybe_node_1a, VariantWith<MyNode::ReferenceWrapper>(_));
     const auto node_1a = cetl::get<MyNode::ReferenceWrapper>(maybe_node_1a);
 
-    EXPECT_THAT(tree.ensureNodeFor(2), VariantWith<MyNode::ReferenceWrapper>(_));
+    EXPECT_THAT(tree.ensureNodeFor(2, "2a"), VariantWith<MyNode::ReferenceWrapper>(_));
 
-    auto maybe_node_0b = tree.ensureNodeFor(0);
+    auto maybe_node_0b = tree.ensureNodeFor(0, "0b");
     EXPECT_THAT(maybe_node_0b, VariantWith<MyNode::ReferenceWrapper>(Pointer(&node_0a.get())));
+    EXPECT_THAT(tree.tryFindNodeFor(0)->getExtraArg(), StrEq("0a"));
 
-    auto maybe_node_1b = tree.ensureNodeFor(1);
+    auto maybe_node_1b = tree.ensureNodeFor(1, "1b");
     EXPECT_THAT(maybe_node_1b, VariantWith<MyNode::ReferenceWrapper>(Pointer(&node_1a.get())));
+    EXPECT_THAT(tree.tryFindNodeFor(1)->getExtraArg(), StrEq("1a"));
 
-    EXPECT_THAT(tree.ensureNodeFor(2), VariantWith<MyNode::ReferenceWrapper>(_));
+    EXPECT_THAT(tree.ensureNodeFor(2, "2b"), VariantWith<MyNode::ReferenceWrapper>(_));
+    EXPECT_THAT(tree.tryFindNodeFor(2)->getExtraArg(), StrEq("2a"));
 }
 
 TEST_F(TestSessionTree, ensureNodeFor_no_memory)
@@ -156,7 +172,8 @@ TEST_F(TestSessionTree, ensureNodeFor_no_memory)
     EXPECT_CALL(mr_mock, do_allocate(sizeof(MyNode), _))  //
         .WillOnce(Return(nullptr));
 
-    EXPECT_THAT(tree.ensureNodeFor(0), VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
+    EXPECT_THAT(tree.ensureNodeFor(0, "0a"), VariantWith<AnyFailure>(VariantWith<MemoryError>(_)));
+    EXPECT_THAT(tree.tryFindNodeFor(0), IsNull());
 }
 
 TEST_F(TestSessionTree, removeNodeFor)
@@ -165,11 +182,12 @@ TEST_F(TestSessionTree, removeNodeFor)
 
     tree.removeNodeFor(13);
 
-    auto maybe_node = tree.ensureNodeFor<true>(42);
+    auto maybe_node = tree.ensureNodeFor<true>(42, "42a");
     ASSERT_THAT(maybe_node, VariantWith<MyNode::ReferenceWrapper>(_));
+    EXPECT_THAT(tree.tryFindNodeFor(42), NotNull());
     EXPECT_THAT(tree.isEmpty(), false);
 
-    auto node_ref = cetl::get<MyNode::ReferenceWrapper>(maybe_node);
+    const auto node_ref = cetl::get<MyNode::ReferenceWrapper>(maybe_node);
 
     std::string side_effects;
     node_ref.get().setNotifier([&](const std::string& msg) { side_effects += msg; });
@@ -178,6 +196,7 @@ TEST_F(TestSessionTree, removeNodeFor)
     EXPECT_THAT(side_effects, "~");
 
     EXPECT_THAT(tree.isEmpty(), true);
+    EXPECT_THAT(tree.tryFindNodeFor(42), IsNull());
 }
 
 // NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)

@@ -103,6 +103,7 @@ protected:
         (void) last_rx_transfer_.emplace(std::move(svc_rx_transfer));
     }
 
+private:
     // MARK: Data members:
 
     TransportDelegate&                         delegate_;
@@ -132,7 +133,7 @@ public:
         cetl::pmr::memory_resource& memory,
         TransportDelegate&          delegate,
         const RequestRxParams&      params,
-        RxSessionTreeNode::Request&)
+        const RxSessionTreeNode::Request&)
     {
         if (params.service_id > UDPARD_SERVICE_ID_MAX)
         {
@@ -166,7 +167,7 @@ public:
     ~SvcRequestRxSession()
     {
         delegate().cancelRxRpcPortFor(rpc_port_, true);  // request
-        delegate().onSessionEvent(TransportDelegate::SessionEvent::SvcRequestDestroyed{params_});
+        delegate().onSessionEvent(TransportDelegate::SessionEvent::SvcRequestDestroyed{getParams()});
     }
 
     // In use (public) for unit tests only.
@@ -249,8 +250,8 @@ public:
 
     ~SvcResponseRxSession()
     {
-        delegate().releaseRxRpcPortFor(params_);
-        delegate().onSessionEvent(TransportDelegate::SessionEvent::SvcResponseDestroyed{params_});
+        delegate().releaseRxRpcPortFor(getParams());
+        delegate().onSessionEvent(TransportDelegate::SessionEvent::SvcResponseDestroyed{getParams()});
     }
 
 private:
@@ -263,7 +264,7 @@ private:
         const auto timeout_us = std::chrono::duration_cast<std::chrono::microseconds>(timeout);
         if (timeout_us >= Duration::zero())
         {
-            if (auto* const rpc_port = delegate_.findRxRpcPortFor(params_))
+            if (auto* const rpc_port = delegate().findRxRpcPortFor(getParams()))
             {
                 rpc_port->port.transfer_id_timeout_usec = static_cast<UdpardMicrosecond>(timeout_us.count());
             }

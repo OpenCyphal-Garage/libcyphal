@@ -490,7 +490,7 @@ private:
         RxRpcPortDemuxNode& operator=(const RxRpcPortDemuxNode&)     = delete;
         RxRpcPortDemuxNode& operator=(RxRpcPortDemuxNode&&) noexcept = delete;
 
-        virtual ~RxRpcPortDemuxNode()
+        ~RxRpcPortDemuxNode()
         {
             transport_delegate_.cancelRxRpcPortFor(port_, false);  // response
         }
