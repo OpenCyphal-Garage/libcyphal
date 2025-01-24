@@ -6,8 +6,13 @@
 #ifndef LIBCYPHAL_TRANSPORT_CAN_DELEGATE_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_CAN_DELEGATE_HPP_INCLUDED
 
+#include "rx_session_tree_node.hpp"
+
 #include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
+#include "libcyphal/transport/session_tree.hpp"
+#include "libcyphal/transport/svc_sessions.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
 
@@ -33,6 +38,29 @@ namespace can
 ///
 namespace detail
 {
+
+/// This internal session delegate class serves the following purpose: it provides an interface (aka gateway)
+/// to access RX session from transport (by casting canard's `user_reference` member to this class).
+///
+class IRxSessionDelegate
+{
+public:
+    IRxSessionDelegate(const IRxSessionDelegate&)                = delete;
+    IRxSessionDelegate(IRxSessionDelegate&&) noexcept            = delete;
+    IRxSessionDelegate& operator=(const IRxSessionDelegate&)     = delete;
+    IRxSessionDelegate& operator=(IRxSessionDelegate&&) noexcept = delete;
+
+    /// @brief Accepts a received transfer from the transport dedicated to this RX session.
+    ///
+    virtual void acceptRxTransfer(const CanardRxTransfer& transfer) = 0;
+
+protected:
+    IRxSessionDelegate()  = default;
+    ~IRxSessionDelegate() = default;
+
+};  // IRxSessionDelegate
+
+// MARK: -
 
 /// This internal transport delegate class serves the following purposes:
 /// 1. It provides memory management functions for the Canard library.
@@ -122,7 +150,7 @@ public:
     template <typename Node>
     struct CanardConcreteTree
     {
-        /// @brief Visits in-order each node of the AVL tree, counting total number of nodes visited.
+        /// @brief Visits in-order each node of the AVL tree, counting the total number of nodes visited.
         ///
         /// @tparam Visitor Type of the visitor callable.
         /// @param root The root node of the AVL tree. Could be `nullptr`.
@@ -196,16 +224,28 @@ public:
 
     struct SessionEvent
     {
-        struct MsgRxLifetime
+        struct MsgCreated
+        {};
+        struct MsgDestroyed
+        {};
+        struct SvcRequestCreated
+        {};
+        struct SvcRequestDestroyed
+        {};
+        struct SvcResponseCreated
+        {};
+        struct SvcResponseDestroyed
         {
-            bool is_added;
-        };
-        struct SvcRxLifetime
-        {
-            bool is_added;
+            ResponseRxParams params;
         };
 
-        using Variant = cetl::variant<MsgRxLifetime, SvcRxLifetime>;
+        using Variant = cetl::variant<  //
+            MsgCreated,
+            MsgDestroyed,
+            SvcRequestCreated,
+            SvcRequestDestroyed,
+            SvcResponseCreated,
+            SvcResponseDestroyed>;
 
     };  // SessionEvent
 
@@ -237,6 +277,59 @@ public:
     CETL_NODISCARD cetl::pmr::memory_resource& memory() const noexcept
     {
         return memory_;
+    }
+
+    void listenForRxSubscription(CanardRxSubscription& subscription, const MessageRxParams& params)
+    {
+        listenForRxSubscriptionImpl(subscription, CanardTransferKindMessage, params.subject_id, params.extent_bytes);
+    }
+
+    void listenForRxSubscription(CanardRxSubscription& subscription, const RequestRxParams& params)
+    {
+        listenForRxSubscriptionImpl(subscription, CanardTransferKindRequest, params.service_id, params.extent_bytes);
+    }
+
+    void listenForRxSubscription(CanardRxSubscription& subscription, const ResponseRxParams& params)
+    {
+        listenForRxSubscriptionImpl(subscription, CanardTransferKindResponse, params.service_id, params.extent_bytes);
+    }
+
+    void retainRxSubscriptionFor(const ResponseRxParams& params)
+    {
+        const auto maybe_node = rx_subs_demux_nodes_.ensureNodeFor(params, std::ref(*this));
+        if (const auto* const node = cetl::get_if<RxSubsDemuxNode::RefWrapper>(&maybe_node))
+        {
+            node->get().retain();
+        }
+    }
+
+    CETL_NODISCARD CanardRxSubscription* findRxSubscriptionFor(const ResponseRxParams& params)
+    {
+        if (auto* const node = rx_subs_demux_nodes_.tryFindNodeFor(params))
+        {
+            return &node->subscription();
+        }
+        return nullptr;
+    }
+
+    void releaseRxSubscriptionFor(const ResponseRxParams& params)
+    {
+        if (auto* const node = rx_subs_demux_nodes_.tryFindNodeFor(params))
+        {
+            if (node->release())
+            {
+                rx_subs_demux_nodes_.removeNodeFor(params);
+            }
+        }
+    }
+
+    void cancelRxSubscriptionFor(const CanardRxSubscription& subscription,
+                                 const CanardTransferKind    transfer_kind) noexcept
+    {
+        const std::int8_t result = ::canardRxUnsubscribe(&canard_instance_, transfer_kind, subscription.port_id);
+        (void) result;
+        CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
+        CETL_DEBUG_ASSERT(result > 0, "Subscription supposed to be made at node constructor.");
     }
 
     CETL_NODISCARD static cetl::optional<AnyFailure> optAnyFailureFromCanard(const std::int32_t result)
@@ -276,7 +369,7 @@ public:
     /// @param tx_queue The TX queue from which the item should be popped.
     /// @param canard_instance The Canard instance to be used for the item deallocation.
     /// @param tx_item The TX queue item to be popped and freed.
-    /// @param whole_transfer If `true` then whole transfer should be released from the queue.
+    /// @param whole_transfer If `true` then the whole transfer should be released from the queue.
     ///
     static void popAndFreeCanardTxQueueItem(CanardTxQueue&        tx_queue,
                                             const CanardInstance& canard_instance,
@@ -307,12 +400,19 @@ public:
     ///
     /// @param event_var Describes variant of the session even has happened.
     ///
-    virtual void onSessionEvent(const SessionEvent::Variant& event_var) = 0;
+    virtual void onSessionEvent(const SessionEvent::Variant& event_var) noexcept = 0;
+
+    /// @brief Tries to find a response RX session delegate for the given parameters.
+    ///
+    /// @return `nullptr` if no session delegate found for the given parameters.
+    ///
+    virtual IRxSessionDelegate* tryFindRxSessionDelegateFor(const ResponseRxParams& params) = 0;
 
 protected:
     explicit TransportDelegate(cetl::pmr::memory_resource& memory)
         : memory_{memory}
         , canard_instance_{::canardInit(makeCanardMemoryResource())}
+        , rx_subs_demux_nodes_{memory}
     {
         // No Sonar `cpp:S5356` b/c we integrate here with C libcanard API.
         canardInstance().user_reference = this;  // NOSONAR cpp:S5356
@@ -321,6 +421,81 @@ protected:
     ~TransportDelegate() = default;
 
 private:
+    template <typename Node>
+    using SessionTree = transport::detail::SessionTree<Node>;
+
+    /// Accepts transfers from RX subscription and forwards them to the appropriate session (according to source node
+    /// id). Has reference counting so that it will be destroyed when no longer referenced by any RX session.
+    ///
+    class RxSubsDemuxNode final : public SessionTree<RxSubsDemuxNode>::NodeBase, public IRxSessionDelegate
+    {
+    public:
+        RxSubsDemuxNode(const ResponseRxParams& params, std::tuple<TransportDelegate&> args_tuple)
+            : transport_delegate_{std::get<0>(args_tuple)}
+            , ref_count_{0}
+            , subscription_{}
+        {
+            transport_delegate_.listenForRxSubscription(subscription_, params);
+
+            // No Sonar `cpp:S5356` b/c we integrate here with C libudpard API.
+            subscription_.user_reference = static_cast<IRxSessionDelegate*>(this);  // NOSONAR cpp:S5356
+        }
+
+        RxSubsDemuxNode(const RxSubsDemuxNode&)                = delete;
+        RxSubsDemuxNode(RxSubsDemuxNode&&) noexcept            = delete;
+        RxSubsDemuxNode& operator=(const RxSubsDemuxNode&)     = delete;
+        RxSubsDemuxNode& operator=(RxSubsDemuxNode&&) noexcept = delete;
+
+        ~RxSubsDemuxNode()
+        {
+            transport_delegate_.cancelRxSubscriptionFor(subscription_, CanardTransferKindResponse);
+        }
+
+        CETL_NODISCARD std::int32_t compareByParams(const ResponseRxParams& params) const
+        {
+            return static_cast<std::int32_t>(subscription_.port_id) - static_cast<std::int32_t>(params.service_id);
+        }
+
+        CETL_NODISCARD CanardRxSubscription& subscription() noexcept
+        {
+            return subscription_;
+        }
+
+        void retain() noexcept
+        {
+            ++ref_count_;
+        }
+
+        bool release() noexcept
+        {
+            CETL_DEBUG_ASSERT(ref_count_ > 0, "");
+            --ref_count_;
+            return ref_count_ == 0;
+        }
+
+    private:
+        // IRxSessionDelegate
+
+        void acceptRxTransfer(const CanardRxTransfer& transfer) override
+        {
+            // This is where de-multiplexing happens: the transfer is forwarded to the appropriate session.
+            // It's ok not to find the session delegate here - we drop unsolicited transfers.
+            //
+            const ResponseRxParams params{0, subscription_.port_id, transfer.metadata.remote_node_id};
+            if (auto* const session_delegate = transport_delegate_.tryFindRxSessionDelegateFor(params))
+            {
+                session_delegate->acceptRxTransfer(transfer);
+            }
+        }
+
+        // MARK: Data members:
+
+        TransportDelegate&   transport_delegate_;
+        std::size_t          ref_count_;
+        CanardRxSubscription subscription_;
+
+    };  // RxSubsDemuxNode
+
     /// @brief Converts Canard instance to the transport delegate.
     ///
     /// In use to bridge two worlds: canard library and transport entities.
@@ -364,35 +539,29 @@ private:
         return {this, freeCanardMemory, allocateMemoryForCanard};  // NOSONAR cpp:S5356
     }
 
+    void listenForRxSubscriptionImpl(CanardRxSubscription&    subscription,
+                                     const CanardTransferKind transfer_kind,
+                                     const CanardPortID       port_id,
+                                     const size_t             extent_bytes)
+    {
+        const std::int8_t result = ::canardRxSubscribe(&canard_instance_,
+                                                       transfer_kind,
+                                                       port_id,
+                                                       extent_bytes,
+                                                       CANARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC,
+                                                       &subscription);
+        (void) result;
+        CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
+        CETL_DEBUG_ASSERT(result > 0, "New subscription supposed to be made.");
+    }
+
     // MARK: Data members:
 
-    cetl::pmr::memory_resource& memory_;
-    CanardInstance              canard_instance_;
+    cetl::pmr::memory_resource&  memory_;
+    CanardInstance               canard_instance_;
+    SessionTree<RxSubsDemuxNode> rx_subs_demux_nodes_;
 
 };  // TransportDelegate
-
-// MARK: -
-
-/// This internal session delegate class serves the following purpose: it provides an interface (aka gateway)
-/// to access RX session from transport (by casting canard's `user_reference` member to this class).
-///
-class IRxSessionDelegate
-{
-public:
-    IRxSessionDelegate(const IRxSessionDelegate&)                = delete;
-    IRxSessionDelegate(IRxSessionDelegate&&) noexcept            = delete;
-    IRxSessionDelegate& operator=(const IRxSessionDelegate&)     = delete;
-    IRxSessionDelegate& operator=(IRxSessionDelegate&&) noexcept = delete;
-
-    /// @brief Accepts a received transfer from the transport dedicated to this RX session.
-    ///
-    virtual void acceptRxTransfer(const CanardRxTransfer& transfer) = 0;
-
-protected:
-    IRxSessionDelegate()  = default;
-    ~IRxSessionDelegate() = default;
-
-};  // IRxSessionDelegate
 
 }  // namespace detail
 }  // namespace can

@@ -7,9 +7,10 @@
 #include "tracking_memory_resource.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
+#include <libcyphal/common/cavl/cavl.hpp>
 #include <libcyphal/errors.hpp>
 #include <libcyphal/transport/errors.hpp>
-#include <libcyphal/transport/udp/session_tree.hpp>
+#include <libcyphal/transport/session_tree.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -24,8 +25,7 @@ namespace
 {
 
 using libcyphal::MemoryError;
-using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
-using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
+using namespace libcyphal::transport;  // NOLINT This our main concern here in the unit tests.
 
 using testing::_;
 using testing::StrEq;
@@ -42,10 +42,11 @@ using testing::VariantWith;
 class TestSessionTree : public testing::Test
 {
 protected:
-    class MyNode final : public detail::RxSessionTreeNode::Base<MyNode>
+    class MyNode final : public libcyphal::common::cavl::Node<MyNode>
     {
     public:
-        using Params = std::int32_t;
+        using Params           = std::int32_t;
+        using ReferenceWrapper = std::reference_wrapper<MyNode>;
 
         explicit MyNode(const Params& params, const std::tuple<const char*>& args_tuple)
             : params_{params}

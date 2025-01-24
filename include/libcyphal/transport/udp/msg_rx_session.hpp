@@ -7,7 +7,6 @@
 #define LIBCYPHAL_TRANSPORT_UDP_MSG_RX_SESSION_HPP_INCLUDED
 
 #include "delegate.hpp"
-#include "session_tree.hpp"
 
 #include "libcyphal/errors.hpp"
 #include "libcyphal/transport/errors.hpp"
@@ -50,7 +49,7 @@ class MessageRxSession final : private IMsgRxSessionDelegate, public IMessageRxS
     };
 
 public:
-    CETL_NODISCARD static Expected<UniquePtr<IMessageRxSession>, AnyFailure> make(
+    CETL_NODISCARD static Expected<UniquePtr<IMessageRxSession>, AnyFailure> make(  //
         cetl::pmr::memory_resource& memory,
         TransportDelegate&          delegate,
         const MessageRxParams&      params,

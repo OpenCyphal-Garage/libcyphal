@@ -54,7 +54,9 @@ using testing::VariantWith;
 class TestUdpDelegate : public testing::Test
 {
 protected:
-    class TransportDelegateImpl final : public detail::TransportDelegate
+    using TransportDelegate = udp::detail::TransportDelegate;
+
+    class TransportDelegateImpl final : public TransportDelegate
     {
     public:
         using TransportDelegate::MemoryResources;
@@ -80,7 +82,7 @@ protected:
                      const PayloadFragments                           payload_fragments),
                     (override));
 
-        MOCK_METHOD(void, onSessionEvent, (const SessionEvent::Variant& event_var), (override));
+        MOCK_METHOD(void, onSessionEvent, (const SessionEvent::Variant& event_var), (noexcept, override));
 
         MOCK_METHOD(udp::detail::IRxSessionDelegate*,
                     tryFindRxSessionDelegateFor,
@@ -147,7 +149,7 @@ protected:
 
 TEST_F(TestUdpDelegate, UdpardMemory_copy)
 {
-    using UdpardMemory = udp::detail::TransportDelegate::UdpardMemory;
+    using UdpardMemory = TransportDelegate::UdpardMemory;
 
     TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
 
@@ -208,7 +210,7 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy)
 
 TEST_F(TestUdpDelegate, UdpardMemory_copy_on_moved)
 {
-    using UdpardMemory = udp::detail::TransportDelegate::UdpardMemory;
+    using UdpardMemory = TransportDelegate::UdpardMemory;
 
     TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
 
@@ -246,7 +248,7 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy_on_moved)
 
 TEST_F(TestUdpDelegate, UdpardMemory_copy_multi_fragmented)
 {
-    using UdpardMemory = udp::detail::TransportDelegate::UdpardMemory;
+    using UdpardMemory = TransportDelegate::UdpardMemory;
 
     TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
 
@@ -322,7 +324,7 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy_multi_fragmented)
 
 TEST_F(TestUdpDelegate, UdpardMemory_copy_empty)
 {
-    using UdpardMemory = udp::detail::TransportDelegate::UdpardMemory;
+    using UdpardMemory = TransportDelegate::UdpardMemory;
 
     TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
 
@@ -341,21 +343,21 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy_empty)
 
 TEST_F(TestUdpDelegate, optAnyFailureFromUdpard)
 {
-    EXPECT_THAT(udp::detail::TransportDelegate::optAnyFailureFromUdpard(-UDPARD_ERROR_MEMORY),
+    EXPECT_THAT(TransportDelegate::optAnyFailureFromUdpard(-UDPARD_ERROR_MEMORY),
                 Optional(VariantWith<MemoryError>(_)));
 
-    EXPECT_THAT(udp::detail::TransportDelegate::optAnyFailureFromUdpard(-UDPARD_ERROR_ARGUMENT),
+    EXPECT_THAT(TransportDelegate::optAnyFailureFromUdpard(-UDPARD_ERROR_ARGUMENT),
                 Optional(VariantWith<libcyphal::ArgumentError>(_)));
 
-    EXPECT_THAT(udp::detail::TransportDelegate::optAnyFailureFromUdpard(-UDPARD_ERROR_CAPACITY),
+    EXPECT_THAT(TransportDelegate::optAnyFailureFromUdpard(-UDPARD_ERROR_CAPACITY),
                 Optional(VariantWith<CapacityError>(_)));
 
-    EXPECT_THAT(udp::detail::TransportDelegate::optAnyFailureFromUdpard(-UDPARD_ERROR_ANONYMOUS),
+    EXPECT_THAT(TransportDelegate::optAnyFailureFromUdpard(-UDPARD_ERROR_ANONYMOUS),
                 Optional(VariantWith<AnonymousError>(_)));
 
-    EXPECT_THAT(udp::detail::TransportDelegate::optAnyFailureFromUdpard(0), Eq(cetl::nullopt));
-    EXPECT_THAT(udp::detail::TransportDelegate::optAnyFailureFromUdpard(1), Eq(cetl::nullopt));
-    EXPECT_THAT(udp::detail::TransportDelegate::optAnyFailureFromUdpard(-1), Eq(cetl::nullopt));
+    EXPECT_THAT(TransportDelegate::optAnyFailureFromUdpard(0), Eq(cetl::nullopt));
+    EXPECT_THAT(TransportDelegate::optAnyFailureFromUdpard(1), Eq(cetl::nullopt));
+    EXPECT_THAT(TransportDelegate::optAnyFailureFromUdpard(-1), Eq(cetl::nullopt));
 }
 
 TEST_F(TestUdpDelegate, makeUdpardMemoryResource)

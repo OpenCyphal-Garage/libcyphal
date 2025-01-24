@@ -10,7 +10,7 @@
 #include "media.hpp"
 #include "msg_rx_session.hpp"
 #include "msg_tx_session.hpp"
-#include "session_tree.hpp"
+#include "rx_session_tree_node.hpp"
 #include "svc_rx_sessions.hpp"
 #include "svc_tx_sessions.hpp"
 #include "tx_rx_sockets.hpp"
@@ -21,6 +21,7 @@
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/lizard_helpers.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
+#include "libcyphal/transport/session_tree.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
@@ -275,7 +276,7 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IMessageRxSession>, AnyFailure> makeMessageRxSession(
         const MessageRxParams& params) override
     {
-        return makeMsgRxSession(params, msg_rx_session_nodes_);
+        return makeMsgRxSessionImpl(params, msg_rx_session_nodes_);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IMessageTxSession>, AnyFailure> makeMessageTxSession(
@@ -293,7 +294,9 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IRequestRxSession>, AnyFailure> makeRequestRxSession(
         const RequestRxParams& params) override
     {
-        return makeSvcRxSession<IRequestRxSession, SvcRequestRxSession>(params, svc_request_rx_session_nodes_);
+        return makeSvcRxSessionImpl<IRequestRxSession, SvcRequestRxSession>(  //
+            params,
+            svc_request_rx_session_nodes_);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IRequestTxSession>, AnyFailure> makeRequestTxSession(
@@ -311,7 +314,9 @@ private:
     CETL_NODISCARD Expected<UniquePtr<IResponseRxSession>, AnyFailure> makeResponseRxSession(
         const ResponseRxParams& params) override
     {
-        return makeSvcRxSession<IResponseRxSession, SvcResponseRxSession>(params, svc_response_rx_session_nodes_);
+        return makeSvcRxSessionImpl<IResponseRxSession, SvcResponseRxSession>(  //
+            params,
+            svc_response_rx_session_nodes_);
     }
 
     CETL_NODISCARD Expected<UniquePtr<IResponseTxSession>, AnyFailure> makeResponseTxSession(
@@ -380,7 +385,7 @@ private:
         return cetl::nullopt;
     }
 
-    void onSessionEvent(const SessionEvent::Variant& event_var) override
+    void onSessionEvent(const SessionEvent::Variant& event_var) noexcept override
     {
         cetl::visit(cetl::make_overloaded(
                         [this](const SessionEvent::MsgDestroyed& msg_session_destroyed) {
@@ -413,6 +418,9 @@ private:
 
     using Self              = TransportImpl;
     using ContiguousPayload = transport::detail::ContiguousPayload;
+
+    template <typename Node>
+    using SessionTree = transport::detail::SessionTree<Node>;
 
     struct TxTransferHandler
     {
@@ -478,21 +486,24 @@ private:
 
     };  // TxTransferHandler
 
-    CETL_NODISCARD auto makeMsgRxSession(const MessageRxParams&                   rx_params,
-                                         SessionTree<RxSessionTreeNode::Message>& tree_nodes)
-        -> Expected<UniquePtr<IMessageRxSession>, AnyFailure>
+    CETL_NODISCARD auto makeMsgRxSessionImpl(  //
+        const MessageRxParams&                   params,
+        SessionTree<RxSessionTreeNode::Message>& tree_nodes) -> Expected<UniquePtr<IMessageRxSession>, AnyFailure>
     {
-        auto node_result = tree_nodes.ensureNodeFor<true>(rx_params);  // should be new
+        // Make sure that session is unique per given parameters.
+        // For message sessions, the uniqueness is based on the subject ID.
+        //
+        auto node_result = tree_nodes.ensureNodeFor<true>(params);  // should be new
         if (auto* const failure = cetl::get_if<AnyFailure>(&node_result))
         {
             return std::move(*failure);
         }
-        auto& new_msg_node = cetl::get<RxSessionTreeNode::Message::ReferenceWrapper>(node_result).get();
+        auto& new_msg_node = cetl::get<RxSessionTreeNode::Message::RefWrapper>(node_result).get();
 
-        auto session_result = MessageRxSession::make(memoryResources().general, asDelegate(), rx_params, new_msg_node);
+        auto session_result = MessageRxSession::make(memoryResources().general, asDelegate(), params, new_msg_node);
         if (auto* const failure = cetl::get_if<AnyFailure>(&session_result))
         {
-            tree_nodes.removeNodeFor(rx_params);
+            tree_nodes.removeNodeFor(params);
             return std::move(*failure);
         }
 
@@ -522,9 +533,10 @@ private:
         return session_result;
     }
 
-    template <typename Interface, typename Concrete, typename RxParams, typename Tree>
-    CETL_NODISCARD auto makeSvcRxSession(const RxParams& rx_params,
-                                         Tree&           tree_nodes) -> Expected<UniquePtr<Interface>, AnyFailure>
+    template <typename Interface, typename Concrete, typename Params, typename Tree>
+    CETL_NODISCARD auto makeSvcRxSessionImpl(  //
+        const Params& params,
+        Tree&         tree_nodes) -> Expected<UniquePtr<Interface>, AnyFailure>
     {
         // Try to create all (per each media) shared RX sockets for services.
         // For now, we're just creating them, without any attempt to use them yet - hence the "do nothing" action.
@@ -545,21 +557,23 @@ private:
             return std::move(media_failure.value());
         }
 
-        // Make sure that session is unique per port.
+        // Make sure that session is unique per given parameters.
+        // For request sessions, the uniqueness is based on the service ID.
+        // For response sessions, the uniqueness is based on the service ID and the server node ID.
         //
-        auto node_result = tree_nodes.template ensureNodeFor<true>(rx_params);  // should be new
+        auto node_result = tree_nodes.template ensureNodeFor<true>(params);  // should be new
         if (auto* const failure = cetl::get_if<AnyFailure>(&node_result))
         {
             return std::move(*failure);
         }
-        auto& new_svc_node = cetl::get<typename Tree::NodeRef>(node_result).get();
+        auto& new_svc_node = cetl::get<typename Tree::NodeBase::RefWrapper>(node_result).get();
 
-        auto session_result = Concrete::make(memoryResources().general, asDelegate(), rx_params, new_svc_node);
+        auto session_result = Concrete::make(memoryResources().general, asDelegate(), params, new_svc_node);
         if (nullptr != cetl::get_if<AnyFailure>(&session_result))
         {
-            // We failed to create the session, so we need to release the unique port id node.
+            // We failed to create the session, so we need to release the unique node.
             // The sockets we made earlier will be released in the destructor of whole transport.
-            tree_nodes.removeNodeFor(rx_params);
+            tree_nodes.removeNodeFor(params);
         }
 
         return session_result;

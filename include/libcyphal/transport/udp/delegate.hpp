@@ -6,13 +6,15 @@
 #ifndef LIBCYPHAL_TRANSPORT_UDP_DELEGATE_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_UDP_DELEGATE_HPP_INCLUDED
 
+#include "rx_session_tree_node.hpp"
+
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
+#include "libcyphal/transport/session_tree.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/transport/udp/tx_rx_sockets.hpp"
-#include "session_tree.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
@@ -275,10 +277,10 @@ public:
         return rx_rpc_dispatcher_;
     }
 
-    void listenForRxRpcPort(UdpardRxRPCPort& rpc_port_, const RequestRxParams& params)
+    void listenForRxRpcPort(UdpardRxRPCPort& rpc_port, const RequestRxParams& params)
     {
         const std::int8_t result = ::udpardRxRPCDispatcherListen(&rx_rpc_dispatcher_,
-                                                                 &rpc_port_,
+                                                                 &rpc_port,
                                                                  params.service_id,
                                                                  true,  // request
                                                                  params.extent_bytes);
@@ -287,10 +289,10 @@ public:
         CETL_DEBUG_ASSERT(result == 1, "A new registration has been expected to be created.");
     }
 
-    void listenForRxRpcPort(UdpardRxRPCPort& rpc_port_, const ResponseRxParams& params)
+    void listenForRxRpcPort(UdpardRxRPCPort& rpc_port, const ResponseRxParams& params)
     {
         const std::int8_t result = ::udpardRxRPCDispatcherListen(&rx_rpc_dispatcher_,
-                                                                 &rpc_port_,
+                                                                 &rpc_port,
                                                                  params.service_id,
                                                                  false,  // response
                                                                  params.extent_bytes);
@@ -302,7 +304,7 @@ public:
     void retainRxRpcPortFor(const ResponseRxParams& params)
     {
         const auto maybe_node = rx_rpc_port_demux_nodes_.ensureNodeFor(params, std::ref(*this));
-        if (const auto* const node = cetl::get_if<RxRpcPortDemuxNode::ReferenceWrapper>(&maybe_node))
+        if (const auto* const node = cetl::get_if<RxRpcPortDemuxNode::RefWrapper>(&maybe_node))
         {
             node->get().retain();
         }
@@ -401,7 +403,7 @@ public:
     ///
     /// @param event_var Describes variant of the session even has happened.
     ///
-    virtual void onSessionEvent(const SessionEvent::Variant& event_var) = 0;
+    virtual void onSessionEvent(const SessionEvent::Variant& event_var) noexcept = 0;
 
     /// @brief Tries to find a response RX session delegate for the given parameters.
     ///
@@ -469,10 +471,13 @@ protected:
     }
 
 private:
+    template <typename Node>
+    using SessionTree = transport::detail::SessionTree<Node>;
+
     /// Accepts transfers from RX RPC port and forwards them to the appropriate session (according to source node id).
     /// Has reference counting so that it will be destroyed when no longer referenced by any RX session.
     ///
-    class RxRpcPortDemuxNode final : public RxSessionTreeNode::Base<RxRpcPortDemuxNode>, public IRxSessionDelegate
+    class RxRpcPortDemuxNode final : public SessionTree<RxRpcPortDemuxNode>::NodeBase, public IRxSessionDelegate
     {
     public:
         RxRpcPortDemuxNode(const ResponseRxParams& params, std::tuple<TransportDelegate&> args_tuple)
