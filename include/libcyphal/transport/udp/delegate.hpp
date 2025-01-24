@@ -7,10 +7,12 @@
 #define LIBCYPHAL_TRANSPORT_UDP_DELEGATE_HPP_INCLUDED
 
 #include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/scattered_buffer.hpp"
+#include "libcyphal/transport/svc_sessions.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/transport/udp/tx_rx_sockets.hpp"
-#include "libcyphal/types.hpp"
+#include "session_tree.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
@@ -21,6 +23,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <utility>
 
 namespace libcyphal
@@ -67,6 +70,54 @@ struct AnyUdpardTxMetadata
     using Variant = cetl::variant<Publish, Request, Respond>;
 
 };  // AnyUdpardTxMetadata
+
+// MARK: -
+
+/// This internal session delegate class serves the following purpose: it provides an interface (aka gateway)
+/// to access RX session from transport (by casting udpard `user_reference` member to this class).
+///
+class IRxSessionDelegate
+{
+public:
+    IRxSessionDelegate(const IRxSessionDelegate&)                = delete;
+    IRxSessionDelegate(IRxSessionDelegate&&) noexcept            = delete;
+    IRxSessionDelegate& operator=(const IRxSessionDelegate&)     = delete;
+    IRxSessionDelegate& operator=(IRxSessionDelegate&&) noexcept = delete;
+
+    /// @brief Accepts a received transfer from the transport dedicated to this RX session.
+    ///
+    /// @param inout_transfer The received transfer to be accepted. An implementation is expected to take ownership
+    ///                       of the transfer payload, and to release it when it is no longer needed.
+    ///                       On exit the original transfer's `payload_size` and `payload` fields are set to zero.
+    ///
+    virtual void acceptRxTransfer(UdpardRxTransfer& inout_transfer) = 0;
+
+protected:
+    IRxSessionDelegate()  = default;
+    ~IRxSessionDelegate() = default;
+
+};  // IRxSessionDelegate
+
+/// This internal session delegate class serves the following purpose:
+/// it provides an interface (aka gateway) to access Message RX session from transport.
+///
+class IMsgRxSessionDelegate : public IRxSessionDelegate
+{
+public:
+    IMsgRxSessionDelegate(const IMsgRxSessionDelegate&)                = delete;
+    IMsgRxSessionDelegate(IMsgRxSessionDelegate&&) noexcept            = delete;
+    IMsgRxSessionDelegate& operator=(const IMsgRxSessionDelegate&)     = delete;
+    IMsgRxSessionDelegate& operator=(IMsgRxSessionDelegate&&) noexcept = delete;
+
+    CETL_NODISCARD virtual UdpardRxSubscription& getSubscription() = 0;
+
+protected:
+    IMsgRxSessionDelegate()  = default;
+    ~IMsgRxSessionDelegate() = default;
+
+};  // IMsgRxSessionDelegate
+
+// MARK: -
 
 /// This internal transport delegate class serves the following purposes:
 /// 1. It provides memory management functions for the Udpard library.
@@ -179,17 +230,17 @@ public:
     {
         struct MsgDestroyed
         {
-            PortId subject_id;
+            MessageRxParams params;
         };
 
         struct SvcRequestDestroyed
         {
-            PortId service_id;
+            RequestRxParams params;
         };
 
         struct SvcResponseDestroyed
         {
-            PortId service_id;
+            ResponseRxParams params;
         };
 
         using Variant = cetl::variant<MsgDestroyed, SvcRequestDestroyed, SvcResponseDestroyed>;
@@ -211,7 +262,7 @@ public:
         udpard_node_id_ = node_id;
 
         UdpardUDPIPEndpoint endpoint{};
-        const std::int8_t   result = ::udpardRxRPCDispatcherStart(&rpc_dispatcher_, node_id, &endpoint);
+        const std::int8_t   result = ::udpardRxRPCDispatcherStart(&rx_rpc_dispatcher_, node_id, &endpoint);
         (void) result;
         CETL_DEBUG_ASSERT(result == 0, "There is no way currently to get an error here.");
 
@@ -220,7 +271,70 @@ public:
 
     CETL_NODISCARD UdpardRxRPCDispatcher& getUdpardRpcDispatcher() noexcept
     {
-        return rpc_dispatcher_;
+        return rx_rpc_dispatcher_;
+    }
+
+    void listenForRxRpcPort(UdpardRxRPCPort& rpc_port_, const RequestRxParams& params)
+    {
+        const std::int8_t result = ::udpardRxRPCDispatcherListen(&rx_rpc_dispatcher_,
+                                                                 &rpc_port_,
+                                                                 params.service_id,
+                                                                 true,  // request
+                                                                 params.extent_bytes);
+        (void) result;
+        CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
+        CETL_DEBUG_ASSERT(result == 1, "A new registration has been expected to be created.");
+    }
+
+    void listenForRxRpcPort(UdpardRxRPCPort& rpc_port_, const ResponseRxParams& params)
+    {
+        const std::int8_t result = ::udpardRxRPCDispatcherListen(&rx_rpc_dispatcher_,
+                                                                 &rpc_port_,
+                                                                 params.service_id,
+                                                                 false,  // response
+                                                                 params.extent_bytes);
+        (void) result;
+        CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
+        CETL_DEBUG_ASSERT(result == 1, "A new registration has been expected to be created.");
+    }
+
+    void retainRxRpcPortFor(const ResponseRxParams& params)
+    {
+        const auto maybe_node = rx_rpc_port_demux_nodes_.ensureNodeFor(params, std::ref(*this));
+        if (const auto* const node = cetl::get_if<RxRpcPortDemuxNode::ReferenceWrapper>(&maybe_node))
+        {
+            node->get().retain();
+        }
+    }
+
+    CETL_NODISCARD UdpardRxRPCPort* findRxRpcPortFor(const ResponseRxParams& params)
+    {
+        if (auto* const node = rx_rpc_port_demux_nodes_.tryFindNodeFor(params))
+        {
+            return &node->port();
+        }
+        return nullptr;
+    }
+
+    void releaseRxRpcPortFor(const ResponseRxParams& params)
+    {
+        if (auto* const node = rx_rpc_port_demux_nodes_.tryFindNodeFor(params))
+        {
+            if (node->release())
+            {
+                rx_rpc_port_demux_nodes_.removeNodeFor(params);
+            }
+        }
+    }
+
+    void cancelRxRpcPortFor(const UdpardRxRPCPort& rpc_port_, const bool is_request)
+    {
+        const std::int8_t result = ::udpardRxRPCDispatcherCancel(&rx_rpc_dispatcher_,
+                                                                 rpc_port_.service_id,
+                                                                 is_request);  // request
+        (void) result;
+        CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
+        CETL_DEBUG_ASSERT(result == 1, "Existing registration has been expected to be cancelled.");
     }
 
     CETL_NODISCARD static cetl::optional<AnyFailure> optAnyFailureFromUdpard(const std::int32_t result)
@@ -288,8 +402,14 @@ public:
     ///
     virtual void onSessionEvent(const SessionEvent::Variant& event_var) = 0;
 
+    /// @brief Tries to find a response RX session delegate for the given parameters.
+    ///
+    /// @return `nullptr` if no session delegate found for the given parameters.
+    ///
+    virtual IRxSessionDelegate* tryFindRxSessionDelegateFor(const ResponseRxParams& params) = 0;
+
 protected:
-    /// @brief Defines internal set of memory resources used by the UDP transport.
+    /// @brief Defines an internal set of memory resources used by the UDP transport.
     ///
     struct MemoryResources
     {
@@ -316,9 +436,10 @@ protected:
     explicit TransportDelegate(const MemoryResources& memory_resources)
         : udpard_node_id_{UDPARD_NODE_ID_UNSET}
         , memory_resources_{memory_resources}
-        , rpc_dispatcher_{}
+        , rx_rpc_dispatcher_{}
+        , rx_rpc_port_demux_nodes_{memory_resources.general}
     {
-        const std::int8_t result = ::udpardRxRPCDispatcherInit(&rpc_dispatcher_, makeUdpardRxMemoryResources());
+        const std::int8_t result = ::udpardRxRPCDispatcherInit(&rx_rpc_dispatcher_, makeUdpardRxMemoryResources());
         (void) result;
         CETL_DEBUG_ASSERT(result == 0, "There is no way currently to get an error here.");
     }
@@ -347,6 +468,78 @@ protected:
     }
 
 private:
+    /// Accepts transfers from RX RPC port and forwards them to the appropriate session (according to source node id).
+    /// Has reference counting so that it will be destroyed when no longer referenced by any RX session.
+    ///
+    class RxRpcPortDemuxNode final : public RxSessionTreeNode::Base<RxRpcPortDemuxNode>, public IRxSessionDelegate
+    {
+    public:
+        RxRpcPortDemuxNode(const ResponseRxParams& params, TransportDelegate& transport_delegate)
+            : transport_delegate_{transport_delegate}
+            , ref_count_{0}
+            , port_{}
+        {
+            transport_delegate_.listenForRxRpcPort(port_, params);
+
+            // No Sonar `cpp:S5356` b/c we integrate here with C libudpard API.
+            port_.user_reference = static_cast<IRxSessionDelegate*>(this);  // NOSONAR cpp:S5356
+        }
+
+        RxRpcPortDemuxNode(const RxRpcPortDemuxNode&)                = delete;
+        RxRpcPortDemuxNode(RxRpcPortDemuxNode&&) noexcept            = delete;
+        RxRpcPortDemuxNode& operator=(const RxRpcPortDemuxNode&)     = delete;
+        RxRpcPortDemuxNode& operator=(RxRpcPortDemuxNode&&) noexcept = delete;
+
+        virtual ~RxRpcPortDemuxNode()
+        {
+            transport_delegate_.cancelRxRpcPortFor(port_, false);  // response
+        }
+
+        CETL_NODISCARD std::int32_t compareByParams(const ResponseRxParams& params) const
+        {
+            return static_cast<std::int32_t>(port_.service_id) - static_cast<std::int32_t>(params.service_id);
+        }
+
+        CETL_NODISCARD UdpardRxRPCPort& port() noexcept
+        {
+            return port_;
+        }
+
+        void retain() noexcept
+        {
+            ++ref_count_;
+        }
+
+        bool release() noexcept
+        {
+            CETL_DEBUG_ASSERT(ref_count_ > 0, "");
+            --ref_count_;
+            return ref_count_ == 0;
+        }
+
+    private:
+        // IRxSessionDelegate
+
+        void acceptRxTransfer(UdpardRxTransfer& inout_transfer) override
+        {
+            // This is where de-multiplexing happens: the transfer is forwarded to the appropriate session.
+            // It's ok not to find the session delegate here - we drop unsolicited transfers.
+            //
+            const ResponseRxParams params{0, port_.service_id, inout_transfer.source_node_id};
+            if (auto* const session_delegate = transport_delegate_.tryFindRxSessionDelegateFor(params))
+            {
+                session_delegate->acceptRxTransfer(inout_transfer);
+            }
+        }
+
+        // MARK: Data members:
+
+        TransportDelegate& transport_delegate_;
+        std::size_t        ref_count_;
+        UdpardRxRPCPort    port_;
+
+    };  // RxRpcPortDemuxNode
+
     /// @brief Allocates memory for udpard.
     ///
     /// NOSONAR cpp:S5008 is unavoidable: this is integration with Udpard C memory management.
@@ -383,57 +576,12 @@ private:
 
     // MARK: Data members:
 
-    UdpardNodeID          udpard_node_id_;
-    const MemoryResources memory_resources_;
-    UdpardRxRPCDispatcher rpc_dispatcher_;
+    UdpardNodeID                    udpard_node_id_;
+    const MemoryResources           memory_resources_;
+    UdpardRxRPCDispatcher           rx_rpc_dispatcher_;
+    SessionTree<RxRpcPortDemuxNode> rx_rpc_port_demux_nodes_;
 
 };  // TransportDelegate
-
-// MARK: -
-
-/// This internal session delegate class serves the following purpose: it provides an interface (aka gateway)
-/// to access RX session from transport (by casting udpard `user_reference` member to this class).
-///
-class IRxSessionDelegate
-{
-public:
-    IRxSessionDelegate(const IRxSessionDelegate&)                = delete;
-    IRxSessionDelegate(IRxSessionDelegate&&) noexcept            = delete;
-    IRxSessionDelegate& operator=(const IRxSessionDelegate&)     = delete;
-    IRxSessionDelegate& operator=(IRxSessionDelegate&&) noexcept = delete;
-
-    /// @brief Accepts a received transfer from the transport dedicated to this RX session.
-    ///
-    /// @param inout_transfer The received transfer to be accepted. An implementation is expected to take ownership
-    ///                       of the transfer payload, and to release it when it is no longer needed.
-    ///                       On exit the original transfer's `payload_size` and `payload` fields are set to zero.
-    ///
-    virtual void acceptRxTransfer(UdpardRxTransfer& inout_transfer) = 0;
-
-protected:
-    IRxSessionDelegate()  = default;
-    ~IRxSessionDelegate() = default;
-
-};  // IRxSessionDelegate
-
-/// This internal session delegate class serves the following purpose:
-/// it provides an interface (aka gateway) to access Message RX session from transport.
-///
-class IMsgRxSessionDelegate : public IRxSessionDelegate
-{
-public:
-    IMsgRxSessionDelegate(const IMsgRxSessionDelegate&)                = delete;
-    IMsgRxSessionDelegate(IMsgRxSessionDelegate&&) noexcept            = delete;
-    IMsgRxSessionDelegate& operator=(const IMsgRxSessionDelegate&)     = delete;
-    IMsgRxSessionDelegate& operator=(IMsgRxSessionDelegate&&) noexcept = delete;
-
-    CETL_NODISCARD virtual UdpardRxSubscription& getSubscription() = 0;
-
-protected:
-    IMsgRxSessionDelegate()  = default;
-    ~IMsgRxSessionDelegate() = default;
-
-};  // IMsgRxSessionDelegate
 
 }  // namespace detail
 }  // namespace udp

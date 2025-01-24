@@ -6,12 +6,13 @@
 #ifndef LIBCYPHAL_TRANSPORT_UDP_SESSION_TREE_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_UDP_SESSION_TREE_HPP_INCLUDED
 
-#include "delegate.hpp"
 #include "tx_rx_sockets.hpp"
 
 #include "libcyphal/common/cavl/cavl.hpp"
 #include "libcyphal/executor.hpp"
 #include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/msg_sessions.hpp"
+#include "libcyphal/transport/svc_sessions.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
 
@@ -50,7 +51,7 @@ template <typename Node>
 class SessionTree final
 {
 public:
-    using NodeRef = typename Node::ReferenceWrapper;
+    using NodeRef = std::reference_wrapper<Node>;
 
     explicit SessionTree(cetl::pmr::memory_resource& mr)
         : allocator_{&mr}
@@ -72,16 +73,17 @@ public:
         return nodes_.empty();
     }
 
-    CETL_NODISCARD Expected<NodeRef, AnyFailure> ensureNewNodeFor(const PortId port_id)
+    template <bool ShouldBeNew = false, typename Params, typename... Args>
+    CETL_NODISCARD Expected<NodeRef, AnyFailure> ensureNodeFor(const Params& params, Args&&... args)
     {
         const auto node_existing = nodes_.search(
-            [port_id](const Node& node) {  // predicate
+            [&params](const Node& node) {  // predicate
                 //
-                return node.compareByPortId(port_id);
+                return node.compareByParams(params);
             },
-            [this, port_id]() {  // factory
+            [&] {
                 //
-                return constructNewNode(port_id);
+                return constructNewNode(params, std::forward<Args>(args)...);
             });
 
         auto* const node = std::get<0>(node_existing);
@@ -89,7 +91,7 @@ public:
         {
             return MemoryError{};
         }
-        if (std::get<1>(node_existing))
+        if (ShouldBeNew && std::get<1>(node_existing))
         {
             return AlreadyExistsError{};
         }
@@ -97,12 +99,19 @@ public:
         return *node;
     }
 
-    void removeNodeFor(const PortId port_id)
+    template <typename Params>
+    CETL_NODISCARD Node* tryFindNodeFor(const Params& params)
     {
-        removeAndDestroyNode(nodes_.search([port_id](const Node& node) {  // predicate
+        return nodes_.search([&params](const Node& node) {  // predicate
             //
-            return node.compareByPortId(port_id);
-        }));
+            return node.compareByParams(params);
+        });
+    }
+
+    template <typename Params>
+    void removeNodeFor(const Params& params)
+    {
+        removeAndDestroyNode(tryFindNodeFor(params));
     }
 
     template <typename Action>
@@ -112,12 +121,13 @@ public:
     }
 
 private:
-    CETL_NODISCARD Node* constructNewNode(const PortId port_id)
+    template <typename Params, typename... Args>
+    CETL_NODISCARD Node* constructNewNode(const Params& params, Args&&... args)
     {
         Node* const node = allocator_.allocate(1);
         if (nullptr != node)
         {
-            allocator_.construct(node, port_id);
+            allocator_.construct(node, params, std::forward<Args>(args)...);
         }
         return node;
     }
@@ -147,6 +157,9 @@ private:
 
 // MARK: -
 
+class IRxSessionDelegate;
+class IMsgRxSessionDelegate;
+
 struct RxSessionTreeNode
 {
     template <typename Derived>
@@ -156,21 +169,6 @@ struct RxSessionTreeNode
         using common::cavl::Node<Derived>::getChildNode;
         using ReferenceWrapper = std::reference_wrapper<Derived>;
 
-        explicit Base(const PortId port_id)
-            : port_id_{port_id}
-        {
-        }
-
-        CETL_NODISCARD std::int32_t compareByPortId(const PortId port_id) const
-        {
-            return static_cast<std::int32_t>(port_id_) - static_cast<std::int32_t>(port_id);
-        }
-
-    private:
-        // MARK: Data members:
-
-        PortId port_id_;
-
     };  // Base
 
     /// @brief Represents a message RX session node.
@@ -178,7 +176,15 @@ struct RxSessionTreeNode
     class Message final : public Base<Message>
     {
     public:
-        using Base::Base;
+        explicit Message(const MessageRxParams& params)
+            : subject_id_{params.subject_id}
+        {
+        }
+
+        CETL_NODISCARD std::int32_t compareByParams(const MessageRxParams& params) const
+        {
+            return static_cast<std::int32_t>(subject_id_) - static_cast<std::int32_t>(params.subject_id);
+        }
 
         CETL_NODISCARD IMsgRxSessionDelegate*& delegate() noexcept
         {
@@ -189,13 +195,14 @@ struct RxSessionTreeNode
         {
             CETL_DEBUG_ASSERT(media_index < socket_states_.size(), "");
 
-            // No lint b/c at transport constructor we made sure that number of media interfaces is bound.
+            // No lint b/c at transport constructor we made sure that the number of media interfaces is bound.
             return socket_states_[media_index];  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         }
 
     private:
         // MARK: Data members:
 
+        const PortId                                                           subject_id_;
         IMsgRxSessionDelegate*                                                 delegate_{nullptr};
         std::array<SocketState<IRxSocket>, UDPARD_NETWORK_INTERFACE_COUNT_MAX> socket_states_;
 
@@ -206,16 +213,57 @@ struct RxSessionTreeNode
     class Request final : public Base<Request>
     {
     public:
-        using Base::Base;
-    };
+        explicit Request(const RequestRxParams& params)
+            : service_id_{params.service_id}
+        {
+        }
+
+        CETL_NODISCARD std::int32_t compareByParams(const RequestRxParams& params) const
+        {
+            return static_cast<std::int32_t>(service_id_) - static_cast<std::int32_t>(params.service_id);
+        }
+
+    private:
+        // MARK: Data members:
+
+        const PortId service_id_;
+
+    };  // Request
 
     /// @brief Represents a service response RX session node.
     ///
     class Response final : public Base<Response>
     {
     public:
-        using Base::Base;
-    };
+        explicit Response(const ResponseRxParams& params)
+            : service_id_{params.service_id}
+            , server_node_id{params.server_node_id}
+            , delegate_{nullptr}
+        {
+        }
+
+        CETL_NODISCARD std::int32_t compareByParams(const ResponseRxParams& params) const
+        {
+            if (service_id_ != params.service_id)
+            {
+                return static_cast<std::int32_t>(service_id_) - static_cast<std::int32_t>(params.service_id);
+            }
+            return static_cast<std::int32_t>(server_node_id) - static_cast<std::int32_t>(params.server_node_id);
+        }
+
+        CETL_NODISCARD IRxSessionDelegate*& delegate() noexcept
+        {
+            return delegate_;
+        }
+
+    private:
+        // MARK: Data members:
+
+        const PortId        service_id_;
+        const NodeId        server_node_id;
+        IRxSessionDelegate* delegate_;
+
+    };  // Response
 
 };  // RxSessionTreeNode
 

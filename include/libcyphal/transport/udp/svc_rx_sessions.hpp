@@ -19,7 +19,6 @@
 #include <udpard.h>
 
 #include <chrono>
-#include <cstdint>
 #include <utility>
 
 namespace libcyphal
@@ -35,93 +34,39 @@ namespace udp
 namespace detail
 {
 
-/// @brief A template class to represent a service request/response RX session (both for server and client sides).
+/// @brief A base class to represent a service RX session.
 ///
-/// @tparam Interface_ Type of the session interface.
-///                    Could be either `IRequestRxSession` or `IResponseRxSession`.
-/// @tparam Params Type of the session parameters.
-///                Could be either `RequestRxParams` or `ResponseRxParams`.
-///
-template <typename Interface_, typename Params, typename SessionEvent, bool IsRequest>
-class SvcRxSession final : private IRxSessionDelegate, public Interface_
+template <typename Interface_, typename Params>
+class SvcRxSessionBase : public IRxSessionDelegate, public Interface_
 {
-    /// @brief Defines private specification for making interface unique ptr.
-    ///
-    struct Spec : libcyphal::detail::UniquePtrSpec<Interface_, SvcRxSession>
-    {
-        // `explicit` here is in use to disable public construction of derived private `Spec` structs.
-        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
-        explicit Spec() = default;
-    };
-
 public:
-    CETL_NODISCARD static Expected<UniquePtr<Interface_>, AnyFailure> make(cetl::pmr::memory_resource& memory,
-                                                                           TransportDelegate&          delegate,
-                                                                           const Params&               params)
-    {
-        if (params.service_id > UDPARD_SERVICE_ID_MAX)
-        {
-            return ArgumentError{};
-        }
-
-        auto session = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, delegate, params);
-        if (session == nullptr)
-        {
-            return MemoryError{};
-        }
-
-        return session;
-    }
-
-    SvcRxSession(const Spec, TransportDelegate& delegate, const Params& params)
+    SvcRxSessionBase(TransportDelegate& delegate, const Params& params)
         : delegate_{delegate}
         , params_{params}
-        , rpc_port_{}
     {
-        const std::int8_t result = ::udpardRxRPCDispatcherListen(&delegate.getUdpardRpcDispatcher(),
-                                                                 &rpc_port_,
-                                                                 params.service_id,
-                                                                 IsRequest,
-                                                                 params.extent_bytes);
-        (void) result;
-        CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
-        CETL_DEBUG_ASSERT(result == 1, "A new registration has been expected to be created.");
-
-        // No Sonar `cpp:S5356` b/c we integrate here with C libudpard API.
-        rpc_port_.user_reference = static_cast<IRxSessionDelegate*>(this);  // NOSONAR cpp:S5356
     }
 
-    SvcRxSession(const SvcRxSession&)                = delete;
-    SvcRxSession(SvcRxSession&&) noexcept            = delete;
-    SvcRxSession& operator=(const SvcRxSession&)     = delete;
-    SvcRxSession& operator=(SvcRxSession&&) noexcept = delete;
+    SvcRxSessionBase(const SvcRxSessionBase&)                = delete;
+    SvcRxSessionBase(SvcRxSessionBase&&) noexcept            = delete;
+    SvcRxSessionBase& operator=(const SvcRxSessionBase&)     = delete;
+    SvcRxSessionBase& operator=(SvcRxSessionBase&&) noexcept = delete;
 
-    ~SvcRxSession()
+protected:
+    ~SvcRxSessionBase() = default;
+
+    TransportDelegate& delegate()
     {
-        const std::int8_t result =
-            ::udpardRxRPCDispatcherCancel(&delegate_.getUdpardRpcDispatcher(), params_.service_id, IsRequest);
-        (void) result;
-        CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
-        CETL_DEBUG_ASSERT(result == 1, "Existing registration has been expected to be cancelled.");
-
-        delegate_.onSessionEvent(SessionEvent{params_.service_id});
+        return delegate_;
     }
 
-    // In use (public) for unit tests only.
-    const UdpardRxRPCPort& asRpcPort() const noexcept
-    {
-        return rpc_port_;
-    }
-
-private:
     // MARK: Interface
 
-    CETL_NODISCARD Params getParams() const noexcept override
+    CETL_NODISCARD Params getParams() const noexcept final
     {
         return params_;
     }
 
-    CETL_NODISCARD cetl::optional<ServiceRxTransfer> receive() override
+    CETL_NODISCARD cetl::optional<ServiceRxTransfer> receive() final
     {
         if (last_rx_transfer_)
         {
@@ -132,25 +77,14 @@ private:
         return cetl::nullopt;
     }
 
-    void setOnReceiveCallback(ISvcRxSession::OnReceiveCallback::Function&& function) override
+    void setOnReceiveCallback(ISvcRxSession::OnReceiveCallback::Function&& function) final
     {
         on_receive_cb_fn_ = std::move(function);
     }
 
-    // MARK: IRxSession
-
-    void setTransferIdTimeout(const Duration timeout) override
-    {
-        const auto timeout_us = std::chrono::duration_cast<std::chrono::microseconds>(timeout);
-        if (timeout_us >= Duration::zero())
-        {
-            rpc_port_.port.transfer_id_timeout_usec = static_cast<UdpardMicrosecond>(timeout_us.count());
-        }
-    }
-
     // MARK: IRxSessionDelegate
 
-    void acceptRxTransfer(UdpardRxTransfer& inout_transfer) override
+    void acceptRxTransfer(UdpardRxTransfer& inout_transfer) final
     {
         const auto transfer_id    = inout_transfer.transfer_id;
         const auto remote_node_id = inout_transfer.source_node_id;
@@ -173,27 +107,170 @@ private:
 
     TransportDelegate&                         delegate_;
     const Params                               params_;
-    UdpardRxRPCPort                            rpc_port_;
     cetl::optional<ServiceRxTransfer>          last_rx_transfer_;
     ISvcRxSession::OnReceiveCallback::Function on_receive_cb_fn_;
 
-};  // SvcRxSession
+};  // SvcRxSessionBase
 
 // MARK: -
 
 /// @brief A concrete class to represent a service request RX session (aka server side).
 ///
-using SvcRequestRxSession = SvcRxSession<IRequestRxSession,
-                                         RequestRxParams,
-                                         TransportDelegate::SessionEvent::SvcRequestDestroyed,
-                                         true /*IsRequest*/>;
+class SvcRequestRxSession final : public SvcRxSessionBase<IRequestRxSession, RequestRxParams>
+{
+    /// @brief Defines private specification for making interface unique ptr.
+    ///
+    struct Spec : libcyphal::detail::UniquePtrSpec<IRequestRxSession, SvcRequestRxSession>
+    {
+        // `explicit` here is in use to disable public construction of derived private `Spec` structs.
+        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
+        explicit Spec() = default;
+    };
+
+public:
+    CETL_NODISCARD static Expected<UniquePtr<IRequestRxSession>, AnyFailure> make(  //
+        cetl::pmr::memory_resource& memory,
+        TransportDelegate&          delegate,
+        const RequestRxParams&      params,
+        RxSessionTreeNode::Request&)
+    {
+        if (params.service_id > UDPARD_SERVICE_ID_MAX)
+        {
+            return ArgumentError{};
+        }
+
+        auto session = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, delegate, params);
+        if (session == nullptr)
+        {
+            return MemoryError{};
+        }
+
+        return session;
+    }
+
+    SvcRequestRxSession(const Spec, TransportDelegate& delegate, const RequestRxParams& params)
+        : Base{delegate, params}
+        , rpc_port_{}
+    {
+        delegate.listenForRxRpcPort(rpc_port_, params);
+
+        // No Sonar `cpp:S5356` b/c we integrate here with C libudpard API.
+        rpc_port_.user_reference = static_cast<IRxSessionDelegate*>(this);  // NOSONAR cpp:S5356
+    }
+
+    SvcRequestRxSession(const SvcRequestRxSession&)                = delete;
+    SvcRequestRxSession(SvcRequestRxSession&&) noexcept            = delete;
+    SvcRequestRxSession& operator=(const SvcRequestRxSession&)     = delete;
+    SvcRequestRxSession& operator=(SvcRequestRxSession&&) noexcept = delete;
+
+    ~SvcRequestRxSession()
+    {
+        delegate().cancelRxRpcPortFor(rpc_port_, true);  // request
+        delegate().onSessionEvent(TransportDelegate::SessionEvent::SvcRequestDestroyed{params_});
+    }
+
+    // In use (public) for unit tests only.
+    const UdpardRxRPCPort& asRpcPort() const noexcept
+    {
+        return rpc_port_;
+    }
+
+private:
+    using Base = SvcRxSessionBase;
+
+    // MARK: IRxSession
+
+    void setTransferIdTimeout(const Duration timeout) override
+    {
+        const auto timeout_us = std::chrono::duration_cast<std::chrono::microseconds>(timeout);
+        if (timeout_us >= Duration::zero())
+        {
+            rpc_port_.port.transfer_id_timeout_usec = static_cast<UdpardMicrosecond>(timeout_us.count());
+        }
+    }
+
+    // MARK: Data members:
+
+    UdpardRxRPCPort rpc_port_;
+
+};  // SvcRequestRxSession
+
+// MARK: -
 
 /// @brief A concrete class to represent a service response RX session (aka client side).
 ///
-using SvcResponseRxSession = SvcRxSession<IResponseRxSession,
-                                          ResponseRxParams,
-                                          TransportDelegate::SessionEvent::SvcResponseDestroyed,
-                                          false /*IsRequest*/>;
+class SvcResponseRxSession final : public SvcRxSessionBase<IResponseRxSession, ResponseRxParams>
+{
+    /// @brief Defines private specification for making interface unique ptr.
+    ///
+    struct Spec : libcyphal::detail::UniquePtrSpec<IResponseRxSession, SvcResponseRxSession>
+    {
+        // `explicit` here is in use to disable public construction of derived private `Spec` structs.
+        // See https://seanmiddleditch.github.io/enabling-make-unique-with-private-constructors/
+        explicit Spec() = default;
+    };
+
+public:
+    CETL_NODISCARD static Expected<UniquePtr<IResponseRxSession>, AnyFailure> make(  //
+        cetl::pmr::memory_resource&  memory,
+        TransportDelegate&           delegate,
+        const ResponseRxParams&      params,
+        RxSessionTreeNode::Response& rx_session_node)
+    {
+        if (params.service_id > UDPARD_SERVICE_ID_MAX)
+        {
+            return ArgumentError{};
+        }
+
+        auto session = libcyphal::detail::makeUniquePtr<Spec>(memory, Spec{}, delegate, params, rx_session_node);
+        if (session == nullptr)
+        {
+            return MemoryError{};
+        }
+
+        return session;
+    }
+
+    SvcResponseRxSession(const Spec,
+                         TransportDelegate&           delegate,
+                         const ResponseRxParams&      params,
+                         RxSessionTreeNode::Response& rx_session_node)
+        : Base{delegate, params}
+    {
+        delegate.retainRxRpcPortFor(params);
+
+        rx_session_node.delegate() = this;
+    }
+
+    SvcResponseRxSession(const SvcResponseRxSession&)                = delete;
+    SvcResponseRxSession(SvcResponseRxSession&&) noexcept            = delete;
+    SvcResponseRxSession& operator=(const SvcResponseRxSession&)     = delete;
+    SvcResponseRxSession& operator=(SvcResponseRxSession&&) noexcept = delete;
+
+    ~SvcResponseRxSession()
+    {
+        delegate().releaseRxRpcPortFor(params_);
+        delegate().onSessionEvent(TransportDelegate::SessionEvent::SvcResponseDestroyed{params_});
+    }
+
+private:
+    using Base = SvcRxSessionBase;
+
+    // MARK: IRxSession
+
+    void setTransferIdTimeout(const Duration timeout) override
+    {
+        const auto timeout_us = std::chrono::duration_cast<std::chrono::microseconds>(timeout);
+        if (timeout_us >= Duration::zero())
+        {
+            if (auto* const rpc_port = delegate_.findRxRpcPortFor(params_))
+            {
+                rpc_port->port.transfer_id_timeout_usec = static_cast<UdpardMicrosecond>(timeout_us.count());
+            }
+        }
+    }
+
+};  // SvcResponseRxSession
 
 }  // namespace detail
 }  // namespace udp

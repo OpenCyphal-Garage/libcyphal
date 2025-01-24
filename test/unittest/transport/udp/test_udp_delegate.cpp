@@ -10,6 +10,7 @@
 #include <cetl/pf17/cetlpf.hpp>
 #include <libcyphal/errors.hpp>
 #include <libcyphal/transport/errors.hpp>
+#include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/transport/udp/delegate.hpp>
 #include <libcyphal/types.hpp>
@@ -81,6 +82,11 @@ protected:
 
         MOCK_METHOD(void, onSessionEvent, (const SessionEvent::Variant& event_var), (override));
 
+        MOCK_METHOD(udp::detail::IRxSessionDelegate*,
+                    tryFindRxSessionDelegateFor,
+                    (const ResponseRxParams& params),
+                    (override));
+
     };  // TransportDelegateImpl
 
     void SetUp() override
@@ -108,7 +114,7 @@ protected:
     UdpardFragment* allocateNewUdpardFragment(const std::size_t size)
     {
         // This structure mimics internal Udpard `RxFragment` layout.
-        // We need this to know its size, so that test tear down can check if all memory was deallocated.
+        // We need this to know its size, so that test teardown can check if all memory was deallocated.
         // @see `EXPECT_THAT(fragment_mr_.total_allocated_bytes, fragment_mr_.total_deallocated_bytes);`
         //
         struct RxFragment
@@ -158,7 +164,7 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy)
 
     // Ask exactly as payload
     {
-        const std::size_t          ask_size = payload_size;
+        constexpr std::size_t      ask_size = payload_size;
         std::array<byte, ask_size> buffer{};
 
         EXPECT_THAT(udpard_memory.copy(0, buffer.data(), ask_size), ask_size);
@@ -167,7 +173,7 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy)
 
     // Ask more than payload
     {
-        const std::size_t          ask_size = payload_size + 2;
+        constexpr std::size_t      ask_size = payload_size + 2;
         std::array<byte, ask_size> buffer{};
 
         EXPECT_THAT(udpard_memory.copy(0, buffer.data(), ask_size), payload_size);
@@ -176,7 +182,7 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy)
 
     // Ask less than payload (with different offsets)
     {
-        const std::size_t          ask_size = payload_size - 2;
+        constexpr std::size_t      ask_size = payload_size - 2;
         std::array<byte, ask_size> buffer{};
 
         EXPECT_THAT(udpard_memory.copy(0, buffer.data(), ask_size), ask_size);
@@ -230,7 +236,7 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy_on_moved)
         EXPECT_THAT(buffer, Each(b('\0')));
     }
 
-    // Try new one
+    // Try a new one
     {
         std::array<byte, payload_size> buffer{};
         EXPECT_THAT(new_udpard_memory.copy(0, buffer.data(), buffer.size()), payload_size);
@@ -257,7 +263,7 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy_multi_fragmented)
     fillIotaBytes({payload1, 8}, b('A'));
     fillIotaBytes({payload2, 9}, b('a'));
 
-    const std::size_t payload_size       = 3 + 4 + 2;
+    constexpr std::size_t payload_size   = 3 + 4 + 2;
     rx_transfer.payload_size             = payload_size;
     rx_transfer.payload.view             = {3, payload0 + 2};
     rx_transfer.payload.next->view       = {4, payload1 + 1};
@@ -268,7 +274,7 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy_multi_fragmented)
 
     // Ask exactly as payload
     {
-        const std::size_t          ask_size = payload_size;
+        constexpr std::size_t      ask_size = payload_size;
         std::array<byte, ask_size> buffer{};
 
         EXPECT_THAT(udpard_memory.copy(0, buffer.data(), ask_size), ask_size);
@@ -277,7 +283,7 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy_multi_fragmented)
 
     // Ask more than payload
     {
-        const std::size_t          ask_size = payload_size + 2;
+        constexpr std::size_t      ask_size = payload_size + 2;
         std::array<byte, ask_size> buffer{};
 
         EXPECT_THAT(udpard_memory.copy(0, buffer.data(), ask_size), payload_size);
@@ -287,7 +293,7 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy_multi_fragmented)
 
     // Ask less than payload (with different offsets)
     {
-        const std::size_t          ask_size = payload_size - 2;
+        constexpr std::size_t      ask_size = payload_size - 2;
         std::array<byte, ask_size> buffer{};
 
         EXPECT_THAT(udpard_memory.copy(0, buffer.data(), ask_size), ask_size);

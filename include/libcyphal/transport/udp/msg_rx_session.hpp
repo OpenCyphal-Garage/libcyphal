@@ -97,7 +97,7 @@ public:
     {
         ::udpardRxSubscriptionFree(&subscription_);
 
-        delegate_.onSessionEvent(TransportDelegate::SessionEvent::MsgDestroyed{params_.subject_id});
+        delegate_.onSessionEvent(TransportDelegate::SessionEvent::MsgDestroyed{params_});
     }
 
     // In use (public) for unit tests only.

@@ -42,7 +42,6 @@ namespace
 using libcyphal::TimePoint;
 using libcyphal::UniquePtr;
 using libcyphal::MemoryError;
-using Callback = libcyphal::IExecutor::Callback;
 using namespace libcyphal::transport;       // NOLINT This our main concern here in the unit tests.
 using namespace libcyphal::transport::udp;  // NOLINT This our main concern here in the unit tests.
 
@@ -494,20 +493,26 @@ TEST_F(TestUdpSvcRxSessions, receive_response)
         }));
 
     constexpr std::size_t extent_bytes  = 8;
-    auto                  maybe_session = transport->makeResponseRxSession({extent_bytes, 0x17B, 0x31});
-    ASSERT_THAT(maybe_session, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
-    auto session = cetl::get<UniquePtr<IResponseRxSession>>(std::move(maybe_session));
+    auto                  maybe_session_n31 = transport->makeResponseRxSession({extent_bytes, 0x17B, 0x31});
+    ASSERT_THAT(maybe_session_n31, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
+    auto session_n31 = cetl::get<UniquePtr<IResponseRxSession>>(std::move(maybe_session_n31));
 
     EXPECT_THAT(rx_socket_mock_.getEndpoint().ip_address, 0xEF010013);
     EXPECT_THAT(rx_socket_mock_.getEndpoint().udp_port, 9382);
 
-    const auto params = session->getParams();
+    const auto params = session_n31->getParams();
     EXPECT_THAT(params.extent_bytes, extent_bytes);
     EXPECT_THAT(params.service_id, 0x17B);
     EXPECT_THAT(params.server_node_id, 0x31);
 
     constexpr auto timeout = 200ms;
-    session->setTransferIdTimeout(timeout);
+    session_n31->setTransferIdTimeout(timeout);
+
+    // Create another session with the same port ID but different server node ID (0x32).
+    //
+    auto                  maybe_session_n32 = transport->makeResponseRxSession({extent_bytes, 0x17B, 0x32});
+    ASSERT_THAT(maybe_session_n32, VariantWith<UniquePtr<IResponseRxSession>>(NotNull()));
+    auto session_n32 = cetl::get<UniquePtr<IResponseRxSession>>(std::move(maybe_session_n32));
 
     TimePoint rx_timestamp;
 
@@ -537,8 +542,9 @@ TEST_F(TestUdpSvcRxSessions, receive_response)
 
         scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const auto&) {
             //
-            const auto maybe_rx_transfer = session->receive();
+            const auto maybe_rx_transfer = session_n31->receive();
             ASSERT_THAT(maybe_rx_transfer, Optional(_));
+            EXPECT_THAT(session_n32->receive(), Eq(cetl::nullopt));  // Different server node ID.
             // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
             const auto& rx_transfer = maybe_rx_transfer.value();
 
@@ -572,13 +578,14 @@ TEST_F(TestUdpSvcRxSessions, receive_response)
 
         scheduler_.scheduleAt(rx_timestamp + 1ms, [&](const auto&) {
             //
-            const auto maybe_rx_transfer = session->receive();
+            const auto maybe_rx_transfer = session_n31->receive();
             EXPECT_THAT(maybe_rx_transfer, Eq(cetl::nullopt));
         });
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {
         //
-        session.reset();
+        session_n31.reset();
+        session_n32.reset();
         EXPECT_CALL(rx_socket_mock_, deinit());
         transport.reset();
         testing::Mock::VerifyAndClearExpectations(&rx_socket_mock_);
