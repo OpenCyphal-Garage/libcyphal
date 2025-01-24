@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <tuple>
 #include <utility>
 
 namespace libcyphal
@@ -474,8 +475,8 @@ private:
     class RxRpcPortDemuxNode final : public RxSessionTreeNode::Base<RxRpcPortDemuxNode>, public IRxSessionDelegate
     {
     public:
-        RxRpcPortDemuxNode(const ResponseRxParams& params, TransportDelegate& transport_delegate)
-            : transport_delegate_{transport_delegate}
+        RxRpcPortDemuxNode(const ResponseRxParams& params, std::tuple<TransportDelegate&> args_tuple)
+            : transport_delegate_{std::get<0>(args_tuple)}
             , ref_count_{0}
             , port_{}
         {

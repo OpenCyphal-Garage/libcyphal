@@ -23,6 +23,7 @@
 #include <array>
 #include <cstdint>
 #include <functional>
+#include <tuple>
 
 namespace libcyphal
 {
@@ -76,14 +77,16 @@ public:
     template <bool ShouldBeNew = false, typename Params, typename... Args>
     CETL_NODISCARD Expected<NodeRef, AnyFailure> ensureNodeFor(const Params& params, Args&&... args)
     {
+        auto args_tuple = std::make_tuple(std::forward<Args>(args)...);
+
         const auto node_existing = nodes_.search(
             [&params](const Node& node) {  // predicate
                 //
                 return node.compareByParams(params);
             },
-            [this, &params, &args...] {
+            [this, &params, args_tuple = std::move(args_tuple)] {
                 //
-                return constructNewNode(params, std::forward<Args>(args)...);
+                return constructNewNode(params, std::move(args_tuple));
             });
 
         auto* const node = std::get<0>(node_existing);
@@ -121,13 +124,13 @@ public:
     }
 
 private:
-    template <typename Params, typename... Args>
-    CETL_NODISCARD Node* constructNewNode(const Params& params, Args&&... args)
+    template <typename Params, typename ArgsTuple>
+    CETL_NODISCARD Node* constructNewNode(const Params& params, ArgsTuple&& args_tuple)
     {
         Node* const node = allocator_.allocate(1);
         if (nullptr != node)
         {
-            allocator_.construct(node, params, std::forward<Args>(args)...);
+            allocator_.construct(node, params, std::forward<ArgsTuple>(args_tuple));
         }
         return node;
     }
@@ -176,7 +179,7 @@ struct RxSessionTreeNode
     class Message final : public Base<Message>
     {
     public:
-        explicit Message(const MessageRxParams& params)
+        explicit Message(const MessageRxParams& params, const std::tuple<>&)
             : subject_id_{params.subject_id}
         {
         }
@@ -213,7 +216,7 @@ struct RxSessionTreeNode
     class Request final : public Base<Request>
     {
     public:
-        explicit Request(const RequestRxParams& params)
+        explicit Request(const RequestRxParams& params, const std::tuple<>&)
             : service_id_{params.service_id}
         {
         }
@@ -235,7 +238,7 @@ struct RxSessionTreeNode
     class Response final : public Base<Response>
     {
     public:
-        explicit Response(const ResponseRxParams& params)
+        explicit Response(const ResponseRxParams& params, const std::tuple<>&)
             : service_id_{params.service_id}
             , server_node_id{params.server_node_id}
             , delegate_{nullptr}

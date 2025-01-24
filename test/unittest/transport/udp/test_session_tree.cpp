@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <tuple>
 #include <utility>
 
 namespace
@@ -46,9 +47,9 @@ protected:
     public:
         using Params = std::int32_t;
 
-        explicit MyNode(const Params& params, const char* const extra_arg)
+        explicit MyNode(const Params& params, const std::tuple<const char*>& args_tuple)
             : params_{params}
-            , extra_arg_{extra_arg}
+            , extra_arg_{std::get<0>(args_tuple)}
         {
         }
 
