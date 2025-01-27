@@ -76,6 +76,131 @@ struct AnyUdpardTxMetadata
 
 // MARK: -
 
+/// @brief Defines an internal set of memory resources used by the UDP transport.
+///
+struct MemoryResources
+{
+    /// The general purpose memory resource is used to provide memory for the libcyphal library.
+    /// It is NOT used for any Udpard TX or RX transfers, payload (de)fragmentation or transient handles,
+    /// but only for the libcyphal internal needs (like `make*[Rx|Tx]Session` factory calls).
+    cetl::pmr::memory_resource& general;
+
+    /// The session memory resource is used to provide memory for the Udpard session instances.
+    /// Each instance is fixed-size, so a trivial zero-fragmentation block allocator is enough.
+    UdpardMemoryResource session;
+
+    /// The fragment handles are allocated per payload fragment; each handle contains a pointer to its fragment.
+    /// Each instance is of a very small fixed size, so a trivial zero-fragmentation block allocator is enough.
+    UdpardMemoryResource fragment;
+
+    /// The library never allocates payload buffers itself, as they are handed over by the application via
+    /// reception calls. Once a buffer is handed over, the library may choose to keep it if it is deemed to be
+    /// necessary to complete a transfer reassembly, or to discard it if it is deemed to be unnecessary.
+    /// Discarded payload buffers are freed using this memory resource.
+    UdpardMemoryDeleter payload;
+};
+
+/// @brief RAII class to manage memory allocated by Udpard library.
+///
+class UdpardMemory final : public ScatteredBuffer::IStorage
+{
+public:
+    UdpardMemory(const MemoryResources& memory_resources, UdpardRxTransfer& transfer)
+        : memory_resources_{memory_resources}
+        , payload_size_{std::exchange(transfer.payload_size, 0)}
+        , payload_{std::exchange(transfer.payload, {})}
+    {
+    }
+    UdpardMemory(UdpardMemory&& other) noexcept
+        : memory_resources_{other.memory_resources_}
+        , payload_size_{std::exchange(other.payload_size_, 0)}
+        , payload_{std::exchange(other.payload_, {})}
+    {
+    }
+
+    ~UdpardMemory()
+    {
+        ::udpardRxFragmentFree(payload_, memory_resources_.fragment, memory_resources_.payload);
+    }
+
+    UdpardMemory(const UdpardMemory&)                = delete;
+    UdpardMemory& operator=(const UdpardMemory&)     = delete;
+    UdpardMemory& operator=(UdpardMemory&&) noexcept = delete;
+
+    // MARK: ScatteredBuffer::IStorage
+
+    CETL_NODISCARD std::size_t size() const noexcept override
+    {
+        return payload_size_;
+    }
+
+    CETL_NODISCARD std::size_t copy(const std::size_t offset_bytes,
+                                    cetl::byte* const destination,
+                                    const std::size_t length_bytes) const override
+    {
+        using FragSpan = const cetl::span<const cetl::byte>;
+
+        // TODO: Use `udpardGather` function when it will be available with offset support.
+
+        CETL_DEBUG_ASSERT((destination != nullptr) || (length_bytes == 0),
+                          "Destination could be null only with zero bytes ask.");
+
+        if ((destination == nullptr) || (payload_.view.data == nullptr) || (payload_size_ <= offset_bytes))
+        {
+            return 0;
+        }
+
+        // Find first fragment to start from (according to source `offset_bytes`).
+        //
+        std::size_t                  src_offset = 0;
+        const struct UdpardFragment* frag       = &payload_;
+        while ((nullptr != frag) && (offset_bytes >= (src_offset + frag->view.size)))
+        {
+            src_offset += frag->view.size;
+            frag = frag->next;
+        }
+
+        std::size_t dst_offset         = 0;
+        std::size_t total_bytes_copied = 0;
+
+        CETL_DEBUG_ASSERT(offset_bytes >= src_offset, "");
+        std::size_t view_offset = offset_bytes - src_offset;
+
+        while ((nullptr != frag) && (dst_offset < length_bytes))
+        {
+            CETL_DEBUG_ASSERT(nullptr != frag->view.data, "");
+            // Next nolint-s are unavoidable: we need offset from the beginning of the buffer.
+            // No Sonar `cpp:S5356` b/c we integrate here with libcanard raw C buffers.
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            FragSpan frag_span{static_cast<const cetl::byte*>(frag->view.data) + view_offset,  // NOSONAR cpp:S5356
+                               std::min(frag->view.size - view_offset, length_bytes - dst_offset)};
+            CETL_DEBUG_ASSERT(frag_span.size() <= (frag->view.size - view_offset), "");
+
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            (void) std::memmove(destination + dst_offset, frag_span.data(), frag_span.size());  // NOSONAR cpp:S5356
+
+            src_offset += frag_span.size();
+            dst_offset += frag_span.size();
+            total_bytes_copied += frag_span.size();
+            CETL_DEBUG_ASSERT(dst_offset <= length_bytes, "");
+            frag        = frag->next;
+            view_offset = 0;
+        }
+
+        return total_bytes_copied;
+    }
+
+private:
+    // MARK: Data members:
+
+    const MemoryResources& memory_resources_;
+    std::size_t            payload_size_;
+    UdpardFragment         payload_;
+
+};  // UdpardMemory
+
+// MARK: -
+
 /// This internal session delegate class serves the following purpose: it provides an interface (aka gateway)
 /// to access RX session from transport (by casting udpard `user_reference` member to this class).
 ///
@@ -89,11 +214,9 @@ public:
 
     /// @brief Accepts a received transfer from the transport dedicated to this RX session.
     ///
-    /// @param inout_transfer The received transfer to be accepted. An implementation is expected to take ownership
-    ///                       of the transfer payload, and to release it when it is no longer needed.
-    ///                       On exit the original transfer's `payload_size` and `payload` fields are set to zero.
-    ///
-    virtual void acceptRxTransfer(UdpardRxTransfer& inout_transfer) = 0;
+    virtual void acceptRxTransfer(UdpardMemory&&            udpard_memory,
+                                  const TransferRxMetadata& rx_metadata,
+                                  const UdpardNodeID        source_node_id) = 0;
 
 protected:
     IRxSessionDelegate()  = default;
@@ -130,105 +253,6 @@ protected:
 class TransportDelegate
 {
 public:
-    /// @brief RAII class to manage memory allocated by Udpard library.
-    ///
-    class UdpardMemory final : public ScatteredBuffer::IStorage
-    {
-    public:
-        UdpardMemory(TransportDelegate& delegate, UdpardRxTransfer& transfer)
-            : delegate_{delegate}
-            , payload_size_{std::exchange(transfer.payload_size, 0)}
-            , payload_{std::exchange(transfer.payload, {})}
-        {
-        }
-        UdpardMemory(UdpardMemory&& other) noexcept
-            : delegate_{other.delegate_}
-            , payload_size_{std::exchange(other.payload_size_, 0)}
-            , payload_{std::exchange(other.payload_, {})}
-        {
-        }
-
-        ~UdpardMemory()
-        {
-            ::udpardRxFragmentFree(payload_, delegate_.memoryResources().fragment, delegate_.memoryResources().payload);
-        }
-
-        UdpardMemory(const UdpardMemory&)                = delete;
-        UdpardMemory& operator=(const UdpardMemory&)     = delete;
-        UdpardMemory& operator=(UdpardMemory&&) noexcept = delete;
-
-        // MARK: ScatteredBuffer::IStorage
-
-        CETL_NODISCARD std::size_t size() const noexcept override
-        {
-            return payload_size_;
-        }
-
-        CETL_NODISCARD std::size_t copy(const std::size_t offset_bytes,
-                                        cetl::byte* const destination,
-                                        const std::size_t length_bytes) const override
-        {
-            using FragSpan = const cetl::span<const cetl::byte>;
-
-            // TODO: Use `udpardGather` function when it will be available with offset support.
-
-            CETL_DEBUG_ASSERT((destination != nullptr) || (length_bytes == 0),
-                              "Destination could be null only with zero bytes ask.");
-
-            if ((destination == nullptr) || (payload_.view.data == nullptr) || (payload_size_ <= offset_bytes))
-            {
-                return 0;
-            }
-
-            // Find first fragment to start from (according to source `offset_bytes`).
-            //
-            std::size_t                  src_offset = 0;
-            const struct UdpardFragment* frag       = &payload_;
-            while ((nullptr != frag) && (offset_bytes >= (src_offset + frag->view.size)))
-            {
-                src_offset += frag->view.size;
-                frag = frag->next;
-            }
-
-            std::size_t dst_offset         = 0;
-            std::size_t total_bytes_copied = 0;
-
-            CETL_DEBUG_ASSERT(offset_bytes >= src_offset, "");
-            std::size_t view_offset = offset_bytes - src_offset;
-
-            while ((nullptr != frag) && (dst_offset < length_bytes))
-            {
-                CETL_DEBUG_ASSERT(nullptr != frag->view.data, "");
-                // Next nolint-s are unavoidable: we need offset from the beginning of the buffer.
-                // No Sonar `cpp:S5356` b/c we integrate here with libcanard raw C buffers.
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-                FragSpan frag_span{static_cast<const cetl::byte*>(frag->view.data) + view_offset,  // NOSONAR cpp:S5356
-                                   std::min(frag->view.size - view_offset, length_bytes - dst_offset)};
-                CETL_DEBUG_ASSERT(frag_span.size() <= (frag->view.size - view_offset), "");
-
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-                (void) std::memmove(destination + dst_offset, frag_span.data(), frag_span.size());  // NOSONAR cpp:S5356
-
-                src_offset += frag_span.size();
-                dst_offset += frag_span.size();
-                total_bytes_copied += frag_span.size();
-                CETL_DEBUG_ASSERT(dst_offset <= length_bytes, "");
-                frag        = frag->next;
-                view_offset = 0;
-            }
-
-            return total_bytes_copied;
-        }
-
-    private:
-        // MARK: Data members:
-
-        TransportDelegate& delegate_;
-        std::size_t        payload_size_;
-        UdpardFragment     payload_;
-
-    };  // UdpardMemory
-
     struct SessionEvent
     {
         struct MsgDestroyed
@@ -412,30 +436,6 @@ public:
     virtual IRxSessionDelegate* tryFindRxSessionDelegateFor(const ResponseRxParams& params) = 0;
 
 protected:
-    /// @brief Defines an internal set of memory resources used by the UDP transport.
-    ///
-    struct MemoryResources
-    {
-        /// The general purpose memory resource is used to provide memory for the libcyphal library.
-        /// It is NOT used for any Udpard TX or RX transfers, payload (de)fragmentation or transient handles,
-        /// but only for the libcyphal internal needs (like `make*[Rx|Tx]Session` factory calls).
-        cetl::pmr::memory_resource& general;
-
-        /// The session memory resource is used to provide memory for the Udpard session instances.
-        /// Each instance is fixed-size, so a trivial zero-fragmentation block allocator is enough.
-        UdpardMemoryResource session;
-
-        /// The fragment handles are allocated per payload fragment; each handle contains a pointer to its fragment.
-        /// Each instance is of a very small fixed size, so a trivial zero-fragmentation block allocator is enough.
-        UdpardMemoryResource fragment;
-
-        /// The library never allocates payload buffers itself, as they are handed over by the application via
-        /// reception calls. Once a buffer is handed over, the library may choose to keep it if it is deemed to be
-        /// necessary to complete a transfer reassembly, or to discard it if it is deemed to be unnecessary.
-        /// Discarded payload buffers are freed using this memory resource.
-        UdpardMemoryDeleter payload;
-    };
-
     explicit TransportDelegate(const MemoryResources& memory_resources)
         : udpard_node_id_{UDPARD_NODE_ID_UNSET}
         , memory_resources_{memory_resources}
@@ -526,15 +526,17 @@ private:
     private:
         // IRxSessionDelegate
 
-        void acceptRxTransfer(UdpardRxTransfer& inout_transfer) override
+        void acceptRxTransfer(UdpardMemory&&            udpard_memory,
+                              const TransferRxMetadata& rx_metadata,
+                              const UdpardNodeID        source_node_id) override
         {
             // This is where de-multiplexing happens: the transfer is forwarded to the appropriate session.
             // It's ok not to find the session delegate here - we drop unsolicited transfers.
             //
-            const ResponseRxParams params{0, port_.service_id, inout_transfer.source_node_id};
+            const ResponseRxParams params{0, port_.service_id, source_node_id};
             if (auto* const session_delegate = transport_delegate_.tryFindRxSessionDelegateFor(params))
             {
-                session_delegate->acceptRxTransfer(inout_transfer);
+                session_delegate->acceptRxTransfer(std::move(udpard_memory), rx_metadata, source_node_id);
             }
         }
 

@@ -584,16 +584,20 @@ private:
 
             // No Sonar `cpp:S5357` b/c the raw `user_reference` is part of libcanard api,
             // and it was set by us at a RX session constructor (see f.e. `MessageRxSession` ctor).
-            auto* const sesson_delegate =
+            auto* const session_delegate =
                 static_cast<IRxSessionDelegate*>(out_subscription->user_reference);  // NOSONAR cpp:S5357
 
             // No Sonar `cpp:S5356` and `cpp:S5357` b/c we need to pass raw data from C libcanard api.
             auto* const buffer = static_cast<cetl::byte*>(out_transfer.payload.data);  // NOSONAR cpp:S5356 cpp:S5357
 
-            sesson_delegate->acceptRxTransfer(  //
+            const auto transfer_id = static_cast<TransferId>(out_transfer.metadata.transfer_id);
+            const auto priority    = static_cast<Priority>(out_transfer.metadata.priority);
+            const auto timestamp   = TimePoint{std::chrono::microseconds{out_transfer.timestamp_usec}};
+
+            session_delegate->acceptRxTransfer(  //
                 CanardMemory{memory(), out_transfer.payload.allocated_size, buffer, out_transfer.payload.size},
-                out_transfer.metadata,
-                TimePoint{std::chrono::microseconds{out_transfer.timestamp_usec}});
+                TransferRxMetadata{{transfer_id, priority}, timestamp},
+                out_transfer.metadata.remote_node_id);
         }
     }
 

@@ -941,8 +941,16 @@ private:
 
             // No Sonar `cpp:S5357` b/c the raw `user_reference` is part of libudpard api,
             // and it was set by us at a RX session constructor (see f.e. `MessageRxSession` ctor).
-            auto* const delegate = static_cast<IRxSessionDelegate*>(out_port->user_reference);  // NOSONAR cpp:S5357
-            delegate->acceptRxTransfer(out_transfer.base);
+            auto* const session_delegate =
+                static_cast<IRxSessionDelegate*>(out_port->user_reference);  // NOSONAR cpp:S5357
+
+            const auto transfer_id = out_transfer.base.transfer_id;
+            const auto priority    = static_cast<Priority>(out_transfer.base.priority);
+            const auto timestamp   = TimePoint{std::chrono::microseconds{out_transfer.base.timestamp_usec}};
+
+            session_delegate->acceptRxTransfer(UdpardMemory{memoryResources(), out_transfer.base},
+                                               TransferRxMetadata{{transfer_id, priority}, timestamp},
+                                               out_transfer.base.source_node_id);
         }
     }
 
@@ -992,7 +1000,13 @@ private:
         const auto failure       = tryHandleTransientUdpardResult<SubscriptionReport>(media, result, subscription);
         if ((!failure.has_value()) && (result > 0))
         {
-            session_delegate.acceptRxTransfer(out_transfer);
+            const auto transfer_id = out_transfer.transfer_id;
+            const auto priority    = static_cast<Priority>(out_transfer.priority);
+            const auto timestamp   = TimePoint{std::chrono::microseconds{out_transfer.timestamp_usec}};
+
+            session_delegate.acceptRxTransfer(UdpardMemory{memoryResources(), out_transfer},
+                                              TransferRxMetadata{{transfer_id, priority}, timestamp},
+                                              out_transfer.source_node_id);
         }
     }
 

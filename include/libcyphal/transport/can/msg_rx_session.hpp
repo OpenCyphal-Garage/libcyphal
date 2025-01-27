@@ -130,19 +130,16 @@ private:
 
     // MARK: IRxSessionDelegate
 
-    void acceptRxTransfer(CanardMemory&&                canard_memory,
-                          const CanardTransferMetadata& metadata,
-                          const TimePoint               timestamp) override
+    void acceptRxTransfer(CanardMemory&&            canard_memory,
+                          const TransferRxMetadata& rx_metadata,
+                          const CanardNodeID        source_node_id) override
     {
-        const auto priority    = static_cast<Priority>(metadata.priority);
-        const auto transfer_id = static_cast<TransferId>(metadata.transfer_id);
-
         const cetl::optional<NodeId> publisher_node_id =  //
-            metadata.remote_node_id > CANARD_NODE_ID_MAX  //
+            source_node_id > CANARD_NODE_ID_MAX           //
                 ? cetl::nullopt
-                : cetl::make_optional<NodeId>(metadata.remote_node_id);
+                : cetl::make_optional<NodeId>(source_node_id);
 
-        const MessageRxMetadata meta{{{transfer_id, priority}, timestamp}, publisher_node_id};
+        const MessageRxMetadata meta{rx_metadata, publisher_node_id};
         MessageRxTransfer       msg_rx_transfer{meta, ScatteredBuffer{std::move(canard_memory)}};
         if (on_receive_cb_fn_)
         {

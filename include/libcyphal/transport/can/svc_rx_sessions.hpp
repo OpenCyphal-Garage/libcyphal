@@ -85,15 +85,11 @@ protected:
 
     // MARK: IRxSessionDelegate
 
-    void acceptRxTransfer(CanardMemory&&                canard_memory,
-                          const CanardTransferMetadata& metadata,
-                          const TimePoint               timestamp) final
+    void acceptRxTransfer(CanardMemory&&            canard_memory,
+                          const TransferRxMetadata& rx_metadata,
+                          const CanardNodeID        source_node_id) final
     {
-        const auto priority       = static_cast<Priority>(metadata.priority);
-        const auto remote_node_id = static_cast<NodeId>(metadata.remote_node_id);
-        const auto transfer_id    = static_cast<TransferId>(metadata.transfer_id);
-
-        const ServiceRxMetadata meta{{{transfer_id, priority}, timestamp}, remote_node_id};
+        const ServiceRxMetadata meta{rx_metadata, source_node_id};
         ServiceRxTransfer       svc_rx_transfer{meta, ScatteredBuffer{std::move(canard_memory)}};
         if (on_receive_cb_fn_)
         {

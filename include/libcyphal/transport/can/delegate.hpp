@@ -113,6 +113,8 @@ private:
 
 };  // CanardMemory
 
+// MARK: -
+
 /// This internal session delegate class serves the following purpose: it provides an interface (aka gateway)
 /// to access RX session from transport (by casting canard's `user_reference` member to this class).
 ///
@@ -126,9 +128,9 @@ public:
 
     /// @brief Accepts a received transfer from the transport dedicated to this RX session.
     ///
-    virtual void acceptRxTransfer(CanardMemory&&                canard_memory,
-                                  const CanardTransferMetadata& metadata,
-                                  const TimePoint               timestamp) = 0;
+    virtual void acceptRxTransfer(CanardMemory&&            canard_memory,
+                                  const TransferRxMetadata& rx_metadata,
+                                  const CanardNodeID        source_node_id) = 0;
 
 protected:
     IRxSessionDelegate()  = default;
@@ -565,17 +567,17 @@ private:
     private:
         // IRxSessionDelegate
 
-        void acceptRxTransfer(CanardMemory&&                canard_memory,
-                              const CanardTransferMetadata& metadata,
-                              const TimePoint               timestamp) override
+        void acceptRxTransfer(CanardMemory&&            canard_memory,
+                              const TransferRxMetadata& rx_metadata,
+                              const CanardNodeID        source_node_id) override
         {
             // This is where de-multiplexing happens: the transfer is forwarded to the appropriate session.
             // It's ok not to find the session delegate here - we drop unsolicited transfers.
             //
-            const ResponseRxParams params{0, subscription_.port_id, metadata.remote_node_id};
+            const ResponseRxParams params{0, subscription_.port_id, source_node_id};
             if (auto* const session_delegate = transport_delegate_.tryFindRxSessionDelegateFor(params))
             {
-                session_delegate->acceptRxTransfer(std::move(canard_memory), metadata, timestamp);
+                session_delegate->acceptRxTransfer(std::move(canard_memory), rx_metadata, source_node_id);
             }
         }
 

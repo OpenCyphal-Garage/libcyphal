@@ -54,12 +54,13 @@ using testing::VariantWith;
 class TestUdpDelegate : public testing::Test
 {
 protected:
+    using UdpardMemory      = udp::detail::UdpardMemory;
+    using MemoryResources   = udp::detail::MemoryResources;
     using TransportDelegate = udp::detail::TransportDelegate;
 
     class TransportDelegateImpl final : public TransportDelegate
     {
     public:
-        using TransportDelegate::MemoryResources;
         using TransportDelegate::memoryResources;
         using TransportDelegate::makeUdpardMemoryDeleter;
         using TransportDelegate::makeUdpardMemoryResource;
@@ -149,8 +150,6 @@ protected:
 
 TEST_F(TestUdpDelegate, UdpardMemory_copy)
 {
-    using UdpardMemory = TransportDelegate::UdpardMemory;
-
     TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
 
     auto* const payload = allocateNewUdpardPayload(4);
@@ -161,7 +160,7 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy)
     rx_transfer.payload_size = payload_size;
     rx_transfer.payload      = UdpardFragment{nullptr, {payload_size, payload}, {payload_size, payload}};
 
-    const UdpardMemory udpard_memory{delegate, rx_transfer};
+    const UdpardMemory udpard_memory{delegate.memoryResources(), rx_transfer};
     EXPECT_THAT(udpard_memory.size(), payload_size);
 
     // Ask exactly as payload
@@ -210,8 +209,6 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy)
 
 TEST_F(TestUdpDelegate, UdpardMemory_copy_on_moved)
 {
-    using UdpardMemory = TransportDelegate::UdpardMemory;
-
     TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
 
     constexpr std::size_t payload_size = 4;
@@ -222,7 +219,7 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy_on_moved)
     rx_transfer.payload_size = payload_size;
     rx_transfer.payload      = UdpardFragment{nullptr, {payload_size, payload}, {payload_size, payload}};
 
-    UdpardMemory old_udpard_memory{delegate, rx_transfer};
+    UdpardMemory old_udpard_memory{delegate.memoryResources(), rx_transfer};
     EXPECT_THAT(old_udpard_memory.size(), payload_size);
 
     const UdpardMemory new_udpard_memory{std::move(old_udpard_memory)};
@@ -248,8 +245,6 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy_on_moved)
 
 TEST_F(TestUdpDelegate, UdpardMemory_copy_multi_fragmented)
 {
-    using UdpardMemory = TransportDelegate::UdpardMemory;
-
     TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
 
     auto* const payload0 = allocateNewUdpardPayload(7);
@@ -271,7 +266,7 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy_multi_fragmented)
     rx_transfer.payload.next->view       = {4, payload1 + 1};
     rx_transfer.payload.next->next->view = {2, payload2 + 3};
 
-    const UdpardMemory udpard_memory{delegate, rx_transfer};
+    const UdpardMemory udpard_memory{delegate.memoryResources(), rx_transfer};
     EXPECT_THAT(udpard_memory.size(), payload_size);
 
     // Ask exactly as payload
@@ -324,15 +319,13 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy_multi_fragmented)
 
 TEST_F(TestUdpDelegate, UdpardMemory_copy_empty)
 {
-    using UdpardMemory = TransportDelegate::UdpardMemory;
-
     TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
 
     UdpardRxTransfer rx_transfer{};
     rx_transfer.payload_size = 0;
     rx_transfer.payload      = UdpardFragment{nullptr, {0, nullptr}, {0, nullptr}};
 
-    const UdpardMemory udpard_memory{delegate, rx_transfer};
+    const UdpardMemory udpard_memory{delegate.memoryResources(), rx_transfer};
     EXPECT_THAT(udpard_memory.size(), 0);
 
     std::array<byte, 3> buffer{};

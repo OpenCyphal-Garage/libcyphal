@@ -601,7 +601,7 @@ TEST_F(TestUdpSvcRxSessions, receive_response)
         //
         SCOPED_TRACE("3-rd iteration: unsolicited (node 0x33) response @ 3s");
 
-        constexpr std::size_t payload_size = 0;
+        constexpr std::size_t payload_size = 2;
         constexpr std::size_t frame_size   = UdpardFrame::SizeOfHeaderAndTxCrc + payload_size;
 
         rx_timestamp = now() + 10ms;
@@ -609,6 +609,8 @@ TEST_F(TestUdpSvcRxSessions, receive_response)
             .WillOnce([&]() -> IRxSocket::ReceiveResult::Metadata {
                 EXPECT_THAT(now(), rx_timestamp);
                 auto frame         = UdpardFrame(0x33, 0x13, 0x1D, payload_size, &payload_mr_mock, Priority::High);
+                frame.payload()[0] = b(42);
+                frame.payload()[1] = b(147);
                 frame.setPortId(0x17B, true /*is_service*/, false /*is_request*/);
                 std::uint32_t tx_crc = UdpardFrame::InitialTxCrc;
                 return {rx_timestamp, std::move(frame).release(tx_crc)};
