@@ -367,7 +367,10 @@ private:
                             //
                             svc_response_rx_session_nodes_.removeNodeFor(event.params);
                         },
-                        [](const auto&) {}),
+                        [](const auto&) {
+                            // No specific action needed for other events.
+                            // But we still might need to reconfigure filters (see below after `visit`).
+                        }),
                     event_var);
 
         cancelRxCallbacksIfNoPortsLeft();

@@ -69,7 +69,7 @@ public:
         if (buffer_ != nullptr)
         {
             // No Sonar `cpp:S5356` b/c we integrate here with C libcanard memory management.
-            memory_.deallocate(buffer_, allocated_size_);
+            memory_.deallocate(buffer_, allocated_size_);  // NOSONAR cpp:S5356
         }
     }
 
