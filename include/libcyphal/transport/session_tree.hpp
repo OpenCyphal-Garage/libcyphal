@@ -75,8 +75,8 @@ public:
     }
 
     template <bool ShouldBeNew = false, typename Params, typename... Args>
-    CETL_NODISCARD auto ensureNodeFor(const Params& params, Args&&... args)
-        -> Expected<typename NodeBase::RefWrapper, AnyFailure>
+    CETL_NODISCARD auto ensureNodeFor(const Params& params,
+                                      Args&&... args) -> Expected<typename NodeBase::RefWrapper, AnyFailure>
     {
         auto args_tuple = std::make_tuple(std::forward<Args>(args)...);
 
