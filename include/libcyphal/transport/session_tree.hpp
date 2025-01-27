@@ -9,6 +9,7 @@
 #include "errors.hpp"
 #include "libcyphal/common/cavl/cavl.hpp"
 #include "libcyphal/types.hpp"
+#include "svc_sessions.hpp"
 
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
@@ -74,8 +75,8 @@ public:
     }
 
     template <bool ShouldBeNew = false, typename Params, typename... Args>
-    CETL_NODISCARD auto ensureNodeFor(const Params& params,
-                                      Args&&... args) -> Expected<typename NodeBase::RefWrapper, AnyFailure>
+    CETL_NODISCARD auto ensureNodeFor(const Params& params, Args&&... args)
+        -> Expected<typename NodeBase::RefWrapper, AnyFailure>
     {
         auto args_tuple = std::make_tuple(std::forward<Args>(args)...);
 
@@ -157,6 +158,44 @@ private:
     libcyphal::detail::PmrAllocator<Node> allocator_;
 
 };  // SessionTree
+
+// MARK: -
+
+/// @brief Represents a service response RX session node.
+///
+template <typename RxSessionDelegate>
+class ResponseRxSessionNode final : public SessionTree<ResponseRxSessionNode<RxSessionDelegate>>::NodeBase
+{
+public:
+    explicit ResponseRxSessionNode(const ResponseRxParams& params, const std::tuple<>&)
+        : service_id_{params.service_id}
+        , server_node_id{params.server_node_id}
+        , delegate_{nullptr}
+    {
+    }
+
+    CETL_NODISCARD std::int32_t compareByParams(const ResponseRxParams& params) const
+    {
+        if (service_id_ != params.service_id)
+        {
+            return static_cast<std::int32_t>(service_id_) - static_cast<std::int32_t>(params.service_id);
+        }
+        return static_cast<std::int32_t>(server_node_id) - static_cast<std::int32_t>(params.server_node_id);
+    }
+
+    CETL_NODISCARD RxSessionDelegate*& delegate() noexcept
+    {
+        return delegate_;
+    }
+
+private:
+    // MARK: Data members:
+
+    const PortId       service_id_;
+    const NodeId       server_node_id;
+    RxSessionDelegate* delegate_;
+
+};  // ResponseRxSessionNode
 
 }  // namespace detail
 }  // namespace transport

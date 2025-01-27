@@ -34,38 +34,7 @@ struct RxSessionTreeNode
 {
     /// @brief Represents a service response RX session node.
     ///
-    class Response final : public transport::detail::SessionTree<Response>::NodeBase
-    {
-    public:
-        explicit Response(const ResponseRxParams& params, const std::tuple<>&)
-            : service_id_{params.service_id}
-            , server_node_id{params.server_node_id}
-            , delegate_{nullptr}
-        {
-        }
-
-        CETL_NODISCARD std::int32_t compareByParams(const ResponseRxParams& params) const
-        {
-            if (service_id_ != params.service_id)
-            {
-                return static_cast<std::int32_t>(service_id_) - static_cast<std::int32_t>(params.service_id);
-            }
-            return static_cast<std::int32_t>(server_node_id) - static_cast<std::int32_t>(params.server_node_id);
-        }
-
-        CETL_NODISCARD IRxSessionDelegate*& delegate() noexcept
-        {
-            return delegate_;
-        }
-
-    private:
-        // MARK: Data members:
-
-        const PortId        service_id_;
-        const NodeId        server_node_id;
-        IRxSessionDelegate* delegate_;
-
-    };  // Response
+    using Response = transport::detail::ResponseRxSessionNode<IRxSessionDelegate>;
 
 };  // RxSessionTreeNode
 
