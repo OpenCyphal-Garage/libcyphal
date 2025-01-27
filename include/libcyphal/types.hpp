@@ -154,13 +154,12 @@ bool performWithoutThrowing(Action&& action) noexcept
 {
 #if defined(__cpp_exceptions)
     try
-#endif
     {
+#endif
         std::forward<Action>(action)();
         return true;
-    }
 #if defined(__cpp_exceptions)
-    catch (...)
+    } catch (...)
     {
         return false;
     }

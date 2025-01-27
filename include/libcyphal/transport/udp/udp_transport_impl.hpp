@@ -388,7 +388,7 @@ private:
     void onSessionEvent(const SessionEvent::Variant& event_var) noexcept override
     {
         // `visit` might hypothetically throw, so we need to catch it.
-        libcyphal::detail::performWithoutThrowing([this, &event_var] {
+        const auto result = libcyphal::detail::performWithoutThrowing([this, &event_var] {
             //
             cetl::visit(cetl::make_overloaded(  //
                             [this](const SessionEvent::MsgDestroyed& msg_session_destroyed) noexcept {
@@ -407,6 +407,8 @@ private:
                             }),
                         event_var);
         });
+        (void) result;
+        CETL_DEBUG_ASSERT(result, "");
     }
 
     IRxSessionDelegate* tryFindRxSessionDelegateFor(const ResponseRxParams& params) override
