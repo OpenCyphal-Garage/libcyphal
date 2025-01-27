@@ -387,7 +387,7 @@ private:
 
     void onSessionEvent(const SessionEvent::Variant& event_var) noexcept override
     {
-        cetl::visit(cetl::make_overloaded(
+        cetl::visit(cetl::make_overloaded(  //
                         [this](const SessionEvent::MsgDestroyed& msg_session_destroyed) {
                             //
                             msg_rx_session_nodes_.removeNodeFor(msg_session_destroyed.params);

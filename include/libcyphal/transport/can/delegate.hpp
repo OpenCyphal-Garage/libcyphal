@@ -6,6 +6,7 @@
 #ifndef LIBCYPHAL_TRANSPORT_CAN_DELEGATE_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_CAN_DELEGATE_HPP_INCLUDED
 
+#include "media.hpp"
 #include "rx_session_tree_node.hpp"
 
 #include "libcyphal/transport/errors.hpp"
@@ -39,6 +40,79 @@ namespace can
 namespace detail
 {
 
+/// @brief RAII class to manage memory allocated by Canard library.
+///
+class CanardMemory final : public ScatteredBuffer::IStorage
+{
+public:
+    CanardMemory(cetl::pmr::memory_resource& memory,
+                 const std::size_t           allocated_size,
+                 cetl::byte* const           buffer,
+                 const std::size_t           payload_size)
+        : memory_{memory}
+        , allocated_size_{allocated_size}
+        , buffer_{buffer}
+        , payload_size_{payload_size}
+    {
+    }
+    CanardMemory(CanardMemory&& other) noexcept
+        : memory_{other.memory_}
+        , allocated_size_{std::exchange(other.allocated_size_, 0)}
+        , buffer_{std::exchange(other.buffer_, nullptr)}
+        , payload_size_{std::exchange(other.payload_size_, 0)}
+    {
+    }
+    CanardMemory(const CanardMemory&) = delete;
+
+    ~CanardMemory()
+    {
+        if (buffer_ != nullptr)
+        {
+            // No Sonar `cpp:S5356` b/c we integrate here with C libcanard memory management.
+            memory_.deallocate(buffer_, allocated_size_);
+        }
+    }
+
+    CanardMemory& operator=(const CanardMemory&)     = delete;
+    CanardMemory& operator=(CanardMemory&&) noexcept = delete;
+
+    // MARK: ScatteredBuffer::IStorage
+
+    CETL_NODISCARD std::size_t size() const noexcept override
+    {
+        return payload_size_;
+    }
+
+    CETL_NODISCARD std::size_t copy(const std::size_t offset_bytes,
+                                    cetl::byte* const destination,
+                                    const std::size_t length_bytes) const override
+    {
+        CETL_DEBUG_ASSERT((destination != nullptr) || (length_bytes == 0),
+                          "Destination could be null only with zero bytes ask.");
+
+        if ((destination == nullptr) || (buffer_ == nullptr) || (payload_size_ <= offset_bytes))
+        {
+            return 0;
+        }
+
+        const std::size_t bytes_to_copy = std::min(length_bytes, payload_size_ - offset_bytes);
+        // Next nolint is unavoidable: we need to offset from the beginning of the buffer.
+        // No Sonar `cpp:S5356` b/c we integrate here with libcanard raw C buffers.
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        (void) std::memmove(destination, buffer_ + offset_bytes, bytes_to_copy);  // NOSONAR cpp:S5356
+        return bytes_to_copy;
+    }
+
+private:
+    // MARK: Data members:
+
+    cetl::pmr::memory_resource& memory_;
+    std::size_t                 allocated_size_;
+    cetl::byte*                 buffer_;
+    std::size_t                 payload_size_;
+
+};  // CanardMemory
+
 /// This internal session delegate class serves the following purpose: it provides an interface (aka gateway)
 /// to access RX session from transport (by casting canard's `user_reference` member to this class).
 ///
@@ -52,7 +126,9 @@ public:
 
     /// @brief Accepts a received transfer from the transport dedicated to this RX session.
     ///
-    virtual void acceptRxTransfer(const CanardRxTransfer& transfer) = 0;
+    virtual void acceptRxTransfer(CanardMemory&&                canard_memory,
+                                  const CanardTransferMetadata& metadata,
+                                  const TimePoint               timestamp) = 0;
 
 protected:
     IRxSessionDelegate()  = default;
@@ -70,82 +146,9 @@ protected:
 class TransportDelegate
 {
 public:
-    /// @brief RAII class to manage memory allocated by Canard library.
-    ///
-    class CanardMemory final : public ScatteredBuffer::IStorage
-    {
-    public:
-        CanardMemory(TransportDelegate& delegate,
-                     const std::size_t  allocated_size,
-                     cetl::byte* const  buffer,
-                     const std::size_t  payload_size)
-            : delegate_{delegate}
-            , allocated_size_{allocated_size}
-            , buffer_{buffer}
-            , payload_size_{payload_size}
-        {
-        }
-        CanardMemory(CanardMemory&& other) noexcept
-            : delegate_{other.delegate_}
-            , allocated_size_{std::exchange(other.allocated_size_, 0)}
-            , buffer_{std::exchange(other.buffer_, nullptr)}
-            , payload_size_{std::exchange(other.payload_size_, 0)}
-        {
-        }
-        CanardMemory(const CanardMemory&) = delete;
-
-        ~CanardMemory()
-        {
-            if (buffer_ != nullptr)
-            {
-                // No Sonar `cpp:S5356` b/c we integrate here with C libcanard memory management.
-                delegate_.freeCanardMemory(buffer_, allocated_size_);  // NOSONAR cpp:S5356
-            }
-        }
-
-        CanardMemory& operator=(const CanardMemory&)     = delete;
-        CanardMemory& operator=(CanardMemory&&) noexcept = delete;
-
-        // MARK: ScatteredBuffer::IStorage
-
-        CETL_NODISCARD std::size_t size() const noexcept override
-        {
-            return payload_size_;
-        }
-
-        CETL_NODISCARD std::size_t copy(const std::size_t offset_bytes,
-                                        cetl::byte* const destination,
-                                        const std::size_t length_bytes) const override
-        {
-            CETL_DEBUG_ASSERT((destination != nullptr) || (length_bytes == 0),
-                              "Destination could be null only with zero bytes ask.");
-
-            if ((destination == nullptr) || (buffer_ == nullptr) || (payload_size_ <= offset_bytes))
-            {
-                return 0;
-            }
-
-            const std::size_t bytes_to_copy = std::min(length_bytes, payload_size_ - offset_bytes);
-            // Next nolint is unavoidable: we need offset from the beginning of the buffer.
-            // No Sonar `cpp:S5356` b/c we integrate here with libcanard raw C buffers.
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            (void) std::memmove(destination, buffer_ + offset_bytes, bytes_to_copy);  // NOSONAR cpp:S5356
-            return bytes_to_copy;
-        }
-
-    private:
-        // MARK: Data members:
-
-        TransportDelegate& delegate_;
-        std::size_t        allocated_size_;
-        cetl::byte*        buffer_;
-        std::size_t        payload_size_;
-
-    };  // CanardMemory
-
     /// @brief Utility type with various helpers related to Canard AVL trees.
     ///
-    /// @tparam Node Type of a concrete AVL tree node.
+    /// @tparam Node Type of concrete AVL tree node.
     ///
     template <typename Node>
     struct CanardConcreteTree
@@ -215,7 +218,7 @@ public:
     private:
         static Node& down(CanardTreeNode& node)
         {
-            // Next nolint & NOSONAR are unavoidable: this is integration with Canard C AVL trees.
+            // Following nolint & NOSONAR are unavoidable: this is integration with Canard C AVL trees.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
             return reinterpret_cast<Node&>(node);  // NOSONAR cpp:S3630
         }
@@ -330,6 +333,9 @@ public:
         (void) result;
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "Subscription supposed to be made at node constructor.");
+
+        subs_stats_.total_msg_rx_ports -= (transfer_kind == CanardTransferKindMessage) ? 1 : 0;
+        subs_stats_.total_svc_rx_ports -= (transfer_kind != CanardTransferKindMessage) ? 1 : 0;
     }
 
     CETL_NODISCARD static cetl::optional<AnyFailure> optAnyFailureFromCanard(const std::int32_t result)
@@ -409,16 +415,99 @@ public:
     virtual IRxSessionDelegate* tryFindRxSessionDelegateFor(const ResponseRxParams& params) = 0;
 
 protected:
+    struct SubscriptionStats
+    {
+        std::size_t total_msg_rx_ports;
+        std::size_t total_svc_rx_ports;
+    };
+
     explicit TransportDelegate(cetl::pmr::memory_resource& memory)
         : memory_{memory}
         , canard_instance_{::canardInit(makeCanardMemoryResource())}
         , rx_subs_demux_nodes_{memory}
+        , subs_stats_{}
     {
         // No Sonar `cpp:S5356` b/c we integrate here with C libcanard API.
         canardInstance().user_reference = this;  // NOSONAR cpp:S5356
     }
 
-    ~TransportDelegate() = default;
+    ~TransportDelegate()
+    {
+        CETL_DEBUG_ASSERT(subs_stats_.total_msg_rx_ports == 0,  //
+                          "Message subscriptions must be destroyed before transport.");
+        CETL_DEBUG_ASSERT(subs_stats_.total_svc_rx_ports == 0,  //
+                          "Service subscriptions must be destroyed before transport.");
+    }
+
+    const SubscriptionStats& getSubscriptionStats() const
+    {
+        return subs_stats_;
+    }
+
+    /// @brief Fills an array with filters for each active RX port.
+    ///
+    CETL_NODISCARD bool fillMediaFiltersArray(libcyphal::detail::VarArray<Filter>& filters)
+    {
+        using RxSubscription     = const CanardRxSubscription;
+        using RxSubscriptionTree = CanardConcreteTree<RxSubscription>;
+
+        // Total "active" RX ports depends on the local node ID. For anonymous nodes,
+        // we don't account for service ports (b/c they don't work while being anonymous).
+        //
+        const auto        local_node_id      = canard_instance_.node_id;
+        const auto        is_anonymous       = local_node_id > CANARD_NODE_ID_MAX;
+        const std::size_t total_active_ports = subs_stats_.total_msg_rx_ports  //
+                                               + (is_anonymous ? 0 : subs_stats_.total_svc_rx_ports);
+        if (total_active_ports == 0)
+        {
+            // No need to allocate memory for zero filters.
+            return true;
+        }
+
+        // Now we know that we have at least one active port,
+        // so we need preallocate temp memory for the total number of active ports.
+        //
+        filters.reserve(total_active_ports);
+        if (filters.capacity() < total_active_ports)
+        {
+            // This is out of memory situation.
+            return false;
+        }
+
+        // `ports_count` counting is just for the sake of debug verification.
+        std::size_t ports_count = 0;
+
+        const auto& subs_trees = canardInstance().rx_subscriptions;
+
+        if (subs_stats_.total_msg_rx_ports > 0)
+        {
+            const auto msg_visitor = [&filters](RxSubscription& rx_subscription) {
+                //
+                // Make and store a single message filter.
+                const auto flt = ::canardMakeFilterForSubject(rx_subscription.port_id);
+                filters.emplace_back(Filter{flt.extended_can_id, flt.extended_mask});
+            };
+            ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindMessage], msg_visitor);
+        }
+
+        // No need to make service filters if we don't have a local node ID.
+        //
+        if ((subs_stats_.total_svc_rx_ports > 0) && (!is_anonymous))
+        {
+            const auto svc_visitor = [&filters, local_node_id](RxSubscription& rx_subscription) {
+                //
+                // Make and store a single service filter.
+                const auto flt = ::canardMakeFilterForService(rx_subscription.port_id, local_node_id);
+                filters.emplace_back(Filter{flt.extended_can_id, flt.extended_mask});
+            };
+            ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindRequest], svc_visitor);
+            ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindResponse], svc_visitor);
+        }
+
+        (void) ports_count;
+        CETL_DEBUG_ASSERT(ports_count == total_active_ports, "");
+        return true;
+    }
 
 private:
     template <typename Node>
@@ -476,15 +565,17 @@ private:
     private:
         // IRxSessionDelegate
 
-        void acceptRxTransfer(const CanardRxTransfer& transfer) override
+        void acceptRxTransfer(CanardMemory&&                canard_memory,
+                              const CanardTransferMetadata& metadata,
+                              const TimePoint               timestamp) override
         {
             // This is where de-multiplexing happens: the transfer is forwarded to the appropriate session.
             // It's ok not to find the session delegate here - we drop unsolicited transfers.
             //
-            const ResponseRxParams params{0, subscription_.port_id, transfer.metadata.remote_node_id};
+            const ResponseRxParams params{0, subscription_.port_id, metadata.remote_node_id};
             if (auto* const session_delegate = transport_delegate_.tryFindRxSessionDelegateFor(params))
             {
-                session_delegate->acceptRxTransfer(transfer);
+                session_delegate->acceptRxTransfer(std::move(canard_memory), metadata, timestamp);
             }
         }
 
@@ -507,6 +598,7 @@ private:
 
         // No Sonar `cpp:S5357` b/c the raw `user_reference` is part of libcanard api,
         // and it was set by us at this delegate constructor (see `TransportDelegate` ctor).
+        // NOLINTNEXTLINE
         return *static_cast<TransportDelegate*>(user_reference);  // NOSONAR cpp:S5357
     }
 
@@ -553,6 +645,9 @@ private:
         (void) result;
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
         CETL_DEBUG_ASSERT(result > 0, "New subscription supposed to be made.");
+
+        subs_stats_.total_msg_rx_ports += (transfer_kind == CanardTransferKindMessage) ? 1 : 0;
+        subs_stats_.total_svc_rx_ports += (transfer_kind != CanardTransferKindMessage) ? 1 : 0;
     }
 
     // MARK: Data members:
@@ -560,6 +655,7 @@ private:
     cetl::pmr::memory_resource&  memory_;
     CanardInstance               canard_instance_;
     SessionTree<RxSubsDemuxNode> rx_subs_demux_nodes_;
+    SubscriptionStats            subs_stats_;
 
 };  // TransportDelegate
 

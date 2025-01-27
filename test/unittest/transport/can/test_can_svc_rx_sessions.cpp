@@ -474,7 +474,7 @@ TEST_F(TestCanSvcRxSessions, receive_response)
                 EXPECT_THAT(now(), rx_timestamp);
                 EXPECT_THAT(p.size(), CANARD_MTU_MAX);
                 p[0] = b(0b111'11101);
-                return IMedia::PopResult::Metadata{rx_timestamp, 0b011'1'0'0'101111011'0010011'0110001, 1};
+                return IMedia::PopResult::Metadata{rx_timestamp, 0b011'1'0'0'101111011'0010011'0110011, 1};
             });
         scheduler_.scheduleNamedCallback("rx", rx_timestamp);
 

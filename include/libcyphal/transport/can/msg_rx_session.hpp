@@ -130,23 +130,17 @@ private:
 
     // MARK: IRxSessionDelegate
 
-    void acceptRxTransfer(const CanardRxTransfer& transfer) override
+    void acceptRxTransfer(CanardMemory&&                canard_memory,
+                          const CanardTransferMetadata& metadata,
+                          const TimePoint               timestamp) override
     {
-        const auto priority    = static_cast<Priority>(transfer.metadata.priority);
-        const auto transfer_id = static_cast<TransferId>(transfer.metadata.transfer_id);
-        const auto timestamp   = TimePoint{std::chrono::microseconds{transfer.timestamp_usec}};
+        const auto priority    = static_cast<Priority>(metadata.priority);
+        const auto transfer_id = static_cast<TransferId>(metadata.transfer_id);
 
-        const cetl::optional<NodeId> publisher_node_id =
-            transfer.metadata.remote_node_id > CANARD_NODE_ID_MAX
+        const cetl::optional<NodeId> publisher_node_id =  //
+            metadata.remote_node_id > CANARD_NODE_ID_MAX  //
                 ? cetl::nullopt
-                : cetl::make_optional<NodeId>(transfer.metadata.remote_node_id);
-
-        // No Sonar `cpp:S5356` and `cpp:S5357` b/c we need to pass raw data from C libcanard api.
-        auto* const buffer = static_cast<cetl::byte*>(transfer.payload.data);  // NOSONAR cpp:S5356 cpp:S5357
-        TransportDelegate::CanardMemory canard_memory{delegate_,
-                                                      transfer.payload.allocated_size,
-                                                      buffer,
-                                                      transfer.payload.size};
+                : cetl::make_optional<NodeId>(metadata.remote_node_id);
 
         const MessageRxMetadata meta{{{transfer_id, priority}, timestamp}, publisher_node_id};
         MessageRxTransfer       msg_rx_transfer{meta, ScatteredBuffer{std::move(canard_memory)}};

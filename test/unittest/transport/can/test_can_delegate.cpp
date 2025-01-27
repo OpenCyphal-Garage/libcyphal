@@ -53,6 +53,7 @@ using testing::VariantWith;
 class TestCanDelegate : public testing::Test
 {
 protected:
+    using CanardMemory      = can::detail::CanardMemory;
     using TransportDelegate = can::detail::TransportDelegate;
 
     class TransportDelegateImpl final : public TransportDelegate
@@ -72,7 +73,7 @@ protected:
                      const PayloadFragments        payload_fragments),
                     (override));
 
-        MOCK_METHOD(void, onSessionEvent, (const SessionEvent::Variant& event_var), (noexcept, override));
+        MOCK_METHOD(void, onSessionEvent, (const SessionEvent::Variant& event_var), (noexcept, override));  // NOLINT
 
         MOCK_METHOD(can::detail::IRxSessionDelegate*,
                     tryFindRxSessionDelegateFor,
@@ -102,18 +103,16 @@ protected:
 
 TEST_F(TestCanDelegate, CanardMemory_copy)
 {
-    using CanardMemory = TransportDelegate::CanardMemory;
-
     TransportDelegateImpl delegate{mr_};
     auto&                 canard_instance = delegate.canardInstance();
 
     constexpr std::size_t payload_size   = 4;
     constexpr std::size_t allocated_size = payload_size + 1;
-    auto* const           payload        = static_cast<byte*>(
-        canard_instance.memory.allocate(static_cast<TransportDelegate*>(&delegate), allocated_size));
+    auto* const           payload =
+        static_cast<byte*>(canard_instance.memory.allocate(static_cast<TransportDelegate*>(&delegate), allocated_size));
     fillIotaBytes({payload, allocated_size}, b('0'));
 
-    const CanardMemory canard_memory{delegate, allocated_size, payload, payload_size};
+    const CanardMemory canard_memory{mr_, allocated_size, payload, payload_size};
     EXPECT_THAT(canard_memory.size(), payload_size);
 
     // Ask exactly as payload
@@ -162,17 +161,15 @@ TEST_F(TestCanDelegate, CanardMemory_copy)
 
 TEST_F(TestCanDelegate, CanardMemory_copy_on_moved)
 {
-    using CanardMemory = TransportDelegate::CanardMemory;
-
     TransportDelegateImpl delegate{mr_};
     auto&                 canard_instance = delegate.canardInstance();
 
     constexpr std::size_t payload_size = 4;
-    auto* const           payload      = static_cast<byte*>(
-        canard_instance.memory.allocate(static_cast<TransportDelegate*>(&delegate), payload_size));
+    auto* const           payload =
+        static_cast<byte*>(canard_instance.memory.allocate(static_cast<TransportDelegate*>(&delegate), payload_size));
     fillIotaBytes({payload, payload_size}, b('0'));
 
-    CanardMemory old_canard_memory{delegate, payload_size, payload, payload_size};
+    CanardMemory old_canard_memory{mr_, payload_size, payload, payload_size};
     EXPECT_THAT(old_canard_memory.size(), payload_size);
 
     const CanardMemory new_canard_memory{std::move(old_canard_memory)};

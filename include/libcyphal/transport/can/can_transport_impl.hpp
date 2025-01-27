@@ -169,8 +169,6 @@ public:
         : TransportDelegate{memory}
         , executor_{executor}
         , media_array_{std::move(media_array)}
-        , total_msg_rx_ports_{0}
-        , total_svc_rx_ports_{0}
         , svc_response_rx_session_nodes_{memory}
     {
         scheduleConfigOfFilters();
@@ -190,10 +188,6 @@ public:
             flushCanardTxQueue(media.canard_tx_queue(), canardInstance());
         }
 
-        CETL_DEBUG_ASSERT(total_msg_rx_ports_ == 0,  //
-                          "Message sessions must be destroyed before transport.");
-        CETL_DEBUG_ASSERT(total_svc_rx_ports_ == 0,  //
-                          "Service sessions must be destroyed before transport.");
         CETL_DEBUG_ASSERT(svc_response_rx_session_nodes_.isEmpty(),
                           "Service sessions must be destroyed before transport.");
     }
@@ -250,7 +244,8 @@ private:
         //
         // @see scheduleConfigOfFilters
         //
-        if (total_svc_rx_ports_ > 0)
+        const auto& subs_stats = getSubscriptionStats();
+        if (subs_stats.total_svc_rx_ports > 0)
         {
             const bool result = configure_filters_callback_.schedule(Callback::Schedule::Once{executor_.now()});
             (void) result;
@@ -367,8 +362,13 @@ private:
 
     void onSessionEvent(const SessionEvent::Variant& event_var) noexcept override
     {
-        SessionEventHandler handler_with{*this};
-        cetl::visit(handler_with, event_var);
+        cetl::visit(cetl::make_overloaded(  //
+                        [this](const SessionEvent::SvcResponseDestroyed& event) {
+                            //
+                            svc_response_rx_session_nodes_.removeNodeFor(event.params);
+                        },
+                        [](const auto&) {}),
+                    event_var);
 
         cancelRxCallbacksIfNoPortsLeft();
         scheduleConfigOfFilters();
@@ -404,56 +404,6 @@ private:
 
     template <typename Node>
     using SessionTree = transport::detail::SessionTree<Node>;
-
-    struct SessionEventHandler
-    {
-        explicit SessionEventHandler(Self& self)
-            : self_{self}
-        {
-        }
-
-        void operator()(const SessionEvent::MsgCreated&) const
-        {
-            ++self_.total_msg_rx_ports_;
-        }
-
-        void operator()(const SessionEvent::MsgDestroyed&) const
-        {
-            // We are not going to allow a negative number of ports.
-            CETL_DEBUG_ASSERT(self_.total_msg_rx_ports_ > 0, "");
-            self_.total_msg_rx_ports_ -= std::min(static_cast<std::size_t>(1), self_.total_msg_rx_ports_);
-        }
-
-        void operator()(const SessionEvent::SvcRequestCreated&) const
-        {
-            ++self_.total_svc_rx_ports_;
-        }
-
-        void operator()(const SessionEvent::SvcRequestDestroyed&) const
-        {
-            // We are not going to allow a negative number of ports.
-            CETL_DEBUG_ASSERT(self_.total_svc_rx_ports_ > 0, "");
-            self_.total_svc_rx_ports_ -= std::min(static_cast<std::size_t>(1), self_.total_svc_rx_ports_);
-        }
-
-        void operator()(const SessionEvent::SvcResponseCreated&) const
-        {
-            ++self_.total_svc_rx_ports_;
-        }
-
-        void operator()(const SessionEvent::SvcResponseDestroyed& event) const
-        {
-            self_.svc_response_rx_session_nodes_.removeNodeFor(event.params);
-
-            // We are not going to allow a negative number of ports.
-            CETL_DEBUG_ASSERT(self_.total_svc_rx_ports_ > 0, "");
-            self_.total_svc_rx_ports_ -= std::min(static_cast<std::size_t>(1), self_.total_svc_rx_ports_);
-        }
-
-    private:
-        Self& self_;
-
-    };  // SessionEventHandler
 
     template <typename Interface, typename Factory, typename Params>
     CETL_NODISCARD auto makeRxSessionImpl(  //
@@ -634,9 +584,16 @@ private:
 
             // No Sonar `cpp:S5357` b/c the raw `user_reference` is part of libcanard api,
             // and it was set by us at a RX session constructor (see f.e. `MessageRxSession` ctor).
-            auto* const delegate =
+            auto* const sesson_delegate =
                 static_cast<IRxSessionDelegate*>(out_subscription->user_reference);  // NOSONAR cpp:S5357
-            delegate->acceptRxTransfer(out_transfer);
+
+            // No Sonar `cpp:S5356` and `cpp:S5357` b/c we need to pass raw data from C libcanard api.
+            auto* const buffer = static_cast<cetl::byte*>(out_transfer.payload.data);  // NOSONAR cpp:S5356 cpp:S5357
+
+            sesson_delegate->acceptRxTransfer(  //
+                CanardMemory{memory(), out_transfer.payload.allocated_size, buffer, out_transfer.payload.size},
+                out_transfer.metadata,
+                TimePoint{std::chrono::microseconds{out_transfer.timestamp_usec}});
         }
     }
 
@@ -778,73 +735,10 @@ private:
         }
     }
 
-    /// @brief Fills an array with filters for each active RX port.
-    ///
-    CETL_NODISCARD bool fillMediaFiltersArray(libcyphal::detail::VarArray<Filter>& filters)
-    {
-        using RxSubscription     = const CanardRxSubscription;
-        using RxSubscriptionTree = CanardConcreteTree<RxSubscription>;
-
-        // Total "active" RX ports depends on the local node ID. For anonymous nodes,
-        // we don't account for service ports (b/c they don't work while being anonymous).
-        //
-        const auto        local_node_id      = static_cast<CanardNodeID>(getNodeId());
-        const auto        is_anonymous       = local_node_id > CANARD_NODE_ID_MAX;
-        const std::size_t total_active_ports = total_msg_rx_ports_ + (is_anonymous ? 0 : total_svc_rx_ports_);
-        if (total_active_ports == 0)
-        {
-            // No need to allocate memory for zero filters.
-            return true;
-        }
-
-        // Now we know that we have at least one active port,
-        // so we need preallocate temp memory for total number of active ports.
-        //
-        filters.reserve(total_active_ports);
-        if (filters.capacity() < total_active_ports)
-        {
-            // This is out of memory situation.
-            return false;
-        }
-
-        // `ports_count` counting is just for the sake of debug verification.
-        std::size_t ports_count = 0;
-
-        const auto& subs_trees = canardInstance().rx_subscriptions;
-
-        if (total_msg_rx_ports_ > 0)
-        {
-            const auto msg_visitor = [&filters](RxSubscription& rx_subscription) {
-                //
-                // Make and store a single message filter.
-                const auto flt = ::canardMakeFilterForSubject(rx_subscription.port_id);
-                filters.emplace_back(Filter{flt.extended_can_id, flt.extended_mask});
-            };
-            ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindMessage], msg_visitor);
-        }
-
-        // No need to make service filters if we don't have a local node ID.
-        //
-        if ((total_svc_rx_ports_ > 0) && (!is_anonymous))
-        {
-            const auto svc_visitor = [&filters, local_node_id](RxSubscription& rx_subscription) {
-                //
-                // Make and store a single service filter.
-                const auto flt = ::canardMakeFilterForService(rx_subscription.port_id, local_node_id);
-                filters.emplace_back(Filter{flt.extended_can_id, flt.extended_mask});
-            };
-            ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindRequest], svc_visitor);
-            ports_count += RxSubscriptionTree::visitCounting(subs_trees[CanardTransferKindResponse], svc_visitor);
-        }
-
-        (void) ports_count;
-        CETL_DEBUG_ASSERT(ports_count == total_active_ports, "");
-        return true;
-    }
-
     void cancelRxCallbacksIfNoPortsLeft()
     {
-        if (0 == (total_msg_rx_ports_ + total_svc_rx_ports_))
+        const auto& subs_stats = getSubscriptionStats();
+        if (0 == (subs_stats.total_msg_rx_ports + subs_stats.total_svc_rx_ports))
         {
             for (Media& media : media_array_)
             {
@@ -857,8 +751,6 @@ private:
 
     IExecutor&                               executor_;
     MediaArray                               media_array_;
-    std::size_t                              total_msg_rx_ports_;
-    std::size_t                              total_svc_rx_ports_;
     TransientErrorHandler                    transient_error_handler_;
     Callback::Any                            configure_filters_callback_;
     SessionTree<RxSessionTreeNode::Response> svc_response_rx_session_nodes_;
