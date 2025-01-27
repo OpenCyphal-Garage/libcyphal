@@ -362,16 +362,20 @@ private:
 
     void onSessionEvent(const SessionEvent::Variant& event_var) noexcept override
     {
-        cetl::visit(cetl::make_overloaded(  //
-                        [this](const SessionEvent::SvcResponseDestroyed& event) {
-                            //
-                            svc_response_rx_session_nodes_.removeNodeFor(event.params);
-                        },
-                        [](const auto&) {
-                            // No specific action needed for other events.
-                            // But we still might need to reconfigure filters (see below after `visit`).
-                        }),
-                    event_var);
+        // `visit` might hypothetically throw, so we need to catch it.
+        libcyphal::detail::performWithoutThrowing([this, &event_var] {
+            //
+            cetl::visit(cetl::make_overloaded(  //
+                            [this](const SessionEvent::SvcResponseDestroyed& event) noexcept {
+                                //
+                                svc_response_rx_session_nodes_.removeNodeFor(event.params);
+                            },
+                            [](const auto&) noexcept {
+                                // No specific action needed for other events.
+                                // But we still might need to reconfigure filters (see below after `visit`).
+                            }),
+                        event_var);
+        });
 
         cancelRxCallbacksIfNoPortsLeft();
         scheduleConfigOfFilters();
@@ -386,7 +390,7 @@ private:
         return nullptr;
     }
 
-    void scheduleConfigOfFilters()
+    void scheduleConfigOfFilters() noexcept
     {
         if (!configure_filters_callback_)
         {
@@ -590,17 +594,13 @@ private:
             auto* const session_delegate =
                 static_cast<IRxSessionDelegate*>(out_subscription->user_reference);  // NOSONAR cpp:S5357
 
-            // No Sonar `cpp:S5356` and `cpp:S5357` b/c we need to pass raw data from C libcanard api.
-            auto* const buffer = static_cast<cetl::byte*>(out_transfer.payload.data);  // NOSONAR cpp:S5356 cpp:S5357
-
             const auto transfer_id = static_cast<TransferId>(out_transfer.metadata.transfer_id);
             const auto priority    = static_cast<Priority>(out_transfer.metadata.priority);
             const auto timestamp   = TimePoint{std::chrono::microseconds{out_transfer.timestamp_usec}};
 
-            session_delegate->acceptRxTransfer(  //
-                CanardMemory{memory(), out_transfer.payload.allocated_size, buffer, out_transfer.payload.size},
-                TransferRxMetadata{{transfer_id, priority}, timestamp},
-                out_transfer.metadata.remote_node_id);
+            session_delegate->acceptRxTransfer(CanardMemory{memory(), out_transfer.payload},
+                                               TransferRxMetadata{{transfer_id, priority}, timestamp},
+                                               out_transfer.metadata.remote_node_id);
         }
     }
 
@@ -742,7 +742,7 @@ private:
         }
     }
 
-    void cancelRxCallbacksIfNoPortsLeft()
+    void cancelRxCallbacksIfNoPortsLeft() noexcept
     {
         const auto& subs_stats = getSubscriptionStats();
         if (0 == (subs_stats.total_msg_rx_ports + subs_stats.total_svc_rx_ports))

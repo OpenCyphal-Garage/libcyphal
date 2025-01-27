@@ -112,8 +112,12 @@ TEST_F(TestCanDelegate, CanardMemory_copy)
         static_cast<byte*>(canard_instance.memory.allocate(static_cast<TransportDelegate*>(&delegate), allocated_size));
     fillIotaBytes({payload, allocated_size}, b('0'));
 
-    const CanardMemory canard_memory{mr_, allocated_size, payload, payload_size};
+    CanardMutablePayload canard_payload{payload_size, payload, allocated_size};
+    const CanardMemory canard_memory{mr_, canard_payload};
     EXPECT_THAT(canard_memory.size(), payload_size);
+    EXPECT_THAT(canard_payload.size, 0);
+    EXPECT_THAT(canard_payload.data, nullptr);
+    EXPECT_THAT(canard_payload.allocated_size, 0);
 
     // Ask exactly as payload
     {
@@ -169,8 +173,12 @@ TEST_F(TestCanDelegate, CanardMemory_copy_on_moved)
         static_cast<byte*>(canard_instance.memory.allocate(static_cast<TransportDelegate*>(&delegate), payload_size));
     fillIotaBytes({payload, payload_size}, b('0'));
 
-    CanardMemory old_canard_memory{mr_, payload_size, payload, payload_size};
+    CanardMutablePayload canard_payload{payload_size, payload, payload_size};
+    CanardMemory old_canard_memory{mr_, canard_payload};
     EXPECT_THAT(old_canard_memory.size(), payload_size);
+    EXPECT_THAT(canard_payload.size, 0);
+    EXPECT_THAT(canard_payload.data, nullptr);
+    EXPECT_THAT(canard_payload.allocated_size, 0);
 
     const CanardMemory new_canard_memory{std::move(old_canard_memory)};
     // NOLINTNEXTLINE(clang-analyzer-cplusplus.Move,bugprone-use-after-move,hicpp-invalid-access-moved)

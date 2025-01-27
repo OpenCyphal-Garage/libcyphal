@@ -149,6 +149,24 @@ CETL_NODISCARD UpVariant upcastVariant(Variant&& variant)
                        std::forward<Variant>(variant));
 }
 
+template <typename Action>
+bool performWithoutThrowing(Action&& action) noexcept
+{
+#if defined(__cpp_exceptions)
+    try
+#endif
+    {
+        std::forward<Action>(action)();
+        return true;
+    }
+#if defined(__cpp_exceptions)
+    catch (...)
+    {
+        return false;
+    }
+#endif
+}
+
 }  // namespace detail
 
 /// @brief A deleter which uses Polymorphic Memory Resource (PMR) for de-allocation of raw bytes memory buffers.

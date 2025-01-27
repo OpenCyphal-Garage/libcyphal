@@ -45,14 +45,12 @@ namespace detail
 class CanardMemory final : public ScatteredBuffer::IStorage
 {
 public:
-    CanardMemory(cetl::pmr::memory_resource& memory,
-                 const std::size_t           allocated_size,
-                 cetl::byte* const           buffer,
-                 const std::size_t           payload_size)
+    // No Sonar `cpp:S5356` and `cpp:S5357` b/c we need to pass raw data from C libcanard api.
+    CanardMemory(cetl::pmr::memory_resource& memory, CanardMutablePayload& payload)
         : memory_{memory}
-        , allocated_size_{allocated_size}
-        , buffer_{buffer}
-        , payload_size_{payload_size}
+        , allocated_size_{std::exchange(payload.allocated_size, 0)}
+        , buffer_{static_cast<cetl::byte*>(std::exchange(payload.data, nullptr))}  // NOSONAR cpp:S5356 cpp:S5357
+        , payload_size_{std::exchange(payload.size, 0)}
     {
     }
     CanardMemory(CanardMemory&& other) noexcept

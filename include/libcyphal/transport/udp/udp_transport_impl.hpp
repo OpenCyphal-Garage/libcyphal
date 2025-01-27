@@ -387,22 +387,26 @@ private:
 
     void onSessionEvent(const SessionEvent::Variant& event_var) noexcept override
     {
-        cetl::visit(cetl::make_overloaded(  //
-                        [this](const SessionEvent::MsgDestroyed& msg_session_destroyed) {
-                            //
-                            msg_rx_session_nodes_.removeNodeFor(msg_session_destroyed.params);
-                        },
-                        [this](const SessionEvent::SvcRequestDestroyed& req_session_destroyed) {
-                            //
-                            svc_request_rx_session_nodes_.removeNodeFor(req_session_destroyed.params);
-                            cancelRxCallbacksIfNoSvcLeft();
-                        },
-                        [this](const SessionEvent::SvcResponseDestroyed& res_session_destroyed) {
-                            //
-                            svc_response_rx_session_nodes_.removeNodeFor(res_session_destroyed.params);
-                            cancelRxCallbacksIfNoSvcLeft();
-                        }),
-                    event_var);
+        // `visit` might hypothetically throw, so we need to catch it.
+        libcyphal::detail::performWithoutThrowing([this, &event_var] {
+            //
+            cetl::visit(cetl::make_overloaded(  //
+                            [this](const SessionEvent::MsgDestroyed& msg_session_destroyed) noexcept {
+                                //
+                                msg_rx_session_nodes_.removeNodeFor(msg_session_destroyed.params);
+                            },
+                            [this](const SessionEvent::SvcRequestDestroyed& req_session_destroyed) noexcept {
+                                //
+                                svc_request_rx_session_nodes_.removeNodeFor(req_session_destroyed.params);
+                                cancelRxCallbacksIfNoSvcLeft();
+                            },
+                            [this](const SessionEvent::SvcResponseDestroyed& res_session_destroyed) noexcept {
+                                //
+                                svc_response_rx_session_nodes_.removeNodeFor(res_session_destroyed.params);
+                                cancelRxCallbacksIfNoSvcLeft();
+                            }),
+                        event_var);
+        });
     }
 
     IRxSessionDelegate* tryFindRxSessionDelegateFor(const ResponseRxParams& params) override
@@ -1010,7 +1014,7 @@ private:
         }
     }
 
-    void cancelRxCallbacksIfNoSvcLeft()
+    void cancelRxCallbacksIfNoSvcLeft() noexcept
     {
         if (svc_request_rx_session_nodes_.isEmpty() && svc_response_rx_session_nodes_.isEmpty())
         {

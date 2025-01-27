@@ -83,7 +83,7 @@ protected:
                      const PayloadFragments                           payload_fragments),
                     (override));
 
-        MOCK_METHOD(void, onSessionEvent, (const SessionEvent::Variant& event_var), (noexcept, override));
+        MOCK_METHOD(void, onSessionEvent, (const SessionEvent::Variant& event_var), (noexcept, override));  // NOLINT
 
         MOCK_METHOD(udp::detail::IRxSessionDelegate*,
                     tryFindRxSessionDelegateFor,
@@ -150,7 +150,7 @@ protected:
 
 TEST_F(TestUdpDelegate, UdpardMemory_copy)
 {
-    TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
+    const TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
 
     auto* const payload = allocateNewUdpardPayload(4);
     fillIotaBytes({payload, 4}, b('0'));
@@ -162,6 +162,12 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy)
 
     const UdpardMemory udpard_memory{delegate.memoryResources(), rx_transfer};
     EXPECT_THAT(udpard_memory.size(), payload_size);
+    EXPECT_THAT(rx_transfer.payload_size, 0);
+    EXPECT_THAT(rx_transfer.payload.next, nullptr);
+    EXPECT_THAT(rx_transfer.payload.view.size, 0);
+    EXPECT_THAT(rx_transfer.payload.view.data, nullptr);
+    EXPECT_THAT(rx_transfer.payload.origin.size, 0);
+    EXPECT_THAT(rx_transfer.payload.origin.data, nullptr);
 
     // Ask exactly as payload
     {
@@ -209,7 +215,7 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy)
 
 TEST_F(TestUdpDelegate, UdpardMemory_copy_on_moved)
 {
-    TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
+    const TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
 
     constexpr std::size_t payload_size = 4;
     auto* const           payload      = allocateNewUdpardPayload(payload_size);
@@ -245,7 +251,7 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy_on_moved)
 
 TEST_F(TestUdpDelegate, UdpardMemory_copy_multi_fragmented)
 {
-    TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
+    const TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
 
     auto* const payload0 = allocateNewUdpardPayload(7);
 
@@ -319,7 +325,7 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy_multi_fragmented)
 
 TEST_F(TestUdpDelegate, UdpardMemory_copy_empty)
 {
-    TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
+    const TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
 
     UdpardRxTransfer rx_transfer{};
     rx_transfer.payload_size = 0;

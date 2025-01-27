@@ -343,7 +343,7 @@ public:
         return nullptr;
     }
 
-    void releaseRxRpcPortFor(const ResponseRxParams& params)
+    void releaseRxRpcPortFor(const ResponseRxParams& params) noexcept
     {
         if (auto* const node = rx_rpc_port_demux_nodes_.tryFindNodeFor(params))
         {
@@ -354,7 +354,7 @@ public:
         }
     }
 
-    void cancelRxRpcPortFor(const UdpardRxRPCPort& rpc_port_, const bool is_request)
+    void cancelRxRpcPortFor(const UdpardRxRPCPort& rpc_port_, const bool is_request) noexcept
     {
         const std::int8_t result = ::udpardRxRPCDispatcherCancel(&rx_rpc_dispatcher_,
                                                                  rpc_port_.service_id,

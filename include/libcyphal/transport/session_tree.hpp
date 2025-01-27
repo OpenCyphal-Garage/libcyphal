@@ -112,7 +112,7 @@ public:
     }
 
     template <typename Params>
-    void removeNodeFor(const Params& params)
+    void removeNodeFor(const Params& params) noexcept
     {
         removeAndDestroyNode(tryFindNodeFor(params));
     }
