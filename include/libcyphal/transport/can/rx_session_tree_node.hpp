@@ -7,13 +7,6 @@
 #define LIBCYPHAL_TRANSPORT_CAN_RX_SESSION_TREE_NODE_HPP_INCLUDED
 
 #include "libcyphal/transport/session_tree.hpp"
-#include "libcyphal/transport/svc_sessions.hpp"
-#include "libcyphal/transport/types.hpp"
-
-#include <cetl/cetl.hpp>
-
-#include <cstdint>
-#include <tuple>
 
 namespace libcyphal
 {

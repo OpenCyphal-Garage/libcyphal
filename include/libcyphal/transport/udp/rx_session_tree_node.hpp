@@ -20,7 +20,6 @@
 
 #include <array>
 #include <cstdint>
-#include <functional>
 #include <tuple>
 
 namespace libcyphal
