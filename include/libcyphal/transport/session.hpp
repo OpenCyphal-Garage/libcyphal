@@ -48,9 +48,14 @@ public:
 
     /// @brief Sets the timeout for a transmission.
     ///
+    /// Note that b/c of the nature of the Lizard libraries, the timeout is shared
+    /// between different sessions of the same kind and port id. This means that
+    /// the timeout set for one session will affect all other sessions of the same kind and port id.
+    /// For example, two RPC clients (on the same service id) of two different RPC server nodes
+    /// will share the same timeout for transfer ids.
     /// See Cyphal specification about transfer-ID timeouts.
     ///
-    /// @param timeout - Positive duration for the timeout. Default value is 2 second.
+    /// @param timeout - Positive duration for the timeout. The default value is 2 seconds.
     ///                  Zero or negative values are ignored.
     ///
     virtual void setTransferIdTimeout(const Duration timeout) = 0;
