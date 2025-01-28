@@ -152,7 +152,7 @@ CETL_NODISCARD UpVariant upcastVariant(Variant&& variant)
 
 /// @brief Wraps the given action into a lambda and performs it without throwing exceptions.
 ///
-/// In use f.e. for `cetl::visit` which might hypothetically throw an exceptions.
+/// In use f.e. for `cetl::visit` which might hypothetically throw an exception.
 ///
 /// @return `true` if the action was performed successfully, `false` if an exception was thrown.
 ///         Always `true` if exceptions are disabled.
