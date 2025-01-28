@@ -23,13 +23,16 @@ namespace libcyphal
 namespace transport
 {
 
-/// Internal implementation details of the UDP transport.
+/// Internal implementation details of a transport.
 /// Not supposed to be used directly by the users of the library.
 ///
 namespace detail
 {
 
-/// @brief Defines a tree of sessions for the UDP transport.
+/// @brief Defines a tree of sessions for a transport.
+///
+/// @tparam Node The type of the session node. Expected to be a subclass of `SessionTree::NodeBase`,
+///              and to have a method `compareByParams` that compares nodes by its parameters.
 ///
 template <typename Node>
 class SessionTree final
@@ -74,10 +77,21 @@ public:
         return nodes_.empty();
     }
 
+    /// @brief Ensures that a node for the given parameters exists in the tree.
+    ///
+    /// @tparam ShouldBeNew If `true`, the function will return an error if node with given
+    //                      parametes already exists (see also `Node::compareByParams` method).
+    /// @tparam Params The type of the parameters to be used to find or create the node.
+    /// @tparam Args The types of the arguments to be passed to the constructor of the node.
+    /// @param params The parameters to be used to find or create the node.
+    /// @param args The extra arguments to be forwarded to the constructor of the node (as a tuple).
+    /// @return The reference to the node, or an error if the node could not be created.
+    ///
     template <bool ShouldBeNew = false, typename Params, typename... Args>
     CETL_NODISCARD auto ensureNodeFor(const Params& params,
                                       Args&&... args) -> Expected<typename NodeBase::RefWrapper, AnyFailure>
     {
+        // In c++14 we can't capture `args` with forwarding, so we pack them into a tuple.
         auto args_tuple = std::make_tuple(std::forward<Args>(args)...);
 
         const auto node_existing = nodes_.search(
@@ -167,6 +181,9 @@ template <typename RxSessionDelegate>
 class ResponseRxSessionNode final : public SessionTree<ResponseRxSessionNode<RxSessionDelegate>>::NodeBase
 {
 public:
+    // Empty tuple parameter is used to allow for the same constructor signature
+    // as for other session nodes (see also `SessionTree::ensureNodeFor` method).
+    //
     explicit ResponseRxSessionNode(const ResponseRxParams& params, const std::tuple<>&)
         : service_id_{params.service_id}
         , server_node_id{params.server_node_id}

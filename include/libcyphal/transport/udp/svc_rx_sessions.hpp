@@ -148,7 +148,7 @@ public:
         : Base{delegate, params}
         , rpc_port_{}
     {
-        delegate.listenForRxRpcPort(rpc_port_, params);
+        delegate.listenForRxRpcPort<true>(rpc_port_, params);
 
         // No Sonar `cpp:S5356` b/c we integrate here with C libudpard API.
         rpc_port_.user_reference = static_cast<IRxSessionDelegate*>(this);  // NOSONAR cpp:S5356

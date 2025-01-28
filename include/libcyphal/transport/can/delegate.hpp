@@ -225,6 +225,10 @@ public:
 
     };  // CanardConcreteTree
 
+    /// Umbrella type for all session-related events.
+    ///
+    /// These are passed to the `onSessionEvent` method of the transport implementation.
+    ///
     struct SessionEvent
     {
         struct MsgCreated

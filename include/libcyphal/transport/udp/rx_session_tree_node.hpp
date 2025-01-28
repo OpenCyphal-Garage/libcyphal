@@ -46,6 +46,8 @@ struct SocketState
 class IRxSessionDelegate;
 class IMsgRxSessionDelegate;
 
+/// Umbrella type for various RX session tree nodes in use at the UDP transport.
+///
 struct RxSessionTreeNode
 {
     /// @brief Represents a message RX session node.
@@ -53,6 +55,9 @@ struct RxSessionTreeNode
     class Message final : public transport::detail::SessionTree<Message>::NodeBase
     {
     public:
+        // Empty tuple parameter is used to allow for the same constructor signature
+        // as for other session nodes (see also `SessionTree::ensureNodeFor` method).
+        //
         explicit Message(const MessageRxParams& params, const std::tuple<>&)
             : subject_id_{params.subject_id}
         {
@@ -90,6 +95,9 @@ struct RxSessionTreeNode
     class Request final : public transport::detail::SessionTree<Request>::NodeBase
     {
     public:
+        // Empty tuple parameter is used to allow for the same constructor signature
+        // as for other session nodes (see also `SessionTree::ensureNodeFor` method).
+        //
         explicit Request(const RequestRxParams& params, const std::tuple<>&)
             : service_id_{params.service_id}
         {

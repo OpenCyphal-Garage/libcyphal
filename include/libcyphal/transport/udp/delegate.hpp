@@ -253,6 +253,10 @@ protected:
 class TransportDelegate
 {
 public:
+    /// Umbrella type for all session-related events.
+    ///
+    /// These are passed to the `onSessionEvent` method of the transport implementation.
+    ///
     struct SessionEvent
     {
         struct MsgDestroyed
@@ -301,24 +305,13 @@ public:
         return rx_rpc_dispatcher_;
     }
 
-    void listenForRxRpcPort(UdpardRxRPCPort& rpc_port, const RequestRxParams& params)
+    template <bool IsRequest, typename Params>
+    void listenForRxRpcPort(UdpardRxRPCPort& rpc_port, const Params& params)
     {
         const std::int8_t result = ::udpardRxRPCDispatcherListen(&rx_rpc_dispatcher_,
                                                                  &rpc_port,
                                                                  params.service_id,
-                                                                 true,  // request
-                                                                 params.extent_bytes);
-        (void) result;
-        CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
-        CETL_DEBUG_ASSERT(result == 1, "A new registration has been expected to be created.");
-    }
-
-    void listenForRxRpcPort(UdpardRxRPCPort& rpc_port, const ResponseRxParams& params)
-    {
-        const std::int8_t result = ::udpardRxRPCDispatcherListen(&rx_rpc_dispatcher_,
-                                                                 &rpc_port,
-                                                                 params.service_id,
-                                                                 false,  // response
+                                                                 IsRequest,
                                                                  params.extent_bytes);
         (void) result;
         CETL_DEBUG_ASSERT(result >= 0, "There is no way currently to get an error here.");
@@ -485,7 +478,7 @@ private:
             , ref_count_{0}
             , port_{}
         {
-            transport_delegate_.listenForRxRpcPort(port_, params);
+            transport_delegate_.listenForRxRpcPort<false>(port_, params);
 
             // No Sonar `cpp:S5356` b/c we integrate here with C libudpard API.
             port_.user_reference = static_cast<IRxSessionDelegate*>(this);  // NOSONAR cpp:S5356

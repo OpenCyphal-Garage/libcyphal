@@ -15,6 +15,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <memory>
 #include <ratio>
 #include <type_traits>
@@ -149,8 +150,15 @@ CETL_NODISCARD UpVariant upcastVariant(Variant&& variant)
                        std::forward<Variant>(variant));
 }
 
-template <typename Action>
-bool performWithoutThrowing(Action&& action) noexcept
+/// @brief Wraps the given action into a lambda and performs it without throwing exceptions.
+///
+/// In use f.e. for `cetl::visit` which might hypothetically throw an exceptions.
+///
+/// @return `true` if the action was performed successfully, `false` if an exception was thrown.
+///         Always `true` if exceptions are disabled.
+///
+template <typename Exception = std::exception, typename Action>
+CETL_NODISCARD bool performWithoutThrowing(Action&& action) noexcept
 {
 #if defined(__cpp_exceptions)
     try
@@ -159,8 +167,9 @@ bool performWithoutThrowing(Action&& action) noexcept
         std::forward<Action>(action)();
         return true;
 #if defined(__cpp_exceptions)
-    } catch (...)
+    } catch (const Exception& ex)
     {
+        CETL_DEBUG_ASSERT(false, ex.what());
         return false;
     }
 #endif

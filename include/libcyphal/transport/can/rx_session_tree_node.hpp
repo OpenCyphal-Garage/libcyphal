@@ -23,6 +23,11 @@ namespace detail
 
 class IRxSessionDelegate;
 
+/// Umbrella type for various RX session tree nodes in use at the CAN transport.
+///
+/// Currently, it contains only one `Response` subtype,
+/// but still kept nested to match the UDP transport approach (where there are several subtypes).
+///
 struct RxSessionTreeNode
 {
     /// @brief Represents a service response RX session node.
