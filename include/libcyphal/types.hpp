@@ -150,7 +150,7 @@ CETL_NODISCARD UpVariant upcastVariant(Variant&& variant)
                        std::forward<Variant>(variant));
 }
 
-/// @brief Wraps the given action into a lambda and performs it without throwing exceptions.
+/// @brief Wraps the given action into a try/catch block, and performs it without throwing the given exception type.
 ///
 /// In use f.e. for `cetl::visit` which might hypothetically throw an exception.
 ///
@@ -166,6 +166,7 @@ CETL_NODISCARD bool performWithoutThrowing(Action&& action) noexcept
 #endif
         std::forward<Action>(action)();
         return true;
+
 #if defined(__cpp_exceptions)
     } catch (const Exception& ex)
     {
