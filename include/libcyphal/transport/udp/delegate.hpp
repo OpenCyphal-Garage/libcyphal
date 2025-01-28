@@ -214,7 +214,7 @@ public:
 
     /// @brief Accepts a received transfer from the transport dedicated to this RX session.
     ///
-    virtual void acceptRxTransfer(UdpardMemory&&            udpard_memory,
+    virtual void acceptRxTransfer(UdpardMemory&&            lizard_memory,
                                   const TransferRxMetadata& rx_metadata,
                                   const NodeId              source_node_id) = 0;
 
@@ -519,7 +519,7 @@ private:
     private:
         // IRxSessionDelegate
 
-        void acceptRxTransfer(UdpardMemory&&            udpard_memory,
+        void acceptRxTransfer(UdpardMemory&&            lizard_memory,
                               const TransferRxMetadata& rx_metadata,
                               const NodeId              source_node_id) override
         {
@@ -529,7 +529,7 @@ private:
             const ResponseRxParams params{0, port_.service_id, source_node_id};
             if (auto* const session_delegate = transport_delegate_.tryFindRxSessionDelegateFor(params))
             {
-                session_delegate->acceptRxTransfer(std::move(udpard_memory), rx_metadata, source_node_id);
+                session_delegate->acceptRxTransfer(std::move(lizard_memory), rx_metadata, source_node_id);
             }
         }
 

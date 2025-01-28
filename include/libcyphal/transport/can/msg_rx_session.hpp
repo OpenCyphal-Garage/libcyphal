@@ -130,7 +130,7 @@ private:
 
     // MARK: IRxSessionDelegate
 
-    void acceptRxTransfer(CanardMemory&&            canard_memory,
+    void acceptRxTransfer(CanardMemory&&            lizard_memory,
                           const TransferRxMetadata& rx_metadata,
                           const NodeId              source_node_id) override
     {
@@ -138,7 +138,7 @@ private:
             source_node_id > CANARD_NODE_ID_MAX ? cetl::nullopt : cetl::make_optional(source_node_id);
 
         const MessageRxMetadata meta{rx_metadata, publisher_node_id};
-        MessageRxTransfer       msg_rx_transfer{meta, ScatteredBuffer{std::move(canard_memory)}};
+        MessageRxTransfer       msg_rx_transfer{meta, ScatteredBuffer{std::move(lizard_memory)}};
         if (on_receive_cb_fn_)
         {
             on_receive_cb_fn_(OnReceiveCallback::Arg{msg_rx_transfer});
