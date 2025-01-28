@@ -169,7 +169,6 @@ CETL_NODISCARD bool performWithoutThrowing(Action&& action) noexcept
 #if defined(__cpp_exceptions)
     } catch (const Exception& ex)
     {
-        CETL_DEBUG_ASSERT(false, ex.what());
         return false;
     }
 #endif
