@@ -132,12 +132,10 @@ private:
 
     void acceptRxTransfer(CanardMemory&&            canard_memory,
                           const TransferRxMetadata& rx_metadata,
-                          const CanardNodeID        source_node_id) override
+                          const NodeId              source_node_id) override
     {
-        const cetl::optional<NodeId> publisher_node_id =  //
-            source_node_id > CANARD_NODE_ID_MAX           //
-                ? cetl::nullopt
-                : cetl::make_optional<NodeId>(source_node_id);
+        const cetl::optional<NodeId> publisher_node_id =
+            source_node_id > CANARD_NODE_ID_MAX ? cetl::nullopt : cetl::make_optional(source_node_id);
 
         const MessageRxMetadata meta{rx_metadata, publisher_node_id};
         MessageRxTransfer       msg_rx_transfer{meta, ScatteredBuffer{std::move(canard_memory)}};

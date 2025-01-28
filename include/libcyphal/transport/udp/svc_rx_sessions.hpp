@@ -10,8 +10,8 @@
 
 #include "libcyphal/errors.hpp"
 #include "libcyphal/transport/errors.hpp"
+#include "libcyphal/transport/svc_rx_session_base.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
-#include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
 
 #include <cetl/cetl.hpp>
@@ -19,7 +19,6 @@
 #include <udpard.h>
 
 #include <chrono>
-#include <utility>
 
 namespace libcyphal
 {
@@ -34,85 +33,11 @@ namespace udp
 namespace detail
 {
 
-/// @brief A base class to represent a service RX session.
-///
-template <typename Interface_, typename Params>
-class SvcRxSessionBase : public IRxSessionDelegate, public Interface_
-{
-public:
-    SvcRxSessionBase(TransportDelegate& delegate, const Params& params)
-        : delegate_{delegate}
-        , params_{params}
-    {
-    }
-
-    SvcRxSessionBase(const SvcRxSessionBase&)                = delete;
-    SvcRxSessionBase(SvcRxSessionBase&&) noexcept            = delete;
-    SvcRxSessionBase& operator=(const SvcRxSessionBase&)     = delete;
-    SvcRxSessionBase& operator=(SvcRxSessionBase&&) noexcept = delete;
-
-protected:
-    ~SvcRxSessionBase() = default;
-
-    TransportDelegate& delegate()
-    {
-        return delegate_;
-    }
-
-    // MARK: Interface
-
-    CETL_NODISCARD Params getParams() const noexcept final
-    {
-        return params_;
-    }
-
-    CETL_NODISCARD cetl::optional<ServiceRxTransfer> receive() final
-    {
-        if (last_rx_transfer_)
-        {
-            auto transfer = std::move(*last_rx_transfer_);
-            last_rx_transfer_.reset();
-            return transfer;
-        }
-        return cetl::nullopt;
-    }
-
-    void setOnReceiveCallback(ISvcRxSession::OnReceiveCallback::Function&& function) final
-    {
-        on_receive_cb_fn_ = std::move(function);
-    }
-
-    // MARK: IRxSessionDelegate
-
-    void acceptRxTransfer(UdpardMemory&&            udpard_memory,
-                          const TransferRxMetadata& rx_metadata,
-                          const UdpardNodeID        source_node_id) final
-    {
-        const ServiceRxMetadata meta{rx_metadata, source_node_id};
-        ServiceRxTransfer       svc_rx_transfer{meta, ScatteredBuffer{std::move(udpard_memory)}};
-        if (on_receive_cb_fn_)
-        {
-            on_receive_cb_fn_(ISvcRxSession::OnReceiveCallback::Arg{svc_rx_transfer});
-            return;
-        }
-        (void) last_rx_transfer_.emplace(std::move(svc_rx_transfer));
-    }
-
-private:
-    // MARK: Data members:
-
-    TransportDelegate&                         delegate_;
-    const Params                               params_;
-    cetl::optional<ServiceRxTransfer>          last_rx_transfer_;
-    ISvcRxSession::OnReceiveCallback::Function on_receive_cb_fn_;
-
-};  // SvcRxSessionBase
-
-// MARK: -
-
 /// @brief A concrete class to represent a service request RX session (aka server side).
 ///
-class SvcRequestRxSession final : public SvcRxSessionBase<IRequestRxSession, RequestRxParams>
+class SvcRequestRxSession final
+    : public transport::detail::  //
+      SvcRxSessionBase<IRequestRxSession, IRxSessionDelegate, TransportDelegate, RequestRxParams, UdpardMemory>
 {
     /// @brief Defines private specification for making interface unique ptr.
     ///
@@ -195,7 +120,9 @@ private:
 
 /// @brief A concrete class to represent a service response RX session (aka client side).
 ///
-class SvcResponseRxSession final : public SvcRxSessionBase<IResponseRxSession, ResponseRxParams>
+class SvcResponseRxSession final
+    : public transport::detail::  //
+      SvcRxSessionBase<IResponseRxSession, IRxSessionDelegate, TransportDelegate, ResponseRxParams, UdpardMemory>
 {
     /// @brief Defines private specification for making interface unique ptr.
     ///

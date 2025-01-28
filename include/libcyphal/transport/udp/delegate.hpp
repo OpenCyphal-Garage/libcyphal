@@ -216,7 +216,7 @@ public:
     ///
     virtual void acceptRxTransfer(UdpardMemory&&            udpard_memory,
                                   const TransferRxMetadata& rx_metadata,
-                                  const UdpardNodeID        source_node_id) = 0;
+                                  const NodeId              source_node_id) = 0;
 
 protected:
     IRxSessionDelegate()  = default;
@@ -521,7 +521,7 @@ private:
 
         void acceptRxTransfer(UdpardMemory&&            udpard_memory,
                               const TransferRxMetadata& rx_metadata,
-                              const UdpardNodeID        source_node_id) override
+                              const NodeId              source_node_id) override
         {
             // This is where de-multiplexing happens: the transfer is forwarded to the appropriate session.
             // It's ok not to find the session delegate here - we drop unsolicited transfers.
