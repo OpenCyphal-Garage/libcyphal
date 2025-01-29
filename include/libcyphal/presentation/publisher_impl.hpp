@@ -54,7 +54,7 @@ public:
         {
             if (const auto local_node_id = delegate.getLocalNodeId())
             {
-                const SessionSpec session_spec{subject_id_, local_node_id.value()};
+                const SessionSpec session_spec{subject_id_, *local_node_id};
                 next_transfer_id_ = transfer_id_map->getIdFor(session_spec);
             }
         }
@@ -108,7 +108,7 @@ private:
         {
             if (const auto local_node_id = delegate_.getLocalNodeId())
             {
-                const SessionSpec session_spec{subject_id_, local_node_id.value()};
+                const SessionSpec session_spec{subject_id_, *local_node_id};
                 transfer_id_map->setIdFor(session_spec, next_transfer_id_);
             }
         }

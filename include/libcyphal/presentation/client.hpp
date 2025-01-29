@@ -243,7 +243,7 @@ public:
                 {
                     return TooManyPendingRequestsError{};
                 }
-                const auto transfer_id = opt_transfer_id.value();
+                const auto transfer_id = *opt_transfer_id;
 
                 // Create and register a response promise object, which will be used to handle the response.
                 // Its done specifically before sending the request, so that we will be ready to handle a response
@@ -331,7 +331,7 @@ public:
         {
             return TooManyPendingRequestsError{};
         }
-        const auto transfer_id = opt_transfer_id.value();
+        const auto transfer_id = *opt_transfer_id;
 
         // 2. Create and register a response promise object, which will be used to handle the response.
         //    Its done specifically before sending the request, so that we will be ready to handle a response
