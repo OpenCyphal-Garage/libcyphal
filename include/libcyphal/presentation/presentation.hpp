@@ -23,7 +23,7 @@
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/msg_sessions.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
-#include "libcyphal/transport/transfer_id_generators.hpp"
+#include "libcyphal/transport/transfer_id_map.hpp"
 #include "libcyphal/transport/transport.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"

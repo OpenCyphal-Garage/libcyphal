@@ -13,7 +13,7 @@
 #include "libcyphal/executor.hpp"
 #include "libcyphal/transport/errors.hpp"
 #include "libcyphal/transport/svc_sessions.hpp"
-#include "libcyphal/transport/transfer_id_generators.hpp"
+#include "libcyphal/transport/transfer_id_map.hpp"
 #include "libcyphal/transport/types.hpp"
 #include "libcyphal/types.hpp"
 
@@ -34,7 +34,9 @@ namespace presentation
 namespace detail
 {
 
-class SharedClient : public common::cavl::Node<SharedClient>, public SharedObject
+class SharedClient : public common::cavl::Node<SharedClient>,
+                     public SharedObject,
+                     public transport::detail::ITransferIdStorage
 {
 public:
     using Node::remove;
@@ -135,6 +137,7 @@ public:
         , svc_response_rx_session_{std::move(svc_response_rx_session)}
         , response_rx_params_{svc_response_rx_session_->getParams()}
         , nearest_deadline_{DistantFuture()}
+        , transfer_id_{0}
     {
         CETL_DEBUG_ASSERT(svc_request_tx_session_ != nullptr, "");
         CETL_DEBUG_ASSERT(svc_response_rx_session_ != nullptr, "");
@@ -144,7 +147,7 @@ public:
         // Otherwise, the responses would be rejected (as "duplicates") if their transfer IDs are in order.
         // Real duplicates (f.e. caused by redundant transports) won't cause any issues
         // b/c shared RPC client expects/accepts only one response per transfer ID,
-        // and corresponding promise callback node will be removed after the first response.
+        // and the corresponding promise callback node will be removed after the first response.
         svc_response_rx_session_->setTransferIdTimeout({});
 
         svc_response_rx_session_->setOnReceiveCallback([this](const auto& arg) {
@@ -241,6 +244,18 @@ public:
     void destroy() noexcept override
     {
         delegate_.forgetSharedClient(*this);
+    }
+
+    // MARK: ITransferIdStorage
+
+    transport::TransferId load() const noexcept override
+    {
+        return transfer_id_;
+    }
+
+    void save(const transport::TransferId transfer_id) noexcept override
+    {
+        transfer_id_ = transfer_id;
     }
 
 protected:
@@ -392,6 +407,7 @@ private:
     TimePoint                                      nearest_deadline_;
     common::cavl::Tree<TimeoutNode>                timeout_nodes_by_deadline_;
     IExecutor::Callback::Any                       nearest_deadline_callback_;
+    transport::TransferId                          transfer_id_;
 
 };  // SharedClient
 
@@ -399,8 +415,8 @@ private:
 
 /// @brief Defines a shared client implementation that uses a generic transfer ID generator.
 ///
-template <typename TransferIdGeneratorMixin>
-class ClientImpl final : public SharedClient, private TransferIdGeneratorMixin
+template <typename TransferIdGenerator>
+class ClientImpl final : public SharedClient
 {
 public:
     ClientImpl(IPresentationDelegate&                   delegate,
@@ -409,7 +425,7 @@ public:
                UniquePtr<transport::IResponseRxSession> svc_response_rx_session,
                const transport::TransferId              transfer_id_modulo)
         : SharedClient{delegate, executor, std::move(svc_request_tx_session), std::move(svc_response_rx_session)}
-        , TransferIdGeneratorMixin{transfer_id_modulo}
+        , transfer_id_generator_{transfer_id_modulo, *this}
     {
     }
 
@@ -424,33 +440,33 @@ public:
 private:
     using Base = SharedClient;
 
-    // MARK: SharedClient
-
-    CETL_NODISCARD cetl::optional<transport::TransferId> nextTransferId() noexcept override
-    {
-        return TransferIdGeneratorMixin::nextTransferId();
-    }
-
     void insertNewCallbackNode(CallbackNode& callback_node) override
     {
         SharedClient::insertNewCallbackNode(callback_node);
-        TransferIdGeneratorMixin::retainTransferId(callback_node.getTransferId());
+        transfer_id_generator_.retainTransferId(callback_node.getTransferId());
     }
 
     void removeCallbackNode(CallbackNode& callback_node) override
     {
-        TransferIdGeneratorMixin::releaseTransferId(callback_node.getTransferId());
+        transfer_id_generator_.releaseTransferId(callback_node.getTransferId());
         SharedClient::removeCallbackNode(callback_node);
     }
+
+    // MARK: SharedClient
+
+    CETL_NODISCARD cetl::optional<transport::TransferId> nextTransferId() noexcept override
+    {
+        return transfer_id_generator_.nextTransferId();
+    }
+
+    TransferIdGenerator transfer_id_generator_;
 
 };  // ClientImpl<TransferIdGeneratorMixin>
 
 /// @brief Defines a shared client specialization that uses a trivial transfer ID generator.
 ///
 template <>
-class ClientImpl<transport::detail::TrivialTransferIdGenerator> final
-    : public SharedClient,
-      private transport::detail::TrivialTransferIdGenerator
+class ClientImpl<transport::detail::TrivialTransferIdGenerator> final : public SharedClient
 {
 public:
     ClientImpl(IPresentationDelegate&                   delegate,
@@ -458,6 +474,7 @@ public:
                UniquePtr<transport::IRequestTxSession>  svc_request_tx_session,
                UniquePtr<transport::IResponseRxSession> svc_response_rx_session)
         : Base{delegate, executor, std::move(svc_request_tx_session), std::move(svc_response_rx_session)}
+        , transfer_id_generator_{*this}
     {
     }
 
@@ -476,8 +493,10 @@ private:
 
     CETL_NODISCARD cetl::optional<transport::TransferId> nextTransferId() noexcept override
     {
-        return TrivialTransferIdGenerator::nextTransferId();
+        return transfer_id_generator_.nextTransferId();
     }
+
+    transport::detail::TrivialTransferIdGenerator transfer_id_generator_;
 
 };  // ClientImpl<TrivialTransferIdGenerator>
 

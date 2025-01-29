@@ -3,7 +3,9 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#include <libcyphal/transport/transfer_id_generators.hpp>
+#include "transfer_id_storage_mock.hpp"
+
+#include <libcyphal/transport/transfer_id_map.hpp>
 #include <libcyphal/transport/types.hpp>
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -20,49 +22,65 @@ using namespace libcyphal::transport;  // NOLINT This our main concern here in t
 
 using testing::Eq;
 using testing::Optional;
+using testing::StrictMock;
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
-class TestTransferIdGenerators : public testing::Test
+class TestTransferIdMapAndGens : public testing::Test
 {};
 
 // MARK: - Tests:
 
-TEST_F(TestTransferIdGenerators, trivial_default)
+TEST_F(TestTransferIdMapAndGens, trivial_default)
 {
-    // Default starting value is 0.
-    detail::TrivialTransferIdGenerator tf_id_gen;
+    StrictMock<detail::TransferIdStorageMock> transfer_id_storage_mock;
 
-    EXPECT_THAT(tf_id_gen.nextTransferId(), 0);
-    EXPECT_THAT(tf_id_gen.nextTransferId(), 1);
-    EXPECT_THAT(tf_id_gen.nextTransferId(), 2);
-    EXPECT_THAT(tf_id_gen.nextTransferId(), 3);
-    EXPECT_THAT(tf_id_gen.nextTransferId(), 4);
-    EXPECT_THAT(tf_id_gen.nextTransferId(), 5);
+    const detail::TrivialTransferIdGenerator tf_id_gen{transfer_id_storage_mock};
+
+    EXPECT_CALL(transfer_id_storage_mock, load()).WillOnce(testing::Return(42));
+    EXPECT_CALL(transfer_id_storage_mock, save(43));
+    EXPECT_THAT(tf_id_gen.nextTransferId(), 42);
+
+    EXPECT_CALL(transfer_id_storage_mock, load()).WillOnce(testing::Return(43));
+    EXPECT_CALL(transfer_id_storage_mock, save(44));
+    EXPECT_THAT(tf_id_gen.nextTransferId(), 43);
+
+    EXPECT_CALL(transfer_id_storage_mock, load()).WillOnce(testing::Return(44));
+    EXPECT_CALL(transfer_id_storage_mock, save(45));
+    EXPECT_THAT(tf_id_gen.nextTransferId(), 44);
 }
 
-TEST_F(TestTransferIdGenerators, trivial_max_tf_id)
+TEST_F(TestTransferIdMapAndGens, trivial_max_tf_id)
 {
-    // Starting value is 2^64 - 3.
+    StrictMock<detail::TransferIdStorageMock> transfer_id_storage_mock;
+
+    const detail::TrivialTransferIdGenerator tf_id_gen{transfer_id_storage_mock};
+
+    // The starting value is 2^64 - 2.
     constexpr auto max = std::numeric_limits<TransferId>::max();
-
-    detail::TrivialTransferIdGenerator tf_id_gen;
-    tf_id_gen.setNextTransferId(max - 3);
-
-    EXPECT_THAT(tf_id_gen.nextTransferId(), max - 3);
+    EXPECT_CALL(transfer_id_storage_mock, load()).WillOnce(testing::Return(max - 2));
+    EXPECT_CALL(transfer_id_storage_mock, save(max - 1));
     EXPECT_THAT(tf_id_gen.nextTransferId(), max - 2);
+
+    EXPECT_CALL(transfer_id_storage_mock, load()).WillOnce(testing::Return(max - 1));
+    EXPECT_CALL(transfer_id_storage_mock, save(max));
     EXPECT_THAT(tf_id_gen.nextTransferId(), max - 1);
+
+    EXPECT_CALL(transfer_id_storage_mock, load()).WillOnce(testing::Return(max));
+    EXPECT_CALL(transfer_id_storage_mock, save(0));
     EXPECT_THAT(tf_id_gen.nextTransferId(), max);
+
+    EXPECT_CALL(transfer_id_storage_mock, load()).WillOnce(testing::Return(0));
+    EXPECT_CALL(transfer_id_storage_mock, save(1));
     EXPECT_THAT(tf_id_gen.nextTransferId(), 0);
-    EXPECT_THAT(tf_id_gen.nextTransferId(), 1);
-    EXPECT_THAT(tf_id_gen.nextTransferId(), 2);
 }
 
-TEST_F(TestTransferIdGenerators, small_range)
+TEST_F(TestTransferIdMapAndGens, small_range_with_default_map)
 {
-    detail::SmallRangeTransferIdGenerator<8> tf_id_gen{4};
+    detail::DefaultTransferIdStorage default_transfer_id_storage{9};
 
-    EXPECT_THAT(tf_id_gen.nextTransferId(), Optional(0));
+    detail::SmallRangeTransferIdGenerator<8> tf_id_gen{4, default_transfer_id_storage};
+
     EXPECT_THAT(tf_id_gen.nextTransferId(), Optional(1));
     EXPECT_THAT(tf_id_gen.nextTransferId(), Optional(2));
     EXPECT_THAT(tf_id_gen.nextTransferId(), Optional(3));
