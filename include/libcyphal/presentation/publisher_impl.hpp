@@ -33,7 +33,9 @@ namespace presentation
 namespace detail
 {
 
-class PublisherImpl final : public common::cavl::Node<PublisherImpl>, public SharedObject
+class PublisherImpl final : public common::cavl::Node<PublisherImpl>,
+                            public SharedObject,
+                            private transport::detail::ITransferIdStorage
 {
 public:
     using Node::remove;
@@ -44,6 +46,7 @@ public:
         , msg_tx_session_{std::move(msg_tx_session)}
         , subject_id_{msg_tx_session_->getParams().subject_id}
         , next_transfer_id_{0}
+        , transfer_id_generator_{*this}
     {
         CETL_DEBUG_ASSERT(msg_tx_session_ != nullptr, "");
 
@@ -69,11 +72,11 @@ public:
 
     cetl::optional<transport::AnyFailure> publishRawData(const TimePoint                   deadline,
                                                          const transport::Priority         priority,
-                                                         const transport::PayloadFragments payload_fragments)
+                                                         const transport::PayloadFragments payload_fragments) const
     {
-        next_transfer_id_ += 1;
-        const transport::TransferTxMetadata metadata{{next_transfer_id_, priority}, deadline};
+        const auto transfer_id = transfer_id_generator_.nextTransferId();
 
+        const transport::TransferTxMetadata metadata{{transfer_id, priority}, deadline};
         return msg_tx_session_->send(metadata, payload_fragments);
     }
 
@@ -114,12 +117,25 @@ private:
         destroyWithPmr(this, delegate_.memory());
     }
 
+    // MARK: ITransferIdStorage
+
+    transport::TransferId load() const noexcept override
+    {
+        return next_transfer_id_;
+    }
+
+    void save(const transport::TransferId transfer_id) noexcept override
+    {
+        next_transfer_id_ = transfer_id;
+    }
+
     // MARK: Data members:
 
     IPresentationDelegate&                        delegate_;
     const UniquePtr<transport::IMessageTxSession> msg_tx_session_;
     const transport::PortId                       subject_id_;
     transport::TransferId                         next_transfer_id_;
+    transport::detail::TrivialTransferIdGenerator transfer_id_generator_;
 
 };  // PublisherImpl
 

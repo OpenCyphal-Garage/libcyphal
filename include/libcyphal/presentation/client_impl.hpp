@@ -36,7 +36,7 @@ namespace detail
 
 class SharedClient : public common::cavl::Node<SharedClient>,
                      public SharedObject,
-                     public transport::detail::ITransferIdStorage
+                     protected transport::detail::ITransferIdStorage
 {
 public:
     using Node::remove;

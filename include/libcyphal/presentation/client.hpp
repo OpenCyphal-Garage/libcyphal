@@ -237,13 +237,13 @@ public:
                 // For request (and the following response) we need to allocate a transfer ID,
                 // which will be in use to pair the request with the response.
                 //
-                auto& shared_client   = getSharedClient();
-                auto  opt_transfer_id = shared_client.nextTransferId();
+                auto&      shared_client   = getSharedClient();
+                const auto opt_transfer_id = shared_client.nextTransferId();
                 if (!opt_transfer_id)
                 {
                     return TooManyPendingRequestsError{};
                 }
-                const auto transfer_id = *opt_transfer_id;
+                const auto transfer_id = opt_transfer_id.value();
 
                 // Create and register a response promise object, which will be used to handle the response.
                 // Its done specifically before sending the request, so that we will be ready to handle a response
@@ -325,13 +325,13 @@ public:
         // 1. For request (and following response) we need to allocate a transfer ID,
         //    which will be in use to pair the request with the response.
         //
-        auto& shared_client   = getSharedClient();
-        auto  opt_transfer_id = shared_client.nextTransferId();
+        auto&      shared_client   = getSharedClient();
+        const auto opt_transfer_id = shared_client.nextTransferId();
         if (!opt_transfer_id)
         {
             return TooManyPendingRequestsError{};
         }
-        const auto transfer_id = *opt_transfer_id;
+        const auto transfer_id = opt_transfer_id.value();
 
         // 2. Create and register a response promise object, which will be used to handle the response.
         //    Its done specifically before sending the request, so that we will be ready to handle a response
