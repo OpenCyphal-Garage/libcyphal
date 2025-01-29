@@ -67,12 +67,12 @@ template <typename Derived>
 class Node  // NOSONAR cpp:S1448
 {
     // Polyfill for C++17's std::invoke_result_t.
-    template <typename F, typename... Args>
+    template <typename Function, typename... Args>
     using invoke_result =
 #if __cplusplus >= 201703L
-        std::invoke_result_t<F, Args...>;
+        std::invoke_result_t<Function, Args...>;
 #else
-        std::result_of_t<F(Args...)>;
+        std::result_of_t<Function(Args...)>;
 #endif
 
 public:
