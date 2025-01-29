@@ -411,8 +411,8 @@ public:
     ///         The result `Client<Request, Response>` type is copy/move assignable and constructable.
     ///
     template <typename Request, typename Response>
-    auto makeClient(const transport::NodeId server_node_id, const transport::PortId service_id)
-        -> Expected<Client<Request, Response>, MakeFailure>
+    auto makeClient(const transport::NodeId server_node_id,
+                    const transport::PortId service_id) -> Expected<Client<Request, Response>, MakeFailure>
     {
         cetl::optional<MakeFailure>       out_failure;
         const transport::ResponseRxParams rx_params{Response::_traits_::ExtentBytes, service_id, server_node_id};
@@ -737,6 +737,11 @@ private:
     }
 
     // MARK: IPresentationDelegate
+
+    cetl::optional<transport::NodeId> getLocalNodeId() const noexcept override
+    {
+        return transport_.getLocalNodeId();
+    }
 
     transport::ITransferIdMap* getTransferIdMap() const noexcept override
     {

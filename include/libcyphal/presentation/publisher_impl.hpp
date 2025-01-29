@@ -43,9 +43,18 @@ public:
         : delegate_{delegate}
         , msg_tx_session_{std::move(msg_tx_session)}
         , subject_id_{msg_tx_session_->getParams().subject_id}
-        , transfer_id_{0}
+        , next_transfer_id_{0}
     {
         CETL_DEBUG_ASSERT(msg_tx_session_ != nullptr, "");
+
+        if (const auto* const transfer_id_map = delegate.getTransferIdMap())
+        {
+            if (const auto local_node_id = delegate.getLocalNodeId())
+            {
+                const SessionSpec session_spec{subject_id_, local_node_id.value()};
+                next_transfer_id_ = transfer_id_map->getIdFor(session_spec);
+            }
+        }
     }
 
     CETL_NODISCARD cetl::pmr::memory_resource& memory() const noexcept
@@ -62,8 +71,8 @@ public:
                                                          const transport::Priority         priority,
                                                          const transport::PayloadFragments payload_fragments)
     {
-        transfer_id_ += 1;
-        const transport::TransferTxMetadata metadata{{transfer_id_, priority}, deadline};
+        next_transfer_id_ += 1;
+        const transport::TransferTxMetadata metadata{{next_transfer_id_, priority}, deadline};
 
         return msg_tx_session_->send(metadata, payload_fragments);
     }
@@ -86,10 +95,21 @@ public:
     }
 
 private:
+    using SessionSpec = transport::ITransferIdMap::SessionSpec;
+
     // MARK: SharedObject
 
     void destroy() noexcept override
     {
+        if (auto* const transfer_id_map = delegate_.getTransferIdMap())
+        {
+            if (const auto local_node_id = delegate_.getLocalNodeId())
+            {
+                const SessionSpec session_spec{subject_id_, local_node_id.value()};
+                transfer_id_map->setIdFor(next_transfer_id_, session_spec);
+            }
+        }
+
         delegate_.forgetPublisherImpl(*this);
         destroyWithPmr(this, delegate_.memory());
     }
@@ -99,7 +119,7 @@ private:
     IPresentationDelegate&                        delegate_;
     const UniquePtr<transport::IMessageTxSession> msg_tx_session_;
     const transport::PortId                       subject_id_;
-    transport::TransferId                         transfer_id_;
+    transport::TransferId                         next_transfer_id_;
 
 };  // PublisherImpl
 
