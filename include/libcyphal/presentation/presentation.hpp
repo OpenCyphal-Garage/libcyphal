@@ -511,7 +511,7 @@ public:
     ///
     /// @param transfer_id_map The transfer ID map object to be used by the presentation layer.
     ///                        Could be reset at any moment to other value (or `nullptr` to return default mode).
-    ///                        Already existing entities will automatically switch the latest state.
+    ///                        Already existing entities will automatically switch to the latest state.
     ///                        While being set, it must outlive this presentation object.
     ///
     void setTransferIdMap(transport::ITransferIdMap* const transfer_id_map) noexcept

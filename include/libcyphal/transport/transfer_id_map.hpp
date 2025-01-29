@@ -35,9 +35,9 @@ public:
         const PortId port_id;
         const NodeId node_id;
 
-        bool operator==(const SessionSpec& other) const
+        friend bool operator==(const SessionSpec& lhs, const SessionSpec& rhs) noexcept
         {
-            return port_id == other.port_id && node_id == other.node_id;
+            return (lhs.port_id == rhs.port_id) && (lhs.node_id == rhs.node_id);
         }
 
     };  // SessionSpec
@@ -221,7 +221,7 @@ struct std::hash<libcyphal::transport::ITransferIdMap::SessionSpec>
     {
         const std::size_t h1 = std::hash<libcyphal::transport::PortId>{}(spec.port_id);
         const std::size_t h2 = std::hash<libcyphal::transport::NodeId>{}(spec.node_id);
-        return h1 ^ (h2 << 1);
+        return h1 ^ (h2 << 1U);
     }
 };
 
