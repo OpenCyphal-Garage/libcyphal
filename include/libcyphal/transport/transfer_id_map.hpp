@@ -63,7 +63,7 @@ public:
     /// Depending on the implementation, the previously set transfer ids may be stored in memory
     /// or also persisted to a file (but probably on exit to fulfill the above performance expectations).
     ///
-    virtual void setIdFor(const TransferId transfer_id, const SessionSpec& session_spec) noexcept = 0;
+    virtual void setIdFor(const SessionSpec& session_spec, const TransferId transfer_id) noexcept = 0;
 
 protected:
     ITransferIdMap()  = default;
@@ -107,36 +107,6 @@ protected:
     ~ITransferIdStorage() = default;
 
 };  // ITransferIdStorage
-
-/// Default implementation of the transfer ID storage.
-///
-/// It just stores given transfer id in memory.
-/// In use by the Presentation layer entities as a default fallback behavior.
-///
-class DefaultTransferIdStorage final : public ITransferIdStorage
-{
-public:
-    explicit DefaultTransferIdStorage(const TransferId initial_transfer_id = 0) noexcept
-        : transfer_id_{initial_transfer_id}
-    {
-    }
-
-    // ITransferIdMap
-
-    TransferId load() const noexcept override
-    {
-        return transfer_id_;
-    }
-
-    void save(const TransferId transfer_id) noexcept override
-    {
-        transfer_id_ = transfer_id;
-    }
-
-private:
-    TransferId transfer_id_;
-
-};  // DefaultTransferIdStorage
 
 /// @brief Defines a trivial transfer ID generator.
 ///

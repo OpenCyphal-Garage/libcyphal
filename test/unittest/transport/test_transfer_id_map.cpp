@@ -27,7 +27,34 @@ using testing::StrictMock;
 // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 class TestTransferIdMapAndGens : public testing::Test
-{};
+{
+protected:
+    class TransferIdStorage final : public detail::ITransferIdStorage
+    {
+    public:
+        explicit TransferIdStorage(const TransferId initial_transfer_id = 0) noexcept
+            : transfer_id_{initial_transfer_id}
+        {
+        }
+
+        // detail::ITransferIdStorage
+
+        TransferId load() const noexcept override
+        {
+            return transfer_id_;
+        }
+
+        void save(const TransferId transfer_id) noexcept override
+        {
+            transfer_id_ = transfer_id;
+        }
+
+    private:
+        TransferId transfer_id_;
+
+    };  // TransferIdStorage
+
+};  // TestTransferIdMapAndGens
 
 // MARK: - Tests:
 
@@ -77,11 +104,11 @@ TEST_F(TestTransferIdMapAndGens, trivial_max_tf_id)
 
 TEST_F(TestTransferIdMapAndGens, small_range_with_default_map)
 {
-    detail::DefaultTransferIdStorage default_transfer_id_storage{9};
+    TransferIdStorage transfer_id_storage{9};  // on purpose bigger than modulo 4
 
-    detail::SmallRangeTransferIdGenerator<8> tf_id_gen{4, default_transfer_id_storage};
+    detail::SmallRangeTransferIdGenerator<8> tf_id_gen{4, transfer_id_storage};
 
-    EXPECT_THAT(tf_id_gen.nextTransferId(), Optional(1));
+    EXPECT_THAT(tf_id_gen.nextTransferId(), Optional(1));  // 9 % 4 -> 1
     EXPECT_THAT(tf_id_gen.nextTransferId(), Optional(2));
     EXPECT_THAT(tf_id_gen.nextTransferId(), Optional(3));
     EXPECT_THAT(tf_id_gen.nextTransferId(), Optional(0));

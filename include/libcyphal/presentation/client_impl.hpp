@@ -252,7 +252,7 @@ public:
         if (auto* const transfer_id_map = delegate_.getTransferIdMap())
         {
             const SessionSpec session_spec{response_rx_params_.service_id, response_rx_params_.server_node_id};
-            transfer_id_map->setIdFor(next_transfer_id_, session_spec);
+            transfer_id_map->setIdFor(session_spec, next_transfer_id_);
         }
 
         delegate_.forgetSharedClient(*this);

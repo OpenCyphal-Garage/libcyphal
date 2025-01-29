@@ -11,6 +11,7 @@
 #include "tracking_memory_resource.hpp"
 #include "transport/scattered_buffer_storage_mock.hpp"
 #include "transport/svc_sessions_mock.hpp"
+#include "transport/transfer_id_map_mock.hpp"
 #include "transport/transport_gtest_helpers.hpp"
 #include "transport/transport_mock.hpp"
 #include "virtual_time_scheduler.hpp"
@@ -23,6 +24,7 @@
 #include <libcyphal/presentation/response_promise.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
+#include <libcyphal/transport/transfer_id_map.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
@@ -789,7 +791,7 @@ TEST_F(TestClient, raw_request_response_failures)
     State state{mr_, transport_mock_, rx_params};
 
     // Emulate that transport supports only 2 concurrent transfers by having module equal to 2^1.
-    // This will make the client fail to make more than 2 request.
+    // This will make the client fail to make more than 2 requests.
     EXPECT_CALL(transport_mock_, getProtocolParams()).WillRepeatedly(Return(ProtocolParams{2, 0, 0}));
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
@@ -825,6 +827,84 @@ TEST_F(TestClient, raw_request_response_failures)
     scheduler_.scheduleAt(9s, [&](const auto&) {
         //
         client.reset();
+    });
+    scheduler_.spinFor(10s);
+}
+
+TEST_F(TestClient, multiple_clients_with_transfer_id_map)
+{
+    using SvcResPromise = ResponsePromise<void>;
+    using SessionSpec   = ITransferIdMap::SessionSpec;
+
+    StrictMock<TransferIdMapMock> transfer_id_map_mock;
+
+    constexpr ResponseRxParams rx_params_n31{4, 147, 0x31};
+    constexpr ResponseRxParams rx_params_n32{4, 147, 0x32};
+
+    State state_31{mr_, transport_mock_, rx_params_n31};
+    State state_32{mr_, transport_mock_, rx_params_n32};
+
+    Presentation presentation{mr_, scheduler_, transport_mock_};
+    presentation.setTransferIdMap(&transfer_id_map_mock);
+
+    EXPECT_CALL(transfer_id_map_mock, getIdFor(SessionSpec{rx_params_n31.service_id, rx_params_n31.server_node_id}))
+        .WillOnce(Return(0x310));
+    EXPECT_CALL(transfer_id_map_mock, getIdFor(SessionSpec{rx_params_n32.service_id, rx_params_n32.server_node_id}))
+        .WillOnce(Return(0x320));
+
+    auto maybe_client_n31 = presentation.makeClient(  //
+        rx_params_n31.server_node_id,
+        rx_params_n31.service_id,
+        rx_params_n31.extent_bytes);
+    ASSERT_THAT(maybe_client_n31, VariantWith<RawServiceClient>(_));
+    cetl::optional<RawServiceClient> client_n31 = cetl::get<RawServiceClient>(std::move(maybe_client_n31));
+
+    auto maybe_client_n32 = presentation.makeClient(  //
+        rx_params_n32.server_node_id,
+        rx_params_n32.service_id,
+        rx_params_n32.extent_bytes);
+    ASSERT_THAT(maybe_client_n32, VariantWith<RawServiceClient>(_));
+    cetl::optional<RawServiceClient> client_n32 = cetl::get<RawServiceClient>(std::move(maybe_client_n32));
+
+    scheduler_.scheduleAt(1s, [&](const auto&) {
+        //
+        EXPECT_CALL(state_31.req_tx_session_mock_, send(_, _))  //
+            .WillOnce(Invoke([now = now()](const auto& metadata, const auto) {
+                //
+                EXPECT_THAT(metadata.base.transfer_id, 0x310);
+                return cetl::nullopt;
+            }));
+
+        const auto maybe_promise = client_n31->request(now() + 100ms, {}, now() + 2s);
+        EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
+    });
+    scheduler_.scheduleAt(2s, [&](const auto&) {
+        //
+        EXPECT_CALL(state_32.req_tx_session_mock_, send(_, _))  //
+            .WillOnce(Invoke([now = now()](const auto& metadata, const auto) {
+                //
+                EXPECT_THAT(metadata.base.transfer_id, 0x320);
+                return cetl::nullopt;
+            }));
+
+        const auto maybe_promise = client_n32->request(now() + 100ms, {}, now() + 2s);
+        EXPECT_THAT(maybe_promise, VariantWith<SvcResPromise>(_));
+    });
+    scheduler_.scheduleAt(8s, [&](const auto&) {
+        //
+        EXPECT_CALL(transfer_id_map_mock,
+                    setIdFor(SessionSpec{rx_params_n32.service_id, rx_params_n32.server_node_id}, 0x320 + 1))
+            .WillOnce(Return());
+
+        client_n32.reset();
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(transfer_id_map_mock,
+                    setIdFor(SessionSpec{rx_params_n31.service_id, rx_params_n31.server_node_id}, 0x310 + 1))
+            .WillOnce(Return());
+
+        client_n31.reset();
     });
     scheduler_.spinFor(10s);
 }
