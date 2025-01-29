@@ -13,7 +13,6 @@
 
 #include <bitset>
 #include <cstddef>
-#include <utility>
 
 namespace libcyphal
 {
@@ -24,12 +23,11 @@ namespace transport
 ///
 /// Presentation layer uses this interface to map session specifiers to their transfer ids.
 /// Users may provide a custom implementation of this interface to maintain/persist transfer IDs.
+/// See `Presentation::setTransferIdMap` method for more details.
 ///
 class ITransferIdMap
 {
 public:
-    using Ref = std::reference_wrapper<ITransferIdMap>;
-
     /// Hashable specifier of a session.
     ///
     struct SessionSpec

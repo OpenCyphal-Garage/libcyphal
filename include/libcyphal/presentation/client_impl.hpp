@@ -136,11 +136,17 @@ public:
         , svc_request_tx_session_{std::move(svc_request_tx_session)}
         , svc_response_rx_session_{std::move(svc_response_rx_session)}
         , response_rx_params_{svc_response_rx_session_->getParams()}
+        , next_transfer_id_{0}
         , nearest_deadline_{DistantFuture()}
-        , transfer_id_{0}
     {
         CETL_DEBUG_ASSERT(svc_request_tx_session_ != nullptr, "");
         CETL_DEBUG_ASSERT(svc_response_rx_session_ != nullptr, "");
+
+        if (const auto* const transfer_id_map = delegate.getTransferIdMap())
+        {
+            const SessionSpec session_spec{response_rx_params_.service_id, response_rx_params_.server_node_id};
+            next_transfer_id_ = transfer_id_map->getIdFor(session_spec);
+        }
 
         // Override the default (2s) timeout value of the response session.
         // This is done to allow multiple overlapping responses to be handled properly.
@@ -202,7 +208,7 @@ public:
     {
         if (timeout_node.isTimeoutLinked())
         {
-            // Remove previous timeout node (if any),
+            // Remove the previous timeout node (if any),
             // and then reinsert the node with updated/given new deadline time.
             //
             timeout_nodes_by_deadline_.remove(&timeout_node);
@@ -243,6 +249,12 @@ public:
 
     void destroy() noexcept override
     {
+        if (auto* const transfer_id_map = delegate_.getTransferIdMap())
+        {
+            const SessionSpec session_spec{response_rx_params_.service_id, response_rx_params_.server_node_id};
+            transfer_id_map->setIdFor(next_transfer_id_, session_spec);
+        }
+
         delegate_.forgetSharedClient(*this);
     }
 
@@ -250,12 +262,12 @@ public:
 
     transport::TransferId load() const noexcept override
     {
-        return transfer_id_;
+        return next_transfer_id_;
     }
 
     void save(const transport::TransferId transfer_id) noexcept override
     {
-        transfer_id_ = transfer_id;
+        next_transfer_id_ = transfer_id;
     }
 
 protected:
@@ -288,7 +300,8 @@ protected:
     }
 
 private:
-    using Schedule = IExecutor::Callback::Schedule;
+    using Schedule    = IExecutor::Callback::Schedule;
+    using SessionSpec = transport::ITransferIdMap::SessionSpec;
 
     static constexpr TimePoint DistantFuture()
     {
@@ -403,11 +416,11 @@ private:
     const UniquePtr<transport::IRequestTxSession>  svc_request_tx_session_;
     const UniquePtr<transport::IResponseRxSession> svc_response_rx_session_;
     const transport::ResponseRxParams              response_rx_params_;
+    transport::TransferId                          next_transfer_id_;
     common::cavl::Tree<CallbackNode>               cb_nodes_by_transfer_id_;
     TimePoint                                      nearest_deadline_;
     common::cavl::Tree<TimeoutNode>                timeout_nodes_by_deadline_;
     IExecutor::Callback::Any                       nearest_deadline_callback_;
-    transport::TransferId                          transfer_id_;
 
 };  // SharedClient
 
