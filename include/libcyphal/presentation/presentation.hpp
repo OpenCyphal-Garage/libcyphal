@@ -129,6 +129,7 @@ public:
 
     ~Presentation()
     {
+        unref_nodes_deleter_callback_.reset();
         destroyUnreferencedNodes();
 
         CETL_DEBUG_ASSERT(shared_client_nodes_.empty(),  //
