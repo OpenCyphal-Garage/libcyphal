@@ -237,8 +237,8 @@ public:
                 // For request (and the following response) we need to allocate a transfer ID,
                 // which will be in use to pair the request with the response.
                 //
-                auto& shared_client   = getSharedClient();
-                auto  opt_transfer_id = shared_client.nextTransferId();
+                auto&      shared_client   = getSharedClient();
+                const auto opt_transfer_id = shared_client.nextTransferId();
                 if (!opt_transfer_id)
                 {
                     return TooManyPendingRequestsError{};
@@ -325,8 +325,8 @@ public:
         // 1. For request (and following response) we need to allocate a transfer ID,
         //    which will be in use to pair the request with the response.
         //
-        auto& shared_client   = getSharedClient();
-        auto  opt_transfer_id = shared_client.nextTransferId();
+        auto&      shared_client   = getSharedClient();
+        const auto opt_transfer_id = shared_client.nextTransferId();
         if (!opt_transfer_id)
         {
             return TooManyPendingRequestsError{};

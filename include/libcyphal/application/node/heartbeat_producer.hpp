@@ -169,7 +169,7 @@ private:
     void publishMessage(const TimePoint approx_now)
     {
         // Publishing of heartbeats makes sense only if the local node ID is known.
-        if (presentation_.transport().getLocalNodeId() == cetl::nullopt)
+        if (!presentation_.transport().getLocalNodeId().has_value())
         {
             return;
         }

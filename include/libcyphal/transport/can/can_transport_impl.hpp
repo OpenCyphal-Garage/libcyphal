@@ -564,12 +564,11 @@ private:
             return;
         }
         const auto& pop_success = cetl::get<IMedia::PopResult::Success>(pop_result);
-        if (!pop_success.has_value())
+        if (!pop_success)
         {
             return;
         }
-
-        const IMedia::PopResult::Metadata& pop_meta = pop_success.value();
+        const IMedia::PopResult::Metadata& pop_meta = *pop_success;
 
         const auto timestamp_us =
             std::chrono::duration_cast<std::chrono::microseconds>(pop_meta.timestamp.time_since_epoch());

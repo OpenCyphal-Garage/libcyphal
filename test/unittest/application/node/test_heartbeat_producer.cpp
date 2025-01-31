@@ -126,7 +126,7 @@ TEST_F(TestHeartbeatProducer, make)
     });
     scheduler_.scheduleAt(3s, [&](const auto&) {
         //
-        EXPECT_CALL(msg_tx_session_mock, send(TransferTxMetadataEq({{1, Priority::Nominal}, now() + 1s}), _))  //
+        EXPECT_CALL(msg_tx_session_mock, send(TransferTxMetadataEq({{0, Priority::Nominal}, now() + 1s}), _))  //
             .WillOnce(Return(cetl::nullopt));
     });
     scheduler_.scheduleAt(3s + 500ms, [&](const auto&) {
@@ -143,12 +143,12 @@ TEST_F(TestHeartbeatProducer, make)
     });
     scheduler_.scheduleAt(4s, [&](const auto&) {
         //
-        EXPECT_CALL(msg_tx_session_mock, send(TransferTxMetadataEq({{2, Priority::Nominal}, now() + 1s}), _))  //
+        EXPECT_CALL(msg_tx_session_mock, send(TransferTxMetadataEq({{1, Priority::Nominal}, now() + 1s}), _))  //
             .WillOnce(Return(cetl::nullopt));
     });
     scheduler_.scheduleAt(5s, [&](const auto&) {
         //
-        EXPECT_CALL(msg_tx_session_mock, send(TransferTxMetadataEq({{3, Priority::Nominal}, now() + 1s}), _))  //
+        EXPECT_CALL(msg_tx_session_mock, send(TransferTxMetadataEq({{2, Priority::Nominal}, now() + 1s}), _))  //
             .WillOnce(Return(cetl::nullopt));
     });
     scheduler_.scheduleAt(5s + 500ms, [&](const auto&) {
@@ -161,7 +161,7 @@ TEST_F(TestHeartbeatProducer, make)
     });
     scheduler_.scheduleAt(6s, [&](const auto&) {
         //
-        EXPECT_CALL(msg_tx_session_mock, send(TransferTxMetadataEq({{4, Priority::Nominal}, now() + 1s}), _))  //
+        EXPECT_CALL(msg_tx_session_mock, send(TransferTxMetadataEq({{3, Priority::Nominal}, now() + 1s}), _))  //
             .WillOnce(Return(cetl::nullopt));
     });
     scheduler_.scheduleAt(6s + 500ms, [&](const auto&) {
@@ -173,12 +173,12 @@ TEST_F(TestHeartbeatProducer, make)
     });
     scheduler_.scheduleAt(7s, [&](const auto&) {
         //
-        EXPECT_CALL(msg_tx_session_mock, send(TransferTxMetadataEq({{5, Priority::Nominal}, now() + 1s}), _))  //
+        EXPECT_CALL(msg_tx_session_mock, send(TransferTxMetadataEq({{4, Priority::Nominal}, now() + 1s}), _))  //
             .WillOnce(Return(cetl::nullopt));
     });
     scheduler_.scheduleAt(8s, [&](const auto&) {
         //
-        EXPECT_CALL(msg_tx_session_mock, send(TransferTxMetadataEq({{6, Priority::Nominal}, now() + 1s}), _))  //
+        EXPECT_CALL(msg_tx_session_mock, send(TransferTxMetadataEq({{5, Priority::Nominal}, now() + 1s}), _))  //
             .WillOnce(Return(cetl::nullopt));
 
         heartbeat_producer->message().health.value = uavcan::node::Health_1_0::CAUTION;

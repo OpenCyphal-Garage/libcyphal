@@ -110,7 +110,7 @@ TEST_F(TestPublisherCustomConfig, publish_with_custom_buffer_size)
         EXPECT_CALL(msg_tx_session_mock, send(_, _))  //
             .WillOnce(Invoke([now = now()](const auto& metadata, const auto) {
                 //
-                EXPECT_THAT(metadata.base.transfer_id, 1);
+                EXPECT_THAT(metadata.base.transfer_id, 0);
                 EXPECT_THAT(metadata.base.priority, Priority::Exceptional);
                 EXPECT_THAT(metadata.deadline, now + 200ms);
                 return cetl::nullopt;
@@ -123,7 +123,7 @@ TEST_F(TestPublisherCustomConfig, publish_with_custom_buffer_size)
         EXPECT_CALL(msg_tx_session_mock, send(_, _))  //
             .WillOnce(Invoke([now = now()](const auto& metadata, const auto) {
                 //
-                EXPECT_THAT(metadata.base.transfer_id, 2);
+                EXPECT_THAT(metadata.base.transfer_id, 1);
                 EXPECT_THAT(metadata.base.priority, Priority::Fast);
                 EXPECT_THAT(metadata.deadline, now + 100ms);
                 return cetl::nullopt;

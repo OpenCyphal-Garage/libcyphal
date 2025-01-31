@@ -7,6 +7,7 @@
 #include "my_custom/bar_1_0.hpp"
 #include "tracking_memory_resource.hpp"
 #include "transport/msg_sessions_mock.hpp"
+#include "transport/transfer_id_map_mock.hpp"
 #include "transport/transport_gtest_helpers.hpp"
 #include "transport/transport_mock.hpp"
 #include "verification_utilities.hpp"
@@ -17,6 +18,7 @@
 #include <libcyphal/presentation/publisher.hpp>
 #include <libcyphal/transport/errors.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
+#include <libcyphal/transport/transfer_id_map.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
@@ -176,7 +178,7 @@ TEST_F(TestPublisher, publish)
         EXPECT_CALL(msg_tx_session_mock, send(_, _))  //
             .WillOnce(Invoke([now = now()](const auto& metadata, const auto) {
                 //
-                EXPECT_THAT(metadata.base.transfer_id, 1);
+                EXPECT_THAT(metadata.base.transfer_id, 0);
                 EXPECT_THAT(metadata.base.priority, Priority::Exceptional);
                 EXPECT_THAT(metadata.deadline, now + 200ms);
                 return cetl::nullopt;
@@ -189,7 +191,7 @@ TEST_F(TestPublisher, publish)
         EXPECT_CALL(msg_tx_session_mock, send(_, _))  //
             .WillOnce(Invoke([now = now()](const auto& metadata, const auto) {
                 //
-                EXPECT_THAT(metadata.base.transfer_id, 2);
+                EXPECT_THAT(metadata.base.transfer_id, 1);
                 EXPECT_THAT(metadata.base.priority, Priority::Fast);
                 EXPECT_THAT(metadata.deadline, now + 100ms);
                 return cetl::nullopt;
@@ -283,7 +285,7 @@ TEST_F(TestPublisher, publishRawData)
         EXPECT_CALL(msg_tx_session_mock, send(_, _))  //
             .WillOnce(Invoke([now = now()](const auto& metadata, const auto frags) {
                 //
-                EXPECT_THAT(metadata.base.transfer_id, 1);
+                EXPECT_THAT(metadata.base.transfer_id, 0);
                 EXPECT_THAT(metadata.base.priority, Priority::Nominal);
                 EXPECT_THAT(metadata.deadline, now + 200ms);
                 EXPECT_THAT(frags.size(), 1);
@@ -299,6 +301,103 @@ TEST_F(TestPublisher, publishRawData)
         publisher.reset();
         testing::Mock::VerifyAndClearExpectations(&msg_tx_session_mock);
         EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
+    });
+    scheduler_.spinFor(10s);
+}
+
+TEST_F(TestPublisher, multiple_publishers_with_transfer_id_map)
+{
+    using Message     = uavcan::node::Heartbeat_1_0;
+    using SessionSpec = ITransferIdMap::SessionSpec;
+
+    StrictMock<TransferIdMapMock> transfer_id_map_mock;
+
+    Presentation presentation{mr_, scheduler_, transport_mock_};
+    presentation.setTransferIdMap(&transfer_id_map_mock);
+
+    EXPECT_CALL(transport_mock_, getLocalNodeId())  //
+        .WillOnce(Return(cetl::nullopt));
+
+    StrictMock<MessageTxSessionMock>   msg7_tx_session_mock;
+    constexpr MessageTxParams          tx7_params{7};
+    cetl::optional<Publisher<Message>> publisher7;
+    {
+        EXPECT_CALL(msg7_tx_session_mock, getParams()).WillOnce(Return(tx7_params));
+
+        EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx7_params)))  //
+            .WillOnce(Invoke([&](const auto&) {                                            //
+                return libcyphal::detail::makeUniquePtr<UniquePtrMsgTxSpec>(mr_, msg7_tx_session_mock);
+            }));
+
+        auto maybe_pub7 = presentation.makePublisher<Message>(tx7_params.subject_id);
+        ASSERT_THAT(maybe_pub7, VariantWith<Publisher<Message>>(_));
+
+        publisher7.emplace(cetl::get<Publisher<Message>>(std::move(maybe_pub7)));
+    }
+
+    constexpr NodeId local_node_id = 0x13;
+    EXPECT_CALL(transport_mock_, getLocalNodeId())  //
+        .WillRepeatedly(Return(cetl::optional<NodeId>{NodeId{local_node_id}}));
+
+    StrictMock<MessageTxSessionMock>   msg9_tx_session_mock;
+    constexpr MessageTxParams          tx9_params{9};
+    cetl::optional<Publisher<Message>> publisher9;
+    {
+        EXPECT_CALL(msg9_tx_session_mock, getParams()).WillOnce(Return(tx9_params));
+
+        EXPECT_CALL(transport_mock_, makeMessageTxSession(MessageTxParamsEq(tx9_params)))  //
+            .WillOnce(Invoke([&](const auto&) {                                            //
+                return libcyphal::detail::makeUniquePtr<UniquePtrMsgTxSpec>(mr_, msg9_tx_session_mock);
+            }));
+
+        EXPECT_CALL(transfer_id_map_mock, getIdFor(SessionSpec{tx9_params.subject_id, local_node_id}))
+            .WillOnce(Return(90));
+
+        auto maybe_pub9 = presentation.makePublisher<Message>(tx9_params.subject_id);
+        ASSERT_THAT(maybe_pub9, VariantWith<Publisher<Message>>(_));
+
+        publisher9.emplace(cetl::get<Publisher<Message>>(std::move(maybe_pub9)));
+    }
+
+    scheduler_.scheduleAt(1s, [&](const auto&) {
+        //
+        EXPECT_CALL(msg7_tx_session_mock, send(_, _))  //
+            .WillOnce(Invoke([now = now()](const auto& metadata, const auto) {
+                //
+                EXPECT_THAT(metadata.base.transfer_id, 0);
+                return cetl::nullopt;
+            }));
+
+        EXPECT_THAT(publisher7->publish(now() + 200ms, Message{&mr_}), Eq(cetl::nullopt));
+    });
+    scheduler_.scheduleAt(2s, [&](const auto&) {
+        //
+        EXPECT_CALL(msg9_tx_session_mock, send(_, _))  //
+            .WillOnce(Invoke([now = now()](const auto& metadata, const auto) {
+                //
+                EXPECT_THAT(metadata.base.transfer_id, 90);
+                return cetl::nullopt;
+            }));
+
+        EXPECT_THAT(publisher9->publish(now() + 200ms, Message{&mr_}), Eq(cetl::nullopt));
+    });
+    scheduler_.scheduleAt(8s, [&](const auto&) {
+        //
+        EXPECT_CALL(transfer_id_map_mock, setIdFor(SessionSpec{tx9_params.subject_id, local_node_id}, 90 + 1))  //
+            .WillOnce(Return());
+
+        publisher9.reset();
+        testing::Mock::VerifyAndClearExpectations(&msg9_tx_session_mock);
+        EXPECT_CALL(msg9_tx_session_mock, deinit()).Times(1);
+    });
+    scheduler_.scheduleAt(9s, [&](const auto&) {
+        //
+        EXPECT_CALL(transfer_id_map_mock, setIdFor(SessionSpec{tx7_params.subject_id, local_node_id}, 1))  //
+            .WillOnce(Return());
+
+        publisher7.reset();
+        testing::Mock::VerifyAndClearExpectations(&msg7_tx_session_mock);
+        EXPECT_CALL(msg7_tx_session_mock, deinit()).Times(1);
     });
     scheduler_.spinFor(10s);
 }
