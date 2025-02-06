@@ -610,7 +610,7 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)
     });
     scheduler_.scheduleAt(1s + 20us, [&](const auto&) {
         //
-        // Callback still there b/c the 2nd frame was sent.
+        // Callback is still there b/c the 2nd frame was sent.
         ASSERT_TRUE(scheduler_.hasNamedCallback("tx"));
 
         // Emulate that media done with the 2nd frame - this should remove the callback b/c TX queue is empty.
