@@ -563,11 +563,13 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)
 
     constexpr auto timeout = 1s;
 
+    // +1 makes sure that 2 frames are needed - hence "multi-frame".
     const auto         payload = makeIotaArray<UDPARD_MTU_DEFAULT_MAX_SINGLE_FRAME + 1>(b('0'));
     TransferTxMetadata metadata{{0x13, Priority::Nominal}, {}};
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
+        // Expect 1st frame sending.
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto, auto fragments) {
                 EXPECT_THAT(now(), metadata.deadline - timeout);
@@ -579,15 +581,22 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)
             });
         EXPECT_CALL(tx_socket_mock_, registerCallback(_))  //
             .WillOnce(Invoke([&](auto function) {          //
-                return scheduler_.registerAndScheduleNamedCallback("", now() + 10us, std::move(function));
+                return scheduler_.registerAndScheduleNamedCallback("tx", now() + 10us, std::move(function));
             }));
+
+        // There was never any TX yet, so no callback should be registered.
+        EXPECT_FALSE(scheduler_.hasNamedCallback("tx"));
 
         metadata.deadline = now() + timeout;
         auto failure      = session->send(metadata, makeSpansFrom(payload));
         EXPECT_THAT(failure, Eq(cetl::nullopt));
+
+        // We just did TX - it should register callback (to run at +10us) for the 1st frame.
+        EXPECT_TRUE(scheduler_.hasNamedCallback("tx"));
     });
     scheduler_.scheduleAt(1s + 10us, [&](const auto&) {
         //
+        // Expect 2nd frame sending.
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce([&](auto deadline, auto endpoint, auto, auto fragments) {
                 EXPECT_THAT(now(), metadata.deadline - timeout + 10us);
@@ -598,6 +607,19 @@ TEST_F(TestUpdTransport, sending_multiframe_payload_for_non_anonymous)
                 EXPECT_THAT(fragments[0], SizeIs(24 + 1));
                 return ITxSocket::SendResult::Success{true /* is_accepted */};
             });
+    });
+    scheduler_.scheduleAt(1s + 20us, [&](const auto&) {
+        //
+        // Callback still there b/c the 2nd frame was sent.
+        ASSERT_TRUE(scheduler_.hasNamedCallback("tx"));
+
+        // Emulate that media done with the 2nd frame - this should remove the callback b/c TX queue is empty.
+        scheduler_.scheduleNamedCallback("tx", now());
+    });
+    scheduler_.scheduleAt(1s + 20us + 1us, [&](const auto&) {
+        //
+        // TX pipeline encountered an empty queue - hence the callback should be dropped.
+        EXPECT_FALSE(scheduler_.hasNamedCallback("tx"));
     });
     scheduler_.scheduleAt(9s, [&](const auto&) {
         //
