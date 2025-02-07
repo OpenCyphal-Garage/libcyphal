@@ -683,6 +683,14 @@ private:
                     return (*frame_handler_ptr)(deadline, *frame);
                 });
         }
+
+        if ((result == 0) && (media.canard_tx_queue().size == 0))
+        {
+            // There was nothing successfully polled,
+            // AND won't be in the (near) future (b/c queue is empty),
+            // so we are done with this TX media - no more callbacks for now (until brand new TX transfer).
+            media.tx_callback().reset();
+        }
     }
 
     /// @brief Tries to peek the first TX item from the media TX queue which is not expired.

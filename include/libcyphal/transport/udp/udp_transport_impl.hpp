@@ -760,7 +760,9 @@ private:
 
         }  // for a valid tx item
 
-        // There is nothing to send anymore, so we are done with this media TX socket - no more callbacks for now.
+        // There was nothing successfully sent (otherwise we would have `return`-ed earlier),
+        // AND won't be in the (near) future (b/c queue is empty),
+        // so we are done with this TX media - no more callbacks for now (until brand new TX transfer).
         media.txSocketState().callback.reset();
     }
 
