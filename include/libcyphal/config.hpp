@@ -28,7 +28,7 @@ struct Config
     ///
     static constexpr std::size_t IExecutor_Callback_FunctionMaxSize()  // NOSONAR cpp:S799
     {
-        return sizeof(void*) * 8;
+        return 64;
     }
 
     /// Defines footprint size reserved for a callback implementation.
@@ -38,7 +38,7 @@ struct Config
     static constexpr std::size_t IExecutor_Callback_ReserveSize()  // NOSONAR cpp:S799
     {
         /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
-        return sizeof(void*) * 16;
+        return 160;
     }
 
     /// Defines various configuration parameters for the application layer.
@@ -52,7 +52,7 @@ struct Config
             static constexpr std::size_t HeartbeatProducer_UpdateCallback_FunctionSize()  // NOSONAR cpp:S799
             {
                 /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
-                return sizeof(void*) * 4;
+                return 64;
             }
 
         };  // Node
@@ -68,7 +68,7 @@ struct Config
         static constexpr std::size_t ResponsePromiseBase_Callback_FunctionSize()  // NOSONAR cpp:S799
         {
             /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
-            return sizeof(void*) * 4;
+            return 64;
         }
 
         /// Defines max footprint of a callback function in use by the RPC server response continuation.
@@ -76,7 +76,7 @@ struct Config
         static constexpr std::size_t ServerBase_ContinuationImpl_FunctionMaxSize()  // NOSONAR cpp:S799
         {
             /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
-            return sizeof(void*) * 5;
+            return 64;
         }
 
         /// Defines max footprint of a callback function in use by the RPC server request notification.
@@ -84,7 +84,7 @@ struct Config
         static constexpr std::size_t ServerBase_OnRequestCallback_FunctionMaxSize()  // NOSONAR cpp:S799
         {
             /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
-            return sizeof(void*) * 5;
+            return 64;
         }
 
         /// Defines the size serialization/deserialization payload buffer which is considered as a small one,
@@ -103,7 +103,7 @@ struct Config
         static constexpr std::size_t Subscriber_OnReceiveCallback_FunctionMaxSize()  // NOSONAR cpp:S799
         {
             /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
-            return sizeof(void*) * 4;
+            return 64;
         }
     };
 
@@ -117,7 +117,7 @@ struct Config
         static constexpr std::size_t IMessageRxSession_OnReceiveCallback_FunctionMaxSize()  // NOSONAR cpp:S799
         {
             /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
-            return sizeof(void*) * 4;
+            return 64;
         }
 
         /// Defines max footprint of a callback function in use by the service RX session notification.
@@ -126,7 +126,7 @@ struct Config
         static constexpr std::size_t ISvcRxSession_OnReceiveCallback_FunctionMaxSize()  // NOSONAR cpp:S799
         {
             /// Size is chosen arbitrary, but it should be enough to store any lambda or function pointer.
-            return sizeof(void*) * 4;
+            return 64;
         }
 
         /// Defines max footprint of a platform-specific error implementation.
@@ -134,7 +134,7 @@ struct Config
         static constexpr std::size_t PlatformErrorMaxSize()
         {
             /// Size is chosen arbitrary, but it should be enough to store simple implementation.
-            return sizeof(void*) * 3;
+            return 32;
         }
 
         /// Defines max footprint of a storage implementation used by the scattered buffer.
@@ -142,7 +142,7 @@ struct Config
         static constexpr std::size_t ScatteredBuffer_StorageVariantFootprint()  // NOSONAR cpp:S799
         {
             /// Size is chosen arbitrary, but it should be enough to store any implementation.
-            return sizeof(void*) * 8;
+            return 64;
         }
 
         /// Defines various configuration parameters for the CAN transport sublayer.
@@ -154,7 +154,7 @@ struct Config
             static constexpr std::size_t ICanTransport_TransientErrorHandlerMaxSize()  // NOSONAR cpp:S799
             {
                 /// Size is chosen arbitrary, but it should be enough to store simple lambda or function pointer.
-                return sizeof(void*) * 3;
+                return 32;
             }
 
         };  // Can
@@ -168,7 +168,7 @@ struct Config
             static constexpr std::size_t IUdpTransport_TransientErrorHandlerMaxSize()  // NOSONAR cpp:S799
             {
                 /// Size is chosen arbitrary, but it should be enough to store simple lambda or function pointer.
-                return sizeof(void*) * 3;
+                return 32;
             }
 
         };  // Udp
