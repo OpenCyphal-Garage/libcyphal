@@ -529,6 +529,7 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
 
     constexpr auto timeout = 1s;
 
+    // MTU size makes sure that 2 frames are needed - hence "multi-frame".
     const auto         payload = makeIotaArray<CANARD_MTU_CAN_CLASSIC>(b('0'));
     TransferTxMetadata metadata{{0x13, Priority::Nominal}, {}};
 
@@ -537,6 +538,7 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
 
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
+        // Expect 1st frame pushing.
         EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto& pld) {
             EXPECT_THAT(now(), metadata.deadline - timeout);
             EXPECT_THAT(deadline, metadata.deadline);
@@ -549,8 +551,11 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
         });
         EXPECT_CALL(media_mock_, registerPushCallback(_))  //
             .WillOnce(Invoke([&](auto function) {          //
-                return scheduler_.registerAndScheduleNamedCallback("", now() + 10us, std::move(function));
+                return scheduler_.registerAndScheduleNamedCallback("tx", now() + 10us, std::move(function));
             }));
+
+        // There was never any TX yet, so no callback should be registered.
+        EXPECT_FALSE(scheduler_.hasNamedCallback("tx"));
 
         metadata.deadline = now() + timeout;
         auto failure      = session->send(metadata, makeSpansFrom(payload));
@@ -558,6 +563,7 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
     });
     scheduler_.scheduleAt(1s + 10us, [&](const auto&) {
         //
+        // Expect 2nd frame pushing.
         EXPECT_CALL(media_mock_, push(_, _, _)).WillOnce([&](auto deadline, auto can_id, auto& pld) {
             EXPECT_THAT(now(), metadata.deadline - timeout + 10us);
             EXPECT_THAT(deadline, metadata.deadline);
@@ -568,6 +574,19 @@ TEST_F(TestCanTransport, sending_multiframe_payload_for_non_anonymous)
             EXPECT_THAT(pld.getSpan(), ElementsAre(b('7'), _, _ /* CRC bytes */, tbm));
             return IMedia::PushResult::Success{true /* is_accepted */};
         });
+    });
+    scheduler_.scheduleAt(1s + 20us, [&](const auto&) {
+        //
+        // Callback is still there b/c the 2nd frame was pushed.
+        ASSERT_TRUE(scheduler_.hasNamedCallback("tx"));
+
+        // Emulate that media done with the 2nd frame - this should remove the callback b/c TX queue is empty.
+        scheduler_.scheduleNamedCallback("tx", now());
+    });
+    scheduler_.scheduleAt(1s + 20us + 1us, [&](const auto&) {
+        //
+        // TX pipeline encountered an empty queue - hence the callback should be dropped.
+        EXPECT_FALSE(scheduler_.hasNamedCallback("tx"));
     });
     scheduler_.spinFor(10s);
 }
