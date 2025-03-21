@@ -7,6 +7,7 @@
 #define LIBCYPHAL_TRANSPORT_SVC_SESSION_HPP_INCLUDED
 
 #include "errors.hpp"
+#include "scattered_buffer.hpp"
 #include "session.hpp"
 #include "types.hpp"
 
@@ -44,6 +45,24 @@ struct ResponseRxParams final
 struct ResponseTxParams final
 {
     PortId service_id{};
+};
+
+struct ServiceTxMetadata final
+{
+    TransferTxMetadata tx_meta{};
+    NodeId             remote_node_id{};
+};
+
+struct ServiceRxMetadata final
+{
+    TransferRxMetadata rx_meta{};
+    NodeId             remote_node_id{};
+};
+
+struct ServiceRxTransfer final
+{
+    ServiceRxMetadata metadata{};
+    ScatteredBuffer   payload;
 };
 
 /// @brief Defines an abstract interface of a transport layer receive session for service.

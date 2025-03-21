@@ -101,6 +101,14 @@ public:
         return bytes_to_copy;
     }
 
+    void observeFragments(ScatteredBuffer::IFragmentsObserver& observer) const override
+    {
+        if ((buffer_ != nullptr) && (payload_size_ > 0))
+        {
+            observer.onNext({buffer_, payload_size_});
+        }
+    }
+
 private:
     // MARK: Data members:
 

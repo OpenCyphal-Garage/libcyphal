@@ -7,6 +7,7 @@
 #define LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
 
 #include "libcyphal/config.hpp"
+#include "types.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/rtti.hpp>
@@ -32,6 +33,26 @@ public:
     /// @brief Defines maximum size (aka footprint) of the storage variant.
     ///
     static constexpr std::size_t StorageVariantFootprint = config::Transport::ScatteredBuffer_StorageVariantFootprint();
+
+    /// @brief Defines interface for observing internal fragments of the scattered buffer.
+    ///
+    class IFragmentsObserver
+    {
+    public:
+        IFragmentsObserver(const IFragmentsObserver&)                = delete;
+        IFragmentsObserver& operator=(const IFragmentsObserver&)     = delete;
+        IFragmentsObserver& operator=(IFragmentsObserver&&) noexcept = delete;
+        IFragmentsObserver(IFragmentsObserver&&) noexcept            = delete;
+
+        /// @brief Notifies the observer about the next fragment of the scattered buffer.
+        ///
+        virtual void onNext(const PayloadFragment fragment) = 0;
+
+    protected:
+        IFragmentsObserver()  = default;
+        ~IFragmentsObserver() = default;
+
+    };  // IFragmentsObserver
 
     /// @brief Defines storage interface for the scattered buffer.
     ///
@@ -71,6 +92,12 @@ public:
         virtual std::size_t copy(const std::size_t offset_bytes,
                                  cetl::byte* const destination,
                                  const std::size_t length_bytes) const = 0;
+
+        /// @brief Reports the internal fragments of the storage to the specified observer.
+        ///
+        /// @param observer The observer will be called (by `onNext` method) for each fragment of the storage.
+        ///
+        virtual void observeFragments(IFragmentsObserver& observer) const = 0;
 
         // MARK: RTTI
 
@@ -199,6 +226,18 @@ public:
         }
 
         return storage_->copy(offset_bytes, static_cast<cetl::byte*>(destination), length_bytes);
+    }
+
+    /// @brief Reports the internal fragments of the buffer to the specified observer.
+    ///
+    /// @param observer The observer will be called (by `onNext` method) for each fragment of the buffer.
+    ///
+    void observeFragments(IFragmentsObserver& observer) const
+    {
+        if (const auto* const storage = storage_)
+        {
+            storage->observeFragments(observer);
+        }
     }
 
 private:

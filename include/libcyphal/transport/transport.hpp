@@ -21,6 +21,13 @@ namespace libcyphal
 namespace transport
 {
 
+struct ProtocolParams final
+{
+    TransferId  transfer_id_modulo{};
+    std::size_t mtu_bytes{};
+    NodeId      max_nodes{};
+};
+
 /// @brief Interface for a transport layer.
 ///
 class ITransport

@@ -152,8 +152,8 @@ public:
 
         // Find first fragment to start from (according to source `offset_bytes`).
         //
-        std::size_t                  src_offset = 0;
-        const struct UdpardFragment* frag       = &payload_;
+        std::size_t           src_offset = 0;
+        const UdpardFragment* frag       = &payload_;
         while ((nullptr != frag) && (offset_bytes >= (src_offset + frag->view.size)))
         {
             src_offset += frag->view.size;
@@ -188,6 +188,21 @@ public:
         }
 
         return total_bytes_copied;
+    }
+
+    void observeFragments(ScatteredBuffer::IFragmentsObserver& observer) const override
+    {
+        const UdpardFragment* fragment = &payload_;
+        while (nullptr != fragment)
+        {
+            const auto& frag_view = fragment->view;
+            if ((nullptr != frag_view.data) && (frag_view.size > 0))
+            {
+                observer.onNext({static_cast<const cetl::byte*>(frag_view.data), frag_view.size});
+            }
+
+            fragment = fragment->next;
+        }
     }
 
 private:
