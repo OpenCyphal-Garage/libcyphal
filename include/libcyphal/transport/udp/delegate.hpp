@@ -197,7 +197,8 @@ public:
             const auto& frag_view = fragment->view;
             if ((nullptr != frag_view.data) && (frag_view.size > 0))
             {
-                observer.onNext({static_cast<const cetl::byte*>(frag_view.data), frag_view.size});
+                observer.onNext({static_cast<const cetl::byte*>(frag_view.data),  // NOSONAR cpp:S5356 cpp:S5357
+                                 frag_view.size});
             }
 
             fragment = fragment->next;

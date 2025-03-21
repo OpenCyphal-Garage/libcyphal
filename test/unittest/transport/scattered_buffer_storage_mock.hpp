@@ -113,6 +113,21 @@ public:
 
 };  // ScatteredBufferStorageMock
 
+class ScatteredBufferObserverMock : public ScatteredBuffer::IFragmentsObserver
+{
+public:
+    ScatteredBufferObserverMock()         = default;
+    virtual ~ScatteredBufferObserverMock() = default;
+
+    ScatteredBufferObserverMock(const ScatteredBufferObserverMock&)                = delete;
+    ScatteredBufferObserverMock(ScatteredBufferObserverMock&&) noexcept            = delete;
+    ScatteredBufferObserverMock& operator=(const ScatteredBufferObserverMock&)     = delete;
+    ScatteredBufferObserverMock& operator=(ScatteredBufferObserverMock&&) noexcept = delete;
+
+    MOCK_METHOD(void, onNext, (const PayloadFragment fragment), (override));
+
+};  // ScatteredBufferObserverMock
+
 }  // namespace transport
 }  // namespace libcyphal
 

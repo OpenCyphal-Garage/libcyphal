@@ -3,8 +3,10 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include "cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "memory_resource_mock.hpp"
 #include "tracking_memory_resource.hpp"
+#include "transport/scattered_buffer_storage_mock.hpp"
 #include "verification_utilities.hpp"
 
 #include <canard.h>
@@ -103,17 +105,13 @@ protected:
 
 TEST_F(TestCanDelegate, CanardMemory_copy)
 {
-    TransportDelegateImpl delegate{mr_};
-    auto&                 canard_instance = delegate.canardInstance();
-
     constexpr std::size_t payload_size   = 4;
     constexpr std::size_t allocated_size = payload_size + 1;
-    auto* const           payload =
-        static_cast<byte*>(canard_instance.memory.allocate(static_cast<TransportDelegate*>(&delegate), allocated_size));
+    auto* const           payload        = static_cast<byte*>(mr_.allocate(allocated_size));
     fillIotaBytes({payload, allocated_size}, b('0'));
 
     CanardMutablePayload canard_payload{payload_size, payload, allocated_size};
-    const CanardMemory canard_memory{mr_, canard_payload};
+    const CanardMemory   canard_memory{mr_, canard_payload};
     EXPECT_THAT(canard_memory.size(), payload_size);
     EXPECT_THAT(canard_payload.size, 0);
     EXPECT_THAT(canard_payload.data, nullptr);
@@ -165,16 +163,12 @@ TEST_F(TestCanDelegate, CanardMemory_copy)
 
 TEST_F(TestCanDelegate, CanardMemory_copy_on_moved)
 {
-    TransportDelegateImpl delegate{mr_};
-    auto&                 canard_instance = delegate.canardInstance();
-
     constexpr std::size_t payload_size = 4;
-    auto* const           payload =
-        static_cast<byte*>(canard_instance.memory.allocate(static_cast<TransportDelegate*>(&delegate), payload_size));
+    auto* const           payload      = static_cast<byte*>(mr_.allocate(payload_size));
     fillIotaBytes({payload, payload_size}, b('0'));
 
     CanardMutablePayload canard_payload{payload_size, payload, payload_size};
-    CanardMemory old_canard_memory{mr_, canard_payload};
+    CanardMemory         old_canard_memory{mr_, canard_payload};
     EXPECT_THAT(old_canard_memory.size(), payload_size);
     EXPECT_THAT(canard_payload.size, 0);
     EXPECT_THAT(canard_payload.data, nullptr);
@@ -198,6 +192,46 @@ TEST_F(TestCanDelegate, CanardMemory_copy_on_moved)
         std::array<byte, payload_size> buffer{};
         EXPECT_THAT(new_canard_memory.copy(0, buffer.data(), buffer.size()), payload_size);
         EXPECT_THAT(buffer, ElementsAre(b('0'), b('1'), b('2'), b('3')));
+    }
+}
+
+TEST_F(TestCanDelegate, CanardMemory_observeFragments)
+{
+    // Valid payload
+    {
+        StrictMock<ScatteredBufferObserverMock> observer_mock;
+
+        constexpr std::size_t payload_size = 4;
+        auto* const           payload      = static_cast<byte*>(mr_.allocate(payload_size));
+        fillIotaBytes({payload, payload_size}, b('0'));
+
+        CanardMutablePayload canard_payload{payload_size, payload, payload_size};
+        const CanardMemory   canard_memory{mr_, canard_payload};
+
+        EXPECT_CALL(observer_mock, onNext(ElementsAre(b('0'), b('1'), b('2'), b('3'))));
+        canard_memory.observeFragments(observer_mock);
+    }
+
+    // Zero size
+    {
+        StrictMock<ScatteredBufferObserverMock> observer_mock;
+
+        constexpr std::size_t payload_size = 0;
+        auto* const           payload      = static_cast<byte*>(mr_.allocate(payload_size));
+        fillIotaBytes({payload, payload_size}, b('0'));
+
+        CanardMutablePayload canard_payload{payload_size, payload, payload_size};
+        const CanardMemory   canard_memory{mr_, canard_payload};
+        canard_memory.observeFragments(observer_mock);
+    }
+
+    // Null
+    {
+        StrictMock<ScatteredBufferObserverMock> observer_mock;
+
+        CanardMutablePayload canard_payload{0, nullptr, 0};
+        const CanardMemory   canard_memory{mr_, canard_payload};
+        canard_memory.observeFragments(observer_mock);
     }
 }
 
