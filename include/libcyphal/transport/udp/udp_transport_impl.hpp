@@ -713,8 +713,6 @@ private:
     ///
     void sendNextFrameToMediaTxSocket(Media& media, ITxSocket& tx_socket)
     {
-        using PayloadFragment = cetl::span<const cetl::byte>;
-
         TimePoint tx_deadline;
         while (UdpardTxItem* const tx_item = peekFirstValidTxItem(media.udpard_tx(), tx_deadline))
         {

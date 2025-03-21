@@ -100,8 +100,8 @@ static auto tryPerformOnSerialized(const Message&                    message,
         return result_size.error();
     }
 
-    const cetl::span<const cetl::byte>                      data_span{buffer.data(), result_size.value()};
-    const std::array<const cetl::span<const cetl::byte>, 1> fragments{data_span};
+    const transport::PayloadFragment                      data_span{buffer.data(), result_size.value()};
+    const std::array<const transport::PayloadFragment, 1> fragments{data_span};
 
     return std::forward<Action>(action)(fragments);
 }
@@ -135,8 +135,8 @@ static auto tryPerformOnSerialized(const Message&              message,
         return result_size.error();
     }
 
-    const cetl::span<const cetl::byte>                      data_span{buffer.get(), result_size.value()};
-    const std::array<const cetl::span<const cetl::byte>, 1> fragments{data_span};
+    const transport::PayloadFragment                      data_span{buffer.get(), result_size.value()};
+    const std::array<const transport::PayloadFragment, 1> fragments{data_span};
 
     return std::forward<Action>(action)(fragments);
 }

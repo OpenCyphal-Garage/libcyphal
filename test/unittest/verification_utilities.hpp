@@ -6,6 +6,8 @@
 #ifndef LIBCYPHAL_VERIFICATION_UTILITIES_HPP_INCLUDED
 #define LIBCYPHAL_VERIFICATION_UTILITIES_HPP_INCLUDED
 
+#include <libcyphal/transport/types.hpp>
+
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
@@ -45,20 +47,20 @@ std::array<cetl::byte, N> makeIotaArray(const cetl::byte init)
 }
 
 template <std::size_t N>
-std::array<cetl::span<const cetl::byte>, 1> makeSpansFrom(const std::array<cetl::byte, N>& payload)
+std::array<transport::PayloadFragment, 1> makeSpansFrom(const std::array<cetl::byte, N>& payload)
 {
     return {payload};
 }
 
 template <std::size_t N1, std::size_t N2>
-std::array<cetl::span<const cetl::byte>, 2> makeSpansFrom(const std::array<cetl::byte, N1>& payload1,
+std::array<transport::PayloadFragment, 2> makeSpansFrom(const std::array<cetl::byte, N1>& payload1,
                                                           const std::array<cetl::byte, N2>& payload2)
 {
     return {payload1, payload2};
 }
 
 template <typename T>
-static bool tryDeserialize(T& obj, const cetl::span<const cetl::span<const cetl::byte>> fragments)
+static bool tryDeserialize(T& obj, const transport::PayloadFragments fragments)
 {
     std::vector<cetl::byte> bytes;
     for (const auto& fragment : fragments)

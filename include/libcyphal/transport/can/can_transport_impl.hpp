@@ -512,10 +512,10 @@ private:
         return tryHandleTransientFailure<Report>(std::move(*failure), media.index(), canardInstance());
     }
 
-    CETL_NODISCARD static bool makeMediaArray(MediaArray&                 media_array,
-                                              const std::size_t           media_count,
-                                              const cetl::span<IMedia*>   media_interfaces,
-                                              const std::size_t           tx_capacity)
+    CETL_NODISCARD static bool makeMediaArray(MediaArray&               media_array,
+                                              const std::size_t         media_count,
+                                              const cetl::span<IMedia*> media_interfaces,
+                                              const std::size_t         tx_capacity)
     {
 #if defined(__cpp_exceptions)
         try

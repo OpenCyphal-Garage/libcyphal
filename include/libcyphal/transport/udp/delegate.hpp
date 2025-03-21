@@ -138,8 +138,6 @@ public:
                                     cetl::byte* const destination,
                                     const std::size_t length_bytes) const override
     {
-        using FragSpan = const cetl::span<const cetl::byte>;
-
         // TODO: Use `udpardGather` function when it will be available with offset support.
 
         CETL_DEBUG_ASSERT((destination != nullptr) || (length_bytes == 0),
@@ -172,8 +170,9 @@ public:
             // Next nolint-s are unavoidable: we need offset from the beginning of the buffer.
             // No Sonar `cpp:S5356` b/c we integrate here with libcanard raw C buffers.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            FragSpan frag_span{static_cast<const cetl::byte*>(frag->view.data) + view_offset,  // NOSONAR cpp:S5356
-                               std::min(frag->view.size - view_offset, length_bytes - dst_offset)};
+            const PayloadFragment frag_span{static_cast<const cetl::byte*>(frag->view.data) +
+                                                view_offset,  // NOSONAR cpp:S5356
+                                            std::min(frag->view.size - view_offset, length_bytes - dst_offset)};
             CETL_DEBUG_ASSERT(frag_span.size() <= (frag->view.size - view_offset), "");
 
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
