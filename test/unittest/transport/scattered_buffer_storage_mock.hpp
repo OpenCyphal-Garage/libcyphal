@@ -64,11 +64,20 @@ public:
         {
             return (mock_ != nullptr) ? mock_->size() : 0;
         }
+
         std::size_t copy(const std::size_t offset_bytes,
                          cetl::byte* const destination,
                          const std::size_t length_bytes) const override
         {
             return (mock_ != nullptr) ? mock_->copy(offset_bytes, destination, length_bytes) : 0;
+        }
+
+        void observeFragments(ScatteredBuffer::IFragmentsObserver& observer) const override
+        {
+            if (nullptr != mock_)
+            {
+                mock_->observeFragments(observer);
+            }
         }
 
     private:
@@ -100,6 +109,7 @@ public:
 
     MOCK_METHOD(std::size_t, size, (), (const, noexcept, override));  // NOLINT(bugprone-exception-escape)
     MOCK_METHOD(std::size_t, copy, (const std::size_t, cetl::byte* const, const std::size_t), (const, override));
+    MOCK_METHOD(void, observeFragments, (ScatteredBuffer::IFragmentsObserver & observer), (const, override));
 
 };  // ScatteredBufferStorageMock
 
