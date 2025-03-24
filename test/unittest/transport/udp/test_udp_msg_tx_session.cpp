@@ -269,7 +269,7 @@ TEST_F(TestUdpMsgTxSession, send_empty_payload)
         EXPECT_CALL(tx_socket_mock_, send(_, _, _, _))
             .WillOnce(Return(ITxSocket::SendResult::Success{false /* is_accepted */}));
         EXPECT_CALL(tx_socket_mock_, registerCallback(_))  //
-            .WillOnce(Invoke([](auto) { return libcyphal::IExecutor::Callback::Any{}; }));
+            .WillOnce(Invoke([](const auto&) { return libcyphal::IExecutor::Callback::Any{}; }));
 
         metadata.deadline = now() + 1s;
         auto failure      = session->send(metadata, empty_payload);

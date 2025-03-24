@@ -499,7 +499,7 @@ TEST_F(TestPresentation, makeServer_custom)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    auto maybe_server = presentation.makeServer<Service>([](const auto&, auto) {});
+    auto maybe_server = presentation.makeServer<Service>([](const auto&, const auto&) {});
     ASSERT_THAT(maybe_server, VariantWith<ServiceServer<Service>>(_));
 
     EXPECT_CALL(req_rx_session_mock, deinit()).Times(1);
@@ -526,7 +526,10 @@ TEST_F(TestPresentation, makeServer_raw)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    auto maybe_server = presentation.makeServer(rx_params.service_id, rx_params.extent_bytes, [](const auto&, auto) {});
+    auto maybe_server = presentation.makeServer(  //
+        rx_params.service_id,
+        rx_params.extent_bytes,
+        [](const auto&, const auto&) {});
     ASSERT_THAT(maybe_server, VariantWith<RawServiceServer>(_));
 
     EXPECT_CALL(req_rx_session_mock, deinit()).Times(1);

@@ -167,10 +167,10 @@ public:
         while ((nullptr != frag) && (dst_offset < length_bytes))
         {
             CETL_DEBUG_ASSERT(nullptr != frag->view.data, "");
-            // Next nolint-s are unavoidable: we need offset from the beginning of the buffer.
+            // Next nolint-s are unavoidable: we need to offset from the beginning of the buffer.
             // No Sonar `cpp:S5356` & `cpp:S5357` b/c we integrate here with libcanard raw C buffers.
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             const auto* const offset_data =
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
                 static_cast<const cetl::byte*>(frag->view.data) + view_offset;  // NOSONAR cpp:S5356 cpp:S5357
             const PayloadFragment frag_span{offset_data,
                                             std::min(frag->view.size - view_offset, length_bytes - dst_offset)};

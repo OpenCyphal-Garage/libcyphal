@@ -12,6 +12,7 @@ Checks: >-
   performance-*,
   portability-*,
   readability-*,
+  -boost-use-ranges,
   -clang-analyzer-core.uninitialized.Assign,
   -cppcoreguidelines-avoid-const-or-ref-data-members,
   -cppcoreguidelines-use-default-member-init,
