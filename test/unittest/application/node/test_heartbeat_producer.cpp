@@ -15,6 +15,7 @@
 #include <libcyphal/errors.hpp>
 #include <libcyphal/presentation/presentation.hpp>
 #include <libcyphal/transport/msg_sessions.hpp>
+#include <libcyphal/transport/transport.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
