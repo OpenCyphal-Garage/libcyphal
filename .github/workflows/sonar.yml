@@ -23,7 +23,7 @@ jobs:
       - name: get nunavut
         run: |
           python3 -m venv .venv
-          source .venv/bin/activate
+          . .venv/bin/activate
           pip install git+https://github.com/OpenCyphal/nunavut.git@3.0.preview
       - name: Install sonar-scanner and build-wrapper
         uses: SonarSource/sonarcloud-github-c-cpp@v2
