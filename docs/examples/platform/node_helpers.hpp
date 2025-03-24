@@ -69,15 +69,15 @@ struct NodeHelpers
                                                                              TxSession&        tx_session,
                                                                              const TxMetadata& metadata)
     {
-        using traits          = typename T::_traits_;
-        using PayloadFragment = libcyphal::transport::PayloadFragment;
+        using traits = typename T::_traits_;
+        using libcyphal::transport::PayloadFragment;
 
         std::array<std::uint8_t, traits::SerializationBufferSizeBytes> buffer{};
 
         const auto data_size = serialize(value, buffer).value();
 
         // NOLINTNEXTLINE
-        const PayloadFragment fragment{reinterpret_cast<cetl::byte*>(buffer.data()), data_size};
+        const PayloadFragment                      fragment{reinterpret_cast<cetl::byte*>(buffer.data()), data_size};
         const std::array<const PayloadFragment, 1> payload{fragment};
 
         return tx_session.send(metadata, payload);

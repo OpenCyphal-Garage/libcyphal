@@ -309,7 +309,7 @@ TEST_F(TestPresentation, makePublisher_with_failure)
     }
     // Emulate that there is no memory available for the `PublisherImpl`.
     {
-        using PublisherImpl = libcyphal::presentation::detail::PublisherImpl;
+        using libcyphal::presentation::detail::PublisherImpl;
 
         StrictMock<MessageTxSessionMock> msg_tx_session_mock;
         EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
@@ -430,7 +430,7 @@ TEST_F(TestPresentation, makeSubscriber_with_failure)
     }
     // Emulate that there is no memory available for the `SubscriberImpl`.
     {
-        using SubscriberImpl = libcyphal::presentation::detail::SubscriberImpl;
+        using libcyphal::presentation::detail::SubscriberImpl;
 
         StrictMock<MessageRxSessionMock> msg_rx_session_mock;
         EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);

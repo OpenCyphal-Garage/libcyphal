@@ -109,7 +109,7 @@ class TransportImpl final : private TransportDelegate, public ICanTransport
     private:
         CETL_NODISCARD static CanardMemoryResource makeTxMemoryResource(IMedia& media_interface)
         {
-            using LizardHelpers = libcyphal::transport::detail::LizardHelpers;
+            using transport::detail::LizardHelpers;
 
             // TX memory resource is used for raw bytes block allocations only.
             // So it has no alignment requirements.
