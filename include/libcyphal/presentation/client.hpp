@@ -92,11 +92,13 @@ public:
 
     ClientBase& operator=(ClientBase&& other) noexcept
     {
-        CETL_DEBUG_ASSERT(shared_client_ != nullptr, "Not supposed to move construct to already moved `this`.");
         CETL_DEBUG_ASSERT(other.shared_client_ != nullptr,
                           "Not supposed to move construct from already moved `other`.");
 
-        (void) shared_client_->release();
+        if (nullptr != shared_client_)
+        {
+            (void) shared_client_->release();
+        }
 
         shared_client_ = std::exchange(other.shared_client_, nullptr);
         priority_      = other.priority_;
