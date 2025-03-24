@@ -30,6 +30,8 @@ jobs:
       - name: get nunavut
         # TODO: setup a venv, cache, and distribute to the other jobs.
         run: >
+          python3 -m venv .venv
+          source .venv/bin/activate
           pip install git+https://github.com/OpenCyphal/nunavut.git@3.0.preview
       - name: configure
         run: >
@@ -70,6 +72,8 @@ jobs:
         key: ${{ runner.os }}-${{ hashFiles('cmake/modules/*.cmake') }}
     - name: get nunavut
       run: >
+        python3 -m venv .venv
+        source .venv/bin/activate
         pip install git+https://github.com/OpenCyphal/nunavut.git@3.0.preview
     - name: run tests
       env:
@@ -115,6 +119,8 @@ jobs:
         key: ${{ runner.os }}-${{ hashFiles('cmake/modules/*.cmake') }}
     - name: get nunavut
       run: >
+        python3 -m venv .venv
+        source .venv/bin/activate
         pip install git+https://github.com/OpenCyphal/nunavut.git@3.0.preview
     - name: doc-gen
       run: >
