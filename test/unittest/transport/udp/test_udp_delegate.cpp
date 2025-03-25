@@ -3,8 +3,10 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
+#include "cetl_gtest_helpers.hpp"  // NOLINT(misc-include-cleaner)
 #include "memory_resource_mock.hpp"
 #include "tracking_memory_resource.hpp"
+#include "transport/scattered_buffer_storage_mock.hpp"
 #include "verification_utilities.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -338,6 +340,87 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy_empty)
     EXPECT_THAT(udpard_memory.copy(0, buffer.data(), 3), 0);
     EXPECT_THAT(buffer, Each(b('\0')));
     EXPECT_THAT(udpard_memory.copy(1, buffer.data(), 3), 0);
+}
+
+TEST_F(TestUdpDelegate, UdpardMemory_forEachFragment)
+{
+    const TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
+
+    // Valid single-fragment payload
+    {
+        auto* const payload = allocateNewUdpardPayload(4);
+        fillIotaBytes({payload, 4}, b('0'));
+
+        constexpr std::size_t payload_size = 4;
+        UdpardRxTransfer      rx_transfer{};
+        rx_transfer.payload_size = payload_size;
+        rx_transfer.payload      = UdpardFragment{nullptr, {payload_size, payload}, {payload_size, payload}};
+
+        const UdpardMemory udpard_memory{delegate.memoryResources(), rx_transfer};
+
+        StrictMock<ScatteredBufferVisitorMock> visitor_mock;
+        EXPECT_CALL(visitor_mock, onNext(ElementsAre(b('0'), b('1'), b('2'), b('3'))));
+        udpard_memory.forEachFragment(visitor_mock);
+    }
+
+    // Valid multi-fragment payload
+    {
+        auto* const payload0 = allocateNewUdpardPayload(7);
+
+        UdpardRxTransfer rx_transfer{};
+        rx_transfer.payload            = UdpardFragment{nullptr, {7, payload0}, {7, payload0}};
+        rx_transfer.payload.next       = allocateNewUdpardFragment(8);
+        rx_transfer.payload.next->next = allocateNewUdpardFragment(9);
+
+        auto* const payload1 = static_cast<byte*>(rx_transfer.payload.next->origin.data);
+        auto* const payload2 = static_cast<byte*>(rx_transfer.payload.next->next->origin.data);
+        fillIotaBytes({payload0, 7}, b('0'));
+        fillIotaBytes({payload1, 8}, b('A'));
+        fillIotaBytes({payload2, 9}, b('a'));
+
+        constexpr std::size_t payload_size   = 3 + 4 + 2;
+        rx_transfer.payload_size             = payload_size;
+        rx_transfer.payload.view             = {3, payload0 + 2};
+        rx_transfer.payload.next->view       = {4, payload1 + 1};
+        rx_transfer.payload.next->next->view = {2, payload2 + 3};
+
+        const UdpardMemory udpard_memory{delegate.memoryResources(), rx_transfer};
+
+        const testing::InSequence in_sequence;
+        StrictMock<ScatteredBufferVisitorMock> visitor_mock;
+        EXPECT_CALL(visitor_mock, onNext(ElementsAre(b('2'), b('3'), b('4'))));
+        EXPECT_CALL(visitor_mock, onNext(ElementsAre(b('B'), b('C'), b('D'), b('E'))));
+        EXPECT_CALL(visitor_mock, onNext(ElementsAre(b('d'), b('e'))));
+        udpard_memory.forEachFragment(visitor_mock);
+    }
+
+    // Zero size
+    {
+        auto* const payload = allocateNewUdpardPayload(0);
+        fillIotaBytes({payload, 0}, b('0'));
+
+        constexpr std::size_t payload_size = 0;
+        UdpardRxTransfer      rx_transfer{};
+        rx_transfer.payload_size = payload_size;
+        rx_transfer.payload      = UdpardFragment{nullptr, {payload_size, payload}, {payload_size, payload}};
+
+        const UdpardMemory udpard_memory{delegate.memoryResources(), rx_transfer};
+
+        StrictMock<ScatteredBufferVisitorMock> visitor_mock;
+        udpard_memory.forEachFragment(visitor_mock);
+    }
+
+    // Null
+    {
+        UdpardRxTransfer rx_transfer{};
+        rx_transfer.payload_size = 0;
+        rx_transfer.payload      = UdpardFragment{nullptr, {0, nullptr}, {0, nullptr}};
+
+        const UdpardMemory udpard_memory{delegate.memoryResources(), rx_transfer};
+
+        StrictMock<ScatteredBufferVisitorMock> visitor_mock;
+        udpard_memory.forEachFragment(visitor_mock);
+    }
 }
 
 TEST_F(TestUdpDelegate, optAnyFailureFromUdpard)

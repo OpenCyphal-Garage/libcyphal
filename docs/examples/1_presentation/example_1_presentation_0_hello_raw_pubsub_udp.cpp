@@ -151,8 +151,8 @@ TEST_F(Example_1_Presentation_0_HelloRawPubSub_Udp, main)
         const TimePoint                  msg_deadline = arg.approx_now + 1s;
         constexpr cetl::span<const char> message{"Hello, World!"};
         //
-        const std::array<const cetl::span<const cetl::byte>, 1> payload_fragments{
-            cetl::span<const cetl::byte>{reinterpret_cast<const cetl::byte*>(message.data()),  // NOLINT
+        const std::array<const PayloadFragment, 1> payload_fragments{
+            PayloadFragment{reinterpret_cast<const cetl::byte*>(message.data()),  // NOLINT
                                          message.size()}};
         EXPECT_THAT(raw_publisher.publish(msg_deadline, payload_fragments), testing::Eq(cetl::nullopt));
     });

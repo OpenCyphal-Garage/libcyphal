@@ -11,6 +11,7 @@ Checks: >-
   misc-*,
   portability-*,
   readability-*,
+  -boost-use-ranges,
   -hicpp-function-size,
   -hicpp-no-array-decay,
   -google-readability-todo,

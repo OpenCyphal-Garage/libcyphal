@@ -109,7 +109,7 @@ class TransportImpl final : private TransportDelegate, public ICanTransport
     private:
         CETL_NODISCARD static CanardMemoryResource makeTxMemoryResource(IMedia& media_interface)
         {
-            using LizardHelpers = libcyphal::transport::detail::LizardHelpers;
+            using transport::detail::LizardHelpers;
 
             // TX memory resource is used for raw bytes block allocations only.
             // So it has no alignment requirements.
@@ -147,10 +147,8 @@ public:
             return ArgumentError{};
         }
 
-        // False positive of clang-tidy - we move `media_array` to the `transport` instance, so can't make it const.
-        // NOLINTNEXTLINE(misc-const-correctness)
-        MediaArray media_array = makeMediaArray(memory, media_count, media, tx_capacity);
-        if (media_array.size() != media_count)
+        MediaArray media_array{media_count, &memory};
+        if (!makeMediaArray(media_array, media_count, media, tx_capacity))
         {
             return MemoryError{};
         }
@@ -514,18 +512,23 @@ private:
         return tryHandleTransientFailure<Report>(std::move(*failure), media.index(), canardInstance());
     }
 
-    CETL_NODISCARD static MediaArray makeMediaArray(cetl::pmr::memory_resource& memory,
-                                                    const std::size_t           media_count,
-                                                    const cetl::span<IMedia*>   media_interfaces,
-                                                    const std::size_t           tx_capacity)
+    CETL_NODISCARD static bool makeMediaArray(MediaArray&               media_array,
+                                              const std::size_t         media_count,
+                                              const cetl::span<IMedia*> media_interfaces,
+                                              const std::size_t         tx_capacity)
     {
-        MediaArray media_array{media_count, &memory};
-
-        // Reserve the space for the whole array (to avoid reallocations).
-        // Capacity will be less than requested in case of out of memory.
-        media_array.reserve(media_count);
-        if (media_array.capacity() >= media_count)
+#if defined(__cpp_exceptions)
+        try
         {
+#endif
+            // Reserve the space for the whole array (to avoid reallocations).
+            // Capacity will be less than requested in case of out of memory.
+            media_array.reserve(media_count);
+            if (media_array.capacity() < media_count)
+            {
+                return false;
+            }
+
             std::size_t index = 0;
             for (IMedia* const media_interface : media_interfaces)
             {
@@ -538,9 +541,14 @@ private:
             }
             CETL_DEBUG_ASSERT(index == media_count, "");
             CETL_DEBUG_ASSERT(media_array.size() == media_count, "");
-        }
+            return true;
 
-        return media_array;
+#if defined(__cpp_exceptions)
+        } catch (const std::bad_alloc&)
+        {
+            return false;
+        }
+#endif
     }
 
     static void flushCanardTxQueue(CanardTxQueue& canard_tx_queue, const CanardInstance& canard_instance)

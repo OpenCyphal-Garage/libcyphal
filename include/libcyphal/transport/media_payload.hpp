@@ -6,6 +6,8 @@
 #ifndef LIBCYPHAL_TRANSPORT_MEDIA_PAYLOAD_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_MEDIA_PAYLOAD_HPP_INCLUDED
 
+#include "types.hpp"
+
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf20/cetlpf.hpp>
 
@@ -125,7 +127,7 @@ public:
     ///
     /// Returns an empty (`{nullptr, 0}`) span if the payload is moved, released or reset.
     ///
-    cetl::span<const cetl::byte> getSpan() const noexcept
+    PayloadFragment getSpan() const noexcept
     {
         return {ownership_.data, ownership_.size};
     }

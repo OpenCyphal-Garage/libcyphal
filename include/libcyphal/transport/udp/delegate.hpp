@@ -138,8 +138,6 @@ public:
                                     cetl::byte* const destination,
                                     const std::size_t length_bytes) const override
     {
-        using FragSpan = const cetl::span<const cetl::byte>;
-
         // TODO: Use `udpardGather` function when it will be available with offset support.
 
         CETL_DEBUG_ASSERT((destination != nullptr) || (length_bytes == 0),
@@ -152,8 +150,8 @@ public:
 
         // Find first fragment to start from (according to source `offset_bytes`).
         //
-        std::size_t                  src_offset = 0;
-        const struct UdpardFragment* frag       = &payload_;
+        std::size_t           src_offset = 0;
+        const UdpardFragment* frag       = &payload_;
         while ((nullptr != frag) && (offset_bytes >= (src_offset + frag->view.size)))
         {
             src_offset += frag->view.size;
@@ -169,11 +167,13 @@ public:
         while ((nullptr != frag) && (dst_offset < length_bytes))
         {
             CETL_DEBUG_ASSERT(nullptr != frag->view.data, "");
-            // Next nolint-s are unavoidable: we need offset from the beginning of the buffer.
-            // No Sonar `cpp:S5356` b/c we integrate here with libcanard raw C buffers.
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            FragSpan frag_span{static_cast<const cetl::byte*>(frag->view.data) + view_offset,  // NOSONAR cpp:S5356
-                               std::min(frag->view.size - view_offset, length_bytes - dst_offset)};
+            // Next nolint-s are unavoidable: we need to offset from the beginning of the buffer.
+            // No Sonar `cpp:S5356` & `cpp:S5357` b/c we integrate here with libcanard raw C buffers.
+            const auto* const offset_data =
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                static_cast<const cetl::byte*>(frag->view.data) + view_offset;  // NOSONAR cpp:S5356 cpp:S5357
+            const PayloadFragment frag_span{offset_data,
+                                            std::min(frag->view.size - view_offset, length_bytes - dst_offset)};
             CETL_DEBUG_ASSERT(frag_span.size() <= (frag->view.size - view_offset), "");
 
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -188,6 +188,22 @@ public:
         }
 
         return total_bytes_copied;
+    }
+
+    void forEachFragment(ScatteredBuffer::IFragmentsVisitor& visitor) const override
+    {
+        const UdpardFragment* fragment = &payload_;
+        while (nullptr != fragment)
+        {
+            const auto& frag_view = fragment->view;
+            if ((nullptr != frag_view.data) && (frag_view.size > 0))
+            {
+                visitor.onNext({static_cast<const cetl::byte*>(frag_view.data),  // NOSONAR cpp:S5356 cpp:S5357
+                                frag_view.size});
+            }
+
+            fragment = fragment->next;
+        }
     }
 
 private:

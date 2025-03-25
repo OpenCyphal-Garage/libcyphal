@@ -1066,7 +1066,7 @@ TEST_F(TestCanTransport, receive_svc_responses_with_fallible_oom_canard)
     EXPECT_CALL(mr_mock, do_reallocate(nullptr, 0, _, _)).WillRepeatedly(Return(nullptr));
 #endif
 
-    // 1st run: canard RX has failed to accept frame and there is no transient error handler.
+    // 1st run: canard RX has failed to accept frame, and there is no transient error handler.
     scheduler_.scheduleAt(1s, [&](const auto&) {
         //
         scheduler_.scheduleNamedCallback("rx");
@@ -1075,7 +1075,7 @@ TEST_F(TestCanTransport, receive_svc_responses_with_fallible_oom_canard)
             EXPECT_THAT(session->receive(), Eq(cetl::nullopt));
         });
     });
-    // 2nd run: canard RX has failed to accept frame and there is "failing" transient error handler.
+    // 2nd run: canard RX has failed to accept frame, and there is "failing" transient error handler.
     scheduler_.scheduleAt(2s, [&](const auto&) {
         //
         transport->setTransientErrorHandler(std::ref(handler_mock));
@@ -1086,7 +1086,7 @@ TEST_F(TestCanTransport, receive_svc_responses_with_fallible_oom_canard)
             EXPECT_THAT(session->receive(), Eq(cetl::nullopt));
         });
     });
-    // 3rd run: canard RX has failed to accept frame and there is "success" transient error handler -
+    // 3rd run: canard RX has failed to accept frame, and there is "success" transient error handler -
     // the received frame should be just dropped, but overall `run` result should be success (aka ignore OOM).
     scheduler_.scheduleAt(3s, [&](const auto&) {
         //

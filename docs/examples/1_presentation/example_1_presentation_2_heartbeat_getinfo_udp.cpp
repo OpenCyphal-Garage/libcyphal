@@ -176,7 +176,7 @@ TEST_F(Example_1_Presentation_2_Heartbeat_GetInfo_Udp, main)
 
     // Bring up 'GetInfo' server.
     //
-    using GetInfo_1_0 = uavcan::node::GetInfo_1_0;
+    using uavcan::node::GetInfo_1_0;
     const std::string node_name{"org.opencyphal.Ex_1_Pres_2_HB_GetInfo_UDP"};
     std::copy_n(node_name.begin(), std::min(node_name.size(), 50UL), std::back_inserter(state.get_info_response.name));
     //

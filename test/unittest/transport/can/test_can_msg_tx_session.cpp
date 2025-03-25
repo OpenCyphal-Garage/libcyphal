@@ -190,7 +190,7 @@ TEST_F(TestCanMsgTxSession, send_empty_payload)
                 return IMedia::PushResult::Success{false /* is_accepted */};
             });
         EXPECT_CALL(media_mock_, registerPushCallback(_))  //
-            .WillOnce(Invoke([](auto) { return libcyphal::IExecutor::Callback::Any{}; }));
+            .WillOnce(Invoke([](const auto&) { return libcyphal::IExecutor::Callback::Any{}; }));
 
         metadata.deadline = now() + timeout;
         auto failure      = session->send(metadata, empty_payload);

@@ -101,6 +101,14 @@ public:
         return bytes_to_copy;
     }
 
+    void forEachFragment(ScatteredBuffer::IFragmentsVisitor& visitor) const override
+    {
+        if ((buffer_ != nullptr) && (payload_size_ > 0))
+        {
+            visitor.onNext({buffer_, payload_size_});
+        }
+    }
+
 private:
     // MARK: Data members:
 
@@ -471,13 +479,23 @@ protected:
         // Now we know that we have at least one active port,
         // so we need preallocate temp memory for the total number of active ports.
         //
-        filters.reserve(total_active_ports);
-        if (filters.capacity() < total_active_ports)
+#if defined(__cpp_exceptions)
+        try
         {
-            // This is out of memory situation.
+#endif
+            filters.reserve(total_active_ports);
+            if (filters.capacity() < total_active_ports)
+            {
+                // This is out of memory situation.
+                return false;
+            }
+
+#if defined(__cpp_exceptions)
+        } catch (const std::bad_alloc&)
+        {
             return false;
         }
-
+#endif
         // `ports_count` counting is just for the sake of debug verification.
         std::size_t ports_count = 0;
 

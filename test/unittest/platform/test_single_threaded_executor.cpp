@@ -27,10 +27,10 @@
 namespace
 {
 
-using Duration  = libcyphal::Duration;
-using TimePoint = libcyphal::TimePoint;
-using Callback  = libcyphal::IExecutor::Callback;
-using Schedule  = libcyphal::IExecutor::Callback::Schedule;
+using libcyphal::Duration;
+using libcyphal::TimePoint;
+using Callback = libcyphal::IExecutor::Callback;
+using Schedule = libcyphal::IExecutor::Callback::Schedule;
 using namespace libcyphal::platform;  // NOLINT This our main concern here in the unit tests.
 
 using testing::Eq;

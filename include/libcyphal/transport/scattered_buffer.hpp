@@ -7,6 +7,7 @@
 #define LIBCYPHAL_TRANSPORT_SCATTERED_BUFFER_HPP_INCLUDED
 
 #include "libcyphal/config.hpp"
+#include "types.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/rtti.hpp>
@@ -32,6 +33,28 @@ public:
     /// @brief Defines maximum size (aka footprint) of the storage variant.
     ///
     static constexpr std::size_t StorageVariantFootprint = config::Transport::ScatteredBuffer_StorageVariantFootprint();
+
+    /// @brief Defines interface for visiting internal fragments of the scattered buffer.
+    ///
+    class IFragmentsVisitor
+    {
+    public:
+        IFragmentsVisitor(const IFragmentsVisitor&)                = delete;
+        IFragmentsVisitor& operator=(const IFragmentsVisitor&)     = delete;
+        IFragmentsVisitor& operator=(IFragmentsVisitor&&) noexcept = delete;
+        IFragmentsVisitor(IFragmentsVisitor&&) noexcept            = delete;
+
+        /// @brief Notifies the visitor about the next fragment of the scattered buffer.
+        ///
+        /// See also `forEachFragment` method of the `ScatteredBuffer`.
+        ///
+        virtual void onNext(const PayloadFragment fragment) = 0;
+
+    protected:
+        IFragmentsVisitor()  = default;
+        ~IFragmentsVisitor() = default;
+
+    };  // IFragmentsVisitor
 
     /// @brief Defines storage interface for the scattered buffer.
     ///
@@ -71,6 +94,12 @@ public:
         virtual std::size_t copy(const std::size_t offset_bytes,
                                  cetl::byte* const destination,
                                  const std::size_t length_bytes) const = 0;
+
+        /// @brief Reports the internal fragments of the storage to the specified visitor.
+        ///
+        /// @param visitor The visitor will be called (by `onNext` method) for each fragment of the storage.
+        ///
+        virtual void forEachFragment(IFragmentsVisitor& visitor) const = 0;
 
         // MARK: RTTI
 
@@ -199,6 +228,18 @@ public:
         }
 
         return storage_->copy(offset_bytes, static_cast<cetl::byte*>(destination), length_bytes);
+    }
+
+    /// @brief Reports the internal fragments of the storage to the specified visitor.
+    ///
+    /// @param visitor The visitor will be called (by `onNext` method) for each fragment of the storage.
+    ///
+    void forEachFragment(IFragmentsVisitor& visitor) const
+    {
+        if (const auto* const storage = storage_)
+        {
+            storage->forEachFragment(visitor);
+        }
     }
 
 private:

@@ -6,8 +6,6 @@
 #ifndef LIBCYPHAL_TRANSPORT_TYPES_HPP_INCLUDED
 #define LIBCYPHAL_TRANSPORT_TYPES_HPP_INCLUDED
 
-#include "scattered_buffer.hpp"
-
 #include "libcyphal/types.hpp"
 
 #include <cetl/pf17/cetlpf.hpp>
@@ -48,57 +46,30 @@ enum class Priority : std::uint8_t
     Optional    = 7,
 };
 
-struct ProtocolParams final
-{
-    TransferId  transfer_id_modulo{};
-    std::size_t mtu_bytes{};
-    NodeId      max_nodes{};
-};
+/// @brief Defines immutable fragment of raw data (as span of const bytes).
+///
+using PayloadFragment = cetl::span<const cetl::byte>;
+
+/// @brief Defines a span of immutable raw data fragments.
+///
+using PayloadFragments = cetl::span<const PayloadFragment>;
 
 struct TransferMetadata final
 {
     TransferId transfer_id{};
     Priority   priority{};
 };
+
 struct TransferTxMetadata final
 {
     TransferMetadata base{};
     TimePoint        deadline;
 };
+
 struct TransferRxMetadata final
 {
     TransferMetadata base{};
     TimePoint        timestamp;
-};
-
-/// @brief Defines a span of immutable fragments of payload.
-using PayloadFragments = cetl::span<const cetl::span<const cetl::byte>>;
-
-struct MessageRxMetadata final
-{
-    TransferRxMetadata     rx_meta{};
-    cetl::optional<NodeId> publisher_node_id;
-};
-struct MessageRxTransfer final
-{
-    MessageRxMetadata metadata{};
-    ScatteredBuffer   payload;
-};
-
-struct ServiceTxMetadata final
-{
-    TransferTxMetadata tx_meta{};
-    NodeId             remote_node_id{};
-};
-struct ServiceRxMetadata final
-{
-    TransferRxMetadata rx_meta{};
-    NodeId             remote_node_id{};
-};
-struct ServiceRxTransfer final
-{
-    ServiceRxMetadata metadata{};
-    ScatteredBuffer   payload;
 };
 
 }  // namespace transport

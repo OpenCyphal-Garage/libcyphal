@@ -119,7 +119,7 @@ class TransportImpl final : private TransportDelegate, public IUdpTransport
     private:
         CETL_NODISCARD static UdpardMemoryResource makeTxMemoryResource(IMedia& media_interface)
         {
-            using LizardHelpers = libcyphal::transport::detail::LizardHelpers;
+            using transport::detail::LizardHelpers;
 
             // TX memory resource is used for raw bytes block allocations only.
             // So it has no alignment requirements.
@@ -164,10 +164,8 @@ public:
 
         const UdpardNodeID unset_node_id = UDPARD_NODE_ID_UNSET;
 
-        // False positive of clang-tidy - we move `media_array` to the `transport` instance, so can't make it const.
-        // NOLINTNEXTLINE(misc-const-correctness)
-        MediaArray media_array = makeMediaArray(memory_resources, media_count, media, &unset_node_id, tx_capacity);
-        if (media_array.size() != media_count)
+        MediaArray media_array{media_count, &memory_resources.general};
+        if (!makeMediaArray(memory_resources, media_array, media_count, media, &unset_node_id, tx_capacity))
         {
             return MemoryError{};
         }
@@ -618,19 +616,25 @@ private:
         return failure;
     }
 
-    CETL_NODISCARD static MediaArray makeMediaArray(const MemoryResources&    memory,
-                                                    const std::size_t         media_count,
-                                                    const cetl::span<IMedia*> media_interfaces,
-                                                    const UdpardNodeID* const local_node_id_,
-                                                    const std::size_t         tx_capacity)
+    CETL_NODISCARD static bool makeMediaArray(const MemoryResources&    memory,
+                                              MediaArray&               media_array,
+                                              const std::size_t         media_count,
+                                              const cetl::span<IMedia*> media_interfaces,
+                                              const UdpardNodeID* const local_node_id_,
+                                              const std::size_t         tx_capacity)
     {
-        MediaArray media_array{media_count, &memory.general};
-
-        // Reserve the space for the whole array (to avoid reallocations).
-        // Capacity will be less than requested in case of out of memory.
-        media_array.reserve(media_count);
-        if (media_array.capacity() >= media_count)
+#if defined(__cpp_exceptions)
+        try
         {
+#endif
+            // Reserve the space for the whole array (to avoid reallocations).
+            // Capacity will be less than requested in case of out of memory (or `bad_alloc` if exceptions are enabled).
+            media_array.reserve(media_count);
+            if (media_array.capacity() < media_count)
+            {
+                return false;
+            }
+
             std::size_t index = 0;
             for (IMedia* const media_interface : media_interfaces)
             {
@@ -643,9 +647,14 @@ private:
             }
             CETL_DEBUG_ASSERT(index == media_count, "");
             CETL_DEBUG_ASSERT(media_array.size() == media_count, "");
-        }
+            return true;
 
-        return media_array;
+#if defined(__cpp_exceptions)
+        } catch (const std::bad_alloc&)
+        {
+            return false;
+        }
+#endif
     }
 
     /// @brief Tries to run an action with media and its TX socket (the latter one is made on demand if necessary).
@@ -704,8 +713,6 @@ private:
     ///
     void sendNextFrameToMediaTxSocket(Media& media, ITxSocket& tx_socket)
     {
-        using PayloadFragment = cetl::span<const cetl::byte>;
-
         TimePoint tx_deadline;
         while (UdpardTxItem* const tx_item = peekFirstValidTxItem(media.udpard_tx(), tx_deadline))
         {

@@ -7,6 +7,7 @@
 #define LIBCYPHAL_TRANSPORT_MSG_SESSIONS_HPP_INCLUDED
 
 #include "errors.hpp"
+#include "scattered_buffer.hpp"
 #include "session.hpp"
 #include "types.hpp"
 
@@ -32,6 +33,18 @@ struct MessageRxParams final
 struct MessageTxParams final
 {
     PortId subject_id{};
+};
+
+struct MessageRxMetadata final
+{
+    TransferRxMetadata     rx_meta{};
+    cetl::optional<NodeId> publisher_node_id;
+};
+
+struct MessageRxTransfer final
+{
+    MessageRxMetadata metadata{};
+    ScatteredBuffer   payload;
 };
 
 /// @brief Defines an abstract interface of a transport layer receive session for message subscription.

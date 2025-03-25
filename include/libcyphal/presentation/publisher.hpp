@@ -78,10 +78,12 @@ public:
 
     PublisherBase& operator=(PublisherBase&& other) noexcept
     {
-        CETL_DEBUG_ASSERT(impl_ != nullptr, "Not supposed to move to already moved `this`.");
         CETL_DEBUG_ASSERT(other.impl_ != nullptr, "Not supposed to move from already moved `other`.");
 
-        (void) impl_->release();
+        if (nullptr != impl_)
+        {
+            (void) impl_->release();
+        }
 
         impl_     = std::exchange(other.impl_, nullptr);
         priority_ = other.priority_;

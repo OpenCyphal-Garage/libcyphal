@@ -81,12 +81,12 @@ public:
     using DerivedType = Derived;
 
     // Tree nodes cannot be copied for obvious reasons.
-    Node(const Node&)                    = delete;
+    Node(const Node&)                    = delete;  // NOLINT bugprone-crtp-constructor-accessibility
     auto operator=(const Node&) -> Node& = delete;
 
     // Tree nodes can be moved. We update the pointers in the adjacent nodes to keep the tree valid,
     // as well as root node pointer if needed (see `moveFrom`). This operation is constant time.
-    Node(Node&& other) noexcept
+    Node(Node&& other) noexcept  // NOLINT bugprone-crtp-constructor-accessibility
     {
         moveFrom(other);
     }
@@ -102,7 +102,7 @@ public:
     }
 
 protected:
-    Node()  = default;
+    Node()  = default;  // NOLINT bugprone-crtp-constructor-accessibility
     ~Node() = default;
 
     /// Accessors for advanced tree introspection. Not needed for typical usage.

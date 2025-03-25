@@ -26,6 +26,7 @@
 #include <libcyphal/transport/msg_sessions.hpp>
 #include <libcyphal/transport/svc_sessions.hpp>
 #include <libcyphal/transport/transfer_id_map.hpp>
+#include <libcyphal/transport/transport.hpp>
 #include <libcyphal/transport/types.hpp>
 #include <libcyphal/types.hpp>
 
@@ -309,7 +310,7 @@ TEST_F(TestPresentation, makePublisher_with_failure)
     }
     // Emulate that there is no memory available for the `PublisherImpl`.
     {
-        using PublisherImpl = libcyphal::presentation::detail::PublisherImpl;
+        using libcyphal::presentation::detail::PublisherImpl;
 
         StrictMock<MessageTxSessionMock> msg_tx_session_mock;
         EXPECT_CALL(msg_tx_session_mock, deinit()).Times(1);
@@ -430,7 +431,7 @@ TEST_F(TestPresentation, makeSubscriber_with_failure)
     }
     // Emulate that there is no memory available for the `SubscriberImpl`.
     {
-        using SubscriberImpl = libcyphal::presentation::detail::SubscriberImpl;
+        using libcyphal::presentation::detail::SubscriberImpl;
 
         StrictMock<MessageRxSessionMock> msg_rx_session_mock;
         EXPECT_CALL(msg_rx_session_mock, deinit()).Times(1);
@@ -499,7 +500,7 @@ TEST_F(TestPresentation, makeServer_custom)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    auto maybe_server = presentation.makeServer<Service>([](const auto&, auto) {});
+    auto maybe_server = presentation.makeServer<Service>([](const auto&, const auto&) {});
     ASSERT_THAT(maybe_server, VariantWith<ServiceServer<Service>>(_));
 
     EXPECT_CALL(req_rx_session_mock, deinit()).Times(1);
@@ -526,7 +527,10 @@ TEST_F(TestPresentation, makeServer_raw)
 
     Presentation presentation{mr_, scheduler_, transport_mock_};
 
-    auto maybe_server = presentation.makeServer(rx_params.service_id, rx_params.extent_bytes, [](const auto&, auto) {});
+    auto maybe_server = presentation.makeServer(  //
+        rx_params.service_id,
+        rx_params.extent_bytes,
+        [](const auto&, const auto&) {});
     ASSERT_THAT(maybe_server, VariantWith<RawServiceServer>(_));
 
     EXPECT_CALL(req_rx_session_mock, deinit()).Times(1);

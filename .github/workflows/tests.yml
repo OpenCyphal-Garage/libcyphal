@@ -16,7 +16,7 @@ jobs:
       contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts22.4.10
+    container: ghcr.io/opencyphal/toolshed:ts24.4.3
     steps:
       - uses: actions/checkout@v4
       - name: Cache ext modules
@@ -29,8 +29,8 @@ jobs:
           key: ${{ runner.os }}-${{ hashFiles('cmake/modules/*.cmake') }}
       - name: get nunavut
         # TODO: setup a venv, cache, and distribute to the other jobs.
-        run: >
-          pip install git+https://github.com/OpenCyphal/nunavut.git@3.0.preview
+        run: |
+          pip install --break-system-packages git+https://github.com/OpenCyphal/nunavut.git@3.0.preview
       - name: configure
         run: >
           ./build-tools/bin/verify.py
@@ -47,7 +47,7 @@ jobs:
       contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts22.4.10
+    container: ghcr.io/opencyphal/toolshed:ts24.4.3
     needs: [warmup]
     strategy:
       matrix:
@@ -69,8 +69,8 @@ jobs:
         path: external
         key: ${{ runner.os }}-${{ hashFiles('cmake/modules/*.cmake') }}
     - name: get nunavut
-      run: >
-        pip install git+https://github.com/OpenCyphal/nunavut.git@3.0.preview
+      run: |
+        pip install --break-system-packages git+https://github.com/OpenCyphal/nunavut.git@3.0.preview
     - name: run tests
       env:
         GTEST_COLOR: yes
@@ -101,7 +101,7 @@ jobs:
       contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts22.4.10
+    container: ghcr.io/opencyphal/toolshed:ts24.4.3
     needs: [warmup]
     steps:
     - uses: actions/checkout@v4
@@ -114,8 +114,8 @@ jobs:
         path: external
         key: ${{ runner.os }}-${{ hashFiles('cmake/modules/*.cmake') }}
     - name: get nunavut
-      run: >
-        pip install git+https://github.com/OpenCyphal/nunavut.git@3.0.preview
+      run: |
+        pip install --break-system-packages git+https://github.com/OpenCyphal/nunavut.git@3.0.preview
     - name: doc-gen
       run: >
         ./build-tools/bin/verify.py

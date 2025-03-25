@@ -195,7 +195,7 @@ TEST_F(TestCanSvcTxSessions, send_request)
                 return IMedia::PushResult::Success{true /* is_accepted */};
             });
         EXPECT_CALL(media_mock_, registerPushCallback(_))  //
-            .WillOnce(Invoke([](auto) { return libcyphal::IExecutor::Callback::Any{}; }));
+            .WillOnce(Invoke([](const auto&) { return libcyphal::IExecutor::Callback::Any{}; }));
 
         metadata.deadline  = now() + timeout;
         const auto failure = session->send(metadata, empty_payload);
@@ -247,7 +247,7 @@ TEST_F(TestCanSvcTxSessions, send_request_with_argument_error)
                 return IMedia::PushResult::Success{true /* is_accepted */};
             });
         EXPECT_CALL(media_mock_, registerPushCallback(_))  //
-            .WillOnce(Invoke([](auto) { return libcyphal::IExecutor::Callback::Any{}; }));
+            .WillOnce(Invoke([](const auto&) { return libcyphal::IExecutor::Callback::Any{}; }));
 
         metadata.deadline  = now() + timeout;
         const auto failure = session->send(metadata, empty_payload);

@@ -45,13 +45,11 @@ public:
         , payload_size_{0}
         , allocated_buffer_{nullptr}
     {
-        using Fragment = cetl::span<const cetl::byte>;
-
         // Count fragments skipping empty ones. Also keep tracking of the total payload size
         // and pointer to the last non-empty fragment (which will be in use for the optimization).
         //
         const auto total_non_empty_fragments =
-            std::count_if(payload_fragments.begin(), payload_fragments.end(), [this](const Fragment frag) {
+            std::count_if(payload_fragments.begin(), payload_fragments.end(), [this](const PayloadFragment frag) {
                 if (frag.empty())
                 {
                     return false;
@@ -68,9 +66,9 @@ public:
             if (cetl::byte* const buffer = allocated_buffer_)
             {
                 std::size_t offset = 0;
-                for (const Fragment frag : payload_fragments)
+                for (const PayloadFragment frag : payload_fragments)
                 {
-                    // Next nolint is unavoidable: we need offset from the beginning of the buffer.
+                    // Next nolint is unavoidable: we need to offset from the beginning of the buffer.
                     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
                     (void) std::memmove(&buffer[offset], frag.data(), frag.size());
                     offset += frag.size();
