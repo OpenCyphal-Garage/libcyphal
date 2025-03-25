@@ -190,7 +190,7 @@ public:
         return total_bytes_copied;
     }
 
-    void observeFragments(ScatteredBuffer::IFragmentsObserver& observer) const override
+    void forEachFragment(ScatteredBuffer::IFragmentsVisitor& visitor) const override
     {
         const UdpardFragment* fragment = &payload_;
         while (nullptr != fragment)
@@ -198,8 +198,8 @@ public:
             const auto& frag_view = fragment->view;
             if ((nullptr != frag_view.data) && (frag_view.size > 0))
             {
-                observer.onNext({static_cast<const cetl::byte*>(frag_view.data),  // NOSONAR cpp:S5356 cpp:S5357
-                                 frag_view.size});
+                visitor.onNext({static_cast<const cetl::byte*>(frag_view.data),  // NOSONAR cpp:S5356 cpp:S5357
+                                frag_view.size});
             }
 
             fragment = fragment->next;

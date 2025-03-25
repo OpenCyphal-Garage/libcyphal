@@ -195,11 +195,11 @@ TEST_F(TestCanDelegate, CanardMemory_copy_on_moved)
     }
 }
 
-TEST_F(TestCanDelegate, CanardMemory_observeFragments)
+TEST_F(TestCanDelegate, CanardMemory_forEachFragment)
 {
     // Valid payload
     {
-        StrictMock<ScatteredBufferObserverMock> observer_mock;
+        StrictMock<ScatteredBufferVisitorMock> visitor_mock;
 
         constexpr std::size_t payload_size = 4;
         auto* const           payload      = static_cast<byte*>(mr_.allocate(payload_size));
@@ -208,13 +208,13 @@ TEST_F(TestCanDelegate, CanardMemory_observeFragments)
         CanardMutablePayload canard_payload{payload_size, payload, payload_size};
         const CanardMemory   canard_memory{mr_, canard_payload};
 
-        EXPECT_CALL(observer_mock, onNext(ElementsAre(b('0'), b('1'), b('2'), b('3'))));
-        canard_memory.observeFragments(observer_mock);
+        EXPECT_CALL(visitor_mock, onNext(ElementsAre(b('0'), b('1'), b('2'), b('3'))));
+        canard_memory.forEachFragment(visitor_mock);
     }
 
     // Zero size
     {
-        StrictMock<ScatteredBufferObserverMock> observer_mock;
+        StrictMock<ScatteredBufferVisitorMock> visitor_mock;
 
         constexpr std::size_t payload_size = 0;
         auto* const           payload      = static_cast<byte*>(mr_.allocate(payload_size));
@@ -222,16 +222,16 @@ TEST_F(TestCanDelegate, CanardMemory_observeFragments)
 
         CanardMutablePayload canard_payload{payload_size, payload, payload_size};
         const CanardMemory   canard_memory{mr_, canard_payload};
-        canard_memory.observeFragments(observer_mock);
+        canard_memory.forEachFragment(visitor_mock);
     }
 
     // Null
     {
-        StrictMock<ScatteredBufferObserverMock> observer_mock;
+        StrictMock<ScatteredBufferVisitorMock> visitor_mock;
 
         CanardMutablePayload canard_payload{0, nullptr, 0};
         const CanardMemory   canard_memory{mr_, canard_payload};
-        canard_memory.observeFragments(observer_mock);
+        canard_memory.forEachFragment(visitor_mock);
     }
 }
 

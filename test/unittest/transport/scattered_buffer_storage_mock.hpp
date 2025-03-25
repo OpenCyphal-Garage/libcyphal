@@ -72,11 +72,11 @@ public:
             return (mock_ != nullptr) ? mock_->copy(offset_bytes, destination, length_bytes) : 0;
         }
 
-        void observeFragments(ScatteredBuffer::IFragmentsObserver& observer) const override
+        void forEachFragment(ScatteredBuffer::IFragmentsVisitor& visitor) const override
         {
             if (nullptr != mock_)
             {
-                mock_->observeFragments(observer);
+                mock_->forEachFragment(visitor);
             }
         }
 
@@ -109,24 +109,24 @@ public:
 
     MOCK_METHOD(std::size_t, size, (), (const, noexcept, override));  // NOLINT(bugprone-exception-escape)
     MOCK_METHOD(std::size_t, copy, (const std::size_t, cetl::byte* const, const std::size_t), (const, override));
-    MOCK_METHOD(void, observeFragments, (ScatteredBuffer::IFragmentsObserver & observer), (const, override));
+    MOCK_METHOD(void, forEachFragment, (ScatteredBuffer::IFragmentsVisitor&), (const, override));
 
 };  // ScatteredBufferStorageMock
 
-class ScatteredBufferObserverMock : public ScatteredBuffer::IFragmentsObserver
+class ScatteredBufferVisitorMock : public ScatteredBuffer::IFragmentsVisitor
 {
 public:
-    ScatteredBufferObserverMock()         = default;
-    virtual ~ScatteredBufferObserverMock() = default;
+    ScatteredBufferVisitorMock()          = default;
+    virtual ~ScatteredBufferVisitorMock() = default;
 
-    ScatteredBufferObserverMock(const ScatteredBufferObserverMock&)                = delete;
-    ScatteredBufferObserverMock(ScatteredBufferObserverMock&&) noexcept            = delete;
-    ScatteredBufferObserverMock& operator=(const ScatteredBufferObserverMock&)     = delete;
-    ScatteredBufferObserverMock& operator=(ScatteredBufferObserverMock&&) noexcept = delete;
+    ScatteredBufferVisitorMock(const ScatteredBufferVisitorMock&)                = delete;
+    ScatteredBufferVisitorMock(ScatteredBufferVisitorMock&&) noexcept            = delete;
+    ScatteredBufferVisitorMock& operator=(const ScatteredBufferVisitorMock&)     = delete;
+    ScatteredBufferVisitorMock& operator=(ScatteredBufferVisitorMock&&) noexcept = delete;
 
     MOCK_METHOD(void, onNext, (const PayloadFragment fragment), (override));
 
-};  // ScatteredBufferObserverMock
+};  // ScatteredBufferVisitorMock
 
 }  // namespace transport
 }  // namespace libcyphal

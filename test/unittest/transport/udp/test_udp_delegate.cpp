@@ -342,7 +342,7 @@ TEST_F(TestUdpDelegate, UdpardMemory_copy_empty)
     EXPECT_THAT(udpard_memory.copy(1, buffer.data(), 3), 0);
 }
 
-TEST_F(TestUdpDelegate, UdpardMemory_observeFragments)
+TEST_F(TestUdpDelegate, UdpardMemory_forEachFragment)
 {
     const TransportDelegateImpl delegate{general_mr_, &fragment_mr_, &payload_mr_};
 
@@ -358,9 +358,9 @@ TEST_F(TestUdpDelegate, UdpardMemory_observeFragments)
 
         const UdpardMemory udpard_memory{delegate.memoryResources(), rx_transfer};
 
-        StrictMock<ScatteredBufferObserverMock> observer_mock;
-        EXPECT_CALL(observer_mock, onNext(ElementsAre(b('0'), b('1'), b('2'), b('3'))));
-        udpard_memory.observeFragments(observer_mock);
+        StrictMock<ScatteredBufferVisitorMock> visitor_mock;
+        EXPECT_CALL(visitor_mock, onNext(ElementsAre(b('0'), b('1'), b('2'), b('3'))));
+        udpard_memory.forEachFragment(visitor_mock);
     }
 
     // Valid multi-fragment payload
@@ -387,11 +387,11 @@ TEST_F(TestUdpDelegate, UdpardMemory_observeFragments)
         const UdpardMemory udpard_memory{delegate.memoryResources(), rx_transfer};
 
         const testing::InSequence in_sequence;
-        StrictMock<ScatteredBufferObserverMock> observer_mock;
-        EXPECT_CALL(observer_mock, onNext(ElementsAre(b('2'), b('3'), b('4'))));
-        EXPECT_CALL(observer_mock, onNext(ElementsAre(b('B'), b('C'), b('D'), b('E'))));
-        EXPECT_CALL(observer_mock, onNext(ElementsAre(b('d'), b('e'))));
-        udpard_memory.observeFragments(observer_mock);
+        StrictMock<ScatteredBufferVisitorMock> visitor_mock;
+        EXPECT_CALL(visitor_mock, onNext(ElementsAre(b('2'), b('3'), b('4'))));
+        EXPECT_CALL(visitor_mock, onNext(ElementsAre(b('B'), b('C'), b('D'), b('E'))));
+        EXPECT_CALL(visitor_mock, onNext(ElementsAre(b('d'), b('e'))));
+        udpard_memory.forEachFragment(visitor_mock);
     }
 
     // Zero size
@@ -406,8 +406,8 @@ TEST_F(TestUdpDelegate, UdpardMemory_observeFragments)
 
         const UdpardMemory udpard_memory{delegate.memoryResources(), rx_transfer};
 
-        StrictMock<ScatteredBufferObserverMock> observer_mock;
-        udpard_memory.observeFragments(observer_mock);
+        StrictMock<ScatteredBufferVisitorMock> visitor_mock;
+        udpard_memory.forEachFragment(visitor_mock);
     }
 
     // Null
@@ -418,8 +418,8 @@ TEST_F(TestUdpDelegate, UdpardMemory_observeFragments)
 
         const UdpardMemory udpard_memory{delegate.memoryResources(), rx_transfer};
 
-        StrictMock<ScatteredBufferObserverMock> observer_mock;
-        udpard_memory.observeFragments(observer_mock);
+        StrictMock<ScatteredBufferVisitorMock> visitor_mock;
+        udpard_memory.forEachFragment(visitor_mock);
     }
 }
 

@@ -101,11 +101,11 @@ public:
         return bytes_to_copy;
     }
 
-    void observeFragments(ScatteredBuffer::IFragmentsObserver& observer) const override
+    void forEachFragment(ScatteredBuffer::IFragmentsVisitor& visitor) const override
     {
         if ((buffer_ != nullptr) && (payload_size_ > 0))
         {
-            observer.onNext({buffer_, payload_size_});
+            visitor.onNext({buffer_, payload_size_});
         }
     }
 

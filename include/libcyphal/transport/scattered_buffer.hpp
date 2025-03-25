@@ -34,25 +34,27 @@ public:
     ///
     static constexpr std::size_t StorageVariantFootprint = config::Transport::ScatteredBuffer_StorageVariantFootprint();
 
-    /// @brief Defines interface for observing internal fragments of the scattered buffer.
+    /// @brief Defines interface for visiting internal fragments of the scattered buffer.
     ///
-    class IFragmentsObserver
+    class IFragmentsVisitor
     {
     public:
-        IFragmentsObserver(const IFragmentsObserver&)                = delete;
-        IFragmentsObserver& operator=(const IFragmentsObserver&)     = delete;
-        IFragmentsObserver& operator=(IFragmentsObserver&&) noexcept = delete;
-        IFragmentsObserver(IFragmentsObserver&&) noexcept            = delete;
+        IFragmentsVisitor(const IFragmentsVisitor&)                = delete;
+        IFragmentsVisitor& operator=(const IFragmentsVisitor&)     = delete;
+        IFragmentsVisitor& operator=(IFragmentsVisitor&&) noexcept = delete;
+        IFragmentsVisitor(IFragmentsVisitor&&) noexcept            = delete;
 
-        /// @brief Notifies the observer about the next fragment of the scattered buffer.
+        /// @brief Notifies the visitor about the next fragment of the scattered buffer.
+        ///
+        /// See also `forEachFragment` method of the `ScatteredBuffer`.
         ///
         virtual void onNext(const PayloadFragment fragment) = 0;
 
     protected:
-        IFragmentsObserver()  = default;
-        ~IFragmentsObserver() = default;
+        IFragmentsVisitor()  = default;
+        ~IFragmentsVisitor() = default;
 
-    };  // IFragmentsObserver
+    };  // IFragmentsVisitor
 
     /// @brief Defines storage interface for the scattered buffer.
     ///
@@ -93,11 +95,11 @@ public:
                                  cetl::byte* const destination,
                                  const std::size_t length_bytes) const = 0;
 
-        /// @brief Reports the internal fragments of the storage to the specified observer.
+        /// @brief Reports the internal fragments of the storage to the specified visitor.
         ///
-        /// @param observer The observer will be called (by `onNext` method) for each fragment of the storage.
+        /// @param visitor The visitor will be called (by `onNext` method) for each fragment of the storage.
         ///
-        virtual void observeFragments(IFragmentsObserver& observer) const = 0;
+        virtual void forEachFragment(IFragmentsVisitor& visitor) const = 0;
 
         // MARK: RTTI
 
@@ -228,15 +230,15 @@ public:
         return storage_->copy(offset_bytes, static_cast<cetl::byte*>(destination), length_bytes);
     }
 
-    /// @brief Reports the internal fragments of the buffer to the specified observer.
+    /// @brief Reports the internal fragments of the storage to the specified visitor.
     ///
-    /// @param observer The observer will be called (by `onNext` method) for each fragment of the buffer.
+    /// @param visitor The visitor will be called (by `onNext` method) for each fragment of the storage.
     ///
-    void observeFragments(IFragmentsObserver& observer) const
+    void forEachFragment(IFragmentsVisitor& visitor) const
     {
         if (const auto* const storage = storage_)
         {
-            storage->observeFragments(observer);
+            storage->forEachFragment(visitor);
         }
     }
 
