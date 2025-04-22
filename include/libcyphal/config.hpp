@@ -6,7 +6,9 @@
 #ifndef LIBCYPHAL_CONFIG_HPP_INCLUDED
 #define LIBCYPHAL_CONFIG_HPP_INCLUDED
 
+#include <chrono>
 #include <cstddef>
+#include <cstdint>
 
 namespace libcyphal
 {
@@ -24,6 +26,21 @@ namespace libcyphal
 ///
 struct Config
 {
+    /// Defines time representation as 64-bit microseconds.
+    ///
+    /// This is in line with the lizards that use `uint64_t`-typed microsecond counters throughout.
+    ///
+    struct MonotonicClock final
+    {
+        using rep        = std::int64_t;
+        using period     = std::micro;
+        using duration   = std::chrono::duration<rep, period>;
+        using time_point = std::chrono::time_point<MonotonicClock>;
+
+        static constexpr bool is_steady = true;
+
+    };  // MonotonicClock
+
     /// Defines max footprint of a callback function in use by the executor.
     ///
     static constexpr std::size_t IExecutor_Callback_FunctionMaxSize()  // NOSONAR cpp:S799

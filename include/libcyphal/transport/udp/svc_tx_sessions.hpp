@@ -91,8 +91,8 @@ private:
             return ArgumentError{};
         }
 
-        const auto deadline_us =
-            std::chrono::duration_cast<std::chrono::microseconds>(metadata.deadline.time_since_epoch());
+        const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(  //
+            metadata.deadline.time_since_epoch());
 
         const auto tx_metadata = AnyUdpardTxMetadata::Request{static_cast<UdpardMicrosecond>(deadline_us.count()),
                                                               static_cast<UdpardPriority>(metadata.base.priority),
@@ -171,8 +171,8 @@ private:
             return ArgumentError{};
         }
 
-        const auto deadline_us =
-            std::chrono::duration_cast<std::chrono::microseconds>(metadata.tx_meta.deadline.time_since_epoch());
+        const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(  //
+            metadata.tx_meta.deadline.time_since_epoch());
 
         const auto tx_metadata =
             AnyUdpardTxMetadata::Respond{static_cast<UdpardMicrosecond>(deadline_us.count()),

@@ -80,8 +80,8 @@ private:
     CETL_NODISCARD cetl::optional<AnyFailure> send(const TransferTxMetadata& metadata,
                                                    const PayloadFragments    payload_fragments) override
     {
-        const auto deadline_us =
-            std::chrono::duration_cast<std::chrono::microseconds>(metadata.deadline.time_since_epoch());
+        const auto deadline_us = std::chrono::duration_cast<std::chrono::microseconds>(  //
+            metadata.deadline.time_since_epoch());
 
         const auto tx_metadata = AnyUdpardTxMetadata::Publish{static_cast<UdpardMicrosecond>(deadline_us.count()),
                                                               static_cast<UdpardPriority>(metadata.base.priority),

@@ -6,6 +6,8 @@
 #ifndef LIBCYPHAL_TYPES_HPP_INCLUDED
 #define LIBCYPHAL_TYPES_HPP_INCLUDED
 
+#include "libcyphal/config.hpp"
+
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pmr/interface_ptr.hpp>
@@ -23,23 +25,8 @@
 namespace libcyphal
 {
 
-/// @brief The internal time representation is in microseconds.
-///
-/// This is in line with the lizards that use `uint64_t`-typed microsecond counters throughout.
-///
-struct MonotonicClock final
-{
-    using rep        = std::int64_t;
-    using period     = std::micro;
-    using duration   = std::chrono::duration<rep, period>;
-    using time_point = std::chrono::time_point<MonotonicClock>;
-
-    static constexpr bool is_steady = true;
-
-};  // MonotonicClock
-
-using TimePoint = MonotonicClock::time_point;
-using Duration  = MonotonicClock::duration;
+using TimePoint = config::MonotonicClock::time_point;
+using Duration  = config::MonotonicClock::duration;
 
 template <typename T>
 using UniquePtr = cetl::pmr::InterfacePtr<T>;
