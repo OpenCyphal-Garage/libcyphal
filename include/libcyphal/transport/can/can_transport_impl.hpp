@@ -578,8 +578,8 @@ private:
         }
         const IMedia::PopResult::Metadata& pop_meta = *pop_success;
 
-        const auto timestamp_us =
-            std::chrono::duration_cast<std::chrono::microseconds>(pop_meta.timestamp.time_since_epoch());
+        const auto        timestamp_us = std::chrono::duration_cast<std::chrono::microseconds>(  //
+            pop_meta.timestamp.time_since_epoch());
         const CanardFrame canard_frame{pop_meta.can_id, {pop_meta.payload_size, payload.data()}};
 
         CanardRxTransfer      out_transfer{};
@@ -605,7 +605,8 @@ private:
 
             const auto transfer_id = static_cast<TransferId>(out_transfer.metadata.transfer_id);
             const auto priority    = static_cast<Priority>(out_transfer.metadata.priority);
-            const auto timestamp   = TimePoint{std::chrono::microseconds{out_transfer.timestamp_usec}};
+            const auto timestamp   = TimePoint{std::chrono::duration_cast<Duration>(  //
+                std::chrono::microseconds{out_transfer.timestamp_usec})};
 
             session_delegate->acceptRxTransfer(CanardMemory{memory(), out_transfer.payload},
                                                TransferRxMetadata{{transfer_id, priority}, timestamp},
@@ -625,9 +626,10 @@ private:
                              &media.interface().getTxMemoryResource()};
         frame.payload = {0, nullptr, 0};
 
-        auto push_result = media.interface().push(TimePoint{std::chrono::microseconds{deadline}},  //
-                                                  frame.extended_can_id,
-                                                  payload);
+        auto push_result = media.interface().push(  //
+            TimePoint{std::chrono::duration_cast<Duration>(std::chrono::microseconds{deadline})},
+            frame.extended_can_id,
+            payload);
 
         if (const auto* const push = cetl::get_if<IMedia::PushResult::Success>(&push_result))
         {
@@ -716,7 +718,8 @@ private:
             // Otherwise, we would push it to the media interface.
             // We use strictly `<` (instead of `<=`) to give this frame a chance (one extra 1us) at the media.
             //
-            const auto deadline = TimePoint{std::chrono::microseconds{tx_item->tx_deadline_usec}};
+            const auto deadline = TimePoint{std::chrono::duration_cast<Duration>(  //
+                std::chrono::microseconds{tx_item->tx_deadline_usec})};
             if (now < deadline)
             {
                 out_deadline = deadline;

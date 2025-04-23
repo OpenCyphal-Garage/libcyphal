@@ -26,6 +26,23 @@ namespace custom
 
 struct MyConfig : libcyphal::Config
 {
+    /// Redefines time representation as 32-bit milliseconds.
+    ///
+    /// Milliseconds are chosen b/c there is no implicit conversion from native lizard's microseconds
+    /// to lower precision units like milliseconds, so proper explicit `std::chrono::duration_cast` is needed.
+    /// For details also see https://github.com/OpenCyphal-Garage/libcyphal/issues/431.
+    ///
+    struct MonotonicClock final
+    {
+        using rep        = std::int32_t;
+        using period     = std::milli;
+        using duration   = std::chrono::duration<rep, period>;
+        using time_point = std::chrono::time_point<MonotonicClock>;
+
+        static constexpr bool is_steady = true;
+
+    };  // MonotonicClock
+
     struct Presentation : Config::Presentation
     {
         static constexpr std::size_t SmallPayloadSize()

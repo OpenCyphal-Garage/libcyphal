@@ -788,7 +788,8 @@ private:
             // Otherwise, we would send it to the media TX socket interface.
             // We use strictly `<` (instead of `<=`) to give this frame a chance (one extra 1us) at the socket.
             //
-            const auto deadline = TimePoint{std::chrono::microseconds{tx_item->deadline_usec}};
+            const auto deadline = TimePoint{std::chrono::duration_cast<Duration>(  //
+                std::chrono::microseconds{tx_item->deadline_usec})};
             if (now < deadline)
             {
                 out_deadline = deadline;
@@ -919,8 +920,8 @@ private:
 
         // 2. We've got a new frame from the media RX socket, so let's try to pass it into libudpard RPC dispatcher.
 
-        const auto timestamp_us =
-            std::chrono::duration_cast<std::chrono::microseconds>(rx_meta.timestamp.time_since_epoch());
+        const auto timestamp_us = std::chrono::duration_cast<std::chrono::microseconds>(  //
+            rx_meta.timestamp.time_since_epoch());
 
         const auto payload_deleter = rx_meta.payload_ptr.get_deleter();
 
@@ -961,7 +962,8 @@ private:
 
             const auto transfer_id = out_transfer.base.transfer_id;
             const auto priority    = static_cast<Priority>(out_transfer.base.priority);
-            const auto timestamp   = TimePoint{std::chrono::microseconds{out_transfer.base.timestamp_usec}};
+            const auto timestamp   = TimePoint{std::chrono::duration_cast<Duration>(  //
+                std::chrono::microseconds{out_transfer.base.timestamp_usec})};
 
             session_delegate->acceptRxTransfer(UdpardMemory{memoryResources(), out_transfer.base},
                                                TransferRxMetadata{{transfer_id, priority}, timestamp},
@@ -985,8 +987,8 @@ private:
 
         // 2. We've got a new frame from the media RX socket, so let's try to pass it into libudpard subscription.
 
-        const auto timestamp_us =
-            std::chrono::duration_cast<std::chrono::microseconds>(rx_meta.timestamp.time_since_epoch());
+        const auto timestamp_us = std::chrono::duration_cast<std::chrono::microseconds>(  //
+            rx_meta.timestamp.time_since_epoch());
 
         const auto payload_deleter = rx_meta.payload_ptr.get_deleter();
 
@@ -1017,7 +1019,8 @@ private:
         {
             const auto transfer_id = out_transfer.transfer_id;
             const auto priority    = static_cast<Priority>(out_transfer.priority);
-            const auto timestamp   = TimePoint{std::chrono::microseconds{out_transfer.timestamp_usec}};
+            const auto timestamp   = TimePoint{std::chrono::duration_cast<Duration>(  //
+                std::chrono::microseconds{out_transfer.timestamp_usec})};
 
             session_delegate.acceptRxTransfer(UdpardMemory{memoryResources(), out_transfer},
                                               TransferRxMetadata{{transfer_id, priority}, timestamp},
