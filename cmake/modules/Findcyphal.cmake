@@ -3,6 +3,7 @@
 if (NOT TARGET cyphal)
 
 include(ProjectLibrary)
+find_package(cavl REQUIRED)
 find_package(libcanard REQUIRED)
 find_package(libudpard REQUIRED)
 find_package(cetl REQUIRED)

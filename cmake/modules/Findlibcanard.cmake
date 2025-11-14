@@ -73,5 +73,6 @@ add_project_library(
     STATIC
     FPIC
 )
+target_link_libraries(canard PRIVATE cavl2_c)
 
 endif()
