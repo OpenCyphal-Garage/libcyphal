@@ -32,6 +32,7 @@ list(APPEND C_FLAG_SET
                 "-Wswitch-enum"
                 "-Wtype-limits"
                 "-Wno-error=array-bounds"
+                "-Wno-error=attributes"
 )
 
 set(CXX_FLAG_SET ${C_FLAG_SET})
