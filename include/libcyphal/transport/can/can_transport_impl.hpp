@@ -337,7 +337,8 @@ private:
                                                        static_cast<CanardMicrosecond>(deadline_us.count()),
                                                        &metadata,
                                                        {payload.size(), payload.data()},  // NOSONAR cpp:S5356
-                                                       static_cast<CanardMicrosecond>(now_us.count()));
+                                                       static_cast<CanardMicrosecond>(now_us.count()),
+                                                       &tx_frames_expired_);
 
             cetl::optional<AnyFailure> failure =
                 tryHandleTransientCanardResult<TransientErrorReport::CanardTxPush>(media, result);
@@ -691,7 +692,9 @@ private:
                     auto* const frame_handler_ptr =
                         static_cast<decltype(frame_handler)*>(user_reference);  // NOSONAR cpp:S5356, cpp:S5357
                     return (*frame_handler_ptr)(deadline, *frame);
-                });
+                },
+                &tx_frames_expired_,
+                &tx_frames_failed_);
         }
 
         if ((result == 0) && (media.canard_tx_queue().size == 0))
@@ -781,6 +784,8 @@ private:
     TransientErrorHandler                    transient_error_handler_;
     Callback::Any                            configure_filters_callback_;
     SessionTree<RxSessionTreeNode::Response> svc_response_rx_session_nodes_;
+    std::uint64_t                            tx_frames_expired_ = 0;
+    std::uint64_t                            tx_frames_failed_  = 0;
 
 };  // TransportImpl
 
