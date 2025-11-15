@@ -74,6 +74,7 @@ jobs:
           --define sonar.cfamily.compile-commands="build/compile_commands.json"
           --define sonar.cfamily.reportingCppStandardOverride=c++14
           --define sonar.coverageReportPaths="build/test/unittest/coverage.xml,build/docs/examples/coverage.xml"
+          --define sonar.cfamily.gcov.reportsPath=build/test/unittest/coverage.xml
           --define sonar.issue.ignore.multicriteria=r1
           --define sonar.issue.ignore.multicriteria.r1.ruleKey=cpp:S3230
           --define sonar.issue.ignore.multicriteria.r1.resourceKey=**
