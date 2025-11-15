@@ -7,7 +7,7 @@
 include(FetchContent)
 
 set(cavl_GIT_REPOSITORY "https://github.com/pavel-kirienko/cavl")
-set(cavl_GIT_TAG "c-2.0.0")
+set(cavl_GIT_TAG "c-2.1.0")
 
 FetchContent_Declare(
     cavl
