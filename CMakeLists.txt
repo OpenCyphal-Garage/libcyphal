@@ -10,7 +10,7 @@ include(cmake/CMakeCommon.cmake REQUIRED)
 project(libcyphal
         VERSION ${LIBCYPHAL_VERSION}
         LANGUAGES CXX C
-        HOMEPAGE_URL https://github.com/OpenCyphal-Garage/libcyphal
+        HOMEPAGE_URL https://github.com/OpenCyphal/libcyphal
 )
 
 # Use -DNO_STATIC_ANALYSIS=1 to suppress static analysis.
