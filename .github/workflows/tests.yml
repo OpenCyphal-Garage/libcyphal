@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts24.4.3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Cache ext modules
         id: libcyphal-ext
         uses: actions/cache@v4
@@ -59,7 +59,7 @@ jobs:
             std: 14
             toolchain: gcc
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Cache ext modules
       id: libcyphal-ext
       uses: actions/cache@v4
@@ -86,7 +86,7 @@ jobs:
       if: ${{ runner.debug == '1' }}
       run: ls -lAhR build/
     - name: upload-artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: ${{ matrix.build_flavor }}-${{ matrix.std }}-${{ matrix.toolchain }}
         path: |
@@ -104,7 +104,7 @@ jobs:
     container: ghcr.io/opencyphal/toolshed:ts24.4.3
     needs: [warmup]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Cache ext modules
       id: libcyphal-ext
       uses: actions/cache@v4
@@ -129,12 +129,12 @@ jobs:
       uses: actions/configure-pages@v5
     - name: Upload docs
       if: ${{ github.event_name != 'pull_request' }}
-      uses: actions/upload-pages-artifact@v3
+      uses: actions/upload-pages-artifact@v4
       with:
         path: "build/docs/html/"
     - name: upload-pr-docs
       if: ${{ github.event_name == 'pull_request' }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: pr-docs
         path: "build/docs/html/"
