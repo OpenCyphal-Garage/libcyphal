@@ -23,8 +23,8 @@ jobs:
       - name: get nunavut
         run: |
           pip install --break-system-packages git+https://github.com/OpenCyphal/nunavut.git@3.0.preview
-      - name: Install sonar-scanner and build-wrapper
-        uses: SonarSource/sonarcloud-github-c-cpp@v3
+      - name: Install build-wrapper
+        uses: SonarSource/sonarqube-scan-action/install-build-wrapper@v6
       - name: Run tests
         env:
           GTEST_COLOR: yes
@@ -53,27 +53,28 @@ jobs:
             build/*/**/gcovr_html/*.*
           if-no-files-found: error
       - name: Run sonar-scanner
+        uses: SonarSource/sonarqube-scan-action@v6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: >
-          sonar-scanner
-          -X
-          --define sonar.organization=opencyphal-garage
-          --define sonar.projectKey=OpenCyphal-Garage_libcyphal
-          --define sonar.projectName=libcyphal
-          --define sonar.projectVersion=1.0
-          --define sonar.sources=include,test/unittest/sonar.cpp
-          --define sonar.tests=test/unittest,docs/examples
-          --define sonar.test.inclusions=test_*.cpp,example_*.cpp
-          --define sonar.sourceEncoding=UTF-8
-          --define sonar.host.url=https://sonarcloud.io
-          --define sonar.cfamily.ignoreHeaderComments=false
-          --define sonar.coverage.exclusions="test/unittest/**/*,docs/examples/**/*,**/sonar.cpp"
-          --define sonar.cpd.exclusions="test/unittest/**/*,docs/examples/**/*,**/sonar.cpp"
-          --define sonar.cfamily.compile-commands="build/compile_commands.json"
-          --define sonar.cfamily.reportingCppStandardOverride=c++14
-          --define sonar.coverageReportPaths="build/test/unittest/coverage.xml,build/docs/examples/coverage.xml"
-          --define sonar.issue.ignore.multicriteria=r1
-          --define sonar.issue.ignore.multicriteria.r1.ruleKey=cpp:S3230
-          --define sonar.issue.ignore.multicriteria.r1.resourceKey=**
+        with:
+          args: >
+            -X
+            --define sonar.organization=opencyphal-garage
+            --define sonar.projectKey=OpenCyphal-Garage_libcyphal
+            --define sonar.projectName=libcyphal
+            --define sonar.projectVersion=1.0
+            --define sonar.sources=include,test/unittest/sonar.cpp
+            --define sonar.tests=test/unittest,docs/examples
+            --define sonar.test.inclusions=test_*.cpp,example_*.cpp
+            --define sonar.sourceEncoding=UTF-8
+            --define sonar.host.url=https://sonarcloud.io
+            --define sonar.cfamily.ignoreHeaderComments=false
+            --define sonar.coverage.exclusions="test/unittest/**/*,docs/examples/**/*,**/sonar.cpp"
+            --define sonar.cpd.exclusions="test/unittest/**/*,docs/examples/**/*,**/sonar.cpp"
+            --define sonar.cfamily.compile-commands="build/compile_commands.json"
+            --define sonar.cfamily.reportingCppStandardOverride=c++14
+            --define sonar.coverageReportPaths="build/test/unittest/coverage.xml,build/docs/examples/coverage.xml"
+            --define sonar.issue.ignore.multicriteria=r1
+            --define sonar.issue.ignore.multicriteria.r1.ruleKey=cpp:S3230
+            --define sonar.issue.ignore.multicriteria.r1.resourceKey=**
