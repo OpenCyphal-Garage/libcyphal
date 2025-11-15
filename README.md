@@ -26,4 +26,4 @@ cmake .. -DNO_STATIC_ANALYSIS=1
 make -j16
 ```
 
-If you're facing obscure DSDL compilation issues, unset `CYPHAL_PATH`.
+If you're facing obscure DSDL compilation issues, ensure you have Nunavut installed and unset `CYPHAL_PATH`.
