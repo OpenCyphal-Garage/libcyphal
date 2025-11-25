@@ -9,7 +9,7 @@ include(FindPackageHandleStandardArgs)
 include(ProjectLibrary)
 
 set(libudpard_GIT_REPOSITORY "https://github.com/OpenCyphal-garage/libudpard.git")
-set(libudpard_GIT_TAG "v2")
+set(libudpard_GIT_TAG "main")  # TODO: update to a release tag
 
 FetchContent_Declare(
     libudpard
