@@ -9,7 +9,7 @@
 include(FetchContent)
 
 set(libcanard_GIT_REPOSITORY "https://github.com/OpenCyphal/libcanard.git")
-set(libcanard_GIT_TAG "v4")
+set(libcanard_GIT_TAG "master")  # TODO: update to a release tag
 
 FetchContent_Declare(
     libcanard
@@ -73,5 +73,6 @@ add_project_library(
     STATIC
     FPIC
 )
+target_link_libraries(canard PRIVATE cavl2_c)
 
 endif()

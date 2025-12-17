@@ -3,6 +3,7 @@
 if (NOT TARGET cyphal)
 
 include(ProjectLibrary)
+find_package(cavl REQUIRED)
 find_package(libcanard REQUIRED)
 find_package(libudpard REQUIRED)
 find_package(cetl REQUIRED)
@@ -23,23 +24,19 @@ add_project_library(
 )
 
 find_package(clangformat)
-
-if (clangformat_FOUND)
-
-# define a dry-run version that we always run.
-enable_clang_format_check_for_directory(
-    DIRECTORY ${LIBCYPHAL_INCLUDE}
-    GLOB_PATTERN "**/*.hpp"
-    ADD_TO_ALL
-)
-
-# provide an in-place format version as a helper that must be manually run.
-enable_clang_format_check_for_directory(
-    DIRECTORY ${LIBCYPHAL_INCLUDE}
-    GLOB_PATTERN "**/*.hpp"
-    FORMAT_IN_PLACE
-)
-
+if (clangformat_FOUND AND NOT NO_STATIC_ANALYSIS)
+    # define a dry-run version that we always run.
+    enable_clang_format_check_for_directory(
+        DIRECTORY ${LIBCYPHAL_INCLUDE}
+        GLOB_PATTERN "**/*.hpp"
+        ADD_TO_ALL
+    )
+    # provide an in-place format version as a helper that must be manually run.
+    enable_clang_format_check_for_directory(
+        DIRECTORY ${LIBCYPHAL_INCLUDE}
+        GLOB_PATTERN "**/*.hpp"
+        FORMAT_IN_PLACE
+    )
 endif()
 
 # +---------------------------------------------------------------------------+

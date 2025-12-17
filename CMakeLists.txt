@@ -10,11 +10,12 @@ include(cmake/CMakeCommon.cmake REQUIRED)
 project(libcyphal
         VERSION ${LIBCYPHAL_VERSION}
         LANGUAGES CXX C
-        HOMEPAGE_URL https://github.com/OpenCyphal-Garage/libcyphal
+        HOMEPAGE_URL https://github.com/OpenCyphal/libcyphal
 )
 
 # Use -DNO_STATIC_ANALYSIS=1 to suppress static analysis.
 # If not suppressed, the tools used here shall be available, otherwise the build will fail.
+option(NO_STATIC_ANALYSIS "Disable static analysis (e.g. clang-tidy). If OFF, the tools must be available." OFF)
 if (NOT NO_STATIC_ANALYSIS)
     # clang-tidy (separate config files per directory)
     find_program(clang_tidy NAMES clang-tidy)
